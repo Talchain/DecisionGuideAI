@@ -22,15 +22,16 @@ const NEXT = withMove('outside_view').chat[last]!.answer!.next
 const NEXT_WORDS = NEXT.text.map((p) => ('text' in p ? p.text : '')).join('')
 
 let calls: Array<{ method: string; path: string; body: Record<string, unknown> | undefined }> = []
-let refuse: { status: number; error: string } | null = null
+let refuse: { status: number; error: string; code?: string } | null = null, readFails = false
 let served: View
 beforeEach(() => {
-  calls = []; refuse = null; served = withMove('outside_view')
+  calls = []; refuse = null; readFails = false; served = withMove('outside_view')
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', path = String(u)
     calls.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : undefined })
     if (path === '/api/me') return new Response(JSON.stringify({ me: { id: base.you_id, name: base.you } }), { status: 200 })
-    if (method === 'POST') return refuse ? new Response(JSON.stringify({ error: refuse.error }), { status: refuse.status }) : new Response(JSON.stringify({ proposal: null, discussion: true }), { status: 201 })
+    if (method === 'POST') return refuse ? new Response(JSON.stringify({ error: refuse.error, ...(refuse.code ? { code: refuse.code } : {}) }), { status: refuse.status }) : new Response(JSON.stringify({ proposal: null, discussion: true }), { status: 201 })
+    if (readFails) return new Response(JSON.stringify({ error: 'Olumi could not do that this time.' }), { status: 500 })
     return new Response(JSON.stringify(served), { status: 200 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-441113f79584', sid: SID, view: served, status: 'ready', error: null, stale: false })
@@ -72,12 +73,11 @@ describe('the coach\'s next move is one tap', () => {
 
   it('core\'s one-turn-at-a-time refusal (409, another turn is being answered, core API v1.28): core\'s words, the View read again, and the tap is kept', async () => {
     const BUSY = 'Olumi is still answering the last message here. Send yours once it has answered.'
-    refuse = { status: 409, error: BUSY }
-    served = { ...withMove('outside_view'), turn: { job: 41, status: 'answering', said: 'What about churn?', by: 'Sam', by_id: '9', words: 'Olumi is answering.', started: '2026-11-08T15:00:00.000Z', at: '2026-11-08T15:00:00.000Z' } } as View
+    refuse = { status: 409, error: BUSY, code: 'turn_busy' }
+    readFails = true // even when the View cannot be read after it, the busy refusal is told by its code: the move is kept
     render(<ViewChat />)
     await act(async () => { fireEvent.click(screen.getByTestId('view-next-move')) })
-    await waitFor(() => expect(reads()).toBe(1))
-    expect(useViewChat.getState().said).toBe(BUSY)
+    await waitFor(() => expect(useViewChat.getState().said).toBe(BUSY))
     expect(useViewChat.getState().gone ?? null).toBeNull()
     expect(screen.getByTestId('view-next-move')).toBeTruthy()
   })

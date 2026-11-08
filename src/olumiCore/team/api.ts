@@ -12,11 +12,14 @@ export class TeamApiError extends Error {
    * have been saved. Never worded as "nothing was sent", and never settled by a later read: `writes.ts` sends the same request again with the same op id, or locks the write.
    */
   readonly uncertain: boolean
-  constructor(status: number, message: string, uncertain = false) {
+  /** Core's machine-readable reason, where it gives one (core API v1.28: `turn_busy`, one turn answered at a time); null otherwise. */
+  readonly code: string | null
+  constructor(status: number, message: string, uncertain = false, code: string | null = null) {
     super(message)
     this.name = 'TeamApiError'
     this.status = status
     this.uncertain = uncertain
+    this.code = code
   }
 }
 
@@ -87,7 +90,8 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
     const message = res.status >= 500 ? (typeof said === 'string' ? said : 'Olumi could not do that this time. Try again in a moment.')
       : typeof said === 'string' && said !== '' ? said : WORDS[res.status] ?? 'That did not go through. Nothing was saved.'
     // A server failure on a write may have come after the save.
-    throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500)
+    const code = (json as { code?: unknown } | null)?.code
+    throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500, typeof code === 'string' ? code : null)
   }
   // A read whose body did not arrive whole is a failed read, never an empty scenario. (A write that was answered 2xx was saved, whatever its body.)
   if (method === 'GET' && !readable) throw new TeamApiError(0, READ_FAILED)
