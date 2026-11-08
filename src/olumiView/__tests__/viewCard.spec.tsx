@@ -236,9 +236,24 @@ describe('the original card\'s look and its named places (DL 4 Nov: an improved 
     // CONTRAST: core's null draws an empty marks row
     expect(render(<ViewCard card={{ ...option, badge: null, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
   })
-  it('the number before the title, as the original numbers its cards', () => {
-    const card = model.cards.find((c) => c.family === 'option')!
-    const t = render(<ViewCard card={card} number="O1" />).container.querySelector('[data-card-number]')!
-    expect([t.textContent, t.nextElementSibling?.getAttribute('data-view')]).toEqual(['O1', `${card.id}.heading`])
+  // Re-baselined (DL 8 Nov, V11 audit: the prototype draws no card codes): the face carries no O1/F1 code, and a figure card's per-option
+  // row names its option by core's heading instead of the code it pointed at.
+  it('no card code on any face; a figure card\'s per-option rows name each option by core\'s heading, in core\'s order', async () => {
+    const { useViewStore } = await import('../store')
+    for (const n of ['european', 'pricing', 'capacity-v3']) {
+      const view = golden(n), cards = view.model!.cards
+      useViewStore.setState({ view })
+      for (const card of cards) {
+        const c = render(<ViewCard card={card} />).container
+        expect(c.querySelector('[data-card-number]'), `${n} ${card.id}`).toBeNull()
+        expect(c.querySelector(`[data-view-title="${card.id}"]`)!.textContent, `${n} ${card.id}`).not.toMatch(/^\s*(O|F|OC|R|C|A)\d+\s/)
+        if (card.values !== null && card.values.length > 1) {
+          const named = [...c.querySelectorAll('[data-value-option]')].map((e) => [e.getAttribute('data-value-option'), e.textContent])
+          expect(named, `${n} ${card.id}`).toEqual(card.values.map((v) => [v.option, cards.find((x) => x.id === v.option)!.heading]))
+        }
+        c.remove()
+      }
+    }
+    useViewStore.setState({ view: null })
   })
 })

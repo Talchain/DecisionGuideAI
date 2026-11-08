@@ -680,7 +680,8 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
     expect(toggle('premises').getAttribute('aria-expanded')).toBe('true')
     expect(toggle('premises').getAttribute('aria-controls')).toBe(screen.getByTestId('view-reasoning-premises-region').id)
     const drawn = [...root.querySelectorAll<HTMLElement>('[data-reasoning-premise], [data-reasoning-card]')].map((e) => e.dataset['reasoningPremise'] ?? e.dataset['reasoningCard'])
-    const seen = new Set<string>(), want: string[] = []
+    // Each premise once by its words, and none in the words of a challenge already drawn above the door (SC-02: said once).
+    const seen = new Set<string>(m.cards.flatMap((k) => (k.challenged === true && k.reason !== null ? [k.reason] : []))), want: string[] = []
     for (const k of m.cards) (k.premises ?? []).forEach((p, j) => { if (!seen.has(p.text)) { seen.add(p.text); want.push(`${k.id}.${j}`) } })
     for (const k of m.cards) if (['assumption', 'condition', 'claim', 'evidence', 'left_out'].includes(k.family) && k.challenged !== true && k.reason !== null && !seen.has(k.reason)) want.push(k.id)
     expect(drawn).toEqual(want)

@@ -40,11 +40,9 @@ export { ringCards } from './ring'
 import { ViewCardNode } from '../canvas/nodes/ViewCardNode'
 import { NodeCornerOlumi } from '../canvas/nodes/shared/NodeCornerOlumi'
 import { useCanvasStore } from '../canvas/store'
-import { typography } from '../styles/typography'
 import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
-import { useCardNumber } from './lens'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from './RevealMarks'
 import { StrategyChips } from './strategy/StrategyChips'
 import { useReveal } from './reveal'
@@ -188,10 +186,8 @@ export function valueBars(card: ViewCard): readonly ValueBar[] {
 
 /** One bar's row: the option's number as the canvas numbers it (O1, …), and its range; Olumi's blue where `blue` (core's key names it). */
 function ValueBarRow({ cardId, bar, blue }: { cardId: string; bar: ValueBar; blue: boolean }) {
-  const n = useCardNumber(bar.option)
   return (
     <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
-      <span className={`${typography.viewLabel} w-6 flex-none text-text-light tabular-nums`}>{n ?? ''}</span>
       <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
         <div className="absolute top-0 h-full" data-values-range style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: blue ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
         {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}

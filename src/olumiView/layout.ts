@@ -190,6 +190,78 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 }
 
 /**
+ * SC-01 PREVIEW (option A, Paul 8 Nov: "Show me your recommended option. I don't want to commit to it yet"): the cause-to-aim story read
+ * left to right in three columns, so a 16-card board is seen whole at 1232 x 704 at the 0.9 floor (camera.ts READABLE_WHOLE_ZOOM).
+ *   0: the question, then the options, in the View's order;
+ *   1: the causes: every card further than two links from an aim (or with no path to one), each reason card beside the cause it explains;
+ *   2: the mechanism and the aims: cards within two links of an aim, the furthest first, then the aims and limits.
+ * A reason card (`relation`) sits in the column of the first card it explains (its upstream end). `railed` cards carry a chip rail below,
+ * so the next card leaves it room. Positions only: no word of core's is read or written here.
+ */
+export const COLUMN_GAP_X = 56, COLUMN_GAP_Y = 12, RAIL_GAP_Y = 32 // a rail is 28 px: one chip (24) and its 4 px margin
+export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set()): Map<string, { x: number; y: number }> {
+  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const aims = new Set(aimsOf(model))
+  const reasonCard = (c: ViewCard) => c.family === 'relation'
+  // How many plain links lie between a card and an aim (the longest way): 0 for an aim, undefined with no way to one.
+  const out = new Map<string, string[]>()
+  for (const l of model.links) if (l.kind !== 'reason') out.set(l.from, [...(out.get(l.from) ?? []), l.to])
+  const depth = new Map<string, number | undefined>()
+  const seen = new Set<string>()
+  const depthOf = (id: string): number | undefined => {
+    if (aims.has(id)) return 0
+    if (depth.has(id)) return depth.get(id)
+    if (seen.has(id)) return undefined
+    seen.add(id)
+    const ds = (out.get(id) ?? []).map(depthOf).filter((d): d is number => d !== undefined)
+    const d = ds.length === 0 ? undefined : 1 + Math.max(...ds)
+    depth.set(id, d)
+    return d
+  }
+  const columnOf = new Map<string, number>([[QUESTION, 0]])
+  for (const c of model.cards) {
+    if (reasonCard(c)) continue
+    const k = drawKindOf(c, model), d = depthOf(c.id)
+    columnOf.set(c.id, k === 'option' ? 0 : aims.has(c.id) || (d !== undefined && d <= 2) ? 2 : 1)
+  }
+  // A reason card beside the first card it explains (its links run from it to the two cards of the link it explains).
+  const explains = (c: ViewCard) => model.links.filter((l) => l.from === c.id).map((l) => l.to).filter((id) => columnOf.has(id))
+  for (const c of model.cards) if (reasonCard(c)) { const first = explains(c)[0]; columnOf.set(c.id, first === undefined ? 1 : columnOf.get(first)!) }
+  const order: string[][] = [[QUESTION], [], []]
+  const plain = model.cards.filter((c) => !reasonCard(c))
+  for (let col = 0; col <= 2; col++) {
+    const inCol = plain.filter((c) => columnOf.get(c.id) === col).map((c) => c.id)
+    // The right column reads down to the aim: the furthest from the aims first, the aims last; the View's order within each.
+    const far = Math.max(0, ...inCol.map((id) => depthOf(id) ?? 0))
+    const here = col !== 2 ? inCol : [...Array.from({ length: far }, (_, k) => inCol.filter((id) => !aims.has(id) && (depthOf(id) ?? 0) === far - k)).flat(), ...inCol.filter((id) => aims.has(id))]
+    for (const id of here) {
+      order[col]!.push(id)
+      // Each reason card straight after the first card it explains, in this column.
+      for (const r of model.cards) if (reasonCard(r) && columnOf.get(r.id) === col && explains(r)[0] === id) order[col]!.push(r.id)
+    }
+  }
+  // A reason card whose first card is in another column still sits in its own, at the end.
+  for (const r of model.cards) if (reasonCard(r) && !order.some((o) => o.includes(r.id))) order[columnOf.get(r.id)!]!.push(r.id)
+  const places = new Map<string, { x: number; y: number }>()
+  let x = 0
+  for (const col of order) {
+    let y = 0
+    for (const id of col) { places.set(id, { x, y }); y += at(id).height + (railed.has(id) ? RAIL_GAP_Y : COLUMN_GAP_Y) }
+    x += Math.max(W, ...col.map((id) => at(id).width)) + COLUMN_GAP_X
+  }
+  return places
+}
+
+/**
+ * The aims whose one shared reason covers this option (core's `run.shared_blockers`, by aim id and option id, never by its words). Core
+ * says that reason once for every option it covers and the panel draws it once (ViewChances `SharedBlockers`); the option card leaves that
+ * row to it (SC-01 preview). Fails closed: a core without the field covers nothing.
+ */
+export function sharedAimsOf(run: ViewRun | null | undefined, option: string): readonly string[] {
+  return (run?.shared_blockers ?? []).filter((b) => b.options.includes(option)).map((b) => b.aim_id)
+}
+
+/**
  * The head of the board (R25, Paul 7 Nov: the aims in view at 1232): the aims and limits beside the question, in the View's order, the
  * first on its left and the next on its right (one aim: on its right), more stacked under those. Every other card moves down by what the
  * head adds below the question, so nothing overlaps. Positions only.
@@ -493,7 +565,9 @@ const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'lef
 /** Every premise core put on any card, each once by its words (the first card it is on), then each reasoning card core draws whose words
  *  are not already among them and that is not a challenge. */
 export function premisesOnce(model: ViewModel): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
-  const seen = new Set<string>()
+  // A challenged card's reason is drawn as its challenge (ViewReasoning's Challenge rows): a premise in the same words is that same thing
+  // (core sends it at both paths), so the door does not say it again (SC-02).
+  const seen = new Set<string>(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
   const premises = model.cards.flatMap((c) => (c.premises ?? []).map((p, j) => ({ card: c, p, j }))).filter(({ p }) => (seen.has(p.text) ? false : (seen.add(p.text), true)))
   const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.challenged !== true && c.reason !== null && !seen.has(c.reason))
   return { premises, cards }
