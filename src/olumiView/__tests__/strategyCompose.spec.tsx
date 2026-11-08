@@ -59,3 +59,16 @@ describe('composing a qualitative view on a card (real View, core vocabulary)', 
     expect(await screen.findByRole('alert')).toHaveTextContent('stance must be one of: know, suspect, unsure, would_try, others_may_miss')
   })
 })
+
+describe('only where core serves the strategy key (V11 × debate-ui integration, 8 Nov: two 404s on core n2)', () => {
+  it('a View without core’s strategy key asks for no vocabulary and draws nothing', async () => {
+    const consulting: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-stance.view3.json'), 'utf8'))
+    expect((consulting as { strategy?: unknown }).strategy).toBeUndefined()
+    const seen: string[] = []
+    setTeamFetch(vi.fn(async (url: RequestInfo | URL) => { seen.push(String(url)); return json({ error: 'not found' }, 404) }) as unknown as typeof fetch)
+    const { container } = render(<StrategyCompose sid={consulting.id} view={consulting} onWrote={() => undefined} />)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(seen.filter((u) => u.includes('/strategy/vocabulary'))).toEqual([])
+    expect(container).toBeEmptyDOMElement()
+  })
+})

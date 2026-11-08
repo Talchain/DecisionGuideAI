@@ -24,13 +24,16 @@ export function StrategyCompose({ sid, view, onWrote }: { sid: string; view: Vie
   const key = `${sid}:strategy-view`
   const locked = useWriteLocked(key), sending = useWriteSending(key)
   const cards = (view.model?.cards ?? []).filter((c) => FAMILIES.has(c.family))
+  // Core's vocabulary route exists only where core serves the strategy key; without it there is nothing to compose and nothing is asked.
+  const strategic = (view as { strategy?: unknown }).strategy !== undefined
   useEffect(() => {
+    if (!strategic) return
     let live = true
     call<Vocabulary>('GET', `/api/scenarios/${encodeURIComponent(sid)}/strategy/vocabulary`)
       .then((v) => { if (live) { setVocab(v); setStance((s) => s || v.stances[0]?.id || '') } })
       .catch((e: unknown) => { if (live) setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now.') })
     return () => { live = false }
-  }, [sid])
+  }, [sid, strategic])
   useEffect(() => { setAbout((a) => a || cards[0]?.id || '') }, [cards.length]) // eslint-disable-line react-hooks/exhaustive-deps
   if (vocab === null) return error === null ? null : <p role="alert" className={ERR}>{error}</p>
   const ready = about !== '' && stance !== '' && text.trim() !== '' && !locked && !sending
