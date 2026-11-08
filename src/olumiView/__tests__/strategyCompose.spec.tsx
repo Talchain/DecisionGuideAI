@@ -88,6 +88,52 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByTestId('team-view-stance')).toBeNull()
   })
+  it('C: Team view 12 draws its item words and sources; debate views 19 and 20 draw core marks, reading and next question', async () => {
+    let c = render(<TeamTab />).container
+    const item = (id: string) => c.querySelector(`[data-testid="team-view-items-12"] [data-item-about="${id}"]`)
+    expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(item('implementation_effort')?.querySelector('[data-item-words]')?.textContent).toBe('Integration took a quarter each time.')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.textContent).toBe('Observed, two rollouts')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    cleanup()
+    const own: View = { ...real, strategy: { ...real.strategy!, views: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ ...l, mine: true })) },
+      collab: { ...real.collab, shared: [], mine: [{ ...real.collab.shared[0]!, shared: false, can_share: false }] } }
+    useViewStore.setState({ view: own })
+    c = render(<TeamTab />).container
+    expect.soft(c.querySelector('[data-testid="team-mine-12"] [data-item-about="speed_to_value"] [data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(c.querySelector('[data-testid="team-mine-12"] [data-item-about="speed_to_value"] [data-item-pill]')?.textContent).toBe('Observed, two rollouts')
+    cleanup()
+    // Core 2019e9c5 also puts the items directly on the shared contribution.
+    const { strategy: _strategy, ...plain } = real
+    useViewStore.setState({ view: { ...plain, collab: { ...real.collab, shared: [{ ...real.collab.shared[0]!,
+      items: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ about: l.about.id, text: l.text, stance: l.stance, source: l.source, pill: l.pill })) }] } } })
+    c = render(<TeamTab />).container
+    expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    cleanup()
+    // Exact projection excerpt from consulting-stance.view3.json, core f3aedd9a; no dock or canvas-chip dependency.
+    const debate: View = { ...plain, id: 's_a88ba245176e', collab: { ...real.collab,
+      shared: [{"id": 19, "by": "Priya", "by_id": "12", "text": "The enterprise buyers I have spoken to take most of a year to sign anything, even a small paid diagnostic. Procurement is the bottleneck, not the price.", "skip": false, "figures": [], "effects": []}, {"id": 20, "by": "Tom", "by_id": "14", "text": "Two of our pilot customers have asked for a short paid diagnostic. A small fixed-price piece of work can go on a manager's card, so I think one would sign within a quarter.", "skip": false, "figures": [], "effects": []}],
+      marks: [{"card": "diagnostic_time_to_contract", "kind": "disagreement", "views": [19, 20], "evidence": [], "text": "Priya and Tom differ", "reading": {"text": "Both figures may hold, under different conditions. In this model which option is most likely to achieve 'Generate revenue as quickly as possible' differs between them, so it is worth finding out which conditions apply.", "note": "Olumi's reading, unconfirmed. Priya and Tom can say whether it fits."}, "options": [{"option": "add_consulting", "text": "about 13% → about 13% with Priya's range, about 13% with Tom's range"}, {"option": "paid_enterprise_diagnostic", "text": "about 49% → under 1% with Priya's range, about 68% with Tom's range"}, {"option": "focus_product_sales", "text": "about 12% → about 12% with Priya's range, about 12% with Tom's range"}]}],
+      next: {"text": "What would tell you whether 'Time to first signed contract for the paid diagnostic' is nearer Priya's figure or Tom's? Which option is most likely to achieve 'Generate revenue as quickly as possible' in this model turns on it.", "about": ["diagnostic_time_to_contract"]},
+    } }
+    useViewStore.setState({ sid: debate.id, view: debate })
+    c = render(<TeamTab />).container
+    expect.soft(c.querySelector('[data-testid="team-revealed-19"]')?.textContent).toContain("The enterprise buyers I have spoken to take most of a year to sign anything, even a small paid diagnostic. Procurement is the bottleneck, not the price.")
+    expect.soft(c.querySelector('[data-testid="team-revealed-20"]')?.textContent).toContain("Two of our pilot customers have asked for a short paid diagnostic. A small fixed-price piece of work can go on a manager's card, so I think one would sign within a quarter.")
+    const mark = c.querySelector('[data-testid="team-mark-diagnostic_time_to_contract-disagreement"]')
+    expect.soft(mark?.getAttribute('data-mark-views')).toBe('19,20')
+    expect.soft(mark?.querySelector('p')?.textContent).toBe('Priya and Tom differ')
+    const reading = c.querySelector('[data-testid="team-reading-diagnostic_time_to_contract-disagreement"]')
+    expect.soft(reading?.querySelector('p:first-child')?.textContent).toBe("Both figures may hold, under different conditions. In this model which option is most likely to achieve 'Generate revenue as quickly as possible' differs between them, so it is worth finding out which conditions apply.")
+    expect.soft(reading?.querySelector('p:last-child')?.textContent).toBe("Olumi's reading, unconfirmed. Priya and Tom can say whether it fits.")
+    expect.soft(mark?.querySelector('[data-mark-option="paid_enterprise_diagnostic"]')?.textContent).toBe("about 49% → under 1% with Priya's range, about 68% with Tom's range")
+    expect.soft(c.querySelector('[data-testid="team-views-next"]')?.textContent).toBe(debate.collab.next!.text)
+    cleanup()
+    useViewStore.setState({ view: { ...debate, gated: true } })
+    c = render(<TeamTab />).container
+    expect(c.querySelector('[data-testid="team-mark-diagnostic_time_to_contract-disagreement"], [data-testid="team-views-next"]')).toBeNull()
+  })
   it('D: one stance selector sends suspect for both item cross_team_adoption and saved view 99', async () => {
     const differences = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8')), scenario: real.id, differences: [], stances: VOCAB.stances }
     setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {

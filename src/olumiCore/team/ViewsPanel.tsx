@@ -98,6 +98,17 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const [pick, setPick] = useState<StrategyPick>(NO_PICK)
   const items = itemsOf(pick, vocab, text)
   const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK) }
+  // Both core projections keep the contribution id: draw its items, never another person's words.
+  const itemLines = (v: { id: number; text: string; items?: View['collab']['shared'][number]['items'] }) => {
+    const lines = v.items?.map((l) => ({ ...l, about: { id: l.about, label: view.model?.cards.find((c) => c.id === l.about)?.heading } }))
+      ?? view.strategy?.views.filter((l) => l.view === v.id) ?? []
+    return lines.length === 0 ? null : <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`team-view-items-${v.id}`}>
+      {lines.map((l) => <li key={l.about.id} data-item-about={l.about.id}>
+        <p className={META}><span className="text-text-header">{l.about.label}</span> <span data-item-pill="" title={l.source ?? undefined}>{l.pill}</span></p>
+        {l.text === v.text ? null : <p className={`${BODY} whitespace-pre-wrap break-words`} data-item-words="">{l.text}</p>}
+      </li>)}
+    </ul>
+  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // A view carries an op (core API v1.24): a lost answer resends the same op. A skip and a reveal are sent without one: one whose answer was
@@ -144,12 +155,24 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
                 <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
               )}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              {itemLines(v)}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
               <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
             </li>
           ))}
         </ul>
       )}
+
+      {!view.gated && <>
+        {(c.marks ?? []).map((m) => <div key={`${m.card}:${m.kind}`} className={CARD} data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')}>
+          <p className={`${BODY} text-text-header`}>{m.text}</p>
+          {m.reading === null ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
+            <p className={BODY}>{m.reading.text}</p><p className={META}>{m.reading.note}</p>
+          </div>}
+          {m.options.map((o) => <p key={o.option} className={BODY} data-mark-option={o.option}>{o.text}</p>)}
+        </div>)}
+        {c.next == null ? null : <p className={BODY} data-testid="team-views-next">{c.next.text}</p>}
+      </>}
 
       {!view.gated && <WhereYouDiffer view={view} />}
 
@@ -159,6 +182,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
               <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
               {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              {itemLines(v)}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
