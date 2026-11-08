@@ -88,6 +88,13 @@ describe('Olumi\'s reply to an edit, answered in core', () => {
     let c = render(<ViewTurns chat={earlier.chat} />).container
     expect(lines(c).map((l) => l.closest('[data-view-turn]')?.getAttribute('data-view-turn'))).toEqual(['chat.0'])
     cleanup()
+    // An earlier turn with no answer of its own (a rename, which asks no reply) never takes the line meant for the newer edit's turn.
+    const both = viewWith(replyOf())
+    const unanswered = { ...both, chat: both.chat.map((t) => (t.id === 3 ? { ...t, answer: null } : t)) } as View
+    on(unanswered)
+    c = render(<ViewTurns chat={unanswered.chat} />).container
+    expect(lines(c).map((l) => l.closest('[data-view-turn]')?.getAttribute('data-view-turn'))).toEqual(['chat.1'])
+    cleanup()
     const answered = viewWith(replyOf(), { answered: true })
     on(answered)
     c = render(<ViewTurns chat={answered.chat} />).container
