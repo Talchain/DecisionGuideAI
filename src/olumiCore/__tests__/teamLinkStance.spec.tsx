@@ -25,8 +25,8 @@ import { useViewStore } from '../../olumiView/store'
 
 const DIR = path.resolve('src/olumiView/fixtures/disagree')
 const read = <T,>(n: string): T => JSON.parse(readFileSync(path.join(DIR, n), 'utf8'))
-const revealed = read<View>('x2-revealed.view3.json'), stances = read<View>('x2-stances.view3.json')
-const diffRevealed = read<Differences>('x2-revealed.differences.core.json'), diffStances = read<Differences>('x2-stances.differences.core.json')
+const revealed = read<View>('x2-revealed.view3.json'), stances = read<View>('x2-stances.view3.json'), priv = read<View>('x2-private.view3.json')
+const diffRevealed = read<Differences>('x2-revealed.differences.core.json'), diffStances = read<Differences>('x2-stances.differences.core.json'), diffPrivate = read<Differences>('x2-private.differences.core.json')
 const SID = revealed.id
 const MORALE = { record: 'morale_link', part: null }
 const BEA = 'Morale here does not move with headcount; it moves with workload.', ADA = 'Last time we hired, the team picked up within a month.'
@@ -49,12 +49,13 @@ afterEach(() => {
 })
 
 describe('Links you doubt: the View\'s holdable links', () => {
-  it('LS1 offers every link core holds, the folded morale link too, in core\'s words, and sends the picked one verbatim', async () => {
+  it('LS1 before the reveal, offers every link core holds, the folded morale link too, in core\'s words, and sends the picked one verbatim', async () => {
     const sent = serve(() => ({ status: 201, body: { doubt: 5 } }))
-    differences(diffRevealed)
-    render(<ViewDoubts sid={SID} view={revealed} disabled={false} />)
+    differences(diffPrivate)
+    expect(priv.collab.link_route).toBe('view')
+    render(<ViewDoubts sid={SID} view={priv} disabled={false} />)
     const offered = [...screen.getByTestId('team-view-doubts').querySelectorAll('[data-view="holdable.text"]')].map((x) => x.textContent)
-    expect(offered).toEqual(revealed.model!.holdable!.map((h) => h.text))
+    expect(offered).toEqual(priv.model!.holdable!.map((h) => h.text))
     expect(offered).toContain("'Add one specialist' → 'team morale'")
     fireEvent.click(screen.getByTestId('team-view-doubt-morale_link|'))
     await sendDoubts(SID, 7)
@@ -121,10 +122,25 @@ describe('Where you stand on a link, after the reveal', () => {
     const { link_stance: _gone, ...older } = diffRevealed as unknown as Record<string, unknown>
     expect(none(revealed, older as unknown as Differences)).toBeNull()
     expect(none({ ...revealed, gated: true } as View, diffRevealed)).toBeNull()
-    expect(none({ ...revealed, collab: { ...revealed.collab, shared: [] } } as View, diffRevealed)).toBeNull()
+    expect(none(priv, diffPrivate)).toBeNull() // core: before the reveal, the private view is the place (link_route 'view')
+    const { link_route: _r, ...olderCollab } = revealed.collab
+    expect(none({ ...revealed, collab: { ...olderCollab, shared: [] } } as View, diffRevealed)).toBeNull() // a core before link_route: nothing revealed
+    expect(none({ ...revealed, collab: olderCollab } as View, diffRevealed)).not.toBeNull()
     expect(none({ ...revealed, model: { ...revealed.model!, holdable: undefined } } as View, diffRevealed)).toBeNull()
     expect(none(revealed, null)).toBeNull()
     expect(none(revealed, diffRevealed)).not.toBeNull()
+  })
+})
+
+describe('One place to doubt a link at a time (DL 9 Nov)', () => {
+  it('LS8 after the reveal, Links you doubt is not offered (the factor and the stance stay with the view); the card is', () => {
+    serve(() => ({ status: 200, body: diffRevealed }))
+    differences(diffRevealed)
+    expect(revealed.collab.link_route).toBe('stance')
+    const { container } = render(<><ViewDoubts sid={SID} view={revealed} disabled={false} /><LinkStance sid={SID} view={revealed} onWrote={async () => true} /></>)
+    expect(container.querySelectorAll('[data-testid="team-view-doubts"] [data-view="holdable.text"]')).toHaveLength(0)
+    expect(container.querySelector('[data-testid="team-view-missing"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="team-link-stance"]')).not.toBeNull()
   })
 })
 

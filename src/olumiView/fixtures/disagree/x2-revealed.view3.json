@@ -1,6 +1,6 @@
 {
   "schema": "olumi.view/3",
-  "id": "s_2967c4b4023b",
+  "id": "s_98998d78203f",
   "title": "Support capacity",
   "commit": "c0ffee",
   "signature": "[11,null,[[9,\"approved\"]],[[13,true],[14,true]],[],[],[\"1\",\"2\"]]",
@@ -1056,7 +1056,8 @@
     "view_figures_limit_text": "Up to three figures go with one view.",
     "private_view_prompt": "What do you know that others may not?",
     "next": null,
-    "marks": []
+    "marks": [],
+    "link_route": "stance"
   },
   "evidence": [],
   "chat": [
@@ -1269,11 +1270,11 @@
   "draft": {
     "status": "done",
     "reason": null,
-    "at": "2026-11-08T23:21:57.605Z",
+    "at": "2026-11-08T23:48:04.839Z",
     "job": 5,
     "stage": "analysing",
     "words": null,
-    "started": "2026-11-08T23:21:57.384Z"
+    "started": "2026-11-08T23:48:04.635Z"
   },
   "turn": null,
   "reply": null,

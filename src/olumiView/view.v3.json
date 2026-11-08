@@ -4130,6 +4130,13 @@
       "additionalProperties": false
      }
     },
+    "link_route": {
+     "type": "string",
+     "enum": [
+      "view",
+      "stance"
+     ]
+    },
     "link_marks": {
      "type": "array",
      "items": {

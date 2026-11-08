@@ -760,6 +760,7 @@ export type View = {
       label: string
       question: string | null
     }>
+    link_route?: "view" | "stance"
     link_marks?: Array<{
       link: {
         record: string
