@@ -19,6 +19,8 @@ import { TeamPresence } from '../TeamPresence'
 import { ViewLensBar } from '../ViewLensBar'
 import { Compare } from '../WhatIfCompare'
 import { StrategyOverviewPage } from '../strategy/overview/StrategyOverviewPage'
+import { EvidencePanel } from '../../olumiCore/team/EvidencePanel'
+import { ViewsPanel } from '../../olumiCore/team/ViewsPanel'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-chain.view3.json'), 'utf8'))
 const CARD = 'diagnostic_time_to_contract'
@@ -29,9 +31,10 @@ function marked(): View {
   // Evidence 31's chain as core gives it (observation, claim, estimate), with an inference step added so every step heading is drawn.
   v.evidence = v.evidence.map((e) => (e.id !== 31 ? e : { ...e, chain: [...e.chain!.filter((st) => st.level !== 'estimate'), { level: 'inference' as const, text: '‹inference step›', status: null, card: null }, ...e.chain!.filter((st) => st.level === 'estimate')] }))
   v.evidence = v.evidence.map((e) => ({ ...e, stance_text: `‹stance ${e.id}›`, switch_text: `‹switch ${e.id}›`, mark_label: `‹mark label ${e.id}›`, mark_title: `‹mark title ${e.id}›` }))
-  v.evidence_words = { heading: '‹evidence heading›', close: '‹evidence close›', bearsOn: '‹bears on›', steps: { observation: '‹observation›', claim: '‹claim›', inference: '‹inference›', estimate: '‹estimate›' } }
+  v.evidence_words = { heading: '‹evidence heading›', close: '‹evidence close›', bearsOn: '‹bears on›', steps: { observation: '‹observation›', claim: '‹claim›', inference: '‹inference›', estimate: '‹estimate›' },
+    stances: v.evidence_words.stances.map((x) => ({ ...x, text: `‹stance word ${x.id}›` })) }
   v.reveal_words = { revealedTogether: '‹revealed together›', close: '‹reveal close›', bringEvidence: '‹bring evidence›', keepOpen: '‹keep open›' }
-  v.team_presence = { title: `‹team title ${v.you_id}›`, label: `‹team label ${v.you_id}›` }
+  v.team_presence = { title: `‹team title ${v.you_id}›`, label: `‹team label ${v.you_id}›`, members: v.members.map((m) => ({ id: m.id, text: `‹member ${m.id}›` })) }
   v.lens_words = { ...v.lens_words, bar: '‹lens bar›', explore: '‹explore›', team: '‹team›', rests_on_label: '‹rests on label›', label: { ...v.lens_words.label, full: '‹label full›' } }
   return v
 }
@@ -93,6 +96,20 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect(nav.textContent).toContain('‹team›')
     fireEvent.click(within(nav).getByTestId('lens-bar-explore'))
     expect(screen.getByTestId('lens-bar-explore-menu').getAttribute('aria-label')).toBe('‹explore›')
+  })
+
+  it('the Team tab: each evidence line, the evidence form\'s labels and stance picker, and each member\'s own line are core\'s', () => {
+    const v = marked()
+    setView(v)
+    render(<><ViewsPanel sid={v.id} view={v} onWrote={async () => true} /><EvidencePanel sid={v.id} view={v} onWrote={async () => true} /></>)
+    // Each member's line, by member id.
+    for (const m of v.members) expect(screen.getByTestId(`team-member-${m.id}`).textContent).toBe(`‹‹member ${m.id}›`) // its initial, then core's line
+    // Each piece of evidence says who holds it and how, in core's line for that piece.
+    for (const e of v.evidence) expect(screen.getByTestId(`team-evidence-${e.id}`).querySelector('p')!.textContent).toBe(`‹stance ${e.id}›`)
+    fireEvent.click(screen.getByTestId('team-evidence-open'))
+    expect(document.querySelector('label[for="team-evidence-bears"]')!.textContent).toBe('‹bears on›')
+    const picker = screen.getByTestId('team-evidence-stance')
+    expect([...picker.querySelectorAll('label')].map((l) => [l.querySelector('input')!.value, l.textContent])).toEqual(v.evidence_words.stances.map((x) => [x.id, `‹stance word ${x.id}›`]))
   })
 
   it('the Overview\'s close and a refused what-if say core\'s words, whole', () => {

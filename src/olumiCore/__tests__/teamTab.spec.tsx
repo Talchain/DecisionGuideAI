@@ -19,6 +19,8 @@ const base = golden as unknown as View
 const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {}): View => ({
   ...base, id: SID, you: 'Ada', you_id: 'p_1',
   members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
+  // N3: core's lines for these members (olumi-core screen-words.ts teamPresenceOf), "(you)" by `you_id`.
+  team_presence: { title: 'Ada (you), Bea', label: 'Team: Ada (you), Bea', members: [{ id: 'p_1', text: 'Ada (you)' }, { id: 'p_2', text: 'Bea' }] },
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
     shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [], effects: [] }],
@@ -91,7 +93,8 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.queryByTestId('team-mine-7-figures')).toBeNull()
   })
   it('"(you)" is core\'s own answer (`you_id`), never a name: two members may share one', () => {
-    useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }] } })
+    useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }],
+      team_presence: { title: 'Ada (you), Ada', label: 'Team: Ada (you), Ada', members: [{ id: 'p_1', text: 'Ada (you)' }, { id: 'p_2', text: 'Ada' }] } } })
     render(<TeamTab />)
     expect(screen.getByTestId('team-member-p_1').textContent).toBe('AAda (you)')
     expect(screen.getByTestId('team-member-p_2').textContent).toBe('AAda')

@@ -1079,7 +1079,21 @@
    "claim": "Claim",
    "inference": "Causal inference",
    "estimate": "Model estimate"
-  }
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
  },
  "reveal_words": {
   "revealedTogether": "Revealed together",
@@ -1112,6 +1126,12 @@
  },
  "team_presence": {
   "title": "Paul (you)",
-  "label": "Team: Paul (you)"
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Paul (you)"
+   }
+  ]
  }
 }

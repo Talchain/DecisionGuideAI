@@ -1737,7 +1737,21 @@
    "claim": "Claim",
    "inference": "Causal inference",
    "estimate": "Model estimate"
-  }
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
  },
  "reveal_words": {
   "revealedTogether": "Revealed together",
@@ -1770,6 +1784,12 @@
  },
  "team_presence": {
   "title": "Demo (you)",
-  "label": "Team: Demo (you)"
+  "label": "Team: Demo (you)",
+  "members": [
+   {
+    "id": "9",
+    "text": "Demo (you)"
+   }
+  ]
  }
 }

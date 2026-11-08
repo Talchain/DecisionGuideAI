@@ -135,10 +135,11 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
     <section data-testid="team-views" aria-label={c.heading} className="grid gap-2">
       <h3 className={H} data-testid="team-views-heading">{c.heading}</h3>
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" data-testid="team-members">
-        {view.members.map((m) => (
+        {/* Each member's own line in core's words (N3 `team_presence.members`, "(you)" on the viewer), by id. */}
+        {view.team_presence.members.map((m) => (
           <li key={m.id} data-testid={`team-member-${m.id}`} className={`${META} inline-flex items-center gap-1.5`}>
-            <span aria-hidden="true" className={AVATAR}>{m.name.slice(0, 1).toUpperCase()}</span>
-            {m.name}{m.id === view.you_id ? ' (you)' : ''}
+            <span aria-hidden="true" className={AVATAR}>{(Array.from(m.text)[0] ?? '').toUpperCase()}</span>
+            {m.text}
           </li>
         ))}
       </ul>

@@ -2292,7 +2292,21 @@
    "claim": "Claim",
    "inference": "Causal inference",
    "estimate": "Model estimate"
-  }
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
  },
  "reveal_words": {
   "revealedTogether": "Revealed together",
@@ -2325,6 +2339,12 @@
  },
  "team_presence": {
   "title": "DL journey test (you)",
-  "label": "Team: DL journey test (you)"
+  "label": "Team: DL journey test (you)",
+  "members": [
+   {
+    "id": "5",
+    "text": "DL journey test (you)"
+   }
+  ]
  }
 }

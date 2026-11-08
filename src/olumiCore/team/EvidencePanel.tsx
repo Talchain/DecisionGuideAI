@@ -7,11 +7,6 @@ import { runWrite, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 type Stance = EvidenceInput['stance']
-export const STANCES: ReadonlyArray<{ value: Stance; words: string }> = [
-  { value: 'supports', words: 'Supports it' },
-  { value: 'challenges', words: 'Challenges it' },
-  { value: 'unclear', words: 'Not clear yet' },
-]
 const NONE = '__none__'
 interface EvidenceDraft { open: boolean; text: string; source: string; bears: string; stance: Stance | null }
 const EMPTY: EvidenceDraft = { open: false, text: '', source: '', bears: '', stance: null }
@@ -103,7 +98,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
           const about = e.concerns.map(labelOf).filter((h): h is string => h !== null)
           return (
             <li key={e.id} data-testid={`team-evidence-${e.id}`} data-stance={e.stance} className={CARD}>
-              <p className={`${META} text-text-header`}>{e.by} · {STANCES.find((s) => s.value === e.stance)?.words.toLowerCase() ?? e.stance}</p>
+              <p className={`${META} text-text-header`}>{e.stance_text}</p>
               <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid={`team-evidence-text-${e.id}`}>{e.text}</p>
               {about.length > 0 && <p className={META} data-testid={`team-evidence-about-${e.id}`}>Bears on: {about.join('; ')}</p>}
               {e.source !== null && (
@@ -125,7 +120,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
           <textarea id="team-evidence-text" data-testid="team-evidence-body" className={`${FIELD} min-h-[72px]`} value={text} disabled={busy} onChange={(e) => { put({ text: e.target.value }); if (error) setError(null) }} />
           <label htmlFor="team-evidence-source" className={LABEL}>Where it comes from (optional)</label>
           <input id="team-evidence-source" data-testid="team-evidence-source" className={FIELD} value={source} disabled={busy} autoComplete="off" spellCheck={false} onChange={(e) => put({ source: e.target.value })} placeholder="A link, or a plain note of where" />
-          <label htmlFor="team-evidence-bears" className={LABEL}>What it bears on</label>
+          <label htmlFor="team-evidence-bears" className={LABEL}>{view.evidence_words.bearsOn}</label>
           <select id="team-evidence-bears" data-testid="team-evidence-bears" className={FIELD} value={effectiveBears} disabled={busy || choices.length === 0} onChange={(e) => put({ bears: e.target.value })}>
             <option value="" disabled>Choose…</option>
             <option value={NONE}>Nothing in the model yet</option>
@@ -133,10 +128,11 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
           </select>
           <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-evidence-stance">
             <legend className={LABEL}>It…</legend>
-            {STANCES.map((s) => (
-              <label key={s.value} className={`${BODY} flex min-h-[28px] cursor-pointer items-center gap-2`}>
-                <input type="radio" name="team-evidence-stance" value={s.value} checked={stance === s.value} disabled={busy} onChange={() => put({ stance: s.value })} />
-                {s.words}
+            {/* Core's picker (N3 `evidence_words.stances`): each stance it accepts, by id, in its words and order. */}
+            {view.evidence_words.stances.map((s) => (
+              <label key={s.id} className={`${BODY} flex min-h-[28px] cursor-pointer items-center gap-2`}>
+                <input type="radio" name="team-evidence-stance" value={s.id} checked={stance === s.id} disabled={busy} onChange={() => put({ stance: s.id })} />
+                {s.text}
               </label>
             ))}
           </fieldset>

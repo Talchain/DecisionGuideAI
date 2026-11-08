@@ -5698,13 +5698,38 @@
       "estimate"
      ],
      "additionalProperties": false
+    },
+    "stances": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "enum": [
+         "supports",
+         "challenges",
+         "unclear"
+        ]
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "text"
+      ],
+      "additionalProperties": false
+     }
     }
    },
    "required": [
     "heading",
     "close",
     "bearsOn",
-    "steps"
+    "steps",
+    "stances"
    ],
    "additionalProperties": false
   },
@@ -5834,11 +5859,31 @@
     },
     "label": {
      "type": "string"
+    },
+    "members": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "text"
+      ],
+      "additionalProperties": false
+     }
     }
    },
    "required": [
     "title",
-    "label"
+    "label",
+    "members"
    ],
    "additionalProperties": false
   }

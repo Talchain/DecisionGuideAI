@@ -1063,6 +1063,10 @@ export type View = {
       inference: string
       estimate: string
     }
+    stances: Array<{
+      id: "supports" | "challenges" | "unclear"
+      text: string
+    }>
   }
   reveal_words: {
     revealedTogether: string
@@ -1096,5 +1100,9 @@ export type View = {
   team_presence: {
     title: string
     label: string
+    members: Array<{
+      id: string
+      text: string
+    }>
   }
 }

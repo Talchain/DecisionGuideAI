@@ -2064,7 +2064,21 @@
    "claim": "Claim",
    "inference": "Causal inference",
    "estimate": "Model estimate"
-  }
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
  },
  "reveal_words": {
   "revealedTogether": "Revealed together",
@@ -2097,6 +2111,20 @@
  },
  "team_presence": {
   "title": "Maya (you), Tom, Priya",
-  "label": "Team: Maya (you), Tom, Priya"
+  "label": "Team: Maya (you), Tom, Priya",
+  "members": [
+   {
+    "id": "1",
+    "text": "Maya (you)"
+   },
+   {
+    "id": "2",
+    "text": "Tom"
+   },
+   {
+    "id": "3",
+    "text": "Priya"
+   }
+  ]
  }
 }
