@@ -15,9 +15,7 @@ const EXIT = 20
 /** How far under the source's row the link runs along to its rail. */
 const UNDER = 12
 
-// SC-01 preview (three columns, read left to right): a link into a card in a column to its right is drawn as its curve, left to right.
-const rightward = (from: Box, to: Box): boolean => to.x >= from.x + from.w
-const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => !rightward(from, to) && to.y + to.h < from.y && to.y <= Math.min(...cards.map((c) => c.y)) + 1
+const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => to.y + to.h < from.y && to.y <= Math.min(...cards.map((c) => c.y)) + 1
 const sideOf = (to: Box, cards: readonly Box[]): 'left' | 'right' => {
   const left = Math.min(...cards.map((c) => c.x)), right = Math.max(...cards.map((c) => c.x + c.w))
   return to.x + to.w / 2 < (left + right) / 2 ? 'left' : 'right'

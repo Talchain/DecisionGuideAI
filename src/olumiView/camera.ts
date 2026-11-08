@@ -13,7 +13,7 @@ export const productFitFloor = (coreLane: boolean, legible: number): number => (
 /** The readable floor: a board that does not fit whole opens at this zoom. R25 (Paul 7 Nov, three sizes by role, 12/14/18): 1.0, so the
  *  sizes on screen are the sizes authored and none is under 12px; was 0.9 (DL 4 Nov), which drew 12px as 10.75. Paul chooses 1.0 or 0.9
  *  from shots of his board; this one constant reverts it. */
-export const READABLE_WHOLE_ZOOM = 0.9 // SC-01 preview: the DL's default floor, 0.9, unless Paul says 1.0
+export const READABLE_WHOLE_ZOOM = 1
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */

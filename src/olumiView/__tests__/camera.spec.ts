@@ -101,7 +101,7 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
   it('R25 (Paul 7 Nov, three sizes by role at a 1.0 floor; was R3\'s 0.8): a board that fits whole at the floor is shown whole (the product\'s fit, null here); just below it opens at the floor, so text is never drawn under its authored size', () => {
     const freeW = pane.width - insets.left - insets.right, freeH = pane.height - insets.top - insets.bottom
     const at = (z: number) => ({ x: 0, y: 0, width: freeW / z, height: freeH / z })
-    expect([READABLE_WHOLE_ZOOM, WHOLE_FIT_ZOOM]).toEqual([0.9, 0.9]) // SC-01 preview: the DL's default floor, 0.9 (Paul chooses 1.0 or 0.9)
+    expect([READABLE_WHOLE_ZOOM, WHOLE_FIT_ZOOM]).toEqual([1, 1])
     expect(readableFirstViewport(at(1.05), pane, insets)).toBeNull()
     expect(readableFirstViewport(at(WHOLE_FIT_ZOOM), pane, insets)).toBeNull()
     expect(readableFirstViewport(at(0.85), pane, insets)?.zoom).toBe(READABLE_WHOLE_ZOOM)
