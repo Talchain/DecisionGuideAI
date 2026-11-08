@@ -41,21 +41,22 @@ export function useStrategyVocabulary(sid: string, strategic: boolean): Vocabula
   return vocab
 }
 
-/** What the person chose: the card the view speaks to ('' for none: a plain view), the stance and the source. */
-export type StrategyPick = { about: string; stance: string; source: string }
-export const NO_PICK: StrategyPick = { about: '', stance: '', source: '' }
+/** What the person chose: the card the view speaks to ('' for none: a plain view) and the source. The stance is the view form's one
+ *  stance control (ViewDoubts), asked once and carried in the item: never a second picker, never a stance the person did not choose. */
+export type StrategyPick = { about: string; source: string }
+export const NO_PICK: StrategyPick = { about: '', source: '' }
 
-/** The view's one item, or none: only when the person chose a card. The item's words are the view's own (core keeps them on the view). */
-export function itemsOf(pick: StrategyPick, vocab: Vocabulary | null, text: string): { about: string; stance: string; text: string; source: string | null }[] {
-  if (vocab === null || pick.about === '') return []
-  const stance = pick.stance || vocab.stances[0]!.id
+/** The view's one item, or none: only when the person chose a card AND a stance (core takes an item only with one). The item's words are
+ *  the view's own (core keeps them on the view). */
+export function itemsOf(pick: StrategyPick, vocab: Vocabulary | null, text: string, stance: string | null): { about: string; stance: string; text: string; source: string | null }[] {
+  if (vocab === null || pick.about === '' || stance === null) return []
   return [{ about: pick.about, stance, text: text.trim(), source: pick.source.trim() === '' ? null : pick.source.trim() }]
 }
 
 /** The cards a view can speak to, in the model's order. */
 export const strategyCards = (view: View) => (view.model?.cards ?? []).filter((c) => FAMILIES.has(c.family))
 
-/** The fields, in core's words: a card (none chosen at rest, so a plain view stays one), a stance and a source. */
+/** The fields, in core's words: a card (none chosen at rest, so a plain view stays one) and a source. */
 export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab: Vocabulary; view: View; pick: StrategyPick; onPick: (p: StrategyPick) => void; disabled: boolean }) {
   const cards = strategyCards(view)
   if (cards.length === 0) return null
@@ -68,15 +69,8 @@ export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab:
         </select>
       </label>
       {pick.about === '' ? null : (
-        <>
-          <label className={LABEL}>{vocab.form.stance}
-            <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || vocab.stances[0]!.id} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
-              {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
-            </select>
-          </label>
-          <input type="text" data-testid="team-view-source" className={FIELD} maxLength={vocab.limits.source} value={pick.source} disabled={disabled}
-            onChange={(e) => onPick({ ...pick, source: e.target.value })} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
-        </>
+        <input type="text" data-testid="team-view-source" className={FIELD} maxLength={vocab.limits.source} value={pick.source} disabled={disabled}
+          onChange={(e) => onPick({ ...pick, source: e.target.value })} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
       )}
     </div>
   )

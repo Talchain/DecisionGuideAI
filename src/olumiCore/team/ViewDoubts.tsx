@@ -19,12 +19,16 @@ export const MAX_MISSING = 200
 
 /** For specs. */
 export function resetDoubts(): void { useDoubts.setState({}, true) }
+/** The stance this member chose for their view (the view form's one stance control), or null. A view on a card carries it in its item. */
+export const useChosenStance = (sid: string): string | null => useDoubts((s) => s[sid]?.stance ?? null)
 
 /** Send what this member named with their new view's id; nothing when they named nothing. Then the draft goes. The view is saved by then,
  *  so a refusal here is said beside these fields (core's words) and never as the view's own failure: the view is not sent again. */
-export async function sendDoubts(sid: string, view: number): Promise<void> {
+/** `stanceSent`: the view's item already carried the stance (one post, `items[].stance`), so it is not sent a second time here. */
+export async function sendDoubts(sid: string, view: number, stanceSent = false): Promise<void> {
   const d = useDoubts.getState()[sid] ?? EMPTY
-  const links = Object.values(d.picked), missing = d.missing.trim(), stance = d.stance ?? null
+  const links = Object.values(d.picked), missing = d.missing.trim(), stance = stanceSent ? null : d.stance ?? null
+  if (stanceSent && links.length === 0 && missing === '') { useDoubts.setState((s) => ({ ...s, [sid]: EMPTY })); return }
   if (links.length === 0 && missing === '' && stance === null) return
   try {
     await call<{ doubt: number }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/views/${view}/doubts`, { links, missing: missing === '' ? null : missing, stance })
@@ -35,23 +39,30 @@ export async function sendDoubts(sid: string, view: number): Promise<void> {
   }
 }
 
-export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; disabled: boolean }): JSX.Element | null {
+/**
+ * `vocabulary`: core's strategy stances (GET …/strategy/vocabulary, the one stance table), when core serves them; the one stance control is
+ * drawn from them, else from the differences read's. `required`: the view speaks to a card, whose item core takes only with a stance.
+ */
+export function ViewDoubts({ sid, view, disabled, vocabulary = null, required = false }: { sid: string; view: View; disabled: boolean; vocabulary?: readonly { id: string; text: string }[] | null; required?: boolean }): JSX.Element | null {
   const d = useDoubts((s) => s[sid] ?? EMPTY)
   // Offered only on a core that has the debate routes: its differences read answered (DifferencesPanel reads it; a core without the route
   // answers 404 and leaves it null), so a member on an older core is never offered fields it would refuse after their view is saved.
   const supported = useDifferences((s) => s.sid === sid && s.data !== null)
-  const stances = useDifferences((s) => (s.sid === sid ? s.data?.stances : undefined)) ?? []
+  const read = useDifferences((s) => (s.sid === sid ? s.data?.stances : undefined)) ?? []
+  const stances = vocabulary !== null && vocabulary.length > 0 ? vocabulary : read
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   // Only the approved version's links (a proposal on screen is not what a view is given against), each once. A View from a core
   // without `links[].remove` has none to offer (absent is not a link: `!= null`), and the panel still draws.
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
   const links = shownIsProposal ? [] : (view.model?.links ?? []).filter((l, i, all) => l.remove != null && all.findIndex((x) => x.remove != null && keyOf(x.remove) === keyOf(l.remove!)) === i) // `!= null`: a core before `links[].remove` omits it (r5 fixtures), which offers no link to doubt
-  if (!supported || view.version === null || shownIsProposal) return null
+  if (view.version === null || shownIsProposal) return null
+  // A core without the debate routes takes no links or factor; the stance is still asked where a card's item needs one.
+  if (!supported && !(required && stances.length > 0)) return null
   const put = (p: Partial<DoubtsDraft>) => useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), ...p } }))
   return (
     <div className="grid gap-1.5" data-testid="team-view-doubts">
-      {links.length > 0 && (
+      {supported && links.length > 0 && (
         <fieldset className="m-0 grid gap-1 border-0 p-0">
           <legend className={LABEL}>Links you doubt (optional)</legend>
           {links.map((l) => {
@@ -66,14 +77,14 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
           })}
         </fieldset>
       )}
-      <label className={`${META} grid gap-0.5`}>
+      {!supported ? null : <label className={`${META} grid gap-0.5`}>
         <span className="text-text-header">A factor you think the model leaves out (optional)</span>
         <input type="text" autoComplete="off" maxLength={MAX_MISSING} data-testid="team-view-missing" className={FIELD} value={d.missing} disabled={disabled}
           onChange={(e) => put({ missing: e.target.value, error: null })} />
-      </label>
+      </label>}
       {stances.length > 0 && (
         <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-view-stance">
-          <legend className={LABEL}>How you hold this view (optional)</legend>
+          <legend className={LABEL}>{required ? 'How you hold this view' : 'How you hold this view (optional)'}</legend>
           {stances.map((o) => (
             <label key={o.id} className={`${BODY} flex min-h-[28px] cursor-pointer items-start gap-2 break-words`}>
               <input type="radio" name={`team-view-stance-${sid}`} className="mt-1" data-testid={`team-view-stance-${o.id}`} checked={d.stance === o.id} disabled={disabled}
