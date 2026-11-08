@@ -187,10 +187,21 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   //    which names that figure and where it tips; where core gives none, core's driver sentence itself.
   // Win share stays out of it (supporting detail, never called a chance); every other line stays in the detail.
   const driverRow = chance !== null && card.driver != null && driverRowOf(card) === i
+  // AN-01 (core cards[].headline, c69a5413): the option's headline for the dock's aim, on the row it is about. On this row its line IS
+  // the aim heading above and the readout (both core's words already), so only what it adds is drawn: `range`, core's short phrase for
+  // what the chance moves with (in place of the driver's whole sentence, which is kept for the hover), and, with no chance yet, `add`
+  // (what the person can give to get one). Its `why` is never drawn here: it is the Run's shared reason, said once above the rows, or this
+  // row's own refusal, already the readout.
+  const hl = lens === 'goal' && card.headline != null && card.headline.aim_id === row.aim_id ? card.headline : null
+  const range = hl?.state === 'chance' && hl.range !== null && hl.range !== '' ? hl.range : null
+  const add = hl?.state === 'none' && hl.add !== null && hl.add !== '' ? hl.add : null
+  // Where core gives the short phrase, the driver's sentence (which opens with it) is not drawn as words anywhere on this card.
+  const shortDriver = card.headline?.state === 'chance' && card.headline.range != null && card.headline.range !== ''
   const headTrack = lens === 'goal' && driverRow && driverRange(card.driver!) !== null
   const headLine = lens !== 'goal' || chance === null ? null : (tipping.find(({ line: l }) => l.kind === 'chance' && l.line !== '') ?? null)
-  const headDriverWords = lens === 'goal' && driverRow && headLine === null
-  const driver = driverRow && (!headDriverWords || !headTrack || figure !== null) ? <Driver card={card} figure={figure} words={!headDriverWords} track={!headTrack} /> : null
+  const headDriverWords = lens === 'goal' && driverRow && headLine === null && !shortDriver
+  const driverWords = !headDriverWords && !shortDriver
+  const driver = driverRow && (driverWords || !headTrack || figure !== null) ? <Driver card={card} figure={figure} words={driverWords} track={!headTrack} /> : null
   const lines = tipping.filter((t) => t !== headLine).map(({ line: l, i: k }) => (
     <p key={l.id} className={`${TYPE.body} text-text-body`} title={l.hover} data-view-fact={l.id}>
       {l.olumi == null ? null : <><span title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
@@ -238,9 +249,11 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {grid}
         </button>
       ) : <div className={HERO_ROW_STACK}>{grid}</div>}
-      {headTrack || headLine !== null || headDriverWords ? (
+      {headTrack || headLine !== null || headDriverWords || range !== null || add !== null ? (
         <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">
           {headTrack ? <DriverTrack card={card} chance={chance!.chance} labelled /> : null}
+          {range === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} title={card.driver?.text ?? hl!.title} data-testid="port-row-headline-range" data-view={`${card.id}.headline.range`}>{range}</p>}
+          {add === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-add" data-view={`${card.id}.headline.add`}>{add}</p>}
           {headLine !== null ? (
             <ThreeLines id={`${regionId}-tip`} title={headLine.line.hover}>
               {headLine.line.olumi == null ? null : <><span title={headLine.line.olumi.title} aria-label={headLine.line.olumi.title}>{headLine.line.olumi.glyph}</span> </>}

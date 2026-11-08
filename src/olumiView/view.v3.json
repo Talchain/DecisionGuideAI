@@ -1083,6 +1083,70 @@
             "type": "null"
            }
           ]
+         },
+         "headline": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "state": {
+              "type": "string",
+              "enum": [
+               "chance",
+               "fixed",
+               "none"
+              ]
+             },
+             "text": {
+              "type": "string"
+             },
+             "title": {
+              "type": "string"
+             },
+             "range": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "why": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "add": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "shared": {
+              "type": "boolean"
+             }
+            },
+            "required": [
+             "aim_id",
+             "state",
+             "text",
+             "title",
+             "range",
+             "why",
+             "add",
+             "shared"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
