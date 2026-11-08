@@ -296,6 +296,11 @@ export type View = {
         text: string
         title: string
       }>
+      shared_rests?: Array<{
+        aim_id: string
+        options: Array<string>
+        text: string
+      }>
       readings: Array<{
         aim_id: string
         kind: "goal" | "limit"
@@ -991,6 +996,7 @@ export type View = {
     job: number
     status: "answering" | "failed" | "lost"
     said: string | null
+    ask: "message" | "challenge" | "method" | "move" | "consider"
     by: string
     by_id: string
     words: string | null

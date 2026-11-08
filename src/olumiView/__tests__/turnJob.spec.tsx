@@ -23,7 +23,7 @@ const SID = 's_00000000000a', UUID = '00000000-0000-4000-8000-00000000000a'
 const STARTED = '2026-11-08T15:00:00.000Z'
 const BUSY = 'Olumi is still answering the last message here. Send yours once it has answered.'
 type Turn = NonNullable<View['turn']>
-const turnOf = (over: Partial<Turn> = {}): Turn => ({ job: 31, status: 'answering', said: 'What if demand falls?', by: 'Paul', by_id: '7', words: 'Olumi is answering.', started: STARTED, at: STARTED, ...over })
+const turnOf = (over: Partial<Turn> = {}): Turn => ({ job: 31, status: 'answering', said: 'What if demand falls?', ask: 'message', by: 'Paul', by_id: '7', words: 'Olumi is answering.', started: STARTED, at: STARTED, ...over })
 /** A scenario with its saved model (core's pricing golden, read as Paul, id 7) and `turn` as given. */
 const viewWith = (turn: Turn | null): View => ({ ...golden('pricing'), id: SID, you_id: '7', turn } as unknown as View)
 

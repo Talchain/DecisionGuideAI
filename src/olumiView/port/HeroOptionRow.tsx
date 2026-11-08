@@ -201,7 +201,9 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   const headTrack = lens === 'goal' && driverRow && driverRange(card.driver!) !== null
   const headLine = lens !== 'goal' || chance === null ? null : (tipping.find(({ line: l }) => l.kind === 'chance' && l.line !== '') ?? null)
   const headDriverWords = lens === 'goal' && driverRow && headLine === null && !shortDriver
-  const driverWords = !headDriverWords && !shortDriver
+  // The detail draws core's driver sentence whenever the headline does not: a headline's `range` is core's short phrase, never the
+  // sentence, so the sentence is still said once, whole, in the detail (integration of AN-01 on the paired goldens, 8 Nov).
+  const driverWords = !headDriverWords
   const driver = driverRow && (driverWords || !headTrack || figure !== null) ? <Driver card={card} figure={figure} words={driverWords} track={!headTrack} /> : null
   const lines = tipping.filter((t) => t !== headLine).map(({ line: l, i: k }) => (
     <p key={l.id} className={`${TYPE.body} text-text-body`} title={l.hover} data-view-fact={l.id}>

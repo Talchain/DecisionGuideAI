@@ -790,12 +790,26 @@ export function nextStepOf(view: View): NextStep | null {
   return null
 }
 
+// A figure step has no words of the UI's own: it says what the chances wait on in core's words (`run.waits_on`), so it never claims who can
+// give the figure (strategy witness 8, 8 Nov: core said "which no one can size yet" where the UI said "only you can give").
 export const NEXT_STEP_WORDS = {
   // R25 (Paul's 6 Nov test: no ✎ appeared while a proposal waited): say why, here, where the decision is (core holds edits by contract).
   approve: 'Olumi proposes changes, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve, and figure edits wait until then.',
-  figure: 'The chances wait on a figure only you can give:',
   invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
 } as const
+
+/** What the chances wait on, for the figure step, in core's words at their paths: its label, the figure's name, and, where core says no one
+ *  can size it yet, that clause. The hover is core's (the question asked, or why it is unknown). */
+function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
+  const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
+  return (
+    <p title={item.title} data-testid="view-next-figure-waits">
+      <span data-view="run.waits_on.label">{w.label}</span>{' '}
+      <span data-view={`run.waits_on.items.${k}.text`}>{item.text}</span>
+      {item.unknown === null || item.unknown === '' ? null : <span data-view={`run.waits_on.items.${k}.unknown`}>{item.unknown}</span>}
+    </p>
+  )
+}
 
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
@@ -804,11 +818,11 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   return (
     <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
-      <p>{NEXT_STEP_WORDS[step.kind]}</p>
+      {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
       {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
-          <p title={step.item.title} data-view={`run.waits_on.items.${view.model!.run!.waits_on!.items.indexOf(step.item)}.text`}>{step.item.text}</p>
+          <FigureWaits view={view} item={step.item} />
           <FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" />
         </div>
       ) : null}

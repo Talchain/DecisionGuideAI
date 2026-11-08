@@ -17,6 +17,9 @@ afterEach(cleanup)
 const real = viewOf('real/bakery-r5')
 const golden = viewOf('golden/bakery')
 
+/** A View as a core before AN-01 drew it: no card carries a headline. The goldens are re-read from the paired core, which carries them. */
+const beforeAn01 = (view: View): View => { const v = structuredClone(view); for (const c of v.model!.cards) c.headline = null; return v }
+
 function draw(view: View, card: string, i: number, lens: HeroLensId = 'goal', open = false) {
   const model = view.model!, run = model.run!
   const c = model.cards.find((x) => x.id === card)!
@@ -123,7 +126,7 @@ describe('the headline at rest (track 4 step 1): the chance, its uncertainty, an
   })
 
   it('a driver but no tipping line: core\'s driver sentence is the headline\'s line, once, never repeated in the detail', () => {
-    const v = structuredClone(golden)
+    const v = beforeAn01(golden)
     v.model!.run!.tipping = []
     const { container } = draw(v, 'second_oven', 1, 'goal', true)
     const c = v.model!.cards.find((x) => x.id === 'second_oven')!
@@ -131,6 +134,24 @@ describe('the headline at rest (track 4 step 1): the chance, its uncertainty, an
     expect(words.length).toBe(1)
     expect(words[0]!.textContent).toBe(c.driver!.text)
     expect(words[0]!.closest('[data-testid="port-row-headline"]')).not.toBeNull()
+  })
+
+  it('AN-01 on the paired golden: the headline draws core\'s range once; core\'s driver sentence is said once, whole, in the detail only', () => {
+    const c = golden.model!.cards.find((x) => x.id === 'second_oven')!
+    expect(c.headline!.range).not.toBeNull()
+    expect(c.driver!.text.startsWith(c.headline!.range!)).toBe(true)
+    const shut = draw(golden, 'second_oven', 1, 'goal', false).container
+    expect(shut.querySelectorAll('[data-view="second_oven.headline.range"]')).toHaveLength(1)
+    expect(shut.querySelector('[data-view="second_oven.headline.range"]')!.textContent).toBe(c.headline!.range)
+    expect(shut.querySelector('[data-view="second_oven.headline.range"]')!.closest('[data-testid="port-row-headline"]')).not.toBeNull()
+    expect(shut.querySelectorAll('[data-view="second_oven.driver.text"]')).toHaveLength(0)
+    cleanup()
+    const open = draw(golden, 'second_oven', 1, 'goal', true).container
+    const words = open.querySelectorAll('[data-view="second_oven.driver.text"]')
+    expect(words).toHaveLength(1)
+    expect(words[0]!.textContent).toBe(c.driver!.text)
+    expect(words[0]!.closest('[data-testid="port-option-detail"]')).not.toBeNull()
+    expect(open.querySelectorAll('[data-view="second_oven.headline.range"]')).toHaveLength(1)
   })
 
   it('negative: the outcome lens draws no headline (the goal lens owns the chance)', () => {

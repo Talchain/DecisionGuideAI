@@ -31,7 +31,7 @@ const openEach = () => { for (const b of [...document.querySelectorAll<HTMLEleme
 const openRow = (el: Element) => fireEvent.click(el.closest('[data-testid="port-option-row"]')!.querySelector<HTMLElement>(':scope > button[aria-expanded]')!)
 
 describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
-  it('chance (studio evening_classes): core\'s range under its row, once, with the headline\'s own title on hover, never the driver\'s sentence', () => {
+  it('chance (studio evening_classes): core\'s range under its row, once, with the headline\'s own title on hover; the driver\'s sentence is said once, whole, in the detail', () => {
     const view = viewOf('core/an01-studio'), c = view.model!.cards.find((x) => x.id === 'evening_classes')!, h = c.headline!
     expect([h.state, typeof h.range, h.title === c.driver!.text]).toEqual(['chance', 'string', false])
     mount(view)
@@ -41,10 +41,13 @@ describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
     // On the row it is about: the row of the headline's aim.
     const k = c.rows.findIndex((r) => r.aim_id === h.aim_id)
     expect(range[0]!.closest('[data-testid="port-option-row"]')!.getAttribute('data-view-row')).toBe(`${c.id}.rows.${k}`)
-    // Its own row opened: the driver's sentence (which opens with the range) is not drawn as words.
-    openRow(range[0]!)
-    expect(screen.getByTestId('port-option-detail')).toBeInTheDocument()
+    // At rest the sentence is not drawn; its own row opened, the detail draws core's driver sentence once, whole (SC-02: said once,
+    // still said). The range is core's short phrase, never the sentence (integration on the paired goldens, 8 Nov).
     expect(at(`${c.id}.driver.text`)).toHaveLength(0)
+    openRow(range[0]!)
+    const detail = screen.getByTestId('port-option-detail')
+    expect(at(`${c.id}.driver.text`)).toHaveLength(1)
+    expect([at(`${c.id}.driver.text`)[0]!.textContent, detail.contains(at(`${c.id}.driver.text`)[0]!)]).toEqual([c.driver!.text, true])
     // Contrast: its chance is still said once, as the readout.
     expect(at(`${c.id}.rows.${k}.value`)).toHaveLength(1)
   })
@@ -147,7 +150,14 @@ describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
   })
 
   it('negative: a View from a core before AN-01 (no headline) draws exactly as before: no range, no add line, no headline of its own', () => {
-    mount(viewOf('golden/studio'))
-    expect(document.querySelectorAll('[data-testid="port-row-headline-range"], [data-testid="port-row-headline-add"], [data-view-row$=".headline"]')).toHaveLength(0)
+    // The golden is re-read from the paired core, which carries headlines; a core before AN-01 sent none.
+    const golden = viewOf('golden/studio'), before = structuredClone(golden)
+    for (const c of before.model!.cards) c.headline = null
+    const drawnOf = '[data-testid="port-row-headline-range"], [data-testid="port-row-headline-add"], [data-view-row$=".headline"]'
+    mount(before)
+    expect(document.querySelectorAll(drawnOf)).toHaveLength(0)
+    // Contrast: the same View with core's headlines draws them.
+    cleanup(); mount(golden)
+    expect(document.querySelectorAll(drawnOf).length).toBeGreaterThan(0)
   })
 })

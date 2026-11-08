@@ -1602,6 +1602,32 @@
             "additionalProperties": false
            }
           },
+          "shared_rests": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": "string"
+             },
+             "options": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "aim_id",
+             "options",
+             "text"
+            ],
+            "additionalProperties": false
+           }
+          },
           "readings": {
            "type": "array",
            "items": {
@@ -5332,6 +5358,16 @@
         "null"
        ]
       },
+      "ask": {
+       "type": "string",
+       "enum": [
+        "message",
+        "challenge",
+        "method",
+        "move",
+        "consider"
+       ]
+      },
       "by": {
        "type": "string"
       },
@@ -5355,6 +5391,7 @@
       "job",
       "status",
       "said",
+      "ask",
       "by",
       "by_id",
       "words",

@@ -377,7 +377,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -460,7 +465,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -599,7 +609,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -760,7 +775,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding",
+     "state": "chance",
+     "text": "'Secure funding within the funding window': over 99% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "add_angel_bridge",
@@ -781,12 +806,22 @@
      {
       "glyph": "!",
       "text": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.",
-      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash.",
+      "id": "test_speed_bottleneck",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      }
      },
      {
       "glyph": "⊢",
       "text": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect.",
+      "id": "bridge_terms_compatibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      }
      }
     ],
     "rows": [
@@ -901,7 +936,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding",
+     "state": "chance",
+     "text": "'Secure funding within the funding window': over 99% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "bridge_terms_compatibility",
@@ -959,12 +1004,22 @@
      {
       "glyph": "!",
       "text": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.",
-      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash.",
+      "id": "test_speed_bottleneck",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      }
      },
      {
       "glyph": "⊢",
       "text": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect.",
+      "id": "bridge_terms_compatibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      }
      }
     ],
     "rows": [
@@ -1077,7 +1132,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding",
+     "state": "chance",
+     "text": "'Secure funding within the funding window': over 99% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "deferral_feasibility",
@@ -1124,12 +1189,12 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_operating_spend",
      "calculate_end_cash_margin"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "horizon",
@@ -1140,12 +1205,12 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_operating_spend",
      "calculate_end_cash_margin"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "opening_cash",
@@ -1156,14 +1221,14 @@
     "alert": false,
     "proposed": false,
     "title": "adds to · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
+    "records": [
+     "calculate_end_cash_margin"
+    ],
     "effect": null,
     "remove": {
      "record": "calculate_end_cash_margin",
      "part": "opening_cash"
-    },
-    "records": [
-     "calculate_end_cash_margin"
-    ]
+    }
    },
    {
     "from": "net_funding",
@@ -1174,14 +1239,14 @@
     "alert": false,
     "proposed": false,
     "title": "adds to · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
+    "records": [
+     "calculate_end_cash_margin"
+    ],
     "effect": null,
     "remove": {
      "record": "calculate_end_cash_margin",
      "part": "net_funding"
-    },
-    "records": [
-     "calculate_end_cash_margin"
-    ]
+    }
    },
    {
     "from": "net_funding",
@@ -1192,9 +1257,9 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "end_cash_margin",
@@ -1205,9 +1270,9 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "add_angel_bridge",
@@ -1218,13 +1283,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_angel_funding",
      "calculate_net_funding",
      "calculate_institutional_funding"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1235,13 +1300,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_angel_funding",
      "calculate_net_funding",
      "calculate_institutional_funding"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1252,12 +1317,12 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_operating_spend",
      "calculate_end_cash_margin"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "pipeline_approximation",
@@ -1268,9 +1333,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "pipeline_approximation",
@@ -1281,9 +1346,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "window_accounting",
@@ -1294,9 +1359,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "window_accounting",
@@ -1307,9 +1372,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "window_accounting",
@@ -1320,9 +1385,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "deferral_feasibility",
@@ -1333,9 +1398,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "deferral_feasibility",
@@ -1346,12 +1411,12 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_operating_spend",
      "calculate_end_cash_margin"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "deferral_feasibility",
@@ -1362,9 +1427,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1375,9 +1440,9 @@
     "alert": false,
     "proposed": false,
     "title": "prerequisite: Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1388,9 +1453,9 @@
     "alert": false,
     "proposed": false,
     "title": "prerequisite: Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1401,11 +1466,11 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through Institutional net funding received during the window · Proposed by Olumi: The two funding routes contribute to the same cash requirement.",
-    "effect": null,
-    "remove": null,
     "records": [
      "calculate_net_funding"
-    ]
+    ],
+    "effect": null,
+    "remove": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1416,9 +1481,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1429,9 +1494,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1442,9 +1507,9 @@
     "alert": false,
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
+    "records": [],
     "effect": null,
-    "remove": null,
-    "records": []
+    "remove": null
    }
   ],
   "run": {
@@ -2095,89 +2160,6 @@
    "choice": null
   }
  ],
- "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
- "gated": false,
- "session": {
-  "goal": null,
-  "set_by": null,
-  "goals": [
-   {
-    "id": "better_option",
-    "text": "Find a better option"
-   },
-   {
-    "id": "solve_problem",
-    "text": "Solve a problem"
-   },
-   {
-    "id": "decide_fast",
-    "text": "Decide quickly"
-   },
-   {
-    "id": "understand",
-    "text": "Understand the situation"
-   }
-  ],
-  "methods": [
-   {
-    "id": "differ",
-    "text": "Does anyone's figure change the answer?",
-    "first": false
-   },
-   {
-    "id": "find_first",
-    "text": "What should we find out first?",
-    "first": false
-   },
-   {
-    "id": "have_true",
-    "text": "What would have to be true?",
-    "first": false
-   },
-   {
-    "id": "go_wrong",
-    "text": "What could go wrong?",
-    "first": false
-   },
-   {
-    "id": "else_do",
-    "text": "What else could we do?",
-    "first": false
-   },
-   {
-    "id": "right_question",
-    "text": "Are we asking the right question?",
-    "first": false
-   },
-   {
-    "id": "push",
-    "text": "Which way does each option push our aims?",
-    "first": false
-   },
-   {
-    "id": "similar",
-    "text": "How do similar situations turn out?",
-    "first": false
-   },
-   {
-    "id": "rests",
-    "text": "How much rests on Olumi's guesses?",
-    "first": false
-   },
-   {
-    "id": "success",
-    "text": "What counts as success?",
-    "first": false
-   },
-   {
-    "id": "bias",
-    "text": "Is a bias at work here?",
-    "first": false
-   }
-  ],
-  "figure_first": null,
-  "pre_mortem": null
- },
  "model_words": {
   "changeFigure": "Change figure",
   "setFigure": "Set figure",
@@ -2282,6 +2264,89 @@
    "probability_gap": "Please change “Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal.”: ",
    "reported_cash_and_spend_basis": "Please change “Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.”: "
   }
+ },
+ "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
  },
  "evidence_words": {
   "heading": "Evidence",

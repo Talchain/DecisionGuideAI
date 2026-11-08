@@ -7,7 +7,8 @@
  * - the headline is the Run's lead (`run.lead`), the panel's one 18px line;
  * - the subline is the most likely line (`run.most_likely`), core's hover on it;
  * - when every option waits, core's waits-on headline; a reason every option shares, once (`run.shared_blockers`);
- * - each aim's rows under that aim's own words (`row.aim`) and core's reading of it (`run.readings`), each option in card order;
+ * - each aim's rows under that aim's own words (`row.aim`), core's reading of it (`run.readings`) and, when every option's chance for it
+ *   rests on one line, that line once (`run.shared_rests`), each option in card order;
  * - Olumi's timing assumptions, what the chances wait on, and the coach's newest next step.
  *
  * The crafted panel's composed sentences ("has the highest expected outcome"), status chip, quick pills, rank badges and trust line are
@@ -114,6 +115,9 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
               <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''} data-lens={gLens}>
                 {g.aim === null ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
                 {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
+                {/* SC-02 (core run.shared_rests): what every option's chance for this aim rests on, when it is one line for all of them, said once
+                    here; core takes it off each row. */}
+                {(run.shared_rests ?? []).map((r, i) => (r.aim_id !== g.aimId ? null : <p key={`rests${i}`} className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-rests" data-view={`run.shared_rests.${i}.text`}>{r.text}</p>))}
                 {withTabs ? <div className="px-2 py-1"><LensTabs lenses={lenses} active={lens} onSelect={setLens} panelId={panelId} /></div> : null}
                 <div role={withTabs ? 'tabpanel' : undefined} id={withTabs ? panelId : undefined} aria-labelledby={withTabs ? lensTabId(panelId, lens) : undefined}>
                 {/* Each option in core's card order: its rows for this aim, or (AN-01) its headline on its own where it has none. */}
