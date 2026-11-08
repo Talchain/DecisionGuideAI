@@ -2741,6 +2741,12 @@
             },
             "value": {
              "type": "number"
+            },
+            "mark_text": {
+             "type": "string"
+            },
+            "mark_label": {
+             "type": "string"
             }
            },
            "required": [
@@ -2750,7 +2756,9 @@
             "title",
             "unit",
             "version",
-            "value"
+            "value",
+            "mark_text",
+            "mark_label"
            ],
            "additionalProperties": false
           },
@@ -2787,6 +2795,12 @@
               "bounds",
               "plausible"
              ]
+            },
+            "mark_text": {
+             "type": "string"
+            },
+            "mark_label": {
+             "type": "string"
             }
            },
            "required": [
@@ -2798,7 +2812,9 @@
             "version",
             "low",
             "high",
-            "range_kind"
+            "range_kind",
+            "mark_text",
+            "mark_label"
            ],
            "additionalProperties": false
           }
@@ -3877,6 +3893,12 @@
          ],
          "additionalProperties": false
         }
+       },
+       "title": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
        }
       },
       "required": [
@@ -3886,7 +3908,9 @@
        "evidence",
        "text",
        "reading",
-       "options"
+       "options",
+       "title",
+       "label"
       ],
       "additionalProperties": false
      }
@@ -4060,6 +4084,18 @@
         "type": "null"
        }
       ]
+     },
+     "stance_text": {
+      "type": "string"
+     },
+     "switch_text": {
+      "type": "string"
+     },
+     "mark_label": {
+      "type": "string"
+     },
+     "mark_title": {
+      "type": "string"
      }
     },
     "required": [
@@ -4073,7 +4109,11 @@
      "concerns",
      "stance",
      "version",
-     "considered"
+     "considered",
+     "stance_text",
+     "switch_text",
+     "mark_label",
+     "mark_title"
     ],
     "additionalProperties": false
    }
@@ -5622,6 +5662,185 @@
     "headings"
    ],
    "additionalProperties": false
+  },
+  "evidence_words": {
+   "type": "object",
+   "properties": {
+    "heading": {
+     "type": "string"
+    },
+    "close": {
+     "type": "string"
+    },
+    "bearsOn": {
+     "type": "string"
+    },
+    "steps": {
+     "type": "object",
+     "properties": {
+      "observation": {
+       "type": "string"
+      },
+      "claim": {
+       "type": "string"
+      },
+      "inference": {
+       "type": "string"
+      },
+      "estimate": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "observation",
+      "claim",
+      "inference",
+      "estimate"
+     ],
+     "additionalProperties": false
+    }
+   },
+   "required": [
+    "heading",
+    "close",
+    "bearsOn",
+    "steps"
+   ],
+   "additionalProperties": false
+  },
+  "reveal_words": {
+   "type": "object",
+   "properties": {
+    "revealedTogether": {
+     "type": "string"
+    },
+    "close": {
+     "type": "string"
+    },
+    "bringEvidence": {
+     "type": "string"
+    },
+    "keepOpen": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "revealedTogether",
+    "close",
+    "bringEvidence",
+    "keepOpen"
+   ],
+   "additionalProperties": false
+  },
+  "lens_words": {
+   "type": "object",
+   "properties": {
+    "bar": {
+     "type": "string"
+    },
+    "explore": {
+     "type": "string"
+    },
+    "team": {
+     "type": "string"
+    },
+    "needsRun": {
+     "type": "string"
+    },
+    "label": {
+     "type": "object",
+     "properties": {
+      "full": {
+       "type": "string"
+      },
+      "tradeoffs": {
+       "type": "string"
+      },
+      "rests_on": {
+       "type": "string"
+      },
+      "premortem": {
+       "type": "string"
+      },
+      "what_changes": {
+       "type": "string"
+      },
+      "what_if": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "full",
+      "tradeoffs",
+      "rests_on",
+      "premortem",
+      "what_changes",
+      "what_if"
+     ],
+     "additionalProperties": false
+    },
+    "hint": {
+     "type": "object",
+     "properties": {
+      "full": {
+       "type": "string"
+      },
+      "tradeoffs": {
+       "type": "string"
+      },
+      "rests_on": {
+       "type": "string"
+      },
+      "premortem": {
+       "type": "string"
+      },
+      "what_changes": {
+       "type": "string"
+      },
+      "what_if": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "full",
+      "tradeoffs",
+      "rests_on",
+      "premortem",
+      "what_changes",
+      "what_if"
+     ],
+     "additionalProperties": false
+    },
+    "rests_on_label": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bar",
+    "explore",
+    "team",
+    "needsRun",
+    "label",
+    "hint",
+    "rests_on_label"
+   ],
+   "additionalProperties": false
+  },
+  "team_presence": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string"
+    },
+    "label": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "title",
+    "label"
+   ],
+   "additionalProperties": false
   }
  },
  "required": [
@@ -5642,7 +5861,11 @@
   "model_words",
   "brief",
   "gated",
-  "session"
+  "session",
+  "evidence_words",
+  "reveal_words",
+  "lens_words",
+  "team_presence"
  ],
  "additionalProperties": false
 }

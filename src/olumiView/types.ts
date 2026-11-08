@@ -504,6 +504,8 @@ export type View = {
         unit: string
         version: number
         value: number
+        mark_text: string
+        mark_label: string
       } | {
         quantity: string
         label: string
@@ -514,6 +516,8 @@ export type View = {
         low: number
         high: number
         range_kind: "bounds" | "plausible"
+        mark_text: string
+        mark_label: string
       }>
       effects: Array<{
         quantity: string
@@ -716,6 +720,8 @@ export type View = {
         option: string
         text: string
       }>
+      title: string
+      label: string
     }>
   }
   evidence: Array<{
@@ -744,6 +750,10 @@ export type View = {
       status: string | null
       card: string | null
     }> | null
+    stance_text: string
+    switch_text: string
+    mark_label: string
+    mark_title: string
   }>
   chat: Array<{
     id: number
@@ -1042,5 +1052,49 @@ export type View = {
       views: string
       overview: string
     }
+  }
+  evidence_words: {
+    heading: string
+    close: string
+    bearsOn: string
+    steps: {
+      observation: string
+      claim: string
+      inference: string
+      estimate: string
+    }
+  }
+  reveal_words: {
+    revealedTogether: string
+    close: string
+    bringEvidence: string
+    keepOpen: string
+  }
+  lens_words: {
+    bar: string
+    explore: string
+    team: string
+    needsRun: string
+    label: {
+      full: string
+      tradeoffs: string
+      rests_on: string
+      premortem: string
+      what_changes: string
+      what_if: string
+    }
+    hint: {
+      full: string
+      tradeoffs: string
+      rests_on: string
+      premortem: string
+      what_changes: string
+      what_if: string
+    }
+    rests_on_label: string
+  }
+  team_presence: {
+    title: string
+    label: string
   }
 }

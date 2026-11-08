@@ -417,14 +417,16 @@
     "by": "Ada",
     "by_id": "1",
     "text": "Hire now: the backlog is the real risk.",
-    "skip": false
+    "skip": false,
+    "figures": []
    },
    {
     "id": 8,
     "by": "Bea",
     "by_id": "5",
     "text": "Wait a month: a new hire may unsettle the team.",
-    "skip": false
+    "skip": false,
+    "figures": []
    }
   ],
   "mine": [],
@@ -581,7 +583,11 @@
     "existing_capacity"
    ],
    "stance": "challenges",
-   "version": 1
+   "version": 1,
+   "stance_text": "Bea: Challenges it",
+   "switch_text": "Bea’s evidence",
+   "mark_label": "Bea · Last year two hires took six weeks to reach full speed.",
+   "mark_title": "Bea · Last year two hires took six weeks to reach full speed. · https://example.org/onboarding-review"
   }
  ],
  "chat": [
@@ -738,5 +744,49 @@
    "marks": []
   }
  ],
- "gated": true
+ "gated": true,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  }
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on"
+ },
+ "team_presence": {
+  "title": "Ada, Bea, Cy (you)",
+  "label": "Team: Ada, Bea, Cy (you)"
+ }
 }
