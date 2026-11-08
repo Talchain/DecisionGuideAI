@@ -8,6 +8,8 @@ import { clearWhatIf } from '../olumiView/whatif'
 import { useMe } from './me'
 import { call, setPagePerson } from './team/api'
 import { forgetAttempts } from './team/writes'
+import { resetDrafts } from './team/drafts'
+import { resetDoubts } from './team/ViewDoubts'
 import { useModelNotice } from '../olumiView/notice'
 
 /** Signs this browser out of olumi-core; throws (a TeamApiError, in core's or the page's words) when it did not go through. */
@@ -22,6 +24,8 @@ export function forgetThisPerson(): void {
   useMe.setState({ me: null, status: 'ready' })
   useViewStore.setState(useViewStore.getInitialState(), true)
   forgetModelTab() // the Model tab's drafts, open editors and receipts (Codex review-ui 3)
+  resetDrafts()
+  resetDoubts()
   clearWhatIf() // a figure they tried without saving, as they typed it
   forgetAttempts() // the requests of their unconfirmed writes, as they typed them (locks stay: DL 7 Nov)
   useModelNotice.setState({ notice: null }) // "Version n saved. Approved by <them>."
