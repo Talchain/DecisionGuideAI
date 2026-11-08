@@ -103,12 +103,13 @@ type Outline = ReturnType<typeof modelOutlineOf>
 
 /**
  * The card groups as the tab draws them: each with its count and whether it is open, by one rule, read both by the rows on screen and by
- * the key that explains their marks, so the two can never drift apart (UI review of ddaedeed). A group with no card is not drawn (Question
- * & goal always is). The count is the group's cards (and the question), or while a filter is typed, what the filter leaves.
+ * the key that explains their marks, so the two can never drift apart (UI review of ddaedeed). A group with no card is not drawn, except
+ * Question & goal and Factors (where the first figure is added). The count is the group's cards (and the question), or while a filter is
+ * typed, what the filter leaves.
  */
 export function groupsDrawn(outline: Outline, isOpen: (id: GroupId, count: number) => boolean) {
   return outline.groups.flatMap((g) => {
-    if (g.cards.length === 0 && g.id !== 'goal') return []
+    if (g.cards.length === 0 && g.id !== 'goal' && g.id !== 'factors') return []
     const count = !outline.searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
     return [{ g, count, open: isOpen(g.id, count) }]
   })
