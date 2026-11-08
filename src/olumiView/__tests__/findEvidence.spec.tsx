@@ -107,8 +107,12 @@ describe('Find evidence', () => {
     expect(panel()!.querySelector('[data-research-start]')).toHaveTextContent('Search again')
   })
   it('N1 does not offer Find evidence in the Selected row: web research returns in N2', () => {
-    const c = render(<SelectionPill after={selectedRename} />).container
+    selectedRow(figure.id, figure.heading) // contrast: with the panel mounted, a figure card offers it
+    expect(document.querySelector(`[data-research-find="${figure.id}"]`)).not.toBeNull()
+    cleanup()
+    useCanvasStore.setState({ nodes: [{ id: figure.id, position: { x: 0, y: 0 }, data: { label: figure.heading } }] as never, edges: [] as never, selection: { nodeIds: new Set([figure.id]), edgeIds: new Set(), anchorPosition: null } } as never)
+    const c = render(<SelectionPill after={selectedRename} />).container // the Selected row as N1 mounts it
+    expect(c.textContent ?? '').toContain(figure.heading)
     expect(c.querySelector('[data-research-find]')).toBeNull()
-    expect(c.textContent ?? '').not.toContain('Find evidence')
   })
 })
