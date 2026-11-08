@@ -145,7 +145,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(dock.style.boxShadow).toBe('none')
   })
 
-  it('the tab strip is 45px and the active tab is the info colour with the contract tint: no underline, not an outlined pill', () => {
+  it('the tab strip is 45px and the active tab is ink on the contract tint (never the info blue, DL 8 Nov): no underline, not an outlined pill', () => {
     mountDock()
     const strip = screen.getByTestId('outputs-dock-tabstrip')
     expect(strip.style.height).toBe(`${SHELL_TABSTRIP_HEIGHT_PX}px`)
@@ -157,7 +157,9 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(active).toHaveLength(1)
     const on = classTokens(active[0])
     // The legacy lane's tab label stays 11px (PL 7 Nov: lane-only); the olumi-core lane draws it at 12px (viewPanelMeta, R25 scale A).
-    for (const token of ['text-info', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[11px]']) {
+    // Re-baselined 8 Nov (DL ruling: Paul's "blue only for Olumi" outranks the shell contract): the selected tab is ink, not info blue.
+    expect(on.has('text-info')).toBe(false)
+    for (const token of ['text-text-header', 'bg-[var(--panel-tab-active-bg)]', 'rounded-none', 'text-[11px]']) {
       expect(on.has(token), `active tab carries "${token}"`).toBe(true)
     }
     // The served pill's tokens, and the retired one-sided underline, by name.

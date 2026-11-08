@@ -170,6 +170,7 @@ export type View = {
         words: string
         icon: string
       } | null
+      unused?: string | null
       values: Array<{
         option: string
         text: string

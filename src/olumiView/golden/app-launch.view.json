@@ -70,6 +70,7 @@
      "words": "1 claim, 1 open question",
      "icon": "❝ ○"
     },
+    "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
     "rests_on": [],
     "author": {
@@ -284,6 +285,7 @@
      "words": "1 claim",
      "icon": "❝"
     },
+    "unused": null,
     "values": [
      {
       "option": "option_scheduled",
@@ -374,6 +376,7 @@
      "words": "4 claims, 3 figures, 2 calculations, 1 challenge",
      "icon": "❝ ● ="
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -479,19 +482,19 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
@@ -530,7 +533,7 @@
     "headline": {
      "aim_id": "boss_discussion",
      "state": "none",
-     "text": "'Explain the release decision without unfair team blame': no chance yet",
+     "text": "No chance yet",
      "title": "cannot be worked out yet · Explain the release decision without unfair team blame",
      "range": null,
      "why": null,
@@ -579,19 +582,19 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
@@ -636,7 +639,7 @@
     "headline": {
      "aim_id": "boss_discussion",
      "state": "none",
-     "text": "'Explain the release decision without unfair team blame': no chance yet",
+     "text": "No chance yet",
      "title": "cannot be worked out yet · Explain the release decision without unfair team blame",
      "range": null,
      "why": null,
@@ -722,19 +725,19 @@
      {
       "kind": "none",
       "aim_id": "boss_discussion",
-      "text": "cannot be worked out yet · Explain the release decision without unfair team blame",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Explain the release decision without unfair team blame"
      },
      {
       "kind": "none",
       "aim_id": "protect_user_trust",
-      "text": "cannot be worked out yet · Avoid damaging users' experience and trust",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Avoid damaging users' experience and trust"
      },
      {
       "kind": "none",
       "aim_id": "allow_readiness_work",
-      "text": "cannot be worked out yet · Allow time for repair and validation",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Allow time for repair and validation"
      }
     ],
@@ -774,7 +777,7 @@
     "headline": {
      "aim_id": "boss_discussion",
      "state": "none",
-     "text": "'Explain the release decision without unfair team blame': no chance yet",
+     "text": "No chance yet",
      "title": "cannot be worked out yet · Explain the release decision without unfair team blame",
      "range": null,
      "why": null,
@@ -786,7 +789,7 @@
     "id": "isolation_readiness_link",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Isolation readiness link",
+    "heading": "Explore shipping without the affected sync path → Time to complete repair and validation",
     "typed": true,
     "detail": "Explore shipping without the affected sync path → Time to complete repair and validation · relation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change.",
     "col": 0,
@@ -805,7 +808,7 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "Explore shipping without the affected sync path → Time to complete repair and validation",
+    "reason": "Safely excluding the affected sync path could change the repair and validation work required before release. Isolation itself would require verification, so neither a shorter duration nor a numerical schedule benefit is established. The full-fix schedule calculation does not establish this option's chance of meeting the readiness aim.",
     "badge": {
      "records": [
       "isolation_prerequisite"

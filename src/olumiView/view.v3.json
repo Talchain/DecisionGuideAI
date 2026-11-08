@@ -883,6 +883,12 @@
            }
           ]
          },
+         "unused": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
          "values": {
           "anyOf": [
            {

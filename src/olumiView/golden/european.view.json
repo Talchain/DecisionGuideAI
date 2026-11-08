@@ -73,6 +73,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -111,6 +112,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -182,6 +184,7 @@
      "words": "1 claim",
      "icon": "❝"
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -235,6 +238,7 @@
      "words": "1 claim, 1 link, 1 challenge, 1 open question",
      "icon": "❝ ↝ !"
     },
+    "unused": null,
     "values": [
      {
       "option": "broader_entry",
@@ -317,6 +321,7 @@
      "words": "1 claim, 1 open question",
      "icon": "❝ ○"
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -358,6 +363,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -451,6 +457,7 @@
      "words": "6 figures, 4 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "broader_entry",
@@ -520,6 +527,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {

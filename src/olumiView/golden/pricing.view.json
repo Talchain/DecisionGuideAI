@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": [
      {
       "option": "raise_price",
@@ -116,6 +117,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -154,6 +156,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -195,6 +198,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -248,6 +252,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "raise_price",
@@ -307,6 +312,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {

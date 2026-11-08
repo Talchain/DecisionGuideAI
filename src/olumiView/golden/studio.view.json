@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -95,6 +96,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -133,6 +135,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -186,6 +189,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "evening_classes",
@@ -255,6 +259,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -293,6 +298,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -331,6 +337,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -372,6 +379,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -385,7 +393,7 @@
     "id": "mood_members",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Mood members",
+    "heading": "How members feel → members",
     "typed": true,
     "detail": "How members feel → members · relation · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
     "col": 1,
@@ -404,7 +412,7 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "How members feel → members",
+    "reason": "Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
     "badge": {
      "records": [
       "co_owner_view",
@@ -520,7 +528,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -597,7 +605,7 @@
     "id": "evening_mood",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Evening mood",
+    "heading": "Evening classes → How members feel",
     "typed": true,
     "detail": "Evening classes → How members feel · relation · Theirs: “Members have asked for evening slots”",
     "col": 0,
@@ -613,7 +621,7 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "Evening classes → How members feel",
+    "reason": "Members have asked for evening slots.",
     "badge": null,
     "values": null,
     "rests_on": [],
@@ -647,7 +655,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -749,7 +757,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -1041,7 +1049,7 @@
       "weekend_workshops",
       "carry_on"
      ],
-     "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+     "text": "No option's chance of 'Keep at least 140 members' can be worked out yet: it rests on 3 things the model cannot yet put a figure on."
     }
    ],
    "most_likely": {
@@ -1071,7 +1079,7 @@
       "text": "‘How members feel’",
       "title": "No one can measure how members feel yet; repeat bookings might show it.",
       "answer": false,
-      "unknown": ", which no one can size yet (No one can measure how members feel yet; repeat bookings might show it)",
+      "unknown": ", which no one can size yet",
       "edit": {
        "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
        "ask": "For “How members feel”, type one number, or a range like 150 to 400."

@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -107,6 +108,7 @@
      "words": "1 open question",
      "icon": "○"
     },
+    "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
     "rests_on": [],
     "author": {
@@ -157,6 +159,7 @@
      "words": "1 claim",
      "icon": "❝"
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -244,6 +247,7 @@
      "words": "1 claim",
      "icon": "❝"
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -311,6 +315,7 @@
      "words": "10 figures, 3 calculations, 2 claims, 1 challenge, 2 open questions",
      "icon": "● = ❝"
     },
+    "unused": null,
     "values": [
      {
       "option": "continue_outreach",
@@ -406,6 +411,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "continue_outreach",

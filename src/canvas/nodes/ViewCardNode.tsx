@@ -314,6 +314,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
+      {/* Core's honesty line (card.unused, candidate 2a283a4f): a figure Olumi's analysis does not use yet says so, once, under it, in
+          core's words. The figure stays editable. */}
+      {card.unused == null || card.unused === '' ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-card-unused" data-view={`${id}.unused`}>{card.unused}</p>}
       {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue; its words
           show on hover, focus or selection (FigureEdit's glyph form, Paul 24 Oct: no static repeating text). Never hidden, so an open
           editor or its Set button can never be hidden either (R4 witness run 3). */}

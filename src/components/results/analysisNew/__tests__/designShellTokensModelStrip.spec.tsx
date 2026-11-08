@@ -141,7 +141,7 @@ describe('gap ACTION-2: panelSurfaces declares the text-button tier', () => {
  *    borders ever"): the contract's 2px underline is a one-sided border and is
  *    retired. The selected tab is the info colour plus the contract TINT.
  */
-describe('gap ACTION-1 (superseded 26 Sep; underline retired 18 Oct): the selected tab is the info colour + tint, not an outline or an underline', () => {
+describe('gap ACTION-1 (superseded 26 Sep; underline retired 18 Oct): the selected tab is ink + tint (blue retired 8 Nov), not an outline or an underline', () => {
   const surfaces: WorkspaceSurfaceDescriptor[] = [
     { id: 'results', label: 'Analysis', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
     { id: 'diagnostics', label: 'Model', scroll: 'shell', padding: 'shell', presentedAsTab: true, hiddenReason: '', footerBar: 'reanalyse' },
@@ -163,10 +163,13 @@ describe('gap ACTION-1 (superseded 26 Sep; underline retired 18 Oct): the select
       />,
     )
 
-  it('⭐⭐ the ACTIVE tab carries the info colour and the contract tint, and no outline or underline', () => {
+  // Re-baselined 8 Nov (DL ruling on Paul's look rule, "blue only for Olumi", which outranks this locked shell contract): the
+  // selected tab is ink on the contract tint, never the info blue.
+  it('⭐⭐ the ACTIVE tab carries ink and the contract tint, never the info blue, and no outline or underline', () => {
     draw('results')
     const tab = screen.getByTestId('outputs-dock-tab-results')
-    expect(tab.className).toMatch(/(^|\s)text-info(\s|$)/)
+    expect(tab.className).toMatch(/(^|\s)text-text-header(\s|$)/)
+    expect(tab.className).not.toMatch(/(^|\s)text-info(\s|$)/)
     expect(tab.className).not.toMatch(/(^|\s)border-b-2(\s|$)/)
     expect(tab.className).not.toMatch(/(^|\s)border-info(\s|$)/)
     expect(tab.className).toContain('bg-[var(--panel-tab-active-bg)]')
@@ -186,9 +189,10 @@ describe('gap ACTION-1 (superseded 26 Sep; underline retired 18 Oct): the select
     const active = screen.getByTestId('outputs-dock-tab-diagnostics')
     const idle = screen.getByTestId('outputs-dock-tab-results')
     expect(active.className).toContain('bg-[var(--panel-tab-active-bg)]')
-    expect(active.className).toMatch(/(^|\s)text-info(\s|$)/)
+    expect(active.className).toMatch(/(^|\s)text-text-header(\s|$)/)
     expect(idle.className).not.toContain('bg-[var(--panel-tab-active-bg)]')
-    expect(idle.className).not.toMatch(/(^|\s)text-info(\s|$)/)
+    expect(idle.className).not.toMatch(/(^|\s)text-text-header(\s|$)/)
+    expect([active.className, idle.className].some((c) => /(^|\s)(hover:)?text-info(\s|$)/.test(c))).toBe(false)
   })
 })
 
