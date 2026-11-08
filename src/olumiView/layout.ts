@@ -235,6 +235,43 @@ export function optionsNotYet(model: ViewModel | null | undefined): boolean {
 }
 
 /**
+ * J1 step 4 (DL 8 Nov, Codex's order: "on J1, a focused panel"): a scenario's first look is its first version with only the brief's turn
+ * said and no view revealed: the dock is the brief's account, not the tabs.
+ */
+export function isFirstLook(view: View | null): boolean {
+  return view?.model != null && view.version?.n === 1 && view.chat.length === 1 && view.collab.shared.length === 0
+}
+/**
+ * What the brief's account says, every item core's own words: the brief; the cards the team stated and those Olumi proposed (by core's
+ * author.by, in the model's order, by their headings; a relation the board draws as a link by core's label for it); core's left-out records
+ * by their labels; whether there is an aim yet and whether any option has a chance; Olumi's one question (the newest reply's next step).
+ * Core's notes on what Olumi used, inferred and left out (ED-12) are not served yet: `notes` says so, and nothing stands in for them.
+ */
+export type BriefAccount = {
+  readonly brief: string; readonly by: string | null; readonly version: string | null
+  readonly used: readonly string[]; readonly inferred: readonly string[]; readonly leftOut: readonly string[]
+  readonly noAim: boolean; readonly noChances: boolean; readonly notes: null
+  readonly question: { readonly label: string | null; readonly text: string } | null
+}
+export function briefAccountOf(view: View): BriefAccount {
+  const model = view.model!
+  // The board's cards (a relation it draws as a link is not a card: linkCards), by who core says they are from: the person's, the brief's
+  // and the mixed ones (their figure, Olumi's range) were used from the brief; Olumi's own were inferred.
+  const asLinks = linkCards(model)
+  const cards = model.cards.filter((c) => !asLinks.has(c.id))
+  const by = (who: readonly string[]) => cards.filter((c) => c.author != null && who.includes(c.author.by)).map((c) => c.heading)
+  const next = view.chat.at(-1)?.answer?.next ?? null
+  return {
+    brief: view.brief, by: view.chat[0]?.by ?? null, version: view.version?.label ?? null,
+    used: by(['person', 'brief', 'mixed']), inferred: by(['olumi']),
+    leftOut: view.collab.records.flatMap((r) => (r.family === 'left_out' && r.label !== null ? [r.label] : [])),
+    noAim: aimsOf(model).length === 0, noChances: optionsNotYet(model) || model.cards.every((c) => c.family !== 'option'), notes: null,
+    // A cite in Olumi's question points at a Run finding; a first version has none, so only its words are read.
+    question: next === null ? null : { label: next.label, text: next.text.map((t) => ('text' in t ? t.text : '')).join('') },
+  }
+}
+
+/**
  * SC-01 PREVIEW (option A, Paul 8 Nov: "Show me your recommended option. I don't want to commit to it yet"): the cause-to-aim story read
  * left to right in three columns, so a 16-card board is seen whole at 1232 x 704 at the 0.9 floor (camera.ts READABLE_WHOLE_ZOOM).
  *   0: the question, then the options, in the View's order;

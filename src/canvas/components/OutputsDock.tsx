@@ -210,6 +210,7 @@ import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecision
 import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { BriefPanel, leaveBriefPanel, useBriefPanelShown } from '../../olumiView/BriefPanel'
 import { CoreCompareTab } from '../../olumiCore/compare'
 import { shownModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
@@ -660,6 +661,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (!tabChanged && !versionChanged) return
     prevExternalTabRef.current = externalTab
     prevExternalVersionRef.current = externalTabVersion
+    // J1 step 4: a tab asked for (a canvas ask opening the Olumi tab, a chip opening the Team tab) is shown: the brief's account gives way.
+    const briefSid = useViewStore.getState().sid
+    if (briefSid !== null && isOlumiCoreLane()) leaveBriefPanel(briefSid)
     // ROADMAP 2.639 — a forced activation must also make the dock VISIBLE.
     //
     // The aside carries `hidden` (display:none) whenever an overlay right-panel
@@ -813,6 +817,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const coreView = useViewStore(shownModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
+  // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
+  const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
   // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
   // note is drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once
   // they have given or skipped, nothing moves them again.
@@ -3318,7 +3324,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             factors-to-verify badge exempt, `shrink-0` on every control, an
             icon rather than an ASCII glyph on the collapse button — live in
             `workspaceShell/WorkspaceShellTabStrip.tsx` with the reasoning. */}
-        {effectiveIsOpen && (
+        {effectiveIsOpen && !briefPanel && (
           <WorkspaceShellTabStrip
             surfaces={OUTPUT_TABS}
             activeTab={effectiveActiveTab}
@@ -3471,7 +3477,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             tokens — and both are baked into the re-blessed visual references.
             Recorded because four child lanes inherit this baseline; see
             `SHELL_INHERITED_BODY_TYPOGRAPHY` in the shell contract. */}
-      {effectiveIsOpen && (
+      {effectiveIsOpen && briefPanel && <BriefPanel />}
+      {effectiveIsOpen && !briefPanel && (
         <div
           // The body IS the tab panel the strip controls, so it says so. The
           // label is derived from `effectiveActiveTab` — the same value the
