@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { call, TeamApiError } from './api'
@@ -34,6 +34,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const [said, setSaid] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const headingId = useId()
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
@@ -57,8 +58,9 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
     } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
   }
   return (
-    <section className={CARD} data-testid={at} aria-label={words.heading}>
-      <h3 className={H} data-testid={`${at}-heading`}>{words.heading}</h3>
+    // The heading is said once: the section and the stance group are both named by it (no second label to read out).
+    <section className={CARD} data-testid={at} aria-labelledby={headingId}>
+      <h3 id={headingId} className={H} data-testid={`${at}-heading`}>{words.heading}</h3>
       <p className={META} data-testid={`${at}-note`}>{words.note}</p>
       <label className={`${META} grid gap-0.5`}>
         <span className="text-text-header">{words.link}</span>
@@ -67,8 +69,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
           {links.map((l) => <option key={keyOf(l.link)} value={keyOf(l.link)} title={l.title}>{l.text}</option>)}
         </select>
       </label>
-      <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid={`${at}-stance`}>
-        <legend className="sr-only">{words.heading}</legend>
+      <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid={`${at}-stance`} aria-labelledby={headingId}>
         {(['doubt', 'keep'] as const).map((s) => (
           <label key={s} className={`${BODY} flex min-h-[28px] cursor-pointer items-start gap-2 break-words`}>
             <input type="radio" name={`${at}-${sid}`} className="mt-1" data-testid={`${at}-${s}`} checked={stance === s} disabled={busy} onChange={() => { setStance(s); setError(null) }} />

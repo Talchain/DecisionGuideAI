@@ -73,6 +73,9 @@ describe('Where you stand on a link, after the reveal', () => {
     expect([screen.getByTestId('team-link-stance-doubt').closest('label')!.textContent, screen.getByTestId('team-link-stance-keep').closest('label')!.textContent]).toEqual([w['doubt'], w['keep']])
     expect(form.textContent).toContain(String(w['words']))
     expect(screen.getByTestId('team-link-stance-send').textContent).toBe(w['send'])
+    // The heading is said once: the region and the stance group are named by it, with no second copy to read out.
+    expect(form.textContent!.split(String(w['heading'])).length - 1).toBe(1)
+    expect([screen.getByRole('region', { name: String(w['heading']) }), screen.getByRole('group', { name: String(w['heading']) })].map((x) => x.dataset['testid'])).toEqual(['team-link-stance', 'team-link-stance-stance'])
     expect((screen.getByTestId('team-link-stance-words') as HTMLTextAreaElement).maxLength).toBe(w['limit'])
     // The links are core's, each once, and none is picked; neither stance is chosen.
     const options = [...(screen.getByTestId('team-link-stance-link') as HTMLSelectElement).options].map((o) => o.textContent)
