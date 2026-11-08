@@ -1,10 +1,10 @@
 diff --git a/src/olumiView/__tests__/validateView.spec.ts b/src/olumiView/__tests__/validateView.spec.ts
-index 5c194074..5a9298aa 100644
+index 4364c713..581a950d 100644
 --- a/src/olumiView/__tests__/validateView.spec.ts
 +++ b/src/olumiView/__tests__/validateView.spec.ts
-@@ -5,12 +5,15 @@
-  * The walker is held to Ajv (the validator `client.spec.ts` already trusts) in both modes, on every vendored View and on mutants at
-  * every depth: `strict` against core's schema as written, the page's mode against the same schema with its closure lifted.
+@@ -6,12 +6,15 @@
+  * every depth: `strict` against core's schema as written; the page's mode against the same schema with its closure lifted, except
+  * that inside a union of object shapes a key a sibling shape declares stays refused (`propertyNames`, in Ajv's own reading).
   */
 -import { describe, expect, it } from 'vitest'
 +import { afterEach, describe, expect, it } from 'vitest'
@@ -19,10 +19,11 @@ index 5c194074..5a9298aa 100644
  
  const here = (f: string) => new URL(f, import.meta.url)
  const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
-@@ -231,3 +234,44 @@ describe('a core newer than this page (skew) still draws what the page knows', (
+@@ -274,3 +277,45 @@ describe('where a value may take one of several shapes, it cannot pass as one wh
+     expect(refused(checkAgainst({ type: 'object', properties: { a: true } }, { a: 1 }))).toEqual({ ok: false, at: '$.a' })
    })
  })
- 
++
 +/**
 + * The real path: core's answer → `readView` (client.ts) → the View store the canvas draws from. An invalid View is never installed:
 + * a board already drawn stays as it was with the error said; with nothing drawn yet, the page shows the error and no board.
@@ -65,7 +66,7 @@ index 5c194074..5a9298aa 100644
 +  })
 +})
 diff --git a/src/olumiView/client.ts b/src/olumiView/client.ts
-index 285ed1c0..3b994bf6 100644
+index 285ed1c0..32ceb2df 100644
 --- a/src/olumiView/client.ts
 +++ b/src/olumiView/client.ts
 @@ -9,6 +9,7 @@
@@ -82,7 +83,7 @@ index 285ed1c0..3b994bf6 100644
  
 +/** PL-21: a View that fails the check against core's vendored schema (validateView.ts). Said honestly on a first load too, where a
 + *  reload alone would not help (UI session 8 Nov; DL to confirm the words). */
-+export const VIEW_NOT_DRAWABLE = 'Olumi sent this scenario in a shape this page cannot show. Reload the page; if this stays, Olumi needs an update.'
++export const VIEW_NOT_DRAWABLE = 'Olumi sent this scenario in a shape this page cannot show, so it is not drawn. Reload the page; if this message stays, the Olumi team needs to look at it.'
 +
  /** A core that answers a version's read with another version (one older than API v1.10 ignores `at`): said, never drawn as that version. */
  export const VERSION_NOT_SERVED = 'Olumi cannot show a past version on the canvas yet.'
