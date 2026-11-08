@@ -5,7 +5,7 @@
  * core's field goes: a string composed in the UI from names, figures or a copy table cannot match.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -21,6 +21,9 @@ import { Compare } from '../WhatIfCompare'
 import { StrategyOverviewPage } from '../strategy/overview/StrategyOverviewPage'
 import { EvidencePanel } from '../../olumiCore/team/EvidencePanel'
 import { ViewsPanel } from '../../olumiCore/team/ViewsPanel'
+import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
+import { resetWrites } from '../../olumiCore/team/writes'
+import { resetDrafts } from '../../olumiCore/team/drafts'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-chain.view3.json'), 'utf8'))
 const CARD = 'diagnostic_time_to_contract'
@@ -34,6 +37,10 @@ function marked(): View {
   v.evidence_words = { heading: '‹evidence heading›', close: '‹evidence close›', bearsOn: '‹bears on›', steps: { observation: '‹observation›', claim: '‹claim›', inference: '‹inference›', estimate: '‹estimate›' },
     stances: v.evidence_words.stances.map((x) => ({ ...x, text: `‹stance word ${x.id}›` })) }
   v.reveal_words = { revealedTogether: '‹revealed together›', close: '‹reveal close›', bringEvidence: '‹bring evidence›', keepOpen: '‹keep open›' }
+  // Every Team-tab word (N3 `team_words`), each marked by its own path, and what each piece of evidence bears on, by its id.
+  const mark = (o: Record<string, unknown>, at: string): Record<string, unknown> => Object.fromEntries(Object.entries(o).map(([k, x]) => [k, typeof x === 'string' ? `‹tw ${at}${k}›` : mark(x as Record<string, unknown>, `${at}${k}.`)]))
+  v.team_words = mark(v.team_words, '') as View['team_words']
+  v.evidence = v.evidence.map((e) => ({ ...e, bears_on_text: `‹bears on text ${e.id}›` }))
   v.team_presence = { title: `‹team title ${v.you_id}›`, label: `‹team label ${v.you_id}›`, members: v.members.map((m) => ({ id: m.id, text: `‹member ${m.id}›` })) }
   v.lens_words = { ...v.lens_words, bar: '‹lens bar›', explore: '‹explore›', team: '‹team›', rests_on_label: '‹rests on label›', label: { ...v.lens_words.label, full: '‹label full›' } }
   return v
@@ -98,16 +105,45 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect(screen.getByTestId('lens-bar-explore-menu').getAttribute('aria-label')).toBe('‹explore›')
   })
 
-  it('the Team tab: each evidence line, the evidence form\'s labels and stance picker, and each member\'s own line are core\'s', () => {
+  it('the Team tab: each evidence line, the evidence form\'s labels and stance picker, and each member\'s own line are core\'s', async () => {
     const v = marked()
     setView(v)
-    render(<><ViewsPanel sid={v.id} view={v} onWrote={async () => true} /><EvidencePanel sid={v.id} view={v} onWrote={async () => true} /></>)
+    resetWrites(); resetDrafts(); setPagePerson(v.you_id)
+    // A write core answers, then a failure that is not core's refusal (the page's own re-read throws): core's sentence for it is shown.
+    const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200, headers: { 'content-type': 'application/json' } })
+    setTeamFetch(vi.fn(async (url: RequestInfo | URL) => (String(url).endsWith('/api/me') ? json({ me: { id: v.you_id } }) : json({ ok: true }))))
+    const broken = async (): Promise<boolean> => { throw new Error('re-read failed') }
+    render(<><ViewsPanel sid={v.id} view={v} onWrote={broken} /><EvidencePanel sid={v.id} view={v} onWrote={broken} /></>)
+    const ev = screen.getByTestId('team-evidence')
+    expect([ev.getAttribute('aria-label'), ev.querySelector('h3')!.textContent]).toEqual(['‹evidence heading›', '‹evidence heading›'])
+    const withSource = v.evidence.find((e) => e.source !== null)!
+    expect(screen.getByTestId(`team-evidence-about-${withSource.id}`).textContent).toBe(`‹bears on text ${withSource.id}›`)
+    expect(screen.getByTestId(`team-evidence-source-${withSource.id}`).textContent).toBe(`‹tw evidence.sourcePrefix› ${withSource.source}`)
+    expect(screen.getByTestId(`team-evidence-consider-${withSource.id}`).textContent).toBe('‹tw evidence.consider›')
+    const asked = v.evidence.find((e) => e.considered != null)
+    if (asked) expect(screen.getByTestId(`team-evidence-considered-by-${asked.id}`).textContent).toBe(`‹tw evidence.consideredBy› ${asked.considered!.by}`)
+    fireEvent.click(screen.getByTestId(`team-evidence-consider-${withSource.id}`))
+    expect((await screen.findByTestId(`team-evidence-consider-error-${withSource.id}`)).textContent).toBe('‹tw failed›')
+    // The views panel's own words: who is held, the skip, the give.
+    expect(screen.getByTestId('team-view-give').textContent).toBe('‹tw views.give›')
+    expect(screen.getByTestId('team-view-skip').textContent).toBe('‹tw views.skip›')
+    fireEvent.click(screen.getByTestId('team-view-skip'))
+    expect((await screen.findByTestId('team-views-error')).textContent).toBe('‹tw failed›')
+    setTeamFetch(null); setPagePerson(null)
     // Each member's line, by member id.
     for (const m of v.members) expect(screen.getByTestId(`team-member-${m.id}`).textContent).toBe(`‹‹member ${m.id}›`) // its initial, then core's line
     // Each piece of evidence says who holds it and how, in core's line for that piece.
     for (const e of v.evidence) expect(screen.getByTestId(`team-evidence-${e.id}`).querySelector('p')!.textContent).toBe(`‹stance ${e.id}›`)
+    expect(screen.getByTestId('team-evidence-open').textContent).toBe('‹tw evidence.add›')
     fireEvent.click(screen.getByTestId('team-evidence-open'))
+    const form = screen.getByTestId('team-evidence-form')
     expect(document.querySelector('label[for="team-evidence-bears"]')!.textContent).toBe('‹bears on›')
+    expect([document.querySelector('label[for="team-evidence-text"]')!.textContent, document.querySelector('label[for="team-evidence-source"]')!.textContent,
+      screen.getByTestId('team-evidence-source').getAttribute('placeholder')]).toEqual(['‹tw evidence.text›', '‹tw evidence.source›', '‹tw evidence.sourcePlaceholder›'])
+    expect([...screen.getByTestId('team-evidence-bears').querySelectorAll('option')].slice(0, 2).map((o) => o.textContent)).toEqual(['‹tw evidence.choose›', '‹tw evidence.nothingYet›'])
+    expect(form.querySelector('legend')!.textContent).toBe('‹tw evidence.stanceLegend›')
+    expect(form.textContent).toContain('‹tw evidence.sharedNote›')
+    expect([screen.getByTestId('team-evidence-add').textContent, [...form.querySelectorAll('button')].at(-1)!.textContent]).toEqual(['‹tw evidence.add›', '‹tw evidence.cancel›'])
     const picker = screen.getByTestId('team-evidence-stance')
     expect([...picker.querySelectorAll('label')].map((l) => [l.querySelector('input')!.value, l.textContent])).toEqual(v.evidence_words.stances.map((x) => [x.id, `‹stance word ${x.id}›`]))
   })

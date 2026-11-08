@@ -754,6 +754,7 @@ export type View = {
     switch_text: string
     mark_label: string
     mark_title: string
+    bears_on_text: string | null
   }>
   chat: Array<{
     id: number
@@ -1104,5 +1105,32 @@ export type View = {
       id: string
       text: string
     }>
+  }
+  team_words: {
+    failed: string
+    evidence: {
+      add: string
+      text: string
+      source: string
+      sourcePlaceholder: string
+      choose: string
+      nothingYet: string
+      stanceLegend: string
+      sharedNote: string
+      cancel: string
+      consider: string
+      consideredBy: string
+      sourcePrefix: string
+    }
+    views: {
+      held: string
+      theirSkip: string
+      mySkip: string
+      private: string
+      shareTitle: string
+      share: string
+      give: string
+      skip: string
+    }
   }
 }

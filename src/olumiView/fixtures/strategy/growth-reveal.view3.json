@@ -1345,7 +1345,8 @@
    "stance_text": "Maya: Supports it",
    "switch_text": "Maya’s evidence",
    "mark_label": "Maya · Pilot team B adopted in six weeks once a lead owned the rollout.",
-   "mark_title": "Maya · Pilot team B adopted in six weeks once a lead owned the rollout. · rollout notes, Q3"
+   "mark_title": "Maya · Pilot team B adopted in six weeks once a lead owned the rollout. · rollout notes, Q3",
+   "bears_on_text": "Bears on: Cross-team adoption"
   }
  ],
  "chat": [
@@ -2126,5 +2127,32 @@
     "text": "Priya"
    }
   ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
  }
 }

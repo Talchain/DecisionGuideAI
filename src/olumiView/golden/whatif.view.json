@@ -587,7 +587,8 @@
    "stance_text": "Bea: Challenges it",
    "switch_text": "Bea’s evidence",
    "mark_label": "Bea · Last year two hires took six weeks to reach full speed.",
-   "mark_title": "Bea · Last year two hires took six weeks to reach full speed. · https://example.org/onboarding-review"
+   "mark_title": "Bea · Last year two hires took six weeks to reach full speed. · https://example.org/onboarding-review",
+   "bears_on_text": "Bears on: existing capacity"
   }
  ],
  "chat": [
@@ -816,5 +817,32 @@
     "text": "Cy (you)"
    }
   ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
  }
 }

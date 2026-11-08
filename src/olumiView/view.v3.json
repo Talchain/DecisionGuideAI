@@ -4096,6 +4096,12 @@
      },
      "mark_title": {
       "type": "string"
+     },
+     "bears_on_text": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     },
     "required": [
@@ -4113,7 +4119,8 @@
      "stance_text",
      "switch_text",
      "mark_label",
-     "mark_title"
+     "mark_title",
+     "bears_on_text"
     ],
     "additionalProperties": false
    }
@@ -5886,6 +5893,116 @@
     "members"
    ],
    "additionalProperties": false
+  },
+  "team_words": {
+   "type": "object",
+   "properties": {
+    "failed": {
+     "type": "string"
+    },
+    "evidence": {
+     "type": "object",
+     "properties": {
+      "add": {
+       "type": "string"
+      },
+      "text": {
+       "type": "string"
+      },
+      "source": {
+       "type": "string"
+      },
+      "sourcePlaceholder": {
+       "type": "string"
+      },
+      "choose": {
+       "type": "string"
+      },
+      "nothingYet": {
+       "type": "string"
+      },
+      "stanceLegend": {
+       "type": "string"
+      },
+      "sharedNote": {
+       "type": "string"
+      },
+      "cancel": {
+       "type": "string"
+      },
+      "consider": {
+       "type": "string"
+      },
+      "consideredBy": {
+       "type": "string"
+      },
+      "sourcePrefix": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "add",
+      "text",
+      "source",
+      "sourcePlaceholder",
+      "choose",
+      "nothingYet",
+      "stanceLegend",
+      "sharedNote",
+      "cancel",
+      "consider",
+      "consideredBy",
+      "sourcePrefix"
+     ],
+     "additionalProperties": false
+    },
+    "views": {
+     "type": "object",
+     "properties": {
+      "held": {
+       "type": "string"
+      },
+      "theirSkip": {
+       "type": "string"
+      },
+      "mySkip": {
+       "type": "string"
+      },
+      "private": {
+       "type": "string"
+      },
+      "shareTitle": {
+       "type": "string"
+      },
+      "share": {
+       "type": "string"
+      },
+      "give": {
+       "type": "string"
+      },
+      "skip": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "held",
+      "theirSkip",
+      "mySkip",
+      "private",
+      "shareTitle",
+      "share",
+      "give",
+      "skip"
+     ],
+     "additionalProperties": false
+    }
+   },
+   "required": [
+    "failed",
+    "evidence",
+    "views"
+   ],
+   "additionalProperties": false
   }
  },
  "required": [
@@ -5910,7 +6027,8 @@
   "evidence_words",
   "reveal_words",
   "lens_words",
-  "team_presence"
+  "team_presence",
+  "team_words"
  ],
  "additionalProperties": false
 }

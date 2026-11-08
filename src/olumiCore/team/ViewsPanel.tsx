@@ -127,7 +127,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const run = async (key: string, write: (op: string | null) => Promise<unknown>, after?: () => void, request?: unknown) => {
     setBusy(true); setError(null)
     try { await runWrite(key, { op: request !== undefined }, request ?? null, write); after?.(); await onWrote() } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+      setError(e instanceof TeamApiError ? e.message : view.team_words.failed)
     } finally { setBusy(false) }
   }
 
@@ -148,7 +148,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           drawn until they have, so none can anchor them (DL R2, cut check a). Core's rule; nothing worked out here. From R3 core withholds
           the shared views itself (`shared` is empty for a gated viewer, core 550ad5f), so the line is drawn on `gated` alone (DL ruling a),
           in words true whether or not anyone has shared yet (the DL's final text, 4 Nov). */}
-      {view.gated && <p className={META} data-testid="team-revealed-held">Give or skip your own view first: the others’ views show here once you have.</p>}
+      {view.gated && <p className={META} data-testid="team-revealed-held">{view.team_words.views.held}</p>}
       {!view.gated && c.shared.length > 0 && (
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-revealed">
           {c.shared.map((v) => (
@@ -156,7 +156,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               <p className={`${BODY} text-text-header`}>{v.by}{stanceOf(v) !== null && (
                 <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
               )}</p>
-              {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              {v.skip ? <p className={META}>{view.team_words.views.theirSkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               {itemLines(v)}
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
               <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
@@ -182,17 +182,17 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-mine">
           {c.mine.map((v) => (
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
-              <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
-              {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />{view.team_words.views.private}</p>
+              {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               {itemLines(v)}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
                 <div>
                   <Button size="sm" variant="secondary" data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
-                    title="Shows this view to the team now, before the others are revealed. Olumi does not read it until then."
+                    title={view.team_words.views.shareTitle}
                     onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
-                    <span className="inline-flex items-center gap-1.5"><Share2 aria-hidden="true" className="h-3.5 w-3.5" />Share with the team now</span>
+                    <span className="inline-flex items-center gap-1.5"><Share2 aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}</span>
                   </Button>
                 </div>
               )}
@@ -229,12 +229,12 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} />
         {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || (items[0]?.stance ?? null)); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || (items[0]?.stance ?? null)); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
             onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
-          >I would rather not answer this</button>
+          >{view.team_words.views.skip}</button>
         </div>
         {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
       </div>
