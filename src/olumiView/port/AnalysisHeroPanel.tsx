@@ -80,6 +80,8 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   // Core's lenses are about one aim, the one its lens titles and most likely line name (`run.most_likely.aim_id`): the strip and the
   // outcome lens apply to that aim's group only; every other group stays on the chance. No such aim drawn here, no strip (checker, 7 Nov).
   const lensAim = lensAimOf(run)
+  // The aim core's lead speaks of (its most-likely line's aim): the lead names it, so its group does not say it again.
+  const leadNamesIt = (aimId: string | null) => run.lead != null && lensAim !== null && aimId === lensAim
   const scoped = lenses.length > 0 && lensAim !== null && groups.some((g) => g.aimId === lensAim)
   const lens: HeroLensId = !scoped ? 'goal' : picked !== null && lenses.some((l) => l.id === picked) ? picked : lenses[0]!.id
   const allWait = run.all_withheld && run.waits_on !== null
@@ -106,8 +108,11 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
             const withTabs = scoped && g.aimId === lensAim && lenses.length > 1
             const gLens: HeroLensId = scoped && g.aimId === lensAim ? lens : 'goal'
             return (
-              <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''} data-lens={gLens}>
-                {g.aim === null ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
+              <div key={g.aimId ?? ''} className="space-y-0.5" data-testid="port-aim-group" data-aim={g.aimId ?? ''} data-lens={gLens}
+                aria-label={g.aim !== null && leadNamesIt(g.aimId) ? g.aim.text : undefined}>
+                {/* The aim core's lead already names is said once, there (craft pass, 8 Nov: the grade found it said twice); its group keeps
+                    the aim as its accessible name. Any other aim keeps its heading. */}
+                {g.aim === null || leadNamesIt(g.aimId) ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
                 {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
                 {/* SC-02 (core run.shared_rests): what every option's chance for this aim rests on, when it is one line for all of them, said once
                     here; core takes it off each row. */}

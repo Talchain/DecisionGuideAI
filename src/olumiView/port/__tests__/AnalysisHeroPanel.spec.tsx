@@ -60,6 +60,21 @@ describe('each aim\'s rows under that aim\'s own words', () => {
     }
   })
 
+  it('craft pass (8 Nov): the aim core\'s lead names is said once, in the lead; its group keeps it as its accessible name', () => {
+    // bakery golden (core a414fc39): the lead names 'Sell at least 360 loaves a week', the most-likely line's aim.
+    const v = viewOf('golden/bakery'), aimId = (v.model!.run!.most_likely as { aim_id?: string }).aim_id!
+    const c = draw(v)
+    const g = c.querySelector<HTMLElement>(`[data-testid="port-aim-group"][data-aim="${aimId}"]`)!
+    const aimWords = (optionCards(v.model!).flatMap((x) => x.rows).find((r) => r.aim_id === aimId)! as { aim: string }).aim
+    expect(v.model!.run!.lead).toContain(aimWords)
+    expect(g.querySelector('[data-testid="port-aim-heading"]')).toBeNull()
+    expect(g.getAttribute('aria-label')).toBe(aimWords)
+    // Contrast: a View whose most-likely line names no aim (real bakery-r5, an older core) keeps the heading.
+    cleanup()
+    expect((bakery.model!.run!.most_likely as { aim_id?: string }).aim_id ?? null).toBeNull()
+    expect(draw(bakery).querySelectorAll('[data-testid="port-aim-heading"]').length).toBeGreaterThan(0)
+  })
+
   it('never re-ranked: reversing core\'s card order reverses the drawn order (identity, not the chance)', () => {
     const v = structuredClone(bakery), m = v.model!
     const ids = optionCards(m).map((x) => x.id)
