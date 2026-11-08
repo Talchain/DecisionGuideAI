@@ -29,9 +29,8 @@ import { ToastProvider } from '../canvas/ToastContext'
 import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
-import { viewportCentredInFreePane } from '../canvas/utils/fitIntoFreePane'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
-import { boardKeyOf, readableFirstViewport } from './camera'
+import { boardKeyOf, readableFirstViewport, wholeAtTopViewport } from './camera'
 import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
@@ -61,7 +60,7 @@ const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, 
 
 /**
  * The one camera rule for a board, in the free canvas (left of the dock, under the top bar): the board's width, top-aligned, when it
- * fits whole only below a readable zoom; else the whole board, centred, never past 1.
+ * fits whole only below a readable zoom; else the whole board, top-aligned and centred across, never past 1 (J1 step 2).
  */
 function frameFor(nodes: readonly Node[], pane: { width: number; height: number }): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
@@ -69,8 +68,10 @@ function frameFor(nodes: readonly Node[], pane: { width: number; height: number 
   // The top of the causal graph, which the camera centres on when the board is too large to read whole: the question and the options.
   const model = useViewStore.getState().view?.model
   const head = model ? measuredOf(nodes, headOf(model)) : []
-  return readableFirstViewport(bounds, pane, paddingToInsets(padding), head.length > 0 ? getNodesBounds(head as Node[]) : bounds)
-    ?? viewportCentredInFreePane({ bounds, pane, padding, minZoom: MIN_ZOOM, maxZoom: 1 })
+  const insets = paddingToInsets(padding)
+  // Too large to read whole: its top at the readable floor. Else whole, its top under the free canvas's top (J1 step 2, camera.ts).
+  return readableFirstViewport(bounds, pane, insets, head.length > 0 ? getNodesBounds(head as Node[]) : bounds)
+    ?? wholeAtTopViewport(bounds, pane, insets, 1)
 }
 
 /**

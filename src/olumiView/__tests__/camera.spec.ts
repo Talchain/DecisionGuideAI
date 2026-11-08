@@ -111,3 +111,23 @@ describe('readable first, whole when it fits (DL 4 Nov: whole at 0.272 unreadabl
     expect(readableFirstViewport(rect(small), pane, insets)).toBeNull()
   })
 })
+
+describe('J1 step 2: a board that fits whole is framed from the top of the free canvas, beside the dock', async () => {
+  const { wholeAtTopViewport } = await import('../camera')
+  // 1232 x 704 with the dock from x 885 and the top bar to y 52 (computeFitPadding: left 45, top 68, right 363, bottom 26).
+  const pane = { width: 1232, height: 704 }, insets = { top: 68, right: 363, bottom: 26, left: 45 }
+  const bookshop = { x: 0, y: 0, width: 820, height: 330 } // the bookshop board at Version 1 (three columns)
+  it('its top sits under the free canvas’s top at zoom 1, centred across the space left of the dock', () => {
+    const v = wholeAtTopViewport(bookshop, pane, insets)
+    expect(v.zoom).toBe(1)
+    expect(v.y).toBe(68)
+    expect(v.x + (bookshop.width / 2) * v.zoom).toBeCloseTo(45 + (1232 - 45 - 363) / 2)
+  })
+  it('CONTRAST: a board taller than the free canvas is drawn smaller to fit whole, still from the top; never past 1', () => {
+    const tall = { ...bookshop, height: 800 }
+    const v = wholeAtTopViewport(tall, pane, insets)
+    expect(v.zoom).toBeCloseTo((704 - 68 - 26) / 800)
+    expect(v.y).toBe(68)
+    expect(wholeAtTopViewport({ ...bookshop, width: 100, height: 100 }, pane, insets).zoom).toBe(1)
+  })
+})

@@ -42,6 +42,18 @@ export function readableFirstViewport(bounds: Rect, pane: { width: number; heigh
 }
 
 /**
+ * J1 step 2 (DL 8 Nov, Codex's order: "framing at 1232 that keeps the question, the selected card and the aim readable beside the dock"):
+ * a board that fits whole at the readable floor is drawn whole at the largest zoom that fits, never past 1, with its top under the free
+ * canvas's top (the question first, where the prototype puts it, never floated to the middle with room above it) and centred across the
+ * free canvas left of the dock. The canvas's own controls hang at the bottom left, so a board read from the top keeps clear of them.
+ */
+export function wholeAtTopViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, maxZoom = 1): { x: number; y: number; zoom: number } {
+  const freeW = Math.max(1, pane.width - insets.left - insets.right), freeH = Math.max(1, pane.height - insets.top - insets.bottom)
+  const zoom = Math.min(maxZoom, freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height))
+  return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
+}
+
+/**
  * The board the camera frames: each version of core's model, and before any version the first model, which core shows as a pending
  * proposal (R5 look defect 4: framed only per version, that board was never framed and its question sat under the top and lens bars).
  * A proposal held on a version keeps the version's key, so it does not move the camera. Empty when nothing is shown.
