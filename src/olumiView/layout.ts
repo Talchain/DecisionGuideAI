@@ -186,7 +186,15 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
   const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
   const aimSizes = new Map([...aims].map((id) => [id, at(id, W, model.cards.find((c) => c.id === id)!.h)] as const))
-  return flankHead(wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true), [...aims], new Map([...sized, ...aimSizes]))
+  const wrapped = wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true)
+  // SC-01 (option C): a row wider than WRAP_PER_ROW wraps into lines and moves, so a short row below it is placed under what it hangs from
+  // again, at the wrapped places (on the 16-card growth board the risk row stayed under the unwrapped row, past the board's right edge).
+  // The question, the options and every wrapped row keep their places.
+  const width = new Map<number, number>()
+  for (const b of under) width.set(b.y, (width.get(b.y) ?? 0) + 1)
+  const kept = new Set([QUESTION, ...options, ...under.filter((b) => (width.get(b.y) ?? 0) > WRAP_PER_ROW).map((b) => b.id)])
+  const again = orderUnderParents([...wrapped].map(([id, p]) => ({ id, ...p, ...sized.get(id)! })), edges.map((e) => [e.source, e.target] as const), kept)
+  return flankHead(new Map(again.map((b) => [b.id, { x: b.x, y: b.y }])), [...aims], new Map([...sized, ...aimSizes]))
 }
 
 /**
