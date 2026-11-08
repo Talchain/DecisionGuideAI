@@ -40,12 +40,15 @@ export function useStrategyVocabulary(sid: string): Vocabulary | null {
 export type StrategyPick = { about: string; stance: string; source: string }
 export const NO_PICK: StrategyPick = { about: '', stance: '', source: '' }
 
-/** The view's one item, or none: only when the person chose a card. The item's words are the view's own (core keeps them on the view). */
+/** The view's one item, or none: only when the person chose a card AND a stance (core takes an item only with one). No stance is ever
+ *  chosen for them: the item's stance is the one they picked, and its words are the view's own (core keeps them on the view). */
 export function itemsOf(pick: StrategyPick, vocab: Vocabulary | null, text: string): { about: string; stance: string; text: string; source: string | null }[] {
-  if (vocab === null || pick.about === '') return []
-  const stance = pick.stance || vocab.stances[0]!.id
-  return [{ about: pick.about, stance, text: text.trim(), source: pick.source.trim() === '' ? null : pick.source.trim() }]
+  if (vocab === null || pick.about === '' || pick.stance === '') return []
+  return [{ about: pick.about, stance: pick.stance, text: text.trim(), source: pick.source.trim() === '' ? null : pick.source.trim() }]
 }
+
+/** A view on a card waits for the person's stance: core takes the card's item only with one, and none is chosen for them. */
+export const needsStance = (pick: StrategyPick, vocab: Vocabulary | null): boolean => vocab !== null && pick.about !== '' && pick.stance === ''
 
 /** The cards a view can speak to, in the model's order. */
 export const strategyCards = (view: View) => (view.model?.cards ?? []).filter((c) => FAMILIES.has(c.family))
@@ -63,7 +66,7 @@ export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab:
         </select>
       </label>
       <label className={LABEL}>{vocab.form.stance}
-        <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || (pick.about === '' ? '' : vocab.stances[0]!.id)} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
+        <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
           <option value="" />
           {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
         </select>

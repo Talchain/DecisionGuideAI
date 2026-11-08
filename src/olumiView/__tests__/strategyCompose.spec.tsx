@@ -218,12 +218,29 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect([sent, typeof op]).toEqual([{ text: 'Wait a quarter.' }, 'string'])
   })
 
+  it('no stance is chosen for the person: a view on a card shows no stance until they pick one, and is not sent until they do', async () => {
+    render(<TeamTab />)
+    fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
+    expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
+    type('team-view-text', 'Teams adopt once an owner is named.')
+    expect(screen.getByTestId('team-view-give')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(posts).toEqual([])
+    type('team-view-stance', 'unsure')
+    expect(screen.getByTestId('team-view-give')).not.toBeDisabled()
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts.length).toBeGreaterThan(0))
+    expect((posts[0]!.body['items'] as { stance: string }[]).map((i) => i.stance)).toEqual(['unsure'])
+  })
+
   it('a lost answer: the same request is sent again with the SAME op, never a second view under a new one', async () => {
     let n = 0
     answer = () => { n++; if (n === 1) throw new TypeError('network'); return json({ contribution: 99 }, 201) }
     render(<TeamTab />)
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     type('team-view-text', 'Teams adopt once an owner is named.')
+    type('team-view-stance', 'know')
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts).toHaveLength(2))
     expect(posts[1]!.body).toEqual(posts[0]!.body)
@@ -247,6 +264,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     render(<TeamTab />)
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     type('team-view-text', 'x')
+    type('team-view-stance', 'know')
     fireEvent.click(screen.getByTestId('team-view-give'))
     expect(await screen.findByTestId('team-views-error')).toHaveTextContent('stance must be one of: know, suspect, unsure, would_try, others_may_miss')
   })
