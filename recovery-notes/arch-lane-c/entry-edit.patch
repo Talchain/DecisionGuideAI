@@ -1,0 +1,87 @@
+diff --git a/src/olumiView/__tests__/validateView.spec.ts b/src/olumiView/__tests__/validateView.spec.ts
+index a8248bb8..21bab03c 100644
+--- a/src/olumiView/__tests__/validateView.spec.ts
++++ b/src/olumiView/__tests__/validateView.spec.ts
+@@ -4,12 +4,15 @@
+  * held to Ajv's verdict (the validator `client.spec.ts` already trusts for the goldens) on every vendored View and on mutants at every
+  * depth, so it reads core's schema exactly as Ajv does, without Ajv's `new Function` or its 712 KB in the page.
+  */
+-import { describe, expect, it } from 'vitest'
++import { afterEach, describe, expect, it } from 'vitest'
+ import { readFileSync, readdirSync, statSync } from 'node:fs'
+ import { join } from 'node:path'
+ import { fileURLToPath } from 'node:url'
+ import Ajv2020 from 'ajv/dist/2020'
+ import { checkAgainst, SUPPORTED_KEYWORDS, validateView, type Checked, type SchemaNode } from '../validateView'
++import { setTeamFetch, TeamApiError } from '../../olumiCore/team/api'
++import { readView, VIEW_SHAPE_CHANGED, VERSION_NOT_SERVED } from '../client'
++import { useViewStore } from '../store'
+ 
+ const here = (f: string) => new URL(f, import.meta.url)
+ const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
+@@ -204,3 +207,44 @@ describe('a link is checked by the schema core vendored, field by field', () =>
+     expect(validateView(golden('pricing')).ok).toBe(true)
+   })
+ })
++
++/**
++ * The real path: core's answer → `readView` (client.ts) → the View store the canvas draws from. An invalid View is never installed:
++ * a board already drawn stays as it was with the error said; with nothing drawn yet, the page shows the error and no board.
++ */
++describe('on the real path, an invalid View is never installed', () => {
++  const SID = 's_0123456789ab', UUID = '00000000-0000-4000-8000-0123456789ab'
++  const serve = (body: unknown) => setTeamFetch((async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch)
++  const broken = () => { const x = golden('pricing'); x.model.cards[1].label = 42; return x }
++  afterEach(() => { setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false, at: null }) })
++
++  it('readView refuses a View with a nested fault in plain words, and returns a valid one untouched', async () => {
++    serve(broken())
++    await expect(readView(SID)).rejects.toEqual(new TeamApiError(0, VIEW_SHAPE_CHANGED))
++    serve(golden('pricing'))
++    expect(await readView(SID)).toEqual(golden('pricing'))
++  })
++
++  it('a past version is read as that version; a core answering another version is still said, never drawn', async () => {
++    serve(golden('s_ce285b3617bb'))
++    expect((await readView(SID, undefined, 2)).version?.n).toBe(2)
++    await expect(readView(SID, undefined, 1)).rejects.toEqual(new TeamApiError(0, VERSION_NOT_SERVED))
++  })
++
++  it('nothing drawn yet: an invalid View leaves no board and says why', async () => {
++    serve(broken())
++    await useViewStore.getState().use(UUID)
++    expect(useViewStore.getState()).toMatchObject({ view: null, status: 'error', error: VIEW_SHAPE_CHANGED })
++  })
++
++  it('a board already drawn: an invalid re-read keeps that board exactly, and says why', async () => {
++    serve(golden('pricing'))
++    await useViewStore.getState().use(UUID)
++    const drawn = useViewStore.getState().view
++    expect(drawn?.title).toBe(golden('pricing').title)
++    serve(broken())
++    expect(await useViewStore.getState().refresh()).toBe(false)
++    expect(useViewStore.getState()).toMatchObject({ status: 'ready', error: VIEW_SHAPE_CHANGED })
++    expect(useViewStore.getState().view).toBe(drawn)
++  })
++})
+diff --git a/src/olumiView/client.ts b/src/olumiView/client.ts
+index 285ed1c0..5a51c9d9 100644
+--- a/src/olumiView/client.ts
++++ b/src/olumiView/client.ts
+@@ -9,6 +9,7 @@
+  */
+ import { call, TeamApiError } from '../olumiCore/team/api'
+ import type { View } from './types'
++import { validateView } from './validateView'
+ 
+ export type { View }
+ export type ViewModel = NonNullable<View['model']>
+@@ -46,6 +47,8 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED, at:
+   const v = await call<{ schema?: unknown; version?: { n?: unknown } | null }>('GET', viewPath(sid, opened, at))
+   if (v === null || typeof v !== 'object' || v.schema !== VIEW_SCHEMA) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+   if (at !== null && v.version?.n !== at) throw new TeamApiError(0, VERSION_NOT_SERVED)
++  // PL-21: every nested field checked against core's vendored schema before the View is installed (validateView.ts).
++  if (!validateView(v).ok) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
+   return v as View
+ }
+ 
