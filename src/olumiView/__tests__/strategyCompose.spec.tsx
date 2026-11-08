@@ -44,16 +44,33 @@ afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setS
 const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } })
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
-  it('a View without core\'s strategy key (core n2) asks core nothing for the vocabulary and draws no strategy fields', async () => {
-    const plain = { ...real } as Record<string, unknown>; delete plain.strategy
-    useViewStore.setState({ view: plain as unknown as View } as never)
-    const asked: string[] = []
-    setTeamFetch(vi.fn(async (url: RequestInfo | URL) => { asked.push(String(url)); return String(url) === '/api/me' ? json({ me: { id: real.you_id, name: real.you } }) : json(plain) }) as unknown as typeof fetch)
+  it('B: fresh scenario s_98e93f5d2389 fetches vocabulary and saves its first item on cross_team_adoption', async () => {
+    const fresh = { ...real, strategy: null, collab: { ...real.collab, shared: [], mine: [] } } as View
+    useViewStore.setState({ view: fresh })
+    const reads: string[] = []
+    setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (init?.method === 'POST') {
+        posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') })
+        return json({ contribution: 99 }, 201)
+      }
+      reads.push(u)
+      if (u === `/api/scenarios/${real.id}/strategy/vocabulary`) return json(VOCAB)
+      if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+      return json(fresh)
+    }) as typeof fetch)
     render(<TeamTab />)
-    await screen.findByTestId('team-view-give')
-    await new Promise((r) => setTimeout(r, 20))
-    expect(asked.filter((u) => u.endsWith('/strategy/vocabulary'))).toEqual([])
-    expect(screen.queryByTestId('team-view-strategy')).toBeNull()
+    const about = await screen.findByTestId('team-view-about')
+    expect(reads.filter((u) => u === `/api/scenarios/${real.id}/strategy/vocabulary`)).toEqual(['/api/scenarios/s_98e93f5d2389/strategy/vocabulary'])
+    expect(about.querySelector('option[value="cross_team_adoption"]')!.textContent).toBe('Cross-team adoption')
+    type('team-view-about', 'cross_team_adoption')
+    type('team-view-stance', 'suspect')
+    type('team-view-source', 'two pilots')
+    type('team-view-text', 'Teams adopt once an owner is named.')
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: '/api/scenarios/s_98e93f5d2389/views', as: real.you_id,
+      body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', source: 'two pilots', text: 'Teams adopt once an owner is named.' }], op: expect.any(String) } })
   })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
     render(<TeamTab />)
