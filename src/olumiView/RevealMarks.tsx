@@ -15,6 +15,7 @@ import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } fr
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
 import { DifferChip, useLinkDiffers } from '../olumiCore/team/CardDiffers'
+import { cardLinkMarksOf, LinkMarkCardChip } from './LinkMarkChip'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
@@ -121,7 +122,9 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   const open = useReveal((s) => s)
   const openChip = openChipOf(revealOf(view), open)
   // The doubted links sit here unless the strategy chip is this card's only rail (then they sit in that one): never a second rail.
-  const differs = useLinkDiffers(card), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
+  // Core's link marks fold the served doubt chip (TM-04): a link core marks is drawn once, by its mark, never again as a difference here.
+  const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record)), offLine = cardLinkMarksOf(view, card)
+  const differs = useLinkDiffers(card).filter((d) => !marked.has(d.record)), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
   const rail = (children: JSX.Element[]) => (
     // Centred under the card, side by side in ONE row inside the gap to the next row (a second row would sit on the cards below). The
     // first (the difference that matters most) keeps all its words; a later one is drawn compact, its people and its kind's mark, with its
@@ -129,7 +132,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
     // Above the card's own controls that hang below it (Olumi's corner, shown while selected or hovered); only the chips take the pointer.
     <div className="nodrag pointer-events-none relative z-20 mt-1 flex flex-row flex-nowrap items-start justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
-  if (cardChips.length > 0 || (hostsDiffers && differs.length > 0)) {
+  if (cardChips.length > 0 || offLine.length > 0 || (hostsDiffers && differs.length > 0)) {
     return rail([...cardChips.map((chip, i) => {
       // No ring of its own when open: the card's ring is the one selection ring (approved v2.1); the open chip is raised.
       const on = openChip?.key === chip.key
@@ -145,7 +148,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>
       )
-    }), ...(hostsDiffers ? differs.map((d, i) => <DifferChip key={d.record} d={d} card={card} first={cardChips.length === 0 && i === 0} />) : [])])
+    }), ...offLine.map((m) => <LinkMarkCardChip key={`${m.link.record}|${m.link.part ?? ''}`} mark={m} />), ...(hostsDiffers ? differs.map((d, i) => <DifferChip key={d.record} d={d} card={card} first={cardChips.length === 0 && i === 0} />) : [])])
   }
   return null
 }

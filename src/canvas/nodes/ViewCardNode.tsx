@@ -248,6 +248,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // (J1 gate: the board whole at 1232 at full size); on any other card it leads the marks band.
   // Design owner, 8 Nov (strategy canvas audit): at rest only Olumi's cards say who they are from ("Olumi’s estimate"); a person's card
   // keeps its author for hover, focus and the opened card (the board is the team's own unless marked otherwise).
+  const faceTitle = card.face?.title ?? null, faceLine = card.face?.line ?? null
   const provenanceAtRest = inferred || selected
   const provenance = author === null ? null : (
     <span className={`${typography.viewPanelMeta} ${provenanceAtRest ? 'inline-block' : 'hidden group-hover:inline-block group-focus-within:inline-block'} max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id} data-provenance-at-rest={provenanceAtRest || undefined}
@@ -287,7 +288,12 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         {/* J1 gate (the prototype's card): the card's kind as its shape, inline before its heading. */}
         <span className="mr-1.5 inline-flex align-[-2px] leading-none" aria-hidden="true" data-card-shape={id}><NodeShapeIndicator nodeKind={kind} size={14} /></span>
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
-        <span className={`${typography.viewTitle} font-medium text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+        {/* FL1 (core `face`): the face's title, said once (their words, Olumi's, or the card's own name); `heading` stays the whole label,
+            read by a screen reader where the title is shorter. A core before `face` draws the heading as before. */}
+        {faceTitle === null || faceTitle.text === card.heading
+          ? <span className={`${typography.viewTitle} font-medium text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+          : <><span className={`${typography.viewTitle} font-medium text-text-header`} title={card.detail === '' ? card.heading : `${card.heading} · ${card.detail}`} data-face-words={faceTitle.words} data-view={`${id}.face.title.text`}>{faceTitle.text}</span>
+            <span className="sr-only" data-view={`${id}.heading`}>{card.heading}</span></>}
         {card.olumi === null ? null : author !== null ? <span className="sr-only"><Mark at={`${id}.olumi`} mark={card.olumi} /></span> : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
         {card.change === null ? null : <>{' '}<Mark at={`${id}.change`} mark={card.change} /></>}
         <Slot name={VIEW_CARD_SLOTS.titleMark} className="ml-1 empty:hidden" />
@@ -295,6 +301,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
+      {faceLine === null ? null : (
+        // FL1: the face's one short line under the title, core's words whole (never clamped), as the prototype's card sentence.
+        <p className={`${typography.viewLabel} text-text-body`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
+      )}
       {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
       {card.bound === null ? null : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the

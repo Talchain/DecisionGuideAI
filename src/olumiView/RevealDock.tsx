@@ -64,11 +64,11 @@ function Figures({ v }: { v: Shared }): JSX.Element | null {
 }
 
 /** Olumi's one line at the dock's foot, with Olumi's mark (the only blue). */
-function Next({ view }: { view: View }): JSX.Element | null {
-  // Core's one question for the round; null when core says nothing qualifies. Only a core that does not send the field falls back to core's
-  // most-likely line.
+function Next({ view, chip }: { view: View; chip: CardChip | null }): JSX.Element | null {
+  // The open chip's own closing question (core `marks[].question`) first; else core's one question for the round, null when core says
+  // nothing qualifies. Only a core that sends neither field falls back to core's most-likely line.
   const next = nextOf(view)
-  const text = next === undefined ? view.model?.run?.most_likely?.text ?? null : next?.text ?? null
+  const text = chip?.question ?? (next === undefined ? view.model?.run?.most_likely?.text ?? null : next?.text ?? null)
   if (text === null || text === '') return null
   return (
     <p className={`${BODY} flex items-start gap-2`} data-testid="reveal-dock-next">
@@ -194,7 +194,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
           down over the dock body's own padding, so nothing scrolls past beneath it. */}
       <div className="sticky -bottom-3 mt-auto bg-panel pb-3 pt-2">
         <div className="grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
-          <Next view={view} />
+          <Next view={view} chip={chip} />
           <div className="flex flex-wrap items-center gap-3">
             <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
             <button type="button" data-testid="reveal-dock-keep-open" onClick={close}

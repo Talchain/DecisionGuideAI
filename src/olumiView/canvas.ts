@@ -7,7 +7,7 @@
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
-import type { ViewModel } from './client'
+import type { View, ViewModel } from './client'
 import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, routeTree, drawnModelOf, firstLookOpen, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
@@ -68,7 +68,10 @@ const roomOf = (): { h: number; w: number } => {
   return { h: Math.max(0, Math.floor((r?.height ?? window.innerHeight) - Math.max(inset.top, column + 8) - inset.bottom)), w: Math.max(0, Math.floor((r?.width ?? window.innerWidth) - inset.left - inset.right)) }
 }
 /** The cards that carry a chip rail below them (the team's revealed marks): the layout leaves them room. */
-const railedCards = (): ReadonlySet<string> => new Set(revealOf(useViewStore.getState().view)?.cardChips.keys() ?? [])
+// A card carries a chip rail under it for core's marks on it, and for a link mark core keeps off its line on it (LinkMarkChip).
+export const railedOf = (view: View | null): ReadonlySet<string> =>
+  new Set([...(revealOf(view)?.cardChips.keys() ?? []), ...(view?.collab.link_marks ?? []).flatMap((m) => (!m.line && m.card !== null ? [m.card] : []))])
+const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().view)
 
 /** DGAI's causal places for the model, at the cards' drawn heights (else core's), worked out once per model and set of heights. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {

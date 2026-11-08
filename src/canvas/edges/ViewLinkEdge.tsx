@@ -17,6 +17,7 @@ import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
+import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
@@ -101,6 +102,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
+  const markCards = useMemo(() => (words && !hidden ? [...cards, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : cards), [words, hidden, cards, x, y, size])
   if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
@@ -127,6 +129,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
           </div>
         </EdgeLabelRenderer>
       )}
+      {/* A revealed stance on this line (core `link_marks`), off every card and off this line's own words. */}
+      <LinkMarkChip i={i} link={link} path={path} cards={markCards} midX={midX} midY={midY} />
       {/* R25 slice 2b: where core names the one record (and part) this line stands for (`remove`), the selected or focused link offers to
           take it off, in the label layer above the cards, at its own clear point (`ctlAt`), with a leader to the link when it sits off it. */}
       {offering && ctlAt?.leaderTo ? (

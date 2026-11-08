@@ -84,6 +84,8 @@ export interface CardChip {
   readonly people: readonly { readonly id: number; readonly by: string }[]
   /** Core's `marks[].reading` (f3aedd9a; disagreement marks only): Olumi's reading for this card and its correctable note. */
   readonly reading: { readonly text: string; readonly note: string } | null
+  /** Core's one closing question for this chip (`marks[].question`, olumi-core PR #22); null from a core that sends none. */
+  readonly question: string | null
   /** Core's `marks[].options` (f3aedd9a; disagreement marks only): each option card's words while this mark is open. */
   readonly options: readonly { readonly option: string; readonly text: string }[]
   /** Core's hover for the mark (its words, then each person's figure or each piece of evidence, a line each) and its accessible name (N3). */
@@ -179,7 +181,7 @@ function readReveal(view: View): Reveal | null {
     if (people.length === 0) continue
     const key = `${cm.card}:${cm.kind}`
     if ((cardChips.get(card) ?? []).some((c) => c.key === key)) continue
-    const chip: CardChip = { key, card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading ?? null, options: cm.options ?? [], title: cm.title, label: cm.label }
+    const chip: CardChip = { key, card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading ?? null, question: cm.question ?? null, options: cm.options ?? [], title: cm.title, label: cm.label }
     cardChips.set(card, [...(cardChips.get(card) ?? []), chip])
   }
   // A view is drawn as a chip on a card when core's mark there gathers it; otherwise it is initials in the card.

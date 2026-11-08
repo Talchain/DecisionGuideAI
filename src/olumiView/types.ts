@@ -73,6 +73,11 @@ export type View = {
         glyph: string
         text: string
         title: string
+        id: string | null
+        olumi: {
+          glyph: string
+          title: string
+        } | null
       }>
       rows: Array<{
         kind: "chance"
@@ -165,6 +170,7 @@ export type View = {
         words: string
         icon: string
       } | null
+      unused?: string | null
       values: Array<{
         option: string
         text: string
@@ -182,6 +188,17 @@ export type View = {
         id: string
         whose: "theirs" | "olumi" | "mixed"
       }>
+      face: {
+        title: {
+          text: string
+          whole: boolean
+          words: "theirs" | "olumi" | "name"
+        } | null
+        line: {
+          text: string
+          words: "theirs" | "olumi"
+        } | null
+      }
       author?: {
         by: "person" | "brief" | "olumi" | "mixed"
         text: string
@@ -234,6 +251,10 @@ export type View = {
         figure: string
       } | null
       remove: {
+        record: string
+        part: string | null
+      } | null
+      holds: {
         record: string
         part: string | null
       } | null
@@ -290,6 +311,11 @@ export type View = {
       notes: Array<{
         text: string
         title: string
+      }>
+      shared_rests?: Array<{
+        aim_id: string
+        options: Array<string>
+        text: string
       }>
       readings: Array<{
         aim_id: string
@@ -426,6 +452,17 @@ export type View = {
       }>
     } | null
     edit_base: number | null
+    holdable?: Array<{
+      link: {
+        record: string
+        part: string | null
+      }
+      from: string
+      to: string
+      text: string
+      line: boolean
+      card: string | null
+    }>
     key: Array<{
       id: string
       glyph: string
@@ -732,6 +769,34 @@ export type View = {
       }>
       title: string
       label: string
+      question: string | null
+    }>
+    link_marks?: Array<{
+      link: {
+        record: string
+        part: string | null
+      }
+      from: string
+      to: string
+      line: boolean
+      card: string | null
+      kind: "shared" | "unique" | "disagreement"
+      views: Array<number>
+      stances: Array<{
+        by: string
+        by_id: string
+        stance: "doubt" | "keep"
+        words: string | null
+      }>
+      text: string
+      title: string
+      label: string
+      reading: {
+        text: string
+        note: string
+      } | null
+      question: string | null
+      status_text: string | null
     }>
   }
   evidence: Array<{
@@ -981,6 +1046,28 @@ export type View = {
     stage?: "reading" | "building" | "analysing" | null
     words?: string | null
     started?: string
+  } | null
+  turn?: {
+    job: number
+    status: "answering" | "failed" | "lost"
+    said: string | null
+    ask: "message" | "challenge" | "method" | "move" | "consider"
+    by: string
+    by_id: string
+    words: string | null
+    started: string
+    at: string
+  } | null
+  reply?: {
+    job: number
+    proposal: number
+    version: number
+    status: "running" | "failed" | "interrupted" | "stale"
+    words: string
+    by: string
+    by_id: string
+    started: string
+    at: string
   } | null
   strategy?: {
     items: Array<{
