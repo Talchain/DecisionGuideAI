@@ -237,10 +237,27 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // grows the card past the screen (R3 pristine: OC1 on the capacity model ran 8 lines).
   const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
   // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
-  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed
+  // Core's option face (card-face, 8 Nov: core owns the dedupe): an option card with core's `headline` draws that one line on its face,
+  // core's `headline.title` on hover, and its rows only when opened. A View without a headline keeps its rows on the face.
+  const face = card.family === 'option' && card.headline != null && card.headline.text !== '' ? card.headline : null
+  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed || (face !== null && card.rows.length > 0)
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
   const aims = card.rows.filter((r) => r.kind === 'chance').length
+  // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
+  const rowsDrawn = (
+    <>
+      {card.rows.map((row, i) => (
+        <span key={i} className="contents">
+          {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
+              (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
+          {row.kind === 'none' && row.aim_id !== null && shared.includes(row.aim_id) ? null
+            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
+          {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
+        </span>
+      ))}
+    </>
+  )
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
@@ -324,15 +341,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has that the
         // person sets (never an outcome core works out from others, which core never offers to edit; witnessed on Paul's board copy).
         : card.figure !== null && card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
-      {card.rows.map((row, i) => (
-        <span key={i} className="contents">
-          {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
-              (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
-          {row.kind === 'none' && row.aim_id !== null && shared.includes(row.aim_id) ? null
-            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
-          {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
-        </span>
-      ))}
+      {face !== null
+        ? <p className={`${typography.viewHeadline} tracking-tight text-text-header`} title={face.title} data-option-face={id} data-view={`${id}.headline.text`}>{face.text}</p>
+        : rowsDrawn}
       {/* DL 7 Nov: a badge core names in words ("1 open question") is on the face at rest, one 12px line: what is folded in is seen at first
           glance. A badge with no words (glyphs only) still shows on hover, focus or selection. */}
       {card.badge === null ? null : badgeNamed(card.badge) !== null
@@ -361,6 +372,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         // Rename is in the dock's "Selected:" row (SelectedRename.tsx), so a card with nothing more opens nothing over its neighbour.
         <div hidden={!selected} data-panel-side={side} className={`absolute ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-10 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
+          {face === null ? null : <div className="space-y-1" data-option-rows={id}>{rowsDrawn}</div>}
           {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
           {changed ? <p className="whitespace-pre-line" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
