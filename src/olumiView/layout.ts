@@ -513,13 +513,13 @@ export type OutlineGroupId = 'goal' | 'options' | 'factors' | 'outcomes-risks' |
 /**
  * The Model tab's outline narrowed to a filter's words (case aside): each group's cards by their heading, the question by its words, each
  * link by its two ends' words; `ids`, the groups the outline draws (every group with a card, the question's always, Relationships when there
- * is a link), whatever the filter. An empty filter narrows nothing.
+ * is a link, and Factors where the first figure is added), whatever the filter. An empty filter narrows nothing.
  */
 export function modelOutlineOf(model: ViewModel, filter: string) {
   const needle = filter.trim().toLowerCase(), matches = (words: string) => needle === '' || words.toLowerCase().includes(needle)
   const groups = modelGroupsOf(model).map((g) => ({ ...g, rows: g.cards.filter((c) => matches(c.heading)), question: g.id === 'goal' && matches(model.question.text) }))
   const links = model.links.map((l, i) => ({ l, i, from: linkEndHeading(model, l.from), to: linkEndHeading(model, l.to) })).filter((x) => matches(`${x.from} ${x.to}`))
-  const ids: OutlineGroupId[] = [...groups.filter((g) => g.cards.length > 0 || g.id === 'goal').map((g) => g.id), ...(model.links.length === 0 ? [] : ['relationships' as const])]
+  const ids: OutlineGroupId[] = [...groups.filter((g) => g.cards.length > 0 || g.id === 'goal' || g.id === 'factors').map((g) => g.id), ...(model.links.length === 0 ? [] : ['relationships' as const])]
   return { searching: needle !== '', groups, links, ids }
 }
 /** The canvas kinds among a group's cards that Outcomes & risks marks (outcome, risk), each once, in the cards' order. */

@@ -334,6 +334,36 @@ describe('whose it is, and another scenario', () => {
 })
 
 describe('adding and taking away', () => {
+  it('N2 blocker 7: empty Factors opens and saves q_first_factor through Add a figure', async () => {
+    // Labelled fixture: an approved model with its goal and options, before anyone has added a factor.
+    const ids = ['reach_customer_target', 'broader_entry', 'single_country_test', 'no_new_european_entry']
+    const empty: View = { ...wire, model: { ...wire.model!, cards: wire.model!.cards.filter((c) => ids.includes(c.id)), links: [] } }
+    useViewStore.setState({ view: empty })
+    const c = render(<ViewModelTabBlock />).container
+    const factors = c.querySelector('[data-model-group-toggle="factors"]')
+    expect(factors).not.toBeNull()
+    expect(factors?.getAttribute('aria-label')).toBe('Factors, 0 elements')
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(factors?.getAttribute('aria-expanded')).toBe('true')
+    const add = c.querySelector('[data-model-group="factors"] [data-model-add-figure="open"]')!
+    expect(add.textContent).toBe('Add a figure')
+    fireEvent.click(add)
+    fireEvent.change(c.querySelector('[data-model-add-figure="name"]')!, { target: { value: 'Sales team' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="typed"]')!, { target: { value: '4 to 6' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="unit"]')!, { target: { value: 'people' } })
+    const first = { ...figure, id: 'q_first_factor', heading: 'Sales team', figure: { ...figure.figure!, text: '4–6 people' } }
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r_first_factor', record: first.id } }
+    view = { ...empty, version: { ...wire.version!, id: 2, n: 2 }, model: { ...empty.model!, edit_base: 2, cards: [...empty.model!.cards, first] } }
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(c.querySelector(`[data-view="${first.id}.heading"]`)?.textContent).toBe('Sales team'))
+    expect(posts()).toEqual([
+      { method: 'POST', path: `/api/scenarios/${SID}/figures`, body: { base: 1, label: 'Sales team', typed: '4 to 6', unit: 'people', op: expect.any(String) } },
+    ])
+    expect(c.querySelector(`[data-view="${first.id}.figure.text"]`)?.textContent).toBe('4–6 people')
+    expect(c.querySelector('[data-model-group-count="factors"]')?.textContent).toBe('1')
+    expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull()
+  })
+
   it('HIGH: Add a figure sends the name, the figure as typed and the unit on the base it opened on; the form closes once the new View lands', async () => {
     answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
     const c = draw()
