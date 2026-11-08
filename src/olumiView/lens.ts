@@ -44,6 +44,12 @@ export function useDriverOf(id: string): readonly ViewCard[] | null {
   return on ? drivers.get(id) ?? null : null
 }
 
+/** An option's heading as core names it (the card's own words): what a per-option row on a figure card is labelled with, now the canvas
+ *  draws no card codes (DL 8 Nov, the V11 audit: the prototype has none). */
+export function useOptionHeading(id: string): string | null {
+  return useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
+}
+
 /** The card's number on the canvas (O1, F1, OC1, …), worked out once per View. */
 export function useCardNumber(id: string): string | null {
   const model = useViewStore((s) => s.view?.model ?? null)

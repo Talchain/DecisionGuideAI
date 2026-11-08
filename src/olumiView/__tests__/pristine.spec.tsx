@@ -27,8 +27,7 @@ describe('a card title wraps to the card\'s left edge (R3 pristine 3)', () => {
       expect(block.tagName, card.id).toBe('P')
       expect(block.getAttribute('data-view-title'), card.id).toBe(card.id)
       expect(block.className, card.id).not.toMatch(/\bflex\b/)
-      const number = block.querySelector('[data-card-number]')
-      if (number !== null) expect(number.nextSibling?.textContent, card.id).toBe(' ') // a word space, not a gap
+      expect(block.querySelector('[data-card-number]'), card.id).toBeNull() // no card codes (DL 8 Nov, V11 audit)
       cleanup()
     }
   })

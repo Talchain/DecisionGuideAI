@@ -23,7 +23,7 @@ import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
 import { useViewFocusCard } from '../../olumiView/canvas'
-import { useCardNumber, useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
+import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
@@ -201,18 +201,21 @@ function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: {
  * short and whole on hover (option a2). The ↻ mark keeps its own column, so the cut never hides it.
  */
 function OptionValueRow({ at, option, text, mark = null }: { at: string; option: string; text: string; mark?: ValueMark }) {
-  const n = useCardNumber(option)
+  // The row names its option by core's heading, whole, on its own line (no card codes on the canvas: DL 8 Nov, the V11 audit).
+  const name = useOptionHeading(option)
   return (
-    <p className="flex items-baseline gap-1" title={text} data-value-row={option}>
-      {n === null ? null : <><span className="flex-none text-text-light font-normal tabular-nums" data-card-number={n}>{n}</span>{' '}</>}
+    <div title={text} data-value-row={option}>
+    {name === null ? null : <p className={`${typography.viewLabel} text-text-body font-normal`} data-value-option={option}>{name}</p>}
+    <p className="flex items-baseline gap-1">
       {/* R25 (Paul's 6 Nov test: "6.73 months (2.61 …"): an option's value wraps whole, never cut mid-number. */}
       <span className="min-w-0" data-view={at}>{text}</span>{mark === null ? null : <span className="flex-none"><IfApprovedMark mark={mark} /></span>}
     </p>
+    </div>
   )
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -273,7 +276,6 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           so does any other card's title for its ⌄ (plan v3: controls get reserved space). */}
       <p data-view-title={id} className={(card.family === 'option' && card.driver !== null) || (card.family !== 'option' && more) ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
-        {number === null ? null : <><span className="text-text-light font-normal" data-card-number={number}>{number}</span>{' '}</>}
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
         <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
         {card.olumi === null ? null : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
@@ -423,7 +425,6 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const driverOf = useDriverOf(id)
   // If it failed: a card Olumi's stories rest on stands in front, the rest recede (core's `failed`; View only).
   const preMortem = usePreMortemOf(id)
-  const number = useCardNumber(id)
   const tried = useTriedOn(id)
   // The applied-edit pulse (pulseArrivals.ts, appliedEditPulse.ts): the original card's ring on a card an approval or edit just applied.
   const pulsed = useCanvasStore((st) => st.highlightedNodes.has(id))
@@ -457,7 +458,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       {/* SC-01 preview: the story reads left to right, so a link enters a card on its left and leaves on its right. */}
       <Handle type="target" position={Position.Left} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
