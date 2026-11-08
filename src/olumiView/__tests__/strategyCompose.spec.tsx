@@ -8,7 +8,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
@@ -18,6 +18,7 @@ import { resetWrites } from '../../olumiCore/team/writes'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { useReveal } from '../reveal'
+import { CardViewChips } from '../RevealMarks'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
@@ -84,6 +85,34 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ url: '/api/scenarios/s_98e93f5d2389/views', as: real.you_id,
       body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', source: 'two pilots', text: 'Teams adopt once an owner is named.' }], op: expect.any(String) } })
+  })
+  it('C: Team view 12 draws its item words and sources; debate views 19 and 20 open core reading and next question from their canvas mark', async () => {
+    render(<TeamTab />)
+    const priya = within(screen.getByTestId('team-revealed-12'))
+    const lines = priya.getByTestId('strategy-view-lines-12')
+    expect(lines.querySelector('[data-strategy-about="speed_to_value"] > p:last-child')!.textContent).toBe('Pilots showed value within a month.')
+    expect(lines.querySelector('[data-strategy-about="implementation_effort"] > p:last-child')!.textContent).toBe('Integration took a quarter each time.')
+    expect(priya.getByTestId('strategy-pill-12-cross_team_adoption').textContent).toBe('Observed, two rollouts')
+    cleanup()
+    // Core's private projection uses the same item renderer, before reveal.
+    const own = { ...real, collab: { ...real.collab, shared: [], mine: [real.collab.shared[0]!] } } as View
+    useViewStore.setState({ view: own })
+    render(<TeamTab />)
+    expect(within(screen.getByTestId('team-mine-12')).getByTestId('strategy-pill-12-speed_to_value').textContent).toBe('Observed, two rollouts')
+    cleanup()
+    const debate: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11/consulting-stance.view3.json'), 'utf8'))
+    setTeamFetch((async (url: RequestInfo | URL) => json(String(url) === '/api/me' ? { me: { id: debate.you_id, name: debate.you } } : debate)) as typeof fetch)
+    useViewStore.setState({ sid: debate.id, view: debate })
+    useMe.setState({ me: { id: debate.you_id!, name: debate.you! }, status: 'ready' })
+    render(<><CardViewChips card="paid_enterprise_diagnostic" /><TeamTab /></>)
+    const chip = screen.getByTestId('reveal-chips-paid_enterprise_diagnostic').querySelector('[data-reveal-kind="disagreement"]')!
+    expect(chip.querySelector('[data-reveal-chip-text]')!.textContent).toBe('Priya and Tom differ')
+    fireEvent.click(chip)
+    expect(screen.getByTestId('reveal-dock-view-19').querySelector('[data-testid="reveal-dock-words"]')!.textContent).toBe(debate.collab.shared.find((v) => v.id === 19)!.text)
+    expect(screen.getByTestId('reveal-dock-view-20').querySelector('[data-testid="reveal-dock-words"]')!.textContent).toBe(debate.collab.shared.find((v) => v.id === 20)!.text)
+    expect(screen.getByTestId('reveal-dock-reading').querySelector('p')!.textContent).toBe("Both figures may hold, under different conditions. In this model which option is most likely to achieve 'Generate revenue as quickly as possible' differs between them, so it is worth finding out which conditions apply.")
+    expect(screen.getByTestId('reveal-dock-reading-note').textContent).toBe("Olumi's reading, unconfirmed. Priya and Tom can say whether it fits.")
+    expect(screen.getByTestId('reveal-dock-next').textContent).toBe("What would tell you whether 'Time to first signed contract for the paid diagnostic' is nearer Priya's figure or Tom's? Which option is most likely to achieve 'Generate revenue as quickly as possible' in this model turns on it.")
   })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
     render(<TeamTab />)

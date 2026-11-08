@@ -10,6 +10,7 @@ import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
+import { StrategyViewLines } from '../../olumiView/strategy/StrategyViewLines'
 import { itemsOf, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
@@ -144,6 +145,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
                 <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
               )}</p>
               {v.skip ? <p className={META}>Chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              <StrategyViewLines view={view} v={v} />
               <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
               <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
             </li>
@@ -159,6 +161,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
               <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />Private to you until everyone’s views are revealed</p>
               {v.skip ? <p className={META}>You chose not to answer.</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+              <StrategyViewLines view={view} v={v} />
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
