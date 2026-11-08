@@ -12,7 +12,7 @@
   - By default (`'ignore'`) it ignores fields the schema does not declare, per the UI session's ruling, and checks every declared field.
   - One exception, from the Codex FAIL: inside a union of object shapes, a key a sibling shape declares is refused.
   - `'strict'` keeps core's closure.
-- **Its cases:** `src/olumiView/__tests__/validateView.spec.ts`, 27/27.
+- **Its cases:** `src/olumiView/__tests__/validateView.spec.ts`, 27/27. They also pass on core e61bdb2f's schema (dry run).
   - Both modes are held to Ajv on every vendored View and on mutants.
   - Cases: draft (schema-driven), gated, past version, malformed, link fields, and skew (n2c fields ignored).
   - Six mutants each turn it red.
@@ -30,24 +30,33 @@
   - RED without the check line (3 failing), GREEN with it (30/30).
 - **Plan rows** PL-21 and PL-22 are updated in the plan artifact.
 
-## The UI session's conditions before the entry edit lands
-1. Unknown keys are tolerated: DONE in the validator.
-2. Re-vendor from the core N2 pairs with: strategy-n2c (cba67b49 → cd99ab32), which the DL must confirm. The UI session holds it.
-3. In the same change as the entry edit, re-read the 22 failing fixtures from that core, plus store.spec's hand-built `view()`.
-   No spec may go red for even one commit.
+## DL rulings (8 Nov)
+- The core to take the schema from is the N2 candidate **e61bdb2fb9b0a482281cee756f99ec399f0b22bf**. It contains strategy-n2c
+  cd99ab32 and was `candidate`'s tip on 8 Nov. It already has PR 7's required `links[].records`, plus `strategy` and `draft`.
+- The `VIEW_NOT_DRAWABLE` sentence is approved as written.
+- The entry edit lands only **after N2 is served**.
+
+## The recipe for the one post-N2 change (no spec red for even one commit)
+Dry-run in a throwaway worktree from this branch at 71d992a9 (8 Nov). With these steps, validateView.spec + client.spec +
+contract.spec all pass: **130/130**.
+1. From core e61bdb2f, copy byte for byte into `src/olumiView/`:
+   - `schema/view.v3.json` → `view.v3.json`;
+   - the 7 goldens `src/view/__tests__/golden/<n>.view3.json` → `golden/<n>.view.json`, for pricing, studio, bakery, european,
+     app-launch, s_ce285b3617bb and proposal;
+   - `src/view/__tests__/golden/dock.oracle.json` → `golden/dock.oracle.json`. Core's served sentence changed ("… never meets it"), so
+     without the oracle 2 contract rows go red.
+2. `node scripts/olumi-view/gen-types.mjs`.
+3. Re-read from that core the 22 View files that fail its schema in the page's mode: `fixtures-vs-e61bdb2f.txt`, produced by
+   `fixture-check.mjs`; run it from the DGAI root. Also re-read `store.spec.ts`'s hand-built `view()`.
+   - First faults: 13 files miss `session` or `brief`; 8 miss `badge.words` (now required); growth-reveal misses `links[].records`.
+4. `git apply recovery-notes/arch-lane-c/entry-edit.patch`: RED without it (3 failing), GREEN with it (31/31).
+5. The rest of the suite is unmeasured here (28 specs use setTeamFetch): PR CI is the measure.
 
 ## Open: the exact next step
-- Codex round 1 FAILED (olumi-core `notes/codex/2026-11-08-03-lane-c-view-validate.md`): the union-shape bypass. It is fixed in the
-  commit "PL-21 (Codex FAIL fixed)".
-- Codex round 2: PASS WITH NITS (olumi-core `notes/codex/2026-11-08-04-lane-c-view-validate-r2.md`). The one nit: the
-  ignore-mode oracle equals the walker only while every union shape is closed. A spec row now asserts that, so a re-vendor that
-  breaks it goes red.
-- READY for the DL.
-- Next, after N2 is on candidate: the UI session re-vendors from the paired core and re-reads the fixtures. In the same change, apply
-  `entry-edit.patch`.
-- After N2 is on candidate and the UI session re-vendors, the entry edit lands with the fixture refresh. It is the UI session's call
-  or this lane's, by agreement.
-- Do not touch N2 integration files until N2 is on candidate.
+- After N2 is served, the recipe above runs as one change. The UI session owns steps 1–3 (its queued re-vendor); this lane's patch
+  is step 4.
+- Optional while waiting, if the DL clears it: PL-22 cut 1 (hoist the constants the View borrows from old-state modules), as a
+  separate PR.
 
 ## UNVERIFIED
 - Which of the 28 setTeamFetch specs go red with the entry edit. Only PR CI can tell. store.spec will, by reading its code. Fewer

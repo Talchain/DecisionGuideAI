@@ -1,0 +1,23 @@
+FAIL golden/capacity-v3.view.json / must have required property 'session' {"missingProperty":"session"}
+FAIL golden/pricing-unmoved-first.view.json / must have required property 'brief' {"missingProperty":"brief"}
+FAIL golden/whatif.view.json / must have required property 'brief' {"missingProperty":"brief"}
+FAIL fixtures/figure-first/after-show.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/figure-first/given-point.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/figure-first/given-range.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/figure-first/offer.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/r5/effects-gated.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/r5/effects-if-absent.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/r5/effects-leaders.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/r5/effects.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/r5/proposal.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/real/bakery-r5.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/real/capacity.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/real/european-22cards.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/real/hiring.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/real/hosting.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/real/together.view3.json / must have required property 'session' {"missingProperty":"session"}
+FAIL fixtures/session/after-find-first.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/session/goal-understand.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/session/no-goal.view3.json /model/question/badge must have required property 'words' {"missingProperty":"words"}
+FAIL fixtures/strategy/growth-reveal.view3.json /model/links/0 must have required property 'records' {"missingProperty":"records"}
+{ files: 29, fail: 22 }
