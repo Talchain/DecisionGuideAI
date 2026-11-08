@@ -3,7 +3,7 @@
  * progressive disclosure"). The crafted tab's detail region (legacy `ModelDetailRegion.tsx`), in its order and rendered only where it has
  * something to say: what the person can do here, whose it is, what it is linked to, then (Expert) the science behind its figure.
  *
- * Every model word is core's, drawn verbatim under its View path; headings and buttons are UI chrome (`MODEL_EDIT_WORDS`).
+ * Every model word is core's, drawn verbatim under its View path; headings and buttons are core’s `model_words`.
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, FileText, LocateFixed, Pencil, Type, User } from 'lucide-react'
@@ -16,7 +16,7 @@ import { writes } from '../client'
 import { useViewStore } from '../store'
 import { linkEndHeading } from '../layout'
 import { authorAnyOf } from './author'
-import { MODEL_EDIT_WORDS as W, openEditor, readAfter, useModelEdit } from './editing'
+import { useModelWords, openEditor, readAfter, useModelEdit } from './editing'
 import { ASIDE_WORDS } from '../FigureEdit'
 import { RECIPE } from './editors'
 import { HELD_PREFIX, heldRow, useModelTab } from './state'
@@ -45,6 +45,7 @@ function Action({ icon, label, onPress, at, path }: { icon: ReactNode; label: st
  * partly Olumi's carry core's own glyph: the card's mark, else core's key entry for that kind; none is drawn where core gives none.
  */
 function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; keyEntries: ViewModel['key'] }) {
+  const W = useModelWords()!
   const a = authorAnyOf(card)
   if (a === null && card.olumi === null) return null
   const glyph = card.olumi?.glyph ?? (a === null ? null : keyEntries.find((k) => k.id === (a.by === 'mixed' ? 'partly_olumi' : 'olumi'))?.glyph ?? null)
@@ -65,6 +66,7 @@ function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; 
 /** The lines that start or end at this card, each pressing to the card at its other end, with core's mark for its kind or sign; Expert adds
  *  its strength. A line's removal and strength editor are on its own row in Relationships. */
 function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expert: boolean }) {
+  const W = useModelWords()!
   const lines = linksOf(model, card.id)
   if (lines.length === 0) return null
   return (
@@ -95,6 +97,7 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
 
 /** Expert: what would change an option's chance most, in core's words (its driver); the figure's own reading is the row's Expert line. */
 function Science({ card }: { card: ViewCard }) {
+  const W = useModelWords()!
   if (card.driver === null) return null
   return (
     <Section title={W.whatWouldChange} at="science">
@@ -104,6 +107,7 @@ function Science({ card }: { card: ViewCard }) {
 }
 
 export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }) {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const { base } = useModelEdit()
   const canEdit = base !== null
@@ -117,7 +121,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
         {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
         <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
-      <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={`${W.askChangeDraft} “${card.heading}”: `} />
+      <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={W.askChangeDraft[card.id]!} />
       <Whose card={card} expert={expert} keyEntries={model.key} />
       <Links model={model} card={card} expert={expert} />
       {expert ? <Science card={card} /> : null}
@@ -128,6 +132,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
 /** A link's detail: its two ends (each pressing to its card), and where core offers it, its strength's editor (its row shows the
  *  strength while open, so the action names something on screen in Plain too) and its removal. */
 export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewLink; row: string }) {
+  const W = useModelWords()!
   const { base } = useModelEdit()
   const strength = base === null ? null : strengthCardOf(model, link)
   return (
@@ -152,6 +157,7 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
  * again (never on another change's: it goes once the View no longer holds the change it was about).
  */
 export function HeldNotice() {
+  const W = useModelWords()!
   const { sid, held } = useModelEdit()
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState<string | null>(null)

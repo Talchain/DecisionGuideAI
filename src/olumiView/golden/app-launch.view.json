@@ -66,7 +66,9 @@
      "label": "Expand 2 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim, 1 open question",
+     "icon": "❝ ○"
     },
     "values": null,
     "rests_on": [],
@@ -113,7 +115,9 @@
      "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 claims, 1 open question",
+     "icon": "❝ ○"
     },
     "values": null,
     "rests_on": [],
@@ -168,7 +172,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "4 claims",
+     "icon": "❝"
     },
     "values": null,
     "rests_on": [],
@@ -216,7 +222,9 @@
      "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 prerequisite, 1 link, 1 open question",
+     "icon": "⊢ ↝ ○"
     },
     "values": null,
     "rests_on": [],
@@ -267,7 +275,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
     },
     "values": [
      {
@@ -355,7 +365,9 @@
      "label": "Expand 10 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "4 claims, 3 figures, 2 calculations, 1 challenge",
+     "icon": "❝ ● ="
     },
     "values": null,
     "rests_on": [],
@@ -413,7 +425,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
     },
     "values": null,
     "rests_on": [],
@@ -484,7 +498,9 @@
      "label": "Expand 6 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "4 claims, 2 challenges",
+     "icon": "❝ !"
     },
     "values": null,
     "rests_on": [],
@@ -568,7 +584,9 @@
      "label": "Expand 12 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "8 claims, 1 figure, 3 challenges",
+     "icon": "❝ ● !"
     },
     "values": null,
     "rests_on": [],
@@ -684,7 +702,9 @@
      "label": "Expand 7 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "3 claims, 1 prerequisite, 1 link, 2 challenges",
+     "icon": "❝ ⊢ ↝"
     },
     "values": null,
     "rests_on": [],
@@ -730,7 +750,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 prerequisite",
+     "icon": "⊢"
     },
     "values": null,
     "rests_on": [],
@@ -753,7 +775,10 @@
     "proposed": false,
     "title": "adds to · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_readiness_margin"
+    ]
    },
    {
     "from": "option_isolate",
@@ -765,7 +790,10 @@
     "proposed": false,
     "title": "link in words: depends on conditions, not known; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "isolation_trust_link"
+    ]
    },
    {
     "from": "option_isolate",
@@ -777,7 +805,11 @@
     "proposed": false,
     "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "isolation_readiness_link",
+     "calculate_readiness_margin"
+    ]
    },
    {
     "from": "negative_reviews",
@@ -789,7 +821,8 @@
     "proposed": false,
     "title": "may change",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "readiness_margin",
@@ -801,7 +834,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "schedule_assumptions",
@@ -813,7 +847,8 @@
     "proposed": false,
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "schedule_assumptions",
@@ -825,7 +860,8 @@
     "proposed": false,
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "option_delay",
@@ -837,7 +873,8 @@
     "proposed": false,
     "title": "worked out through Postponed release time from now",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "isolation_readiness_link",
@@ -849,7 +886,8 @@
     "proposed": false,
     "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "isolation_readiness_link",
@@ -861,7 +899,10 @@
     "proposed": false,
     "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_readiness_margin"
+    ]
    }
   ],
   "run": {
@@ -1442,5 +1483,100 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "current_release_window": "Please change “The new app update is scheduled to go live in less than a month; the exact release date is not supplied.”: ",
+   "reported_sync_defect": "Please change “Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.”: ",
+   "campaign_commitment": "Please change “Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.”: ",
+   "expected_marketing_reaction": "Please change “The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.”: ",
+   "feared_review_rating": "Please change “Feared review rating”: ",
+   "negative_reviews": "Please change “Broken release prompts one-star reviews”: ",
+   "review_prediction_not_observation": "Please change “One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.”: ",
+   "initial_position": "Please change “The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.”: ",
+   "boss_discussion": "Please change “Explain the release decision without unfair team blame”: ",
+   "protect_user_trust": "Please change “Avoid damaging users' experience and trust”: ",
+   "release_offset": "Please change “Time available before release”: ",
+   "repair_duration": "Please change “Time to implement the sync fix”: ",
+   "validation_duration": "Please change “Validation time after implementing the fix”: ",
+   "readiness_duration": "Please change “Time to complete repair and validation”: ",
+   "calculate_readiness_duration": "Please change “how Time to complete repair and validation is worked out”: ",
+   "readiness_margin": "Please change “Release time minus repair and validation time”: ",
+   "calculate_readiness_margin": "Please change “how Release time minus repair and validation time is worked out”: ",
+   "zero_schedule_shortfall": "Please change “Minimum proposed schedule margin”: ",
+   "allow_readiness_work": "Please change “Allow time for repair and validation”: ",
+   "schedule_assumptions": "Please change “For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.”: ",
+   "schedule_measure_exclusions": "Please change “A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.”: ",
+   "option_scheduled": "Please change “Keep the currently scheduled full release”: ",
+   "delayed_release_offset": "Please change “Postponed release time from now”: ",
+   "option_delay": "Please change “Postpone the full update”: ",
+   "option_isolate": "Please change “Explore shipping without the affected sync path”: ",
+   "isolation_prerequisite": "Please change “A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.”: ",
+   "isolation_trust_link": "Please change “Explore shipping without the affected sync path → Avoid damaging users' experience and trust”: ",
+   "technical_diagnosis": "Please change “Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.”: ",
+   "conditional_integrity_reason": "Please change “Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.”: ",
+   "conditional_validation_reason": "Please change “Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.”: ",
+   "conditional_exposure_reason": "Please change “Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.”: ",
+   "campaign_flexibility": "Please change “Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.”: ",
+   "disconfirm_full_delay": "Please change “Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.”: ",
+   "boss_brief_structure": "Please change “A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.”: ",
+   "isolation_readiness_link": "Please change “Explore shipping without the affected sync path → Time to complete repair and validation”: ",
+   "review_rating_numeric_exclusion": "Please change “The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.”: "
+  }
  }
 }

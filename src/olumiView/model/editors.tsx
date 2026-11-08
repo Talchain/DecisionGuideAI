@@ -15,7 +15,7 @@
  * - the crafted tab's look (Paul 7 Nov: "the previous model tab was better looking"): a compact 14px field (DS v5 §2.1), its Save a small
  *   filled pill, the other choices text actions, as legacy "Review change" / "Discard" were; `border-field`, the control border that renders.
  *
- * Every label is core's (`figure.edit.prompt`) or UI chrome (`MODEL_EDIT_WORDS`). Nothing typed is read, converted or rounded here.
+ * Every label is core's (`figure.edit.prompt`) or core’s `model_words`. Nothing typed is read, converted or rounded here.
  */
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
@@ -27,7 +27,7 @@ import { writes } from '../client'
 import { useViewStore } from '../store'
 import { noteEditSaved, noticeWords } from '../notice'
 import { clearWhatIf, tryWhatIf, useWhatIf } from '../whatif'
-import { editKey, MODEL_EDIT_WORDS as W, readAfterSave, useModelEdit } from './editing'
+import { editKey, useModelWords, readAfterSave, useModelEdit } from './editing'
 import { tagOf, useModelTab, type Editing } from './state'
 
 /**
@@ -87,7 +87,7 @@ export const versionOf = (saved: unknown): number | null => {
  * the View is not valid): on its row or group, until a later View shows it (`ViewModelTab` settles it as core's version).
  */
 export function sayUnseen(row: string, saved: unknown): void {
-  useModelTab.getState().say({ row, words: W.savedNotShown, tone: 'failed', unseen: { n: versionOf(saved), view: useViewStore.getState().view } })
+  useModelTab.getState().say({ row, words: useViewStore.getState().view!.model_words.savedNotShown, tone: 'failed', unseen: { n: versionOf(saved), view: useViewStore.getState().view } })
 }
 
 /** A row id inside a quoted attribute selector (a link's row holds `:` and `>`, which a quoted value keeps as they are). */
@@ -105,10 +105,11 @@ export function focusRow(row: string, on: 'value' | 'name'): void {
 
 /** Why Save is off while the editor is still open: core withdrew its offer to take the edit (edit_base null). */
 export function useWithdrawn(): string | null {
+  const W = useModelWords()!
   const { base, held } = useModelEdit()
   const at = useViewStore((s) => s.at)
   if (base !== null) return null
-  return at !== null ? W.withdrawnPast : held !== null ? W.withdrawnHeld : W.withdrawn
+  return at !== null ? W?.withdrawnPast ?? null : held !== null ? W?.withdrawnHeld ?? null : W?.withdrawn ?? null
 }
 
 /**
@@ -117,6 +118,7 @@ export function useWithdrawn(): string | null {
  * refusal goes under the field, or on the row if the field is gone; nothing is said in a scenario the page has left.
  */
 function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
+  const W = useModelWords()!
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const [error, setError] = useState<string | null>(null)
@@ -166,6 +168,7 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
  * aim the target figure, for a link the figure that sizes it. The base is the one the editor opened on, never a later one (FigureEdit rule).
  */
 export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 'figure' }; edit: { prompt: string; ask: string } }): JSX.Element {
+  const W = useModelWords()!
   const { row, quantity, sid, base, typed } = mine
   const [trying, setTrying] = useState(false)
   const key = editKey.figure(sid, quantity)
@@ -218,6 +221,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
 
 /** Rename one card (`POST …/rename`): saved at once as the person's version; only its name changes (Rename.tsx contract). */
 export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'rename' } }): JSX.Element {
+  const W = useModelWords()!
   const { row, sid, base, typed } = mine
   const key = editKey.rename(sid, row)
   const { error, setError, field, form, run, cancel, pending, other, inert } = useSave(mine, key, 'name')
@@ -257,6 +261,7 @@ export function RenameEditor({ mine }: { mine: Editing & { readonly what: 'renam
  * an editor never disappears silently).
  */
 export function WithdrawnNote({ mine }: { mine: Editing }): JSX.Element {
+  const W = useModelWords()!
   const words = useWithdrawn() ?? W.withdrawn
   return (
     <div className="mt-2 flex flex-wrap items-baseline gap-x-2" data-model-editor-kept={mine.row} onClick={(e) => e.stopPropagation()}>
