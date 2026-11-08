@@ -35,7 +35,7 @@ export function ViewQuestionNode({ data }: NodeProps) {
   return (
     <>
       <ViewQuestion {...(data as ViewQuestionData)} />
-      <Handle type="target" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
+      <Handle type="target" position={Position.Right} isConnectable={false} className="!opacity-0" />
     </>
   )
 }
