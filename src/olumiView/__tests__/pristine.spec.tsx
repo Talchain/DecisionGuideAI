@@ -13,7 +13,6 @@ import { ViewLensBar } from '../ViewLensBar'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewOptionBand } from '../v10'
 import { lensBarFitsBesidePill } from '../../canvas/artefacts/LensBar'
-import { LENS_COPY } from '../../canvas/artefacts/lenses'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/golden/${n}.view.json`), 'utf8'))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); useViewStore.setState({ view: null }) })
