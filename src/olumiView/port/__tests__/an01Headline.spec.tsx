@@ -9,7 +9,9 @@
  * `viewOf` on its golden inputs with the option's facts for the dock's aim removed (as its headline.test "no line for the dock's aim" does):
  *  - studio-otheraims 'evening_classes': only another aim's row;
  *  - european-otheraims 'broader_entry': only its option-wide reason, with no aim.
- * Core cannot send `add` for an option with no line for the dock's aim (a reason that leaves no line is `once`, only on a deadline limit).
+ * Core cannot send `add` for an option with no line for the dock's aim from its Run today (a reason that leaves no line is `once`, set only
+ * on a deadline limit's blocker). bakery-oncewide is core a414fc39's own `viewOf` on its golden bakery-asked input with both wait facts
+ * marked `once`: every option is left with only its option-wide line, and its headline keeps `add` (Codex 73880d3d should-fix).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -95,6 +97,22 @@ describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
     expect(document.querySelectorAll(`[data-view-row="${c.id}.headline"]`)).toHaveLength(0)
     const row = c.rows[k]!
     expect(row.kind === 'none' ? leaves(screen.getByTestId('port-analysis-tab'), row.text!) : []).toHaveLength(1)
+  })
+
+  it('only an option-wide reason, with what to give (bakery-oncewide): core\'s add is said on that row, once, in the dock aim\'s group', () => {
+    const view = viewOf('core/an01-bakery-oncewide'), m = view.model!
+    const fallback = optionCards(m).filter((c) => c.headline?.add != null && !c.rows.some((r) => r.aim_id === c.headline!.aim_id))
+    expect(fallback.map((c) => c.id)).toEqual(['second_oven', 'longer_hours', 'carry_on'])
+    mount(view)
+    for (const c of fallback) {
+      const h = c.headline!, k = c.rows.findIndex((r) => r.aim_id === null && r.kind === 'none')
+      expect(k, c.id).toBeGreaterThanOrEqual(0)
+      const add = at(`${c.id}.headline.add`)
+      expect([...add].map((e) => [e.textContent, e.closest('[data-testid="port-option-row"]')!.getAttribute('data-view-row')]), c.id).toEqual([[h.add, `${c.id}.rows.${k}`]])
+      expect(group(h.aim_id!).querySelectorAll(`[data-view-row="${c.id}.rows.${k}"]`), c.id).toHaveLength(1)
+      // On that row, not again on its own: the reason is the row's readout, said once.
+      expect(document.querySelectorAll(`[data-view-row="${c.id}.headline"]`), c.id).toHaveLength(0)
+    }
   })
 
   it('none, shared (app-launch): the Run\'s shared reason is said once, above the rows, whether or not the headline carries it as `why`', () => {

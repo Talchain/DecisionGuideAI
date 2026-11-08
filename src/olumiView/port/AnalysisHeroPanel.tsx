@@ -73,7 +73,8 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   if (run === null) return null
 
   const groups = aimGroupsOf(model)
-  // AN-01: an option whose headline has no row is drawn in its aim's group, after the rows; with no group for that aim, in one of its own.
+  // AN-01: an option whose headline has no row is drawn in its aim's group, in its place in core's card order among the other options'
+  // rows (not after them); with no group for that aim, in one of its own.
   const alone = headlinesAloneOf(model)
   const lone = [...new Set(alone.map((c) => c.headline!.aim_id))].filter((a) => !groups.some((g) => g.aimId === a))
   // Core's lenses are about one aim, the one its lens titles and most likely line name (`run.most_likely.aim_id`): the strip and the
