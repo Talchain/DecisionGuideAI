@@ -14,6 +14,7 @@ import { useViewStore } from '../store'
 import { SelectionPill } from '../../canvas/components/SelectionPill'
 import { useCanvasStore } from '../../canvas/store'
 import { selectedRename } from '../SelectedRename'
+import { FindEvidence } from '../research/FindEvidence'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -50,7 +51,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }, nodes: [], edges: [] } as never); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const selectedRow = (id: string, heading: string) => {
   useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: heading } }] as never, edges: [] as never, selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null } })
-  return render(<SelectionPill after={selectedRename} />).container
+  // N1 does not mount it (see the row below); this suite keeps its behaviour covered for N2, mounted the way it was.
+  return render(<SelectionPill after={(s) => <FindEvidence key={`${s.kind}:${s.id}`} s={s} />} />).container
 }
 const posts = () => calls.filter((c) => c.method === 'POST')
 const panel = () => document.querySelector(`[data-research-panel="${figure.id}"]`) as HTMLElement | null
@@ -103,5 +105,10 @@ describe('Find evidence', () => {
     expect(panel()).toHaveTextContent('Your own ticket logs')
     expect(panel()!.querySelector('[data-research-proposal]')).toBeNull()
     expect(panel()!.querySelector('[data-research-start]')).toHaveTextContent('Search again')
+  })
+  it('N1 does not offer Find evidence in the Selected row: web research returns in N2', () => {
+    const c = render(<SelectionPill after={selectedRename} />).container
+    expect(c.querySelector('[data-research-find]')).toBeNull()
+    expect(c.textContent ?? '').not.toContain('Find evidence')
   })
 })
