@@ -5,7 +5,8 @@
  * debate.ts:306). Every word is core's, as given:
  * - on the chip, core's words for it (`chip`, at most 28 characters: who doubts the link);
  * - in its name, the link (`label`) and who holds which explanation (`sides[].text`);
- * - core's sentence for what the difference does to the chances (`status_text`, on hover).
+ * - on hover, the link (`label`), then core's sentence for what the difference does to the chances (`status_text`), so two chips with the
+ *   same words on one card say which link each is.
  * A rail that holds a doubted link stays inside its card and wraps to a second row rather than cut or squeeze a chip (`railLayout`).
  * Core gives a link one entry per aim it was run for; the card shows the link once (its first entry, core's order), and the Team tab
  * shows each aim's.
@@ -14,7 +15,7 @@
  * while gated, or on an earlier version, nothing is read or drawn. The read is the Team tab's own (`differencesKey`), so the dock and the
  * canvas never read the same View twice.
  */
-import { useEffect, type CSSProperties } from 'react'
+import { Fragment, useEffect, type CSSProperties } from 'react'
 import { Unlink2 } from 'lucide-react'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
@@ -69,19 +70,19 @@ function openDiffer(d: Difference): void {
  * One doubted link on one of its cards, as the reveal's chips are drawn: a mark in the circle where they have initials, then core's words for
  * it (`chip`). Core names only who doubts the link, never a keeper, so no person's initial stands beside its words. The chip keeps its
  * natural width; were core's words ever wider than the card, they would wrap inside the chip, never cut. Its whole name is core's: the chip,
- * the link, and each person's explanation. An older core sends no `chip`: the mark alone, with the same name.
+ * the link, and each person's explanation, each said whole and apart. An older core sends no `chip`: the mark alone, with the same name.
  */
 export function DifferChip({ d, card }: { d: Difference; card: string }): JSX.Element {
   return (
-    <button type="button" title={d.status_text} data-differ-chip={d.record} data-differ-card={card}
+    <button type="button" title={`${d.label}\n${d.status_text}`} data-differ-chip={d.record} data-differ-card={card}
       onClick={(e) => { e.stopPropagation(); openDiffer(d) }}
       className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel py-0.5 pl-0.5 ${d.chip ? 'pr-2.5' : 'pr-0.5'} text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">
         <Unlink2 className="h-3 w-3" />
       </span>
       {d.chip ? <span data-differ-chip-text="">{d.chip}</span> : null}
-      <span className="sr-only" data-differ-label="">{d.label}</span>
-      {d.sides.map((s) => <span key={s.holder_id} className="sr-only" data-differ-side={s.holder_id}>{s.text}</span>)}
+      {' '}<span className="sr-only" data-differ-label="">{d.label}</span>
+      {d.sides.map((s) => <Fragment key={s.holder_id}>{' '}<span className="sr-only" data-differ-side={s.holder_id}>{s.text}</span></Fragment>)}
     </button>
   )
 }

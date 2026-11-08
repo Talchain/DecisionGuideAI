@@ -3,8 +3,8 @@
  "id": "s_a88ba245176e",
  "title": "Product selling versus adding consulting",
  "commit": "b143332b8cfeca49c879b27af3a87f10de1db879",
- "signature": "[18,null,[[3,\"approved\"],[6,\"discussion\"],[7,\"discussion\"],[8,\"discussion\"],[9,\"superseded\"],[10,\"discussion\"],[11,\"approved\"]],[[19,true],[20,true],[21,true],[37,true],[39,true],[47,true],[49,true]],[\"Paul\",\"Priya\",\"Tom\",\"Maya\",\"Ana (TM-04 witness)\",\"Ben (TM-04 witness)\"],[],[\"1\",\"12\",\"14\",\"16\",\"33\",\"35\",\"43\",\"45\"]][[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"moves\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"product_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"gap_text\":\"−49 percentage points (−50 to −48)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.0029,\"model_exact\":false,\"view_exact\":false,\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"differ\":4909},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"changes\",\"changes\":true,\"leader\":\"paid_enterprise_diagnostic\",\"model_leader\":null,\"depends\":null,\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":\"consulting_contract_to_cash\",\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"gap_text\":\"+18 percentage points (+18 to +19)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.6777,\"model_exact\":false,\"view_exact\":false,\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"differ\":2155},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"contract_to_cash\",\"goal\":\"generate_revenue_quickly\",\"status\":\"same\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"diagnostic_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":null,\"gap\":0,\"gap_low\":0,\"gap_high\":0,\"gap_text\":null,\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.4938,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00019601660569920575,\"gap_high\":0.0001960166056991366,\"differ\":0},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[],[],[],[]][\"goal\",\"understand\",\"1\"][\"figure_first\",\"diagnostic_enterprise_engagements\",null,null,null][\"evidence\",[[31,false],[32,false]],[],null]",
- "you": "Cara (TM-04 witness)",
+ "signature": "[18,null,[[3,\"approved\"],[6,\"discussion\"],[7,\"discussion\"],[8,\"discussion\"],[9,\"superseded\"],[10,\"discussion\"],[11,\"approved\"]],[[19,true],[20,true],[21,true],[37,true],[39,true],[47,true],[49,true]],[\"Paul\",\"Priya\",\"Tom\",\"Maya\",\"Ana\",\"Ben\"],[],[\"1\",\"12\",\"14\",\"16\",\"33\",\"35\",\"43\",\"45\"]][[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"moves\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"product_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"gap_text\":\"−49 percentage points (−50 to −48)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.0029,\"model_exact\":false,\"view_exact\":false,\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"differ\":4909},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"changes\",\"changes\":true,\"leader\":\"paid_enterprise_diagnostic\",\"model_leader\":null,\"depends\":null,\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":\"consulting_contract_to_cash\",\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"gap_text\":\"+18 percentage points (+18 to +19)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.6777,\"model_exact\":false,\"view_exact\":false,\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"differ\":2155},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"contract_to_cash\",\"goal\":\"generate_revenue_quickly\",\"status\":\"same\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"diagnostic_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":null,\"gap\":0,\"gap_low\":0,\"gap_high\":0,\"gap_text\":null,\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.4938,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00019601660569920575,\"gap_high\":0.0001960166056991366,\"differ\":0},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[],[],[],[]][\"goal\",\"understand\",\"1\"][\"figure_first\",\"diagnostic_enterprise_engagements\",null,null,null][\"evidence\",[[31,false],[32,false]],[],null]",
+ "you": "Cara",
  "you_id": "43",
  "members": [
   {
@@ -25,19 +25,19 @@
   },
   {
    "id": "33",
-   "name": "Ana (TM-04 witness)"
+   "name": "Ana"
   },
   {
    "id": "35",
-   "name": "Ben (TM-04 witness)"
+   "name": "Ben"
   },
   {
    "id": "43",
-   "name": "Cara (TM-04 witness)"
+   "name": "Cara"
   },
   {
    "id": "45",
-   "name": "Dan (TM-04 witness)"
+   "name": "Dan"
   }
  ],
  "version": {
@@ -2879,7 +2879,7 @@
    },
    {
     "id": 37,
-    "by": "Ana (TM-04 witness)",
+    "by": "Ana",
     "by_id": "33",
     "text": "I am not sure this link holds the way the model draws it.",
     "skip": false,
@@ -2891,7 +2891,7 @@
    },
    {
     "id": 39,
-    "by": "Ben (TM-04 witness)",
+    "by": "Ben",
     "by_id": "35",
     "text": "This link holds as the model has it.",
     "skip": false,
@@ -2903,7 +2903,7 @@
    },
    {
     "id": 47,
-    "by": "Cara (TM-04 witness)",
+    "by": "Cara",
     "by_id": "43",
     "text": "I am not sure this link holds the way the model draws it.",
     "skip": false,
@@ -2915,7 +2915,7 @@
    },
    {
     "id": 49,
-    "by": "Dan (TM-04 witness)",
+    "by": "Dan",
     "by_id": "45",
     "text": "This link holds as the model has it.",
     "skip": false,
@@ -2929,7 +2929,7 @@
   "mine": [],
   "placeholder": "Your own view, private until revealed",
   "can_reveal": false,
-  "waiting": "waiting for Paul, Priya, Tom, Maya, Ana (TM-04 witness), Ben (TM-04 witness)",
+  "waiting": "waiting for Paul, Priya, Tom, Maya, Ana, Ben",
   "commitments": [],
   "owners": [
    {
@@ -2950,19 +2950,19 @@
    },
    {
     "id": "33",
-    "name": "Ana (TM-04 witness)"
+    "name": "Ana"
    },
    {
     "id": "35",
-    "name": "Ben (TM-04 witness)"
+    "name": "Ben"
    },
    {
     "id": "43",
-    "name": "Cara (TM-04 witness)"
+    "name": "Cara"
    },
    {
     "id": "45",
-    "name": "Dan (TM-04 witness)"
+    "name": "Dan"
    }
   ],
   "records": [
@@ -3946,8 +3946,8 @@
   "rests_on_label": "Rests on, 11 to check or set"
  },
  "team_presence": {
-  "title": "Paul, Priya, Tom, Maya, Ana (TM-04 witness), Ben (TM-04 witness), Cara (TM-04 witness) (you), Dan (TM-04 witness)",
-  "label": "Team: Paul, Priya, Tom, Maya, Ana (TM-04 witness), Ben (TM-04 witness), Cara (TM-04 witness) (you), Dan (TM-04 witness)",
+  "title": "Paul, Priya, Tom, Maya, Ana, Ben, Cara (you), Dan",
+  "label": "Team: Paul, Priya, Tom, Maya, Ana, Ben, Cara (you), Dan",
   "members": [
    {
     "id": "1",
@@ -3967,19 +3967,19 @@
    },
    {
     "id": "33",
-    "text": "Ana (TM-04 witness)"
+    "text": "Ana"
    },
    {
     "id": "35",
-    "text": "Ben (TM-04 witness)"
+    "text": "Ben"
    },
    {
     "id": "43",
-    "text": "Cara (TM-04 witness) (you)"
+    "text": "Cara (you)"
    },
    {
     "id": "45",
-    "text": "Dan (TM-04 witness)"
+    "text": "Dan"
    }
   ]
  },
