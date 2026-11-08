@@ -3,7 +3,7 @@
  * its card in front through the canvas's own focus. Fixture: the european View from the wire. Bound by identity (each row by its card id).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -12,6 +12,7 @@ import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
+import { useViewStore } from '../store'
 import { resetModelTab, useModelTab } from '../model/state'
 import { linkEndPath, linkRowOf } from '../model/targets'
 import { authorKeyOf } from '../model/premises'
@@ -20,7 +21,8 @@ import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/doma
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/european.view.json'), 'utf8'))
 const model = view.model!
-afterEach(() => { cleanup(); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
+beforeEach(() => useViewStore.setState({ view }))
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
 
 describe('the Model tab, from the View', () => {
   it('the legacy groups in order; each card in the group its canvas kind says, assumptions and conditions in none', () => {

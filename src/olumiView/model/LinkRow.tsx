@@ -11,12 +11,13 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { KIND_GLYPH } from '../../canvas/model-tab-v2/rowPresentation'
 import type { ViewLink, ViewModel } from '../client'
 import { FigureEditor, WithdrawnNote } from './editors'
-import { MODEL_EDIT_WORDS as W } from './editing'
+import { useModelWords } from './editing'
 import { LinkDetail } from './detail'
 import { useModelTab } from './state'
 import { linkEndPath } from './targets'
 
 export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; link: ViewLink; i: number; row: string; from: string; to: string }) {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === row)
   const editing = useModelTab((s) => (s.editing?.row === row && s.editing.what === 'figure' ? s.editing : null))

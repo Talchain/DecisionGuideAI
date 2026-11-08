@@ -16,7 +16,7 @@ import type { ViewLink } from '../client'
 import { writes } from '../client'
 import { useViewStore } from '../store'
 import { noteEditSaved } from '../notice'
-import { editKey, MODEL_EDIT_WORDS as W, readAfterSave, useModelEdit } from './editing'
+import { editKey, useModelWords, readAfterSave, useModelEdit } from './editing'
 import { focusIsWith, RECIPE, sayReceipt, sayUnseen, useFocusOnDraw } from './editors'
 import { ADD_TAG, FACTORS_ROW, RELATIONSHIPS_ROW, useModelTab } from './state'
 
@@ -35,6 +35,7 @@ type Opened = { readonly sid: string; readonly base: number }
  * never drops them.
  */
 export function AddFigureRow(): JSX.Element | null {
+  const W = useModelWords()!
   const { sid, base: live } = useModelEdit()
   const adding = useModelTab((s) => (s.adding !== null && s.adding.sid === sid ? s.adding : null))
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +113,7 @@ export function AddFigureRow(): JSX.Element | null {
  * version, since the link's own row is gone; focus goes to that group's heading if it was here.
  */
 export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Element | null {
+  const W = useModelWords()!
   const { sid, base: live } = useModelEdit()
   const remove = link.remove
   const [opened, setOpened] = useState<Opened | null>(null)

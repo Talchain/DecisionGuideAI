@@ -244,7 +244,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
     },
     "values": [
      {
@@ -432,7 +434,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
     },
     "values": null,
     "rests_on": [],
@@ -525,7 +529,11 @@
     "proposed": false,
     "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ]
    },
    {
     "from": "cups_change",
@@ -537,7 +545,11 @@
     "proposed": false,
     "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ]
    },
    {
     "from": "margin",
@@ -549,7 +561,10 @@
     "proposed": false,
     "title": "multiplies · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "profit_rel"
+    ]
    },
    {
     "from": "profit",
@@ -561,7 +576,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "profit_target",
@@ -573,7 +589,8 @@
     "proposed": false,
     "title": "target",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "raise_price",
@@ -585,7 +602,8 @@
     "proposed": false,
     "title": "option input",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "margin_raised",
@@ -597,7 +615,8 @@
     "proposed": false,
     "title": "replaces margin",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "raise_price",
@@ -613,7 +632,11 @@
      "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
     },
-    "remove": null
+    "remove": null,
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ]
    }
   ],
   "run": {
@@ -1112,5 +1135,78 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "margin": "Please change “margin”: ",
+   "margin_raised": "Please change “margin raised”: ",
+   "cups_now": "Please change “cups now”: ",
+   "rise_on": "Please change “rise on”: ",
+   "rise_switched_on": "Please change “rise switched on”: ",
+   "cups_change": "Please change “cups change”: ",
+   "cups": "Please change “cups”: ",
+   "profit": "Please change “profit”: ",
+   "profit_target": "Please change “profit target”: ",
+   "cups_rel": "Please change “how cups is worked out”: ",
+   "profit_rel": "Please change “how profit is worked out”: ",
+   "profit_goal": "Please change “Make £7,000 a month”: ",
+   "raise_price": "Please change “Raise the price by 45p”: ",
+   "carry_on": "Please change “Keep the price”: "
+  }
  }
 }

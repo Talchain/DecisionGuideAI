@@ -22,22 +22,17 @@ const isVocabulary = (v: unknown): v is Vocabulary => {
     && typeof x.form === 'object' && x.form !== null && (['about', 'stance', 'text', 'source', 'source_example', 'send', 'private'] as const).every((k) => typeof x.form![k] === 'string' && x.form![k] !== '')
 }
 
-/** Does core serve the strategy lane for this View (its `strategy` key, olumi.view/3 on core n2c)? Not yet in the vendored schema. */
-export const isStrategic = (view: View): boolean => (view as { strategy?: unknown }).strategy != null
-
-/** Core's vocabulary for this scenario, or null (not yet answered, no strategy lane, or not in its shape: never an error, nothing was asked).
- *  `strategic`: core's vocabulary route exists only where core serves the strategy key; without it nothing is asked (V11 705f1df0). */
-export function useStrategyVocabulary(sid: string, strategic: boolean): Vocabulary | null {
+/** Core's vocabulary is available before the first item view, independently of the scenario's strategy payload. */
+export function useStrategyVocabulary(sid: string): Vocabulary | null {
   const [vocab, setVocab] = useState<Vocabulary | null>(null)
   useEffect(() => {
     setVocab(null)
-    if (!strategic) return
     let live = true
     call<unknown>('GET', `/api/scenarios/${encodeURIComponent(sid)}/strategy/vocabulary`)
       .then((v) => { if (live && isVocabulary(v)) setVocab(v) })
       .catch(() => undefined)
     return () => { live = false }
-  }, [sid, strategic])
+  }, [sid])
   return vocab
 }
 
@@ -67,13 +62,14 @@ export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab:
           {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
         </select>
       </label>
+      <label className={LABEL}>{vocab.form.stance}
+        <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || (pick.about === '' ? '' : vocab.stances[0]!.id)} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
+          <option value="" />
+          {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
+        </select>
+      </label>
       {pick.about === '' ? null : (
         <>
-          <label className={LABEL}>{vocab.form.stance}
-            <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || vocab.stances[0]!.id} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
-              {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
-            </select>
-          </label>
           <input type="text" data-testid="team-view-source" className={FIELD} maxLength={vocab.limits.source} value={pick.source} disabled={disabled}
             onChange={(e) => onPick({ ...pick, source: e.target.value })} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
         </>

@@ -16,6 +16,8 @@ import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { resetDrafts } from '../../olumiCore/team/drafts'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { resetDifferences, useDifferences } from '../../olumiCore/team/differences'
+import { resetDoubts } from '../../olumiCore/team/ViewDoubts'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
@@ -27,11 +29,12 @@ let posts: { url: string; body: Record<string, unknown>; as: string | null }[]
 let vocab: unknown, answer: () => Response | Promise<Response>
 beforeEach(() => {
   posts = []; vocab = VOCAB; answer = () => json({ contribution: 99 }, 201)
-  resetWrites(); resetDrafts(); setPagePerson(real.you_id)
+  resetWrites(); resetDrafts(); resetDifferences(); resetDoubts(); setPagePerson(real.you_id)
   setTeamFetch(vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     if (u.endsWith('/strategy/vocabulary')) return json(vocab)
     if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+    if (u.endsWith('/doubts')) return json({ doubt: 100 }, 201)
     if (u.endsWith('/views') && init?.method === 'POST') { posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') }); return answer() }
     if (u.includes('/view?')) return json(real)
     return json({ error: `unexpected ${u}` }, 404)
@@ -44,16 +47,119 @@ afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setS
 const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } })
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
-  it('a View without core\'s strategy key (core n2) asks core nothing for the vocabulary and draws no strategy fields', async () => {
-    const plain = { ...real } as Record<string, unknown>; delete plain.strategy
-    useViewStore.setState({ view: plain as unknown as View } as never)
-    const asked: string[] = []
-    setTeamFetch(vi.fn(async (url: RequestInfo | URL) => { asked.push(String(url)); return String(url) === '/api/me' ? json({ me: { id: real.you_id, name: real.you } }) : json(plain) }) as unknown as typeof fetch)
+  it('B: fresh scenario s_98e93f5d2389 fetches vocabulary and saves its first item on cross_team_adoption', async () => {
+    const { strategy: _strategy, ...withoutStrategy } = real
+    const fresh: View = { ...withoutStrategy, collab: { ...real.collab, shared: [], mine: [] } }
+    useViewStore.setState({ view: fresh })
+    const reads: string[] = []
+    setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (init?.method === 'POST' && u.endsWith('/doubts')) return json({ doubt: 100 }, 201)
+      if (init?.method === 'POST') {
+        posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') })
+        return json({ contribution: 99 }, 201)
+      }
+      reads.push(u)
+      if (u === `/api/scenarios/${real.id}/strategy/vocabulary`) return json(VOCAB)
+      if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+      return json(fresh)
+    }) as typeof fetch)
+    render(<TeamTab />)
+    const about = await screen.findByTestId('team-view-about')
+    expect(reads.filter((u) => u === `/api/scenarios/${real.id}/strategy/vocabulary`)).toEqual(['/api/scenarios/s_98e93f5d2389/strategy/vocabulary'])
+    expect(about.querySelector('option[value="cross_team_adoption"]')!.textContent).toBe('Cross-team adoption')
+    type('team-view-about', 'cross_team_adoption')
+    type('team-view-stance', 'suspect')
+    type('team-view-source', 'two pilots')
+    type('team-view-text', 'Teams adopt once an owner is named.')
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: '/api/scenarios/s_98e93f5d2389/views', as: real.you_id,
+      body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', source: 'two pilots', text: 'Teams adopt once an owner is named.' }], op: expect.any(String) } })
+  })
+  it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', async () => {
+    render(<TeamTab />)
+    const stance = await screen.findByTestId('team-view-stance') as HTMLSelectElement
+    expect([...stance.options].map((o) => [o.value, o.textContent])).toEqual([['', ''], ...VOCAB.stances.map((s) => [s.id, s.text])])
+    cleanup()
+    vocab = { ...VOCAB, stances: [] }
     render(<TeamTab />)
     await screen.findByTestId('team-view-give')
     await new Promise((r) => setTimeout(r, 20))
-    expect(asked.filter((u) => u.endsWith('/strategy/vocabulary'))).toEqual([])
-    expect(screen.queryByTestId('team-view-strategy')).toBeNull()
+    expect(screen.queryByTestId('team-view-stance')).toBeNull()
+  })
+  it('C: Team view 12 draws its item words and sources; debate views 19 and 20 draw core marks, reading and next question', async () => {
+    let c = render(<TeamTab />).container
+    const item = (id: string) => c.querySelector(`[data-testid="team-view-items-12"] [data-item-about="${id}"]`)
+    expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(item('implementation_effort')?.querySelector('[data-item-words]')?.textContent).toBe('Integration took a quarter each time.')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.textContent).toBe('Observed, two rollouts')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    cleanup()
+    const own: View = { ...real, strategy: { ...real.strategy!, views: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ ...l, mine: true })) },
+      collab: { ...real.collab, shared: [], mine: [{ ...real.collab.shared[0]!, shared: false, can_share: false }] } }
+    useViewStore.setState({ view: own })
+    c = render(<TeamTab />).container
+    expect.soft(c.querySelector('[data-testid="team-mine-12"] [data-item-about="speed_to_value"] [data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(c.querySelector('[data-testid="team-mine-12"] [data-item-about="speed_to_value"] [data-item-pill]')?.textContent).toBe('Observed, two rollouts')
+    cleanup()
+    // Core 2019e9c5 also puts the items directly on the shared contribution.
+    const { strategy: _strategy, ...plain } = real
+    useViewStore.setState({ view: { ...plain, collab: { ...real.collab, shared: [{ ...real.collab.shared[0]!,
+      items: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ about: l.about.id, text: l.text, stance: l.stance, source: l.source, pill: l.pill })) }] } } })
+    c = render(<TeamTab />).container
+    expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    cleanup()
+    // Exact projection excerpt from consulting-stance.view3.json, core f3aedd9a; no dock or canvas-chip dependency.
+    const debate: View = { ...plain, id: 's_a88ba245176e', collab: { ...real.collab,
+      shared: [{"id": 19, "by": "Priya", "by_id": "12", "text": "The enterprise buyers I have spoken to take most of a year to sign anything, even a small paid diagnostic. Procurement is the bottleneck, not the price.", "skip": false, "figures": [], "effects": []}, {"id": 20, "by": "Tom", "by_id": "14", "text": "Two of our pilot customers have asked for a short paid diagnostic. A small fixed-price piece of work can go on a manager's card, so I think one would sign within a quarter.", "skip": false, "figures": [], "effects": []}],
+      marks: [{"card": "diagnostic_time_to_contract", "kind": "disagreement", "views": [19, 20], "evidence": [], "text": "Priya and Tom differ", "reading": {"text": "Both figures may hold, under different conditions. In this model which option is most likely to achieve 'Generate revenue as quickly as possible' differs between them, so it is worth finding out which conditions apply.", "note": "Olumi's reading, unconfirmed. Priya and Tom can say whether it fits."}, "options": [{"option": "add_consulting", "text": "about 13% → about 13% with Priya's range, about 13% with Tom's range"}, {"option": "paid_enterprise_diagnostic", "text": "about 49% → under 1% with Priya's range, about 68% with Tom's range"}, {"option": "focus_product_sales", "text": "about 12% → about 12% with Priya's range, about 12% with Tom's range"}]}],
+      next: {"text": "What would tell you whether 'Time to first signed contract for the paid diagnostic' is nearer Priya's figure or Tom's? Which option is most likely to achieve 'Generate revenue as quickly as possible' in this model turns on it.", "about": ["diagnostic_time_to_contract"]},
+    } }
+    useViewStore.setState({ sid: debate.id, view: debate })
+    c = render(<TeamTab />).container
+    expect.soft(c.querySelector('[data-testid="team-revealed-19"]')?.textContent).toContain("The enterprise buyers I have spoken to take most of a year to sign anything, even a small paid diagnostic. Procurement is the bottleneck, not the price.")
+    expect.soft(c.querySelector('[data-testid="team-revealed-20"]')?.textContent).toContain("Two of our pilot customers have asked for a short paid diagnostic. A small fixed-price piece of work can go on a manager's card, so I think one would sign within a quarter.")
+    const mark = c.querySelector('[data-testid="team-mark-diagnostic_time_to_contract-disagreement"]')
+    expect.soft(mark?.getAttribute('data-mark-views')).toBe('19,20')
+    expect.soft(mark?.querySelector('p')?.textContent).toBe('Priya and Tom differ')
+    const reading = c.querySelector('[data-testid="team-reading-diagnostic_time_to_contract-disagreement"]')
+    expect.soft(reading?.querySelector('p:first-child')?.textContent).toBe("Both figures may hold, under different conditions. In this model which option is most likely to achieve 'Generate revenue as quickly as possible' differs between them, so it is worth finding out which conditions apply.")
+    expect.soft(reading?.querySelector('p:last-child')?.textContent).toBe("Olumi's reading, unconfirmed. Priya and Tom can say whether it fits.")
+    expect.soft(mark?.querySelector('[data-mark-option="paid_enterprise_diagnostic"]')?.textContent).toBe("about 49% → under 1% with Priya's range, about 68% with Tom's range")
+    expect.soft(c.querySelector('[data-testid="team-views-next"]')?.textContent).toBe(debate.collab.next!.text)
+    cleanup()
+    useViewStore.setState({ view: { ...debate, gated: true } })
+    c = render(<TeamTab />).container
+    expect(c.querySelector('[data-testid="team-mark-diagnostic_time_to_contract-disagreement"], [data-testid="team-views-next"]')).toBeNull()
+  })
+  it('D: one stance selector sends suspect for both item cross_team_adoption and saved view 99', async () => {
+    const differences = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8')), scenario: real.id, differences: [], stances: VOCAB.stances }
+    setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (init?.method === 'POST') {
+        posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') })
+        return json(u.endsWith('/doubts') ? { doubt: 100 } : { contribution: 99 }, 201)
+      }
+      if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+      return json(u.endsWith('/differences') ? differences : u.endsWith('/strategy/vocabulary') ? VOCAB : real)
+    }) as typeof fetch)
+    render(<TeamTab />)
+    await screen.findByTestId('team-view-about')
+    type('team-view-about', 'cross_team_adoption')
+    await waitFor(() => expect(useDifferences.getState().data?.scenario).toBe('s_98e93f5d2389'))
+    expect(screen.getAllByTestId('team-view-stance')).toHaveLength(1)
+    const stance = screen.getByTestId('team-view-stance') as HTMLSelectElement
+    expect([...stance.options].filter((o) => o.value !== '').map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
+    type('team-view-stance', 'suspect')
+    type('team-view-text', 'Teams adopt once an owner is named.')
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts.map(({ body: { op: _op, ...body }, ...p }) => ({ ...p, body }))).toEqual([
+      { url: '/api/scenarios/s_98e93f5d2389/views', as: '1', body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', text: 'Teams adopt once an owner is named.', source: null }] } },
+      { url: '/api/scenarios/s_98e93f5d2389/views/99/doubts', as: '1', body: { links: [], missing: null, stance: 'suspect' } },
+    ])
   })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
     render(<TeamTab />)
@@ -67,7 +173,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect(screen.getByTestId('team-view-strategy')).toHaveTextContent(FORM.about)
     fireEvent.change(about, { target: { value: CARD } })
     const stance = screen.getByTestId('team-view-stance') as HTMLSelectElement
-    expect([...stance.options].map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
+    expect([...stance.options].filter((o) => o.value !== '').map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
     expect(screen.getByTestId('team-view-strategy')).toHaveTextContent(FORM.stance)
     expect(screen.getByTestId('team-view-source')).toHaveAttribute('placeholder', FORM.source_example)
     fireEvent.change(stance, { target: { value: 'suspect' } })
@@ -87,10 +193,10 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect((screen.getByTestId('team-view-about') as HTMLSelectElement).value).toBe('')
   })
 
-  it('a plain view (no card chosen) posts no items, as before; the stance and source are not offered until a card is', async () => {
+  it('a plain view posts no items or stance unless chosen; its source is offered after choosing a card', async () => {
     render(<TeamTab />)
     await screen.findByTestId('team-view-about')
-    expect(screen.queryByTestId('team-view-stance')).toBeNull()
+    expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
     expect(screen.queryByTestId('team-view-source')).toBeNull()
     type('team-view-text', 'Wait a quarter.')
     fireEvent.click(screen.getByTestId('team-view-give'))

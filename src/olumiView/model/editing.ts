@@ -95,33 +95,5 @@ export const editKey = {
     `${sid}:remove-link:${remove.part == null ? remove.record : `${remove.record}.${remove.part}`}`,
 } as const
 
-/**
- * The tab's own words: UI chrome, never a model value or sentence. Where the canvas already says it, the canvas's words are kept
- * (FigureEdit: "Change figure", "Set figure", "Try without saving"; Rename; Add a figure; Remove link), so one action has one name.
- */
-export const MODEL_EDIT_WORDS = {
-  changeFigure: 'Change figure', setFigure: 'Set figure', tryIt: 'Try without saving', cancel: 'Cancel',
-  rename: 'Rename', saveName: 'Save name', newName: 'New name',
-  showOnCanvas: 'Show on canvas',
-  addFigure: 'Add a figure', name: 'Name', figure: 'Figure', unit: 'Unit (optional)', add: 'Add', figureHint: 'One number, or a range like 150 to 400',
-  removeLink: 'Remove link', removeAsk: 'Remove this link?', remove: 'Remove', keep: 'Keep',
-  links: 'Links', restsOn: 'Rests on', whose: 'Whose', about: 'About', whatWouldChange: 'What would change it',
-  saving: 'Saving…', reading: 'Reading the model…', savingOther: 'Another change is saving…', trying: 'Trying it without saving…', changeTarget: 'Change target', changeLimit: 'Change limit', changeStrength: 'Change strength',
-  heldLead: 'Olumi’s pending change is waiting for you.',
-  heldBody: 'Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.',
-  heldAside: 'Set it aside', heldConfirm: 'Set aside', heldKeep: 'Keep it',
-  heldFailed: 'That did not go through. Nothing was set aside.',
-  settingAside: 'Setting it aside…',
-  plain: 'Plain', expert: 'Expert', detail: 'Detail', to: 'to', from: 'from',
-  askChange: 'Ask Olumi to change this', askChangeDraft: 'Please change',
-  askOption: 'Ask Olumi for another option', askOptionDraft: 'Suggest another option we have not considered.',
-  askRisk: 'Ask Olumi what risks are missing', askRiskDraft: 'Which risks are missing from this model?',
-  askLink: 'Ask Olumi about missing links', askLinkDraft: 'Which links between these factors are missing or wrong?',
-  failed: 'That did not go through. Nothing was saved.',
-  // An editor whose offer core withdrew while it was open (edit_base null): Save is off, and this says why; the typing stays.
-  withdrawnHeld: 'This cannot be saved while Olumi’s pending change waits. Your typing is kept.',
-  withdrawnPast: 'Go back to the latest version to save this. Your typing is kept.',
-  withdrawn: 'This cannot be saved here just now. Your typing is kept.',
-  savedNotShown: 'Saved, but Olumi could not show it just now. Reload the page to see it.',
-  triedFailed: 'That did not go through. Nothing was tried.',
-} as const
+/** Core owns the tab's vocabulary, including complete drafts keyed by record id. */
+export const useModelWords = () => useViewStore((s) => s.view?.model_words)

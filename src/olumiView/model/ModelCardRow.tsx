@@ -24,7 +24,7 @@ import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { authorOf } from './author'
 import { premiseGroupsOf } from './premises'
-import { MODEL_EDIT_WORDS as W, openEditor, useModelEdit } from './editing'
+import { useModelWords, openEditor, useModelEdit } from './editing'
 import { FigureEditor, RenameEditor, WithdrawnNote } from './editors'
 import { CardDetail } from './detail'
 import { useModelTab } from './state'
@@ -140,6 +140,7 @@ function Premises({ card, keyEntries, expert }: { card: ViewCard; keyEntries: Vi
 export function ModelCardRow({ card, number, kind, model }: {
   card: ViewCard; number: string | null; kind: 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint'; model: ViewModel
 }) {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === card.id)
   const editing = useModelTab((s) => (s.editing?.row === card.id ? s.editing : null))

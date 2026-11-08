@@ -59,27 +59,10 @@ describe('a private view\'s links and factor', () => {
     expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe('Your view is saved; the links and factor were not: each link must be one the model shows')
   })
 
-  const STANCES = [{ id: 'know', text: 'I know this from experience' }, { id: 'suspect', text: 'I suspect this' }]
-  const withStances = (stances?: unknown) => useDifferences.setState({ sid: 's_x', key: 'k', data: { gated: true, ...(stances ? { stances } : {}) } as unknown as Differences, error: null })
-
-  it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', () => {
-    withStances(STANCES)
-    const { unmount } = render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
-    expect(screen.getByTestId('team-view-stance')).toBeTruthy()
-    expect(screen.getByTestId('team-view-stance-know').closest('label')!.textContent).toBe('I know this from experience')
-    expect(screen.getByTestId('team-view-stance-suspect').closest('label')!.textContent).toBe('I suspect this')
-    unmount(); cleanup(); resetDifferences()
-    supported()
-    const { container } = render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
-    expect(container.querySelector('[data-testid="team-view-stance"]')).toBeNull()
-  })
-
   it('sends a stance alone as { links: [], missing: null, stance }', async () => {
     const sent = serve(201, { doubt: 5 })
-    withStances(STANCES)
     render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
-    fireEvent.click(screen.getByTestId('team-view-stance-suspect'))
-    await sendDoubts('s_x', 7)
+    await sendDoubts('s_x', 7, 'suspect')
     expect(sent.find((s) => s.method === 'POST')).toEqual({ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [], missing: null, stance: 'suspect' } })
   })
 
