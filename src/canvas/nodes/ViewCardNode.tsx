@@ -101,7 +101,7 @@ export function Disclosed({ at, className = '', title, children }: { at: string;
       {over || open ? (
         <button type="button" aria-expanded={open} aria-controls={id} data-show-all={at}
           onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-light underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
       ) : null}
     </div>
   )

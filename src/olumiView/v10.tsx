@@ -45,6 +45,9 @@ import type { ViewCard, ViewModel } from './client'
 import { useViewStore } from './store'
 import { keyNamesBlueRange } from './layout'
 import { useCardNumber } from './lens'
+import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from './RevealMarks'
+import { StrategyChips } from './strategy/StrategyChips'
+import { useReveal } from './reveal'
 
 /** v10's rulings for the whole lane while its canvas is up: the attribute v10's stylesheets are scoped to. */
 export function useV10Lane(): void {
@@ -204,29 +207,39 @@ export function ViewValuesBand({ card }: { card: ViewCard }) {
   return <div className="mt-1 space-y-0.5" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.option} cardId={card.id} bar={b} blue={keyed && b.olumi} />)}</div>
 }
 
-type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null; readonly values: Element | null }
+type Places = { readonly olumi: Element | null; readonly driver: Element | null; readonly band: Element | null; readonly values: Element | null; readonly marks: Element | null; readonly rail: Element | null }
 
 /** A View card as v10 draws its controls: DGAI's card, with the Olumi corner and the driver badge in the card's own named places. */
 export function ViewCardV10(props: NodeProps) {
   const box = useRef<HTMLDivElement>(null)
-  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null, values: null })
+  const [places, setPlaces] = useState<Places>({ olumi: null, driver: null, band: null, values: null, marks: null, rail: null })
   const band = useOptionBands().get(props.id) ?? null
+  // V11: the card whose chip is open carries the one selection ring (approved v2.1), in the header ink (the person's act, never Olumi's blue).
+  const opened = useReveal((s) => s.card === props.id)
   // The card draws its places; v10 finds them each time the card is drawn from new data (a card that changes family gains or loses its
   // driver place).
   useLayoutEffect(() => {
     const at = (name: string) => box.current?.querySelector(`[data-slot="${name}"]`) ?? null
     const olumi = at(VIEW_CARD_SLOTS.olumiBadge), driver = at(VIEW_CARD_SLOTS.driverBadge), band = at(VIEW_CARD_SLOTS.outcomeBand)
-    const values = at(VIEW_CARD_SLOTS.valuesBand)
-    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band && p.values === values ? p : { olumi, driver, band, values }))
+    const values = at(VIEW_CARD_SLOTS.valuesBand), marks = at(VIEW_CARD_SLOTS.marks), rail = at(VIEW_CARD_SLOTS.rail)
+    setPlaces((p) => (p.olumi === olumi && p.driver === driver && p.band === band && p.values === values && p.marks === marks && p.rail === rail ? p
+      : { olumi, driver, band, values, marks, rail }))
   }, [props.data])
   return (
     <V10Scope>
-      <div ref={box} data-testid="view-card-v10">
+      <div ref={box} data-testid="view-card-v10" data-reveal-open={opened || undefined}
+        className={opened ? 'rounded-md ring-2 ring-text-header ring-offset-2 ring-offset-canvas' : undefined}>
         <ViewCardNode {...props} />
         {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
+        {places.band === null ? null : createPortal(<OptionMarkLine card={props.id} />, places.band)}
         {places.values === null ? null : createPortal(<ViewValuesBand card={(props.data as ViewCardData).card} />, places.values)}
+        {/* V11: the team's revealed views on the card they are about (./reveal.ts): initials in the marks row, the disagreement below; the
+            team's evidence on the cards it concerns (./evidence.ts), beside the initials. */}
+        {places.marks === null ? null : createPortal(<><CardViewInitials card={props.id} /><CardEvidenceMarks card={props.id} /></>, places.marks)}
+        {/* Strategy lane (7 Nov, by agreement): core's strategy mark beside the reveal's, in the same rail portal; null when the reveal marks the card. */}
+        {places.rail === null ? null : createPortal(<><CardViewChips card={props.id} /><StrategyChips card={props.id} /></>, places.rail)}
       </div>
     </V10Scope>
   )

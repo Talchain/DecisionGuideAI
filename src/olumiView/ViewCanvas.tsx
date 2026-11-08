@@ -8,7 +8,7 @@
  * (`readableFirstViewport`) once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
@@ -42,6 +42,10 @@ import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
+import { useOpenInView, useRevealInView } from './revealCamera'
+import { useReveal, withOpenCard } from './reveal'
+import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
+import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
 
 // Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
 const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
@@ -115,13 +119,19 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
 }
 
 function ViewFlow() {
-  const nodes = useCanvasStore((s) => s.nodes)
+  const stored = useCanvasStore((s) => s.nodes)
+  // V11: the card whose chip is open is marked `v11-open` on its node, so the coaching ring (ring.ts) steps out of it: one focus per screen.
+  const openCard = useReveal((s) => s.card)
+  const nodes = useMemo(() => withOpenCard(stored, openCard), [stored, openCard])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   const userMoved = useRef(false)
   // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
   const movedAt = useRef(0)
   const fit = useViewCamera(userMoved)
+  // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
+  useRevealInView(movedAt)
+  useOpenInView(movedAt)
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
@@ -199,7 +209,8 @@ function ViewFlow() {
       {hasModel ? null : <DraftingBoard />}
       {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
       {hasModel ? <AddFigure /> : null}
-      {hasModel ? <ViewLensBar /> : null}
+      {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}
+      {hasModel ? <ViewLensBar nav /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}
@@ -223,6 +234,8 @@ export function ViewCanvas(): JSX.Element {
                 <MaybeConversationProvider>
                   <div className="relative h-full w-full" data-testid="view-canvas-root">
                     <ViewFlow />
+                    {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
+                    <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
                   </div>
                 </MaybeConversationProvider>
               </CanvasOverlayBandProvider>
