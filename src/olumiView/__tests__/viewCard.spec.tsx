@@ -136,6 +136,20 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
     expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
   })
+  it('V11 card (strategy session’s rule): a worded badge is visible at rest as the first signal in the marks band, glyphs as its icon (words: FIXTURE of core n2c’s shape)', () => {
+    const card = golden('european').model!.cards.find((c) => c.badge !== null)!
+    const el = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: 'FIXTURE: 1 open question' } as never }} selected={false} />).container
+    const band = el.querySelector('[data-slot="marks"]')!
+    const badge = band.firstElementChild as HTMLElement
+    expect(badge.getAttribute('data-badge-at-rest')).toBe(card.id)
+    expect(badge.querySelector(`[data-view="${card.id}.badge.words"]`)!.textContent).toBe('FIXTURE: 1 open question')
+    expect(badge.querySelector(`[data-view="${card.id}.badge.text"]`)!.getAttribute('aria-hidden')).toBe('true')
+    expect(badge.closest('.invisible')).toBeNull()
+    expect(badge.querySelector('button')!.getAttribute('aria-label')).toBe(card.badge!.label)
+    // Shown once: not a second time in the hover line.
+    expect(el.querySelectorAll(`[data-view="${card.id}.badge.words"]`)).toHaveLength(1)
+  })
+
   it('DL 7 Nov: unselected, a badge core names in words is on the face at rest, its words visible; one with glyphs only stays on hover', () => {
     const card = golden('european').model!.cards.find((c) => c.badge !== null)!
     const rest = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: '1 open question' } as never }} selected={false} />).container

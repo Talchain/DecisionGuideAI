@@ -328,13 +328,16 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
-      {/* DL 7 Nov: a badge core names in words ("1 open question") is on the face at rest, one 12px line: what is folded in is seen at first
-          glance. A badge with no words (glyphs only) still shows on hover, focus or selection. */}
-      {card.badge === null ? null : badgeWords(card.badge) !== null
-        ? <p className={typography.viewPanelMeta} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></p>
+      {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
+      {card.badge === null || badgeWords(card.badge) !== null ? null
         : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
-      <span data-slot={VIEW_CARD_SLOTS.marks} className="flex gap-1 empty:hidden">
+      <span data-slot={VIEW_CARD_SLOTS.marks} className="flex flex-wrap items-center gap-1 empty:hidden">
+        {/* DL 7 Nov, the strategy session's rule on V11's card: a badge core names in words ("1 open question") is on the face at rest, one
+            compact 12px line in the marks band, core's glyphs as its icon and core's words beside them, first of the card's status signals.
+            It outranks a source mark where a card already has two signals; this card face draws no source mark today. */}
+        {card.badge === null || badgeWords(card.badge) === null ? null
+          : <span className={`${typography.viewPanelMeta} whitespace-nowrap`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
         {/* K5 "If it failed" (R3): one badge per pre-mortem story resting on this card, core's number with Olumi's mark, the story in
             Olumi's words on hover; on an option, the story most within the team's control, in core's words. All Olumi's (./k5.ts). */}
