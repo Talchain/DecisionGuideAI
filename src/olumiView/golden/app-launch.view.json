@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -846,7 +846,8 @@
      "calculate_readiness_margin"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "option_isolate",
@@ -861,7 +862,11 @@
      "isolation_trust_link"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": {
+     "record": "isolation_trust_link",
+     "part": null
+    }
    },
    {
     "from": "option_isolate",
@@ -877,7 +882,8 @@
      "calculate_readiness_margin"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "negative_reviews",
@@ -890,7 +896,8 @@
     "title": "may change",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "readiness_margin",
@@ -903,7 +910,8 @@
     "title": "measured by",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "schedule_assumptions",
@@ -916,7 +924,8 @@
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "schedule_assumptions",
@@ -929,7 +938,8 @@
     "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "option_delay",
@@ -942,7 +952,8 @@
     "title": "worked out through Postponed release time from now",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "isolation_readiness_link",
@@ -955,7 +966,8 @@
     "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "isolation_readiness_link",
@@ -970,12 +982,13 @@
      "calculate_readiness_margin"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Explain the release decision without unfair team blame’",
-   "lead": "In this model, on current information, each option’s chance of ‘Explain the release decision without unfair team blame’:",
+   "lead": "Chance of ‘Explain the release decision without unfair team blame’, in this model on current information",
    "all_withheld": true,
    "shared_blockers": [
     {
@@ -1100,6 +1113,19 @@
    "lenses": []
   },
   "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "isolation_trust_link",
+     "part": null
+    },
+    "from": "option_isolate",
+    "to": "protect_user_trust",
+    "text": "'Explore shipping without the affected sync path' → 'Avoid damaging users' experience and trust'",
+    "line": true,
+    "card": null
+   }
+  ],
   "key": [
    {
     "id": "olumi",

@@ -243,6 +243,10 @@ export type View = {
         record: string
         part: string | null
       } | null
+      holds: {
+        record: string
+        part: string | null
+      } | null
     }>
     run: {
       aim: string | null
@@ -437,6 +441,17 @@ export type View = {
       }>
     } | null
     edit_base: number | null
+    holdable?: Array<{
+      link: {
+        record: string
+        part: string | null
+      }
+      from: string
+      to: string
+      text: string
+      line: boolean
+      card: string | null
+    }>
     key: Array<{
       id: string
       glyph: string
@@ -743,6 +758,34 @@ export type View = {
       }>
       title: string
       label: string
+      question: string | null
+    }>
+    link_marks?: Array<{
+      link: {
+        record: string
+        part: string | null
+      }
+      from: string
+      to: string
+      line: boolean
+      card: string | null
+      kind: "shared" | "unique" | "disagreement"
+      views: Array<number>
+      stances: Array<{
+        by: string
+        by_id: string
+        stance: "doubt" | "keep"
+        words: string | null
+      }>
+      text: string
+      title: string
+      label: string
+      reading: {
+        text: string
+        note: string
+      } | null
+      question: string | null
+      status_text: string | null
     }>
   }
   evidence: Array<{

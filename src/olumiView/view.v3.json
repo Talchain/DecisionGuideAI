@@ -1308,6 +1308,32 @@
             "type": "null"
            }
           ]
+         },
+         "holds": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "record": {
+              "type": "string"
+             },
+             "part": {
+              "type": [
+               "string",
+               "null"
+              ]
+             }
+            },
+            "required": [
+             "record",
+             "part"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -1321,7 +1347,8 @@
          "title",
          "records",
          "effect",
-         "remove"
+         "remove",
+         "holds"
         ],
         "additionalProperties": false
        }
@@ -2401,6 +2428,60 @@
         "number",
         "null"
        ]
+      },
+      "holdable": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "link": {
+          "type": "object",
+          "properties": {
+           "record": {
+            "type": "string"
+           },
+           "part": {
+            "type": [
+             "string",
+             "null"
+            ]
+           }
+          },
+          "required": [
+           "record",
+           "part"
+          ],
+          "additionalProperties": false
+         },
+         "from": {
+          "type": "string"
+         },
+         "to": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         },
+         "line": {
+          "type": "boolean"
+         },
+         "card": {
+          "type": [
+           "string",
+           "null"
+          ]
+         }
+        },
+        "required": [
+         "link",
+         "from",
+         "to",
+         "text",
+         "line",
+         "card"
+        ],
+        "additionalProperties": false
+       }
       },
       "key": {
        "type": "array",
@@ -4026,6 +4107,12 @@
        },
        "label": {
         "type": "string"
+       },
+       "question": {
+        "type": [
+         "string",
+         "null"
+        ]
        }
       },
       "required": [
@@ -4037,7 +4124,159 @@
        "reading",
        "options",
        "title",
-       "label"
+       "label",
+       "question"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "link_marks": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "link": {
+        "type": "object",
+        "properties": {
+         "record": {
+          "type": "string"
+         },
+         "part": {
+          "type": [
+           "string",
+           "null"
+          ]
+         }
+        },
+        "required": [
+         "record",
+         "part"
+        ],
+        "additionalProperties": false
+       },
+       "from": {
+        "type": "string"
+       },
+       "to": {
+        "type": "string"
+       },
+       "line": {
+        "type": "boolean"
+       },
+       "card": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "shared",
+         "unique",
+         "disagreement"
+        ]
+       },
+       "views": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        }
+       },
+       "stances": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "by": {
+           "type": "string"
+          },
+          "by_id": {
+           "type": "string"
+          },
+          "stance": {
+           "type": "string",
+           "enum": [
+            "doubt",
+            "keep"
+           ]
+          },
+          "words": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "by",
+          "by_id",
+          "stance",
+          "words"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "text": {
+        "type": "string"
+       },
+       "title": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
+       },
+       "reading": {
+        "anyOf": [
+         {
+          "type": "object",
+          "properties": {
+           "text": {
+            "type": "string"
+           },
+           "note": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "text",
+           "note"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "question": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "status_text": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "link",
+       "from",
+       "to",
+       "line",
+       "card",
+       "kind",
+       "views",
+       "stances",
+       "text",
+       "title",
+       "label",
+       "reading",
+       "question",
+       "status_text"
       ],
       "additionalProperties": false
      }

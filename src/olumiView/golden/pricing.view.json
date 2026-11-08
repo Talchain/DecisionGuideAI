@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -457,7 +457,7 @@
     "headline": {
      "aim_id": "profit_goal",
      "state": "chance",
-     "text": "'Make £7,000 a month': about 49% chance",
+     "text": "about 49% chance",
      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
      "range": "under 1% if 'cups change' is low, over 99% if it is high",
      "why": null,
@@ -535,7 +535,7 @@
     "headline": {
      "aim_id": "profit_goal",
      "state": "fixed",
-     "text": "'Make £7,000 a month': never met in this model",
+     "text": "never met in this model",
      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
      "range": null,
      "why": null,
@@ -559,7 +559,8 @@
      "profit_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "cups_change",
@@ -575,7 +576,8 @@
      "profit_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "margin",
@@ -590,7 +592,8 @@
      "profit_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "profit",
@@ -603,7 +606,8 @@
     "title": "measured by",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "profit_target",
@@ -616,7 +620,8 @@
     "title": "target",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "raise_price",
@@ -629,7 +634,8 @@
     "title": "option input",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "margin_raised",
@@ -642,7 +648,8 @@
     "title": "replaces margin",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "raise_price",
@@ -662,12 +669,13 @@
      "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
     },
-    "remove": null
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Make £7,000 a month’",
-   "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+   "lead": "Chance of ‘Make £7,000 a month’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
     "text": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
@@ -798,6 +806,7 @@
    ]
   },
   "edit_base": 1,
+  "holdable": [],
   "key": [
    {
     "id": "olumi",

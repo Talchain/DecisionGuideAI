@@ -15,7 +15,7 @@
  "version": {
   "id": 4,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -375,7 +375,7 @@
     "headline": {
      "aim_id": "capacity_goal",
      "state": "fixed",
-     "text": "'At least 100 a week': never met in this model",
+     "text": "never met in this model",
      "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
      "range": null,
      "why": null,
@@ -478,7 +478,7 @@
     "headline": {
      "aim_id": "capacity_goal",
      "state": "chance",
-     "text": "'At least 100 a week': about 74% chance",
+     "text": "about 74% chance",
      "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
      "range": "about 22% if 'per specialist' is low, over 99% if it is high",
      "why": null,
@@ -578,7 +578,8 @@
      "total_def"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "existing_capacity",
@@ -593,7 +594,8 @@
      "total_def"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "total_capacity",
@@ -606,7 +608,8 @@
     "title": "measured by",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "capacity_target",
@@ -619,7 +622,8 @@
     "title": "target",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "add_one",
@@ -632,7 +636,8 @@
     "title": "option input",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "one_specialist",
@@ -648,12 +653,13 @@
      "total_def"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘At least 100 a week’",
-   "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
+   "lead": "Chance of ‘At least 100 a week’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
     "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it).",
