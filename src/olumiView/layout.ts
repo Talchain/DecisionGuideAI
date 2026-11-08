@@ -225,6 +225,16 @@ export function firstLookOpen(view: View | null, opened: { readonly open: Readon
 }
 
 /**
+ * J1 step 3 (nothing repeated): while no option has a chance yet (every option card's rows are core's "none" kind), each option card leaves
+ * that row to the panel, which says what is not yet there once. Keyed by the rows' kind, never their words. False when any option has a
+ * chance or a limit row, or there is no option.
+ */
+export function optionsNotYet(model: ViewModel | null | undefined): boolean {
+  const options = (model?.cards ?? []).filter((c) => c.family === 'option')
+  return options.length > 0 && options.every((c) => c.rows.length > 0 && c.rows.every((r) => r.kind === 'none'))
+}
+
+/**
  * SC-01 PREVIEW (option A, Paul 8 Nov: "Show me your recommended option. I don't want to commit to it yet"): the cause-to-aim story read
  * left to right in three columns, so a 16-card board is seen whole at 1232 x 704 at the 0.9 floor (camera.ts READABLE_WHOLE_ZOOM).
  *   0: the question, then the options, in the View's order;

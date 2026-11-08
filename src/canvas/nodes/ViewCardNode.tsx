@@ -15,7 +15,7 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, sharedAimsOf, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem } from '../../olumiView/layout'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -215,13 +215,16 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
   // K5 (R3): Olumi's failure stories resting on this card, and an option's story most within the team's control (./k5.ts, ahead of core).
   const failed = failedOf(card), reason = failedReasonOf(card)
   const estimate = card.family === 'quantity' && card.olumi !== null && card.figure !== null
+  // J1 step 3: who or what this card is from, core's words on its face (author.text: "Olumi's estimate", "Stated by Tom"), its source on
+  // hover; a card Olumi inferred is drawn dashed in Olumi's colour. Olumi's own mark beside the heading says the same, so it is for readers.
+  const author = card.author ?? null, inferred = author?.by === 'olumi'
   // A card with no figure and no rows (an assumption, a condition) says what it holds in its reason: that stays on the face, one line
   // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
   const says = card.figure === null && card.rows.length === 0 && card.reason !== null
@@ -245,8 +248,8 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
-      data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined} data-inferred={inferred || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
       // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
@@ -278,7 +281,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
         <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
-        {card.olumi === null ? null : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
+        {card.olumi === null ? null : author !== null ? <span className="sr-only"><Mark at={`${id}.olumi`} mark={card.olumi} /></span> : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
         {card.change === null ? null : <>{' '}<Mark at={`${id}.change`} mark={card.change} /></>}
         <Slot name={VIEW_CARD_SLOTS.titleMark} className="ml-1 empty:hidden" />
       </p>
@@ -325,21 +328,31 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         <span key={i} className="contents">
           {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
               (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
-          {row.kind === 'none' && row.aim_id !== null && shared.includes(row.aim_id) ? null
+          {/* J1 step 3: while no option has a chance yet (layout.ts optionsNotYet), the panel says so once; no option card repeats it. */}
+          {row.kind === 'none' && ((row.aim_id !== null && shared.includes(row.aim_id)) || (notYet && card.family === 'option')) ? null
             : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
       {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
-      {card.badge === null || badgeNamed(card.badge) !== null ? null
+      {/* A badge with no words (glyphs only), or an open one (what it folded is on the board already: J1 step 3, nothing repeated), shows
+          on hover, focus or selection. */}
+      {card.badge === null || card.badge.open || badgeNamed(card.badge) !== null ? null
         : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {/* An open badge takes no line: what it folded is on the board, so it waits in the card's corner to fold it back. */}
+      {card.badge === null || !card.badge.open ? null
+        : <p className={`absolute bottom-1 right-2 ${typography.viewPanelMeta} ${selected ? '' : 'invisible group-hover:visible focus-within:visible'}`} data-at-rest-hidden="" data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex flex-wrap items-center gap-1 empty:hidden">
         {/* DL 7 Nov, the strategy session's rule on V11's card: a badge core names in words ("1 open question") is on the face at rest, one
             compact 12px line in the marks band, core's glyphs as its icon and core's words beside them, first of the card's status signals.
             It outranks a source mark where a card already has two signals; this card face draws no source mark today. */}
-        {card.badge === null || badgeNamed(card.badge) === null ? null
+        {card.badge === null || badgeNamed(card.badge) === null || card.badge.open ? null
           : <span className={`${typography.viewPanelMeta} whitespace-nowrap`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
+        {author === null ? null : (
+          <span className={`${typography.viewPanelMeta} whitespace-nowrap rounded-full border border-border px-2 text-text-body`} data-provenance={id}
+            title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
+        )}
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
         {/* K5 "If it failed" (R3): one badge per pre-mortem story resting on this card, core's number with Olumi's mark, the story in
             Olumi's words on hover; on an option, the story most within the team's control, in core's words. All Olumi's (./k5.ts). */}
@@ -439,6 +452,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   // The aims whose shared reason the panel says once for this option (layout.ts sharedAimsOf): its card leaves those rows to it.
   const shared = useMemo(() => sharedAimsOf(view?.model?.run, id), [view, id])
+  const notYet = useMemo(() => optionsNotYet(view?.model), [view])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   // Keyboard focus on the card (or inside it) opens its other words as selection does (plan v3: full text on selection or keyboard focus).
   // Only while the page's focus really is there: a control removed after its save (an editor, a rename) moves focus to the page with no
@@ -461,7 +475,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
       {/* SC-01 preview: the story reads left to right, so a link enters a card on its left and leaves on its right. */}
       <Handle type="target" position={Position.Left} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">

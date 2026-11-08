@@ -186,7 +186,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|author\.text)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
   const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {
@@ -219,22 +219,22 @@ describe('the original card\'s look and its named places (DL 4 Nov: an improved 
       expect(slots, card.id).toEqual(expect.arrayContaining(['title-mark', 'marks', 'olumi-badge']))
       expect(slots.includes('driver-badge') && slots.includes('outcome-band'), `${card.id} option places`).toBe(card.family === 'option' && card.rows.length > 0)
       expect(slots.includes('figure-side') && slots.includes('values-band'), `${card.id} figure places`).toBe(card.figure !== null)
-      // V11 card: core's named badge sits at rest as the first signal in the marks band; every other place is empty.
-      const filled = [...c.querySelectorAll<HTMLElement>('[data-slot]')].filter((e) => [...e.children].some((k) => !k.hasAttribute('data-badge-at-rest')) || (e.childElementCount === 0 && e.textContent !== ''))
+      // V11 card: core's named badge sits at rest as the first signal in the marks band, then core's provenance label (J1 step 3); every other place is empty.
+      const filled = [...c.querySelectorAll<HTMLElement>('[data-slot]')].filter((e) => [...e.children].some((k) => !k.hasAttribute('data-badge-at-rest') && !k.hasAttribute('data-provenance')) || (e.childElementCount === 0 && e.textContent !== ''))
       expect(filled.map((e) => e.dataset['slot']), `${card.id} places are empty`).toEqual([])
       expect(c.querySelector('[data-view-card]')!.getAttribute('data-slot-outline')).toBe('next-step')
     }
   })
   it('an option the team committed to says who in the marks row, when on hover (olumi.view/3 `committed`); an option without one says nothing', () => {
     const option = golden('european').model!.cards.find((c) => c.family === 'option')!
-    // Without its badge (V11 draws core's named badge first in the same marks band), so the row reads the commitment alone.
-    const c = render(<ViewCard card={{ ...option, badge: null, committed: { by: 'Bea', at: '2026-11-04T10:00:00Z' } }} />).container
+    // Without its badge and its provenance label (V11 draws both in the same marks band), so the row reads the commitment alone.
+    const c = render(<ViewCard card={{ ...option, badge: null, author: undefined, committed: { by: 'Bea', at: '2026-11-04T10:00:00Z' } }} />).container
     const marks = c.querySelector('[data-slot="marks"]')!
     expect(marks.querySelector(`[data-view="${option.id}.committed.by"]`)?.textContent).toBe('Bea')
     expect(marks.textContent).toBe('Committed by: Bea')
     expect(marks.querySelector(`[data-committed="${option.id}"]`)?.getAttribute('title')).toBe('Committed by: Bea · 2026-11-04T10:00:00Z')
     // CONTRAST: core's null draws an empty marks row
-    expect(render(<ViewCard card={{ ...option, badge: null, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
+    expect(render(<ViewCard card={{ ...option, badge: null, author: undefined, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
   })
   // Re-baselined (DL 8 Nov, V11 audit: the prototype draws no card codes): the face carries no O1/F1 code, and a figure card's per-option
   // row names its option by core's heading instead of the code it pointed at.
