@@ -23,6 +23,9 @@ export interface Difference {
   readonly record: string; readonly label: string; readonly goal: string; readonly goal_label: string
   readonly status: DifferenceStatus; readonly status_text: string
   readonly sides: readonly DifferenceSide[]; readonly options: readonly DifferenceOption[]; readonly settle: readonly Settle[]; readonly steps: readonly StepShown[]
+  /** TM-04 (links only, additive): core's words for the doubted link's chip on the canvas, at most 28 characters, naming only who doubts
+   *  it, never a keeper ("Cara doubts this link", else counted). Core b365e50e debate.ts:65. Absent on an older core. */
+  readonly chip?: string
 }
 export interface DifferenceHeadings { readonly sides: string; readonly options: string; readonly model: string; readonly settle: string; readonly steps: string; readonly dissent: string; readonly research: string; readonly commit: string }
 export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings
@@ -45,12 +48,16 @@ export function differencesShape(x: unknown): Differences | null {
   if (!['sides', 'options', 'model', 'settle', 'steps', 'dissent', 'research', 'commit'].every((k) => isStr(h[k]))) return null
   const ok = d.differences.every((x) => isStr(x.record) && isStr(x.label) && isStr(x.status_text) && Array.isArray(x.sides) && Array.isArray(x.options) && Array.isArray(x.settle) && Array.isArray(x.steps))
   if (!ok) return null
-  const st = (d as { stances?: unknown }).stances
+  // TM-04's `chip` (additive): core's words, or it is dropped from that entry and never drawn as anything else.
+  const out = d.differences.some((e) => e.chip !== undefined && !isStr(e.chip))
+    ? { ...d, differences: d.differences.map((e) => (e.chip === undefined || isStr(e.chip) ? e : { ...e, chip: undefined })) }
+    : d
+  const st = (out as { stances?: unknown }).stances
   if (st !== undefined && !(Array.isArray(st) && st.every((e) => e !== null && typeof e === 'object' && isStr((e as { id?: unknown }).id) && isStr((e as { text?: unknown }).text)))) {
-    const { stances: _drop, ...rest } = d as Differences
+    const { stances: _drop, ...rest } = out as Differences
     return rest as Differences
   }
-  return d as Differences
+  return out as Differences
 }
 
 /** `key`: the View last read for (whether or not that read answered); `read`: the View `data` was read for. A failed read keeps the

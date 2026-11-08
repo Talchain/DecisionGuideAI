@@ -16,6 +16,7 @@ import { linkDrawn } from '../../olumiView/layout'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
+import { railObstacles, useRailBoxes } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
@@ -44,6 +45,17 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   if (toSelected) active.add(target)
   // The cards as React Flow holds them (flow units), and the words' own drawn size: the words sit off every card (linkWordsPlace.ts).
   const cards = useStore(cardBoxesOf, sameBoxes)
+  // ...and off the chips on every card's rail, which hangs below the card out of React Flow's box (olumiView/railBoxes.ts; Paul's gate,
+  // 8 Nov: "replaces" sat over the end of a doubted link's chip). Only the words move; the line and its rail run by the cards alone.
+  // The same boxes keep the same array, so a rail elsewhere changing does not place these words again.
+  const rails = useRailBoxes((s) => s.rails)
+  const lastClear = useRef<CardBox[] | null>(null)
+  const clearOf = useMemo(() => {
+    const next = [...cards, ...railObstacles(cards, rails)]
+    if (lastClear.current !== null && sameBoxes(lastClear.current, next)) return lastClear.current
+    lastClear.current = next
+    return next
+  }, [cards, rails])
   // R25: a link into a card above its source (an outcome into its aim beside the question) runs round the board (linkRail.ts).
   const from = cards.find((c) => c.id === source), to = cards.find((c) => c.id === target)
   // Each rail link has its own rail (PL 7 Nov): the slots of every drawn link into the head row, by their sources across the board.
@@ -70,8 +82,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
-  const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, cards) : linkWordsAt(path, cards, size, { x: midX, y: midY })),
-    [path, cards, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
+  const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, clearOf, cards) : linkWordsAt(path, clearOf, size, { x: midX, y: midY })),
+    [path, clearOf, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
   // or focused, or a card at either end is hovered or selected, and on a driver link.
   const near = selected || focused || driver || active.has(source) || active.has(target)
@@ -97,8 +109,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const ctlAt: Placed | null = useMemo(() => {
     if (!offering || ctl.w === 0) return null
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
-    return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
-  }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
+    return linkWordsAt(path, [...clearOf, ...shownWords], ctl, { x: midX, y: midY })
+  }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
   if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
@@ -111,7 +123,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
       {!words ? null : (
         // The words on the line sit in React Flow's label layer, above a resting card (z 0) and below a selected one (1000), so a card
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
-        // along the path clear of every card (R5 item 3), so they never cover a card's text either.
+        // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>

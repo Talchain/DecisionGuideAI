@@ -2,7 +2,7 @@
  * WHERE A LINK'S WORDS SIT (R5, the design lead's R3 look check item 3; github-3c approved the fix, 5 Nov). The words ("!", "◇", a sign, a
  * strength) are in React Flow's label layer, above resting cards (R3: "a card never cuts them"), so at the path's midpoint they were drawn
  * over any card lying there. They sit at the nearest point along the link's own path (its cubic Bézier, as React Flow drew it) whose box
- * touches no card. Where no point of the path is clear, they sit at the clear point nearest the LINK (never at the midpoint over a card:
+ * touches no card (nor, as its caller gives them, a chip on a card's rail: TM-04 gate, 8 Nov). Where no point of the path is clear, they sit at the clear point nearest the LINK (never at the midpoint over a card:
  * DL 7 Nov, Paul's "ent!prise"); farther than NEAR from it, a short leader joins them to the link so they never lose it (PL 7 Nov).
  * Pure geometry in flow units; nothing about the words changes.
  */
