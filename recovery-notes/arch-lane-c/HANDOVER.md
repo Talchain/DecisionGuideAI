@@ -12,7 +12,7 @@
   - By default (`'ignore'`) it ignores fields the schema does not declare, per the UI session's ruling, and checks every declared field.
   - One exception, from the Codex FAIL: inside a union of object shapes, a key a sibling shape declares is refused.
   - `'strict'` keeps core's closure.
-- **Its cases:** `src/olumiView/__tests__/validateView.spec.ts`, 26/26.
+- **Its cases:** `src/olumiView/__tests__/validateView.spec.ts`, 27/27.
   - Both modes are held to Ajv on every vendored View and on mutants.
   - Cases: draft (schema-driven), gated, past version, malformed, link fields, and skew (n2c fields ignored).
   - Six mutants each turn it red.
@@ -39,7 +39,12 @@
 ## Open: the exact next step
 - Codex round 1 FAILED (olumi-core `notes/codex/2026-11-08-03-lane-c-view-validate.md`): the union-shape bypass. It is fixed in the
   commit "PL-21 (Codex FAIL fixed)".
-- Next: Codex round 2 on that delta only. Then send the DL the READY SHA.
+- Codex round 2: PASS WITH NITS (olumi-core `notes/codex/2026-11-08-04-lane-c-view-validate-r2.md`). The one nit: the
+  ignore-mode oracle equals the walker only while every union shape is closed. A spec row now asserts that, so a re-vendor that
+  breaks it goes red.
+- READY for the DL.
+- Next, after N2 is on candidate: the UI session re-vendors from the paired core and re-reads the fixtures. In the same change, apply
+  `entry-edit.patch`.
 - After N2 is on candidate and the UI session re-vendors, the entry edit lands with the fixture refresh. It is the UI session's call
   or this lane's, by agreement.
 - Do not touch N2 integration files until N2 is on candidate.

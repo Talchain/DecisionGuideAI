@@ -85,6 +85,21 @@ describe('one contract: the walker reads the vendored core schema, with the type
 })
 
 describe('the walker agrees with Ajv', () => {
+  it('the ignore-mode oracle holds for this schema: every object shape inside a union is closed (Codex round 2 nit)', () => {
+    let sites = 0
+    const walk = (n: unknown): void => {
+      if (Array.isArray(n)) { n.forEach(walk); return }
+      if (!isNode(n)) return
+      for (const k of ['anyOf', 'oneOf'] as const) {
+        const shapes = Array.isArray(n[k]) ? (n[k] as unknown[]).filter((b) => isNode(b) && isNode(b.properties)) : []
+        if (shapes.length > 1) { sites += 1; for (const b of shapes) expect((b as Node).additionalProperties).toBe(false) }
+      }
+      Object.values(n).forEach(walk)
+    }
+    walk(schema)
+    expect(sites).toBeGreaterThanOrEqual(8) // 7 object anyOfs + the tagged row oneOf at core 6192ad6b
+  })
+
   const files: string[] = []
   const collect = (d: string) => {
     for (const f of readdirSync(d)) {
