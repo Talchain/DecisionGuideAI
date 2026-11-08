@@ -23,6 +23,9 @@ export interface Difference {
   readonly record: string; readonly label: string; readonly goal: string; readonly goal_label: string
   readonly status: DifferenceStatus; readonly status_text: string
   readonly sides: readonly DifferenceSide[]; readonly options: readonly DifferenceOption[]; readonly settle: readonly Settle[]; readonly steps: readonly StepShown[]
+  /** TM-04 (links only, additive): core's words for the doubted link's chip on the canvas, at most 28 characters, naming only who doubts
+   *  it, never a keeper ("Cara doubts this link", else counted). Core b365e50e debate.ts:65. Absent on an older core. */
+  readonly chip?: string
 }
 export interface DifferenceHeadings { readonly sides: string; readonly options: string; readonly model: string; readonly settle: string; readonly steps: string; readonly dissent: string; readonly research: string; readonly commit: string }
 export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings
