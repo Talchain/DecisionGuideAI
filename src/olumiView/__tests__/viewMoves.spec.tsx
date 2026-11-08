@@ -70,6 +70,18 @@ describe('the coach\'s next move is one tap', () => {
     expect(posts()).toHaveLength(1)
   })
 
+  it('core\'s one-turn-at-a-time refusal (409, another turn is being answered, core API v1.28): core\'s words, the View read again, and the tap is kept', async () => {
+    const BUSY = 'Olumi is still answering the last message here. Send yours once it has answered.'
+    refuse = { status: 409, error: BUSY }
+    served = { ...withMove('outside_view'), turn: { job: 41, status: 'answering', said: 'What about churn?', by: 'Sam', by_id: '9', words: 'Olumi is answering.', started: '2026-11-08T15:00:00.000Z', at: '2026-11-08T15:00:00.000Z' } } as View
+    render(<ViewChat />)
+    await act(async () => { fireEvent.click(screen.getByTestId('view-next-move')) })
+    await waitFor(() => expect(reads()).toBe(1))
+    expect(useViewChat.getState().said).toBe(BUSY)
+    expect(useViewChat.getState().gone ?? null).toBeNull()
+    expect(screen.getByTestId('view-next-move')).toBeTruthy()
+  })
+
   it('any other refusal keeps the tap, in core\'s words, and reads nothing again (a move that may be taken still)', async () => {
     refuse = { status: 429, error: 'You have sent a lot just now. Wait a minute, then try again.' }
     render(<ViewChat />)

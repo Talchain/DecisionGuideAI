@@ -207,6 +207,16 @@ export type View = {
           title: string
         }
       } | null
+      headline?: {
+        aim_id: string | null
+        state: "chance" | "fixed" | "none"
+        text: string
+        title: string
+        range: string | null
+        why: string | null
+        add: string | null
+        shared: boolean
+      } | null
     }>
     links: Array<{
       from: string
@@ -971,6 +981,16 @@ export type View = {
     stage?: "reading" | "building" | "analysing" | null
     words?: string | null
     started?: string
+  } | null
+  turn?: {
+    job: number
+    status: "answering" | "failed" | "lost"
+    said: string | null
+    by: string
+    by_id: string
+    words: string | null
+    started: string
+    at: string
   } | null
   strategy?: {
     items: Array<{

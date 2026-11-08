@@ -70,12 +70,15 @@ export type DraftJob = { id: number; kind: 'draft'; scenario: string; status: 'r
   words: string | null; reason: string | null; proposal: number | null; started: string; at: string }
 /** What accepting a brief answers: `202` while its job runs, `200` when the same op replays a job that has ended (core API v1.26). */
 export type DraftAccepted = { scenario: string; job: DraftJob | null; proposal: number | null; status_url: string | null }
+/** A turn (core API v1.28: a message, a move, a challenge, a method question): accepted at once (`202`) and answered in core; the View's
+ *  `turn` says where it stands, and the answer arrives as the conversation's newest turn. `200` when the same op replays an answered one. */
+export type TurnAccepted = { scenario: string; job: { id: number; kind: 'turn'; status: 'running' | 'done' | 'failed' | 'lost'; words: string | null } | null; proposal: number | null; discussion: boolean | null; status_url: string | null }
 export const writes = {
   create: (brief: string, op: string) => call<DraftAccepted>('POST', '/api/scenarios', { brief, op }),
   /** Try again (core API v1.26 `POST …/draft`): a new attempt on the scenario's saved brief, under a NEW op, after its draft failed or was lost. */
   redraft: (sid: string, op: string) => call<DraftAccepted>('POST', `${scenarioPath(sid)}/draft`, { op }),
-  message: (sid: string, text: string, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
-  challenge: (sid: string, kind: string, record: string, op: string) => call<{ proposal: number | null }>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
+  message: (sid: string, text: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
+  challenge: (sid: string, kind: string, record: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   /** What the team came for (core API `POST …/goal`, canon wave step 1): one of the View's `session.goals[].id`, or null to clear. No AI call. */
   goal: (sid: string, goal: string | null, op: string) => call<{ goal: number }>('POST', `${scenarioPath(sid)}/goal`, { goal, op }),
   /** "Let us give our figure first" (core API `GET …/figure-first`, wave step 4): the blind entry for the figure offered to this person, in
