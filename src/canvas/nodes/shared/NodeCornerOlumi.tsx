@@ -45,9 +45,11 @@ export interface NodeCornerOlumiProps {
   selected?: boolean
   /** The board's attention plan has a reason on this card (`useNodeAttention(id).reasons.length > 0`). */
   hasAttention?: boolean
+  /** J1 gate (the olumi-core lane): hidden at rest by visibility, never by opacity, so nothing on the board sits below full strength. */
+  restHidden?: boolean
 }
 
-export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected = false, hasAttention = false }: NodeCornerOlumiProps) {
+export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected = false, hasAttention = false, restHidden = false }: NodeCornerOlumiProps) {
   const canAsk = useGuidanceStore(canReceiveAsk)
   // The producer's note: a live guidance item whose target is this card (the filter the card's coaching marker uses).
   const hasGuidance = useGuidanceStore((s) => (s.guidanceItems ?? []).some((i) => i.target_object?.id === nodeId))
@@ -74,7 +76,9 @@ export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected 
   // `opacity` and `pointer-events` share every variant (see the header), so the badge can never hit-test unseen.
   const visibility = visible
     ? 'opacity-100 pointer-events-auto'
-    : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:pointer-events-auto'
+    : restHidden
+      ? 'invisible pointer-events-none group-hover:visible group-hover:pointer-events-auto group-focus-within:visible group-focus-within:pointer-events-auto [@media(pointer:coarse)]:visible [@media(pointer:coarse)]:pointer-events-auto'
+      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:pointer-events-auto'
 
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={name}>

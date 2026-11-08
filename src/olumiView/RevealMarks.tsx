@@ -71,7 +71,9 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 /** The chips' row: wide enough for two chips side by side. */
-const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
+// J1 gate: a rail is as wide as its card and the room beside it, so two cards' rails side by side never overlap (they did at 380 px);
+// a chip's words wrap inside it rather than run under its neighbour's.
+const CHIPS_WIDTH = CARD_WIDTH + 16
 
 /** What a mark says on hover and to a reader, in core's words: the person's figure mark (who, the figure, core's heading for its effect), or,
  *  for a view placed by its words, the person. */
@@ -125,7 +127,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
     // first (the difference that matters most) keeps all its words; a later one is drawn compact, its people and its kind's mark, with its
     // full words in its hover and its name, so a rail never crowds into its neighbours.
     // Above the card's own controls that hang below it (Olumi's corner, shown while selected or hovered); only the chips take the pointer.
-    <div className="nodrag pointer-events-none relative z-20 mt-1 flex flex-row flex-nowrap justify-center gap-2" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
+    <div className="nodrag pointer-events-none relative z-20 mt-1 flex flex-row flex-nowrap items-start justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
   if (cardChips.length > 0 || (hostsDiffers && differs.length > 0)) {
     return rail([...cardChips.map((chip, i) => {
@@ -135,10 +137,10 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
         <button key={chip.key} type="button" aria-pressed={on} aria-label={chip.label} title={chip.title} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
-          className={`pointer-events-auto inline-flex h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 ${i === 0 ? 'pr-2.5' : 'pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
+          className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 text-left ${i === 0 ? 'flex-1 pr-2.5' : 'flex-none pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
           <People people={chip.people} />
           {i === 0
-            ? <span className="truncate" data-reveal-chip-text="">{chip.text}</span>
+            ? <span className="min-w-0" data-reveal-chip-text="">{chip.text}</span>
             : <>{chip.kind === 'evidence' ? <FileText aria-hidden="true" className="h-3 w-3 text-text-body" /> : chip.kind === 'disagreement' ? <GitFork aria-hidden="true" className="h-3 w-3 text-text-body" /> : <Users aria-hidden="true" className="h-3 w-3 text-text-body" />}
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>

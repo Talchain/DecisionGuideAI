@@ -57,12 +57,33 @@ function useAboveViewportControls(): number | null {
   return bottom
 }
 
+/** The Model / Explore / Team row's top under the core lane's 48 px header strip (TopBar.tsx STRIP_H_PX + 12). */
+const STRIP_TOP = 60
+/** J1 gate: under the core lane's header strip the control sits on the Model / Explore / Team row, at the free canvas's right edge (the
+ *  dock's left less 16 px), clear of the board's left column; measured, as the dock moves. */
+function useBesideDock(): number | null {
+  const [right, setRight] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const dock = document.querySelector('aside[aria-label="Outputs dock"]')?.getBoundingClientRect()
+      setRight(dock && dock.width > 0 ? Math.floor(window.innerWidth - dock.left + 16) : null)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    const dock = document.querySelector('aside[aria-label="Outputs dock"]')
+    const ro = dock && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    if (dock && ro) ro.observe(dock)
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
+  }, [])
+  return right
+}
+
 export function AddFigure(): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
-  const bottom = useAboveViewportControls()
+  const bottom = useAboveViewportControls(), right = useBesideDock()
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('')
   const [typed, setTyped] = useState('')
@@ -99,7 +120,7 @@ export function AddFigure(): JSX.Element | null {
   const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded border border-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
     // Fixed, as the zoom controls it sits above are, so the window-measured place is the place it is drawn (checker, slice 2a).
-    <div className="fixed left-3 z-[5]" style={{ bottom: bottom ?? 196 }} data-testid="view-add-figure">
+    <div className={`fixed z-[5] ${right === null ? 'left-3' : 'flex flex-col items-end'}`} style={right === null ? { bottom: bottom ?? 196 } : { top: STRIP_TOP, right }} data-testid="view-add-figure">
       {open ? (
         <form className={`nodrag nopan w-[260px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
           onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) close() }}>

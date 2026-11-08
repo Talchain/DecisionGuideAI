@@ -8,8 +8,10 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalColumns, drawnModelOf, firstLookOpen, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, routeTree, drawnModelOf, firstLookOpen, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
+import { computeFitPadding } from '../canvas/utils/computeFitPadding'
+import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
@@ -52,20 +54,30 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed]])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, room: number) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed], room])
+/** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
+const roomOf = (): number => {
+  if (typeof window === 'undefined') return 0
+  // The same insets the board's framing uses (ViewCanvas frameFor), so the rows fill exactly the room the camera frames.
+  // The Model / Explore / Team row may not be placed yet when the board is first laid out: its foot is the top-left column's
+  // (`--chrome-top-left`, TopBar.tsx), and the framing keeps 8 px more under it.
+  const pane = document.querySelector('.react-flow'), inset = paddingToInsets(computeFitPadding())
+  const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-left')) || 0
+  return Math.max(0, Math.floor((pane?.getBoundingClientRect().height ?? window.innerHeight) - Math.max(inset.top, column + 8) - inset.bottom))
+}
 /** The cards that carry a chip rail below them (the team's revealed marks): the layout leaves them room. */
 const railedCards = (): ReadonlySet<string> => new Set(revealOf(useViewStore.getState().view)?.cardChips.keys() ?? [])
 
 /** DGAI's causal places for the model, at the cards' drawn heights (else core's), worked out once per model and set of heights. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
-  const nodes = useCanvasStore.getState().nodes, railed = railedCards(), key = causalKey(model, nodes, railed)
+  const nodes = useCanvasStore.getState().nodes, railed = railedCards(), room = roomOf(), key = causalKey(model, nodes, railed, room)
   if (causal?.key === key) return causal.places
   const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height }]))
   laying += 1
   try {
-    // SC-01 preview (option A): the cause-to-aim story in three columns, left to right.
-    const places = await Promise.resolve(causalColumns(model, size, questionPlace(model).width, railed))
+    // J1 gate: the prototype's board, the routes on the left and the story top down beside them (layout.ts routeTree).
+    const places = await Promise.resolve(routeTree(model, size, questionPlace(model).width, railed, room))
     causal = { key, places }
     return places
   } finally {

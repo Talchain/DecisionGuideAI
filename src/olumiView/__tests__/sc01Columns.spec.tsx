@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { View } from '../client'
-import { causalColumns, COLUMN_GAP_X, drawnModelOf, QUESTION, questionPlace, sharedAimsOf } from '../layout'
+import { causalColumns, COLUMN_GAP_X, drawnModelOf, QUESTION, questionPlace, sharedAimsOf, CARD_WIDTH } from '../layout'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/sc01/growth16.core-5d8a009b.view3.json'), 'utf8'))
@@ -39,8 +39,9 @@ describe('three columns, cause to aim, left to right (real 16-card View)', () =>
     expect(Math.max(...[...places].filter(([id]) => col(id) === 2).map(([id]) => y(id)))).toBe(y('sustainable_enterprise_growth'))
   })
   it('the board is three cards wide: it fits across the free canvas at 1232 at the 0.9 floor (915 flow units)', () => {
-    const right = Math.max(...[...places].map(([id, p]) => p.x + (id === QUESTION ? questionPlace(model).width : 220)))
-    expect(right).toBe(questionPlace(model).width + 2 * 220 + 2 * COLUMN_GAP_X)
+    // J1 gate: the card is CARD_WIDTH (200 since the route board); the columns' rule is unchanged.
+    const right = Math.max(...[...places].map(([id, p]) => p.x + (id === QUESTION ? questionPlace(model).width : CARD_WIDTH)))
+    expect(right).toBe(questionPlace(model).width + 2 * CARD_WIDTH + 2 * COLUMN_GAP_X)
     expect(right * 0.9).toBeLessThanOrEqual(824)
   })
 })

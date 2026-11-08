@@ -90,7 +90,7 @@ export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boo
 }
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
-const W = 220, GAP_X = 48
+const W = 200, GAP_X = 48 // J1 gate: the prototype's 200 px card, so three sit in a row beside the routes at 1232
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
 
@@ -120,9 +120,12 @@ export function questionPlace(model: ViewModel): { width: number } {
   // 2 × 16 + 272 = 744; one aim: the options' 756) fits the visible canvas at 1232 at the 1.0 floor (about 770 px between the canvas
   // controls and the dock; DL 7 Nov, fresh-brief board: one aim beside a full-width question ran under the dock).
   // J1 step 1: the board is three columns (causalColumns), so the question heads the left one at the narrower width, aim or none.
+  // J1 gate: the question heads the routes' column (routeTree), a card wide.
   void model
-  return { width: QUESTION_FLANKED_W }
+  return { width: QUESTION_W }
 }
+/** The question's width on the prototype's board (J1 gate). */
+export const QUESTION_W = W
 /** The question's width with an aim beside it (R25). */
 export const QUESTION_FLANKED_W = 272
 /** The room between the question and an aim beside it (R25). */
@@ -206,6 +209,15 @@ export function linkCards(model: ViewModel): ReadonlySet<string> {
     if (ends.length === 2 && (joined.has(`${ends[0]}>${ends[1]}`) || joined.has(`${ends[1]}>${ends[0]}`))) out.add(id)
   }
   return out
+}
+/** J1 gate: whether Olumi inferred the link between two cards: the relation card core draws as that link (`linkCards`) is Olumi's
+ *  (`author.by`). The board draws such a link dashed in Olumi's colour, as the prototype does. False with no such card. */
+export function linkByOlumi(model: ViewModel, from: string, to: string): boolean {
+  for (const id of linkCards(model)) {
+    const ends = model.links.filter((l) => l.kind === 'reason' && l.from === id).map((l) => l.to)
+    if ((ends[0] === from && ends[1] === to) || (ends[0] === to && ends[1] === from)) return model.cards.find((c) => c.id === id)?.author?.by === 'olumi'
+  }
+  return false
 }
 /** The model the board draws: core's, less the relation cards that are their link (`linkCards`) and those cards' reason links. */
 export function drawnModelOf(model: ViewModel): ViewModel {
@@ -347,6 +359,74 @@ export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>,
     let y = 0
     for (const id of col) { places.set(id, { x, y }); y += at(id).height + (railed.has(id) ? RAIL_GAP_Y : COLUMN_GAP_Y) }
     x += Math.max(W, ...col.map((id) => at(id).width)) + COLUMN_GAP_X
+  }
+  return places
+}
+
+/** The routes' column, the room beside it, the room between two cards in a row and between two rows (flow units; J1 gate). */
+export const ROUTE_GAP_X = 24, TREE_GAP_X = 16, TREE_GAP_Y = 20, ROUTE_GAP_Y = 10, TREE_ROOM_Y = 96
+/** The room a chip rail takes under its card on the route board: a chip whose words wrap to two lines (RevealMarks: rails as wide as the card). */
+export const TREE_RAIL_Y = 44
+/**
+ * J1 GATE (UI session 8 Nov, Paul: "the prototypes look beautiful"): the prototype's board. The question and, under it, the options (the
+ * routes) stand in a column on the left; the story reads top down beside them: the causes furthest from where it ends first, each row
+ * one link nearer, where it ends (the aims; on a board with none yet, the figures every link leads to) at the bottom, each row centred.
+ * Positions only: no word of core's is read or written here.
+ */
+export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set(), room = 0): Map<string, { x: number; y: number }> {
+  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const below = (id: string) => at(id).height + (railed.has(id) ? TREE_RAIL_Y : 0)
+  const reasonCard = (c: ViewCard) => c.family === 'relation'
+  const plain = model.links.filter((l) => l.kind !== 'reason')
+  const plainOut = new Set(plain.map((l) => l.from)), plainIn = new Set(plain.map((l) => l.to))
+  const options = model.cards.filter((c) => !reasonCard(c) && drawKindOf(c, model) === 'option').map((c) => c.id)
+  const stated = aimsOf(model)
+  const ends = new Set(stated.length > 0 ? stated : model.cards.filter((c) => !reasonCard(c) && drawKindOf(c, model) !== 'option' && plainIn.has(c.id) && !plainOut.has(c.id)).map((c) => c.id))
+  const out = new Map<string, string[]>()
+  for (const l of plain) out.set(l.from, [...(out.get(l.from) ?? []), l.to])
+  // How many plain links lie between a card and where the story ends (the longest way): 0 at the end, undefined with no way there.
+  const depth = new Map<string, number | undefined>(), seen = new Set<string>()
+  const depthOf = (id: string): number | undefined => {
+    if (ends.has(id)) return 0
+    if (depth.has(id)) return depth.get(id)
+    if (seen.has(id)) return undefined
+    seen.add(id)
+    const ds = (out.get(id) ?? []).map(depthOf).filter((d): d is number => d !== undefined)
+    const d = ds.length === 0 ? undefined : 1 + Math.max(...ds)
+    depth.set(id, d)
+    return d
+  }
+  const causes = model.cards.filter((c) => !reasonCard(c) && !options.includes(c.id))
+  const far = Math.max(0, ...causes.map((c) => depthOf(c.id) ?? 0))
+  // A card with no way to the end sits in the top row (the furthest), in the View's order.
+  const rows: string[][] = Array.from({ length: far + 1 }, (_, k) => causes.filter((c) => (depthOf(c.id) ?? far) === far - k).map((c) => c.id))
+  // A reason card that stays a card (it explains no drawn link) sits in the row of the first card it explains, after it.
+  for (const r of model.cards) {
+    if (!reasonCard(r)) continue
+    const first = model.links.find((l) => l.from === r.id && l.to !== r.id)?.to
+    const row = rows.find((ids) => first !== undefined && ids.includes(first)) ?? rows[0]!
+    row.push(r.id)
+  }
+  const widthOf = (ids: readonly string[]) => { let w = 0; for (const id of ids) w += at(id).width; return w + Math.max(0, ids.length - 1) * TREE_GAP_X }
+  // The question heads the left column and the routes stand under it; the story's rows sit beside them from the top, so the whole board
+  // is in view at full size on Paul's 1232 x 704 screen (the 16-card growth board: 856 x 554 flow units beside the 300 px dock).
+  const head = [QUESTION, ...options]
+  const left = Math.max(...head.map((id) => at(id).width)) + ROUTE_GAP_X
+  const span = Math.max(0, ...rows.map(widthOf))
+  const places = new Map<string, { x: number; y: number }>()
+  let y = 0
+  for (const id of head) { places.set(id, { x: 0, y }); y += below(id) + (id === QUESTION ? TREE_GAP_Y / 2 : ROUTE_GAP_Y) }
+  // The rows share the free canvas's height (`room`, flow units at full size), as the prototype's sparse board does: the room left over
+  // goes between them, never less than TREE_GAP_Y and never more than TREE_ROOM_Y.
+  const drawn = rows.filter((ids) => ids.length > 0)
+  let tall = 0
+  for (const ids of drawn) tall += Math.max(...ids.map(below))
+  const gap = drawn.length < 2 ? TREE_GAP_Y : Math.min(TREE_ROOM_Y, Math.max(TREE_GAP_Y, (room - tall) / (drawn.length - 1)))
+  y = 0
+  for (const ids of drawn) {
+    let x = left + (span - widthOf(ids)) / 2
+    for (const id of ids) { places.set(id, { x, y }); x += at(id).width + TREE_GAP_X }
+    y += Math.max(...ids.map(below)) + gap
   }
   return places
 }

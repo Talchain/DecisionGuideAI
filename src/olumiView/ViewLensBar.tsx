@@ -10,7 +10,7 @@
  * six pills as before, so switching back is one prop at the call site (ViewCanvas.tsx).
  */
 import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type RefObject } from 'react'
-import { ChevronDown, Compass, Users } from 'lucide-react'
+import { Compass } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
@@ -46,7 +46,9 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
       // row on the canvas, at the pill's left under it, and keeps its labels; it is never drawn icon-only.
       const beside = lensBarFitsBesidePill({ ...at, barWidth: labelledWidth.current })
       if (compactNow.current) { compactNow.current = false; setCompact(false); return } // measured again once drawn
-      const next = beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.round(pill.left), top: Math.round(pill.bottom + 8) }
+      // J1 gate: under the core lane's full-width header strip the bar sits on the canvas's top-left, as the prototype's does.
+      const strip = pill !== undefined && pill.width >= window.innerWidth - 1
+      const next = strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
       setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
     }
     measure()
@@ -92,9 +94,9 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
 
 /** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
 const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
-// Tighter than the six pills (px-2.5, gap-1), so the three keep their words beside the pill on Paul's 1232 px screen.
-const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1 rounded-full border px-2.5 transition-colors duration-200 ${ACTION_FOCUS}`
-const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : 'border-transparent text-text-light hover:text-text-body'}`
+// J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
+const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS}`
+const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-text-header bg-[#FEF9F3] text-text-header' : 'border-[#EEE6D8] bg-panel text-text-body hover:text-text-header'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
 type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
@@ -117,18 +119,17 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
     <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
-      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
-      style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
+      className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
+      style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
       <button type="button" aria-pressed={!exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
         onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false) }} className={segment(!exploring)}>
-        <LENS_ICON.full aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
+<span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
       </button>
       <div className="relative h-full">
         <button ref={exploreBtn} type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={exploring} data-testid={`${LENS_BAR_TESTID}-explore`}
           onClick={() => setOpen((o) => !o)} className={segment(exploring || open)}>
-          <ExploreIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          {exploring ? <ExploreIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
           <span className={compact ? 'sr-only' : undefined}>{exploring ? W.label[lens] : W.explore}</span>
-          <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0" />
         </button>
         {!open ? null : (
           <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
@@ -152,7 +153,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
         )}
       </div>
       <button type="button" data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => { setOpen(false); useUIStore.getState().forceActivateOutputTab('team') }} className={segment(false)}>
-        <Users aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>{W.team}</span>
+<span className={compact ? 'sr-only' : undefined}>{W.team}</span>
       </button>
     </div>
   )

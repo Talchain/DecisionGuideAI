@@ -21,7 +21,7 @@ const TICK = 250, MAX_TICKS = 40
  * the person has moved the board themselves.
  */
 export function useRevealInView(movedAt: MutableRefObject<number>): void {
-  const { getViewport, setViewport, getInternalNode } = useReactFlow()
+  const { getViewport, setViewport, getInternalNode, getNodes, getNodesBounds } = useReactFlow()
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   const key = useMemo(() => {
     const ids = chipViewIds(revealOf(view)?.marks ?? []).join(',')
@@ -52,13 +52,13 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       const rail = chip.closest('[data-testid^="reveal-chips-"]')
       const chipH = rail === null ? 0 : (rail.getBoundingClientRect().height / vp.zoom) + 4
       const at = n.internals.positionAbsolute
-      const to = revealFocusTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp })
+      const to = revealFocusTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp, board: boardOf(getNodes(), getNodesBounds) })
       if (to === null) return
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
       void setViewport(to, { duration: still ? 0 : 300 })
     }, TICK)
     return () => clearInterval(t)
-  }, [key, movedAt, getViewport, setViewport, getInternalNode])
+  }, [key, movedAt, getViewport, setViewport, getInternalNode, getNodes, getNodesBounds])
 }
 
 /**
@@ -69,12 +69,18 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
  */
 export const CENTRED = 24
 type Inset = { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
-export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp; minZoom?: number }): Vp | null {
+export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp; minZoom?: number; board?: Box }): Vp | null {
   const { card, chipH, pane, viewport: v } = a
   const i = a.inset ?? { left: 0, top: 0, right: 0, bottom: 0 }
   const zoom = Math.max(v.zoom, a.minZoom ?? 0)
   const cx = i.left + (pane.w - i.left - i.right) / 2, cy = i.top + (pane.h - i.top - i.bottom) / 2
-  const x = cx - (card.x + card.w / 2) * zoom, y = cy - (card.y + (card.h + chipH) / 2) * zoom
+  // J1 gate (the prototype's Reveal: the whole board in view with the contested card in it): on an axis where the whole board fits the free
+  // canvas, the card moves toward the centre only as far as keeps every card in view.
+  const keep = (want: number, lo: number, size: number, free0: number, free1: number) =>
+    size * zoom > free1 - free0 ? want : Math.min(Math.max(want, free0 - lo * zoom), free1 - (lo + size) * zoom)
+  const b = a.board
+  const x = b === undefined ? cx - (card.x + card.w / 2) * zoom : keep(cx - (card.x + card.w / 2) * zoom, b.x, b.w, i.left, pane.w - i.right)
+  const y = b === undefined ? cy - (card.y + (card.h + chipH) / 2) * zoom : keep(cy - (card.y + (card.h + chipH) / 2) * zoom, b.y, b.h, i.top, pane.h - i.bottom)
   return zoom === v.zoom && Math.abs(x - v.x) <= CENTRED && Math.abs(y - v.y) <= CENTRED ? null : { zoom, x, y }
 }
 
@@ -90,6 +96,13 @@ function freePane(pane: Element): { size: { w: number; h: number }; inset: Inset
     size: { w: p.width, h: p.height },
     inset: { left: Math.max(num(pad.left), -p.left), top: Math.max(num(pad.top), -p.top), right: Math.max(num(pad.right), p.right - W), bottom: Math.max(num(pad.bottom), p.bottom - H) },
   }
+}
+
+/** The board's bounds as a box (flow units); the layout leaves the chip rails their room between rows. */
+const boardOf = <N,>(nodes: N[], bounds: (ns: N[]) => { x: number; y: number; width: number; height: number }): Box | undefined => {
+  if (nodes.length === 0) return undefined
+  const r = bounds(nodes)
+  return { x: r.x, y: r.y, w: r.width, h: r.height }
 }
 
 /** Opening a chip or an evidence mark never leaves the person smaller than this (choice D, Paul 6 Nov). */
@@ -110,7 +123,7 @@ export function openedCardOf(view: View | null, card: string | null, evidence: n
  * flow units) centred in the free canvas (the pane less `inset`, px), at the person's zoom, raised to 0.9 when below it, never lowered.
  * null only when it is centred there already at a zoom of 0.9 or more.
  */
-export function openInViewTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp }): Vp | null {
+export function openInViewTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp; board?: Box }): Vp | null {
   return revealFocusTarget({ ...a, minZoom: OPEN_MIN_ZOOM })
 }
 
@@ -119,7 +132,7 @@ export function openInViewTarget(a: { card: Box; chipH: number; pane: { w: numbe
  * chip rail are centred in the free canvas (openInViewTarget). Never after the person has moved the board themselves since the open.
  */
 export function useOpenInView(movedAt: MutableRefObject<number>): void {
-  const { getViewport, setViewport, getInternalNode } = useReactFlow()
+  const { getViewport, setViewport, getInternalNode, getNodes, getNodesBounds } = useReactFlow()
   const view = useViewStore((s) => s.view)
   const card = useReveal((s) => s.card), evidence = useReveal((s) => s.evidence), opens = useReveal((s) => s.opens)
   const id = openedCardOf(view, card, evidence)
@@ -139,11 +152,11 @@ export function useOpenInView(movedAt: MutableRefObject<number>): void {
       const vp = getViewport(), { size, inset } = freePane(pane)
       const chips = document.querySelector(`[data-testid="reveal-chips-${id}"]`)
       const chipH = chips === null ? 0 : (chips.getBoundingClientRect().height / vp.zoom) + 4
-      const to = openInViewTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp })
+      const to = openInViewTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp, board: boardOf(getNodes(), getNodesBounds) })
       if (to === null) return
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
       void setViewport(to, { duration: still ? 0 : 300 })
     }, TICK)
     return () => clearInterval(t)
-  }, [key, id, movedAt, getViewport, setViewport, getInternalNode])
+  }, [key, id, movedAt, getViewport, setViewport, getInternalNode, getNodes, getNodesBounds])
 }

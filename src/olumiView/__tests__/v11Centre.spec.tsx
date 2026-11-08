@@ -16,6 +16,8 @@ import { openedCardOf, openInViewTarget, OPEN_MIN_ZOOM, revealFocusTarget, useRe
 
 const camera = vi.hoisted(() => ({
   getViewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: vi.fn(), getInternalNode: (_id: string): unknown => undefined,
+  // J1 gate: the reveal camera reads the board's bounds; with no nodes it centres as before (no whole-board clamp).
+  getNodes: (): unknown[] => [], getNodesBounds: () => ({ x: 0, y: 0, width: 0, height: 0 }),
 }))
 vi.mock('@xyflow/react', async (original) => ({ ...await original<typeof import('@xyflow/react')>(), useReactFlow: () => camera }))
 vi.mock('../canvas', () => ({ viewLaying: () => false }))

@@ -86,6 +86,7 @@ import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isPreAnal
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
+import { useReveal } from '../../olumiView/reveal'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
@@ -819,6 +820,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
   const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
+  // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the tab strip
+  // and the selection footer step out of its way (the prototype's Reveal dock is the one panel).
+  const revealOpen = useReveal((r) => r.selected !== null || r.evidence !== null) && isOlumiCoreLane()
   // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
   // note is drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once
   // they have given or skipped, nothing moves them again.
@@ -3155,18 +3159,22 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // The canvas side needs no change: `computeFitPadding` and
   // `measureDockInset` read this element's LIVE rect, so the board gets back
   // the 12px gap plus (416 − 319) px automatically.
+  // J1 gate (UI session 8 Nov, the prototype's dock): on the olumi-core lane the open dock is an inset card, 300 px, 8 px off the
+  // window's edges and the header strip, rounded, with the prototype's edge and shadow.
+  const insetDock = effectiveIsOpen && isOlumiCoreLane()
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
-    width: effectiveIsOpen
+    width: insetDock ? 300 : effectiveIsOpen
       ? 'var(--dock-right-expanded, 22.5rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
-    right: 0,
-    top: 'var(--topbar-h, 0px)',
-    bottom: 'var(--bottombar-h)',
-    background: 'rgb(var(--bg-panel-rgb) / 0.95)',
+    right: insetDock ? 8 : 0,
+    top: insetDock ? 'calc(var(--topbar-h, 0px) + 8px)' : 'var(--topbar-h, 0px)',
+    bottom: insetDock ? 8 : 'var(--bottombar-h)',
+    background: insetDock ? 'var(--bg-panel)' : 'rgb(var(--bg-panel-rgb) / 0.95)',
     backdropFilter: 'blur(8px)',
-    borderRadius: 0,
-    boxShadow: 'none',
+    borderRadius: insetDock ? 16 : 0,
+    border: insetDock ? '1px solid #DDD4C4' : undefined,
+    boxShadow: insetDock ? '0 8px 24px rgba(38,38,38,0.14)' : 'none',
     zIndex: 900,
     overflow: 'hidden',
     // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
@@ -3324,7 +3332,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             factors-to-verify badge exempt, `shrink-0` on every control, an
             icon rather than an ASCII glyph on the collapse button — live in
             `workspaceShell/WorkspaceShellTabStrip.tsx` with the reasoning. */}
-        {effectiveIsOpen && !briefPanel && (
+        {effectiveIsOpen && !briefPanel && !(revealOpen && effectiveActiveTab === 'team') && (
           <WorkspaceShellTabStrip
             surfaces={OUTPUT_TABS}
             activeTab={effectiveActiveTab}
@@ -4593,8 +4601,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             flag is on and the dock is expanded. flex-shrink-0 prevents the
             body's overflow from clipping these. */}
         {aiPanelV2On && effectiveIsOpen ? (
-          <div className="flex-shrink-0" data-testid="ai-panel-footer-stack">
-            <SelectionPill after={isOlumiCoreLane() ? selectedRename : undefined} />
+          <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-[#FEF9F3]' : ''}`} data-testid="ai-panel-footer-stack">
+            {revealOpen && effectiveActiveTab === 'team' ? null : <SelectionPill after={isOlumiCoreLane() ? selectedRename : undefined} />}
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
                 one dock, and its rerun bypassed the canonical runner. The
                 freshness strip owns stale + Rerun. */}

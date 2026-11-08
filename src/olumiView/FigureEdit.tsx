@@ -24,7 +24,7 @@ import { noteEditSaved } from './notice'
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). */
 export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
-export const QUIET_WORDS = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+export const QUIET_WORDS = 'invisible group-hover:visible group-focus-within:visible'
 
 /**
  * SET ASIDE AND EDIT (R25, Paul's 6 Nov test: "I can't find manual editing"; on his finish line, DL 7 Nov). While a proposal is held core
@@ -136,7 +136,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} aria-label={label} title={edit.ask}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}>
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-body hover:text-text-header`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         </button>{lead === undefined ? null : '.'}</span>

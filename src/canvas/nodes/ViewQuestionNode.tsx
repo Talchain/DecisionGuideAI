@@ -17,12 +17,11 @@ export function ViewQuestion({ question, width }: ViewQuestionData) {
   const q = question
   return (
     <div
-      className={`relative ${typography.viewLabel} rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${q.proposed ? 'border-dashed border-info' : 'border-text-light/60'} ${q.focus ? 'ring-2 ring-info' : ''}`}
+      className={`relative ${typography.viewLabel} rounded-xl border bg-panel px-3 py-2.5 space-y-1 shadow-[0_2px_4px_rgba(37,37,32,0.02)] ${q.proposed ? 'border-dashed border-info' : 'border-text-light'} ${q.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : ''}`}
       style={{ width }} data-view-question="" data-focus={q.focus || undefined} data-proposed={q.proposed || undefined}
     >
-      <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true"><NodeShapeIndicator nodeKind="decision" size={18} /></span>
-      {/* J1 step 5: the model's question is the board's one 18px headline (Paul's three sizes, 12 / 14 / 18). */}
-      <p className={`${typography.viewHeadline} text-text-header`} data-view="question.text">{q.text}</p>
+      {/* J1 step 5: the model's question is the board's one 18px headline (Paul's three sizes, 12 / 14 / 18); J1 gate: its shape inline. */}
+      <p className={`${typography.viewHeadline} flex items-start gap-2 text-text-header`}><span className="mt-[5px] inline-flex flex-none" aria-hidden="true"><NodeShapeIndicator nodeKind="decision" size={14} /></span><span data-view="question.text">{q.text}</span></p>
       {q.decide_by === null ? null : (
         <p title={q.decide_by.title} className={q.decide_by.olumi ? 'text-info' : undefined} data-olumi={q.decide_by.olumi || undefined} data-view="question.decide_by.text">{q.decide_by.text}</p>
       )}
@@ -36,7 +35,7 @@ export function ViewQuestionNode({ data }: NodeProps) {
   return (
     <>
       <ViewQuestion {...(data as ViewQuestionData)} />
-      <Handle type="target" position={Position.Right} isConnectable={false} className="!opacity-0" />
+      <Handle type="target" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
     </>
   )
 }

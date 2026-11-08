@@ -244,11 +244,17 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
   const aims = card.rows.filter((r) => r.kind === 'chance').length
+  // Who or what the card is from (core's `author.text`), one pill: on a figure card it shares the figure's line, so the face stays compact
+  // (J1 gate: the board whole at 1232 at full size); on any other card it leads the marks band.
+  const provenance = author === null ? null : (
+    <span className={`${typography.viewPanelMeta} inline-block max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id}
+      title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
+  )
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel/80' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : 'border-[#B0A899]'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined} data-inferred={inferred || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
@@ -266,10 +272,6 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
           title={tried} data-whatif-mark={card.id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
       )}
-      {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
-      <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
-        <NodeShapeIndicator nodeKind={kind} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
-      </span>
       {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is shown by its info-coloured border on a
           translucent card (solid, never dashed: dashed means core doubts it) and core's + mark; core's words for it ("Proposed addition") are
           for readers and the mark's hover, never a printed line. */}
@@ -279,8 +281,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           so does any other card's title for its ⌄ (plan v3: controls get reserved space). */}
       <p data-view-title={id} className={(card.family === 'option' && card.driver !== null) || (card.family !== 'option' && more) ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
+        {/* J1 gate (the prototype's card): the card's kind as its shape, inline before its heading. */}
+        <span className="mr-1.5 inline-flex align-[-2px] leading-none" aria-hidden="true" data-card-shape={id}><NodeShapeIndicator nodeKind={kind} size={14} /></span>
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
-        <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+        <span className={`${typography.viewTitle} font-medium text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
         {card.olumi === null ? null : author !== null ? <span className="sr-only"><Mark at={`${id}.olumi`} mark={card.olumi} /></span> : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
         {card.change === null ? null : <>{' '}<Mark at={`${id}.change`} mark={card.change} /></>}
         <Slot name={VIEW_CARD_SLOTS.titleMark} className="ml-1 empty:hidden" />
@@ -301,7 +305,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         <p className={`${typography.viewLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
       )}
       {card.figure === null ? null : (
-        <div className="flex items-baseline gap-1">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
           {perOption ? (
             // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
             // compact, every row whole (R25: no cut text); core's sentence for every option stays the hover of the rows (R3 pristine).
@@ -314,16 +318,17 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
               data-olumi={estimate || undefined} data-view={`${id}.figure.text`}>{card.figure.text}</p>
           )}
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
+          {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue, on the
+              figure's own line (J1 gate); its words show on hover, focus or selection. Never hidden, so an open editor or its Set button
+              can never be hidden either (R4 witness run 3). */}
+          {card.figure.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span>
+            // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has
+            // that the person sets (never an outcome core works out from others, which core never offers to edit).
+            : card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
+          {provenance === null ? null : <span className="ml-auto">{provenance}</span>}
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
-      {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue; its words
-          show on hover, focus or selection (FigureEdit's glyph form, Paul 24 Oct: no static repeating text). Never hidden, so an open
-          editor or its Set button can never be hidden either (R4 witness run 3). */}
-      {card.figure?.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span>
-        // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has that the
-        // person sets (never an outcome core works out from others, which core never offers to edit; witnessed on Paul's board copy).
-        : card.figure !== null && card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
           {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
@@ -349,10 +354,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
             It outranks a source mark where a card already has two signals; this card face draws no source mark today. */}
         {card.badge === null || badgeNamed(card.badge) === null || card.badge.open ? null
           : <span className={`${typography.viewPanelMeta} whitespace-nowrap`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
-        {author === null ? null : (
-          <span className={`${typography.viewPanelMeta} whitespace-nowrap rounded-full border border-border px-2 text-text-body`} data-provenance={id}
-            title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
-        )}
+        {card.figure === null ? provenance : null}
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
         {/* K5 "If it failed" (R3): one badge per pre-mortem story resting on this card, core's number with Olumi's mark, the story in
             Olumi's words on hover; on an option, the story most within the team's control, in core's words. All Olumi's (./k5.ts). */}
@@ -466,23 +468,29 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // Open, its words go on the side with room (panelSide.ts, DL 7 Nov): every card's box is read only while this one is open.
   const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
   const [panelH, setPanelH] = useState(0)
+  const [near, setNear] = useState(false)
   useLayoutEffect(() => { if (open) setPanelH(root.current?.querySelector<HTMLElement>('[data-view-more]')?.offsetHeight ?? 0) }, [open, card])
   const side = useMemo(() => {
     const me = boxes.find((b) => b.id === id)
     return me === undefined ? 'right' : panelSide(me, { w: CARD_WIDTH, h: panelH > 0 ? panelH : me.h }, boxes.filter((b) => b.id !== id))
   }, [boxes, id, panelH])
   return (
-    <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
-      {/* SC-01 preview: the story reads left to right, so a link enters a card on its left and leaves on its right. */}
-      <Handle type="target" position={Position.Left} isConnectable={false} className="!opacity-0" />
+    <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}
+      onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>
+      {/* J1 gate: the story reads top down (layout.ts routeTree), so a link enters a card at its top and leaves at its bottom. */}
+      <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
-      <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
-        <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true || noted} menu={false} />
-      </div>
+      {/* J1 gate: nothing on the board sits below full strength at rest, so the controls are not drawn at rest (they were there at
+          opacity 0); pointer over the card, focus inside it, selection or Olumi's note about it draws them. */}
+      {selected === true || noted || near ? (
+        <div data-olumi-controls="">
+          <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible menu={false} />
+        </div>
+      ) : null}
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
-      <Handle type="source" position={Position.Right} isConnectable={false} className="!opacity-0" />
+      <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
     </div>
   )
 }

@@ -17,7 +17,7 @@ import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type View
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
-import { figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -978,7 +978,10 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:cursor-not-allowed'
   // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
   // is the latest; a proposal not yet approved is not one.
-  const placeholder = brief ? BRIEF_EXAMPLE : view?.version != null && view.model?.run ? 'Ask about the latest analysis…' : 'Ask about this model…'
+  // J1 gate: while Olumi's newest answer asks the person something, the box invites the reply (the prototype's words); a run with
+  // nothing in it yet is not "the latest analysis".
+  const asked = newestNextOf(view?.chat) !== null
+  const placeholder = brief ? BRIEF_EXAMPLE : asked ? 'Reply, or edit the model' : view?.version != null && (view.model?.run?.aim ?? null) !== null ? 'Ask about the latest analysis…' : 'Ask about this model…'
   return (
     <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
@@ -994,11 +997,12 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
-      <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
-        <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
-          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
+      {/* J1 gate (the prototype's ask box): one line with the send arrow inside it; the brief keeps its tall box. */}
+      <div className={`relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light ${brief ? '' : 'flex items-center gap-2 py-1.5 pl-3 pr-1.5'}`}>
+        <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${brief ? 'pt-2 pb-1 px-3' : 'flex-1 py-1'}`}
+          rows={brief ? 6 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })} />
-        <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">
+        <div className={`flex items-center justify-end gap-1 ${brief ? 'px-2 pb-1' : 'flex-none'}`} data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
@@ -1006,7 +1010,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
             </button>
           )}
           <button type="button" disabled={held || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
-            className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-header text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default">
             <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
           </button>
         </div>

@@ -226,7 +226,7 @@ export function ViewCardV10(props: NodeProps) {
       <div ref={box} data-testid="view-card-v10" data-reveal-open={opened || undefined}
         className={opened ? 'rounded-md ring-2 ring-text-header ring-offset-2 ring-offset-canvas' : undefined}>
         <ViewCardNode {...props} />
-        {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} />, places.olumi)}
+        {places.olumi === null ? null : createPortal(<NodeCornerOlumi nodeId={props.id} selected={props.selected === true} restHidden />, places.olumi)}
         {places.driver === null ? null : createPortal(<ViewDriverBadge card={(props.data as ViewCardData).card} />, places.driver)}
         {places.band === null || band === null ? null : createPortal(<ViewOptionBand id={props.id} band={band} />, places.band)}
         {places.band === null ? null : createPortal(<OptionMarkLine card={props.id} />, places.band)}

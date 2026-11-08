@@ -12,7 +12,8 @@ import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
-import { linkDrawn } from '../../olumiView/layout'
+import { linkByOlumi, linkDrawn } from '../../olumiView/layout'
+import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
@@ -33,6 +34,7 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
 
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
+  const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
@@ -100,11 +102,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     return linkWordsAt(path, [...cards, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
   if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
+  // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
+  // pink); a link Olumi inferred dashed in Olumi's colour.
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed || byOlumi ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : '#A9AAA5'
+  const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={byOlumi || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill={stroke} /></marker></defs>
+      <BaseEdge id={id} path={path} markerEnd={markerEnd ?? `url(#${arrow})`} style={{ stroke, strokeWidth: driver ? 2.5 : 1.5, ...(link.doubt || byOlumi ? { strokeDasharray: '5 5' } : {}) }} />
       {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}

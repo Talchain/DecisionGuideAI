@@ -19,6 +19,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useViewStore } from '../../olumiView/store'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
 import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
+import { OlumiAiIcon } from '../results/analysisNew/OlumiAiIcon'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 // Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
@@ -75,6 +76,8 @@ interface TopBarProps {
 export const TOP_PILL_TOP_PX = 12
 export const TOP_PILL_HEIGHT_PX = 40
 export const TOP_PILL_BOTTOM_PX = TOP_PILL_TOP_PX + TOP_PILL_HEIGHT_PX
+/** J1 gate: the core lane's full-width header strip (the prototype's 48 px). */
+export const STRIP_H_PX = 48
 /** @deprecated The full-width bar is gone; `--topbar-h` is 0. Kept for one cycle so no reader breaks silently. */
 export const TOP_BAR_HEIGHT_PX = 0
 
@@ -131,15 +134,20 @@ export const TopBar = ({
   // The pill covers only the top-LEFT corner, so `--topbar-h` (a band across the whole screen) stays 0 and the dock
   // runs the full height. The pill's bottom edge is published as `--chrome-top-left` for the top-left column only:
   // the canvas tools, the left inspector and the top-centre notices sit below it.
+  // J1 gate (UI session 8 Nov, the prototype's header): on the olumi-core lane the bar is a full-width 48 px strip, so `--topbar-h` is
+  // its height (the dock starts under it) and the top-left column starts under the strip and the Model / Explore / Team row.
+  const strip = isOlumiCoreLane()
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    const previous = root.style.getPropertyValue('--chrome-top-left')
-    root.style.setProperty('--chrome-top-left', `${TOP_PILL_BOTTOM_PX}px`)
+    const previous = root.style.getPropertyValue('--chrome-top-left'), previousH = root.style.getPropertyValue('--topbar-h')
+    root.style.setProperty('--chrome-top-left', strip ? `${STRIP_H_PX + 12 + 36 + 8}px` : `${TOP_PILL_BOTTOM_PX}px`)
+    if (strip) root.style.setProperty('--topbar-h', `${STRIP_H_PX}px`)
     return () => {
       root.style.setProperty('--chrome-top-left', previous || '0px')
+      if (strip) root.style.setProperty('--topbar-h', previousH || '0px')
     }
-  }, [])
+  }, [strip])
 
   const handleSave = async () => {
     if (!onSave) return
@@ -240,18 +248,21 @@ export const TopBar = ({
   // a visible attribution (and any browser-level check) binds to.
   return (
     <div
-      className={styles.topBar}
+      className={strip ? `${styles.topBar} ${styles.coreStrip}` : styles.topBar}
       role="banner"
       {...(showMenu && overlayOrigin ? { 'data-overlay-origin': overlayOrigin } : {})}
     >
       {/* Left section - logo and title */}
       <div className={styles.topBarLeft}>
         <a href="/" className={styles.logoLink} aria-label="Olumi home">
-          <img
-            src="/olumi-logo.png"
-            alt="Olumi"
-            className={styles.logo}
-          />
+          {/* J1 gate: the strip carries Olumi's mark alone, as the prototype's does. */}
+          {strip ? <OlumiAiIcon size={22} aria-hidden="true" /> : (
+            <img
+              src="/olumi-logo.png"
+              alt="Olumi"
+              className={styles.logo}
+            />
+          )}
         </a>
 
         {/* contract v3.1 `.app-top`: logo and model title are spaced by the
@@ -296,8 +307,14 @@ export const TopBar = ({
 
         {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
         {isOlumiCoreLane() && coreVersion !== null ? (
-          <span className={`rounded-full border border-border px-2 text-[12px] leading-5 text-text-header`} data-testid="topbar-version-pill">{coreVersion}</span>
+          <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill">{coreVersion}</span>
         ) : null}
+        {/* J1 gate: on the strip, history sits beside the version it lists. */}
+        {strip && !isViewer && coreLaneShowsSurface('versions') && (
+          <Tooltip content="Version history — snapshots of the model you authored">
+            <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
+          </Tooltip>
+        )}
         {/* Strategy lane (7 Nov, by agreement with the UI session): the Strategy Overview's opener, beside the name; null without core's key. */}
         {isOlumiCoreLane() ? <StrategyOverviewOpener /> : null}
 
@@ -454,7 +471,7 @@ export const TopBar = ({
             carries no positioning of its own — this row owns its layout. */}
         {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
         {/* On the olumi-core lane the panel lists core's own versions, one per approval (src/olumiCore/versions.tsx). */}
-        {!isViewer && coreLaneShowsSurface('versions') && (
+        {!strip && !isViewer && coreLaneShowsSurface('versions') && (
           <Tooltip content="Version history — snapshots of the model you authored">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
           </Tooltip>
@@ -496,7 +513,7 @@ export const TopBar = ({
         {/* J1 step 5: Share on the olumi-core lane is inviting someone into this scenario, which the Team tab does ("Invite a colleague"): it
             opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
         {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
-          <button type="button" className={styles.shareButton} data-testid="topbar-share-core" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
+          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
             <Share2 size={14} aria-hidden="true" />
             <span>Share</span>
           </button>
