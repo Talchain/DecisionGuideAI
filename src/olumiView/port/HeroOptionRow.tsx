@@ -15,11 +15,10 @@
  * - The detail holds core's lines only: the other lens's readout, the companion, timing, what moves the chance most (`driver`) and what
  *   would have to be true (`run.tipping`) for this option and aim. No sentence is built here.
  */
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ViewCard } from '../client'
 import { driverRange } from '../ViewChances'
-import { SHOW_ALL, SHOW_LESS } from '../../canvas/nodes/ViewCardNode'
 import { TYPE } from './type'
 import { driverRowOf, headlineRowOf, trackPct, type AimRow, type TippingLine } from './pick'
 
@@ -119,26 +118,11 @@ export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }
 }
 
 /**
- * One of core's lines on the headline, whole in the DOM: supporting size (12px, under the 14px chance), four lines at most, then a real
- * control that opens it in place (a button, keyboard reachable, aria-expanded), never hover only (R25: no cut text); a short line has no
- * control. The card's `Disclosed`, sized for the dock: measured at 1232, four 12px lines keep core's tipping figure and threshold
- * ("…would have to be above about 60.1 loaves/week/oven") on the face, where three 14px lines cut it before the number.
+ * One of core's lines on the headline, whole: supporting size (12px, under the 14px chance), never clamped and with no "Show all"
+ * (Paul's gate, 8 Nov: nothing cut; the independent grade named the clamped line). The row grows to hold it.
  */
-function ThreeLines({ id, title, children }: { id: string; title?: string; children: ReactNode }) {
-  const ref = useRef<HTMLParagraphElement>(null)
-  const [open, setOpen] = useState(false)
-  const [over, setOver] = useState(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render while closed; an equal answer bails out
-  useLayoutEffect(() => { const el = ref.current; if (el !== null && !open) { const o = el.scrollHeight > el.clientHeight + 1; if (o !== over) setOver(o) } })
-  return (
-    <div>
-      <p ref={ref} id={id} title={title} className={`${TYPE.meta} text-text-body ${open ? '' : 'line-clamp-4'}`}>{children}</p>
-      {over || open ? (
-        <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
-          className={`${TYPE.meta} inline-flex min-h-[24px] items-center text-text-light underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
-      ) : null}
-    </div>
-  )
+function WholeLine({ id, title, children }: { id: string; title?: string; children: ReactNode }) {
+  return <p id={id} title={title} className={`${TYPE.meta} text-text-body`}>{children}</p>
 }
 
 export interface HeroOptionRowProps {
@@ -258,12 +242,12 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {range === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} title={hl!.title} data-testid="port-row-headline-range" data-view={`${card.id}.headline.range`}>{range}</p>}
           {add === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-add" data-view={`${card.id}.headline.add`}>{add}</p>}
           {headLine !== null ? (
-            <ThreeLines id={`${regionId}-tip`} title={headLine.line.hover}>
+            <WholeLine id={`${regionId}-tip`} title={headLine.line.hover}>
               {headLine.line.olumi == null ? null : <><span title={headLine.line.olumi.title} aria-label={headLine.line.olumi.title}>{headLine.line.olumi.glyph}</span> </>}
               <span data-view-fact={headLine.line.id} data-view={`run.tipping.${headLine.i}.line`}>{headLine.line.line}</span>
-            </ThreeLines>
+            </WholeLine>
           ) : headDriverWords ? (
-            <ThreeLines id={`${regionId}-drv`} title={card.driver!.title}><span data-view={`${card.id}.driver.text`}>{card.driver!.text}</span></ThreeLines>
+            <WholeLine id={`${regionId}-drv`} title={card.driver!.title}><span data-view={`${card.id}.driver.text`}>{card.driver!.text}</span></WholeLine>
           ) : null}
         </div>
       ) : null}

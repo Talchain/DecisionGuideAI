@@ -91,13 +91,6 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
     <section className={`${TYPE.body} ${PORT_BOX}`} data-testid="port-analysis-hero">
       <div className="space-y-1.5" data-testid="port-hero-head">
         {run.lead == null ? null : <h3 className={`${TYPE.headline} text-text-header`} data-view="run.lead">{run.lead}</h3>}
-        {ml == null ? null : (
-          <p className="text-text-body" data-testid="port-hero-most-likely" title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
-            <span data-view="run.most_likely.text">{ml.text}</span>
-            {ml.if_approved == null ? null : <>{NBSP}<span data-view="run.most_likely.if_approved.glyph" title={ml.if_approved.title} aria-label={ml.if_approved.title}>{ml.if_approved.glyph}</span></>}
-            {mostLikelyAction == null ? null : <> {mostLikelyAction}</>}
-          </p>
-        )}
         {!allWait ? null : (
           <div data-testid="port-hero-waits-headline">
             <p className={`${TYPE.meta} text-text-light`} data-view="run.waits_on.head">{run.waits_on!.head}</p>
@@ -150,6 +143,15 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
           ))}
       </div>
 
+      {/* Core's which-option-leads line, after the options it speaks of (craft pass, 8 Nov: the grade found it pushing the options below
+          the fold). Core's lead ends with a colon and introduces the options; its words are unchanged. */}
+      {ml == null ? null : (
+          <p className="text-text-body" data-testid="port-hero-most-likely" title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
+            <span data-view="run.most_likely.text">{ml.text}</span>
+            {ml.if_approved == null ? null : <>{NBSP}<span data-view="run.most_likely.if_approved.glyph" title={ml.if_approved.title} aria-label={ml.if_approved.title}>{ml.if_approved.glyph}</span></>}
+            {mostLikelyAction == null ? null : <> {mostLikelyAction}</>}
+          </p>
+        )}
       <TimingAssumptions run={run} />
       {run.waits_on === null || allWait || waitsBelow ? null : (
         <p data-testid="port-hero-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>

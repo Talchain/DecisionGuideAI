@@ -259,19 +259,25 @@ describe('the row reads its finding first', () => {
     }
   })
 
-  it('the headline\'s Show all is a plain control, never Olumi\'s blue', () => {
+  it('the headline\'s line is whole, however long: no clamp and no Show all (Paul\'s gate, 8 Nov: nothing cut)', () => {
     const sh = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight'), ch = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
     Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => 200 })
     Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 40 })
     try {
       const { container } = draw(golden, 'second_oven', 1)
-      const btn = container.querySelector('[data-testid="port-row-headline"] button[aria-expanded]')!
-      expect(btn.className).toContain('text-text-light')
-      expect(btn.className).not.toContain('text-info')
+      const head = container.querySelector('[data-testid="port-row-headline"]')!
+      // The headline's own line (core's tipping line, or its driver sentence where it has none), not the range above it.
+      const line = head.querySelector('[data-view^="run.tipping."], [data-view$=".driver.text"]')
+      expect(line).not.toBeNull()
+      expect(line!.closest('p')!.className).not.toMatch(/line-clamp|truncate/)
+      expect(head.querySelectorAll('button')).toHaveLength(0)
+      // Contrast: the row still opens its detail with its own control.
+      expect(container.querySelector('[data-testid="port-option-row"] > button[aria-expanded]')).not.toBeNull()
     } finally {
       if (sh) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', sh)
       if (ch) Object.defineProperty(HTMLElement.prototype, 'clientHeight', ch)
     }
   })
+
 })
 
