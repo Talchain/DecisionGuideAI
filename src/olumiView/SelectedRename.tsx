@@ -8,7 +8,6 @@
 import type { ReactNode } from 'react'
 import { Rename } from './Rename'
 import { useViewStore } from './store'
-import { FindEvidence } from './research/FindEvidence'
 
 function SelectedRename({ id }: { id: string }): JSX.Element | null {
   const heading = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
@@ -18,7 +17,5 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
 }
 
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
-/** Beside it, "Find evidence" (research/FindEvidence.tsx): Olumi's web-search proposals for the selected card or link. */
-export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (
-  <>{s.kind === 'node' ? <SelectedRename id={s.id} /> : null}<FindEvidence key={`${s.kind}:${s.id}`} s={s} /></>
-)
+/** "Find evidence" (research/FindEvidence.tsx) is not offered in N1: web research returns in N2 once its checks pass review. */
+export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (s.kind === 'node' ? <SelectedRename id={s.id} /> : null)

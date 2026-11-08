@@ -14,6 +14,7 @@ import { useViewStore } from '../store'
 import { SelectionPill } from '../../canvas/components/SelectionPill'
 import { useCanvasStore } from '../../canvas/store'
 import { selectedRename } from '../SelectedRename'
+import { FindEvidence } from '../research/FindEvidence'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -28,9 +29,9 @@ const proposal = (k: number, over: Partial<ResearchProposal> = {}): ResearchProp
   implies: { kind: 'range', low: 90, high: 120, unit: 'ticket/week', words: '90 to 120 tickets/week' }, relevance: 'A survey of similar teams.', strength: 'moderate', strength_why: 'A credible survey.',
   settable: true, why_not: null, by: 'olumi', provisional: true, mark: MARK, stance: 'challenges', choice: null,
   // Core's own sentences (wip/research-r2 linesOf), deliberately unlike anything the page could compose from the fields above.
-  lines: { badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
+  lines: { passage: `core passage ${k}`, badge: `core badge ${k}`, where: `core where ${k}`, suggests: `core suggests ${k}`, relevance: `core relevance ${k}`, strength: `core strength ${k}`, stance: `core stance ${k}`, cannot_set: null, choice: null }, ...over })
 const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, record: figure.id, about: figure.heading, heading: 'core heading', intro: 'core intro', kind: 'figure', at: '2026-11-07T15:00:00Z', by: 'Paul', by_id: approved.you_id!, version: 1, in_model: true,
-  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range' } } : p), ...over })
+  status: 'found', said: null, look_for: [], proposals: [proposal(1), proposal(2, { settable: false, why_not: 'core why not', implies: { kind: 'none', words: 'core no range' } })].map((p) => p.k === 2 ? { ...p, lines: { ...p.lines, suggests: 'core no range', relevance: null, strength: null, stance: null } } : p), ...over })
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let list: ResearchItem[] = []
@@ -50,7 +51,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }, nodes: [], edges: [] } as never); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const selectedRow = (id: string, heading: string) => {
   useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: heading } }] as never, edges: [] as never, selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null } })
-  return render(<SelectionPill after={selectedRename} />).container
+  // N1 does not mount it (see the row below); this suite keeps its behaviour covered for N2, mounted the way it was.
+  return render(<SelectionPill after={(s) => <FindEvidence key={`${s.kind}:${s.id}`} s={s} />} />).container
 }
 const posts = () => calls.filter((c) => c.method === 'POST')
 const panel = () => document.querySelector(`[data-research-panel="${figure.id}"]`) as HTMLElement | null
@@ -76,13 +78,15 @@ describe('Find evidence', () => {
       // Every sentence is core's, drawn verbatim: each line's text is exactly core's string, and nothing else is said around it.
       const k = i + 1, want = list[0]!.proposals[i]!.lines
       for (const [name, text] of Object.entries(want)) if (text !== null) expect(c.querySelector(`[data-research-line="${name}"]`)!.textContent).toBe(text)
-      expect(c.querySelector('[data-research-line="quote"]')!.textContent).toBe(`Passage ${k} says 90 to 120.`)
+      // the passage is core's line (quote marks only on a checked passage), never the raw quote drawn as a quotation (Codex N1r item 3)
+      expect(c.textContent).not.toContain(`Passage ${k} says`)
     }
     expect(panel()!.textContent).toContain('core heading')
     expect(panel()!.textContent).toContain('core intro')
     expect(cards[0]!.querySelector('a')).toHaveAttribute('href', 'https://example.org/s1')
     expect(cards[0]!.querySelector('[data-research-range]')).not.toBeNull()
     expect(cards[1]!.querySelector('[data-research-range]')).toBeNull()
+    for (const line of ['relevance', 'strength', 'stance']) expect(cards[1]!.querySelector(`[data-research-line="${line}"]`), line).toBeNull() // core sent no such line: nothing is drawn in its place
     expect(cards[1]!.querySelector('[data-research-line="cannot_set"]')).toBeNull() // core said no range in `suggests`; nothing composed here
     expect(panel()!.textContent).not.toMatch(/Suggests|Relevance:|Strength:|Cannot set the range|Olumi’s proposal/)
     expect(posts()).toHaveLength(0)
@@ -101,5 +105,14 @@ describe('Find evidence', () => {
     expect(panel()).toHaveTextContent('Your own ticket logs')
     expect(panel()!.querySelector('[data-research-proposal]')).toBeNull()
     expect(panel()!.querySelector('[data-research-start]')).toHaveTextContent('Search again')
+  })
+  it('N1 does not offer Find evidence in the Selected row: web research returns in N2', () => {
+    selectedRow(figure.id, figure.heading) // contrast: with the panel mounted, a figure card offers it
+    expect(document.querySelector(`[data-research-find="${figure.id}"]`)).not.toBeNull()
+    cleanup()
+    useCanvasStore.setState({ nodes: [{ id: figure.id, position: { x: 0, y: 0 }, data: { label: figure.heading } }] as never, edges: [] as never, selection: { nodeIds: new Set([figure.id]), edgeIds: new Set(), anchorPosition: null } } as never)
+    const c = render(<SelectionPill after={selectedRename} />).container // the Selected row as N1 mounts it
+    expect(c.textContent ?? '').toContain(figure.heading)
+    expect(c.querySelector('[data-research-find]')).toBeNull()
   })
 })

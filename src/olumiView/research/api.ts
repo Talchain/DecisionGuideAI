@@ -14,12 +14,12 @@ export type ResearchProposal = {
   k: number; title: string; url: string; published: string | null; quote: string
   /** A figure's range as core READ it from the passage in the card's unit, or `none` (core's plain words why there is no range). */
   implies: { kind: 'range'; low: number; high: number; unit: string | null; words: string } | { kind: 'none'; words: string } | { kind: 'direction'; direction: 'up' | 'down' | 'none'; words: string } | { kind: 'bears'; bears: 'supports' | 'challenges'; words: string }
-  relevance: string; strength: 'strong' | 'moderate' | 'weak'; strength_why: string
+  relevance: string; strength: 'strong' | 'moderate' | 'weak' | null; strength_why: string
   settable: boolean; why_not: string | null; by: 'olumi'; provisional: true; mark: string
   stance: 'supports' | 'challenges' | 'unclear'
   choice: { choice: ResearchChoice; by: string; at: string; evidence: number | null; version: number | null } | null
   /** Every sentence the page shows for this proposal, written by core against the model now: drawn verbatim, never composed here. */
-  lines: { badge: string; where: string; suggests: string; relevance: string; strength: string; stance: string; cannot_set: string | null; choice: string | null }
+  lines: { passage: string; badge: string; where: string; suggests: string; relevance: string | null; strength: string | null; stance: string | null; cannot_set: string | null; choice: string | null }
 }
 export type ResearchItem = {
   id: number; record: string; about: string; heading: string; intro: string; kind: 'figure' | 'link' | 'assumption'; at: string; by: string; by_id: string; version: number; in_model: boolean

@@ -54,11 +54,11 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
       <p className={`${META} text-info`} title={p.mark} aria-label={p.mark} data-research-line="badge">{l.badge}</p>
       <p className={H}>{link ? <a href={link} target="_blank" rel="noreferrer noopener" className="underline decoration-info/50 underline-offset-2">{p.title}</a> : p.title}</p>
       <p className={META} data-research-line="where">{l.where}</p>
-      <blockquote className={`${BODY} m-0 border-l-2 border-panel-border pl-2 italic`} data-research-line="quote">{p.quote}</blockquote>
+      <p className={`${BODY} m-0 border-l-2 border-panel-border pl-2`} data-research-line="passage">{l.passage}</p>
       <p className={BODY} data-research-line="suggests">{l.suggests}</p>
-      <p className={META} data-research-line="relevance">{l.relevance}</p>
-      <p className={META} data-research-line="strength">{l.strength}</p>
-      <p className={META} data-research-line="stance" data-stance={p.stance}>{l.stance}</p>
+      {l.relevance ? <p className={META} data-research-line="relevance">{l.relevance}</p> : null}
+      {l.strength ? <p className={META} data-research-line="strength">{l.strength}</p> : null}
+      {l.stance ? <p className={META} data-research-line="stance" data-stance={p.stance}>{l.stance}</p> : null}
       {l.choice ? (
         <p className={`${META} text-text-header`} data-research-choice={p.choice?.choice} data-research-line="choice">{l.choice}</p>
       ) : (
