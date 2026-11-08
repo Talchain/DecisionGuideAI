@@ -68,7 +68,7 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
   return (
     <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}
       data-compact={compact || undefined}
-      className="fixed z-[1200] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
+      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
@@ -115,7 +115,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
     <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
-      className="fixed z-[1200] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
+      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
       <button type="button" aria-pressed={!exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
         onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false) }} className={segment(!exploring)}>

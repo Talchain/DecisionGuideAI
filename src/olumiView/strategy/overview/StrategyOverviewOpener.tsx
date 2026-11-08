@@ -4,6 +4,7 @@
  * of the canvas stage. The UI session's three rules: the pressed state is `aria-pressed` with the system's pressed look (never Olumi's
  * blue), the scenario name's words and size are untouched, and the target is at least 24px. Nothing renders without core's key.
  */
+import { useEffect, useRef } from 'react'
 import { LayoutList } from 'lucide-react'
 import { useViewStore } from '../../store'
 import { typography } from '../../../styles/typography'
@@ -33,6 +34,26 @@ export function StrategyOverviewOpener(): JSX.Element | null {
 export function StrategyOverviewStage({ children }: { children: (view: NonNullable<ReturnType<typeof useViewStore.getState>['view']>, close: () => void) => JSX.Element }): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const open = useOverview((s) => s.open)
-  if (!open || view === null || view.strategy === undefined) return null
-  return <div className="fixed inset-0 z-[1200] bg-panel pt-[52px]" data-testid="strategy-overview-stage">{children(view, () => useOverview.getState().hide())}</div>
+  const shown = open && view !== null && view.strategy !== undefined
+  // Esc closes the page, and however it closes (Esc, Close, the opener pressed again), focus goes back to the control that opened it.
+  const opener = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!shown || typeof document === 'undefined') return
+    const a = document.activeElement
+    opener.current = a instanceof HTMLElement && a !== document.body ? a : document.querySelector<HTMLElement>('[data-testid="strategy-overview-opener"]')
+    // An Esc meant for an open menu or dialog (the header's Explore menu) closes that alone.
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (e.target instanceof Element && e.target.closest('[role="menu"], [role="dialog"], [data-testid="lens-bar"]') !== null) return
+      e.preventDefault(); useOverview.getState().hide()
+    }
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('keydown', key)
+      const o = opener.current
+      if (o !== null && o.isConnected) o.focus({ preventScroll: true })
+    }
+  }, [shown])
+  if (!shown) return null
+  return <div className="fixed inset-0 z-[1200] bg-panel pt-[52px]" data-testid="strategy-overview-stage">{children(view!, () => useOverview.getState().hide())}</div>
 }
