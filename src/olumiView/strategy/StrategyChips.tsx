@@ -12,6 +12,7 @@ import { marksOn, revealOf, useReveal } from '../reveal'
 import { useViewStore } from '../store'
 import { peopleOf, strategyMarkOn } from './strategy'
 import { DifferChip, railLayout, useLinkDiffers } from '../../olumiCore/team/CardDiffers'
+import { useRailBoxesRef } from '../railBoxes'
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()
 const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
@@ -20,6 +21,8 @@ export function StrategyChips({ card }: { card: string }): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const selected = useReveal((s) => s.selected)
   const differs = useLinkDiffers(card)
+  // The link words keep clear of this rail's chips as of the card itself (railBoxes.ts).
+  const railRef = useRailBoxesRef(`strategy:${card}`, card)
   const mark = strategyMarkOn(view, card)
   if (mark === null) return null
   const hostsDiffers = marksOn(revealOf(view), card).cardChips.length === 0
@@ -27,7 +30,7 @@ export function StrategyChips({ card }: { card: string }): JSX.Element | null {
   // A rail that holds a doubted link is the card's width and wraps to a second row (CardDiffers.tsx railLayout).
   const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
   return (
-    <div className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`strategy-chips-${card}`}>
+    <div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`strategy-chips-${card}`}>
       <button type="button" aria-pressed={on} aria-label={mark.text} title={mark.text} data-strategy-chip={mark.views[0]} data-strategy-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openView(mark.views[0]!, card) }}
         className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>

@@ -14,6 +14,7 @@ import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } fr
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
 import { DifferChip, railLayout, useLinkDiffers } from '../olumiCore/team/CardDiffers'
+import { useRailBoxesRef } from './railBoxes'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
@@ -111,12 +112,14 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   // The doubted links sit here unless the strategy chip is this card's only rail (then they sit in that one): never a second rail.
   const differs = useLinkDiffers(card), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
   const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
+  // The link words keep clear of this rail's chips as of the card itself (railBoxes.ts).
+  const railRef = useRailBoxesRef(`reveal:${card}`, card)
   const rail = (children: JSX.Element[]) => (
     // A rail of the reveal's chips alone (V11): centred under the card, side by side in ONE row inside the gap to the next row (a second
     // row would sit on the cards below); two chips may reach past the card's edges. The first (the difference that matters most) keeps all
     // its words; a later one gives way and ends in an ellipsis, its full words in its hover and its name. A rail that holds a doubted link
     // (TM-04) is the card's width instead and wraps to a second row, every chip at its natural width (railLayout).
-    <div className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`reveal-chips-${card}`}>{children}</div>
+    <div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
   if (cardChips.length > 0 || (hostsDiffers && differs.length > 0)) {
     return rail([...cardChips.map((chip, i) => {
