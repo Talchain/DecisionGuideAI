@@ -452,9 +452,7 @@ export const TopBar = ({
             nothing for a scenario CEE cannot read). */}
         {/* On the olumi-core lane the Summary is core's (src/olumiView/ViewSummary.tsx): one saved version, to read, download or print. */}
         {coreLaneShowsSurface('summary') && (isOlumiCoreLane() ? (
-          <Tooltip content="Summary: the question, each option's chance, assumptions, evidence and commitments, to read, download or print">
-            <ViewSummaryTrigger className={styles.iconButton} />
-          </Tooltip>
+          <ViewSummaryTrigger className={styles.iconButton} tooltip="Summary: the question, each option's chance, assumptions, evidence and commitments, to read, download or print" />
         ) : (
           <Tooltip content="Summary: the saved model and its latest Run, to print or share">
             <DecisionBriefTrigger className={styles.iconButton} />

@@ -201,6 +201,23 @@ describe('the top bar\'s Summary on the lane', () => {
     expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false)
     expect(document.activeElement).toBe(last)
   })
+  it('focus inside the open page never opens the control\'s tooltip over the page (a real Chromium showed it covering Download Markdown, 7 Nov)', async () => {
+    setTeamFetch((async () => new Response(JSON.stringify(europeanSummary), { status: 200 })) as unknown as typeof fetch)
+    bar(european as unknown as View)
+    const trigger = screen.getByTestId('summary-trigger')
+    // Contrast: the control's own focus shows its tooltip, so the probe sees one when it is there.
+    act(() => { trigger.focus() })
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeNull())
+    act(() => { trigger.blur() })
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
+    fireEvent.click(trigger)
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    for (const id of ['summary-download', 'summary-print', 'summary-close']) {
+      act(() => { screen.getByTestId(id).focus() })
+      expect(document.activeElement).toBe(screen.getByTestId(id))
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    }
+  })
   it('a mark is an image with the mark\'s title as its name, and the space sits outside it', () => {
     const s = GOLDEN['studio']!
     const { container } = render(<SummaryDocument summary={s} />)
