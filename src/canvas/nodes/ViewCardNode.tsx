@@ -246,8 +246,11 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   const aims = card.rows.filter((r) => r.kind === 'chance').length
   // Who or what the card is from (core's `author.text`), one pill: on a figure card it shares the figure's line, so the face stays compact
   // (J1 gate: the board whole at 1232 at full size); on any other card it leads the marks band.
+  // Design owner, 8 Nov (strategy canvas audit): at rest only Olumi's cards say who they are from ("Olumi’s estimate"); a person's card
+  // keeps its author for hover, focus and the opened card (the board is the team's own unless marked otherwise).
+  const provenanceAtRest = inferred || selected
   const provenance = author === null ? null : (
-    <span className={`${typography.viewPanelMeta} inline-block max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id}
+    <span className={`${typography.viewPanelMeta} ${provenanceAtRest ? 'inline-block' : 'hidden group-hover:inline-block group-focus-within:inline-block'} max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id} data-provenance-at-rest={provenanceAtRest || undefined}
       title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
   )
   return (

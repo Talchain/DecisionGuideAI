@@ -27,6 +27,23 @@ describe('provenance on the face, in core’s words', () => {
   })
 })
 
+describe('the author at rest only on Olumi’s cards (design owner, 8 Nov)', () => {
+  it('Olumi’s estimate is on the face at rest; Tom’s option keeps "Stated by Tom" for hover and the opened card, not at rest', () => {
+    const visits = render(<ViewCard card={card('visits')} />).container.querySelector('[data-provenance="visits"]')!
+    expect(visits.className).not.toMatch(/(^| )hidden( |$)/)
+    expect(visits.getAttribute('data-provenance-at-rest')).toBe('true')
+    const tom = render(<ViewCard card={card('price_cut')} />).container.querySelector('[data-provenance="price_cut"]')!
+    expect(tom.className).toMatch(/(^| )hidden( |$)/)
+    expect(tom.className).toContain('group-hover:inline-block')
+    expect(tom.getAttribute('data-provenance-at-rest')).toBeNull()
+  })
+  it('CONTRAST: opened, a person’s card says who it is from', () => {
+    const tom = render(<ViewCard card={card('price_cut')} selected />).container.querySelector('[data-provenance="price_cut"]')!
+    expect(tom.className).not.toMatch(/(^| )hidden( |$)/)
+    expect(tom.textContent).toBe(card('price_cut').author!.text)
+  })
+})
+
 describe('nothing said twice', () => {
   it('no option has a chance yet: each option card leaves its "none" row to the panel', () => {
     expect(optionsNotYet(view.model)).toBe(true)
