@@ -15,7 +15,7 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, readingOf, sharedAimsOf, type RestsOnItem } from '../../olumiView/layout'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -57,6 +57,7 @@ const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string }
 /** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
 /** Core's ↻ "If approved" beside a Run-derived value while a pending proposal is shown (layout.ts ifApprovedMarkOf), bound to its key item. */
 type IfApproved = { glyph: string; title: string; i: number } | null
+const NO_AIMS: readonly string[] = []
 type ValueMark = { glyph: string; title: string; at: string } | null
 /**
  * The mark beside one value: R5 core's own (`if_approved` on the value, only where the proposal moves it, its words verbatim), and on a core
@@ -211,7 +212,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null }: ViewCardData & { reading?: ViewReading | null; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, number = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; number?: string | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -320,7 +321,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         : card.figure !== null && card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
       {card.rows.map((row, i) => (
         <span key={i} className="contents">
-          <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />
+          {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
+              (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
+          {row.kind === 'none' && row.aim_id !== null && shared.includes(row.aim_id) ? null
+            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
@@ -429,6 +433,8 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const kind = model === null ? askKindOf(card.family) : drawKindOf(card, model)
   // While core's View shows a pending proposal, its Run is the proposal's: each Run-derived line says "If approved" (DL ruling, R4).
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
+  // The aims whose shared reason the panel says once for this option (layout.ts sharedAimsOf): its card leaves those rows to it.
+  const shared = useMemo(() => sharedAimsOf(view?.model?.run, id), [view, id])
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] === id)
   // Keyboard focus on the card (or inside it) opens its other words as selection does (plan v3: full text on selection or keyboard focus).
   // Only while the page's focus really is there: a control removed after its save (an editor, a rename) moves focus to the page with no
@@ -449,15 +455,16 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   }, [boxes, id, panelH])
   return (
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}>
-      <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} />
+      {/* SC-01 preview: the story reads left to right, so a link enters a card on its left and leaves on its right. */}
+      <Handle type="target" position={Position.Left} isConnectable={false} className="!opacity-0" />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} number={number} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       <div className={selected === true || noted ? '' : 'opacity-0 group-hover/vcard:opacity-100 focus-within:opacity-100'} data-olumi-controls="">
         <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible={selected === true || noted} menu={false} />
       </div>
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
-      <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
+      <Handle type="source" position={Position.Right} isConnectable={false} className="!opacity-0" />
     </div>
   )
 }

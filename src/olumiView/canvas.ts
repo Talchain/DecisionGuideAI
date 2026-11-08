@@ -8,8 +8,9 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { ViewModel } from './client'
-import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalColumns, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
+import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
@@ -51,17 +52,20 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[]) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes)])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed]])
+/** The cards that carry a chip rail below them (the team's revealed marks): the layout leaves them room. */
+const railedCards = (): ReadonlySet<string> => new Set(revealOf(useViewStore.getState().view)?.cardChips.keys() ?? [])
 
 /** DGAI's causal places for the model, at the cards' drawn heights (else core's), worked out once per model and set of heights. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
-  const nodes = useCanvasStore.getState().nodes, key = causalKey(model, nodes)
+  const nodes = useCanvasStore.getState().nodes, railed = railedCards(), key = causalKey(model, nodes, railed)
   if (causal?.key === key) return causal.places
   const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height }]))
   laying += 1
   try {
-    const places = await causalPlaces(model, size, questionPlace(model).width)
+    // SC-01 preview (option A): the cause-to-aim story in three columns, left to right.
+    const places = await Promise.resolve(causalColumns(model, size, questionPlace(model).width, railed))
     causal = { key, places }
     return places
   } finally {
