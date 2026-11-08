@@ -365,7 +365,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {card.premises.map((p, j) => (
             // Whole, the glyph first (plan v3: full text on selection or keyboard focus, not hover only); these words show only with the
             // card open, beside it, so a premise shared by several options never lengthens a card at rest (DL 4 Nov).
-            <p key={j} title={p.title} data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
+            <p key={j} title={p.title} data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span>{(p.olumi ?? null) === null ? null : <>{' '}<span title={p.olumi!.title} aria-label={p.olumi!.title} data-view={`${id}.premises.${j}.olumi.glyph`}>{p.olumi!.glyph}</span></>}</p>
           ))}
         </div>
       ) : null}

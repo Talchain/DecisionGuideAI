@@ -73,6 +73,11 @@ export type View = {
         glyph: string
         text: string
         title: string
+        id: string | null
+        olumi: {
+          glyph: string
+          title: string
+        } | null
       }>
       rows: Array<{
         kind: "chance"
