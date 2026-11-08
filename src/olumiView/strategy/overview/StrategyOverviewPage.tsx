@@ -62,7 +62,7 @@ export function StrategyOverviewPage({ view, onClose }: { view: View; onClose: (
     <div className="relative h-full w-full overflow-auto bg-panel" data-testid="strategy-overview-page">
       <div className="relative flex h-14 items-center justify-between pl-[106px] pr-4">
         <h2 className={`${H} ${typography.viewPanelMeta} font-medium text-text-light`}>{view.strategy?.overview.heading}</h2>
-        <button type="button" aria-label="Close" onClick={onClose} className="inline-grid h-9 w-9 place-items-center rounded-md text-text-body transition-colors duration-fast hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50">
+        <button type="button" aria-label={view.evidence_words.close} onClick={onClose} className="inline-grid h-9 w-9 place-items-center rounded-md text-text-body transition-colors duration-fast hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50">
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>

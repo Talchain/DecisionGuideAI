@@ -129,7 +129,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
           <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0" />
         </button>
         {!open ? null : (
-          <div ref={menu} role="menu" aria-label="Explore" data-testid={`${LENS_BAR_TESTID}-explore-menu`}
+          <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
             className="absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 rounded-2xl border border-panel-border bg-panel p-1.5 shadow-2">
             {EXPLORE.map((id) => {
               const Icon = LENS_ICON[id], waiting = id === 'what_changes' && waits, count = id === 'rests_on' ? olumi : 0, on = id === lens

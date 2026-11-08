@@ -8,7 +8,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useReveal } from '../reveal'
@@ -17,6 +17,8 @@ import { EvidenceDock } from '../EvidenceDock'
 import { RevealDock } from '../RevealDock'
 import { TeamPresence } from '../TeamPresence'
 import { ViewLensBar } from '../ViewLensBar'
+import { Compare } from '../WhatIfCompare'
+import { StrategyOverviewPage } from '../strategy/overview/StrategyOverviewPage'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-chain.view3.json'), 'utf8'))
 const CARD = 'diagnostic_time_to_contract'
@@ -24,11 +26,13 @@ const CARD = 'diagnostic_time_to_contract'
 function marked(): View {
   const v: View = structuredClone(real)
   v.collab.marks = v.collab.marks!.map((m) => ({ ...m, title: `‹title ${m.card} ${m.kind}›`, label: `‹label ${m.card} ${m.kind}›` }))
+  // Evidence 31's chain as core gives it (observation, claim, estimate), with an inference step added so every step heading is drawn.
+  v.evidence = v.evidence.map((e) => (e.id !== 31 ? e : { ...e, chain: [...e.chain!.filter((st) => st.level !== 'estimate'), { level: 'inference' as const, text: '‹inference step›', status: null, card: null }, ...e.chain!.filter((st) => st.level === 'estimate')] }))
   v.evidence = v.evidence.map((e) => ({ ...e, stance_text: `‹stance ${e.id}›`, switch_text: `‹switch ${e.id}›`, mark_label: `‹mark label ${e.id}›`, mark_title: `‹mark title ${e.id}›` }))
   v.evidence_words = { heading: '‹evidence heading›', close: '‹evidence close›', bearsOn: '‹bears on›', steps: { observation: '‹observation›', claim: '‹claim›', inference: '‹inference›', estimate: '‹estimate›' } }
   v.reveal_words = { revealedTogether: '‹revealed together›', close: '‹reveal close›', bringEvidence: '‹bring evidence›', keepOpen: '‹keep open›' }
   v.team_presence = { title: `‹team title ${v.you_id}›`, label: `‹team label ${v.you_id}›` }
-  v.lens_words = { ...v.lens_words, bar: '‹lens bar›', rests_on_label: '‹rests on label›', label: { ...v.lens_words.label, full: '‹label full›' } }
+  v.lens_words = { ...v.lens_words, bar: '‹lens bar›', explore: '‹explore›', team: '‹team›', rests_on_label: '‹rests on label›', label: { ...v.lens_words.label, full: '‹label full›' } }
   return v
 }
 const setView = (view: View) => useViewStore.setState({ uuid: '00000000-0000-4000-8000-a88ba245176e', sid: view.id, view, status: 'ready', error: null, stale: false, at: null })
@@ -61,7 +65,8 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect(within(dock).getByTestId('evidence-dock-heading').textContent).toBe('‹evidence heading›')
     expect(within(dock).getByTestId('evidence-dock-close').getAttribute('aria-label')).toBe('‹evidence close›')
     expect(dock.querySelector('[data-evidence-also="32"]')!.textContent).toBe('T‹switch 32›')
-    expect([...dock.querySelectorAll('[data-evidence-step] > p:first-child')].map((p) => p.textContent)).toEqual(expect.arrayContaining(['‹observation›']))
+    // Every step heading of the chain, in its order: core's words for observation, claim, causal inference and model estimate.
+    expect([...dock.querySelectorAll('[data-evidence-step] > p:first-child')].map((p) => p.textContent)).toEqual(['‹observation›', '‹claim›', '‹inference›', '‹estimate›'])
     cleanup()
     // The reveal dock, opened on view 19 from its chip.
     useReveal.setState({ selected: 19, card: CARD, chip: `${CARD}:disagreement` })
@@ -79,5 +84,26 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect(screen.getByRole('radiogroup').getAttribute('aria-label')).toBe('‹lens bar›')
     expect(document.querySelector('[data-lens-label="full"]')!.textContent).toBe('‹label full›')
     expect(document.querySelector('[data-testid$="-rests_on"]')!.getAttribute('aria-label')).toBe('‹rests on label›')
+    cleanup()
+    // The lens bar as the canvas mounts it (ViewCanvas: <ViewLensBar nav />): Model, Explore and its menu, Team.
+    render(<ViewLensBar nav />)
+    const nav = screen.getByRole('toolbar')
+    expect(nav.getAttribute('aria-label')).toBe('‹lens bar›')
+    expect(within(nav).getByTestId('lens-bar-explore').textContent).toBe('‹explore›')
+    expect(nav.textContent).toContain('‹team›')
+    fireEvent.click(within(nav).getByTestId('lens-bar-explore'))
+    expect(screen.getByTestId('lens-bar-explore-menu').getAttribute('aria-label')).toBe('‹explore›')
+  })
+
+  it('the Overview\'s close and a refused what-if say core\'s words, whole', () => {
+    // The Strategy Overview's Close is core's close word (the same meaning as the docks': close this panel).
+    const growth: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8'))
+    render(<StrategyOverviewPage view={{ ...growth, evidence_words: { ...growth.evidence_words, close: '‹overview close›' } }} onClose={() => {}} />)
+    expect(screen.getByTestId('strategy-overview-page').querySelector('button[aria-label]')!.getAttribute('aria-label')).toBe('‹overview close›')
+    cleanup()
+    // A what-if core could not run: core's own reason is the words on the key card, not a UI sentence.
+    const variant = { stopped: null, blocked: '‹core blocked reason›', rows: [], moved: false, why_not: null, most_likely: null }
+    render(<Compare model={real.model!} shown={{ sid: real.id, base: 1, quantity: 'q', typed: '1', variant } as unknown as Parameters<typeof Compare>[0]['shown']} />)
+    expect(screen.getByTestId('view-whatif-key-blocked').textContent).toBe('‹core blocked reason›')
   })
 })
