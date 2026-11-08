@@ -5279,6 +5279,64 @@
     }
    ]
   },
+  "turn": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "job": {
+       "type": "number"
+      },
+      "status": {
+       "type": "string",
+       "enum": [
+        "answering",
+        "failed",
+        "lost"
+       ]
+      },
+      "said": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "by": {
+       "type": "string"
+      },
+      "by_id": {
+       "type": "string"
+      },
+      "words": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "started": {
+       "type": "string"
+      },
+      "at": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "job",
+      "status",
+      "said",
+      "by",
+      "by_id",
+      "words",
+      "started",
+      "at"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
   "strategy": {
    "type": "object",
    "properties": {

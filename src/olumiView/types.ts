@@ -982,6 +982,16 @@ export type View = {
     words?: string | null
     started?: string
   } | null
+  turn?: {
+    job: number
+    status: "answering" | "failed" | "lost"
+    said: string | null
+    by: string
+    by_id: string
+    words: string | null
+    started: string
+    at: string
+  } | null
   strategy?: {
     items: Array<{
       id: string

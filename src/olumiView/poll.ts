@@ -20,7 +20,8 @@ export const DRAFT_POLL_MS = 1_500
 
 /** The scenario on screen is the latest and its first draft is still running in core, or its View has not been read yet (a brief was just
  *  accepted and the first read failed: read again soon, never wait a whole POLL_MS to learn its state; Codex r1 #4). */
-const drafting = (): boolean => { const { view, at, sid } = useViewStore.getState(); return sid !== null && at === null && (view === null || view.draft?.status === 'drafting') }
+// Core API v1.28: a turn Olumi is answering in core (the View's `turn`) is read at the same pace as a drafting first model.
+const drafting = (): boolean => { const { view, at, sid } = useViewStore.getState(); return sid !== null && at === null && (view === null || view.draft?.status === 'drafting' || view.turn?.status === 'answering') }
 
 export function useViewPoll(on: boolean): void {
   useEffect(() => {
