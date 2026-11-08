@@ -41,6 +41,16 @@ describe('one contract: the walker reads the vendored core schema, with the type
     expect(used.has('additionalProperties')).toBe(true) // contrast: the walk sees keywords
   })
 
+  it('reads its keywords as Ajv does where core\'s Views do not reach them yet: oneOf means exactly one, integer means whole', () => {
+    expect(refused(checkAgainst({ oneOf: [{ type: 'string' }, { type: 'string' }] }, 'a'))).toEqual({ ok: false, at: '$' })
+    expect(checkAgainst({ oneOf: [{ type: 'string' }, { type: 'number' }] }, 'a').ok).toBe(true)
+    expect(refused(checkAgainst({ type: 'integer' }, 2.5))).toEqual({ ok: false, at: '$' })
+    expect(checkAgainst({ type: 'integer' }, 2).ok).toBe(true)
+    for (const [s, v] of [[{ oneOf: [{ type: 'string' }, { type: 'string' }] }, 'a'], [{ type: 'integer' }, 2.5], [{ type: 'integer' }, 2]] as const) {
+      expect(checkAgainst(s, v).ok).toBe(new Ajv2020({ strict: false }).compile(s)(v))
+    }
+  })
+
   it('a keyword it does not read fails the check, never passes silently', () => {
     expect(refused(checkAgainst({ type: 'string', pattern: '^a' }, 'b'))).toEqual({ ok: false, at: '$' })
     expect(checkAgainst({ type: 'string' }, 'b').ok).toBe(true)
