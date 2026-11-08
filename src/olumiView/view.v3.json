@@ -5405,6 +5405,63 @@
     }
    ]
   },
+  "reply": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "job": {
+       "type": "number"
+      },
+      "proposal": {
+       "type": "number"
+      },
+      "version": {
+       "type": "number"
+      },
+      "status": {
+       "type": "string",
+       "enum": [
+        "running",
+        "failed",
+        "interrupted",
+        "stale"
+       ]
+      },
+      "words": {
+       "type": "string"
+      },
+      "by": {
+       "type": "string"
+      },
+      "by_id": {
+       "type": "string"
+      },
+      "started": {
+       "type": "string"
+      },
+      "at": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "job",
+      "proposal",
+      "version",
+      "status",
+      "words",
+      "by",
+      "by_id",
+      "started",
+      "at"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
   "strategy": {
    "type": "object",
    "properties": {
