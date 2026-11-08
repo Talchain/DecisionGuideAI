@@ -1,10 +1,10 @@
 diff --git a/src/olumiView/__tests__/validateView.spec.ts b/src/olumiView/__tests__/validateView.spec.ts
-index a8248bb8..21bab03c 100644
+index 5c194074..5a9298aa 100644
 --- a/src/olumiView/__tests__/validateView.spec.ts
 +++ b/src/olumiView/__tests__/validateView.spec.ts
-@@ -4,12 +4,15 @@
-  * held to Ajv's verdict (the validator `client.spec.ts` already trusts for the goldens) on every vendored View and on mutants at every
-  * depth, so it reads core's schema exactly as Ajv does, without Ajv's `new Function` or its 712 KB in the page.
+@@ -5,12 +5,15 @@
+  * The walker is held to Ajv (the validator `client.spec.ts` already trusts) in both modes, on every vendored View and on mutants at
+  * every depth: `strict` against core's schema as written, the page's mode against the same schema with its closure lifted.
   */
 -import { describe, expect, it } from 'vitest'
 +import { afterEach, describe, expect, it } from 'vitest'
@@ -14,16 +14,15 @@ index a8248bb8..21bab03c 100644
  import Ajv2020 from 'ajv/dist/2020'
  import { checkAgainst, SUPPORTED_KEYWORDS, validateView, type Checked, type SchemaNode } from '../validateView'
 +import { setTeamFetch, TeamApiError } from '../../olumiCore/team/api'
-+import { readView, VIEW_SHAPE_CHANGED, VERSION_NOT_SERVED } from '../client'
++import { readView, VIEW_NOT_DRAWABLE, VERSION_NOT_SERVED } from '../client'
 +import { useViewStore } from '../store'
  
  const here = (f: string) => new URL(f, import.meta.url)
  const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
-@@ -204,3 +207,44 @@ describe('a link is checked by the schema core vendored, field by field', () =>
-     expect(validateView(golden('pricing')).ok).toBe(true)
+@@ -231,3 +234,44 @@ describe('a core newer than this page (skew) still draws what the page knows', (
    })
  })
-+
+ 
 +/**
 + * The real path: core's answer → `readView` (client.ts) → the View store the canvas draws from. An invalid View is never installed:
 + * a board already drawn stays as it was with the error said; with nothing drawn yet, the page shows the error and no board.
@@ -31,14 +30,15 @@ index a8248bb8..21bab03c 100644
 +describe('on the real path, an invalid View is never installed', () => {
 +  const SID = 's_0123456789ab', UUID = '00000000-0000-4000-8000-0123456789ab'
 +  const serve = (body: unknown) => setTeamFetch((async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch)
-+  const broken = () => { const x = golden('pricing'); x.model.cards[1].label = 42; return x }
++  const broken = () => { const x = golden('pricing'); x.model.cards[1].heading = 42; return x }
 +  afterEach(() => { setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false, at: null }) })
 +
-+  it('readView refuses a View with a nested fault in plain words, and returns a valid one untouched', async () => {
++  it('readView refuses a View with a nested fault in plain words, and returns a valid one (with a field it does not know) untouched', async () => {
 +    serve(broken())
-+    await expect(readView(SID)).rejects.toEqual(new TeamApiError(0, VIEW_SHAPE_CHANGED))
-+    serve(golden('pricing'))
-+    expect(await readView(SID)).toEqual(golden('pricing'))
++    await expect(readView(SID)).rejects.toEqual(new TeamApiError(0, VIEW_NOT_DRAWABLE))
++    const newer = { ...golden('pricing'), strategy: { key: 'growth' } }
++    serve(newer)
++    expect(await readView(SID)).toEqual(newer)
 +  })
 +
 +  it('a past version is read as that version; a core answering another version is still said, never drawn', async () => {
@@ -50,7 +50,7 @@ index a8248bb8..21bab03c 100644
 +  it('nothing drawn yet: an invalid View leaves no board and says why', async () => {
 +    serve(broken())
 +    await useViewStore.getState().use(UUID)
-+    expect(useViewStore.getState()).toMatchObject({ view: null, status: 'error', error: VIEW_SHAPE_CHANGED })
++    expect(useViewStore.getState()).toMatchObject({ view: null, status: 'error', error: VIEW_NOT_DRAWABLE })
 +  })
 +
 +  it('a board already drawn: an invalid re-read keeps that board exactly, and says why', async () => {
@@ -60,12 +60,12 @@ index a8248bb8..21bab03c 100644
 +    expect(drawn?.title).toBe(golden('pricing').title)
 +    serve(broken())
 +    expect(await useViewStore.getState().refresh()).toBe(false)
-+    expect(useViewStore.getState()).toMatchObject({ status: 'ready', error: VIEW_SHAPE_CHANGED })
++    expect(useViewStore.getState()).toMatchObject({ status: 'ready', error: VIEW_NOT_DRAWABLE })
 +    expect(useViewStore.getState().view).toBe(drawn)
 +  })
 +})
 diff --git a/src/olumiView/client.ts b/src/olumiView/client.ts
-index 285ed1c0..5a51c9d9 100644
+index 285ed1c0..3b994bf6 100644
 --- a/src/olumiView/client.ts
 +++ b/src/olumiView/client.ts
 @@ -9,6 +9,7 @@
@@ -76,12 +76,23 @@ index 285ed1c0..5a51c9d9 100644
  
  export type { View }
  export type ViewModel = NonNullable<View['model']>
-@@ -46,6 +47,8 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED, at:
+@@ -39,6 +40,10 @@ export function viewPath(sid: string, opened: Opened = NOTHING_OPENED, at: numbe
+   return `/api/scenarios/${encodeURIComponent(sid)}/view?${q.toString()}`
+ }
+ 
++/** PL-21: a View that fails the check against core's vendored schema (validateView.ts). Said honestly on a first load too, where a
++ *  reload alone would not help (UI session 8 Nov; DL to confirm the words). */
++export const VIEW_NOT_DRAWABLE = 'Olumi sent this scenario in a shape this page cannot show. Reload the page; if this stays, Olumi needs an update.'
++
+ /** A core that answers a version's read with another version (one older than API v1.10 ignores `at`): said, never drawn as that version. */
+ export const VERSION_NOT_SERVED = 'Olumi cannot show a past version on the canvas yet.'
+ 
+@@ -46,6 +51,8 @@ export async function readView(sid: string, opened: Opened = NOTHING_OPENED, at:
    const v = await call<{ schema?: unknown; version?: { n?: unknown } | null }>('GET', viewPath(sid, opened, at))
    if (v === null || typeof v !== 'object' || v.schema !== VIEW_SCHEMA) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
    if (at !== null && v.version?.n !== at) throw new TeamApiError(0, VERSION_NOT_SERVED)
-+  // PL-21: every nested field checked against core's vendored schema before the View is installed (validateView.ts).
-+  if (!validateView(v).ok) throw new TeamApiError(0, VIEW_SHAPE_CHANGED)
++  // PL-21: every field core's vendored schema declares is checked before the View is installed; fields it does not declare are ignored.
++  if (!validateView(v).ok) throw new TeamApiError(0, VIEW_NOT_DRAWABLE)
    return v as View
  }
  
