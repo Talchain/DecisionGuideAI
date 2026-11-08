@@ -103,8 +103,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [offering, ctl, words, hidden, x, y, size, path, cards, midX, midY])
   if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
-  // pink); a link Olumi inferred dashed in Olumi's colour.
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed || byOlumi ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : '#A9AAA5'
+  // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
   const arrow = `view-link-arrow-${i}`
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={byOlumi || undefined}>

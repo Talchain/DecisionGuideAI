@@ -364,7 +364,7 @@ export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>,
 }
 
 /** The routes' column, the room beside it, the room between two cards in a row and between two rows (flow units; J1 gate). */
-export const ROUTE_GAP_X = 24, TREE_GAP_X = 16, TREE_GAP_Y = 20, ROUTE_GAP_Y = 10, TREE_ROOM_Y = 96
+export const ROUTE_GAP_X = 24, TREE_GAP_X = 16, TREE_GAP_Y = 20, ROUTE_GAP_Y = 10, TREE_ROOM_Y = 96, TREE_ROOM_X = 80
 /** The room a chip rail takes under its card on the route board: a chip whose words wrap to two lines (RevealMarks: rails as wide as the card). */
 export const TREE_RAIL_Y = 44
 /**
@@ -373,7 +373,7 @@ export const TREE_RAIL_Y = 44
  * one link nearer, where it ends (the aims; on a board with none yet, the figures every link leads to) at the bottom, each row centred.
  * Positions only: no word of core's is read or written here.
  */
-export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set(), room = 0): Map<string, { x: number; y: number }> {
+export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set(), room = 0, roomW = 0): Map<string, { x: number; y: number }> {
   const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
   const below = (id: string) => at(id).height + (railed.has(id) ? TREE_RAIL_Y : 0)
   const reasonCard = (c: ViewCard) => c.family === 'relation'
@@ -407,12 +407,20 @@ export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, que
     const row = rows.find((ids) => first !== undefined && ids.includes(first)) ?? rows[0]!
     row.push(r.id)
   }
-  const widthOf = (ids: readonly string[]) => { let w = 0; for (const id of ids) w += at(id).width; return w + Math.max(0, ids.length - 1) * TREE_GAP_X }
   // The question heads the left column and the routes stand under it; the story's rows sit beside them from the top, so the whole board
   // is in view at full size on Paul's 1232 x 704 screen (the 16-card growth board: 856 x 554 flow units beside the 300 px dock).
   const head = [QUESTION, ...options]
-  const left = Math.max(...head.map((id) => at(id).width)) + ROUTE_GAP_X
+  // The room across, as the room down (`roomW`, flow units at full size): what the widest row leaves goes between its cards, then
+  // between the routes and the story, each up to TREE_ROOM_X (the prototype's sparse J1 board).
+  const cardsOf = (ids: readonly string[]) => { let w = 0; for (const id of ids) w += at(id).width; return w }
+  const column = Math.max(...head.map((id) => at(id).width))
+  const most = Math.max(1, ...rows.map((ids) => ids.length))
+  const tight = Math.max(0, ...rows.map((ids) => cardsOf(ids) + Math.max(0, ids.length - 1) * TREE_GAP_X))
+  const spare = Math.max(0, roomW - column - ROUTE_GAP_X - tight)
+  const gapX = most < 2 ? TREE_GAP_X : Math.min(TREE_ROOM_X, TREE_GAP_X + spare / (most - 1))
+  const widthOf = (ids: readonly string[]) => cardsOf(ids) + Math.max(0, ids.length - 1) * gapX
   const span = Math.max(0, ...rows.map(widthOf))
+  const left = column + ROUTE_GAP_X + Math.min(TREE_ROOM_X - ROUTE_GAP_X, Math.max(0, roomW - column - ROUTE_GAP_X - span) / 2)
   const places = new Map<string, { x: number; y: number }>()
   let y = 0
   for (const id of head) { places.set(id, { x: 0, y }); y += below(id) + (id === QUESTION ? TREE_GAP_Y / 2 : ROUTE_GAP_Y) }
@@ -425,7 +433,7 @@ export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, que
   y = 0
   for (const ids of drawn) {
     let x = left + (span - widthOf(ids)) / 2
-    for (const id of ids) { places.set(id, { x, y }); x += at(id).width + TREE_GAP_X }
+    for (const id of ids) { places.set(id, { x, y }); x += at(id).width + gapX }
     y += Math.max(...ids.map(below)) + gap
   }
   return places

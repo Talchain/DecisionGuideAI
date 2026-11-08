@@ -293,6 +293,7 @@ export const TopBar = ({
           </>
         ) : (
           <ScenarioSwitcher
+            bare={strip}
             dropdownPosition="below"
             displayName={scenarioTitle}
             onRename={onTitleChange}

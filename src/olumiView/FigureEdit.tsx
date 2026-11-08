@@ -24,7 +24,7 @@ import { noteEditSaved } from './notice'
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). */
 export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
-export const QUIET_WORDS = 'invisible group-hover:visible group-focus-within:visible'
+export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 
 /**
  * SET ASIDE AND EDIT (R25, Paul's 6 Nov test: "I can't find manual editing"; on his finish line, DL 7 Nov). While a proposal is held core

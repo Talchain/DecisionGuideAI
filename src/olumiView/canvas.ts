@@ -54,17 +54,18 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, room: number) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed], room])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, room: { h: number; w: number }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed], room.h, room.w])
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
-const roomOf = (): number => {
-  if (typeof window === 'undefined') return 0
+const roomOf = (): { h: number; w: number } => {
+  if (typeof window === 'undefined') return { h: 0, w: 0 }
   // The same insets the board's framing uses (ViewCanvas frameFor), so the rows fill exactly the room the camera frames.
   // The Model / Explore / Team row may not be placed yet when the board is first laid out: its foot is the top-left column's
   // (`--chrome-top-left`, TopBar.tsx), and the framing keeps 8 px more under it.
   const pane = document.querySelector('.react-flow'), inset = paddingToInsets(computeFitPadding())
   const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-left')) || 0
-  return Math.max(0, Math.floor((pane?.getBoundingClientRect().height ?? window.innerHeight) - Math.max(inset.top, column + 8) - inset.bottom))
+  const r = pane?.getBoundingClientRect()
+  return { h: Math.max(0, Math.floor((r?.height ?? window.innerHeight) - Math.max(inset.top, column + 8) - inset.bottom)), w: Math.max(0, Math.floor((r?.width ?? window.innerWidth) - inset.left - inset.right)) }
 }
 /** The cards that carry a chip rail below them (the team's revealed marks): the layout leaves them room. */
 const railedCards = (): ReadonlySet<string> => new Set(revealOf(useViewStore.getState().view)?.cardChips.keys() ?? [])
@@ -77,7 +78,7 @@ async function causalFor(model: ViewModel): Promise<Map<string, At>> {
   laying += 1
   try {
     // J1 gate: the prototype's board, the routes on the left and the story top down beside them (layout.ts routeTree).
-    const places = await Promise.resolve(routeTree(model, size, questionPlace(model).width, railed, room))
+    const places = await Promise.resolve(routeTree(model, size, questionPlace(model).width, railed, room.h, room.w))
     causal = { key, places }
     return places
   } finally {

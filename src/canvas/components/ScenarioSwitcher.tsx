@@ -41,6 +41,8 @@ interface ScenarioSwitcherProps {
    * viewport.
    */
   dropdownPosition?: 'above' | 'below'
+  /** J1 gate (the core lane's header strip, as the prototype's): the name without the folder glyph, in the header's ink. */
+  bare?: boolean
   /**
    * ⭐ THE NAME THIS CONTROL DISPLAYS, when the mount is the name authority.
    *
@@ -98,6 +100,7 @@ interface ScenarioSwitcherProps {
 }
 
 export function ScenarioSwitcher({
+  bare = false,
   dropdownPosition = 'above',
   displayName,
   onRename,
@@ -401,7 +404,7 @@ export function ScenarioSwitcher({
           className="flex items-center gap-2 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
           data-testid="scenario-switcher-pill"
         >
-          <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />
+          {bare ? null : <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />}
 
           {!canRename ? (
             <span className="max-w-[360px] truncate px-0.5 text-left" data-testid="scenario-name-text">{resolvedName}</span>
