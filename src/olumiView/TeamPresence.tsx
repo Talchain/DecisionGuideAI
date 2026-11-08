@@ -1,23 +1,23 @@
 /**
  * Team presence (V11, Paul 6 Nov): the scenario's other members as overlapping initial discs in the header. Names are core's
- * (`view.members`), the viewer marked "(you)" as the Team tab words it. Meaningful activity lives on the model, not here.
+ * (`view.members`); its hover and name are core's (`team_presence`, N3), the viewer marked "(you)" there. Meaningful activity lives on the model, not here.
  * Clicking opens the Team tab. Nothing while there is no View, or when the scenario has one member.
  */
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
+import { othersOf } from './layout'
 
 export function TeamPresence() {
   const view = useViewStore((s) => s.view)
   if (!view || view.members.length < 2) return null
-  const names = view.members.map((m) => `${m.name}${m.id === view.you_id ? ' (you)' : ''}`).join(', ')
-  const others = view.members.filter((m) => m.id !== view.you_id)
+  const others = othersOf(view)
   return (
     <button
       type="button"
       data-testid="team-presence"
-      aria-label={`Team: ${names}`}
-      title={names}
+      aria-label={view.team_presence.label}
+      title={view.team_presence.title}
       onClick={() => useUIStore.getState().forceActivateOutputTab('team')}
       className="inline-flex min-h-[24px] min-w-[24px] items-center rounded-full pl-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
     >

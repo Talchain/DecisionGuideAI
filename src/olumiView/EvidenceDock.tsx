@@ -1,6 +1,6 @@
 /**
  * V11 change 1, the evidence chain in the dock: one piece of the team's evidence, opened from its mark on a card (./RevealMarks.tsx), as a
- * chain from what was seen to what the model uses. Every model word and value is core's; the step names are the dock's own labels.
+ * chain from what was seen to what the model uses. Every word and value is core's, the step names and the dock's own words too (N3).
  *
  * With core's requested `chain` (./evidence.ts chainOf), each step is core's words and status (claim "Supported", inference "Not
  * established", estimate "unchanged", ...). Until core sends it, what core has: the words and source as given; each card it concerns with
@@ -9,22 +9,16 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
-import { STANCES, linkOf } from '../olumiCore/team/EvidencePanel'
+import { linkOf } from '../olumiCore/team/EvidencePanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
 import { chainOf, type ChainStep, type Evidence } from './evidence'
 import { cardOfQuantity, openChipOf, revealOf, useReveal } from './reveal'
 import { useReturnFocus } from './RevealDock'
+import { chainParts } from './layout'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
-/** The dock's own names for the four steps (Paul's V11: observation → claim → causal inference → model estimate; the approved board's names). */
-const STEP: Record<ChainStep['level'], string> = {
-  observation: 'Observation',
-  claim: 'Claim',
-  inference: 'Causal inference',
-  estimate: 'Model estimate',
-}
 
 /** True when the dock should draw the open evidence: one is open and the View holds it. */
 export function evidenceDockShown(view: View | null, open: number | null): boolean {
@@ -67,7 +61,7 @@ function Chain({ view, e, steps }: { view: View; e: Evidence; steps: readonly Ch
     const at = id === null ? null : cardOfQuantity(view, id)
     return at === null || at === id ? null : view.model?.cards.find((c) => c.id === at)?.heading ?? null
   }
-  const seen = steps.filter((st) => st.level === 'observation'), rest = steps.filter((st) => st.level !== 'observation')
+  const { seen, rest } = chainParts(steps), STEP = view.evidence_words.steps
   const link = e.link === null ? null : linkOf(e.link)
   return (
     <ol className="m-0 grid list-none gap-4 p-0" data-testid="evidence-dock-chain">
@@ -107,7 +101,6 @@ function BearsOn({ view, e }: { view: View; e: Evidence }): JSX.Element | null {
     return label === null ? [] : [{ id, label, card }]
   })
   if (rows.length === 0) return null
-  const stance = STANCES.find((s) => s.value === e.stance)?.words ?? null
   return (
     <div className={`${CARD} gap-2`} data-testid="evidence-dock-bears">
       {rows.map(({ id, label, card }) => (
@@ -118,7 +111,7 @@ function BearsOn({ view, e }: { view: View; e: Evidence }): JSX.Element | null {
             : <p className={META}>{card.heading}</p>}
         </div>
       ))}
-      {stance === null ? null : <p className={`${META} text-text-header`} data-testid="evidence-dock-stance">{e.by}: {stance}</p>}
+      <p className={`${META} text-text-header`} data-testid="evidence-dock-stance">{e.stance_text}</p>
     </div>
   )
 }
@@ -148,7 +141,7 @@ function AlsoHere({ view, e, card, chip, ids }: { view: View; e: Evidence; card:
       {rest.map((x) => (
         <button key={x.id} type="button" data-evidence-also={x.id} onClick={() => select(x.id, card, chip)}
           className={`${META} inline-flex min-h-6 cursor-pointer items-center gap-1.5 text-text-body underline underline-offset-2 hover:text-text-header`}>
-          <span aria-hidden="true" className={AVATAR}>{initial(x.by)}</span>{x.by}’s evidence
+          <span aria-hidden="true" className={AVATAR}>{initial(x.by)}</span>{x.switch_text}
         </button>
       ))}
     </div>
@@ -167,18 +160,18 @@ export function EvidenceDock({ view }: { view: View }): JSX.Element | null {
   const chip = openChipOf(revealOf(view), at)
   const steps = chainOf(e)
   return (
-    <section data-testid="evidence-dock" aria-label="Evidence" className="grid min-h-full content-start gap-5">
+    <section data-testid="evidence-dock" aria-label={view.evidence_words.heading} className="grid min-h-full content-start gap-5">
       <div className="flex items-center justify-between gap-2">
-        <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="evidence-dock-heading">Evidence</h2>
-        <button type="button" aria-label="Close" data-testid="evidence-dock-close" onClick={close}
+        <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="evidence-dock-heading">{view.evidence_words.heading}</h2>
+        <button type="button" aria-label={view.evidence_words.close} data-testid="evidence-dock-close" onClick={close}
           className="inline-grid h-7 w-7 cursor-pointer place-items-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-header">
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
       {steps !== null ? <Chain view={view} e={e} steps={steps} /> : (
         <ol className="m-0 grid list-none gap-4 p-0" data-testid="evidence-dock-plain">
-          <Step label={STEP.observation} at="observation"><Seen e={e} /></Step>
-          <Step label="What it bears on" at="bears"><BearsOn view={view} e={e} /></Step>
+          <Step label={view.evidence_words.steps.observation} at="observation"><Seen e={e} /></Step>
+          <Step label={view.evidence_words.bearsOn} at="bears"><BearsOn view={view} e={e} /></Step>
         </ol>
       )}
       <Considered view={view} e={e} />

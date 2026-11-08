@@ -70,7 +70,9 @@ describe('the Trade-offs grid: each option against each aim, in core\'s rows', (
 
   it('the key card shows on the Trade-offs lens only', () => {
     const [, model] = goldens.find(([n]) => n === 'european.view.json')!
-    useViewStore.setState({ view: { model } as unknown as View })
+    // N3: the key's heading is core's lens label (`lens_words`), so the View carries it with the model.
+    const { lens_words } = JSON.parse(readFileSync(path.join(DIR, 'european.view.json'), 'utf8')) as View
+    useViewStore.setState({ view: { model, lens_words } as unknown as View })
     render(<ViewTradeOffsKey />)
     expect(screen.queryByTestId('view-tradeoffs-key')).toBeNull()
     act(() => useViewLens.setState({ lens: 'tradeoffs' }))

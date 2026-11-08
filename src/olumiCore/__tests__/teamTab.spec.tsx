@@ -33,7 +33,9 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
     suggested_triggers: [], suggested_triggers_caption: base.collab.suggested_triggers_caption, max_view_figures: base.collab.max_view_figures, view_figures_limit_text: base.collab.view_figures_limit_text, private_view_prompt: null,
     ...over,
   },
-  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null }],
+  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null,
+    // N3: core's own words for this evidence (olumi-core src/view/screen-words.ts evidenceWordsOf).
+    stance_text: 'Bea: Challenges it', switch_text: 'Bea’s evidence', mark_label: 'Bea · Churn in DACH was 2 in 100.', mark_title: 'Bea · Churn in DACH was 2 in 100. · https://example.org/churn' }],
   gated: false, // a member who has given their own view: core holds them no longer
   ...view,
 })
@@ -75,7 +77,9 @@ describe('what the tab shows is the View, word for word', () => {
     const range = { quantity: 'per_specialist', label: 'per specialist', text: '20 to 30 tickets/week/specialist', title: 'Hard bounds: 20 to 30 tickets/week/specialist', unit: 'ticket/week/specialist', version: 1, low: 20, high: 30, range_kind: 'bounds' as const }
     const point = { quantity: 'existing_capacity', label: 'existing capacity', text: '85 tickets/week', title: '85 tickets/week', unit: 'ticket/week', version: 1, value: 85 }
     const t = twoPeople()
-    served = twoPeople({ shared: [{ ...t.collab.shared[0]!, figures: [range] }], mine: [{ ...t.collab.mine[0]!, figures: [point] }, { id: 7, text: 'Words only.', shared: false, skip: false, figures: [], can_share: false }] })
+    // N3: a revealed figure carries core's mark words (no run effect here, so no heading), as core's view3-fields row.
+    const by = t.collab.shared[0]!.by
+    served = twoPeople({ shared: [{ ...t.collab.shared[0]!, figures: [{ ...range, mark_text: `${by}: ${range.text}`, mark_label: `${by} · ${range.label}: ${range.text}` }] }], mine: [{ ...t.collab.mine[0]!, figures: [point] }, { id: 7, text: 'Words only.', shared: false, skip: false, figures: [], can_share: false }] })
     useViewStore.setState({ view: served })
     render(<TeamTab />)
     const fig = screen.getByTestId('team-revealed-3-figure-0')

@@ -20,6 +20,7 @@ import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
 import { useViewStore } from './store'
+import { otherViewsOn, withEffects } from './layout'
 import { StrategyViewLines } from './strategy/StrategyViewLines'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
@@ -115,13 +116,13 @@ function Reading({ view, chip, lead }: { view: View; chip: CardChip | null; lead
       </div>
     )
   }
-  const withEffects = lead.filter((v) => effectsOf(v).length > 0)
-  if (withEffects.length === 0) return null
+  const ran = withEffects(lead, effectsOf)
+  if (ran.length === 0) return null
   return (
     <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-2" data-testid="reveal-dock-consequence">
       <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px]" />
       <div className="grid gap-3">
-        {withEffects.map((v) => (
+        {ran.map((v) => (
           <div key={v.id} className="grid gap-1.5">
             {/* Core's one sentence for a figure that changes which option is most likely (`effects[].chip`), first. */}
             {[...new Set(effectsOf(v).flatMap((e) => { const c = chipOf(e); return c === null ? [] : [c] }))].map((c) => <p key={c} className={`${BODY} text-text-header`} data-testid="reveal-dock-chip">{c}</p>)}
@@ -166,7 +167,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const chip = openChipOf(r, open)
   const lead = chip === null ? [v] : chip.views.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   // Others whose view also sits on this card, after Olumi's reading.
-  const here = chip === null ? [] : [...new Set(r.marks.filter((m) => m.card === chip.card && !chip.views.includes(m.view)).map((m) => m.view))]
+  const here = chip === null ? [] : otherViewsOn(r.marks, chip.card, chip.views)
   const others = here.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   const heading = chip === null ? view.collab.heading : view.model?.cards.find((c) => c.id === chip.card)?.heading ?? view.collab.heading
   return (
@@ -174,9 +175,9 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
       <div className="flex items-start justify-between gap-2">
         <div className="grid gap-0.5">
           <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="reveal-dock-heading">{heading}</h2>
-          <p className={`${META} flex items-center gap-1.5`}><Eye aria-hidden="true" className="h-3 w-3" />Revealed together</p>
+          <p className={`${META} flex items-center gap-1.5`}><Eye aria-hidden="true" className="h-3 w-3" />{view.reveal_words.revealedTogether}</p>
         </div>
-        <button type="button" aria-label="Close" data-testid="reveal-dock-close" onClick={close}
+        <button type="button" aria-label={view.reveal_words.close} data-testid="reveal-dock-close" onClick={close}
           className="inline-grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-header">
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
@@ -195,9 +196,9 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         <div className="grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
           <Next view={view} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>Bring evidence</Button>
+            <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
             <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
-              className={`${BODY} cursor-pointer rounded-full px-2 py-1 text-text-light hover:text-text-header`}>Keep it open</button>
+              className={`${BODY} cursor-pointer rounded-full px-2 py-1 text-text-light hover:text-text-header`}>{view.reveal_words.keepOpen}</button>
           </div>
         </div>
       </div>

@@ -705,3 +705,50 @@ export function evidenceOn(view: View | null, card: string): readonly View['evid
 /** Revealed chip identities for camera placement, in the View's order. */
 export const chipViewIds = (marks: readonly { readonly isChip: boolean; readonly view: number }[]): number[] =>
   marks.filter((m) => m.isChip).map((m) => m.view)
+
+// ── N3 (strategy screen): the picks the reveal, the docks and the header make, here in the one module allowed to pick ─────────────────
+type RevealMarkPick = { readonly view: number; readonly by_id: string; readonly card: string; readonly isChip: boolean }
+
+/** The revealed views to draw: every shared view but a skip, in core's order. */
+export function revealedViews(view: View): View['collab']['shared'] {
+  return view.collab.shared.filter((v) => !v.skip)
+}
+
+/** The marks on one card: its chips, and its initials (each person once, among the views no chip there gathers). */
+export function marksOnCard<M extends RevealMarkPick>(marks: readonly M[], card: string): { readonly chips: readonly M[]; readonly initials: readonly M[] } {
+  const here = marks.filter((m) => m.card === card)
+  const chips = here.filter((m) => m.isChip)
+  const chipped = new Set(chips.map((m) => m.view))
+  const eligible = here.filter((m) => !m.isChip && !chipped.has(m.view))
+  return { chips, initials: eligible.filter((m, i) => eligible.findIndex((x) => x.by_id === m.by_id) === i) }
+}
+
+/** The other views on an open chip's card, each once, in core's order: the ones that chip does not gather. */
+export function otherViewsOn(marks: readonly RevealMarkPick[], card: string, gathered: readonly number[]): number[] {
+  return [...new Set(marks.filter((m) => m.card === card && !gathered.includes(m.view)).map((m) => m.view))]
+}
+
+/** The views among `lead` core ran a figure of (any effect). */
+export function withEffects<V>(lead: readonly V[], effects: (v: V) => readonly unknown[]): V[] {
+  return lead.filter((v) => effects(v).length > 0)
+}
+
+/** The evidence on a card that no chip there already gathers. */
+export function evidenceOffChips<E extends { readonly id: number }>(items: readonly E[], chipped: ReadonlySet<number>): E[] {
+  return items.filter((e) => !chipped.has(e.id))
+}
+
+/** Core's chain split into its observation lines and the steps after them, each in core's order. */
+export function chainParts<S extends { readonly level: string }>(steps: readonly S[]): { readonly seen: readonly S[]; readonly rest: readonly S[] } {
+  return { seen: steps.filter((st) => st.level === 'observation'), rest: steps.filter((st) => st.level !== 'observation') }
+}
+
+/** The members other than the viewer, in core's order. */
+export function othersOf(view: View): View['members'] {
+  return view.members.filter((m) => m.id !== view.you_id)
+}
+
+/** Every item of a list but one, in its order. */
+export function allBut<T>(list: readonly T[], x: T): T[] {
+  return list.filter((y) => y !== x)
+}

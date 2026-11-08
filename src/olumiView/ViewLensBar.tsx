@@ -17,11 +17,15 @@ import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar'
 import { LENS_BAR_TESTID, lensBarFitsBesidePill, placeLensBar } from '../canvas/artefacts/LensBar'
-import { LENS_COPY, LENS_ICON } from '../canvas/artefacts/lenses'
+import { LENS_ICON } from '../canvas/artefacts/lenses'
+import { useViewStore } from './store'
+import { allBut } from './layout'
 import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from './lens'
 
-export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element {
+export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
+  // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
+  const W = useViewStore((s) => s.view?.lens_words ?? null)
   const { olumi } = useRestsOn()
   const waits = useDrivers().size === 0
   const usable = (id: ViewLens) => id !== 'what_changes' || !waits
@@ -59,9 +63,10 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
     useViewLens.setState({ lens: next })
     buttons.current.get(next)?.focus()
   }
-  if (nav) return <NavBar barRef={bar} place={place} compact={compact} />
+  if (W === null) return null
+  if (nav) return <NavBar barRef={bar} place={place} compact={compact} W={W} />
   return (
-    <div ref={bar} role="radiogroup" aria-label={LENS_COPY.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}
+    <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}
       data-compact={compact || undefined}
       className="fixed z-[1200] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
@@ -69,12 +74,12 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
           <button key={id} ref={(el) => { if (el) buttons.current.set(id, el); else buttons.current.delete(id) }} type="button" role="radio"
-            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? LENS_COPY.needsRun : compact || id === 'tradeoffs' ? LENS_COPY.label[id] : LENS_COPY.hint[id]}
-            aria-label={id === 'rests_on' && count > 0 ? `${LENS_COPY.label[id]}, ${LENS_COPY.count.rests_on(count)}` : LENS_COPY.label[id]}
+            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : compact || id === 'tradeoffs' ? W.label[id] : W.hint[id]}
+            aria-label={id === 'rests_on' ? W.rests_on_label : W.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
             className={`${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light/60' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
             <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-            <span className={compact ? 'sr-only' : undefined} data-lens-label={id}>{LENS_COPY.label[id]}</span>
+            <span className={compact ? 'sr-only' : undefined} data-lens-label={id}>{W.label[id]}</span>
             {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : null}
           </button>
         )
@@ -84,13 +89,14 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
 }
 
 /** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
-const EXPLORE: readonly ViewLens[] = VIEW_LENSES.filter((id) => id !== 'full')
+const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 // Tighter than the six pills (px-2.5, gap-1), so the three keep their words beside the pill on Paul's 1232 px screen.
 const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1 rounded-full border px-2.5 transition-colors duration-200 ${ACTION_FOCUS}`
 const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : 'border-transparent text-text-light hover:text-text-body'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
-function NavBar({ barRef, place, compact }: { barRef: RefObject<HTMLDivElement>; place: { left: number; top: number } | null; compact: boolean }): JSX.Element {
+type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
+function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElement>; place: { left: number; top: number } | null; compact: boolean; W: LensWords }): JSX.Element {
   const lens = useViewLens((s) => s.lens)
   const { olumi } = useRestsOn()
   const waits = useDrivers().size === 0
@@ -108,18 +114,18 @@ function NavBar({ barRef, place, compact }: { barRef: RefObject<HTMLDivElement>;
   const exploring = lens !== 'full'
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
-    <div ref={barRef} role="toolbar" aria-label={LENS_COPY.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
+    <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
       className="fixed z-[1200] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
-      <button type="button" aria-pressed={!exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={LENS_COPY.hint.full}
+      <button type="button" aria-pressed={!exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
         onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false) }} className={segment(!exploring)}>
-        <LENS_ICON.full aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>{LENS_COPY.label.full}</span>
+        <LENS_ICON.full aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
       </button>
       <div className="relative h-full">
         <button ref={exploreBtn} type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={exploring} data-testid={`${LENS_BAR_TESTID}-explore`}
           onClick={() => setOpen((o) => !o)} className={segment(exploring || open)}>
           <ExploreIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-          <span className={compact ? 'sr-only' : undefined}>{exploring ? LENS_COPY.label[lens] : 'Explore'}</span>
+          <span className={compact ? 'sr-only' : undefined}>{exploring ? W.label[lens] : W.explore}</span>
           <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0" />
         </button>
         {!open ? null : (
@@ -133,8 +139,8 @@ function NavBar({ barRef, place, compact }: { barRef: RefObject<HTMLDivElement>;
                   className={`grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2.5 rounded-xl px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
                   <Icon aria-hidden="true" className={`mt-[3px] h-3.5 w-3.5 ${waiting ? 'text-text-light' : 'text-text-body'}`} />
                   <span className="grid min-w-0 gap-0.5">
-                    <span className={`${typography.viewPanelBody} ${waiting ? 'text-text-light' : 'text-text-header'}`}>{LENS_COPY.label[id]}</span>
-                    <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? LENS_COPY.needsRun : LENS_COPY.hint[id]}</span>
+                    <span className={`${typography.viewPanelBody} ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
+                    <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? W.needsRun : W.hint[id]}</span>
                   </span>
                   {count > 0 ? <span className={`${typography.viewPanelMeta} mt-[2px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : <span />}
                 </button>
@@ -144,7 +150,7 @@ function NavBar({ barRef, place, compact }: { barRef: RefObject<HTMLDivElement>;
         )}
       </div>
       <button type="button" data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => { setOpen(false); useUIStore.getState().forceActivateOutputTab('team') }} className={segment(false)}>
-        <Users aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>Team</span>
+        <Users aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /><span className={compact ? 'sr-only' : undefined}>{W.team}</span>
       </button>
     </div>
   )

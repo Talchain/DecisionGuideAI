@@ -106,7 +106,8 @@ describe('the writes go straight to core, and the View is read again', () => {
 
   it('a proposal made on considering evidence names who asked and the evidence in its member\'s words, never as its author (API v1.12)', () => {
     const held = golden('proposal')
-    const ev = { id: 5, at: '2026-11-04T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: null, link: null, concerns: [], stance: 'challenges', version: 1, considered: { at: '2026-11-04T09:05:00Z', by: 'Ada', proposal: held.proposal!.id, why: null } }
+    const ev = { id: 5, at: '2026-11-04T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: null, link: null, concerns: [], stance: 'challenges', version: 1, considered: { at: '2026-11-04T09:05:00Z', by: 'Ada', proposal: held.proposal!.id, why: null },
+      stance_text: 'Bea: Challenges it', switch_text: 'Bea’s evidence', mark_label: 'Bea · Churn in DACH was 2 in 100.', mark_title: 'Bea · Churn in DACH was 2 in 100.' }
     useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: { evidence: 5, asked_by: 'Ada' } } } })
     const { container } = renderTab()
     const from = container.querySelector('[data-testid="view-chat-proposal-from"]')!

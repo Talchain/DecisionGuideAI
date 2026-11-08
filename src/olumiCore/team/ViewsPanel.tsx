@@ -12,7 +12,8 @@ import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
 import { itemsOf, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
-type Figure = View['collab']['shared'][number]['figures'][number]
+/** A view's figure as both a revealed and a private view carry it (a revealed one also carries its mark words, N3). */
+type Figure = View['collab']['mine'][number]['figures'][number]
 
 /** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
 export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
