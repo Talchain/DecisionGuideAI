@@ -10,11 +10,14 @@ import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, DRAFTING_TITLE, DRAFTING_WORDS, THINKING_WORDS } from '../ViewChat'
+import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
+/** Core's answer to an accepted brief (API v1.26): the job, running at its first stage. */
+const accepted = (sid: string) => ({ scenario: sid, proposal: null, status_url: `/api/scenarios/${sid}/jobs/2`,
+  job: { id: 2, kind: 'draft', scenario: sid, status: 'running', stage: 'reading', words: 'Reading the brief', reason: null, proposal: null, started: '2026-11-08T15:00:00.000Z', at: '2026-11-08T15:00:00.000Z' } })
 const at = (v: unknown, p: string): unknown => p.split('.').reduce<unknown>((x, k) => (x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]), v)
 
 describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly as the View holds it (%s)', (name) => {
@@ -228,7 +231,8 @@ describe('the writes go straight to core, and the View is read again', () => {
       const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
       useCanvasStore.setState({ currentScenarioId: uuid } as never)
       useViewStore.setState({ uuid, sid: null, view: null, error: null, status: 'none' })
-      answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
+      // AI jobs (core API v1.26): core accepts the brief at once and drafts it in the server: 202 with the job.
+      answer(() => new Response(JSON.stringify(accepted(MADE)), { status: 202 }))
       const { container } = renderTab()
       type(container, 'Should we raise the price of our pastries?')
       await send(container)
@@ -239,25 +243,33 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
     })
 
-    it('while a brief drafts, the board says so once, a first model can take a few minutes, with the seconds; the composer holds the sent brief without its instructions; a message says Olumi is thinking in the composer (PL 4 Nov; plan v3 drafting state, 7 Nov)', async () => {
+    it('while a brief drafts (core API v1.26), the board says so once in core\'s words with the seconds since core accepted it; the composer holds the sent brief without its instructions and takes no second Send; a message says Olumi is thinking in the composer (PL 4 Nov; Paul 7 Nov)', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      vi.setSystemTime(Date.parse('2026-11-08T15:00:05.000Z'))
       try {
-        useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-        useViewChat.setState({ busy: true })
+        const drafting = { ...golden('pricing'), version: null, proposal: null, model: null, chat: [],
+          draft: { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model', started: '2026-11-08T15:00:00.000Z' } } as unknown as View
+        useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000002', sid: 's_000000000002', view: drafting, error: null, status: 'ready' })
+        useViewChat.setState({ text: 'Should we raise the price of our pastries?' })
         const c = render(<><DraftingBoard /><ViewComposer /></>).container
         const board = c.querySelector('[data-testid="view-drafting-board"] [role="status"]')!
-        expect(board.textContent).toBe(`${DRAFTING_TITLE}${DRAFTING_WORDS}0 s`)
+        expect(board.getAttribute('aria-live')).toBe('polite')
+        expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model') // core's words, verbatim
+        expect(board.textContent).toBe('Building the model5 s') // counted from core's `started`, not from this page
         await act(async () => { vi.advanceTimersByTime(3000) })
-        expect(c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent).toBe('3 s')
+        expect(c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent).toBe('8 s')
         expect(c.querySelector('[data-testid="view-chat-working"]')).toBeNull() // said once, on the board
         expect(c.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
         expect(c.querySelector('#view-chat-text')?.hasAttribute('aria-describedby')).toBe(false)
+        expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).disabled).toBe(true)
+        expect((c.querySelector('[data-testid="view-composer-send"]') as HTMLButtonElement).disabled).toBe(true) // no second scenario
         c.remove()
+        useViewChat.setState({ text: '', busy: true })
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
         const m = render(<><DraftingBoard /><ViewComposer /></>).container
         expect(m.querySelector('[data-testid="view-chat-working"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
         expect(m.querySelector('[data-testid="view-drafting-board"]')).toBeNull()
-      } finally { vi.useRealTimers(); useViewChat.setState({ busy: false }) }
+      } finally { vi.useRealTimers(); useViewChat.setState({ busy: false, text: '' }) }
     })
 
     it('lane C: a first scenario says what to write and what happens, once; a scenario with a model says neither', () => {
@@ -277,7 +289,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {
       useCanvasStore.setState({ currentScenarioId: null } as never)
       useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-      answer(() => new Response(JSON.stringify({ scenario: MADE, proposal: 1 }), { status: 201 }))
+      // AI jobs (core API v1.26): core accepts the brief at once and drafts it in the server: 202 with the job.
+      answer(() => new Response(JSON.stringify(accepted(MADE)), { status: 202 }))
       const { container } = renderTab()
       type(container, 'Should we raise the price of our pastries?')
       await send(container)

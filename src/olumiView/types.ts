@@ -967,6 +967,10 @@ export type View = {
     status: "drafting" | "done" | "failed" | "lost"
     reason: string | null
     at: string
+    job?: number
+    stage?: "reading" | "building" | "analysing" | null
+    words?: string | null
+    started?: string
   } | null
   strategy?: {
     items: Array<{

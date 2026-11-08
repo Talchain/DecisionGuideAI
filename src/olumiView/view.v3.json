@@ -5174,6 +5174,33 @@
       },
       "at": {
        "type": "string"
+      },
+      "job": {
+       "type": "number"
+      },
+      "stage": {
+       "anyOf": [
+        {
+         "type": "string",
+         "enum": [
+          "reading",
+          "building",
+          "analysing"
+         ]
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "words": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "started": {
+       "type": "string"
       }
      },
      "required": [

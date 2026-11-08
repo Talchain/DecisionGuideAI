@@ -349,9 +349,13 @@ async function act(f: () => Promise<unknown>, changesModel = false, sink: (said:
 async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
   watchPageMoves()
   const left = pageMoves
+  // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
+  // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
+  keepPending(brief, op)
   const made = await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
+  dropPending(op)
   const derived = derivedUuidOf(made.scenario)
   if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
   // The page moved away while the answer was on its way, even if it has since come back (A → B → A): it moves nothing (review 00002).
@@ -372,6 +376,50 @@ function watchPageMoves(): void {
   useCanvasStore.subscribe((now, before) => { if (now.currentScenarioId !== before.currentScenarioId) pageMoves += 1 })
 }
 
+/** The scenario on screen is drafting its first model in core (core API v1.26: the View's `draft`, the job's state in core's words). */
+export const isDrafting = (view: View | null): boolean => view?.draft?.status === 'drafting'
+
+/** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
+const PENDING = (person: string) => `olumi-pending-brief:${person}`
+const pendingPerson = (): string | null => useMe.getState().me?.id ?? null
+function keepPending(brief: string, op: string): void {
+  const me = pendingPerson()
+  if (me === null) return
+  try { sessionStorage.setItem(PENDING(me), JSON.stringify({ brief, op })) } catch { /* no storage: the op lives only in this page */ }
+}
+function dropPending(op: string): void {
+  const me = pendingPerson()
+  if (me === null) return
+  try { if (pendingBrief(me)?.op === op) sessionStorage.removeItem(PENDING(me)) } catch { /* nothing kept */ }
+}
+/** This person's brief still waiting for core's answer in this tab, if any: its words and the op it was sent with. */
+export function pendingBrief(person: string): { brief: string; op: string } | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(PENDING(person)) ?? 'null') as { brief?: unknown; op?: unknown } | null
+    return v !== null && typeof v.brief === 'string' && v.brief.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { brief: v.brief, op: v.op } : null
+  } catch { return null }
+}
+/**
+ * After a reload, a brief whose answer never arrived is put back in the box with the op it was sent with, so Send asks core again by that op:
+ * the same scenario and job when core had it (a replay never drafts again), a first draft only when it never arrived. Reloading alone
+ * sends nothing.
+ */
+export function restorePendingBrief(): boolean {
+  const me = pendingPerson(), { uuid, sid, view } = useViewStore.getState()
+  if (me === null || sid !== null || !takesBrief(sid, view) || useViewChat.getState().text !== '' || useViewChat.getState().busy) return false
+  const p = pendingBrief(me)
+  if (p === null) return false
+  useViewChat.setState({ text: p.brief, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, 'brief', p.brief), p.op) })
+  return true
+}
+
+/** Try again (core API v1.26): a new attempt on the scenario's saved brief after its first draft failed or was lost, under a new op. */
+export function tryAgain(): Promise<boolean> {
+  const { sid, view } = useViewStore.getState()
+  if (sid === null || (view?.draft?.status !== 'failed' && view?.draft?.status !== 'lost')) return Promise.resolve(false)
+  return write('redraft', `${sid}:${view.draft.job ?? ''}`, (op) => writes.redraft(sid, op))
+}
+
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
 export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
 
@@ -390,6 +438,7 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
 function say(text: string): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
+  if (isDrafting(view)) return Promise.resolve(false) // its first model is still drafting: a second Send never makes a second scenario
   return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid)) : write('message', text, (op) => writes.message(sid!, text, op))
 }
 
@@ -881,24 +930,21 @@ function ModelNoticeLine() {
   return <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
 }
 
-export const DRAFTING_TITLE = 'Drafting your model'
-export const DRAFTING_WORDS = 'Olumi is drafting a model from your brief. A first model can take a few minutes.'
+// A brief's drafting is said on the board in core's words (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
 export const THINKING_WORDS = 'Olumi is thinking…'
 
 /**
  * While a write is in flight the composer is held and says why (lane audit 5.7), with the seconds since it started: a first draft takes
  * minutes, and a line that never moves reads as stuck (PL review, 4 Nov). Status only; nothing streams.
  */
-function Working({ brief }: { brief: boolean }) {
-  // What the write is, as it was when it started: the page moves to the new scenario while a brief is still drafting.
-  const [drafting] = useState(brief)
+function Working() {
   const [started] = useState(() => Date.now())
   const [now, setNow] = useState(started)
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const s = Math.floor((now - started) / 1000)
   return (
     <p role="status" className={typography.viewPanelMeta} data-testid="view-chat-working">
-      {drafting ? DRAFTING_WORDS : THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span>
+      {THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span>
     </p>
   )
 }
@@ -914,9 +960,13 @@ export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now 
 export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
-  const held = busy || past !== null
+  const drafting = isDrafting(view)
+  const held = busy || past !== null || drafting
   const box = useRef<HTMLTextAreaElement>(null)
   const brief = takesBrief(sid, view)
+  // A brief whose answer was lost before a reload is back in the box, with its op (restorePendingBrief); nothing is sent until Send.
+  const me = useMe((m) => m.me)
+  useEffect(() => { if (me !== null && sid === null) restorePendingBrief() }, [me, sid])
   // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6), once no write holds it disabled (00065).
   useEffect(() => { if (brief && !busy) box.current?.focus() }, [brief, busy])
   // The dock's focus channel reaches this composer (review 00065 ledger).
@@ -932,7 +982,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {/* A brief's drafting is said on the board (DraftingBoard.tsx), once; a message being answered is said here. */}
-      {busy && !brief ? <Working brief={false} /> : null}
+      {busy && !brief ? <Working /> : null}
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
           <span>{PAST_HELD}</span>
@@ -941,10 +991,10 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       )}
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
-      {brief && !busy ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       <div className="relative bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
-          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief && !busy ? 'view-brief-intro' : undefined} disabled={held}
+          rows={brief ? 6 : 2} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })} />
         <div className="flex items-center justify-end gap-1 px-2 pb-1" data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (
