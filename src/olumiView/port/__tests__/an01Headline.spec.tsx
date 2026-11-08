@@ -33,7 +33,9 @@ describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
     // On the row it is about: the row of the headline's aim.
     const k = c.rows.findIndex((r) => r.aim_id === h.aim_id)
     expect(range[0]!.closest('[data-testid="port-option-row"]')!.getAttribute('data-view-row')).toBe(`${c.id}.rows.${k}`)
-    openEach()
+    // Its own row opened (one detail at a time): the detail does not say the driver's sentence either.
+    fireEvent.click(range[0]!.closest('[data-testid="port-option-row"]')!.querySelector<HTMLElement>(':scope > button[aria-expanded]')!)
+    expect(screen.getByTestId('port-option-detail')).toBeInTheDocument()
     expect(at(`${c.id}.driver.text`)).toHaveLength(0)
     // Contrast: its chance is still said once, as the readout.
     expect(at(`${c.id}.rows.${k}.value`)).toHaveLength(1)
