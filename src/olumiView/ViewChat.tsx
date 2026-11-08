@@ -112,6 +112,8 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   // note is open on steps out, as a selected card does in ring.ts: one focus per screen. Keyed by value, so an equal reply rewrites nothing.
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] ?? null)
   const restKey = answerFirst ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
+  // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
+  const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
   useEffect(() => {
     if (!answerFirst) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
@@ -125,7 +127,9 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   const whyFirst: number[] = []
   let nextFirst = 1
   if (t.answer !== null) { nextFirst += citesIn(t.answer.answer); for (const w of t.answer.why) { whyFirst.push(nextFirst); nextFirst += citesIn(w) } }
-  const answer = t.answer === null ? null : (
+  const answer = t.answer === null ? (reply === null ? null : (
+    <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
+  )) : (
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
       <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
       {t.answer.why.length === 0 ? null : (
