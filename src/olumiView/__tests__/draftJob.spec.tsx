@@ -162,6 +162,38 @@ describe('the one poller while a draft runs', () => {
   })
 })
 
+describe('Codex r1 fixes', () => {
+  it('U7 signed out while a drafting read is out: its late answer never puts the View back (no person\'s View survives a sign-out)', async () => {
+    on(SID_A, UUID_A, drafting(SID_A, 'building'))
+    served.set(SID_A, drafting(SID_A, 'analysing'))
+    renderHook(() => useViewPoll(true))
+    let release!: () => void
+    hold = new Promise((r) => { release = r })
+    await tick(DRAFT_POLL_MS + 10)
+    expect(reads).toHaveLength(1)
+    await act(async () => { useViewStore.setState(useViewStore.getInitialState(), true) }) // signout.ts resets the store
+    release()
+    await tick(10)
+    expect(useViewStore.getState()).toMatchObject({ sid: null, view: null })
+  })
+
+  it('U8 the first read after acceptance fails: the scenario is read again at the drafting pace until its View arrives, and Send stays held meanwhile', async () => {
+    useViewStore.setState({ uuid: UUID_A, sid: SID_A, view: null, error: 'Olumi could not be reached.', status: 'error', stale: false, at: null })
+    served.set(SID_A, 'fail')
+    const c = render(<><DraftingBoard /><ViewComposer /></>).container
+    expect((c.querySelector('[data-testid="view-composer-send"]') as HTMLButtonElement).disabled).toBe(true)
+    renderHook(() => useViewPoll(true))
+    await tick(DRAFT_POLL_MS + 10)
+    expect(reads).toHaveLength(1)
+    served.set(SID_A, drafting(SID_A, 'building'))
+    await tick(DRAFT_POLL_MS + 10)
+    expect(reads).toHaveLength(2)
+    expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model')
+    expect((c.querySelector('[data-testid="view-composer-send"]') as HTMLButtonElement).disabled).toBe(true) // drafting: still held
+    expect(posts).toEqual([])
+  })
+})
+
 describe('reload and a lost acceptance answer', () => {
   it('U5 a reload mid-draft resumes the same job from the View: core\'s words for job 7, then its model; no brief is sent', async () => {
     served.set(SID_A, drafting(SID_A, 'analysing'))

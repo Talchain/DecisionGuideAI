@@ -961,7 +961,9 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
   const drafting = isDrafting(view)
-  const held = busy || past !== null || drafting
+  // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
+  const unknown = sid !== null && view === null
+  const held = busy || past !== null || drafting || unknown
   const box = useRef<HTMLTextAreaElement>(null)
   const brief = takesBrief(sid, view)
   // A brief whose answer was lost before a reload is back in the box, with its op (restorePendingBrief); nothing is sent until Send.

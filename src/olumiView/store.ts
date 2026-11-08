@@ -85,14 +85,16 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     reading += 1
     try {
       const view = await readView(sid, get().opened, get().at)
-      if (mine !== seq) return false
+      // Dropped when a newer read overtook it, or when the page is no longer on that scenario (signed out: the store was reset; moved on):
+      // a late answer never puts one scenario's, or one person's, View back (AI jobs, Codex r1 #1).
+      if (mine !== seq || get().sid !== sid) return false
       if (!isForThisPage(view)) { set({ status: get().view ? 'ready' : 'error', error: NOT_FOR_THIS_PAGE }); return false }
       // The same View again (a re-read that found nothing new) keeps the one held, so nothing that reads it draws again.
       const held = get().view
       set({ view: held !== null && JSON.stringify(held) === JSON.stringify(view) ? held : view, status: 'ready', error: null, stale: false })
       return true
     } catch (e) {
-      if (mine !== seq) return false
+      if (mine !== seq || get().sid !== sid) return false
       set({ status: get().view ? 'ready' : 'error', error: e instanceof TeamApiError ? e.message : READ_FAILED })
       return false
     } finally { reading -= 1 }
@@ -116,7 +118,7 @@ export const useViewStore = create<ViewState>()((set, get) => ({
     reading += 1 // a look is a read on its way too: the background re-read never overtakes it
     try {
       const view = await readView(sid, get().opened, at)
-      if (mine !== seq) return null // a newer read settles what is on screen
+      if (mine !== seq || get().sid !== sid) return null // a newer read, or another scenario, settles what is on screen
       if (!isForThisPage(view)) return NOT_FOR_THIS_PAGE
       set({ view, at, status: 'ready', error: null, stale: false })
       return null

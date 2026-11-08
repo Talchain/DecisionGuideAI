@@ -18,8 +18,9 @@ import { noteMoved } from './notice'
 export const POLL_MS = 10_000
 export const DRAFT_POLL_MS = 1_500
 
-/** The scenario on screen is the latest and its first draft is still running in core. */
-const drafting = (): boolean => { const { view, at, sid } = useViewStore.getState(); return sid !== null && at === null && view?.draft?.status === 'drafting' }
+/** The scenario on screen is the latest and its first draft is still running in core, or its View has not been read yet (a brief was just
+ *  accepted and the first read failed: read again soon, never wait a whole POLL_MS to learn its state; Codex r1 #4). */
+const drafting = (): boolean => { const { view, at, sid } = useViewStore.getState(); return sid !== null && at === null && (view === null || view.draft?.status === 'drafting') }
 
 export function useViewPoll(on: boolean): void {
   useEffect(() => {
@@ -33,9 +34,10 @@ export function useViewPoll(on: boolean): void {
       if (stopped || going) return
       const { sid, view } = useViewStore.getState()
       // (Hidden, no re-read is timed: `next` sets none, and hiding clears the one set.)
-      if (sid !== null && view !== null && !isReading()) {
+      // A selected scenario is read even before its first View loaded (that first read may have failed).
+      if (sid !== null && !isReading()) {
         going = true
-        const was = view.version?.n ?? 0
+        const was = view?.version?.n ?? 0
         try { await useViewStore.getState().refresh() } finally { going = false }
         // A newer approved version arrived (another member's approval): say so in words, once, with who approved it (`notice.ts`).
         const now = useViewStore.getState()
