@@ -340,12 +340,43 @@
             },
             "title": {
              "type": "string"
+            },
+            "id": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "olumi": {
+             "anyOf": [
+              {
+               "type": "object",
+               "properties": {
+                "glyph": {
+                 "type": "string"
+                },
+                "title": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "glyph",
+                "title"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "null"
+              }
+             ]
             }
            },
            "required": [
             "glyph",
             "text",
-            "title"
+            "title",
+            "id",
+            "olumi"
            ],
            "additionalProperties": false
           }

@@ -102,7 +102,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
               <Door label={REASONING_LABELS.premises} count={notes} testId="premises">
                 {premises.map(({ card, p, j }) => (
                   <SignalRow key={`${card.id}.${j}`} title={p.title} data-reasoning-premise={`${card.id}.${j}`} mark={<span data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>}>
-                    <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
+                    <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>{(p.olumi ?? null) === null ? null : <>{' '}<span title={p.olumi!.title} aria-label={p.olumi!.title} data-view={`${card.id}.premises.${j}.olumi.glyph`}>{p.olumi!.glyph}</span></>}
                   </SignalRow>
                 ))}
                 {reasoning.map((c) => (
