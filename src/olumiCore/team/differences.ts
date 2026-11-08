@@ -48,12 +48,16 @@ export function differencesShape(x: unknown): Differences | null {
   if (!['sides', 'options', 'model', 'settle', 'steps', 'dissent', 'research', 'commit'].every((k) => isStr(h[k]))) return null
   const ok = d.differences.every((x) => isStr(x.record) && isStr(x.label) && isStr(x.status_text) && Array.isArray(x.sides) && Array.isArray(x.options) && Array.isArray(x.settle) && Array.isArray(x.steps))
   if (!ok) return null
-  const st = (d as { stances?: unknown }).stances
+  // TM-04's `chip` (additive): core's words, or it is dropped from that entry and never drawn as anything else.
+  const out = d.differences.some((e) => e.chip !== undefined && !isStr(e.chip))
+    ? { ...d, differences: d.differences.map((e) => (e.chip === undefined || isStr(e.chip) ? e : { ...e, chip: undefined })) }
+    : d
+  const st = (out as { stances?: unknown }).stances
   if (st !== undefined && !(Array.isArray(st) && st.every((e) => e !== null && typeof e === 'object' && isStr((e as { id?: unknown }).id) && isStr((e as { text?: unknown }).text)))) {
-    const { stances: _drop, ...rest } = d as Differences
+    const { stances: _drop, ...rest } = out as Differences
     return rest as Differences
   }
-  return d as Differences
+  return out as Differences
 }
 
 /** `key`: the View last read for (whether or not that read answered); `read`: the View `data` was read for. A failed read keeps the

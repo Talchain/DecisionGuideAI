@@ -2,9 +2,10 @@
  * TM-04 (DL backlog row 7, 8 Nov): after the reveal, each link one member doubts and another keeps is a chip on both of its cards, in the
  * card's one rail, in core's words; a factor a member thinks is missing names no card, so it is said in the Team tab only. The chip's face
  * is core's `chip` (at most 28 characters), and a rail that holds one stays inside its card, wrapping rather than cutting (UI, 8 Nov).
- * Fixtures are the served candidate core's own output (olumi-core b143332b, which holds the chip, b365e50e): zero-call, on a COPY of the
- * seeded consulting board (~/olumi-work/v11-serve/core.db) after ~/olumi-work/tm04-witness/make-doubts.mjs. The witness members' names
- * are long ("Cara (TM-04 witness)"), so core counts rather than names them: "One of you doubts this link".
+ * Fixtures are the served core's own output (olumi-core v3 6e24d1e4, which holds the chip, b365e50e; its differences answer equals the
+ * candidate b143332b's): zero-call, on a COPY of the
+ * seeded consulting board (~/olumi-work/v11-serve/core.db), after ~/olumi-work/tm04-chip/make-doubts-named.mjs. Core names each link's
+ * doubter on its chip ("Ana doubts this link", "Cara doubts this link"), so every chip below is bound to its own entry's words.
  * - Ana and Cara each doubted one of the two links into "Time to first customer payment" and named a factor they think the model leaves out.
  * - Ben and Dan each kept the link their partner doubted, and all four shared their views.
  * - Core then answers one entry per link and aim, one per factor (no card), and the figure Priya and Tom differ on.
@@ -62,13 +63,13 @@ describe('TM-04: a doubted link on both of its cards, in the card\'s one rail, i
     // One end of the second link already carries a reveal chip (Maya's), so the rows below see a doubt beside it.
     expect(ends.some((k) => marked.includes(k))).toBe(true)
     expect(figure.cards).toEqual([figure.record])
-    // Core's words for each link's chip, at most 28 characters; none for a figure or a factor.
-    expect(links.map((d) => d.chip)).toEqual(['One of you doubts this link', 'One of you doubts this link', 'One of you doubts this link', 'One of you doubts this link'])
+    // Core's words for each link's chip: who doubts it, at most 28 characters, a different chip for each link; none for a figure or factor.
+    expect(firsts.map((d) => [d.record, d.chip])).toEqual([['link:first_cash_timing:time_to_contract', 'Ana doubts this link'], ['link:first_cash_timing:contract_to_cash', 'Cara doubts this link']])
     expect(links.every((d) => d.chip!.length <= 28)).toBe(true)
     expect([figure, ...factors].map((d) => d.chip)).toEqual([undefined, undefined, undefined])
   })
 
-  it('HIGH: after the reveal, each doubted link is on both of its cards, once, in the card\'s one rail: core\'s chip on its face, the link and who holds which explanation in its name, core\'s sentence on hover', async () => {
+  it('HIGH: after the reveal, each doubted link is on both of its cards, once, in the card\'s one rail: core\'s chip on its face, the link and who holds which explanation in its name, the link and core\'s sentence on hover', async () => {
     const c = rails([...ends, figure.record, other])
     await waitFor(() => expect(c.querySelectorAll('[data-differ-chip]').length).toBe(firsts.length * 2))
     for (const d of firsts) {
@@ -82,11 +83,13 @@ describe('TM-04: a doubted link on both of its cards, in the card\'s one rail, i
         expect([...chips[0]!.querySelectorAll(':scope > span:not(.sr-only)')].map((e) => e.textContent).join('')).toBe(d.chip)
         expect(chips[0]!.querySelector('[data-differ-chip-text]')?.textContent).toBe(d.chip)
         expect(chips[0]!.querySelector('.truncate')).toBeNull()
-        // Its name: the link and each person's explanation, in core's words.
+        // Its name: the chip, the link and each person's explanation, in core's words, each whole and apart (never run together).
         expect(chips[0]!.querySelector('[data-differ-label]')).toHaveClass('sr-only')
         expect(chips[0]!.querySelector('[data-differ-label]')?.textContent).toBe(d.label)
         expect([...chips[0]!.querySelectorAll('[data-differ-side]')].map((e) => e.textContent)).toEqual(d.sides.map((s) => s.text))
-        expect(chips[0]!.getAttribute('title')).toBe(d.status_text)
+        expect(chips[0]!.textContent).toBe([d.chip, d.label, ...d.sides.map((s) => s.text)].join(' '))
+        // On hover: which link it is, then core's sentence, so two chips with the same words on one card are told apart.
+        expect(chips[0]!.getAttribute('title')).toBe(`${d.label}\n${d.status_text}`)
       }
     }
     // Beside the reveal's own chip, in the same rail.
@@ -108,12 +111,21 @@ describe('TM-04: a doubted link on both of its cards, in the card\'s one rail, i
       expect(r).not.toHaveClass('flex-nowrap')
       for (const chip of r.querySelectorAll('[data-differ-chip]')) { expect(chip).toHaveClass('flex-none'); expect(chip).not.toHaveClass('min-w-0') }
     }
-    // CONTRAST: the figure card's rail holds only the reveal's chips (Priya and Tom's), so it keeps V11's one row: V11's to change.
+    // CONTRAST: the figure card's rail holds only the reveal's chips (Priya and Tom's), so it keeps V11's one row exactly: V11's to change.
     const v11 = railsOf(c, figure.record)[0] as HTMLElement
     expect(v11.querySelectorAll('[data-reveal-card-chip]').length).toBeGreaterThan(0)
     expect(v11.querySelector('[data-differ-chip]')).toBeNull()
     expect(v11).toHaveClass('flex-nowrap')
-    expect(v11.style.width).not.toBe(`${CARD_WIDTH}px`)
+    expect([v11.style.width, v11.style.marginLeft]).toEqual(['380px', `${(CARD_WIDTH - 380) / 2}px`])
+  })
+
+  it('catch: a chip that is not words (core drift) is dropped from its entry and never drawn; the other link keeps its own', async () => {
+    const drift = { ...core, differences: core.differences.map((d) => (d.record === firsts[0]!.record ? { ...d, chip: { words: 'not text' } } : d)) }
+    setTeamFetch((async () => new Response(JSON.stringify(drift), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
+    const c = rails(ends)
+    await waitFor(() => expect(c.querySelectorAll('[data-differ-chip]').length).toBe(firsts.length * 2))
+    expect(c.querySelectorAll(`[data-differ-chip="${firsts[0]!.record}"] [data-differ-chip-text]`).length).toBe(0)
+    expect([...c.querySelectorAll(`[data-differ-chip="${firsts[1]!.record}"] [data-differ-chip-text]`)].map((e) => e.textContent)).toEqual([firsts[1]!.chip, firsts[1]!.chip])
   })
 
   it('catch: an older core sends no chip: the mark alone, its name still core\'s, and no words made here', async () => {
