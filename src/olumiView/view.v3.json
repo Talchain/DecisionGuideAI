@@ -5301,6 +5301,16 @@
         "null"
        ]
       },
+      "ask": {
+       "type": "string",
+       "enum": [
+        "message",
+        "challenge",
+        "method",
+        "move",
+        "consider"
+       ]
+      },
       "by": {
        "type": "string"
       },
@@ -5324,6 +5334,7 @@
       "job",
       "status",
       "said",
+      "ask",
       "by",
       "by_id",
       "words",

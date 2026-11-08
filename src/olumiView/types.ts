@@ -986,6 +986,7 @@ export type View = {
     job: number
     status: "answering" | "failed" | "lost"
     said: string | null
+    ask: "message" | "challenge" | "method" | "move" | "consider"
     by: string
     by_id: string
     words: string | null

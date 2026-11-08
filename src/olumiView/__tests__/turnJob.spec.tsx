@@ -23,7 +23,7 @@ const SID = 's_00000000000a', UUID = '00000000-0000-4000-8000-00000000000a'
 const STARTED = '2026-11-08T15:00:00.000Z'
 const BUSY = 'Olumi is still answering the last message here. Send yours once it has answered.'
 type Turn = NonNullable<View['turn']>
-const turnOf = (over: Partial<Turn> = {}): Turn => ({ job: 31, status: 'answering', said: 'What if demand falls?', by: 'Paul', by_id: '7', words: 'Olumi is answering.', started: STARTED, at: STARTED, ...over })
+const turnOf = (over: Partial<Turn> = {}): Turn => ({ job: 31, status: 'answering', said: 'What if demand falls?', ask: 'message', by: 'Paul', by_id: '7', words: 'Olumi is answering.', started: STARTED, at: STARTED, ...over })
 /** A scenario with its saved model (core's pricing golden, read as Paul, id 7) and `turn` as given. */
 const viewWith = (turn: Turn | null): View => ({ ...golden('pricing'), id: SID, you_id: '7', turn } as unknown as View)
 
@@ -104,6 +104,11 @@ describe('a turn answered in core', () => {
     await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-chat-turn-again"]')!) })
     await tick(0)
     expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'What if demand falls?', op: expect.any(String) } }])
+    // A failed challenge (or method question, move, evidence to consider) is asked again from its own control: it is never sent as words.
+    cleanup()
+    const challenge = turnOf({ status: 'failed', ask: 'challenge', said: "What are we assuming about 'Add one specialist', and what if it's wrong?", words: 'Olumi could not finish this turn. Please try again in a moment.' })
+    on(viewWith(challenge))
+    expect(render(<TurnInFlight turn={challenge} me="7" />).container.querySelector('[data-testid="view-chat-turn-again"]')).toBeNull()
   })
 
   it('UT4 core\'s one-turn-at-a-time refusal is shown in core\'s words, never a raw error, and the words stay in the box', async () => {
@@ -118,7 +123,7 @@ describe('a turn answered in core', () => {
     expect(posts).toHaveLength(1)
   })
 
-  it('UT5 an acceptance lost on the way: after a reload the message is back in the box with the SAME op, sent only on Send; one the View already shows is dropped', async () => {
+  it('UT5 an acceptance lost on the way: after a reload the message is back in the box with the SAME op, sent only on Send, even when the View shows the same words', async () => {
     post = () => { throw new TypeError('network down') }
     on(viewWith(null))
     useViewChat.setState({ text: 'Lost on the way' })
@@ -141,14 +146,16 @@ describe('a turn answered in core', () => {
     expect(posts).toHaveLength(2)
     expect(posts[1]!.body).toEqual({ text: 'Lost on the way', op: sent })
     expect(pendingTurn('7')).toBeNull()
-    // A message the View already shows being answered is not put back: it is dropped.
+    // The same words on the View (Sam's message, or an earlier one of theirs) prove nothing about this op: it is put back, with its op.
     cleanup()
-    sessionStorage.setItem('olumi-pending-turn:7', JSON.stringify({ sid: SID, text: 'What if demand falls?', op: 'op-already-there-01' }))
+    sessionStorage.setItem('olumi-pending-turn:7', JSON.stringify({ sid: SID, text: 'What if demand falls?', op: 'op-same-words-0001' }))
     useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
-    on(viewWith(turnOf()))
-    render(<ViewComposer />)
+    on(viewWith(turnOf({ by: 'Sam', by_id: '9', status: 'failed', words: 'Olumi could not finish this turn. Please try again in a moment.' })))
+    const third = render(<ViewComposer />).container
     await tick(0)
-    expect(useViewChat.getState().text).toBe('')
-    expect(pendingTurn('7')).toBeNull()
+    expect(useViewChat.getState().text).toBe('What if demand falls?')
+    await act(async () => { fireEvent.click(third.querySelector('[data-testid="view-composer-send"]')!) })
+    await tick(0)
+    expect(posts[2]!.body).toEqual({ text: 'What if demand falls?', op: 'op-same-words-0001' })
   })
 })

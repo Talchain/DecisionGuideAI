@@ -208,7 +208,7 @@ export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
         </p>
-        {running || turn.said === null || turn.by_id !== me ? null
+        {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:opacity-40">Try again</button>}
       </li>
     </ol>
@@ -429,23 +429,25 @@ export function pendingTurn(person: string): { sid: string; text: string; op: st
 }
 /**
  * After a reload, a message whose acceptance never came back is put back in the box with the op it was sent with, so Send asks core again
- * by that op (a replay never answers twice). One the View already shows (being answered, or answered) is dropped instead. Reloading sends nothing.
+ * by that op: core answers a replay with the turn it already has (never a second answer), or takes it as new if it never arrived. It is
+ * never dropped because the View shows the same words, which may be someone else's or an earlier message of theirs (Codex review 07 #5).
+ * Reloading sends nothing.
  */
 export function restorePendingTurn(): boolean {
   const me = pendingPerson(), { uuid, sid, view } = useViewStore.getState()
   if (me === null || sid === null || view === null) return false
   const p = pendingTurn(me)
   if (p === null || p.sid !== sid) return false
-  if (view.turn?.said === p.text || view.chat.at(-1)?.said === p.text) { dropPendingTurn(p.op); return false }
   if (useViewChat.getState().text !== '' || useViewChat.getState().busy) return false
   useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, 'message', p.text), p.op) })
   return true
 }
-/** Try again on a turn that ended unanswered (failed or lost): the same words, under a new op, as a message. */
+/** Try again on a plain message that ended unanswered (failed or lost): the same words, under a new op. A challenge, method question, move
+ *  or evidence to consider is asked again from its own control, so it keeps what it was (Codex review 07 #4); it never becomes words. */
 export function sayAgain(): Promise<boolean> {
   const { sid, view } = useViewStore.getState()
   const t = view?.turn
-  if (sid === null || t == null || t.status === 'answering' || t.said === null) return Promise.resolve(false)
+  if (sid === null || t == null || t.status === 'answering' || t.said === null || t.ask !== 'message') return Promise.resolve(false)
   const said = t.said
   return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op))
 }
@@ -679,14 +681,14 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   if (sid === null) return false
   let stale = false
   const sent = await write(`move:${next.move}`, String(turn), async (op) => {
-    try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409) stale = true; throw e }
+    // Core's one-turn-at-a-time refusal is a 409 too, told apart by its code (`turn_busy`): that move is still offered, so it is never dropped.
+    try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409 && e.code !== 'turn_busy') stale = true; throw e }
   }, false, uuid)
   // The pre-mortem tap with the gate closed is also a 409: it opens the entry; any other 409 is the stale move below.
   if (stale && next.move === PRE_MORTEM && await openPreMortemEntry()) return sent
   if (stale) {
+    useViewChat.setState({ gone: moveKey(sid, turn, next.move) })
     await useViewStore.getState().refresh()
-    // Core's one-turn-at-a-time refusal (another turn is being answered) is a 409 too: that move is still offered, so it is not dropped.
-    if (!isAnswering(useViewStore.getState().view)) useViewChat.setState({ gone: moveKey(sid, turn, next.move) })
   }
   return sent
 }
