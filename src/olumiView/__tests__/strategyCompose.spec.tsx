@@ -44,6 +44,17 @@ afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setS
 const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } })
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
+  it('a View without core\'s strategy key (core n2) asks core nothing for the vocabulary and draws no strategy fields', async () => {
+    const plain = { ...real } as Record<string, unknown>; delete plain.strategy
+    useViewStore.setState({ view: plain as unknown as View } as never)
+    const asked: string[] = []
+    setTeamFetch(vi.fn(async (url: RequestInfo | URL) => { asked.push(String(url)); return String(url) === '/api/me' ? json({ me: { id: real.you_id, name: real.you } }) : json(plain) }) as unknown as typeof fetch)
+    render(<TeamTab />)
+    await screen.findByTestId('team-view-give')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(asked.filter((u) => u.endsWith('/strategy/vocabulary'))).toEqual([])
+    expect(screen.queryByTestId('team-view-strategy')).toBeNull()
+  })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
     render(<TeamTab />)
     const about = await screen.findByTestId('team-view-about') as HTMLSelectElement

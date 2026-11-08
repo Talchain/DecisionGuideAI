@@ -22,17 +22,22 @@ const isVocabulary = (v: unknown): v is Vocabulary => {
     && typeof x.form === 'object' && x.form !== null && (['about', 'stance', 'text', 'source', 'source_example', 'send', 'private'] as const).every((k) => typeof x.form![k] === 'string' && x.form![k] !== '')
 }
 
-/** Core's vocabulary for this scenario, or null (not yet answered, no strategy lane, or not in its shape: never an error, nothing was asked). */
-export function useStrategyVocabulary(sid: string): Vocabulary | null {
+/** Does core serve the strategy lane for this View (its `strategy` key, olumi.view/3 on core n2c)? Not yet in the vendored schema. */
+export const isStrategic = (view: View): boolean => (view as { strategy?: unknown }).strategy != null
+
+/** Core's vocabulary for this scenario, or null (not yet answered, no strategy lane, or not in its shape: never an error, nothing was asked).
+ *  `strategic`: core's vocabulary route exists only where core serves the strategy key; without it nothing is asked (V11 705f1df0). */
+export function useStrategyVocabulary(sid: string, strategic: boolean): Vocabulary | null {
   const [vocab, setVocab] = useState<Vocabulary | null>(null)
   useEffect(() => {
-    let live = true
     setVocab(null)
+    if (!strategic) return
+    let live = true
     call<unknown>('GET', `/api/scenarios/${encodeURIComponent(sid)}/strategy/vocabulary`)
       .then((v) => { if (live && isVocabulary(v)) setVocab(v) })
       .catch(() => undefined)
     return () => { live = false }
-  }, [sid])
+  }, [sid, strategic])
   return vocab
 }
 

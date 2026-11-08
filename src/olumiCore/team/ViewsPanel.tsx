@@ -10,7 +10,7 @@ import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
-import { itemsOf, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
+import { isStrategic, itemsOf, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
 type Figure = View['collab']['shared'][number]['figures'][number]
 
@@ -94,7 +94,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const maxFigures = typeof c.max_view_figures === 'number' ? c.max_view_figures : Infinity
   const atCap = figures.length >= maxFigures
   // The strategy lane's fields (a card, a stance, a source), part of this one form: drawn only once core's vocabulary answers.
-  const vocab = useStrategyVocabulary(sid)
+  const vocab = useStrategyVocabulary(sid, isStrategic(view))
   const [pick, setPick] = useState<StrategyPick>(NO_PICK)
   const items = itemsOf(pick, vocab, text)
   const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK) }
