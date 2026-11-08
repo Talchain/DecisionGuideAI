@@ -1003,6 +1003,17 @@ export type View = {
     started: string
     at: string
   } | null
+  reply?: {
+    job: number
+    proposal: number
+    version: number
+    status: "running" | "failed" | "interrupted" | "stale"
+    words: string
+    by: string
+    by_id: string
+    started: string
+    at: string
+  } | null
   strategy?: {
     items: Array<{
       id: string
