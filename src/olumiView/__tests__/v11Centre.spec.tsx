@@ -9,7 +9,7 @@ import path from 'node:path'
 import type { View } from '../client'
 import { evidenceCards } from '../evidence'
 import { CARD_WIDTH } from '../layout'
-import { openedCardOf, openInViewTarget, OPEN_MIN_ZOOM } from '../revealCamera'
+import { openedCardOf, openInViewTarget, OPEN_MIN_ZOOM, revealFocusTarget } from '../revealCamera'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', f), 'utf8'))
 const evidenceView = load('consulting-evidence.view3.json')
@@ -59,5 +59,26 @@ describe('the target viewport', () => {
     expect(t).toBeNull() // x=500..720 in view
     const u = openInViewTarget({ card: { ...CARD, x: -100, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 1 } })!
     expect((-100 + CARD.w / 2) * u.zoom + u.x).toBeCloseTo(PANE.w / 2)
+  })
+})
+
+describe('a reveal centres the contested card and its chips (ruling D; design owner’s witness, 8 Nov)', () => {
+  // The card the 1232 witness found at the bottom edge: a card low in a 845 x 652 pane at zoom 0.8.
+  const card = { x: 400, y: 900, w: 220, h: 120 }, pane = { w: 845, h: 652 }, viewport = { x: 0, y: -200, zoom: 0.8 }
+  it('moves the card and its rail to the middle of the pane at the person’s zoom', () => {
+    const to = revealFocusTarget({ card, chipH: 32, pane, viewport })!
+    expect(to.zoom).toBe(0.8)
+    expect((card.x + card.w / 2) * to.zoom + to.x).toBeCloseTo(pane.w / 2)
+    expect((card.y + (card.h + 32) / 2) * to.zoom + to.y).toBeCloseTo(pane.h / 2)
+  })
+  it('centres it in the free canvas, never under the dock that covers the right of the pane', () => {
+    const inset = { left: 0, top: 52, right: 348, bottom: 0 }
+    const to = revealFocusTarget({ card, chipH: 32, pane, inset, viewport })!
+    expect((card.x + card.w / 2) * to.zoom + to.x).toBeCloseTo((pane.w - 348) / 2)
+    expect((card.y + (card.h + 32) / 2) * to.zoom + to.y).toBeCloseTo(52 + (pane.h - 52) / 2)
+  })
+  it('CONTRAST: a board already centred on it does not move', () => {
+    const to = revealFocusTarget({ card, chipH: 32, pane, viewport })!
+    expect(revealFocusTarget({ card, chipH: 32, pane, viewport: to })).toBeNull()
   })
 })

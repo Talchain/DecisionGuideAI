@@ -11,13 +11,18 @@ import { revealOf, useReveal } from './reveal'
 import { evidenceCards } from './evidence'
 import type { View } from './client'
 import { viewLaying } from './canvas'
+import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 
 /** Room kept between the chip and the canvas's edge (px). */
 const MARGIN = 40
 const TICK = 250, MAX_TICKS = 40
 
+/**
+ * Once per reveal, after the board has settled: the contested card and its chips are centred (./revealCamera revealFocusTarget). Never after
+ * the person has moved the board themselves.
+ */
 export function useRevealInView(movedAt: MutableRefObject<number>): void {
-  const { getViewport, setViewport } = useReactFlow()
+  const { getViewport, setViewport, getInternalNode } = useReactFlow()
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   const key = useMemo(() => {
     const ids = revealOf(view)?.marks.filter((m) => m.isChip).map((m) => m.view).join(',') ?? ''
@@ -32,21 +37,47 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       ticks += 1
       const finish = () => { clearInterval(t); done.current.add(key) }
       if (moves !== movedAt.current || ticks > MAX_TICKS) return finish()
-      const chip = document.querySelector('[data-reveal-chip]'), pane = document.querySelector('.react-flow')
-      if (chip === null || pane === null || viewLaying()) return
-      const c = chip.getBoundingClientRect(), p = pane.getBoundingClientRect()
+      // The contested card: the one carrying the difference (core's disagreement chip), else the first card with a chip.
+      const chip = document.querySelector('[data-reveal-kind="disagreement"]') ?? document.querySelector('[data-reveal-chip]')
+      const pane = document.querySelector('.react-flow')
+      const id = chip?.closest('.react-flow__node')?.getAttribute('data-id') ?? null
+      if (chip === null || pane === null || id === null || viewLaying()) return
+      const n = getInternalNode(id)
+      if (n === undefined || !n.measured.width || !n.measured.height) return
+      const c = chip.getBoundingClientRect()
       // Settled: the chip has kept its place for one tick (the board's own framing eases for 400 ms).
       const here = `${Math.round(c.x)},${Math.round(c.y)}`
       if (here !== last) { last = here; return }
       finish()
-      const below = c.bottom - (p.bottom - MARGIN), above = p.top + MARGIN - c.top
-      if (below <= 0 && above <= 0) return
-      const vp = getViewport()
+      const vp = getViewport(), p = pane.getBoundingClientRect()
+      const rail = chip.closest('[data-testid^="reveal-chips-"]')
+      const chipH = rail === null ? 0 : (rail.getBoundingClientRect().height / vp.zoom) + 4
+      const at = n.internals.positionAbsolute
+      // The board's own free pane: the canvas less what covers it (the outputs dock, the header), as its framing reads it.
+      const pad = computeFitPadding(pane), num = (v: string | number) => (typeof v === 'number' ? v : parseFloat(v) || 0)
+      const inset = { left: num(pad.left), top: num(pad.top), right: num(pad.right), bottom: num(pad.bottom) }
+      const to = revealFocusTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: { w: p.width, h: p.height }, inset, viewport: vp })
+      if (to === null) return
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-      void setViewport({ ...vp, y: vp.y + (below > 0 ? -below : above) }, { duration: still ? 0 : 300 })
+      void setViewport(to, { duration: still ? 0 : 300 })
     }, TICK)
     return () => clearInterval(t)
-  }, [key, movedAt, getViewport, setViewport])
+  }, [key, movedAt, getViewport, setViewport, getInternalNode])
+}
+
+/**
+ * Ruling D, as the design owner witnessed it (8 Nov): when a reveal lands, the contested card and its chip rail are centred in the free canvas
+ * (the pane less `inset`: what covers it, the outputs dock) at
+ * the person's zoom (never zoomed), so the difference sits where the eye starts, not at an edge. null when it is centred already (within
+ * `CENTRED` px on both axes), so a board framed on it does not move.
+ */
+export const CENTRED = 24
+export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: { left: number; top: number; right: number; bottom: number }; viewport: Vp }): Vp | null {
+  const { card, chipH, pane, viewport: v } = a
+  const i = a.inset ?? { left: 0, top: 0, right: 0, bottom: 0 }
+  const cx = i.left + (pane.w - i.left - i.right) / 2, cy = i.top + (pane.h - i.top - i.bottom) / 2
+  const x = cx - (card.x + card.w / 2) * v.zoom, y = cy - (card.y + (card.h + chipH) / 2) * v.zoom
+  return Math.abs(x - v.x) <= CENTRED && Math.abs(y - v.y) <= CENTRED ? null : { zoom: v.zoom, x, y }
 }
 
 /** Opening a chip or an evidence mark never leaves the person smaller than this (choice D, Paul 6 Nov). */
