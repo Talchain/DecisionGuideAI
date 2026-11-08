@@ -108,10 +108,12 @@ type Outline = ReturnType<typeof modelOutlineOf>
  * Question & goal and Factors (where the first figure is added). The count is the group's cards (and the question), or while a filter is
  * typed, what the filter leaves.
  */
-export function groupsDrawn(outline: Outline, isOpen: (id: GroupId, count: number) => boolean) {
+export function groupsDrawn(outline: Outline, isOpen: (id: GroupId, count: number) => boolean, hasAim = true) {
   return outline.groups.flatMap((g) => {
     if (g.cards.length === 0 && g.id !== 'goal' && g.id !== 'factors') return []
-    const count = !outline.searching ? g.cards.length + (g.id === 'goal' ? 1 : 0) : g.rows.length + (g.question ? 1 : 0)
+    // The Goal group's own row is the aim (the question is said once, above the outline): counted only where it is drawn.
+    const aimRow = g.id === 'goal' && hasAim ? 1 : 0
+    const count = !outline.searching ? g.cards.length + aimRow : g.rows.length + (g.question ? aimRow : 0)
     return [{ g, count, open: isOpen(g.id, count) }]
   })
 }
@@ -185,7 +187,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
   const anyMatch = shown.some((g) => g.rows.length > 0 || g.question) || links.length > 0
   // The key names only the marks of the rows actually drawn: an open group's rows, as the filter leaves them (authorKeyOf's own rule),
   // from the same groups the rows are drawn from.
-  const groups = groupsDrawn(outline, isOpen)
+  const groups = groupsDrawn(outline, isOpen, model.aim != null)
   const authorKey = authorKeyOf(model, groups.flatMap(({ g, open }) => (open ? g.rows : [])))
   const linkCount = !searching ? model.links.length : links.length
   // A write a group's own row cannot answer for says what it came to on its group (UI audit of e8ebab94): a link removed (its row is gone);
@@ -218,12 +220,12 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
           return (
             <Group key={g.id} id={g.id} title={g.title} count={count} open={open} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
               note={<GroupNote said={saidOn(g.id)} />}>
-              {g.id === 'goal' && g.question ? (
+              {/* The question is said once, on its own line above the outline (SC-02); the Goal group keeps the aim it is measured by. */}
+              {g.id === 'goal' && g.question && model.aim != null ? (
                 <li className="flex items-start gap-2 px-2 py-1.5">
                   <span aria-hidden="true" className="w-4 flex-none" />
                   <span className="min-w-0 flex-1">
-                    <span className="block break-words text-text-header" data-view="model.question.text">{model.question.text}</span>
-                    {model.aim == null ? null : <span className={`${typography.viewPanelTabular} mt-0.5 block text-text-body`} title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>}
+                    <span className={`${typography.viewPanelTabular} block text-text-body`} title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>
                   </span>
                 </li>
               ) : null}

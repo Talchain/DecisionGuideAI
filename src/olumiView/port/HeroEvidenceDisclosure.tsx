@@ -18,8 +18,8 @@ import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { ViewModel, ViewRun } from '../client'
 import { comparedGroupsOf, failureOf, restsOf, tippingOf, worthLinesOf } from '../layout'
-import { driverRange, figureCard, Sensitivity } from '../ViewChances'
-import { driverCardsOf } from './pick'
+import { driverRange, figureCard, Sensitivity, sensitivityShown } from '../ViewChances'
+import { driverCardsOf, drawnByRows } from './pick'
 import { TYPE } from './type'
 
 type ViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
@@ -49,15 +49,20 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
   const [open, setOpen] = useState(defaultOpen)
   const [picked, setView] = useState<ViewKey | null>(null)
   const run = model.run ?? null
-  const drivers = driverCardsOf(model)
-  const tipping = tippingOf(run)
+  // Say each thing once (SC-02): each option's driver sentence and its own tipping lines are drawn under its row (HeroOptionRow, at rest);
+  // here only what no row says: core's sensitivity line, a driver no row draws, a tipping line no row draws, and each aim's silent line.
+  const said = drawnByRows(model)
+  const drivers = driverCardsOf(model).filter((c) => !said.drivers.has(c.id))
+  const tippingAll = tippingOf(run)
+  const tipping = tippingAll === null ? null : { ...tippingAll, lines: tippingAll.lines.filter(({ i }) => !said.tipping.has(i)) }
+  const tippingLeft = tipping !== null && tipping.lines.length + tipping.silent.length > 0
   const compared = comparedGroupsOf(run)
   const rests = restsOf(run)
   const failure = failureOf(run)
   const worth = run?.science == null ? [] : worthLinesOf(run.science)
   const views = ([
-    { key: 'drivers', label: 'Drivers', view: undefined, present: drivers.length > 0 },
-    { key: 'tipping', label: tipping?.heading ?? '', view: 'run.tipping_heading', present: tipping !== null },
+    { key: 'drivers', label: 'Drivers', view: undefined, present: drivers.length > 0 || sensitivityShown(model) },
+    { key: 'tipping', label: tipping?.heading ?? '', view: 'run.tipping_heading', present: tippingLeft },
     { key: 'rests', label: rests?.heading ?? '', view: 'run.rests_heading', present: rests !== null },
     { key: 'failure', label: failure?.heading ?? '', view: 'run.failure_heading', present: failure !== null },
     { key: 'compared', label: 'Trade-offs', view: undefined, present: compared.length > 0 },

@@ -18,6 +18,7 @@ import { shownModel, useViewStore } from '../store'
 import { HeldProposalLine, WhatIfShown } from '../ViewChances'
 import { MoveTap } from '../ViewChat'
 import { ActOnIt } from './ActOnIt'
+import { actRowsOf } from './pick'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
@@ -37,6 +38,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
       <AnalysisHeroPanel
         model={model}
         chat={chat}
+        waitsBelow={actRowsOf(model).some((r) => r.kind === 'wait')}
         mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${mlCard.heading}`} />}
         nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
       >

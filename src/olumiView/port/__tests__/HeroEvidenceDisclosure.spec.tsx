@@ -6,7 +6,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../../client'
-import { optionCards } from '../../layout'
+import { optionCards, tippingOf } from '../../layout'
+import { sensitivityShown } from '../../ViewChances'
+import { drawnByRows } from '../pick'
 import { HeroEvidenceDisclosure } from '../HeroEvidenceDisclosure'
 import { expectAllBound, viewOf } from './viewAt'
 
@@ -20,20 +22,28 @@ describe('the ported evidence disclosure', () => {
     const c = render(<HeroEvidenceDisclosure model={bakery.model!} />).container
     expect(c.querySelector('[data-testid="port-evidence-drivers"]')).toBeNull()
     fireEvent.click(c.querySelector('[data-testid="port-evidence-toggle"]')!)
-    expect(chips(c)).toEqual(['drivers', 'tipping', 'rests', 'compared', 'worth'])
-    expect(c.querySelector('[data-testid="port-evidence-tab-tipping"]')!.textContent).toBe(bakery.model!.run!.tipping_heading)
+    // SC-02 (say each thing once): every option's driver and every tipping line is drawn under its option's row, so bakery's Drivers chip
+    // holds only core's sensitivity line, and its tipping chip only the aims' silent lines, where core sends either.
+    const run = bakery.model!.run!, said = drawnByRows(bakery.model!)
+    const want = [
+      ...(sensitivityShown(bakery.model!) || optionCards(bakery.model!).some((x) => x.driver != null && !said.drivers.has(x.id)) ? ['drivers'] : []),
+      ...(run.tipping.some((_, i) => !said.tipping.has(i)) || (tippingOf(run)?.silent.length ?? 0) > 0 ? ['tipping'] : []),
+      'rests', 'compared', 'worth']
+    expect(chips(c)).toEqual(want)
   })
 
   it('each view draws core\'s lines at their paths, with core\'s hover', () => {
     const m = bakery.model!, run = m.run!
     const c = render(<HeroEvidenceDisclosure model={m} defaultOpen />).container
-    const drivers = optionCards(m).filter((x) => x.driver != null).map((x) => x.id)
-    expect([...c.querySelectorAll<HTMLElement>('[data-testid="port-evidence-driver"]')].map((e) => e.dataset['optionId'])).toEqual(drivers)
-    for (const id of drivers) expect(c.querySelector(`[data-view="${id}.driver.text"]`)!.closest('[title]')!.getAttribute('title')).toBe(m.cards.find((x) => x.id === id)!.driver!.title)
-    expect(expectAllBound(bakery, c, expect)).toBeGreaterThan(3)
-    fireEvent.click(c.querySelector('[data-testid="port-evidence-tab-tipping"]')!)
-    expect([...c.querySelectorAll<HTMLElement>('[data-view^="run.tipping."]')].map((e) => e.textContent)).toEqual(run.tipping.map((t) => t.line))
+    // SC-02: no option's driver here when its row draws it; every bakery driver is drawn by its row, so none is drawn here.
+    const said = drawnByRows(m)
+    const left = optionCards(m).filter((x) => x.driver != null && !said.drivers.has(x.id)).map((x) => x.id)
+    expect(said.drivers.size).toBeGreaterThan(0)
+    expect([...c.querySelectorAll<HTMLElement>('[data-testid="port-evidence-driver"]')].map((e) => e.dataset['optionId'])).toEqual(left)
+    for (const id of said.drivers) expect(c.querySelector(`[data-view="${id}.driver.text"]`), id).toBeNull()
     expectAllBound(bakery, c, expect)
+    // Nor a tipping line a row draws.
+    expect(c.querySelectorAll('[data-view^="run.tipping."][data-view$=".line"]').length).toBe(run.tipping.filter((_, i) => !said.tipping.has(i)).length)
     fireEvent.click(c.querySelector('[data-testid="port-evidence-tab-compared"]')!)
     expect(c.querySelectorAll('[data-view^="run.compared."][data-view$=".line"]').length).toBe(run.compared.length)
     expectAllBound(bakery, c, expect)
