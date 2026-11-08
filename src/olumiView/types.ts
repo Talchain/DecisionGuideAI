@@ -35,6 +35,8 @@ export type View = {
         open: boolean
         proposed: boolean
         change: string
+        words: string
+        icon: string
       } | null
     }
     whole: boolean
@@ -160,6 +162,8 @@ export type View = {
         open: boolean
         proposed: boolean
         change: string
+        words: string
+        icon: string
       } | null
       values: Array<{
         option: string
@@ -213,6 +217,7 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
+      records: Array<string>
       effect: {
         text: string
         title: string
@@ -548,6 +553,13 @@ export type View = {
       kind?: "shared" | "unique" | "disagreement"
       about?: Array<string>
       stance?: string | null
+      items?: Array<{
+        about: string
+        text: string
+        stance: string
+        source: string | null
+        pill: string
+      }>
     }>
     mine: Array<{
       id: number
@@ -784,6 +796,66 @@ export type View = {
       label: string
     } | null
   }>
+  model_words: {
+    changeFigure: string
+    setFigure: string
+    tryIt: string
+    cancel: string
+    rename: string
+    saveName: string
+    newName: string
+    showOnCanvas: string
+    addFigure: string
+    name: string
+    figure: string
+    unit: string
+    add: string
+    figureHint: string
+    removeLink: string
+    removeAsk: string
+    remove: string
+    keep: string
+    links: string
+    restsOn: string
+    whose: string
+    about: string
+    whatWouldChange: string
+    saving: string
+    reading: string
+    savingOther: string
+    trying: string
+    changeTarget: string
+    changeLimit: string
+    changeStrength: string
+    heldLead: string
+    heldBody: string
+    heldAside: string
+    heldConfirm: string
+    heldKeep: string
+    heldFailed: string
+    settingAside: string
+    plain: string
+    expert: string
+    detail: string
+    to: string
+    from: string
+    askChange: string
+    askOption: string
+    askOptionDraft: string
+    askRisk: string
+    askRiskDraft: string
+    askLink: string
+    askLinkDraft: string
+    failed: string
+    withdrawnHeld: string
+    withdrawnPast: string
+    withdrawn: string
+    savedNotShown: string
+    triedFailed: string
+    askChangeDraft: {
+      [key: string]: string
+    }
+  }
   brief: string
   gated: boolean
   session: {

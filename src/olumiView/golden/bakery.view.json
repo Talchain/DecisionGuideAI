@@ -222,7 +222,9 @@
      "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 1 calculation",
+     "icon": "● ="
     },
     "values": [
      {
@@ -494,7 +496,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
     },
     "values": null,
     "rests_on": [],
@@ -665,7 +669,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
     },
     "values": null,
     "rests_on": [],
@@ -755,7 +761,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
     },
     "values": null,
     "rests_on": [],
@@ -885,7 +893,10 @@
     "proposed": false,
     "title": "base · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "sales_rel"
+    ]
    },
    {
     "from": "extra_sold_per_oven",
@@ -897,7 +908,10 @@
     "proposed": false,
     "title": "how much · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "sales_rel"
+    ]
    },
    {
     "from": "extra_hours_sold",
@@ -909,7 +923,10 @@
     "proposed": false,
     "title": "how much · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "sales_rel"
+    ]
    },
    {
     "from": "oven_price",
@@ -921,7 +938,11 @@
     "proposed": false,
     "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "oven_cost_rel",
+     "spend_rel"
+    ]
    },
    {
     "from": "fitting",
@@ -933,7 +954,11 @@
     "proposed": false,
     "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "oven_cost_rel",
+     "spend_rel"
+    ]
    },
    {
     "from": "sales",
@@ -945,7 +970,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "sales_target",
@@ -957,7 +983,8 @@
     "proposed": false,
     "title": "target",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "spend",
@@ -969,7 +996,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "budget",
@@ -981,7 +1009,8 @@
     "proposed": false,
     "title": "bound",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "second_oven",
@@ -997,7 +1026,10 @@
      "title": "extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through one oven, ovens added",
      "figure": "extra_sold_per_oven"
     },
-    "remove": null
+    "remove": null,
+    "records": [
+     "sales_rel"
+    ]
    },
    {
     "from": "second_oven",
@@ -1009,7 +1041,10 @@
     "proposed": false,
     "title": "worked out through one oven, ovens added · Proposed by Olumi: Olumi's estimate",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "spend_rel"
+    ]
    },
    {
     "from": "longer_hours",
@@ -1025,7 +1060,10 @@
      "title": "extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours switched on, hours on",
      "figure": "extra_hours_sold"
     },
-    "remove": null
+    "remove": null,
+    "records": [
+     "sales_rel"
+    ]
    },
    {
     "from": "oven_repair",
@@ -1037,7 +1075,8 @@
     "proposed": false,
     "title": "may change",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    }
   ],
   "run": {
@@ -1668,5 +1707,89 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "base_sales": "Please change “base sales”: ",
+   "sales_target": "Please change “sales target”: ",
+   "ovens_added": "Please change “ovens added”: ",
+   "one_oven": "Please change “one oven”: ",
+   "extra_sold_per_oven": "Please change “extra sold per oven”: ",
+   "hours_on": "Please change “hours on”: ",
+   "hours_switched_on": "Please change “hours switched on”: ",
+   "extra_hours_sold": "Please change “extra hours sold”: ",
+   "sales": "Please change “sales”: ",
+   "repair_chance": "Please change “repair chance”: ",
+   "half_capacity": "Please change “half capacity”: ",
+   "budget": "Please change “budget”: ",
+   "oven_price": "Please change “oven price”: ",
+   "fitting": "Please change “fitting”: ",
+   "oven_cost": "Please change “oven cost”: ",
+   "spend": "Please change “spend”: ",
+   "sales_rel": "Please change “how sales is worked out”: ",
+   "oven_cost_rel": "Please change “how oven cost is worked out”: ",
+   "spend_rel": "Please change “how spend is worked out”: ",
+   "sell_360": "Please change “Sell at least 360 loaves a week”: ",
+   "within_budget": "Please change “Within the £3,000”: ",
+   "second_oven": "Please change “A second oven”: ",
+   "longer_hours": "Please change “Open two hours longer”: ",
+   "carry_on": "Please change “Carry on as now”: ",
+   "oven_repair": "Please change “The new oven needs a repair”: "
+  }
  }
 }

@@ -36,7 +36,9 @@
     "label": "Expand 4 reasoning records",
     "open": false,
     "proposed": false,
-    "change": ""
+    "change": "",
+    "words": "1 figure, 1 link, 1 disagreement, 1 open question",
+    "icon": "● ↝ ⚑"
    }
   },
   "whole": false,
@@ -190,7 +192,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
     },
     "values": [
      {
@@ -442,7 +446,9 @@
      "label": "Expand 2 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 link, 1 disagreement",
+     "icon": "↝ ⚑"
     },
     "values": null,
     "rests_on": [],
@@ -541,7 +547,11 @@
     "proposed": false,
     "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "added_def",
+     "total_def"
+    ]
    },
    {
     "from": "existing_capacity",
@@ -553,7 +563,10 @@
     "proposed": false,
     "title": "adds to · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "total_def"
+    ]
    },
    {
     "from": "total_capacity",
@@ -565,7 +578,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "capacity_target",
@@ -577,7 +591,8 @@
     "proposed": false,
     "title": "target",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "add_one",
@@ -589,7 +604,8 @@
     "proposed": false,
     "title": "option input",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "one_specialist",
@@ -601,7 +617,11 @@
     "proposed": false,
     "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "added_def",
+     "total_def"
+    ]
    }
   ],
   "run": {
@@ -1205,5 +1225,82 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "existing_capacity": "Please change “existing capacity”: ",
+   "per_specialist": "Please change “per specialist”: ",
+   "specialists": "Please change “specialists”: ",
+   "one_specialist": "Please change “one specialist”: ",
+   "added_capacity": "Please change “added capacity”: ",
+   "total_capacity": "Please change “total capacity”: ",
+   "capacity_target": "Please change “capacity target”: ",
+   "team_morale": "Please change “team morale”: ",
+   "added_def": "Please change “how added capacity is worked out”: ",
+   "total_def": "Please change “how total capacity is worked out”: ",
+   "morale_link": "Please change “Add one specialist → team morale”: ",
+   "capacity_goal": "Please change “At least 100 a week”: ",
+   "hold": "Please change “Keep current staffing”: ",
+   "add_one": "Please change “Add one specialist”: ",
+   "lead_doubt": "Please change “our team lead: A new hire may unsettle the team.”: ",
+   "morale_left_out": "Please change “How the team feels about a new hire”: ",
+   "deadline": "Please change “deadline”: ",
+   "start_delay": "Please change “start delay”: "
+  }
  }
 }

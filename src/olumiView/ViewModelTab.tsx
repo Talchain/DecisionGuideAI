@@ -28,7 +28,7 @@ import { ModelCardRow } from './model/ModelCardRow'
 import { LinkRow } from './model/LinkRow'
 import { HeldNotice } from './model/detail'
 import { AddFigureRow, AskOlumi } from './model/structure'
-import { MODEL_EDIT_WORDS } from './model/editing'
+import { useModelWords } from './model/editing'
 import { authorKeyOf } from './model/premises'
 import { groupRow, useModelTab, type Receipt } from './model/state'
 import { focusIsWith, sayReceipt } from './model/editors'
@@ -76,6 +76,7 @@ function Group({ id, title, count, open, onToggle, mark, note, children }: { id:
  * the lens bar's keyboard (`ViewLensBar.tsx`): arrow keys move along it, the chosen arm is the only one in the tab order.
  */
 function ExpertSwitch() {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const setExpert = useModelTab((s) => s.setExpert)
   const arms = useRef<(HTMLButtonElement | null)[]>([])
@@ -87,12 +88,12 @@ function ExpertSwitch() {
   const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
     ? 'bg-text-header text-text-on-color' : 'text-text-light hover:text-text-body'}`
   return (
-    <div role="radiogroup" aria-label={MODEL_EDIT_WORDS.detail} onKeyDown={onKey} data-testid="view-model-expert"
+    <div role="radiogroup" aria-label={W?.detail} onKeyDown={onKey} data-testid="view-model-expert"
       className="inline-flex flex-none items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5">
       {[false, true].map((on, k) => (
         <button key={k} ref={(el) => { arms.current[k] = el }} type="button" role="radio" aria-checked={expert === on} tabIndex={expert === on ? 0 : -1}
           onClick={() => setExpert(on)} className={arm(expert === on)} data-model-expert-arm={on ? 'expert' : 'plain'}>
-          {on ? MODEL_EDIT_WORDS.expert : MODEL_EDIT_WORDS.plain}
+          {on ? W?.expert : W?.plain}
         </button>
       ))}
     </div>
@@ -130,6 +131,7 @@ function GroupNote({ said }: { said: Receipt | null }) {
  * (`editing`, `adding`). Focus that was on a control the tab no longer draws goes to what the write came to; focus put elsewhere stays.
  */
 function NotCurrent() {
+  const W = useModelWords()!
   const error = useViewStore((s) => s.error)
   const saving = useModelTab((s) => s.busy !== null)
   const unshown = useModelTab((s) => (s.receipt?.tone === 'failed' ? s.receipt.words : null))
@@ -139,7 +141,7 @@ function NotCurrent() {
   return (
     <div className="space-y-1" data-testid="view-model-not-current">
       <p role={calm ? 'status' : 'alert'} className={`${typography.viewPanelMeta} m-0 ${calm ? 'text-text-light' : 'text-danger'}`} data-testid="view-model-not-current-why">
-        {saving ? MODEL_EDIT_WORDS.saving : error ?? MODEL_EDIT_WORDS.reading}
+        {saving ? W?.saving : error ?? W?.reading}
       </p>
       {unshown === null ? null : <p ref={said} tabIndex={-1} role="alert" className={`${typography.viewPanelMeta} m-0 text-danger ${ACTION_FOCUS}`} data-testid="view-model-not-current-unshown">{unshown}</p>}
     </div>
@@ -147,6 +149,7 @@ function NotCurrent() {
 }
 
 export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Element {
+  const W = useModelWords()!
   const numbers = useMemo<ReadonlyMap<string, string>>(() => (model === null ? new Map() : cardNumbersOf(model)), [model])
   // Another scenario starts with nothing open, no editor and no receipt (review a4d73faf): ids are scenario-local.
   const sid = useViewStore((s) => s.sid)
@@ -225,8 +228,8 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
               ) : null}
               {g.rows.map((c) => <ModelCardRow key={c.id} card={c} number={numbers.get(c.id) ?? null} kind={drawKindOf(c, model)} model={model} />)}
               {searching ? null : g.id === 'factors' ? <AddFigureRow />
-                : g.id === 'options' ? <li className="px-2 pt-1"><AskOlumi at="options" label={MODEL_EDIT_WORDS.askOption} draft={MODEL_EDIT_WORDS.askOptionDraft} /></li>
-                  : g.id === 'outcomes-risks' ? <li className="px-2 pt-1"><AskOlumi at="risks" label={MODEL_EDIT_WORDS.askRisk} draft={MODEL_EDIT_WORDS.askRiskDraft} /></li> : null}
+                : g.id === 'options' ? <li className="px-2 pt-1"><AskOlumi at="options" label={W.askOption} draft={W.askOptionDraft} /></li>
+                  : g.id === 'outcomes-risks' ? <li className="px-2 pt-1"><AskOlumi at="risks" label={W.askRisk} draft={W.askRiskDraft} /></li> : null}
             </Group>
           )
         })}
@@ -235,7 +238,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
             open={isOpen('relationships', linkCount)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}
             note={<GroupNote said={linksSaid} />}>
             {links.map(({ l, i, from, to }) => { const row = linkRowOf(model, i); return <LinkRow key={row} model={model} link={l} i={i} row={row} from={from} to={to} /> })}
-            {searching ? null : <li className="px-2 pt-1"><AskOlumi at="links" label={MODEL_EDIT_WORDS.askLink} draft={MODEL_EDIT_WORDS.askLinkDraft} /></li>}
+            {searching ? null : <li className="px-2 pt-1"><AskOlumi at="links" label={W.askLink} draft={W.askLinkDraft} /></li>}
           </Group>
         )}
       </div>

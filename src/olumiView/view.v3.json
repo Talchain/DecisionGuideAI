@@ -149,6 +149,12 @@
             },
             "change": {
              "type": "string"
+            },
+            "words": {
+             "type": "string"
+            },
+            "icon": {
+             "type": "string"
             }
            },
            "required": [
@@ -158,7 +164,9 @@
             "label",
             "open",
             "proposed",
-            "change"
+            "change",
+            "words",
+            "icon"
            ],
            "additionalProperties": false
           },
@@ -818,6 +826,12 @@
              },
              "change": {
               "type": "string"
+             },
+             "words": {
+              "type": "string"
+             },
+             "icon": {
+              "type": "string"
              }
             },
             "required": [
@@ -827,7 +841,9 @@
              "label",
              "open",
              "proposed",
-             "change"
+             "change",
+             "words",
+             "icon"
             ],
             "additionalProperties": false
            },
@@ -1133,6 +1149,12 @@
          "title": {
           "type": "string"
          },
+         "records": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
          "effect": {
           "anyOf": [
            {
@@ -1196,6 +1218,7 @@
          "alert",
          "proposed",
          "title",
+         "records",
          "effect",
          "remove"
         ],
@@ -3007,6 +3030,40 @@
          "string",
          "null"
         ]
+       },
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "about": {
+           "type": "string"
+          },
+          "text": {
+           "type": "string"
+          },
+          "stance": {
+           "type": "string"
+          },
+          "source": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "pill": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "about",
+          "text",
+          "stance",
+          "source",
+          "pill"
+         ],
+         "additionalProperties": false
+        }
        }
       },
       "required": [
@@ -4319,6 +4376,244 @@
     "additionalProperties": false
    }
   },
+  "model_words": {
+   "type": "object",
+   "properties": {
+    "changeFigure": {
+     "type": "string"
+    },
+    "setFigure": {
+     "type": "string"
+    },
+    "tryIt": {
+     "type": "string"
+    },
+    "cancel": {
+     "type": "string"
+    },
+    "rename": {
+     "type": "string"
+    },
+    "saveName": {
+     "type": "string"
+    },
+    "newName": {
+     "type": "string"
+    },
+    "showOnCanvas": {
+     "type": "string"
+    },
+    "addFigure": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "figure": {
+     "type": "string"
+    },
+    "unit": {
+     "type": "string"
+    },
+    "add": {
+     "type": "string"
+    },
+    "figureHint": {
+     "type": "string"
+    },
+    "removeLink": {
+     "type": "string"
+    },
+    "removeAsk": {
+     "type": "string"
+    },
+    "remove": {
+     "type": "string"
+    },
+    "keep": {
+     "type": "string"
+    },
+    "links": {
+     "type": "string"
+    },
+    "restsOn": {
+     "type": "string"
+    },
+    "whose": {
+     "type": "string"
+    },
+    "about": {
+     "type": "string"
+    },
+    "whatWouldChange": {
+     "type": "string"
+    },
+    "saving": {
+     "type": "string"
+    },
+    "reading": {
+     "type": "string"
+    },
+    "savingOther": {
+     "type": "string"
+    },
+    "trying": {
+     "type": "string"
+    },
+    "changeTarget": {
+     "type": "string"
+    },
+    "changeLimit": {
+     "type": "string"
+    },
+    "changeStrength": {
+     "type": "string"
+    },
+    "heldLead": {
+     "type": "string"
+    },
+    "heldBody": {
+     "type": "string"
+    },
+    "heldAside": {
+     "type": "string"
+    },
+    "heldConfirm": {
+     "type": "string"
+    },
+    "heldKeep": {
+     "type": "string"
+    },
+    "heldFailed": {
+     "type": "string"
+    },
+    "settingAside": {
+     "type": "string"
+    },
+    "plain": {
+     "type": "string"
+    },
+    "expert": {
+     "type": "string"
+    },
+    "detail": {
+     "type": "string"
+    },
+    "to": {
+     "type": "string"
+    },
+    "from": {
+     "type": "string"
+    },
+    "askChange": {
+     "type": "string"
+    },
+    "askOption": {
+     "type": "string"
+    },
+    "askOptionDraft": {
+     "type": "string"
+    },
+    "askRisk": {
+     "type": "string"
+    },
+    "askRiskDraft": {
+     "type": "string"
+    },
+    "askLink": {
+     "type": "string"
+    },
+    "askLinkDraft": {
+     "type": "string"
+    },
+    "failed": {
+     "type": "string"
+    },
+    "withdrawnHeld": {
+     "type": "string"
+    },
+    "withdrawnPast": {
+     "type": "string"
+    },
+    "withdrawn": {
+     "type": "string"
+    },
+    "savedNotShown": {
+     "type": "string"
+    },
+    "triedFailed": {
+     "type": "string"
+    },
+    "askChangeDraft": {
+     "type": "object",
+     "propertyNames": {
+      "type": "string"
+     },
+     "additionalProperties": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "changeFigure",
+    "setFigure",
+    "tryIt",
+    "cancel",
+    "rename",
+    "saveName",
+    "newName",
+    "showOnCanvas",
+    "addFigure",
+    "name",
+    "figure",
+    "unit",
+    "add",
+    "figureHint",
+    "removeLink",
+    "removeAsk",
+    "remove",
+    "keep",
+    "links",
+    "restsOn",
+    "whose",
+    "about",
+    "whatWouldChange",
+    "saving",
+    "reading",
+    "savingOther",
+    "trying",
+    "changeTarget",
+    "changeLimit",
+    "changeStrength",
+    "heldLead",
+    "heldBody",
+    "heldAside",
+    "heldConfirm",
+    "heldKeep",
+    "heldFailed",
+    "settingAside",
+    "plain",
+    "expert",
+    "detail",
+    "to",
+    "from",
+    "askChange",
+    "askOption",
+    "askOptionDraft",
+    "askRisk",
+    "askRiskDraft",
+    "askLink",
+    "askLinkDraft",
+    "failed",
+    "withdrawnHeld",
+    "withdrawnPast",
+    "withdrawn",
+    "savedNotShown",
+    "triedFailed",
+    "askChangeDraft"
+   ],
+   "additionalProperties": false
+  },
   "brief": {
    "type": "string"
   },
@@ -5344,6 +5639,7 @@
   "collab",
   "evidence",
   "chat",
+  "model_words",
   "brief",
   "gated",
   "session"

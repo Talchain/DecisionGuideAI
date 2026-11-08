@@ -38,7 +38,7 @@ export function requestAsk(req: AskRequest): AskAiResult | 'drawer' | 'composer'
   }
   const state = useGuidanceStore.getState()
   if (!state._prefillChat && !state._sendMessage && !state._dispatchAction) return 'none'
-  const text = req.editable ? req.text : req.text.trim()
+  const text = req.text
   bindAskTarget(text, nodeIds, edgeIds)
   if (!req.editable && req.parameters === undefined && state._prefillChat) {
     state._prefillChat(text)
