@@ -83,7 +83,7 @@ export function revealDockShown(view: View | null, selected: number | null): boo
 }
 
 /** One person's view in the panel: who, their stance word (core's, when sent), their words and their figure. */
-function Person({ v }: { v: Shared }): JSX.Element {
+function Person({ v, card = null }: { v: Shared; card?: string | null }): JSX.Element {
   const view = useViewStore((s) => s.view) // the View the dock reads, for the strategy lane's lines under this person
   const stance = stanceOf(v)
   return (
@@ -96,7 +96,7 @@ function Person({ v }: { v: Shared }): JSX.Element {
         </p>
         <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="reveal-dock-words">{v.text}</p>
         <Figures v={v} />
-        {view === null ? null : <StrategyViewLines view={view} v={v} />}
+        {view === null ? null : <StrategyViewLines view={view} v={v} card={card} />}
       </div>
     </article>
   )
@@ -182,11 +182,11 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </button>
       </div>
 
-      <div className="grid gap-5">{lead.map((x) => <Person key={x.id} v={x} />)}</div>
+      <div className="grid gap-5">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
 
       <Reading view={view} chip={chip} lead={lead} />
 
-      {others.length === 0 ? null : <div className="grid gap-5" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} />)}</div>}
+      {others.length === 0 ? null : <div className="grid gap-5" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
 
       {/* Olumi's one question for what matters next, with one primary action and a quiet way to leave the difference open. It stays at the
           dock's foot while the views above it scroll, so the action is always in reach (1232 x 704: the views alone fill the dock). It reaches

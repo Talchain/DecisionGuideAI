@@ -121,3 +121,28 @@ describe('the strategy overview (real View)', () => {
     expect(container).toBeEmptyDOMElement()
   })
 })
+
+describe('the reveal dock opened on a card: each person’s words on THIS card first (design owner’s witness, 8 Nov)', () => {
+  const served: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8'))
+  const P = served.collab.shared.find((v) => v.by === 'Priya')!
+  const CARD = 'cross_team_adoption'
+  it('Priya’s line on the opened card shows; her lines on other cards are one step away, in core’s order', () => {
+    const mine = viewLinesOf(served, P.id)
+    expect(mine.length).toBeGreaterThan(1)
+    expect(mine.some((l) => l.about.id === CARD)).toBe(true)
+    render(<StrategyViewLines view={served} v={P} card={CARD} />)
+    const shown = () => [...screen.getByTestId(`strategy-view-lines-${P.id}`).querySelectorAll('[data-strategy-about]')].map((e) => e.getAttribute('data-strategy-about'))
+    expect(shown()).toEqual([CARD])
+    const more = screen.getByTestId(`strategy-view-more-${P.id}`)
+    expect(more.textContent).toBe(`${mine.length - 1} more from Priya`)
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(more)
+    expect(shown()).toEqual([CARD, ...mine.filter((l) => l.about.id !== CARD).map((l) => l.about.id)])
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+  })
+  it('CONTRAST: opened without a card (initials), every line shows and there is nothing one step away', () => {
+    render(<StrategyViewLines view={served} v={P} />)
+    expect(screen.getByTestId(`strategy-view-lines-${P.id}`).querySelectorAll('[data-strategy-about]')).toHaveLength(viewLinesOf(served, P.id).length)
+    expect(screen.queryByTestId(`strategy-view-more-${P.id}`)).toBeNull()
+  })
+})
