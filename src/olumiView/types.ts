@@ -535,13 +535,10 @@ export type View = {
           gap_high: number
           differ: number
         }>
-        chip?: string
       } | {
         quantity: string
         refused: "no_such_figure" | "worked_out" | "structure" | "no_figure" | "no_unit" | "other_unit" | "not_a_figure" | "outside" | "option_left_out" | "cannot_run" | "runs_differently" | "too_large" | "other_draws" | "model_moved_on" | "limit"
       }>
-      kind?: "shared" | "unique" | "disagreement"
-      about?: Array<string>
     }>
     mine: Array<{
       id: number
@@ -680,10 +677,6 @@ export type View = {
     max_view_figures: number
     view_figures_limit_text: string
     private_view_prompt: string | null
-    next?: {
-      text: string
-      about: Array<string>
-    } | null
   }
   evidence: Array<{
     id: number
@@ -853,9 +846,4 @@ export type View = {
       }>
     } | null
   }
-  draft?: {
-    status: "drafting" | "done" | "failed" | "lost"
-    reason: string | null
-    at: string
-  } | null
 }
