@@ -191,11 +191,16 @@ describe('malformed Views are refused, at the place they are wrong', () => {
   })
 })
 
-describe('core PR 7 (links[].records, 06194550) is consumed when vendored, never added here', () => {
-  it('this schema is the one before PR 7: a link carrying `records` is refused until core\'s schema with it is re-vendored', () => {
+/**
+ * Core PR 7 (06194550) adds `links[].records`, required. It is consumed by re-vendoring core's schema with PR 7's merge, never
+ * written into this page: until then a link carrying it is refused, and after it a link without it is. Bound here by mechanism
+ * (a link field the schema does not declare), so this row stays true on both sides of that re-vendor.
+ */
+describe('a link is checked by the schema core vendored, field by field', () => {
+  it('a link field the vendored schema does not declare is refused at that link; the link as core served it is accepted', () => {
     const x = golden('pricing')
-    x.model.links[0].records = ['r_1']
-    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.links[0].records' })
+    x.model.links[0].zz_not_a_link_field = ['r_1']
+    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.links[0].zz_not_a_link_field' })
     expect(validateView(golden('pricing')).ok).toBe(true)
   })
 })

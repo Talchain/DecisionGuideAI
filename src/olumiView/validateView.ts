@@ -53,8 +53,11 @@ function isType(v: unknown, t: unknown): boolean | null {
 }
 
 /** Of several branches' failures, the one that got furthest into the value: the most useful line to log. */
-const deepest = (fails: readonly Checked[], at: string, keyword: string): Checked =>
-  fails.reduce<Checked>((a, b) => (!b.ok && (a.ok || b.at.length > a.at.length) ? b : a), fails[0] ?? no(at, `matches none of the schema's "${keyword}" shapes`))
+function deepest(fails: readonly Checked[], at: string, keyword: string): Checked {
+  let best: Checked = no(at, `matches none of the schema's "${keyword}" shapes`), depth = -1
+  for (const f of fails) if (!f.ok && f.at.length > depth) { best = f; depth = f.at.length }
+  return best
+}
 
 /** Checks `v` against one schema node. Every keyword present applies (JSON Schema's conjunction); unknown keywords fail. */
 export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
@@ -81,7 +84,8 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
   if (s.oneOf !== undefined) {
     if (!Array.isArray(s.oneOf)) return no(at, 'the schema\'s "oneOf" is not a list')
     const results = (s.oneOf as SchemaNode[]).map((branch) => checkAgainst(branch, v, at))
-    const passes = results.filter((r) => r.ok).length
+    let passes = 0
+    for (const r of results) if (r.ok) passes += 1
     if (passes === 0) return deepest(results, at, 'oneOf')
     if (passes > 1) return no(at, `matches ${passes} of the schema's "oneOf" shapes, not exactly one`)
   }
