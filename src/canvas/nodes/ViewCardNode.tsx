@@ -27,7 +27,7 @@ import { useCardNumber, useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn 
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
-import { Badge, badgeWords } from '../../olumiView/Badge'
+import { Badge, badgeNamed } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 
@@ -326,7 +326,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       ))}
       {/* DL 7 Nov: a badge core names in words ("1 open question") is on the face at rest, one 12px line: what is folded in is seen at first
           glance. A badge with no words (glyphs only) still shows on hover, focus or selection. */}
-      {card.badge === null ? null : badgeWords(card.badge) !== null
+      {card.badge === null ? null : badgeNamed(card.badge) !== null
         ? <p className={typography.viewPanelMeta} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></p>
         : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}

@@ -127,21 +127,27 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(plain.querySelector(`[data-view="${card.id}.badge.change"]`)).toBeNull()
     expect(plain.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.hasAttribute('data-proposed')).toBe(false)
   })
-  it('DL 7 Nov: the card face names what is folded in core\'s `words`, core\'s glyphs kept as its icon; with no `words`, the glyphs alone', () => {
+  it('DL 7 Nov: the face names what is folded in core\'s `words` with core\'s `icon` (glyphs, no count); without both, core\'s `text` alone', () => {
     const card = golden('european').model!.cards.find((c) => c.badge !== null)!
-    const named = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: '2 figures, 2 calculations' } as never }} />).container
-    expect(named.querySelector(`[data-view="${card.id}.badge.words"]`)?.textContent).toBe('2 figures, 2 calculations')
-    const glyph = named.querySelector(`[data-view="${card.id}.badge.text"]`)!
-    expect([glyph.textContent, glyph.getAttribute('aria-hidden')]).toEqual([card.badge!.text, 'true'])
-    expect(glyph.closest('button')?.getAttribute('aria-label')).toBe(card.badge!.label)
+    const named = render(<ViewCard card={{ ...card, badge: { ...card.badge!, icon: '○', words: '1 open question' } as never }} />).container
+    const btn = named.querySelector(`[data-view="${card.id}.badge.words"]`)!.closest('button')!
+    expect(named.querySelector(`[data-view="${card.id}.badge.words"]`)?.textContent).toBe('1 open question')
+    const icon = named.querySelector(`[data-view="${card.id}.badge.icon"]`)!
+    expect([icon.textContent, icon.getAttribute('aria-hidden')]).toEqual(['○', 'true'])
+    expect(named.querySelector(`[data-view="${card.id}.badge.text"]`)).toBeNull() // core's count is said once, in its words
+    expect(btn.textContent?.startsWith('○1 open question')).toBe(true)
+    expect(btn.getAttribute('aria-label')).toBe(card.badge!.label)
     named.remove()
-    const bare = render(<ViewCard card={card} />).container
-    expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
-    expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
+    for (const half of [{ words: '1 open question' }, { icon: '○' }, {}]) {
+      const bare = render(<ViewCard card={{ ...card, badge: { ...card.badge!, ...half } as never }} />).container
+      expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
+      expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
+      bare.remove()
+    }
   })
   it('DL 7 Nov: unselected, a badge core names in words is on the face at rest, its words visible; one with glyphs only stays on hover', () => {
     const card = golden('european').model!.cards.find((c) => c.badge !== null)!
-    const rest = render(<ViewCard card={{ ...card, badge: { ...card.badge!, words: '1 open question' } as never }} selected={false} />).container
+    const rest = render(<ViewCard card={{ ...card, badge: { ...card.badge!, icon: '○', words: '1 open question' } as never }} selected={false} />).container
     const words = rest.querySelector<HTMLElement>(`[data-view="${card.id}.badge.words"]`)!
     expect(words.textContent).toBe('1 open question')
     expect(words.closest('[data-at-rest-hidden]')).toBeNull()
