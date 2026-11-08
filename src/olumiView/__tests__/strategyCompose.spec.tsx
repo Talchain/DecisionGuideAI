@@ -16,6 +16,8 @@ import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { resetDrafts } from '../../olumiCore/team/drafts'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { resetDifferences, useDifferences } from '../../olumiCore/team/differences'
+import { resetDoubts } from '../../olumiCore/team/ViewDoubts'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
@@ -27,11 +29,12 @@ let posts: { url: string; body: Record<string, unknown>; as: string | null }[]
 let vocab: unknown, answer: () => Response | Promise<Response>
 beforeEach(() => {
   posts = []; vocab = VOCAB; answer = () => json({ contribution: 99 }, 201)
-  resetWrites(); resetDrafts(); setPagePerson(real.you_id)
+  resetWrites(); resetDrafts(); resetDifferences(); resetDoubts(); setPagePerson(real.you_id)
   setTeamFetch(vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     if (u.endsWith('/strategy/vocabulary')) return json(vocab)
     if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+    if (u.endsWith('/doubts')) return json({ doubt: 100 }, 201)
     if (u.endsWith('/views') && init?.method === 'POST') { posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') }); return answer() }
     if (u.includes('/view?')) return json(real)
     return json({ error: `unexpected ${u}` }, 404)
@@ -45,11 +48,13 @@ const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
   it('B: fresh scenario s_98e93f5d2389 fetches vocabulary and saves its first item on cross_team_adoption', async () => {
-    const fresh = { ...real, strategy: null, collab: { ...real.collab, shared: [], mine: [] } } as View
+    const { strategy: _strategy, ...withoutStrategy } = real
+    const fresh: View = { ...withoutStrategy, collab: { ...real.collab, shared: [], mine: [] } }
     useViewStore.setState({ view: fresh })
     const reads: string[] = []
     setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {
       const u = String(url)
+      if (init?.method === 'POST' && u.endsWith('/doubts')) return json({ doubt: 100 }, 201)
       if (init?.method === 'POST') {
         posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') })
         return json({ contribution: 99 }, 201)
@@ -72,6 +77,44 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect(posts[0]).toEqual({ url: '/api/scenarios/s_98e93f5d2389/views', as: real.you_id,
       body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', source: 'two pilots', text: 'Teams adopt once an owner is named.' }], op: expect.any(String) } })
   })
+  it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', async () => {
+    render(<TeamTab />)
+    const stance = await screen.findByTestId('team-view-stance') as HTMLSelectElement
+    expect([...stance.options].map((o) => [o.value, o.textContent])).toEqual([['', ''], ...VOCAB.stances.map((s) => [s.id, s.text])])
+    cleanup()
+    vocab = { ...VOCAB, stances: [] }
+    render(<TeamTab />)
+    await screen.findByTestId('team-view-give')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByTestId('team-view-stance')).toBeNull()
+  })
+  it('D: one stance selector sends suspect for both item cross_team_adoption and saved view 99', async () => {
+    const differences = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8')), scenario: real.id, differences: [], stances: VOCAB.stances }
+    setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      if (init?.method === 'POST') {
+        posts.push({ url: u, body: JSON.parse(String(init.body)), as: new Headers(init.headers).get('x-olumi-as') })
+        return json(u.endsWith('/doubts') ? { doubt: 100 } : { contribution: 99 }, 201)
+      }
+      if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
+      return json(u.endsWith('/differences') ? differences : u.endsWith('/strategy/vocabulary') ? VOCAB : real)
+    }) as typeof fetch)
+    render(<TeamTab />)
+    await screen.findByTestId('team-view-about')
+    type('team-view-about', 'cross_team_adoption')
+    await waitFor(() => expect(useDifferences.getState().data?.scenario).toBe('s_98e93f5d2389'))
+    expect(screen.getAllByTestId('team-view-stance')).toHaveLength(1)
+    const stance = screen.getByTestId('team-view-stance') as HTMLSelectElement
+    expect([...stance.options].filter((o) => o.value !== '').map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
+    type('team-view-stance', 'suspect')
+    type('team-view-text', 'Teams adopt once an owner is named.')
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts.map(({ body: { op: _op, ...body }, ...p }) => ({ ...p, body }))).toEqual([
+      { url: '/api/scenarios/s_98e93f5d2389/views', as: '1', body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', text: 'Teams adopt once an owner is named.', source: null }] } },
+      { url: '/api/scenarios/s_98e93f5d2389/views/99/doubts', as: '1', body: { links: [], missing: null, stance: 'suspect' } },
+    ])
+  })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
     render(<TeamTab />)
     const about = await screen.findByTestId('team-view-about') as HTMLSelectElement
@@ -84,7 +127,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect(screen.getByTestId('team-view-strategy')).toHaveTextContent(FORM.about)
     fireEvent.change(about, { target: { value: CARD } })
     const stance = screen.getByTestId('team-view-stance') as HTMLSelectElement
-    expect([...stance.options].map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
+    expect([...stance.options].filter((o) => o.value !== '').map((o) => o.textContent)).toEqual(VOCAB.stances.map((s) => s.text))
     expect(screen.getByTestId('team-view-strategy')).toHaveTextContent(FORM.stance)
     expect(screen.getByTestId('team-view-source')).toHaveAttribute('placeholder', FORM.source_example)
     fireEvent.change(stance, { target: { value: 'suspect' } })
@@ -104,10 +147,10 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect((screen.getByTestId('team-view-about') as HTMLSelectElement).value).toBe('')
   })
 
-  it('a plain view (no card chosen) posts no items, as before; the stance and source are not offered until a card is', async () => {
+  it('a plain view posts no items or stance unless chosen; its source is offered after choosing a card', async () => {
     render(<TeamTab />)
     await screen.findByTestId('team-view-about')
-    expect(screen.queryByTestId('team-view-stance')).toBeNull()
+    expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
     expect(screen.queryByTestId('team-view-source')).toBeNull()
     type('team-view-text', 'Wait a quarter.')
     fireEvent.click(screen.getByTestId('team-view-give'))

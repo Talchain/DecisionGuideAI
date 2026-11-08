@@ -62,13 +62,14 @@ export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab:
           {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
         </select>
       </label>
+      <label className={LABEL}>{vocab.form.stance}
+        <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || (pick.about === '' ? '' : vocab.stances[0]!.id)} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
+          <option value="" />
+          {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
+        </select>
+      </label>
       {pick.about === '' ? null : (
         <>
-          <label className={LABEL}>{vocab.form.stance}
-            <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance || vocab.stances[0]!.id} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
-              {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
-            </select>
-          </label>
           <input type="text" data-testid="team-view-source" className={FIELD} maxLength={vocab.limits.source} value={pick.source} disabled={disabled}
             onChange={(e) => onPick({ ...pick, source: e.target.value })} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
         </>

@@ -203,7 +203,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} />
         {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>Add my view</Button>
+          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || (items[0]?.stance ?? null)); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>Add my view</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
             className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}

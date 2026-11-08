@@ -11,10 +11,10 @@ import { useDifferences } from './differences'
  * differ"). Held here until the view is given, then sent with its id; dropped with the view's draft.
  */
 type Remove = NonNullable<NonNullable<View['model']>['links'][number]['remove']>
-interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly stance: string | null; readonly error?: string | null }
+interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly error?: string | null }
 const useDoubts = create<Record<string, DoubtsDraft>>()(() => ({}))
 const keyOf = (r: Remove) => `${r.record}|${r.part ?? ''}`
-const EMPTY: DoubtsDraft = { picked: {}, missing: '', stance: null }
+const EMPTY: DoubtsDraft = { picked: {}, missing: '' }
 export const MAX_MISSING = 200
 
 /** For specs. */
@@ -22,9 +22,9 @@ export function resetDoubts(): void { useDoubts.setState({}, true) }
 
 /** Send what this member named with their new view's id; nothing when they named nothing. Then the draft goes. The view is saved by then,
  *  so a refusal here is said beside these fields (core's words) and never as the view's own failure: the view is not sent again. */
-export async function sendDoubts(sid: string, view: number): Promise<void> {
+export async function sendDoubts(sid: string, view: number, stance: string | null = null): Promise<void> {
   const d = useDoubts.getState()[sid] ?? EMPTY
-  const links = Object.values(d.picked), missing = d.missing.trim(), stance = d.stance ?? null
+  const links = Object.values(d.picked), missing = d.missing.trim()
   if (links.length === 0 && missing === '' && stance === null) return
   try {
     await call<{ doubt: number }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/views/${view}/doubts`, { links, missing: missing === '' ? null : missing, stance })
@@ -40,7 +40,6 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
   // Offered only on a core that has the debate routes: its differences read answered (DifferencesPanel reads it; a core without the route
   // answers 404 and leaves it null), so a member on an older core is never offered fields it would refuse after their view is saved.
   const supported = useDifferences((s) => s.sid === sid && s.data !== null)
-  const stances = useDifferences((s) => (s.sid === sid ? s.data?.stances : undefined)) ?? []
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   // Only the approved version's links (a proposal on screen is not what a view is given against), each once. A View from a core
@@ -71,18 +70,6 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
         <input type="text" autoComplete="off" maxLength={MAX_MISSING} data-testid="team-view-missing" className={FIELD} value={d.missing} disabled={disabled}
           onChange={(e) => put({ missing: e.target.value, error: null })} />
       </label>
-      {stances.length > 0 && (
-        <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-view-stance">
-          <legend className={LABEL}>How you hold this view (optional)</legend>
-          {stances.map((o) => (
-            <label key={o.id} className={`${BODY} flex min-h-[28px] cursor-pointer items-start gap-2 break-words`}>
-              <input type="radio" name={`team-view-stance-${sid}`} className="mt-1" data-testid={`team-view-stance-${o.id}`} checked={d.stance === o.id} disabled={disabled}
-                onChange={() => put({ stance: o.id, error: null })} />
-              <span>{o.text}</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
       {d.error ? <p role="alert" className={ERR} data-testid="team-view-doubts-error">{d.error}</p> : null}
     </div>
   )
