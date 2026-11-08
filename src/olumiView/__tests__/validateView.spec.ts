@@ -1,8 +1,9 @@
 /**
  * PL-21: the View is checked against core's vendored schema before it is installed (`validateView.ts`). Four kinds of response, each
- * refusal paired with a passing contrast: a scenario still drafting, a gated board, a past version, and malformed Views. The walker is
- * held to Ajv's verdict (the validator `client.spec.ts` already trusts for the goldens) on every vendored View and on mutants at every
- * depth, so it reads core's schema exactly as Ajv does, without Ajv's `new Function` or its 712 KB in the page.
+ * refusal paired with a passing contrast: a scenario still drafting, a gated board, a past version, and malformed Views. The page's
+ * mode ignores fields the schema does not declare (UI session, 8 Nov: skew must not blank the board) and checks every field it does.
+ * The walker is held to Ajv (the validator `client.spec.ts` already trusts) in both modes, on every vendored View and on mutants at
+ * every depth: `strict` against core's schema as written, the page's mode against the same schema with its closure lifted.
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -14,7 +15,12 @@ import { checkAgainst, SUPPORTED_KEYWORDS, validateView, type Checked, type Sche
 const here = (f: string) => new URL(f, import.meta.url)
 const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
 const schema = json('../view.v3.json') as SchemaNode
-const ajv = new Ajv2020({ strict: false }).compile(schema)
+const ajvStrict = new Ajv2020({ strict: false }).compile(schema)
+/** Core's schema with every `additionalProperties: false` lifted: what the page's mode means, in Ajv's own reading. */
+const opened = (n: unknown): unknown => Array.isArray(n) ? n.map(opened)
+  : n !== null && typeof n === 'object' ? Object.fromEntries(Object.entries(n).flatMap(([k, v]) => (k === 'additionalProperties' && v === false ? [] : [[k, opened(v)]]))) : n
+const ajvOpen = new Ajv2020({ strict: false }).compile(opened(schema) as object)
+const MODES = [['strict', ajvStrict], ['ignore', ajvOpen]] as const
 /** The goldens core froze and `client.spec.ts` holds valid. */
 const GOLDEN = ['pricing', 'studio', 'bakery', 'european', 'app-launch', 's_ce285b3617bb', 'proposal'] as const
 const golden = (n: (typeof GOLDEN)[number]) => json(`../golden/${n}.view.json`)
@@ -69,20 +75,22 @@ describe('the walker agrees with Ajv', () => {
   collect(fileURLToPath(here('../golden')))
   collect(fileURLToPath(here('../fixtures')))
 
-  it('on every View vendored in golden/ and fixtures/ (valid and not)', () => {
-    let valid = 0
-    for (const f of files) {
-      const v = JSON.parse(readFileSync(f, 'utf8'))
-      const ours = validateView(v).ok
-      expect({ f, ours }).toEqual({ f, ours: ajv(v) })
-      if (ours) valid += 1
-    }
-    expect(files.length).toBeGreaterThanOrEqual(20)
-    expect(valid).toBeGreaterThanOrEqual(GOLDEN.length) // both verdicts occur
-    expect(valid).toBeLessThan(files.length)
-  })
+  for (const [mode, ajv] of MODES) {
+    it(`${mode}: on every View vendored in golden/ and fixtures/ (valid and not)`, () => {
+      let valid = 0
+      for (const f of files) {
+        const v = JSON.parse(readFileSync(f, 'utf8'))
+        const ours = validateView(v, mode).ok
+        expect({ f, ours }).toEqual({ f, ours: ajv(v) })
+        if (ours) valid += 1
+      }
+      expect(files.length).toBeGreaterThanOrEqual(20)
+      expect(valid).toBeGreaterThanOrEqual(GOLDEN.length) // both verdicts occur
+      expect(valid).toBeLessThan(files.length)
+    })
+  }
 
-  it('on mutants at every depth of each golden: an unknown key, a dropped key, a wrong type', () => {
+  for (const [mode, ajv] of MODES) it(`${mode}: on mutants at every depth of each golden: an unknown key, a dropped key, a wrong type`, () => {
     let accepted = 0, rejected = 0
     for (const n of GOLDEN) {
       const base = golden(n)
@@ -103,33 +111,35 @@ describe('the walker agrees with Ajv', () => {
           else if (keys.length === 0) continue
           else if (mutate === 'drop') delete target[keys[0]]
           else target[keys[keys.length - 1]] = typeof target[keys[keys.length - 1]] === 'string' ? 7 : 'seven'
-          const ours = validateView(v).ok
+          const ours = validateView(v, mode).ok
           expect({ n, path: path.join('.'), mutate, ours }).toEqual({ n, path: path.join('.'), mutate, ours: ajv(v) })
           if (ours) accepted += 1; else rejected += 1
         }
       }
     }
     // Magnitude, not just presence: hundreds of mutants, and both verdicts among them (a dropped optional key, a retyped nullable).
-    expect(rejected).toBeGreaterThan(300)
-    expect(accepted).toBeGreaterThan(0)
+    expect(rejected).toBeGreaterThan(mode === 'strict' ? 300 : 100)
+    expect(accepted).toBeGreaterThan(mode === 'strict' ? 0 : 100) // the page's mode accepts every unknown-key mutant
   })
 })
 
-describe('a scenario still drafting (core API v1.24 `draft`, save first)', () => {
+/**
+ * `draft` (core API v1.24, save first) is checked exactly as far as the vendored schema declares it. Before core's schema with it is
+ * vendored, a drafted scenario is still drawn (the field is ignored); after, a draft of the wrong shape is refused at the draft.
+ */
+describe('a scenario still drafting', () => {
   const declares = Object.prototype.hasOwnProperty.call((schema.properties ?? {}) as object, 'draft')
-  it('the vendored schema declares `draft` (core 043895af): without it every drafted scenario would be refused', () => {
-    expect(declares).toBe(true)
-  })
+  const drafted = (draft: unknown) => ({ ...golden('pricing'), draft })
   for (const status of ['drafting', 'done', 'failed', 'lost'] as const) {
-    it(`draft ${status}: accepted`, () => {
-      const r = validateView({ ...golden('pricing'), draft: { status, reason: status === 'failed' ? 'Olumi could not finish the draft.' : null, at: '2026-11-08T02:00:00.000Z' } })
-      expect(r).toEqual({ ok: true })
+    it(`draft ${status}, as core serves it: accepted`, () => {
+      expect(validateView(drafted({ status, reason: status === 'failed' ? 'Olumi could not finish the draft.' : null, at: '2026-11-08T02:00:00.000Z' }))).toEqual({ ok: true })
     })
   }
-  it('a draft status core does not serve, or a draft without its time, is refused at the draft', () => {
-    expect(refused(validateView({ ...golden('pricing'), draft: { status: 'paused', reason: null, at: '2026-11-08T02:00:00.000Z' } }))).toEqual({ ok: false, at: '$.draft.status' })
-    expect(refused(validateView({ ...golden('pricing'), draft: { status: 'drafting', reason: null } }))).toEqual({ ok: false, at: '$.draft.at' })
-    expect(validateView({ ...golden('pricing'), draft: null }).ok).toBe(true)
+  it(`a draft of a shape core does not serve: ${declares ? 'refused at the draft' : 'ignored until core\'s schema declaring `draft` is vendored'}`, () => {
+    const paused = refused(validateView(drafted({ status: 'paused', reason: null, at: '2026-11-08T02:00:00.000Z' })))
+    const timeless = refused(validateView(drafted({ status: 'drafting', reason: null })))
+    expect([paused, timeless]).toEqual(declares ? [{ ok: false, at: '$.draft.status' }, { ok: false, at: '$.draft.at' }] : [{ ok: true }, { ok: true }])
+    expect(refused(validateView(drafted({ status: 'paused' }), 'strict'))).toEqual({ ok: false, at: declares ? '$.draft.status' : '$.draft' })
   })
 })
 
@@ -169,18 +179,23 @@ describe('malformed Views are refused, at the place they are wrong', () => {
     const x = v(); delete x.session
     expect(refused(validateView(x))).toEqual({ ok: false, at: '$.session' })
   })
-  it('a field this page does not know, three levels down', () => {
+  it('three levels down: a field this page does not know is ignored, a known field of the wrong kind is refused there', () => {
     const x = v()
     const c = x.model.cards.findIndex((k: { rows: unknown[] }) => k.rows.length > 0)
     expect(c).toBeGreaterThanOrEqual(0)
     x.model.cards[c].rows[0].zz_new = 1
-    const r = validateView(x)
-    expect(r.ok).toBe(false)
-    expect(r.ok ? '' : r.at).toMatch(new RegExp(`^\\$\\.model\\.cards\\[${c}\\]\\.rows\\[0\\]`))
+    expect(validateView(x)).toEqual({ ok: true })
+    const strict = validateView(x, 'strict')
+    expect(strict.ok ? '' : strict.at).toMatch(new RegExp(`^\\$\\.model\\.cards\\[${c}\\]\\.rows\\[0\\]`))
+    x.model.cards[c].rows[0].kind = 7
+    const wrong = validateView(x)
+    expect(wrong.ok).toBe(false)
+    expect(wrong.ok ? '' : wrong.at).toMatch(new RegExp(`^\\$\\.model\\.cards\\[${c}\\]\\.rows\\[0\\]`))
   })
-  it('a nested field of the wrong kind: a card\'s label as a number', () => {
-    const x = v(); x.model.cards[1].label = 42
-    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.cards[1].label' })
+  it('a nested field of the wrong kind: a card\'s heading as a number', () => {
+    const x = v(); x.model.cards[1].heading = 42
+    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.cards[1].heading' })
+    expect(refused(validateView(x, 'strict'))).toEqual({ ok: false, at: '$.model.cards[1].heading' })
   })
   it('a link\'s removal in another shape than core\'s `{ record, part }`', () => {
     const x = golden('studio')
@@ -193,14 +208,26 @@ describe('malformed Views are refused, at the place they are wrong', () => {
 
 /**
  * Core PR 7 (06194550) adds `links[].records`, required. It is consumed by re-vendoring core's schema with PR 7's merge, never
- * written into this page: until then a link carrying it is refused, and after it a link without it is. Bound here by mechanism
- * (a link field the schema does not declare), so this row stays true on both sides of that re-vendor.
+ * written into this page. Bound here by mechanism, so these rows stay true on both sides of that re-vendor.
  */
 describe('a link is checked by the schema core vendored, field by field', () => {
-  it('a link field the vendored schema does not declare is refused at that link; the link as core served it is accepted', () => {
+  it('a link field the schema does not declare is ignored (refused only in strict); a declared link field of the wrong kind is refused', () => {
     const x = golden('pricing')
     x.model.links[0].zz_not_a_link_field = ['r_1']
-    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.links[0].zz_not_a_link_field' })
-    expect(validateView(golden('pricing')).ok).toBe(true)
+    expect(validateView(x)).toEqual({ ok: true })
+    expect(refused(validateView(x, 'strict'))).toEqual({ ok: false, at: '$.model.links[0].zz_not_a_link_field' })
+    x.model.links[0].title = 7
+    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.model.links[0].title' })
   })
 })
+
+describe('a core newer than this page (skew) still draws what the page knows', () => {
+  it('fields core n2c serves that this schema lacks (strategy, marks, a badge\'s words and icon) are ignored, not refused', () => {
+    const x = { ...golden('pricing'), strategy: { key: 'growth' }, marks: [] }
+    const b = x.model.cards.findIndex((k: { badge: unknown }) => k.badge !== null && k.badge !== undefined)
+    if (b >= 0) Object.assign(x.model.cards[b].badge, { words: 'two records', icon: '◆' })
+    expect(validateView(x)).toEqual({ ok: true })
+    expect(validateView(x, 'strict').ok).toBe(false)
+  })
+})
+

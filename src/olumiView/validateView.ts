@@ -1,17 +1,22 @@
 /**
  * The View is checked against core's own published schema before the page installs it (F6, plan row PL-21; PL review 8 Nov:
  * "validate nested View payloads before they are installed"). Until now `readView` checked only the top-level `schema` string and
- * then cast: a View missing a nested field, or carrying one this page does not know, was drawn as far as it went. Now it is refused,
- * and the person sees plain words, never a half-drawn board (`client.ts` readView → `store.ts` keeps what it last drew).
+ * then cast: a View missing a nested field, or carrying one of the wrong kind, was drawn as far as it went. With the check wired at
+ * the entry (`client.ts` readView; held for the UI session, recovery-notes/arch-lane-c), such a View is refused and the person sees
+ * plain words, never a half-drawn board (`store.ts` keeps what it last drew).
  *
  * One contract, never a fork: this walks the vendored copy of core `schema/view.v3.json` (`./view.v3.json`), the same file
  * `scripts/olumi-view/gen-types.mjs` turns into `types.ts`, with exactly the keywords that generator accepts. Change core's schema,
- * re-vendor it, and both the types and this check follow. Core's schema closes every object (`additionalProperties: false`), so a
- * field core adds before this page is re-vendored is refused too: the page and core are a pair (core `ui-dist/BUILD.json`).
+ * re-vendor it, and both the types and this check follow.
+ *
+ * A field this page does not know is IGNORED, never refused (UI session, 8 Nov): core adds fields before this page is re-vendored
+ * (core n2c serves `strategy`, `badge.words`, `badge.icon`, `marks`), and skew must mean the page leaves out what it cannot draw,
+ * not a blank board. Every field the schema declares is still checked: present when required, of its declared kind. Core's own
+ * closure (`additionalProperties: false`) is kept in `strict` mode, which the spec uses to hold this walker to Ajv's verdict.
  *
  * Why not Ajv at run time: compiling a schema needs `new Function`, which the page's CSP refuses (`scripts/generate-validators.mjs`),
  * and Ajv's precompiled standalone code for this schema is 712 KB (72 KB gzipped). This walker is about 100 lines and reads the
- * schema as data. `__tests__/validateView.spec.ts` holds it to Ajv's verdict on every vendored View and every mutant.
+ * schema as data. `__tests__/validateView.spec.ts` holds it to Ajv on every vendored View and on mutants, in both modes.
  */
 import schemaJson from './view.v3.json'
 
@@ -59,8 +64,11 @@ function deepest(fails: readonly Checked[], at: string, keyword: string): Checke
   return best
 }
 
+/** `ignore`: a field the schema does not declare is left out of the check (the page's mode). `strict`: refused, as core's schema says. */
+export type UnknownFields = 'ignore' | 'strict'
+
 /** Checks `v` against one schema node. Every keyword present applies (JSON Schema's conjunction); unknown keywords fail. */
-export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
+export function checkAgainst(s: SchemaNode, v: unknown, at = '$', fields: UnknownFields = 'strict'): Checked {
   for (const k of Object.keys(s)) if (!SUPPORTED_KEYWORDS.has(k)) return no(at, `the schema uses "${k}", which this check does not read`)
 
   if ('const' in s && !same(v, s.const)) return no(at, `is not ${JSON.stringify(s.const)}`)
@@ -78,12 +86,12 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
     if (!Array.isArray(s.anyOf)) return no(at, 'the schema\'s "anyOf" is not a list')
     const fails: Checked[] = []
     let passed = false
-    for (const branch of s.anyOf as SchemaNode[]) { const r = checkAgainst(branch, v, at); if (r.ok) { passed = true; break } fails.push(r) }
+    for (const branch of s.anyOf as SchemaNode[]) { const r = checkAgainst(branch, v, at, fields); if (r.ok) { passed = true; break } fails.push(r) }
     if (!passed) return deepest(fails, at, 'anyOf')
   }
   if (s.oneOf !== undefined) {
     if (!Array.isArray(s.oneOf)) return no(at, 'the schema\'s "oneOf" is not a list')
-    const results = (s.oneOf as SchemaNode[]).map((branch) => checkAgainst(branch, v, at))
+    const results = (s.oneOf as SchemaNode[]).map((branch) => checkAgainst(branch, v, at, fields))
     let passes = 0
     for (const r of results) if (r.ok) passes += 1
     if (passes === 0) return deepest(results, at, 'oneOf')
@@ -91,7 +99,7 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
   }
   if (Array.isArray(v) && s.items !== undefined) {
     if (!isObject(s.items)) return no(at, 'the schema\'s "items" is not one schema')
-    for (let i = 0; i < v.length; i += 1) { const r = checkAgainst(s.items, v[i], `${at}[${i}]`); if (!r.ok) return r }
+    for (let i = 0; i < v.length; i += 1) { const r = checkAgainst(s.items, v[i], `${at}[${i}]`, fields); if (!r.ok) return r }
   }
   if (isObject(v)) {
     if (s.required !== undefined) {
@@ -102,9 +110,9 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
     if (!isObject(props)) return no(at, 'the schema\'s "properties" is not an object')
     const extra = s.additionalProperties
     for (const k of Object.keys(v)) {
-      if (Object.prototype.hasOwnProperty.call(props, k)) { const r = checkAgainst(props[k], v[k], key(at, k)); if (!r.ok) return r; continue }
-      if (extra === false) return no(key(at, k), 'is not in the schema')
-      if (isObject(extra)) { const r = checkAgainst(extra, v[k], key(at, k)); if (!r.ok) return r }
+      if (Object.prototype.hasOwnProperty.call(props, k)) { const r = checkAgainst(props[k], v[k], key(at, k), fields); if (!r.ok) return r; continue }
+      if (extra === false) { if (fields === 'strict') return no(key(at, k), 'is not in the schema'); continue }
+      if (isObject(extra)) { const r = checkAgainst(extra, v[k], key(at, k), fields); if (!r.ok) return r }
     }
   }
   return OK
@@ -112,5 +120,5 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$'): Checked {
 
 const VIEW_SCHEMA_NODE = schemaJson as unknown as SchemaNode
 
-/** The View as core served it, checked against the vendored core schema. */
-export const validateView = (v: unknown): Checked => checkAgainst(VIEW_SCHEMA_NODE, v)
+/** The View as core served it, checked against the vendored core schema; fields it does not declare are ignored unless `strict`. */
+export const validateView = (v: unknown, fields: UnknownFields = 'ignore'): Checked => checkAgainst(VIEW_SCHEMA_NODE, v, '$', fields)
