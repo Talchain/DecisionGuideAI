@@ -42,8 +42,10 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
-  // Only a core that holds `model.holdable` takes a stance (it checks the link against it); after a reveal this viewer can read.
-  if (words === null || data === null || data.gated || view.gated || view.version === null || shownIsProposal || view.model?.holdable == null || view.collab.shared.length === 0) return null
+  // Only a core that holds `model.holdable` takes a stance (it checks the link against it). One place at a time (DL 9 Nov): core's
+  // `collab.link_route` says when ('stance': the View shows this member a reveal); a core before it, once anything is revealed to them.
+  const route = view.collab.link_route, here = route !== undefined ? route === 'stance' : view.collab.shared.length > 0
+  if (words === null || data === null || data.gated || view.gated || view.version === null || shownIsProposal || view.model?.holdable == null || !here) return null
   const links = offeredOf(view, heading)
   if (links.length === 0) return null
   const chosen = links.find((l) => keyOf(l.link) === pick)

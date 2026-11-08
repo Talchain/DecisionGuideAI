@@ -1,6 +1,6 @@
 {
   "schema": "olumi.view/3",
-  "id": "s_2967c4b4023b",
+  "id": "s_98998d78203f",
   "title": "Support capacity",
   "commit": "c0ffee",
   "signature": "[11,null,[[9,\"approved\"]],[[13,true],[14,true]],[],[],[\"1\",\"2\"]][\"links\",[[\"morale_link\",null,[[\"2\",\"doubt\",\"Morale here does not move with headcount; it moves with workload.\"],[\"1\",\"keep\",\"Last time we hired, the team picked up within a month.\"]]]]]",
@@ -1057,6 +1057,7 @@
     "private_view_prompt": "What do you know that others may not?",
     "next": null,
     "marks": [],
+    "link_route": "stance",
     "link_marks": [
       {
         "link": {
@@ -1303,11 +1304,11 @@
   "draft": {
     "status": "done",
     "reason": null,
-    "at": "2026-11-08T23:21:57.605Z",
+    "at": "2026-11-08T23:48:04.839Z",
     "job": 5,
     "stage": "analysing",
     "words": null,
-    "started": "2026-11-08T23:21:57.384Z"
+    "started": "2026-11-08T23:48:04.635Z"
   },
   "turn": null,
   "reply": null,

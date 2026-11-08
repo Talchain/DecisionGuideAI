@@ -57,7 +57,9 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
   // them in its own words (a link folded into a card, like the X2 morale link, is drawn nowhere else). A View from a core without it offers
   // `links[].remove`; one without either has none to offer (absent is not a link: `!= null`), and the panel still draws.
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
-  const links = shownIsProposal ? [] : offeredOf(view, heading)
+  // One place at a time (DL 9 Nov, core's `collab.link_route`): once the View shows this member a reveal, a link is doubted or kept on the
+  // shared card (LinkStance.tsx), so this list is not offered; the factor and the stance stay with the view.
+  const links = shownIsProposal || view.collab.link_route === 'stance' ? [] : offeredOf(view, heading)
   if (!supported || view.version === null || shownIsProposal) return null
   const put = (p: Partial<DoubtsDraft>) => useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), ...p } }))
   return (
