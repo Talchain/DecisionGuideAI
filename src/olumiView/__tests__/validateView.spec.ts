@@ -3,7 +3,8 @@
  * refusal paired with a passing contrast: a scenario still drafting, a gated board, a past version, and malformed Views. The page's
  * mode ignores fields the schema does not declare (UI session, 8 Nov: skew must not blank the board) and checks every field it does.
  * The walker is held to Ajv (the validator `client.spec.ts` already trusts) in both modes, on every vendored View and on mutants at
- * every depth: `strict` against core's schema as written, the page's mode against the same schema with its closure lifted.
+ * every depth: `strict` against core's schema as written; the page's mode against the same schema with its closure lifted, except
+ * that inside a union of object shapes a key a sibling shape declares stays refused (`propertyNames`, in Ajv's own reading).
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -16,9 +17,29 @@ const here = (f: string) => new URL(f, import.meta.url)
 const json = (f: string) => JSON.parse(readFileSync(here(f), 'utf8'))
 const schema = json('../view.v3.json') as SchemaNode
 const ajvStrict = new Ajv2020({ strict: false }).compile(schema)
-/** Core's schema with every `additionalProperties: false` lifted: what the page's mode means, in Ajv's own reading. */
-const opened = (n: unknown): unknown => Array.isArray(n) ? n.map(opened)
-  : n !== null && typeof n === 'object' ? Object.fromEntries(Object.entries(n).flatMap(([k, v]) => (k === 'additionalProperties' && v === false ? [] : [[k, opened(v)]]))) : n
+/**
+ * What the page's mode means, written as a schema Ajv reads: every `additionalProperties: false` lifted, except that an object shape
+ * inside an `anyOf`/`oneOf` of two or more object shapes refuses the keys its siblings declare and it does not.
+ */
+type Node = Record<string, unknown>
+const isNode = (n: unknown): n is Node => n !== null && typeof n === 'object' && !Array.isArray(n)
+function opened(n: unknown, siblingOnly: string[] | null = null): unknown {
+  if (Array.isArray(n)) return n.map((x) => opened(x))
+  if (!isNode(n)) return n
+  const out: Node = {}
+  for (const [k, v] of Object.entries(n)) {
+    if (k === 'additionalProperties' && v === false) continue
+    if ((k === 'anyOf' || k === 'oneOf') && Array.isArray(v)) {
+      const shapes = v.filter((b) => isNode(b) && isNode(b.properties))
+      const all = new Set(shapes.flatMap((b) => Object.keys((b as Node).properties as Node)))
+      out[k] = v.map((b) => (shapes.length > 1 && shapes.includes(b) ? opened(b, [...all].filter((x) => !Object.keys((b as Node).properties as Node).includes(x))) : opened(b)))
+      continue
+    }
+    out[k] = opened(v)
+  }
+  if (siblingOnly !== null && siblingOnly.length > 0) out.propertyNames = { not: { enum: siblingOnly } }
+  return out
+}
 const ajvOpen = new Ajv2020({ strict: false }).compile(opened(schema) as object)
 const MODES = [['strict', ajvStrict], ['ignore', ajvOpen]] as const
 /** The goldens core froze and `client.spec.ts` holds valid. */
@@ -139,7 +160,8 @@ describe('a scenario still drafting', () => {
     const paused = refused(validateView(drafted({ status: 'paused', reason: null, at: '2026-11-08T02:00:00.000Z' })))
     const timeless = refused(validateView(drafted({ status: 'drafting', reason: null })))
     expect([paused, timeless]).toEqual(declares ? [{ ok: false, at: '$.draft.status' }, { ok: false, at: '$.draft.at' }] : [{ ok: true }, { ok: true }])
-    expect(refused(validateView(drafted({ status: 'paused' }), 'strict'))).toEqual({ ok: false, at: declares ? '$.draft.status' : '$.draft' })
+    const pausedStrict = refused(validateView(drafted({ status: 'paused', reason: null, at: '2026-11-08T02:00:00.000Z' }), 'strict'))
+    expect(pausedStrict).toEqual({ ok: false, at: declares ? '$.draft.status' : '$.draft' })
   })
 })
 
@@ -185,12 +207,9 @@ describe('malformed Views are refused, at the place they are wrong', () => {
     expect(c).toBeGreaterThanOrEqual(0)
     x.model.cards[c].rows[0].zz_new = 1
     expect(validateView(x)).toEqual({ ok: true })
-    const strict = validateView(x, 'strict')
-    expect(strict.ok ? '' : strict.at).toMatch(new RegExp(`^\\$\\.model\\.cards\\[${c}\\]\\.rows\\[0\\]`))
+    expect(refused(validateView(x, 'strict'))).toEqual({ ok: false, at: `$.model.cards[${c}].rows[0].zz_new` })
     x.model.cards[c].rows[0].kind = 7
-    const wrong = validateView(x)
-    expect(wrong.ok).toBe(false)
-    expect(wrong.ok ? '' : wrong.at).toMatch(new RegExp(`^\\$\\.model\\.cards\\[${c}\\]\\.rows\\[0\\]`))
+    expect(refused(validateView(x))).toEqual({ ok: false, at: `$.model.cards[${c}].rows[0].kind` })
   })
   it('a nested field of the wrong kind: a card\'s heading as a number', () => {
     const x = v(); x.model.cards[1].heading = 42
@@ -208,7 +227,8 @@ describe('malformed Views are refused, at the place they are wrong', () => {
 
 /**
  * Core PR 7 (06194550) adds `links[].records`, required. It is consumed by re-vendoring core's schema with PR 7's merge, never
- * written into this page. Bound here by mechanism, so these rows stay true on both sides of that re-vendor.
+ * written into this page. These rows bind the mechanism, not PR 7's absence; like client.spec.ts, they assume the goldens are
+ * re-vendored from the same core as the schema (a golden older than its schema lacks the newly required field).
  */
 describe('a link is checked by the schema core vendored, field by field', () => {
   it('a link field the schema does not declare is ignored (refused only in strict); a declared link field of the wrong kind is refused', () => {
@@ -225,9 +245,32 @@ describe('a core newer than this page (skew) still draws what the page knows', (
   it('fields core n2c serves that this schema lacks (strategy, marks, a badge\'s words and icon) are ignored, not refused', () => {
     const x = { ...golden('pricing'), strategy: { key: 'growth' }, marks: [] }
     const b = x.model.cards.findIndex((k: { badge: unknown }) => k.badge !== null && k.badge !== undefined)
-    if (b >= 0) Object.assign(x.model.cards[b].badge, { words: 'two records', icon: '◆' })
+    expect(b).toBeGreaterThanOrEqual(0)
+    Object.assign(x.model.cards[b].badge, { words: 'two records', icon: '◆' })
     expect(validateView(x)).toEqual({ ok: true })
     expect(validateView(x, 'strict').ok).toBe(false)
   })
 })
 
+describe('where a value may take one of several shapes, it cannot pass as one while the page reads it as another (Codex, 8 Nov)', () => {
+  const union = { anyOf: [
+    { type: 'object', properties: { a: { type: 'string' } }, required: ['a'], additionalProperties: false },
+    { type: 'object', properties: { b: { type: 'number' } }, required: ['b'], additionalProperties: false },
+  ] }
+  it('a key a sibling shape declares is refused there; a key no shape declares is ignored', () => {
+    expect(refused(checkAgainst(union, { a: 'x', b: 'bad' }, '$', 'ignore'))).toEqual({ ok: false, at: '$.b' })
+    expect(checkAgainst(union, { a: 'x', z: 1 }, '$', 'ignore').ok).toBe(true)
+    expect(checkAgainst(union, { b: 2 }, '$', 'ignore').ok).toBe(true)
+  })
+  it('a chat answer part with text and a cite of the wrong kind is refused (ViewChat draws any part with `cite` as a citation)', () => {
+    const x = golden('proposal')
+    expect(Array.isArray(x.chat[0].answer.answer)).toBe(true)
+    expect(validateView(x)).toEqual({ ok: true })
+    x.chat[0].answer.answer = [{ text: 'hello', cite: 7 }]
+    expect(refused(validateView(x))).toEqual({ ok: false, at: '$.chat[0].answer.answer[0].cite' })
+  })
+  it('a boolean subschema is not read: refused, never passed through', () => {
+    expect(refused(checkAgainst({ type: 'array', items: true as unknown as SchemaNode }, [1]))).toEqual({ ok: false, at: '$' })
+    expect(refused(checkAgainst({ type: 'object', properties: { a: true } }, { a: 1 }))).toEqual({ ok: false, at: '$.a' })
+  })
+})

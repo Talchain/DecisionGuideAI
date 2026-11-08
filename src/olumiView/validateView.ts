@@ -11,8 +11,12 @@
  *
  * A field this page does not know is IGNORED, never refused (UI session, 8 Nov): core adds fields before this page is re-vendored
  * (core n2c serves `strategy`, `badge.words`, `badge.icon`, `marks`), and skew must mean the page leaves out what it cannot draw,
- * not a blank board. Every field the schema declares is still checked: present when required, of its declared kind. Core's own
- * closure (`additionalProperties: false`) is kept in `strict` mode, which the spec uses to hold this walker to Ajv's verdict.
+ * not a blank board. Every field the schema declares is still checked: present when required, of its declared kind. One limit
+ * on "unknown" (Codex check, 8 Nov): where a value may take one of several object shapes (`anyOf`/`oneOf`), a key another of those
+ * shapes declares is not unknown. It is refused, so a value cannot pass as one shape while the page reads it as another (a chat
+ * answer part carrying `cite` is drawn as a citation, ViewChat.tsx:62, whatever else it passed as). Core's own closure
+ * (`additionalProperties: false`) is kept in `strict` mode. The spec holds both modes to Ajv. Deliberately stricter than Ajv: a
+ * number must be finite (`1e400` parses to Infinity), and a boolean subschema (`true`/`false`) is not read; core's schema has none.
  *
  * Why not Ajv at run time: compiling a schema needs `new Function`, which the page's CSP refuses (`scripts/generate-validators.mjs`),
  * and Ajv's precompiled standalone code for this schema is 712 KB (72 KB gzipped). This walker is about 100 lines and reads the
@@ -67,8 +71,17 @@ function deepest(fails: readonly Checked[], at: string, keyword: string): Checke
 /** `ignore`: a field the schema does not declare is left out of the check (the page's mode). `strict`: refused, as core's schema says. */
 export type UnknownFields = 'ignore' | 'strict'
 
+/** Where a value may take one of two or more object shapes: every key any of them declares (none is "unknown" there). */
+function unionKeys(branches: readonly unknown[]): ReadonlySet<string> | undefined {
+  const keys = new Set<string>()
+  let shapes = 0
+  for (const b of branches) if (isObject(b) && isObject(b.properties)) { shapes += 1; for (const k of Object.keys(b.properties)) keys.add(k) }
+  return shapes > 1 ? keys : undefined
+}
+
 /** Checks `v` against one schema node. Every keyword present applies (JSON Schema's conjunction); unknown keywords fail. */
-export function checkAgainst(s: SchemaNode, v: unknown, at = '$', fields: UnknownFields = 'strict'): Checked {
+export function checkAgainst(s: SchemaNode, v: unknown, at = '$', fields: UnknownFields = 'strict', siblings?: ReadonlySet<string>): Checked {
+  if (!isObject(s)) return no(at, 'the schema here is not an object, which this check does not read')
   for (const k of Object.keys(s)) if (!SUPPORTED_KEYWORDS.has(k)) return no(at, `the schema uses "${k}", which this check does not read`)
 
   if ('const' in s && !same(v, s.const)) return no(at, `is not ${JSON.stringify(s.const)}`)
@@ -86,12 +99,14 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$', fields: Unknow
     if (!Array.isArray(s.anyOf)) return no(at, 'the schema\'s "anyOf" is not a list')
     const fails: Checked[] = []
     let passed = false
-    for (const branch of s.anyOf as SchemaNode[]) { const r = checkAgainst(branch, v, at, fields); if (r.ok) { passed = true; break } fails.push(r) }
+    const shapes = unionKeys(s.anyOf)
+    for (const branch of s.anyOf as SchemaNode[]) { const r = checkAgainst(branch, v, at, fields, shapes); if (r.ok) { passed = true; break } fails.push(r) }
     if (!passed) return deepest(fails, at, 'anyOf')
   }
   if (s.oneOf !== undefined) {
     if (!Array.isArray(s.oneOf)) return no(at, 'the schema\'s "oneOf" is not a list')
-    const results = (s.oneOf as SchemaNode[]).map((branch) => checkAgainst(branch, v, at, fields))
+    const shapes = unionKeys(s.oneOf)
+    const results = (s.oneOf as SchemaNode[]).map((branch) => checkAgainst(branch, v, at, fields, shapes))
     let passes = 0
     for (const r of results) if (r.ok) passes += 1
     if (passes === 0) return deepest(results, at, 'oneOf')
@@ -111,7 +126,11 @@ export function checkAgainst(s: SchemaNode, v: unknown, at = '$', fields: Unknow
     const extra = s.additionalProperties
     for (const k of Object.keys(v)) {
       if (Object.prototype.hasOwnProperty.call(props, k)) { const r = checkAgainst(props[k], v[k], key(at, k), fields); if (!r.ok) return r; continue }
-      if (extra === false) { if (fields === 'strict') return no(key(at, k), 'is not in the schema'); continue }
+      if (extra === false) {
+        if (fields === 'strict') return no(key(at, k), 'is not in the schema')
+        if (siblings?.has(k)) return no(key(at, k), 'belongs to another of the shapes the schema allows here')
+        continue
+      }
       if (isObject(extra)) { const r = checkAgainst(extra, v[k], key(at, k), fields); if (!r.ok) return r }
     }
   }
