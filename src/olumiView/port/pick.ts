@@ -59,6 +59,20 @@ export function tippingFor(run: ViewRun | null, option: string, aim: string | nu
 /** The index of a card's first chance row: its driver (what moves its chance most) is drawn there once, never on every aim's row. */
 export const driverRowOf = (card: ViewCard): number => card.rows.findIndex((r) => r.kind === 'chance')
 
+/**
+ * What the option rows already say (SC-02, say each thing once): each option whose driver sentence its first chance row draws, and every
+ * tipping line a row draws for its option and aim (`tippingFor`, as AnalysisHeroPanel hands each row). The evidence disclosure leaves these out.
+ */
+export function drawnByRows(model: ViewModel): { drivers: ReadonlySet<string>; tipping: ReadonlySet<number> } {
+  const run = model.run ?? null, drivers = new Set<string>(), tipping = new Set<number>()
+  if (run === null) return { drivers, tipping }
+  for (const g of aimGroupsOf(model)) for (const { card, row, i } of g.rows) {
+    if (row.kind === 'chance' && card.driver != null && driverRowOf(card) === i) drivers.add(card.id)
+    for (const t of tippingFor(run, card.id, g.aimId)) tipping.add(t.i)
+  }
+  return { drivers, tipping }
+}
+
 /** Core's analysis lens words (olumi.view/3 `run.lenses`, wip/core-port-fields): one per lens this Run has data for; [] from a core without them. */
 export type Lens = { id: 'goal' | 'outcome'; label: string; title: string }
 /** Each lens core sends that this page draws, with its index in `run.lenses` (its View path). */

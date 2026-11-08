@@ -188,14 +188,15 @@ function DriverRange({ id, driver, figure = null }: { id: string; driver: Driver
  * What each option's two driver chances are (core's `run.sensitivity`), said once at the head of the option rows, in core's words with its
  * hover; only when an option carries those chances (`driver.low` / `driver.high`), which then draws them as its marker.
  */
+/** Never alone (Paul, 6 Nov: "that figure's draws" with no figure named): only when every marked option names its figure under its
+ *  marker, by that figure's own card heading. A figure that is no card (folded) has no words here, so the line is left out. */
+export const sensitivityShown = (model: ViewModel): boolean => {
+  const marked = markedOptions(model)
+  return (model.run?.sensitivity ?? null) !== null && marked.length > 0 && marked.every((c) => figureCard(model, c.driver!) !== null)
+}
 export function Sensitivity({ model }: { model: ViewModel }) {
   const s = model.run?.sensitivity ?? null
-  if (s === null) return null
-  const marked = markedOptions(model)
-  // Never alone (Paul, 6 Nov: "that figure's draws" with no figure named): only when every marked option names its figure under its
-  // marker, by that figure's own card heading. A figure that is no card (folded) has no words here, so the line is left out.
-  const named = marked.length > 0 && marked.every((c) => figureCard(model, c.driver!) !== null)
-  return named ? <p className={typography.viewPanelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p> : null
+  return s === null || !sensitivityShown(model) ? null : <p className={typography.viewPanelMeta} title={s.title} data-view="run.sensitivity.text">{s.text}</p>
 }
 
 /** The card of the figure an option's chance moves most with (`driver.figure`), when the canvas draws it; null when it is folded. */

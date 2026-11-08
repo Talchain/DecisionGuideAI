@@ -59,9 +59,11 @@ export interface AnalysisHeroPanelProps {
   rowAction?: (entry: AimRow) => ReactNode
   /** The lower sections, under the rows (the evidence disclosure, act on it). */
   children?: ReactNode
+  /** The caller draws each figure the chances wait on as its own row below (ActOnIt), so the head names none of them (SC-02, once). */
+  waitsBelow?: boolean
 }
 
-export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children }: AnalysisHeroPanelProps) {
+export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children, waitsBelow = false }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const run = model.run ?? null
   const lenses = lensesOf(run)
@@ -94,7 +96,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
         {!allWait ? null : (
           <div data-testid="port-hero-waits-headline">
             <p className={`${TYPE.meta} text-text-light`} data-view="run.waits_on.head">{run.waits_on!.head}</p>
-            <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{': '}<WaitsOnItems w={run.waits_on!} unknown /></p>
+            <p><span data-view="run.waits_on.text">{run.waits_on!.text}</span>{waitsBelow ? null : <>{': '}<WaitsOnItems w={run.waits_on!} unknown /></>}</p>
           </div>
         )}
         <SharedBlockers run={run} />
@@ -135,7 +137,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
       </div>
 
       <TimingAssumptions run={run} />
-      {run.waits_on === null || allWait ? null : (
+      {run.waits_on === null || allWait || waitsBelow ? null : (
         <p data-testid="port-hero-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
       )}
       {children}
