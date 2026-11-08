@@ -1000,7 +1000,7 @@
     {
      "id": "F10",
      "kind": "better",
-     "line": "'A second oven' against 'Carry on as now' · aim 'Sell at least 360 loaves a week' · better in over 99% of the same draws; improvement 36.6 loaves/week to 87.1 loaves/week, middle 70 loaves/week",
+     "line": "'A second oven': better in over 99% of the same draws; improvement 36.6 loaves/week to 87.1 loaves/week, middle 70 loaves/week",
      "hover": "option: 'A second oven'; versus: 'Carry on as now'; aim: 'Sell at least 360 loaves a week'; outcome: 'sales'; direction: more is better; better in: over 99% of the same draws; improvement, 10th to 90th percentile: 36.6 loaves/week to 87.1 loaves/week; median improvement: 70 loaves/week. It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven).",
      "aim": "sell_360",
      "option": "second_oven",
@@ -1014,7 +1014,7 @@
     {
      "id": "F11",
      "kind": "better",
-     "line": "'Open two hours longer' against 'Carry on as now' · aim 'Sell at least 360 loaves a week' · better in over 99% of the same draws; improvement 39.5 loaves/week to 79.7 loaves/week, middle 60 loaves/week",
+     "line": "'Open two hours longer': better in over 99% of the same draws; improvement 39.5 loaves/week to 79.7 loaves/week, middle 60 loaves/week",
      "hover": "option: 'Open two hours longer'; versus: 'Carry on as now'; aim: 'Sell at least 360 loaves a week'; outcome: 'sales'; direction: more is better; better in: over 99% of the same draws; improvement, 10th to 90th percentile: 39.5 loaves/week to 79.7 loaves/week; median improvement: 60 loaves/week.",
      "aim": "sell_360",
      "option": "longer_hours",

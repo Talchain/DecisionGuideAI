@@ -21,7 +21,7 @@ import type { ViewCard } from '../client'
 import { driverRange } from '../ViewChances'
 import { SHOW_ALL, SHOW_LESS } from '../../canvas/nodes/ViewCardNode'
 import { TYPE } from './type'
-import { driverRowOf, trackPct, type AimRow, type TippingLine } from './pick'
+import { driverRowOf, headlineRowOf, trackPct, type AimRow, type TippingLine } from './pick'
 
 /**
  * The row, stacked for the 347px dock (UI's 1232 look, 7 Nov): the option name on its own full-width line, never cut; under it core's
@@ -187,16 +187,17 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   //    which names that figure and where it tips; where core gives none, core's driver sentence itself.
   // Win share stays out of it (supporting detail, never called a chance); every other line stays in the detail.
   const driverRow = chance !== null && card.driver != null && driverRowOf(card) === i
-  // AN-01 (core cards[].headline, c69a5413): the option's headline for the dock's aim, on the row it is about. On this row its line IS
-  // the aim heading above and the readout (both core's words already), so only what it adds is drawn: `range`, core's short phrase for
-  // what the chance moves with (in place of the driver's whole sentence, which is kept for the hover), and, with no chance yet, `add`
-  // (what the person can give to get one). Its `why` is never drawn here: it is the Run's shared reason, said once above the rows, or this
-  // row's own refusal, already the readout.
-  const hl = lens === 'goal' && card.headline != null && card.headline.aim_id === row.aim_id ? card.headline : null
+  // AN-01 (core cards[].headline, e179f7c6): the option's headline for the dock's aim, on the row it is about (`headlineRowOf`: its row
+  // for that aim, else its option-wide reason). On this row its line IS the aim heading above and the readout (both core's words already),
+  // so only what it adds is drawn: `range`, core's short phrase for what this chance moves with, and, with no chance yet, `add` (what the
+  // person can give to get one). Its `why` is never drawn here: it is the Run's shared reason, said once above the rows, or this row's own
+  // refusal, already the readout. An option with no row for the aim draws its headline on its own (HeroHeadlineAlone).
+  const hl = lens === 'goal' && card.headline != null && headlineRowOf(card) === i ? card.headline : null
   const range = hl?.state === 'chance' && hl.range !== null && hl.range !== '' ? hl.range : null
   const add = hl?.state === 'none' && hl.add !== null && hl.add !== '' ? hl.add : null
-  // Where core gives the short phrase, the driver's sentence (which opens with it) is not drawn as words anywhere on this card.
-  const shortDriver = card.headline?.state === 'chance' && card.headline.range != null && card.headline.range !== ''
+  // Where the range is drawn on the driver's own row and the driver's sentence opens with it (the same driver), that sentence is not
+  // drawn as words; on any other row or lens, or for another driver, it is drawn as before.
+  const shortDriver = range !== null && driverRow && card.driver!.text.startsWith(range)
   const headTrack = lens === 'goal' && driverRow && driverRange(card.driver!) !== null
   const headLine = lens !== 'goal' || chance === null ? null : (tipping.find(({ line: l }) => l.kind === 'chance' && l.line !== '') ?? null)
   const headDriverWords = lens === 'goal' && driverRow && headLine === null && !shortDriver
@@ -252,7 +253,7 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {headTrack || headLine !== null || headDriverWords || range !== null || add !== null ? (
         <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">
           {headTrack ? <DriverTrack card={card} chance={chance!.chance} labelled /> : null}
-          {range === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} title={card.driver?.text ?? hl!.title} data-testid="port-row-headline-range" data-view={`${card.id}.headline.range`}>{range}</p>}
+          {range === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} title={hl!.title} data-testid="port-row-headline-range" data-view={`${card.id}.headline.range`}>{range}</p>}
           {add === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-add" data-view={`${card.id}.headline.add`}>{add}</p>}
           {headLine !== null ? (
             <ThreeLines id={`${regionId}-tip`} title={headLine.line.hover}>
@@ -276,6 +277,32 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {driver}
           {lines}
           {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * AN-01: an option with no row for the dock's aim (core: no line for it, so no chance yet), drawn in that aim's group so its headline is
+ * never dropped: its heading, its reason (`why`; the Run's shared reason is said once above the rows instead) and what to add (`add`).
+ * Where the group has no heading of its own, core's headline line names the aim (`text`).
+ */
+export function HeroHeadlineAlone({ card, named }: { card: ViewCard; named: boolean }) {
+  const h = card.headline
+  if (h == null) return null
+  const why = h.shared || h.why === null || h.why === '' ? null : h.why
+  const add = h.add === null || h.add === '' ? null : h.add
+  return (
+    <div data-testid="port-option-row" data-view-row={`${card.id}.headline`} data-option-id={card.id} data-leader="false" title={h.title}>
+      <div className={HERO_ROW_STACK}>
+        <span className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
+        {named ? null : <span className={`${TYPE.body} block w-full break-words font-semibold text-text-header`} data-view={`${card.id}.headline.text`}>{h.text}</span>}
+        {why === null ? null : <span className={`${TYPE.body} block w-full break-words font-semibold text-text-header`} data-testid="port-row-readout" data-view={`${card.id}.headline.why`}>{why}</span>}
+      </div>
+      {add === null ? null : (
+        <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">
+          <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-add" data-view={`${card.id}.headline.add`}>{add}</p>
         </div>
       )}
     </div>

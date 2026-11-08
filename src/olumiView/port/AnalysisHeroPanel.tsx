@@ -16,13 +16,13 @@
  */
 import { useId, useState, type ReactNode } from 'react'
 import type { ViewCard, ViewModel, ViewRun, ViewTurn } from '../client'
-import { newestNextOf } from '../layout'
+import { newestNextOf, optionCards } from '../layout'
 import { figureCard, mostLikelyHover, SharedBlockers, TimingAssumptions } from '../ViewChances'
 import { Words } from '../ViewChat'
 import { mostLikelyBasisOf } from '../standin'
-import { HeroOptionRow, type HeroLensId } from './HeroOptionRow'
+import { HeroHeadlineAlone, HeroOptionRow, type HeroLensId } from './HeroOptionRow'
 import { LensTabs, lensTabId } from './LensTabs'
-import { aimGroupsOf, lensAimOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
+import { aimGroupsOf, headlinesAloneOf, lensAimOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
 import { TYPE } from './type'
 
 /** The crafted panel's surface: the panel colour and a full border, never a single side. */
@@ -72,6 +72,9 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   if (run === null) return null
 
   const groups = aimGroupsOf(model)
+  // AN-01: an option whose headline has no row is drawn in its aim's group, after the rows; with no group for that aim, in one of its own.
+  const alone = headlinesAloneOf(model)
+  const lone = [...new Set(alone.map((c) => c.headline!.aim_id))].filter((a) => !groups.some((g) => g.aimId === a))
   // Core's lenses are about one aim, the one its lens titles and most likely line name (`run.most_likely.aim_id`): the strip and the
   // outcome lens apply to that aim's group only; every other group stays on the chance. No such aim drawn here, no strip (checker, 7 Nov).
   const lensAim = lensAimOf(run)
@@ -113,7 +116,8 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                 {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
                 {withTabs ? <div className="px-2 py-1"><LensTabs lenses={lenses} active={lens} onSelect={setLens} panelId={panelId} /></div> : null}
                 <div role={withTabs ? 'tabpanel' : undefined} id={withTabs ? panelId : undefined} aria-labelledby={withTabs ? lensTabId(panelId, lens) : undefined}>
-                {g.rows.map((entry) => {
+                {/* Each option in core's card order: its rows for this aim, or (AN-01) its headline on its own where it has none. */}
+                {optionCards(model).flatMap((c) => [...g.rows.filter((e) => e.card === c).map((entry) => {
                   const key = `${entry.card.id}.rows.${entry.i}`
                   return (
                     <HeroOptionRow
@@ -129,11 +133,16 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                       {rowAction?.(entry)}
                     </HeroOptionRow>
                   )
-                })}
+                }), ...(alone.includes(c) && c.headline!.aim_id === g.aimId ? [<HeroHeadlineAlone key={`${c.id}.headline`} card={c} named={g.aim !== null} />] : [])])}
                 </div>
               </div>
             )
           })}
+          {lone.map((a) => (
+            <div key={`alone:${a ?? ''}`} className="space-y-0.5" data-testid="port-aim-group" data-aim={a ?? ''} data-lens="goal">
+              {alone.filter((c) => c.headline!.aim_id === a).map((c) => <HeroHeadlineAlone key={`${c.id}.headline`} card={c} named={false} />)}
+            </div>
+          ))}
       </div>
 
       <TimingAssumptions run={run} />

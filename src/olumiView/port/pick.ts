@@ -18,8 +18,10 @@ export function aimGroupsOf(model: ViewModel): AimGroup[] {
   const groups: AimGroup[] = []
   const byId = new Map<string | null, AimGroup>()
   for (const card of optionCards(model)) {
+    // AN-01: an option's one row with no aim, when it is the line its headline is about (`headlineRowOf`), sits in the headline's aim's group.
+    const head = headlineRowOf(card)
     card.rows.forEach((row, i) => {
-      const id = row.aim_id ?? null
+      const id = row.aim_id ?? (i === head ? card.headline!.aim_id : null)
       let g = byId.get(id)
       if (g === undefined) { g = { aimId: id, aim: null, rows: [] }; byId.set(id, g); groups.push(g) }
       if (g.aim === null && row.kind !== 'none' && row.aim !== '') g.aim = { text: row.aim, at: `${card.id}.rows.${i}.aim` }
@@ -27,6 +29,23 @@ export function aimGroupsOf(model: ViewModel): AimGroup[] {
     })
   }
   return groups
+}
+
+/**
+ * AN-01 (core e179f7c6, `cards[].headline`): the row an option's headline is about. Every headline keeps the dock's aim: its row for that
+ * aim, else its option-wide reason (its one row with no aim, which core gives an option the Run says nothing about), else -1: the option
+ * has no line for the aim, and its headline is drawn on its own in that aim's group (`headlinesAloneOf`).
+ */
+export function headlineRowOf(card: ViewCard): number {
+  const h = card.headline
+  if (h == null) return -1
+  const own = card.rows.findIndex((r) => (r.aim_id ?? null) === h.aim_id)
+  return own >= 0 || h.aim_id === null ? own : card.rows.findIndex((r) => r.kind === 'none' && (r.aim_id ?? null) === null)
+}
+
+/** The options whose headline has no row to sit on (`headlineRowOf` -1), in core's card order: each is still drawn, never dropped. */
+export function headlinesAloneOf(model: ViewModel): ViewCard[] {
+  return optionCards(model).filter((c) => c.headline != null && headlineRowOf(c) === -1)
 }
 
 /** Where one aim's outcome bands sit on a shared track: their lowest low and highest high, only when every band is in one unit. Layout only. */
