@@ -151,6 +151,7 @@
     "time_to_contract",
     "time_to_first_cash"
    ],
+   "chip": "One of you doubts this link",
    "sides_heading": "Your explanations",
    "goal": "generate_revenue_quickly",
    "goal_label": "Generate revenue as quickly as possible",
@@ -252,6 +253,7 @@
     "time_to_contract",
     "time_to_first_cash"
    ],
+   "chip": "One of you doubts this link",
    "sides_heading": "Your explanations",
    "goal": "enterprise_opportunities",
    "goal_label": "Create additional opportunities to sell the product",
@@ -365,6 +367,7 @@
     "contract_to_cash",
     "time_to_first_cash"
    ],
+   "chip": "One of you doubts this link",
    "sides_heading": "Your explanations",
    "goal": "generate_revenue_quickly",
    "goal_label": "Generate revenue as quickly as possible",
@@ -466,6 +469,7 @@
     "contract_to_cash",
     "time_to_first_cash"
    ],
+   "chip": "One of you doubts this link",
    "sides_heading": "Your explanations",
    "goal": "enterprise_opportunities",
    "goal_label": "Create additional opportunities to sell the product",

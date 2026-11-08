@@ -2,7 +2,7 @@
  "schema": "olumi.view/3",
  "id": "s_a88ba245176e",
  "title": "Product selling versus adding consulting",
- "commit": "5d8a009bc847a29bfae4c77b6b52ce7b0375c58d",
+ "commit": "b143332b8cfeca49c879b27af3a87f10de1db879",
  "signature": "[18,null,[[3,\"approved\"],[6,\"discussion\"],[7,\"discussion\"],[8,\"discussion\"],[9,\"superseded\"],[10,\"discussion\"],[11,\"approved\"]],[[19,true],[20,true],[21,true],[37,true],[39,true],[47,true],[49,true]],[\"Paul\",\"Priya\",\"Tom\",\"Maya\",\"Ana (TM-04 witness)\",\"Ben (TM-04 witness)\"],[],[\"1\",\"12\",\"14\",\"16\",\"33\",\"35\",\"43\",\"45\"]][[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"moves\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"product_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"gap_text\":\"−49 percentage points (−50 to −48)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.0029,\"model_exact\":false,\"view_exact\":false,\"gap\":-0.4909,\"gap_low\":-0.5006926617431805,\"gap_high\":-0.4810904850751514,\"differ\":4909},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"diagnostic_time_to_contract\",\"goal\":\"generate_revenue_quickly\",\"status\":\"changes\",\"changes\":true,\"leader\":\"paid_enterprise_diagnostic\",\"model_leader\":null,\"depends\":null,\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":\"consulting_contract_to_cash\",\"model_estimate\":null,\"most\":\"paid_enterprise_diagnostic\",\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"gap_text\":\"+18 percentage points (+18 to +19)\",\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.6777,\"model_exact\":false,\"view_exact\":false,\"gap\":0.1839,\"gap_low\":0.17551791254020796,\"gap_high\":0.19222825294552398,\"differ\":2155},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[{\"quantity\":\"contract_to_cash\",\"goal\":\"generate_revenue_quickly\",\"status\":\"same\",\"changes\":false,\"leader\":null,\"model_leader\":null,\"depends\":\"diagnostic_time_to_contract\",\"model_depends\":\"diagnostic_time_to_contract\",\"estimate\":null,\"model_estimate\":null,\"most\":null,\"gap\":0,\"gap_low\":0,\"gap_high\":0,\"gap_text\":null,\"olumi\":true,\"rests\":[\"cash_reading\"],\"if_absent\":[],\"options\":[{\"option\":\"add_consulting\",\"model\":0.1321,\"view\":0.1321,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.0003438489200652602,\"gap_high\":0.0003438489200652602,\"differ\":0},{\"option\":\"paid_enterprise_diagnostic\",\"model\":0.4938,\"view\":0.4938,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00019601660569920575,\"gap_high\":0.0001960166056991366,\"differ\":0},{\"option\":\"focus_product_sales\",\"model\":0.1242,\"view\":0.1242,\"model_exact\":false,\"view_exact\":false,\"gap\":0,\"gap_low\":-0.00034885154734132207,\"gap_high\":0.00034885154734132207,\"differ\":0}]}],[],[],[],[]][\"goal\",\"understand\",\"1\"][\"figure_first\",\"diagnostic_enterprise_engagements\",null,null,null][\"evidence\",[[31,false],[32,false]],[],null]",
  "you": "Cara (TM-04 witness)",
  "you_id": "43",
@@ -104,12 +104,22 @@
      {
       "glyph": "◇",
       "text": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment.",
-      "title": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. · assumption · Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm. · Applied in the calculation"
+      "title": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. · assumption · Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm. · Applied in the calculation",
+      "id": "cash_reading",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm."
+      }
      },
      {
       "glyph": "○",
       "text": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work.",
-      "title": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work. · left out · Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting. · A quick small payment could satisfy the timing test while making little contribution to the startup. No prices, costs, capacity or current revenue route were supplied. · What amount of net cash contribution would make the effort worthwhile, and what startup work would it displace?"
+      "title": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work. · left out · Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting. · A quick small payment could satisfy the timing test while making little contribution to the startup. No prices, costs, capacity or current revenue route were supplied. · What amount of net cash contribution would make the effort worthwhile, and what startup work would it displace?",
+      "id": "revenue_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting."
+      }
      }
     ],
     "rows": [],
@@ -166,12 +176,22 @@
      {
       "glyph": "◇",
       "text": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement.",
-      "title": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement. · assumption · Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied. · Applied in the calculation"
+      "title": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement. · assumption · Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied. · Applied in the calculation",
+      "id": "opportunity_definition",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied."
+      }
      },
      {
       "glyph": "○",
       "text": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort.",
-      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?"
+      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?",
+      "id": "opportunity_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit."
+      }
      }
     ],
     "rows": [],
@@ -228,12 +248,22 @@
      {
       "glyph": "!",
       "text": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product.",
-      "title": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product. · challenge · Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route."
+      "title": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product. · challenge · Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route.",
+      "id": "buyer_transfer_test",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route."
+      }
      },
      {
       "glyph": "○",
       "text": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort.",
-      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?"
+      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?",
+      "id": "opportunity_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit."
+      }
      }
     ],
     "rows": [
@@ -282,7 +312,6 @@
        ],
        "approx": []
       },
-      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and 4 what-ifs; 1 assumption.",
       "if_approved": null,
       "estimate": null
      },
@@ -379,7 +408,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "generate_revenue_quickly",
+     "state": "chance",
+     "text": "'Generate revenue as quickly as possible': about 13% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Add consulting services to the AI startup' meets 'Generate revenue as quickly as possible', in this model on current information. Without Olumi's suggested risk assumption 'Customer payment arrives later than agreed', which is Olumi's own hypothesis and a different model from this one, the chance is about 16%. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Time to first signed contract for consulting', 'Consulting contract-to-payment delay', 'Chance of customer payment slippage during the exploration window', 'Additional collection delay when payment slippage occurs'. It rests on Olumi's proposed figures for 'Customer payment arrives later than agreed', not yet confirmed by them. It rests on: Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. It leaves out: First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work.",
+     "range": "about 37% if 'Consulting contract-to-payment delay' is low, under 1% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "consultancy_buyers_may_buy_product",
@@ -434,12 +473,22 @@
      {
       "glyph": "!",
       "text": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product.",
-      "title": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product. · challenge · Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route."
+      "title": "Test whether the person buying consulting can sponsor a product purchase. Demand for bespoke expert work may come from a different budget or buyer than demand for the product. · challenge · Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route.",
+      "id": "buyer_transfer_test",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul has clarified the intended onward sale as the product. Consulting demand does not by itself establish product need, budget, sponsorship or an additional sales route."
+      }
      },
      {
       "glyph": "○",
       "text": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort.",
-      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?"
+      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?",
+      "id": "opportunity_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit."
+      }
      }
     ],
     "rows": [
@@ -488,7 +537,6 @@
        ],
        "approx": []
       },
-      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and 4 what-ifs; 1 assumption.",
       "if_approved": null,
       "estimate": null
      },
@@ -585,7 +633,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "generate_revenue_quickly",
+     "state": "chance",
+     "text": "'Generate revenue as quickly as possible': about 49% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' meets 'Generate revenue as quickly as possible', in this model on current information. Without Olumi's suggested risk assumption 'Customer payment arrives later than agreed', which is Olumi's own hypothesis and a different model from this one, the chance is about 55%. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Time to first signed contract for the paid diagnostic', 'Paid diagnostic contract-to-payment delay', 'Chance of customer payment slippage during the exploration window', 'Additional collection delay when payment slippage occurs'. It rests on Olumi's proposed figures for 'Customer payment arrives later than agreed', not yet confirmed by them. It rests on: Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. It leaves out: First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work.",
+     "range": "about 92% if 'Time to first signed contract for the paid diagnostic' is low, under 1% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "time_to_contract",
@@ -839,7 +897,12 @@
      {
       "glyph": "◇",
       "text": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment.",
-      "title": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. · assumption · Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm. · Applied in the calculation"
+      "title": "Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. · assumption · Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm. · Applied in the calculation",
+      "id": "cash_reading",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul seeks speed of revenue generation but has not specified booked revenue, cash receipts or profitability. Cash receipt is a proposed reading to confirm."
+      }
      }
     ],
     "rows": [],
@@ -1186,12 +1249,22 @@
      {
       "glyph": "◇",
       "text": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement.",
-      "title": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement. · assumption · Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied. · Applied in the calculation"
+      "title": "Count a further product sales opportunity only when an enterprise buyer has an identified product need, a buying contact and an agreed next sales step, and the opportunity would not otherwise have existed. Initially count at most one per completed service engagement. · assumption · Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied. · Applied in the calculation",
+      "id": "opportunity_definition",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul has clarified that the further sale is a product sale. The qualification standard and maximum of one opportunity per completed engagement remain provisional Olumi conventions, not criteria Paul has supplied."
+      }
      },
      {
       "glyph": "○",
       "text": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort.",
-      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?"
+      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?",
+      "id": "opportunity_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit."
+      }
      }
     ],
     "rows": [],
@@ -1308,7 +1381,12 @@
      {
       "glyph": "○",
       "text": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work.",
-      "title": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work. · left out · Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting. · A quick small payment could satisfy the timing test while making little contribution to the startup. No prices, costs, capacity or current revenue route were supplied. · What amount of net cash contribution would make the effort worthwhile, and what startup work would it displace?"
+      "title": "First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work. · left out · Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting. · A quick small payment could satisfy the timing test while making little contribution to the startup. No prices, costs, capacity or current revenue route were supplied. · What amount of net cash contribution would make the effort worthwhile, and what startup work would it displace?",
+      "id": "revenue_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The initial speed measure is deliberately narrow; it cannot establish the financial attractiveness of adding consulting."
+      }
      }
     ],
     "rows": [],
@@ -1345,7 +1423,12 @@
      {
       "glyph": "○",
       "text": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort.",
-      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?"
+      "title": "The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. · left out · Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit. · The retained mechanism follows completed service engagements into further product opportunities. Under product-only selling that mechanism is off; its zero does not mean direct product selling creates no opportunities. This measure alone cannot establish which alternative produces more product opportunities overall. · What qualified product opportunities could you create by focusing on product selling, and which of those would be gained or lost if you also delivered consulting?",
+      "id": "opportunity_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Paul's clarification makes direct product selling an explicit alternative. The existing service-origin measure is retained rather than silently treating it as a measure of total or net product pipeline; the missing counterfactual is now explicit."
+      }
      }
     ],
     "rows": [
@@ -1394,7 +1477,6 @@
        ],
        "approx": []
       },
-      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and 4 what-ifs; 1 assumption.",
       "if_approved": null,
       "estimate": null
      },
@@ -1485,7 +1567,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "generate_revenue_quickly",
+     "state": "chance",
+     "text": "'Generate revenue as quickly as possible': about 12% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Focus on selling the product' meets 'Generate revenue as quickly as possible', in this model on current information. Without Olumi's suggested risk assumption 'Customer payment arrives later than agreed', which is Olumi's own hypothesis and a different model from this one, the chance is about 15%. It rests on Olumi's reading of the aim and Olumi's proposed target, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Chance of customer payment slippage during the exploration window', 'Additional collection delay when payment slippage occurs', 'Time to first signed product contract', 'Product contract-to-payment delay'. It rests on Olumi's proposed figures for 'Customer payment arrives later than agreed', not yet confirmed by them. It rests on: Read revenue urgency initially as elapsed time from starting the offer to receiving the first customer payment. It leaves out: First-payment timing does not cover revenue size, profit, repeatability, delivery burden or revenue forgone from other startup work.",
+     "range": "about 35% if 'Product contract-to-payment delay' is low, under 1% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "product_contract_to_cash",
@@ -2085,6 +2177,17 @@
     {
      "text": "Olumi's what-if for 'Product contract-to-payment delay', not their figure: 0 to 6 months. Basis: A replaceable what-if covering payment at signing through a substantial enterprise acceptance and collection cycle. Paul has not described the product's billing or acceptance terms. The wide band matches the unspecified consulting terms rather than assuming product sales collect faster or slower. No applicable checked typical rate is available. Unexpected payment slippage remains separate.",
      "title": "Olumi's what-if for 'Product contract-to-payment delay', not their figure: 0 to 6 months. Basis: A replaceable what-if covering payment at signing through a substantial enterprise acceptance and collection cycle. Paul has not described the product's billing or acceptance terms. The wide band matches the unspecified consulting terms rather than assuming product sales collect faster or slower. No applicable checked typical rate is available. Unexpected payment slippage remains separate."
+    }
+   ],
+   "shared_rests": [
+    {
+     "aim_id": "generate_revenue_quickly",
+     "options": [
+      "add_consulting",
+      "paid_enterprise_diagnostic",
+      "focus_product_sales"
+     ],
+     "text": "Rests on Olumi's reading of the aim, proposed target and 4 what-ifs; 1 assumption."
     }
    ],
    "readings": [
@@ -3787,6 +3890,7 @@
   }
  },
  "draft": null,
+ "turn": null,
  "evidence_words": {
   "heading": "Evidence",
   "close": "Close",
