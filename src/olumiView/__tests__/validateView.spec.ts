@@ -256,12 +256,19 @@ describe('a link is checked by the schema core vendored, field by field', () => 
   })
 })
 
+/**
+ * Skew: core serves a field before this page's schema declares it (n2c's `strategy`, `marks`, a badge's `words` and `icon`, before
+ * the re-vendor). Bound by names no schema declares, never by a real field's current absence, so the row holds after any re-vendor.
+ */
 describe('a core newer than this page (skew) still draws what the page knows', () => {
-  it('fields core n2c serves that this schema lacks (strategy, marks, a badge\'s words and icon) are ignored, not refused', () => {
-    const x = { ...golden('pricing'), strategy: { key: 'growth' }, marks: [] }
+  it('fields this schema does not declare, at the top, on a card and on its badge, are ignored, not refused', () => {
+    const declared = (n: unknown, k: string) => isNode(n) && isNode(n.properties) && Object.prototype.hasOwnProperty.call(n.properties, k)
+    expect(declared(schema, 'zz_core_added_later')).toBe(false)
+    const x = { ...golden('pricing'), zz_core_added_later: { key: 'growth' } }
     const b = x.model.cards.findIndex((k: { badge: unknown }) => k.badge !== null && k.badge !== undefined)
     expect(b).toBeGreaterThanOrEqual(0)
-    Object.assign(x.model.cards[b].badge, { words: 'two records', icon: '◆' })
+    x.model.cards[b].zz_core_added_later = []
+    Object.assign(x.model.cards[b].badge, { zz_words_later: 'two records', zz_icon_later: '◆' })
     expect(validateView(x)).toEqual({ ok: true })
     expect(validateView(x, 'strict').ok).toBe(false)
   })
