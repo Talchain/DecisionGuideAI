@@ -366,3 +366,19 @@ describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
     expect(force).toHaveBeenCalledWith('team')
   })
 })
+
+describe('every selection brings its card to the centre (design owner, 8 Nov)', () => {
+  it('selecting the same chip again counts as a new open, so the camera centres it again after the person moved away', () => {
+    const before = useReveal.getState().opens
+    useReveal.getState().select(PRIYA.id, DIAG, `${DIAG}:disagreement`)
+    useReveal.getState().select(PRIYA.id, DIAG, `${DIAG}:disagreement`)
+    expect(useReveal.getState().opens).toBe(before + 2)
+  })
+  it('CONTRAST: closing is not an open', () => {
+    useReveal.getState().select(PRIYA.id, DIAG, `${DIAG}:disagreement`)
+    const open = useReveal.getState().opens
+    useReveal.getState().select(null)
+    useReveal.getState().selectEvidence(null)
+    expect(useReveal.getState().opens).toBe(open)
+  })
+})

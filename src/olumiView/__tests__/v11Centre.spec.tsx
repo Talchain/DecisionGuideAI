@@ -41,9 +41,27 @@ describe('the target viewport', () => {
     expect((top + bottom) / 2).toBeCloseTo(PANE.h / 2)
     expect((CARD.x + CARD.w / 2) * t.zoom + t.x).toBeCloseTo(PANE.w / 2)
   })
-  it('a card already in view at zoom 0.9 or more does not move', () => {
-    expect(openInViewTarget({ card: { ...CARD, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 1 } })).toBeNull()
-    expect(openInViewTarget({ card: { ...CARD, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: OPEN_MIN_ZOOM } })).toBeNull()
+  it('a card in view but off centre is centred on selection (design owner, 8 Nov: "centre on chip selection")', () => {
+    const t = openInViewTarget({ card: { ...CARD, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 1 } })!
+    expect((200 + (CARD.h + CHIP_H) / 2) * t.zoom + t.y).toBeCloseTo(PANE.h / 2)
+  })
+  it('CONTRAST: a card already centred at zoom 0.9 or more does not move', () => {
+    for (const zoom of [1, OPEN_MIN_ZOOM]) {
+      const at = openInViewTarget({ card: CARD, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 0.5 } })!
+      const centred = { zoom, x: PANE.w / 2 - (CARD.x + CARD.w / 2) * zoom, y: PANE.h / 2 - (CARD.y + (CARD.h + CHIP_H) / 2) * zoom }
+      expect(at.zoom).toBe(OPEN_MIN_ZOOM)
+      expect(openInViewTarget({ card: CARD, chipH: CHIP_H, pane: PANE, viewport: centred })).toBeNull()
+    }
+  })
+  it('the 1232 x 704 board: the selected card and its chips are centred in the free canvas left of the dock, not the whole pane', () => {
+    // The design owner's witness: a 1232 pane, the dock from x 885, the free centre about (443, 352); the chip had been left at y 761.
+    const pane = { w: 1232, h: 704 }, inset = { left: 0, top: 0, right: 1232 - 885, bottom: 0 }
+    const card = { x: 300, y: 600, w: CARD_WIDTH, h: 125 }
+    const t = openInViewTarget({ card, chipH: CHIP_H, pane, inset, viewport: { x: 0, y: 0, zoom: 1 } })!
+    expect((card.x + card.w / 2) * t.zoom + t.x).toBeCloseTo(885 / 2)
+    expect((card.y + (card.h + CHIP_H) / 2) * t.zoom + t.y).toBeCloseTo(352)
+    const chipBottom = (card.y + card.h + CHIP_H) * t.zoom + t.y
+    expect(chipBottom).toBeLessThan(pane.h)
   })
   it('zoom 0.6 goes to 0.9, even when already in view', () => {
     const t = openInViewTarget({ card: { ...CARD, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 0.6 } })!
@@ -55,8 +73,6 @@ describe('the target viewport', () => {
     expect(t.zoom).toBe(1.2)
   })
   it('a card partly past the left edge is brought in', () => {
-    const t = openInViewTarget({ card: { ...CARD, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 200, y: 0, zoom: 1 } })
-    expect(t).toBeNull() // x=500..720 in view
     const u = openInViewTarget({ card: { ...CARD, x: -100, y: 200 }, chipH: CHIP_H, pane: PANE, viewport: { x: 0, y: 0, zoom: 1 } })!
     expect((-100 + CARD.w / 2) * u.zoom + u.x).toBeCloseTo(PANE.w / 2)
   })

@@ -13,8 +13,6 @@ import type { View } from './client'
 import { viewLaying } from './canvas'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 
-/** Room kept between the chip and the canvas's edge (px). */
-const MARGIN = 40
 const TICK = 250, MAX_TICKS = 40
 
 /**
@@ -49,14 +47,11 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       const here = `${Math.round(c.x)},${Math.round(c.y)}`
       if (here !== last) { last = here; return }
       finish()
-      const vp = getViewport(), p = pane.getBoundingClientRect()
+      const vp = getViewport(), { size, inset } = freePane(pane)
       const rail = chip.closest('[data-testid^="reveal-chips-"]')
       const chipH = rail === null ? 0 : (rail.getBoundingClientRect().height / vp.zoom) + 4
       const at = n.internals.positionAbsolute
-      // The board's own free pane: the canvas less what covers it (the outputs dock, the header), as its framing reads it.
-      const pad = computeFitPadding(pane), num = (v: string | number) => (typeof v === 'number' ? v : parseFloat(v) || 0)
-      const inset = { left: num(pad.left), top: num(pad.top), right: num(pad.right), bottom: num(pad.bottom) }
-      const to = revealFocusTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: { w: p.width, h: p.height }, inset, viewport: vp })
+      const to = revealFocusTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp })
       if (to === null) return
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
       void setViewport(to, { duration: still ? 0 : 300 })
@@ -72,12 +67,28 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
  * `CENTRED` px on both axes), so a board framed on it does not move.
  */
 export const CENTRED = 24
-export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: { left: number; top: number; right: number; bottom: number }; viewport: Vp }): Vp | null {
+type Inset = { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
+export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp; minZoom?: number }): Vp | null {
   const { card, chipH, pane, viewport: v } = a
   const i = a.inset ?? { left: 0, top: 0, right: 0, bottom: 0 }
+  const zoom = Math.max(v.zoom, a.minZoom ?? 0)
   const cx = i.left + (pane.w - i.left - i.right) / 2, cy = i.top + (pane.h - i.top - i.bottom) / 2
-  const x = cx - (card.x + card.w / 2) * v.zoom, y = cy - (card.y + (card.h + chipH) / 2) * v.zoom
-  return Math.abs(x - v.x) <= CENTRED && Math.abs(y - v.y) <= CENTRED ? null : { zoom: v.zoom, x, y }
+  const x = cx - (card.x + card.w / 2) * zoom, y = cy - (card.y + (card.h + chipH) / 2) * zoom
+  return zoom === v.zoom && Math.abs(x - v.x) <= CENTRED && Math.abs(y - v.y) <= CENTRED ? null : { zoom, x, y }
+}
+
+/**
+ * The free canvas, as the board's own framing reads it: the pane less what covers it (the outputs dock, the header: computeFitPadding),
+ * and less any part of the pane outside the window, so "centred" is where the person can see it.
+ */
+function freePane(pane: Element): { size: { w: number; h: number }; inset: Inset } {
+  const p = pane.getBoundingClientRect(), pad = computeFitPadding(pane)
+  const num = (v: string | number) => (typeof v === 'number' ? v : parseFloat(v) || 0)
+  const W = typeof window === 'undefined' ? p.right : window.innerWidth, H = typeof window === 'undefined' ? p.bottom : window.innerHeight
+  return {
+    size: { w: p.width, h: p.height },
+    inset: { left: Math.max(num(pad.left), -p.left), top: Math.max(num(pad.top), -p.top), right: Math.max(num(pad.right), p.right - W), bottom: Math.max(num(pad.bottom), p.bottom - H) },
+  }
 }
 
 /** Opening a chip or an evidence mark never leaves the person smaller than this (choice D, Paul 6 Nov). */
@@ -94,30 +105,24 @@ export function openedCardOf(view: View | null, card: string | null, evidence: n
 }
 
 /**
- * The viewport that shows the card and its chip rail (the card's box plus `chipH` below it, flow units) fully in the pane (px), centred, at
- * the person's zoom, raised to 0.9 when below it, never lowered. null when it is already fully in view at a zoom of 0.9 or more.
+ * Ruling D on selection (design owner, 8 Nov: "centre on chip selection"): the card and its chip rail (the card's box plus `chipH` below it,
+ * flow units) centred in the free canvas (the pane less `inset`, px), at the person's zoom, raised to 0.9 when below it, never lowered.
+ * null only when it is centred there already at a zoom of 0.9 or more.
  */
-export function openInViewTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; viewport: Vp }): Vp | null {
-  const { card, chipH, pane, viewport: v } = a
-  const zoom = Math.max(v.zoom, OPEN_MIN_ZOOM)
-  const h = card.h + chipH
-  if (zoom === v.zoom) {
-    const l = card.x * zoom + v.x, t = card.y * zoom + v.y
-    if (l >= MARGIN && t >= MARGIN && l + card.w * zoom <= pane.w - MARGIN && t + h * zoom <= pane.h - MARGIN) return null
-  }
-  return { zoom, x: pane.w / 2 - (card.x + card.w / 2) * zoom, y: pane.h / 2 - (card.y + h / 2) * zoom }
+export function openInViewTarget(a: { card: Box; chipH: number; pane: { w: number; h: number }; inset?: Inset; viewport: Vp }): Vp | null {
+  return revealFocusTarget({ ...a, minZoom: OPEN_MIN_ZOOM })
 }
 
 /**
- * Once per open (a new card or evidence id), after the board has settled: the opened card and its chip rail are centred in the free canvas
- * (./revealCamera openInViewTarget). Never after the person has moved the board themselves since the open.
+ * On every open (each chip or evidence mark selected, the same one again included), after the board has settled: the opened card and its
+ * chip rail are centred in the free canvas (openInViewTarget). Never after the person has moved the board themselves since the open.
  */
 export function useOpenInView(movedAt: MutableRefObject<number>): void {
   const { getViewport, setViewport, getInternalNode } = useReactFlow()
   const view = useViewStore((s) => s.view)
-  const card = useReveal((s) => s.card), evidence = useReveal((s) => s.evidence)
+  const card = useReveal((s) => s.card), evidence = useReveal((s) => s.evidence), opens = useReveal((s) => s.opens)
   const id = openedCardOf(view, card, evidence)
-  const key = id === null ? '' : `${card === null ? 'e' : 'c'}:${card ?? evidence}:${id}`
+  const key = id === null ? '' : `${card === null ? 'e' : 'c'}:${card ?? evidence}:${id}:${opens}`
   useEffect(() => {
     if (key === '' || id === null) return
     const moves = movedAt.current
@@ -130,10 +135,10 @@ export function useOpenInView(movedAt: MutableRefObject<number>): void {
       const at = n.internals.positionAbsolute, here = `${at.x},${at.y},${n.measured.height}`
       if (here !== last) { last = here; return }
       clearInterval(t)
-      const vp = getViewport(), p = pane.getBoundingClientRect()
+      const vp = getViewport(), { size, inset } = freePane(pane)
       const chips = document.querySelector(`[data-testid="reveal-chips-${id}"]`)
       const chipH = chips === null ? 0 : (chips.getBoundingClientRect().height / vp.zoom) + 4
-      const to = openInViewTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: { w: p.width, h: p.height }, viewport: vp })
+      const to = openInViewTarget({ card: { x: at.x, y: at.y, w: n.measured.width, h: n.measured.height }, chipH, pane: size, inset, viewport: vp })
       if (to === null) return
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
       void setViewport(to, { duration: still ? 0 : 300 })

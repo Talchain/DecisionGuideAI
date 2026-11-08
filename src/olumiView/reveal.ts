@@ -238,6 +238,8 @@ export const useReveal = create<{
   readonly card: string | null
   /** Which of that card's chips was opened, by its key (a card may have several: "Priya and Tom differ", "Priya and Tom added evidence"). */
   readonly chip: string | null
+  /** How many times something was opened: each selection, the same chip again included, brings its card to the centre (./revealCamera). */
+  readonly opens: number
   readonly select: (id: number | null, card?: string | null, chip?: string | null) => void
   readonly selectEvidence: (id: number | null, card?: string | null, chip?: string | null) => void
 }>()((set) => ({
@@ -245,8 +247,9 @@ export const useReveal = create<{
   evidence: null,
   card: null,
   chip: null,
-  select: (id, card = null, chip = null) => set({ selected: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, evidence: null }),
-  selectEvidence: (id, card = null, chip = null) => set({ evidence: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, selected: null }),
+  opens: 0,
+  select: (id, card = null, chip = null) => set((s) => ({ selected: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, evidence: null, opens: s.opens + (id === null ? 0 : 1) })),
+  selectEvidence: (id, card = null, chip = null) => set((s) => ({ evidence: id, card: id === null ? null : card, chip: id === null || card === null ? null : chip, selected: null, opens: s.opens + (id === null ? 0 : 1) })),
 }))
 
 /**
