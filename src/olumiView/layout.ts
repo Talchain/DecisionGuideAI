@@ -681,3 +681,27 @@ export function nextCardsOf(next: { readonly about: readonly string[] }): readon
 export function restingRingOf(cards: readonly string[], inFocus: readonly string[]): readonly string[] {
   return cards.filter((id) => !inFocus.includes(id))
 }
+
+/** The card a figure's quantity is drawn on: its own card, else the card whose badge holds that record; null when the canvas has neither. */
+export function cardOfQuantity(view: View, quantity: string): string | null {
+  const cards = view.model?.cards ?? []
+  if (cards.some((c) => c.id === quantity)) return quantity
+  return cards.find((c) => c.badge?.records.includes(quantity) === true)?.id ?? null
+}
+
+/** The cards a piece of evidence concerns, each once, in core's order; a record the canvas does not draw is left out. */
+export function evidenceCards(view: View, e: View['evidence'][number]): readonly string[] {
+  const out: string[] = []
+  for (const r of e.concerns) { const c = cardOfQuantity(view, r); if (c !== null && !out.includes(c)) out.push(c) }
+  return out
+}
+
+/** The evidence drawn on one card, in core's order. None for a member core still holds (gated): as with the reveal, nothing of the team's is drawn on the board for them until they have given their own view. */
+export function evidenceOn(view: View | null, card: string): readonly View['evidence'][number][] {
+  if (view === null || view.gated || view.model == null) return []
+  return view.evidence.filter((e) => evidenceCards(view, e).includes(card))
+}
+
+/** Revealed chip identities for camera placement, in the View's order. */
+export const chipViewIds = (marks: readonly { readonly isChip: boolean; readonly view: number }[]): number[] =>
+  marks.filter((m) => m.isChip).map((m) => m.view)
