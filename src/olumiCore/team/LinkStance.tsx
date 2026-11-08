@@ -80,7 +80,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
         <span className={LABEL}>{words.words}</span>
         <textarea data-testid={`${at}-words`} className={`${FIELD} min-h-[56px]`} maxLength={words.limit} value={said} disabled={busy} onChange={(e) => { setSaid(e.target.value); setError(null) }} />
       </label>
-      <div><Button size="sm" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
+      {/* A person's own stance, not Olumi's: ink, never blue (blue is only for what is Olumi's). */}
+      <div><Button size="sm" variant="secondary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
       {error ? <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p> : null}
     </section>
   )
