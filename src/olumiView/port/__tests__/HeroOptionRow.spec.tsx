@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../../client'
 import { HeroOptionRow, type HeroLensId } from '../HeroOptionRow'
+import { TYPE } from '../type'
 import { aimGroupsOf, outcomeDomainOf, tippingFor, type AimRow } from '../pick'
 import { figureCard } from '../../ViewChances'
 import { expectAllBound, viewOf } from './viewAt'
@@ -89,8 +90,57 @@ describe('the ported option row, goal lens: the chance is the headline, in core\
   })
 })
 
+describe('the headline at rest (track 4 step 1): the chance, its uncertainty, and what would change it, in core\'s words', () => {
+  const chanceLine = (v: View, option: string, aim: string | null) => {
+    const k = v.model!.run!.tipping.findIndex((t) => t.option === option && t.aim === aim && t.kind === 'chance' && t.line !== '')
+    return k < 0 ? null : { k, line: v.model!.run!.tipping[k]! }
+  }
+
+  it('catch: under the chance, closed, v10\'s marker named by core\'s driver sentence with the chance ticked on it, then this option\'s own "what would have to be true" line verbatim', () => {
+    const { container, entry } = draw(golden, 'second_oven', 1)
+    const c = entry.card, r = entry.row as Extract<typeof entry.row, { kind: 'chance' }>
+    const head = container.querySelector('[data-testid="port-row-headline"]')!
+    expect(head).not.toBeNull()
+    expect(head.closest('button')).toBeNull() // at rest, beside the row's toggle, never inside it
+    expect(container.querySelector('[data-testid="port-option-detail"]')).toBeNull() // closed
+    const track = head.querySelector('[data-testid="port-row-driver-range-second_oven"]')!
+    expect([track.getAttribute('role'), track.getAttribute('aria-label'), track.getAttribute('title')]).toEqual(['img', c.driver!.text, c.driver!.title])
+    expect(head.querySelector('[data-testid="port-row-driver-chance-second_oven"]')!.getAttribute('style')).toContain(`left: ${r.chance! * 100}%`)
+    const want = chanceLine(golden, 'second_oven', r.aim_id)!
+    const line = head.querySelector(`[data-view="run.tipping.${want.k}.line"]`)!
+    expect([line.textContent, line.getAttribute('data-view-fact')]).toEqual([want.line.line, want.line.id])
+    expect(line.closest('[title]')!.getAttribute('title')).toBe(want.line.hover)
+    expect(head.textContent).not.toMatch(/\b(best|winner|recommend)/i)
+    expect(expectAllBound(golden, container, expect)).toBeGreaterThan(3)
+  })
+
+  it('negative: an option core gives no driver and no tipping line keeps its face as it was: no headline block at all', () => {
+    const v = viewOf('golden/whatif')
+    const c = v.model!.cards.find((x) => x.family === 'option' && x.rows.some((r) => r.kind === 'chance'))!
+    expect(c.driver ?? null).toBeNull()
+    const { container } = draw(v, c.id, c.rows.findIndex((r) => r.kind === 'chance'))
+    expect(container.querySelector('[data-testid="port-row-headline"]')).toBeNull()
+  })
+
+  it('a driver but no tipping line: core\'s driver sentence is the headline\'s line, once, never repeated in the detail', () => {
+    const v = structuredClone(golden)
+    v.model!.run!.tipping = []
+    const { container } = draw(v, 'second_oven', 1, 'goal', true)
+    const c = v.model!.cards.find((x) => x.id === 'second_oven')!
+    const words = container.querySelectorAll('[data-view="second_oven.driver.text"]')
+    expect(words.length).toBe(1)
+    expect(words[0]!.textContent).toBe(c.driver!.text)
+    expect(words[0]!.closest('[data-testid="port-row-headline"]')).not.toBeNull()
+  })
+
+  it('negative: the outcome lens draws no headline (the goal lens owns the chance)', () => {
+    const { container } = draw(golden, 'second_oven', 1, 'outcome')
+    expect(container.querySelector('[data-testid="port-row-headline"]')).toBeNull()
+  })
+})
+
 describe('the detail: core\'s lines for this option and aim only', () => {
-  it('opened: the outcome band (as an outcome, not the chance), the driver once with its marker, and this option\'s tipping lines', () => {
+  it('opened: the outcome band (as an outcome, not the chance), the driver\'s sentence and figure, and this option\'s other tipping lines; nothing the headline already shows', () => {
     const { container } = draw(golden, 'second_oven', 1, 'goal', true)
     const m = golden.model!, c = m.cards.find((x) => x.id === 'second_oven')!
     const r = c.rows[1] as Extract<(typeof c.rows)[number], { kind: 'chance' }>
@@ -98,9 +148,12 @@ describe('the detail: core\'s lines for this option and aim only', () => {
     expect(detail.querySelector('[data-view="second_oven.rows.1.outcome.text"]')!.textContent).toBe(r.outcome!.text)
     expect(detail.querySelector('[data-view="second_oven.driver.text"]')!.textContent).toBe(c.driver!.text)
     expect(detail.querySelector('[data-testid="port-row-driver-second_oven"]')!.getAttribute('title')).toBe(c.driver!.title)
-    expect(detail.querySelector('[data-testid="port-row-driver-range-second_oven"]')).not.toBeNull()
-    const drawn = [...detail.querySelectorAll<HTMLElement>('[data-view^="run.tipping."]')].map((e) => e.dataset['view'])
-    const want = m.run!.tipping.flatMap((t, i) => (t.option === 'second_oven' && t.aim === r.aim_id ? [`run.tipping.${i}.line`] : []))
+    // the marker is drawn once, on the headline
+    expect(container.querySelectorAll('[data-testid="port-row-driver-range-second_oven"]').length).toBe(1)
+    expect(detail.querySelector('[data-testid="port-row-driver-range-second_oven"]')).toBeNull()
+    // every tipping line for this option and aim is drawn exactly once, across the headline and the detail
+    const drawn = [...container.querySelectorAll<HTMLElement>('[data-view^="run.tipping."]')].map((e) => e.dataset['view']).sort()
+    const want = m.run!.tipping.flatMap((t, i) => (t.option === 'second_oven' && t.aim === r.aim_id ? [`run.tipping.${i}.line`] : [])).sort()
     expect(want.length).toBeGreaterThan(0)
     expect(drawn).toEqual(want)
     expect(expectAllBound(golden, container, expect)).toBeGreaterThan(4)
@@ -165,5 +218,38 @@ describe('the outcome lens: core\'s band on the aim\'s shared track, no leader',
     expect(b.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(b)
     expect(n).toBe(1)
+  })
+})
+
+// 1232 polish (track 4 step 3, against the Reveal Paul approved 7 Nov): the chance is the finding and the name its label; blue is Olumi's only.
+describe('the row reads its finding first', () => {
+  it('catch: core\'s chance is full weight on the leader and on every other row (none dims); the option name is the 12px label', () => {
+    for (const [card, leader] of [['second_oven', 'true'], ['carry_on', 'false']] as const) {
+      const { row, container } = draw(real, card, 1)
+      expect(row.dataset['leader']).toBe(leader)
+      const readout = container.querySelector('[data-testid="port-row-readout"]')!
+      expect(readout.querySelector(`[data-view="${card}.rows.1.value"]`)).not.toBeNull()
+      expect(readout.className.split(' ')).toEqual(expect.arrayContaining(['font-semibold', 'text-text-header']))
+      expect(readout.className).not.toContain('text-text-body')
+      const name = container.querySelector(`[data-view="${card}.heading"]`)!
+      expect(name.className.startsWith(TYPE.meta)).toBe(true)
+      expect(name.className).not.toContain('font-medium')
+      cleanup()
+    }
+  })
+
+  it('the headline\'s Show all is a plain control, never Olumi\'s blue', () => {
+    const sh = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight'), ch = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight')
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get: () => 200 })
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 40 })
+    try {
+      const { container } = draw(golden, 'second_oven', 1)
+      const btn = container.querySelector('[data-testid="port-row-headline"] button[aria-expanded]')!
+      expect(btn.className).toContain('text-text-light')
+      expect(btn.className).not.toContain('text-info')
+    } finally {
+      if (sh) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', sh)
+      if (ch) Object.defineProperty(HTMLElement.prototype, 'clientHeight', ch)
+    }
   })
 })

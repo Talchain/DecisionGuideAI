@@ -16,6 +16,8 @@ import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { resetDrafts } from '../../olumiCore/team/drafts'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
+import { StrategyChips } from '../strategy/StrategyChips'
+import { useReveal } from '../reveal'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
@@ -27,7 +29,7 @@ let posts: { url: string; body: Record<string, unknown>; as: string | null }[]
 let vocab: unknown, answer: () => Response | Promise<Response>
 beforeEach(() => {
   posts = []; vocab = VOCAB; answer = () => json({ contribution: 99 }, 201)
-  resetWrites(); resetDrafts(); setPagePerson(real.you_id)
+  resetWrites(); resetDrafts(); useReveal.setState({ selected: null, evidence: null, card: null, chip: null }); setPagePerson(real.you_id)
   setTeamFetch(vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     if (u.endsWith('/strategy/vocabulary')) return json(vocab)
@@ -44,6 +46,17 @@ afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setS
 const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } })
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
+  it('A: strategy card cross_team_adoption opens Priya view 12 in the mounted Team dock', async () => {
+    render(<><StrategyChips card={CARD} /><TeamTab /></>)
+    expect(screen.getByTestId('strategy-chips-cross_team_adoption').querySelector('[data-strategy-chip-text]')!.textContent).toBe('Priya and Tom differ')
+    fireEvent.click(screen.getByTestId('strategy-chips-cross_team_adoption').querySelector('button')!)
+    const person = await screen.findByTestId('reveal-dock-view-12')
+    expect(person.querySelector('[data-testid="reveal-dock-words"]')!.textContent).toBe('Adoption stalled until someone owned the change. It took two quarters.')
+    expect(screen.getByTestId('strategy-pill-12-cross_team_adoption').textContent).toBe('Observed, two rollouts')
+    fireEvent.click(screen.getByTestId('reveal-dock-close'))
+    await screen.findByTestId('team-view-give')
+    expect(screen.getAllByText('Add my view', { selector: 'button' })).toHaveLength(1)
+  })
   it('a View without core\'s strategy key (core n2) asks core nothing for the vocabulary and draws no strategy fields', async () => {
     const plain = { ...real } as Record<string, unknown>; delete plain.strategy
     useViewStore.setState({ view: plain as unknown as View } as never)

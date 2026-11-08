@@ -1,47 +1,58 @@
 /**
- * v10's ring on the core lane: a class on each lit card's own node. Two hands light cards, each its own slot, and a card is lit while
- * either holds it, so neither ever clears the other's:
- *   - the chat: the cards a reply's next step is about (core's `chat[].answer.next.about`);
- *   - the Reasoning tab's glance: the cards whose marks are hovered or focused, and every card of a kind whose row is pressed.
- * React Flow rebuilds a node's class whenever its own state changes (selecting the card from its mark does), which drops a class added
- * by hand; while anything is lit, a watcher on the canvas puts the ring back on any lit card that lost it, and stops when nothing is.
- * Its own module, importing nothing, so the chat (in the dock's import closure) does not pull in the card components (shell-conformance).
+ * v10's ring on the core lane: the cards a reply's next step is about (core's `chat[].answer.next.about`) are lit, and only those. Its own
+ * module, importing only layout.ts's pure pickers (already in the chat's import closure), so the chat (in the dock's import closure) does
+ * not pull in the card components (shell-conformance).
+ *
+ * COACHING ON ITS CARD (track 4 step 2, DL 7 Nov: "when a coaching move names a record, highlight that card, so Olumi and the canvas act
+ * as one partner"): the NEWEST reply's next step keeps its cards lit at rest (`restRing`), so the line and its cards read as one without
+ * the person pointing at anything. Pointing at any reply's next step lights exactly its cards (`pointRing`) and leaving restores the
+ * newest reply's (`endRing`). A card the person selects steps out of the resting ring (one focus per screen). No words are added and no
+ * second Olumi badge: the ring is v10's outline (index.css `.v10-lit`), nothing dims. Which cards is layout.ts's to pick (`nextCardsOf`, the
+ * one adapter the DL's coaching field replaces; `restingRingOf`); this module only applies it, and puts it back when React Flow rewrites a
+ * card's class.
  */
+import { restingRingOf } from './layout'
 
-let chat: readonly string[] = []
+let direct: readonly string[] = []
 let tab: readonly string[] = []
+let resting: readonly string[] = [] // the newest reply's cards, lit at rest
+let pointed: readonly string[] | null = null // a reply's next step the person points at (hover or focus)
 let watcher: MutationObserver | null = null
+let queued = false
 
-// A page without CSS.escape (jsdom) still finds the card: its id with quotes and backslashes escaped.
-const esc = (s: string): string => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(s) : s.replace(/["\\]/g, (c) => `\\${c}`))
+const escId = (s: string): string => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(s) : s.replace(/["\\]/g, (c) => `\\${c}`))
+const nodeOf = (id: string): Element | null => document.querySelector(`.react-flow__node[data-id="${escId(id)}"]`)
 
-/** Put the ring on every lit card that lacks it. Adding nothing the second time round, it never wakes the watcher again. */
-function relight(): void {
-  for (const id of new Set([...chat, ...tab])) {
-    const node = document.querySelector(`.react-flow__node[data-id="${esc(id)}"]`)
-    if (node !== null && !node.classList.contains('v10-lit')) node.classList.add('v10-lit')
-  }
-}
-
-function light(): void {
+/** What should be lit: the pointed cards whole; otherwise layout.ts's resting ring given the cards in the person's focus: selected (React
+ *  Flow's `selected` class) or with a V11 view chip open on them (`v11-open`, v11-build's mark; the open chip wins, one focus per screen).
+ *  Already right (every lit card wanted, every wanted card on the canvas lit) writes nothing, so its own write cannot loop. */
+function paint(): void {
   if (typeof document === 'undefined') return
+  const selected = Array.from(document.querySelectorAll('.react-flow__node.selected, .react-flow__node.v11-open'), (e) => e.getAttribute('data-id') ?? '')
+  const want = [...new Set([...direct, ...tab, ...(pointed ?? restingRingOf(resting, selected))])]
+  const lit = Array.from(document.querySelectorAll('.react-flow__node.v10-lit'), (e) => e.getAttribute('data-id') ?? '')
+  if (lit.every((id) => want.includes(id)) && want.every((id) => nodeOf(id)?.classList.contains('v10-lit') ?? true)) return
   document.querySelectorAll('.react-flow__node.v10-lit').forEach((el) => el.classList.remove('v10-lit'))
-  relight()
-  if (chat.length + tab.length === 0 || typeof MutationObserver === 'undefined') { watcher?.disconnect(); watcher = null; return }
-  if (watcher === null) {
-    watcher = new MutationObserver(relight)
-    watcher.observe(document.querySelector('.react-flow') ?? document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] })
-  }
+  for (const id of want) nodeOf(id)?.classList.add('v10-lit')
+}
+/** React Flow rewrites a node's className (select, drag, a late mount); an AT-REST ring is put back on the next microtask. paint() compares
+ *  first, so its own write cannot loop. Watching only while something should be lit. */
+function watch(): void {
+  const on = direct.length + tab.length + resting.length > 0 || pointed !== null
+  if (on && watcher === null && typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+    watcher = new MutationObserver(() => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; paint() }) })
+    watcher.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] })
+  } else if (!on && watcher !== null) { watcher.disconnect(); watcher = null }
 }
 
-/** The chat's ring: light exactly these cards for the chat (none, to clear its own), beside whatever the Reasoning tab lights. */
-export function ringCards(ids: readonly string[]): void {
-  chat = [...ids]
-  light()
-}
+/** The newest reply's cards stay lit at rest; none clears. */
+export function restRing(ids: readonly string[]): void { resting = ids; watch(); paint() }
+/** A reply's next step is pointed at: exactly its cards are lit. */
+export function pointRing(ids: readonly string[]): void { pointed = ids; watch(); paint() }
+/** Pointing ended: back to the newest reply's cards, or none. */
+export function endRing(): void { pointed = null; watch(); paint() }
 
-/** The Reasoning tab's ring: light exactly these cards for the tab (none, to clear its own), beside whatever the chat lights. */
-export function attCards(ids: readonly string[]): void {
-  tab = [...ids]
-  light()
-}
+
+/** Independent slots: neither chat nor Reasoning clears the other. */
+export function ringCards(ids: readonly string[]): void { direct = ids; watch(); paint() }
+export function attCards(ids: readonly string[]): void { tab = ids; watch(); paint() }

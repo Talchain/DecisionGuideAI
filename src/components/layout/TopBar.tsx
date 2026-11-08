@@ -10,6 +10,8 @@ import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewSummaryTrigger } from '../../olumiView/ViewSummary'
+import { TeamPresence } from '../../olumiView/TeamPresence'
+import { StrategyOverviewOpener } from '../../olumiView/strategy/overview/StrategyOverviewOpener'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -289,6 +291,9 @@ export const TopBar = ({
           />
         )}
 
+        {/* Strategy lane (7 Nov, by agreement with the UI session): the Strategy Overview's opener, beside the name; null without core's key. */}
+        {isOlumiCoreLane() ? <StrategyOverviewOpener /> : null}
+
         {/* Dirty indicator (localStorage mode only) */}
         {!isPersisted && isDirty && saveStatus !== 'saving' && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
@@ -479,6 +484,8 @@ export const TopBar = ({
           onShowInfluenceExplainer={handleShowInfluenceExplainer}
           menuRef={menuRef}
         />
+
+        {isOlumiCoreLane() && <TeamPresence />}
 
         {/* User avatar + account dropdown — contract `.app-top .avatar`, 26px. */}
         <div className={styles.avatarSlot}>

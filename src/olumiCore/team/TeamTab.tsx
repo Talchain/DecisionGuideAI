@@ -13,6 +13,10 @@ import { NudgesPanel } from './NudgesPanel'
 import { ViewsPanel } from './ViewsPanel'
 import { BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
+import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
+import { EvidenceDock, evidenceDockShown } from '../../olumiView/EvidenceDock'
+import { useReveal } from '../../olumiView/reveal'
+import { StrategyOverviewSection } from '../../olumiView/strategy/StrategyOverview'
 
 /**
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
@@ -30,6 +34,15 @@ export function TeamTab(): JSX.Element {
   const past = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
   const shown: View | null = view !== null && isForThisPage(view, me) ? view : null
+  // V11: a view or a piece of evidence opened from its mark on the canvas fills the tab (one focus); closing it brings the panels back.
+  const opened = useReveal((s) => s.selected)
+  const openedEvidence = useReveal((s) => s.evidence)
+  if (shown !== null && sid && past === null && revealDockShown(shown, opened)) {
+    return <div data-testid="team-tab" className="grid min-h-full pb-6"><RevealDock view={shown} /></div>
+  }
+  if (shown !== null && sid && past === null && evidenceDockShown(shown, openedEvidence)) {
+    return <div data-testid="team-tab" className="grid min-h-full pb-6"><EvidenceDock view={shown} /></div>
+  }
 
   return (
     <div data-testid="team-tab" className="grid gap-4 pb-6">
@@ -65,6 +78,8 @@ export function TeamTab(): JSX.Element {
           )}
           {/* The team's record is the live scenario's: its forms are held while an earlier version is drawn (the writer refuses too). */}
           {/* The nudges' reveal is the team's record too: held with the forms (R1 review 1; the writer refuses it as well). */}
+          {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
+          <StrategyOverviewSection view={shown} />
           <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           {/* Where your explanations differ (core GET …/differences): the revealed figures you differ on, side by side, and what to do with each. */}

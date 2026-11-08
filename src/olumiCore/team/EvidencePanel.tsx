@@ -7,7 +7,7 @@ import { runWrite, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 type Stance = EvidenceInput['stance']
-const STANCES: ReadonlyArray<{ value: Stance; words: string }> = [
+export const STANCES: ReadonlyArray<{ value: Stance; words: string }> = [
   { value: 'supports', words: 'Supports it' },
   { value: 'challenges', words: 'Challenges it' },
   { value: 'unclear', words: 'Not clear yet' },

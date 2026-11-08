@@ -2608,6 +2608,36 @@
          "type": "null"
         }
        ]
+      },
+      "verdict": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "supported": {
+           "type": "boolean"
+          },
+          "text": {
+           "type": "string"
+          },
+          "asks": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "supported",
+          "text",
+          "asks"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
       }
      },
      "required": [
@@ -2894,6 +2924,9 @@
               ],
               "additionalProperties": false
              }
+            },
+            "chip": {
+             "type": "string"
             }
            },
            "required": [
@@ -2954,6 +2987,26 @@
           }
          ]
         }
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "shared",
+         "unique",
+         "disagreement"
+        ]
+       },
+       "about": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "stance": {
+        "type": [
+         "string",
+         "null"
+        ]
        }
       },
       "required": [
@@ -3667,6 +3720,119 @@
       "string",
       "null"
      ]
+    },
+    "next": {
+     "anyOf": [
+      {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "about": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "text",
+        "about"
+       ],
+       "additionalProperties": false
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "marks": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "card": {
+        "type": "string"
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "shared",
+         "unique",
+         "disagreement",
+         "evidence"
+        ]
+       },
+       "views": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        }
+       },
+       "evidence": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        }
+       },
+       "text": {
+        "type": "string"
+       },
+       "reading": {
+        "anyOf": [
+         {
+          "type": "object",
+          "properties": {
+           "text": {
+            "type": "string"
+           },
+           "note": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "text",
+           "note"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "options": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "option": {
+           "type": "string"
+          },
+          "text": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "option",
+          "text"
+         ],
+         "additionalProperties": false
+        }
+       }
+      },
+      "required": [
+       "card",
+       "kind",
+       "views",
+       "evidence",
+       "text",
+       "reading",
+       "options"
+      ],
+      "additionalProperties": false
+     }
     }
    },
    "required": [
@@ -3786,6 +3952,52 @@
          "why"
         ],
         "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "chain": {
+      "anyOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "level": {
+           "type": "string",
+           "enum": [
+            "observation",
+            "claim",
+            "inference",
+            "estimate"
+           ]
+          },
+          "text": {
+           "type": "string"
+          },
+          "status": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "card": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "level",
+          "text",
+          "status",
+          "card"
+         ],
+         "additionalProperties": false
+        }
        },
        {
         "type": "null"
@@ -4595,6 +4807,524 @@
     "methods",
     "figure_first",
     "pre_mortem"
+   ],
+   "additionalProperties": false
+  },
+  "draft": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "status": {
+       "type": "string",
+       "enum": [
+        "drafting",
+        "done",
+        "failed",
+        "lost"
+       ]
+      },
+      "reason": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "at": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "status",
+      "reason",
+      "at"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "strategy": {
+   "type": "object",
+   "properties": {
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "claim",
+         "assumption",
+         "question",
+         "risk",
+         "choice"
+        ]
+       },
+       "kind_text": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       },
+       "at": {
+        "type": "string"
+       },
+       "by": {
+        "type": "string"
+       },
+       "by_id": {
+        "type": "string"
+       },
+       "concerns": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string"
+          },
+          "family": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "label": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "id",
+          "family",
+          "label"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "version": {
+        "type": [
+         "number",
+         "null"
+        ]
+       },
+       "crux": {
+        "type": "boolean"
+       },
+       "status": {
+        "anyOf": [
+         {
+          "type": "string",
+          "enum": [
+           "live",
+           "set_aside"
+          ]
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "set_aside": {
+        "anyOf": [
+         {
+          "type": "object",
+          "properties": {
+           "why": {
+            "type": "string"
+           },
+           "reopen": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "why",
+           "reopen"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "locus": {
+        "anyOf": [
+         {
+          "type": "string",
+          "enum": [
+           "ours",
+           "world"
+          ]
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "locus_text": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "signpost": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "kind",
+       "kind_text",
+       "text",
+       "at",
+       "by",
+       "by_id",
+       "concerns",
+       "version",
+       "crux",
+       "status",
+       "set_aside",
+       "locus",
+       "locus_text",
+       "signpost"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "views": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "view": {
+        "type": "number"
+       },
+       "by": {
+        "type": "string"
+       },
+       "by_id": {
+        "type": "string"
+       },
+       "mine": {
+        "type": "boolean"
+       },
+       "about": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "family": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "label": {
+          "type": [
+           "string",
+           "null"
+          ]
+         }
+        },
+        "required": [
+         "id",
+         "family",
+         "label"
+        ],
+        "additionalProperties": false
+       },
+       "stance": {
+        "type": "string",
+        "enum": [
+         "know",
+         "suspect",
+         "unsure",
+         "would_try",
+         "others_may_miss"
+        ]
+       },
+       "stance_text": {
+        "type": "string"
+       },
+       "source": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "pill": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "view",
+       "by",
+       "by_id",
+       "mine",
+       "about",
+       "stance",
+       "stance_text",
+       "source",
+       "pill",
+       "text"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "marks": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "card": {
+        "type": "string"
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "shared",
+         "unique",
+         "disagreement"
+        ]
+       },
+       "views": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        }
+       },
+       "people": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string"
+          },
+          "name": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "id",
+          "name"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "card",
+       "kind",
+       "views",
+       "people",
+       "text"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "gate": {
+     "type": "object",
+     "properties": {
+      "quantified": {
+       "type": "boolean"
+      },
+      "text": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "quantified",
+      "text"
+     ],
+     "additionalProperties": false
+    },
+    "overview": {
+     "type": "object",
+     "properties": {
+      "heading": {
+       "type": "string"
+      },
+      "sections": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "heading": {
+          "type": "string"
+         },
+         "empty": {
+          "type": "string"
+         },
+         "lines": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "text": {
+             "type": "string"
+            },
+            "by": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "by_id": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "kind_text": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "ref": {
+             "anyOf": [
+              {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "family": {
+                 "type": [
+                  "string",
+                  "null"
+                 ]
+                },
+                "label": {
+                 "type": [
+                  "string",
+                  "null"
+                 ]
+                }
+               },
+               "required": [
+                "id",
+                "family",
+                "label"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "null"
+              }
+             ]
+            },
+            "pill": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "people": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "id": {
+                "type": "string"
+               },
+               "name": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "id",
+               "name"
+              ],
+              "additionalProperties": false
+             }
+            }
+           },
+           "required": [
+            "id",
+            "text",
+            "by",
+            "by_id",
+            "kind_text",
+            "ref",
+            "pill",
+            "people"
+           ],
+           "additionalProperties": false
+          }
+         }
+        },
+        "required": [
+         "id",
+         "heading",
+         "empty",
+         "lines"
+        ],
+        "additionalProperties": false
+       }
+      }
+     },
+     "required": [
+      "heading",
+      "sections"
+     ],
+     "additionalProperties": false
+    },
+    "headings": {
+     "type": "object",
+     "properties": {
+      "items": {
+       "type": "string"
+      },
+      "views": {
+       "type": "string"
+      },
+      "overview": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "items",
+      "views",
+      "overview"
+     ],
+     "additionalProperties": false
+    }
+   },
+   "required": [
+    "items",
+    "views",
+    "marks",
+    "gate",
+    "overview",
+    "headings"
    ],
    "additionalProperties": false
   }
