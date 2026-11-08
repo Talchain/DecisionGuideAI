@@ -377,7 +377,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -460,7 +465,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -599,7 +609,12 @@
      {
       "glyph": "○",
       "text": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.",
-      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?"
+      "title": "A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out. · left out · Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan. · The cash-out date, payment schedule and investor-specific completion dates are missing. The current arithmetic represents window totals, not an interim cash trajectory. · On what date does cash become insufficient, and which prospective receipts could clear before then?",
+      "id": "receipt_timing_gap",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Receipt timing is material to the stated urgency and must be resolved before treating any route as a survival plan."
+      }
      }
     ],
     "rows": [],
@@ -781,12 +796,22 @@
      {
       "glyph": "!",
       "text": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.",
-      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash.",
+      "id": "test_speed_bottleneck",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      }
      },
      {
       "glyph": "⊢",
       "text": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect.",
+      "id": "bridge_terms_compatibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      }
      }
     ],
     "rows": [
@@ -959,12 +984,22 @@
      {
       "glyph": "!",
       "text": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.",
-      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      "title": "Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck. · challenge · Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash.",
+      "id": "test_speed_bottleneck",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A disconfirming explanation for the proposed speed advantage: investor type alone does not establish a shorter route to cleared cash."
+      }
      },
      {
       "glyph": "⊢",
       "text": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      "title": "Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. · prerequisite · Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect.",
+      "id": "bridge_terms_compatibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A bridge can introduce follow-on financing friction. Terms and existing agreements are unavailable, so this remains a prerequisite rather than a sized cash effect."
+      }
      }
     ],
     "rows": [

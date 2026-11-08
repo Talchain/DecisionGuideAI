@@ -340,12 +340,43 @@
             },
             "title": {
              "type": "string"
+            },
+            "id": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "olumi": {
+             "anyOf": [
+              {
+               "type": "object",
+               "properties": {
+                "glyph": {
+                 "type": "string"
+                },
+                "title": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "glyph",
+                "title"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "null"
+              }
+             ]
             }
            },
            "required": [
             "glyph",
             "text",
-            "title"
+            "title",
+            "id",
+            "olumi"
            ],
            "additionalProperties": false
           }
@@ -1567,6 +1598,32 @@
             "required": [
              "text",
              "title"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "shared_rests": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim_id": {
+              "type": "string"
+             },
+             "options": {
+              "type": "array",
+              "items": {
+               "type": "string"
+              }
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "aim_id",
+             "options",
+             "text"
             ],
             "additionalProperties": false
            }

@@ -73,6 +73,11 @@ export type View = {
         glyph: string
         text: string
         title: string
+        id: string | null
+        olumi: {
+          glyph: string
+          title: string
+        } | null
       }>
       rows: Array<{
         kind: "chance"
@@ -290,6 +295,11 @@ export type View = {
       notes: Array<{
         text: string
         title: string
+      }>
+      shared_rests?: Array<{
+        aim_id: string
+        options: Array<string>
+        text: string
       }>
       readings: Array<{
         aim_id: string

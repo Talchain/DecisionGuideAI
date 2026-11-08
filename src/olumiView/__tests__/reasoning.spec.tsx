@@ -137,8 +137,10 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
   it('the paul-hiring shape: a challenge, notes on cards and premises each drawn once, under the previous tab\'s headings in its order', () => {
     const view = read('bakery.view.json'), m = structuredClone(view.model!)
     const opt = m.cards.find((c) => c.family === 'option')!, fig = m.cards.find((c) => c.family === 'quantity')!
-    opt.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'A shared premise. · prerequisite' }]
-    fig.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'again' }, { glyph: '?', text: 'A note on the figure.', title: 'note' }]
+    // ED-12 (core): each note keeps its identity (the record it is) and its mark (Olumi's, when Olumi proposed it): one shared premise of
+    // theirs on two cards, and a note Olumi proposed on the figure.
+    opt.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'A shared premise. · prerequisite', id: 'shared_premise', olumi: null }]
+    fig.premises = [{ glyph: '⊢', text: 'A shared premise.', title: 'again', id: 'shared_premise', olumi: null }, { glyph: '?', text: 'A note on the figure.', title: 'note', id: 'figure_note', olumi: { glyph: '◆', title: 'Proposed by Olumi: a note on the figure.' } }]
     const challenge = { ...opt, id: 'a_challenge', family: 'condition', heading: 'A challenge', reason: 'Demand may fall first.', challenged: true, rows: [], premises: [], driver: null }
     m.cards.push(challenge as never)
     ready({ ...view, model: m })

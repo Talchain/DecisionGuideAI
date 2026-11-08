@@ -147,7 +147,12 @@
      {
       "glyph": "○",
       "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
-      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?"
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?",
+      "id": "schedule_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable."
+      }
      }
     ],
     "rows": [],
@@ -400,7 +405,12 @@
      {
       "glyph": "○",
       "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
-      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?"
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?",
+      "id": "schedule_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable."
+      }
      }
     ],
     "rows": [],
@@ -457,7 +467,12 @@
      {
       "glyph": "!",
       "text": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.",
-      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay.",
+      "id": "technical_diagnosis",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      }
      }
     ],
     "rows": [
@@ -532,12 +547,22 @@
      {
       "glyph": "!",
       "text": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.",
-      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay.",
+      "id": "technical_diagnosis",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      }
      },
      {
       "glyph": "!",
       "text": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.",
-      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible.",
+      "id": "campaign_flexibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      }
      }
     ],
     "rows": [
@@ -655,12 +680,22 @@
      {
       "glyph": "⊢",
       "text": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.",
-      "title": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect. · prerequisite · Proposed by Olumi: A different release mechanism is useful only if it changes actual exposure, rather than merely hiding a user interface."
+      "title": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect. · prerequisite · Proposed by Olumi: A different release mechanism is useful only if it changes actual exposure, rather than merely hiding a user interface.",
+      "id": "isolation_prerequisite",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A different release mechanism is useful only if it changes actual exposure, rather than merely hiding a user interface."
+      }
      },
      {
       "glyph": "!",
       "text": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.",
-      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible.",
+      "id": "campaign_flexibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      }
      }
     ],
     "rows": [
