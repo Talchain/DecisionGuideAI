@@ -16,13 +16,17 @@ import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
  * and every refusal (drawn verbatim). Neither stance is chosen for the person: Send stays held until they pick a link, a stance and say why.
  * A core without these words, a gated viewer, a proposal on screen or a round with nothing revealed draws nothing.
  */
-export interface StanceWords { readonly heading: string; readonly note: string; readonly link: string; readonly doubt: string; readonly keep: string; readonly words: string; readonly limit: number; readonly send: string }
+/** `pick` (the picker's prompt) and `yours` (the heading over what this member has said) came later (core 41765715): drawn when core gives them. */
+export interface StanceWords { readonly heading: string; readonly note: string; readonly link: string; readonly doubt: string; readonly keep: string; readonly words: string; readonly limit: number; readonly send: string; readonly pick?: string; readonly yours?: string }
 const WORD_KEYS = ['heading', 'note', 'link', 'doubt', 'keep', 'words', 'send'] as const
+const said = (x: unknown): x is string => typeof x === 'string' && x !== ''
 /** Core's form words, or null: a read without them (an older core) draws no form. */
 export function stanceWordsOf(x: unknown): StanceWords | null {
   const w = x as Record<string, unknown> | null | undefined
-  if (w == null || typeof w !== 'object' || !WORD_KEYS.every((k) => typeof w[k] === 'string' && (w[k] as string) !== '')) return null
-  return typeof w['limit'] === 'number' && Number.isInteger(w['limit']) && w['limit'] > 0 ? (w as unknown as StanceWords) : null
+  if (w == null || typeof w !== 'object' || !WORD_KEYS.every((k) => said(w[k]))) return null
+  if (!(typeof w['limit'] === 'number' && Number.isInteger(w['limit']) && w['limit'] > 0)) return null
+  const { pick, yours, ...rest } = w as unknown as StanceWords
+  return { ...rest, ...(said(pick) ? { pick } : {}), ...(said(yours) ? { yours } : {}) }
 }
 const keyOf = (l: { record: string; part: string | null }) => `${l.record}|${l.part ?? ''}`
 
@@ -43,6 +47,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const links = offeredOf(view, heading)
   if (links.length === 0) return null
   const chosen = links.find((l) => keyOf(l.link) === pick)
+  // What this member has said on this version (the View's own link chips, their newest word on each link): so they see they have spoken.
+  const mine = (view.collab.link_marks ?? []).flatMap((m) => m.stances.filter((x) => x.by_id === view.you_id).map((x) => ({ key: keyOf(m.link), text: links.find((l) => keyOf(l.link) === keyOf(m.link))?.text ?? null, stance: x.stance, words: x.words })))
   const ready = chosen !== undefined && stance !== null && said.trim() !== '' && !busy
   const at = 'team-link-stance'
   const send = async () => {
@@ -62,10 +68,24 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
     <section className={CARD} data-testid={at} aria-labelledby={headingId}>
       <h3 id={headingId} className={H} data-testid={`${at}-heading`}>{words.heading}</h3>
       <p className={META} data-testid={`${at}-note`}>{words.note}</p>
+      {words.yours !== undefined && mine.length > 0 && (
+        <div className="grid gap-1" data-testid={`${at}-yours`}>
+          <p className={LABEL}>{words.yours}</p>
+          <ul className="m-0 grid list-none gap-1.5 p-0">
+            {mine.map((x) => (
+              <li key={x.key} className={`${BODY} grid gap-0.5 break-words`} data-link-said={x.key}>
+                {x.text !== null && <span className="text-text-header">{x.text}</span>}
+                <span>{words[x.stance]}</span>
+                {x.words ? <span className="text-text-light">{x.words}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <label className={`${META} grid gap-0.5`}>
         <span className="text-text-header">{words.link}</span>
         <select data-testid={`${at}-link`} className={FIELD} value={pick} disabled={busy} onChange={(e) => { setPick(e.target.value); setError(null) }}>
-          <option value="" />
+          <option value="">{words.pick ?? ''}</option>
           {links.map((l) => <option key={keyOf(l.link)} value={keyOf(l.link)} title={l.title}>{l.text}</option>)}
         </select>
       </label>

@@ -1,6 +1,6 @@
 {
   "schema": "olumi.view/3",
-  "id": "s_73c215aed5cb",
+  "id": "s_2967c4b4023b",
   "title": "Support capacity",
   "commit": "c0ffee",
   "signature": "[11,null,[[9,\"approved\"]],[[13,true],[14,true]],[],[],[\"1\",\"2\"]]",
@@ -19,7 +19,7 @@
   "version": {
     "id": 11,
     "n": 1,
-    "label": "version 1",
+    "label": "Version 1",
     "changed": []
   },
   "model": {
@@ -384,7 +384,7 @@
         "headline": {
           "aim_id": "capacity_goal",
           "state": "fixed",
-          "text": "'At least 100 a week': never met in this model",
+          "text": "never met in this model",
           "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
           "range": null,
           "why": null,
@@ -484,7 +484,7 @@
         "headline": {
           "aim_id": "capacity_goal",
           "state": "chance",
-          "text": "'At least 100 a week': about 50% chance",
+          "text": "about 50% chance",
           "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
           "range": "under 1% if 'per specialist' is low, over 99% if it is high",
           "why": null,
@@ -595,7 +595,7 @@
     ],
     "run": {
       "aim": "chance of ‘At least 100 a week’",
-      "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
+      "lead": "Chance of ‘At least 100 a week’, in this model on current information",
       "all_withheld": false,
       "most_likely": {
         "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 50%; 'Keep current staffing' never meets it).",
@@ -1269,11 +1269,11 @@
   "draft": {
     "status": "done",
     "reason": null,
-    "at": "2026-11-08T22:48:53.430Z",
+    "at": "2026-11-08T23:21:57.605Z",
     "job": 5,
     "stage": "analysing",
     "words": null,
-    "started": "2026-11-08T22:48:53.238Z"
+    "started": "2026-11-08T23:21:57.384Z"
   },
   "turn": null,
   "reply": null,

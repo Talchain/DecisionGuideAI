@@ -1,5 +1,5 @@
 {
-  "scenario": "s_73c215aed5cb",
+  "scenario": "s_2967c4b4023b",
   "version": 1,
   "heading": "Where your explanations differ",
   "headings": {
@@ -39,11 +39,13 @@
     "heading": "Where you stand on a link",
     "note": "Everyone in this scenario sees what you say here, with your name.",
     "link": "The link",
+    "pick": "Choose a link",
     "doubt": "I doubt this link holds",
     "keep": "I keep the link as the model has it",
     "words": "Why, in your own words",
     "limit": 200,
-    "send": "Say where you stand"
+    "send": "Say where you stand",
+    "yours": "What you have said"
   },
   "empty": "Once two of you have revealed different figures for the same card, they show here side by side, with what each does to the chances.",
   "gated": false,

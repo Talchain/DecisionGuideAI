@@ -79,7 +79,8 @@ describe('Where you stand on a link, after the reveal', () => {
     expect((screen.getByTestId('team-link-stance-words') as HTMLTextAreaElement).maxLength).toBe(w['limit'])
     // The links are core's, each once, and none is picked; neither stance is chosen.
     const options = [...(screen.getByTestId('team-link-stance-link') as HTMLSelectElement).options].map((o) => o.textContent)
-    expect(options).toEqual(['', ...revealed.model!.holdable!.map((h) => h.text)])
+    expect(options).toEqual([w['pick'], ...revealed.model!.holdable!.map((h) => h.text)]) // core's prompt, then core's links
+    expect(form.querySelector('[data-testid="team-link-stance-yours"]')).toBeNull() // nothing said yet
     expect([(screen.getByTestId('team-link-stance-doubt') as HTMLInputElement).checked, (screen.getByTestId('team-link-stance-keep') as HTMLInputElement).checked]).toEqual([false, false])
     const send = screen.getByTestId('team-link-stance-send') as HTMLButtonElement
     expect(send.disabled).toBe(true)
@@ -122,6 +123,17 @@ describe('Where you stand on a link, after the reveal', () => {
     expect(none({ ...revealed, model: { ...revealed.model!, holdable: undefined } } as View, diffRevealed)).toBeNull()
     expect(none(revealed, null)).toBeNull()
     expect(none(revealed, diffRevealed)).not.toBeNull()
+  })
+})
+
+describe('What you have said', () => {
+  it('LS6 once Ada has kept the morale link, the form lists that, in core\'s words and hers, under core\'s heading; never Bea\'s word', () => {
+    differences(diffStances)
+    render(<LinkStance sid={SID} view={stances} onWrote={async () => true} />)
+    const w = (diffStances as unknown as { link_stance: Record<string, string> }).link_stance, yours = screen.getByTestId('team-link-stance-yours')
+    expect(yours.querySelector('p')!.textContent).toBe(w['yours'])
+    expect([...yours.querySelectorAll('li')].map((li) => [li.getAttribute('data-link-said'), [...li.querySelectorAll('span')].map((x) => x.textContent)])).toEqual([['morale_link|', ["'Add one specialist' → 'team morale'", w['keep'], ADA]]])
+    expect(yours.textContent).not.toContain(BEA)
   })
 })
 
