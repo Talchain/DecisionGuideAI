@@ -2,7 +2,8 @@
  * A private view's links and factor (core `POST …/views/:id/doubts`, olumi-core wip/debate): the links offered are the View's own
  * `links[].remove`, sent verbatim with the new view's id; a refusal after the view is saved is said as such, never as the view failing.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -15,8 +16,15 @@ import { draftOf, resetDrafts } from '../team/drafts'
 import { signOutOfOlumi } from '../signout'
 import { deleteMyData } from '../erase'
 import { useMe } from '../me'
+import { challenge, useViewChat, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { useFigureFirst } from '../../olumiView/ViewFigureFirst'
+import { usePreMortemGate, useViewLens } from '../../olumiView/lens'
+import { ViewPreMortemKey } from '../../olumiView/ViewPreMortemKey'
+import { useViewStore } from '../../olumiView/store'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', 'effects.view3.json'), 'utf8'))
+const offer: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/figure-first', 'offer.view3.json'), 'utf8'))
+const entry = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/figure-first', 'entry.json'), 'utf8'))
 const remove = { record: 'total_def', part: 'existing_capacity' }
 const link = { from: 'existing_capacity', to: 'total_capacity', kind: 'plain', label: '', doubt: false, alert: false, proposed: false, title: 't', effect: null, remove }
 const view = (): View => ({ ...fx, proposal: null, model: { ...fx.model!, links: [link, { ...link, from: 'total_capacity', to: 'capacity_goal', remove: null }] } } as unknown as View)
@@ -29,7 +37,14 @@ function serve(status: number, body: unknown): Sent[] {
   }) as unknown as typeof fetch)
   return sent
 }
-afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetDoubts(); resetDifferences(); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => {
+  cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetDoubts(); resetDifferences(); useMe.setState({ me: null, status: 'none' })
+  useViewStore.setState(useViewStore.getInitialState(), true)
+  useViewChat.setState(useViewChat.getInitialState(), true)
+  usePreMortemGate.setState(usePreMortemGate.getInitialState(), true)
+  useFigureFirst.setState(useFigureFirst.getInitialState(), true)
+  useViewLens.setState({ lens: 'full' })
+})
 /** Core has the debate routes: its differences read answered for this scenario. */
 const supported = () => useDifferences.setState({ sid: 's_x', key: 'k', data: { gated: true } as unknown as Differences, error: null })
 
@@ -69,39 +84,95 @@ describe('a private view\'s links and factor', () => {
   it.each([
     { action: 'sign-out', forget: signOutOfOlumi, url: '/api/me/signout', body: {}, reply: { signedOut: true } },
     { action: 'deletion', forget: deleteMyData, url: '/api/me/delete', body: { confirm: 'delete my data' }, reply: { deleted: true } },
-  ])('N2 blocker 1: $action clears Ada\'s private Team, stance and doubt drafts before Bob opens s_x', async ({ forget, url, body, reply }) => {
+  ])('N2 blocker 1: $action clears Ada\'s private Team, chat, pre-mortem and figure-first drafts before Bob opens s_x', async ({ forget, url, body, reply }) => {
+    const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('No live requests in this row'))
     const sent: Sent[] = []
+    const uuid = '00000000-0000-4000-8000-000000000001'
+    const chat = 'Ada alone: question the capacity assumption'
+    const refusal = 'Check the figure before challenging it.'
+    const gate = {
+      state: 'closed' as const, held: false, heading: 'If it failed: your reasons first',
+      gate: "Write your own reasons it could fail first; Olumi's stories show after yours.",
+      question: 'Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.',
+      show: "Show me Olumi's now", after: "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+      held_text: "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+      max_reasons: 5, max_chars: 400, mine: [],
+    }
+    const asPerson = (id: string, name: string): View => ({ ...view(), you_id: id, you: name, chat: [], session: { ...offer.session, pre_mortem: gate } })
+    const show = (v: View) => useViewStore.setState({ uuid, sid: 's_x', view: v, status: 'ready' })
+    const panels = (v: View) => <><ViewsPanel sid="s_x" view={v} onWrote={async () => true} /><ViewChat /><ViewComposer /><ViewPreMortemKey /></>
+    const openEntry = async () => {
+      const button = screen.getByTestId('view-session-menu').querySelector('[data-method="figure_first"]')!
+      expect(button.textContent).toBe('Let us give our figure first')
+      await act(async () => { fireEvent.click(button) })
+      expect(screen.getByTestId('view-figure-first-entry').querySelector('[data-ff="question"]')!.textContent).toBe(entry.question)
+    }
     setTeamFetch((async (input, init) => {
       sent.push({ method: init?.method ?? 'GET', url: String(input), body: init?.body ? JSON.parse(String(init.body)) : undefined })
       if (String(input) === '/api/me') return new Response(JSON.stringify({ me: { id: 'p_ada', name: 'Ada' } }), { status: 200 })
+      if (String(input) === '/api/scenarios/s_x/figure-first' && init?.method === 'GET') return new Response(JSON.stringify(entry), { status: 200 })
+      if (String(input) === '/api/scenarios/s_x/challenge' && init?.method === 'POST') return new Response(JSON.stringify({ error: refusal }), { status: 400 })
       if (String(input) === url && init?.method === 'POST') return new Response(JSON.stringify(reply), { status: 200 })
       throw new Error(`Unexpected request: ${String(input)}`)
     }) as typeof fetch)
     setPagePerson('p_ada')
     useMe.setState({ me: { id: 'p_ada', name: 'Ada' }, status: 'ready' })
     withStances(STANCES)
-    const ada = render(<ViewsPanel sid="s_x" view={{ ...view(), you_id: 'p_ada', you: 'Ada' }} onWrote={async () => true} />)
+    const adaView = asPerson('p_ada', 'Ada')
+    show(adaView)
+    useViewLens.setState({ lens: 'premortem' })
+    const ada = render(panels(adaView))
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'Ada alone: the plan depends on staffing' } })
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'Ada alone: staff absence' } })
     fireEvent.click(screen.getByTestId('team-view-doubt-total_def|existing_capacity'))
     fireEvent.click(screen.getByTestId('team-view-stance-suspect'))
     expect(draftOf('s_x:view')).toBe('Ada alone: the plan depends on staffing')
+    fireEvent.change(screen.getByLabelText('Message Olumi'), { target: { value: chat } })
+    await act(async () => { expect(await challenge('assumption', 'existing_capacity', chat)).toBe(false) })
+    expect(screen.getByTestId('view-chat-said').textContent).toBe(refusal)
+    expect(useViewChat.getState().held).toEqual({ text: chat, kind: 'assumption', record: 'existing_capacity', sid: 's_x', uuid })
+    const opKey = `${uuid}\u0000challenge:assumption:existing_capacity\u0000${chat}`
+    expect([...useViewChat.getState().ops.keys()]).toEqual([opKey])
+    const op = useViewChat.getState().ops.get(opKey)
+    expect(screen.getByTestId('view-premortem-entry').querySelector('[data-view="session.pre_mortem.question"]')!.textContent).toBe(gate.question)
+    fireEvent.change(screen.getByTestId('view-premortem-reasons'), { target: { value: 'Ada alone: the hire never ramps up' } })
+    await openEntry()
+    fireEvent.change(screen.getByTestId('view-figure-first-typed'), { target: { value: '10 to 20' } })
+    fireEvent.change(screen.getByTestId('view-figure-first-text'), { target: { value: 'Ada alone: my private estimate' } })
+    expect({ chat: useViewChat.getState().text, preMortem: usePreMortemGate.getState().text, typed: useFigureFirst.getState().typed, text: useFigureFirst.getState().text })
+      .toEqual({ chat, preMortem: 'Ada alone: the hire never ramps up', typed: '10 to 20', text: 'Ada alone: my private estimate' })
     ada.unmount()
     await act(async () => { await forget() })
     expect(sent).toEqual([
       { method: 'GET', url: '/api/me', body: undefined },
+      { method: 'POST', url: '/api/scenarios/s_x/challenge', body: { kind: 'assumption', record: 'existing_capacity', op } },
+      { method: 'GET', url: '/api/scenarios/s_x/figure-first', body: undefined },
+      { method: 'GET', url: '/api/me', body: undefined },
       { method: 'POST', url, body },
     ])
+    const forgotten = { chat: useViewChat.getState(), preMortem: usePreMortemGate.getState(), figureFirst: useFigureFirst.getState() }
     setPagePerson('p_bob')
     useMe.setState({ me: { id: 'p_bob', name: 'Bob' }, status: 'ready' })
-    render(<ViewsPanel sid="s_x" view={{ ...view(), you_id: 'p_bob', you: 'Bob' }} onWrote={async () => true} />)
+    const bobView = asPerson('p_bob', 'Bob')
+    show(bobView)
+    render(panels(bobView))
+    await openEntry()
     expect({
       stored: draftOf('s_x:view'),
       text: (screen.getByTestId('team-view-text') as HTMLTextAreaElement).value,
       missing: (screen.getByTestId('team-view-missing') as HTMLInputElement).value,
       link: (screen.getByTestId('team-view-doubt-total_def|existing_capacity') as HTMLInputElement).checked,
       stances: STANCES.map(({ id }) => (screen.getByTestId(`team-view-stance-${id}`) as HTMLInputElement).checked),
-    }).toEqual({ stored: undefined, text: '', missing: '', link: false, stances: [false, false] })
+      chat: (screen.getByLabelText('Message Olumi') as HTMLTextAreaElement).value,
+      preMortem: (screen.getByTestId('view-premortem-reasons') as HTMLTextAreaElement).value,
+      figure: (screen.getByTestId('view-figure-first-typed') as HTMLInputElement).value,
+      figureText: (screen.getByTestId('view-figure-first-text') as HTMLTextAreaElement).value,
+      forgotten,
+    }).toEqual({
+      stored: undefined, text: '', missing: '', link: false, stances: [false, false], chat: '', preMortem: '', figure: '', figureText: '',
+      forgotten: { chat: useViewChat.getInitialState(), preMortem: usePreMortemGate.getInitialState(), figureFirst: useFigureFirst.getInitialState() },
+    })
+    expect(network).not.toHaveBeenCalled()
   })
 
   it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', () => {
