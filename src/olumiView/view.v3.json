@@ -2894,6 +2894,9 @@
               ],
               "additionalProperties": false
              }
+            },
+            "chip": {
+             "type": "string"
             }
            },
            "required": [
@@ -2953,6 +2956,20 @@
            "additionalProperties": false
           }
          ]
+        }
+       },
+       "kind": {
+        "type": "string",
+        "enum": [
+         "shared",
+         "unique",
+         "disagreement"
+        ]
+       },
+       "about": {
+        "type": "array",
+        "items": {
+         "type": "string"
         }
        }
       },
@@ -3666,6 +3683,32 @@
      "type": [
       "string",
       "null"
+     ]
+    },
+    "next": {
+     "anyOf": [
+      {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string"
+        },
+        "about": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        }
+       },
+       "required": [
+        "text",
+        "about"
+       ],
+       "additionalProperties": false
+      },
+      {
+       "type": "null"
+      }
      ]
     }
    },
@@ -4597,6 +4640,42 @@
     "pre_mortem"
    ],
    "additionalProperties": false
+  },
+  "draft": {
+   "anyOf": [
+    {
+     "type": "object",
+     "properties": {
+      "status": {
+       "type": "string",
+       "enum": [
+        "drafting",
+        "done",
+        "failed",
+        "lost"
+       ]
+      },
+      "reason": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "at": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "status",
+      "reason",
+      "at"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "null"
+    }
+   ]
   }
  },
  "required": [
