@@ -2,7 +2,7 @@
  * THE ANALYSIS WITHOUT THE WALL (DL 4 Nov, R3, approved shape; core's side follows): each chance finding is at most two sentences in
  * core's `text`, and what it rests on is core's structured `rests_on` plus core's one line `rests_on_text` (standin.ts). Fixture: the
  * bakery View from the wire, with the stand-in fields written in by hand in their approved shape: a what-if on a figure a person sets
- * (repair_chance), an estimate on a record a card's badge folds (extra_sold_per_oven, on `sales`, which offers no edit) and an
+ * (repair_chance), an estimate on a driver figure that is its own card (extra_sold_per_oven; before core a0e144f6 folded into `sales`' badge) and an
  * approximation on a risk (oven_repair), so each kind reaches a card the lens would not otherwise mark.
  */
 import '@testing-library/jest-dom/vitest'
@@ -52,9 +52,11 @@ describe('each option\'s finding, not the wall', () => {
     expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
     expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(0)
   })
-  it('every card a finding rests on is marked on the Rests on lens: a what-if, an estimate folded into a badge, an approximation', () => {
+  it('every card a finding rests on is marked on the Rests on lens: a what-if, an estimate that is its own driver card, an approximation', () => {
     const { items } = restsOnOf(model)
-    for (const id of ['repair_chance', 'sales', 'oven_repair']) expect(items.has(id), id).toBe(true)
+    // core a0e144f6: `extra_sold_per_oven`, the figure the Run names as what moves an option's chance most, is its own card (it was folded into `sales`' badge).
+    for (const id of ['repair_chance', 'extra_sold_per_oven', 'oven_repair']) expect(items.has(id), id).toBe(true)
+    expect(items.has('sales')).toBe(false) // CONTRAST: the card that used to fold it, worked out from others, rests on nothing here
     // CONTRAST: without the stand-in, the risk and the worked-out figure are not on the lens.
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
@@ -95,6 +97,8 @@ describe('each option\'s finding, not the wall', () => {
   })
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container
-    expect(c.querySelectorAll('[data-view-hover], [data-view$=".rows.1.text"]').length).toBe(0)
+    // The stand-in's hovers only: the sharpen card's own `sharpen.N.rationale` hover (a core field the golden carries) is not the wall.
+    expect(c.querySelectorAll('[data-view-hover]:not([data-view-hover^="sharpen."]), [data-view$=".rows.1.text"]').length).toBe(0)
+    expect(c.querySelectorAll('[data-view-hover^="sharpen."]').length).toBeGreaterThan(0) // CONTRAST: the exempted hover is really drawn
   })
 })

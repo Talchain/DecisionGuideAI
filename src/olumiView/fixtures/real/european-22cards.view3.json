@@ -2239,5 +2239,200 @@
  "evidence": [],
  "chat": [],
  "brief": "Should we expand into the European market in the next 6–12 months?",
- "gated": true
+ "gated": true,
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "starting_customers": "Please change “Current customer base”: ",
+   "customer_target": "Please change “Customer target”: ",
+   "horizon": "Please change “Proposed comparison horizon”: ",
+   "entry_delay": "Please change “Expansion start after now”: ",
+   "churn_rate": "Please change “Monthly customer churn”: ",
+   "churn_danger_threshold": "Please change “Churn danger threshold”: ",
+   "percent_conversion": "Please change “Percentage to fraction”: ",
+   "churn_fraction": "Please change “Monthly churn fraction”: ",
+   "existing_market_acquisitions": "Please change “New customers from existing markets”: ",
+   "europe_acquisitions": "Please change “Incremental European customer acquisitions”: ",
+   "broad_entry_acquisitions": "Please change “Broader-entry acquisition what-if”: ",
+   "pilot_acquisitions": "Please change “Single-country test acquisition what-if”: ",
+   "expansion_churn": "Please change “Post-entry churn what-if”: ",
+   "total_acquisitions": "Please change “Total monthly new customers”: ",
+   "customer_losses": "Please change “Monthly customers lost”: ",
+   "customers": "Please change “Customer base”: ",
+   "investment_cap": "Please change “Investment budget ceiling”: ",
+   "expansion_investment": "Please change “Total investment committed to expansion”: ",
+   "broad_entry_investment": "Please change “Broader-entry investment what-if”: ",
+   "pilot_investment": "Please change “Single-country test investment what-if”: ",
+   "profitability": "Please change “Profitability”: ",
+   "convert_churn": "Please change “how Monthly churn fraction is worked out”: ",
+   "add_acquisitions": "Please change “how Total monthly new customers is worked out”: ",
+   "calculate_losses": "Please change “how Monthly customers lost is worked out”: ",
+   "customer_stock": "Please change “how Customer base is worked out”: ",
+   "reach_customer_target": "Please change “Reach 800 customers”: ",
+   "investment_limit": "Please change “Stay within £500k investment budget”: ",
+   "churn_profit_warning": "Please change “Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.”: ",
+   "churn_profit_influence": "Please change “Monthly customer churn → Profitability”: ",
+   "proposed_churn_guardrail": "Please change “Proposed guardrail: churn no higher than 12%”: ",
+   "broader_entry": "Please change “Enter multiple European countries”: ",
+   "single_country_test": "Please change “Test one country before broader commitment”: ",
+   "no_new_european_entry": "Please change “No new European entry during this window”: ",
+   "competition_varies": "Please change “Competition intensity varies; countries should not be treated as interchangeable demand environments.”: ",
+   "regulatory_complexity": "Please change “Multiple complex country regulations are a consideration.”: ",
+   "country_readiness": "Please change “Country readiness”: ",
+   "test_geographic_explanation": "Please change “Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.”: ",
+   "target_interpretation": "Please change “Target interpretation”: ",
+   "entry_interpretation": "Please change “Entry interpretation”: ",
+   "customer_flow_assumptions": "Please change “Customer flow assumptions”: ",
+   "shared_churn_stress": "Please change “Shared churn stress”: ",
+   "profit_gap": "Please change “Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.”: ",
+   "ramp_gap": "Please change “The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.”: ",
+   "validate_acquisition_cost_pairings": "Please change “Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.”: ",
+   "monthly_churn_frequency": "Please change “Monthly churn application frequency”: "
+  }
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 11 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
 }

@@ -19,6 +19,8 @@ const base = golden as unknown as View
 const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {}): View => ({
   ...base, id: SID, you: 'Ada', you_id: 'p_1',
   members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }],
+  // N3: core's lines for these members (olumi-core screen-words.ts teamPresenceOf), "(you)" by `you_id`.
+  team_presence: { title: 'Ada (you), Bea', label: 'Team: Ada (you), Bea', members: [{ id: 'p_1', text: 'Ada (you)' }, { id: 'p_2', text: 'Bea' }] },
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
     shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [], effects: [] }],
@@ -33,7 +35,10 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
     suggested_triggers: [], suggested_triggers_caption: base.collab.suggested_triggers_caption, max_view_figures: base.collab.max_view_figures, view_figures_limit_text: base.collab.view_figures_limit_text, private_view_prompt: null,
     ...over,
   },
-  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null }],
+  evidence: [{ id: 5, at: '2026-11-03T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: 'https://example.org/churn', link: 'https://example.org/churn', concerns: [base.collab.records[0]!.id], stance: 'challenges', version: 1, considered: null,
+    // N3: core's own words for this evidence (olumi-core src/view/screen-words.ts evidenceWordsOf).
+    stance_text: 'Bea: Challenges it', switch_text: 'Bea’s evidence', mark_label: 'Bea · Churn in DACH was 2 in 100.', mark_title: 'Bea · Churn in DACH was 2 in 100. · https://example.org/churn',
+    bears_on_text: `Bears on: ${base.collab.records[0]!.label}` }],
   gated: false, // a member who has given their own view: core holds them no longer
   ...view,
 })
@@ -75,7 +80,9 @@ describe('what the tab shows is the View, word for word', () => {
     const range = { quantity: 'per_specialist', label: 'per specialist', text: '20 to 30 tickets/week/specialist', title: 'Hard bounds: 20 to 30 tickets/week/specialist', unit: 'ticket/week/specialist', version: 1, low: 20, high: 30, range_kind: 'bounds' as const }
     const point = { quantity: 'existing_capacity', label: 'existing capacity', text: '85 tickets/week', title: '85 tickets/week', unit: 'ticket/week', version: 1, value: 85 }
     const t = twoPeople()
-    served = twoPeople({ shared: [{ ...t.collab.shared[0]!, figures: [range] }], mine: [{ ...t.collab.mine[0]!, figures: [point] }, { id: 7, text: 'Words only.', shared: false, skip: false, figures: [], can_share: false }] })
+    // N3: a revealed figure carries core's mark words (no run effect here, so no heading), as core's view3-fields row.
+    const by = t.collab.shared[0]!.by
+    served = twoPeople({ shared: [{ ...t.collab.shared[0]!, figures: [{ ...range, mark_text: `${by}: ${range.text}`, mark_label: `${by} · ${range.label}: ${range.text}` }] }], mine: [{ ...t.collab.mine[0]!, figures: [point] }, { id: 7, text: 'Words only.', shared: false, skip: false, figures: [], can_share: false }] })
     useViewStore.setState({ view: served })
     render(<TeamTab />)
     const fig = screen.getByTestId('team-revealed-3-figure-0')
@@ -87,7 +94,8 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.queryByTestId('team-mine-7-figures')).toBeNull()
   })
   it('"(you)" is core\'s own answer (`you_id`), never a name: two members may share one', () => {
-    useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }] } })
+    useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }],
+      team_presence: { title: 'Ada (you), Ada', label: 'Team: Ada (you), Ada', members: [{ id: 'p_1', text: 'Ada (you)' }, { id: 'p_2', text: 'Ada' }] } } })
     render(<TeamTab />)
     expect(screen.getByTestId('team-member-p_1').textContent).toBe('AAda (you)')
     expect(screen.getByTestId('team-member-p_2').textContent).toBe('AAda')
@@ -124,7 +132,8 @@ describe('every write goes to core\'s own route, and the View is read again afte
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: '  wait a quarter ' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(reread()).toBe(1))
-    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/views`, body: { text: '  wait a quarter ' } })
+    // With core's operation id for a view (API v1.24, olumi-core API.md:1044-1050): a lost answer resends the same op, never a second view.
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/views`, body: { text: '  wait a quarter ', op: expect.any(String) } })
     fireEvent.click(screen.getByTestId('team-view-skip'))
     await waitFor(() => expect(reread()).toBe(2))
     expect(posts()[1]!.body).toEqual({ skip: true })

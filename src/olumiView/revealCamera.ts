@@ -12,6 +12,7 @@ import { evidenceCards } from './evidence'
 import type { View } from './client'
 import { viewLaying } from './canvas'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
+import { chipViewIds } from './layout'
 
 const TICK = 250, MAX_TICKS = 40
 
@@ -23,7 +24,7 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
   const { getViewport, setViewport, getInternalNode } = useReactFlow()
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   const key = useMemo(() => {
-    const ids = revealOf(view)?.marks.filter((m) => m.isChip).map((m) => m.view).join(',') ?? ''
+    const ids = chipViewIds(revealOf(view)?.marks ?? []).join(',')
     return ids === '' ? '' : `${sid}:${ids}`
   }, [view, sid])
   const done = useRef(new Set<string>())
@@ -43,8 +44,8 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       const n = getInternalNode(id)
       if (n === undefined || !n.measured.width || !n.measured.height) return
       const c = chip.getBoundingClientRect()
-      // Settled: the chip has kept its place for one tick (the board's own framing eases for 400 ms).
-      const here = `${Math.round(c.x)},${Math.round(c.y)}`
+      // Settled: the chip has kept its exact place for one tick (the board's own framing eases for 400 ms).
+      const here = `${c.x},${c.y}`
       if (here !== last) { last = here; return }
       finish()
       const vp = getViewport(), { size, inset } = freePane(pane)

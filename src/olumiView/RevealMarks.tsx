@@ -2,15 +2,15 @@
  * V11: the revealed views and the team's evidence drawn on the card they are about (./reveal.ts says where and which). With core's
  * `collab.marks`, each mark is a chip on the card's rail below it, in core's own short words ("Priya and Tom differ", "Only Maya raised it",
  * "Priya and Tom added evidence") with the people's initials; a card with two marks has two chips. Views no chip gathers are initials in the
- * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's: the person's name, their figure's label and
- * text, core's heading for the effect, core's words for the mark.
+ * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's, whole (N3): each mark's hover and name, each
+ * figure's and each piece of evidence's own, never composed here.
  */
 import { FileText, GitFork, Users } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
-import { CARD_WIDTH } from './layout'
+import { CARD_WIDTH, evidenceOffChips } from './layout'
 import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 
@@ -49,14 +49,14 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
   const view = useViewStore((s) => s.view)
   const open = useReveal((s) => s.evidence)
   const chipped = new Set(marksOn(revealOf(view), card).cardChips.flatMap((c) => c.evidence))
-  const items = evidenceOn(view, card).filter((e) => !chipped.has(e.id))
+  const items = evidenceOffChips(evidenceOn(view, card), chipped)
   if (items.length === 0) return null
   return (
     <span className="nodrag inline-flex gap-1" data-testid={`evidence-marks-${card}`}>
       {items.map((e) => {
-        const on = open === e.id, words = `${e.by} · ${e.text}`
+        const on = open === e.id
         return (
-          <button key={e.id} type="button" aria-pressed={on} aria-label={words} title={e.source === null ? words : `${words} · ${e.source}`} data-evidence-mark={e.id}
+          <button key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e.id}
             onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
             className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? 'border-text-header ring-1 ring-text-header' : 'border-panel-border'}`}>
             <FileText aria-hidden="true" className="h-3 w-3" />
@@ -71,18 +71,14 @@ const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 /** The chips' row: wide enough for two chips side by side. */
 const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
 
-/** What a mark says on hover and to a reader: the person, their figure in core's words, core's heading for its effect. */
-function markWords(m: Mark, heading: string | null): string {
-  const fig = m.figure === null ? null : `${m.figure.label}: ${m.figure.text}`
-  return [m.by, fig, heading].filter((x): x is string => x !== null && x !== '').join(' · ')
-}
+/** What a mark says on hover and to a reader, in core's words: the person's figure mark (who, the figure, core's heading for its effect), or,
+ *  for a view placed by its words, the person. */
+const markWords = (m: Mark): string => m.figure?.mark_label ?? m.by
 
 function useMarks(card: string) {
   const view = useViewStore((s) => s.view)
   const selected = useReveal((s) => s.selected)
-  const headings = view?.collab.effect_headings ?? null
-  const heading = (m: Mark) => (headings === null || m.status === null ? null : headings[m.status])
-  return { ...marksOn(revealOf(view), card), view, selected, heading }
+  return { ...marksOn(revealOf(view), card), view, selected }
 }
 
 /** Overlapping initials for the people a chip gathers (a duo reads as one group). */
@@ -96,12 +92,12 @@ function People({ people }: { people: CardChip['people'] }): JSX.Element {
 
 /** The people whose view sits on this card and no chip gathers, as initials in its marks row. */
 export function CardViewInitials({ card }: { card: string }): JSX.Element | null {
-  const { initials, selected, heading } = useMarks(card)
+  const { initials, selected } = useMarks(card)
   if (initials.length === 0) return null
   return (
     <span className="nodrag inline-flex gap-1" data-testid={`reveal-initials-${card}`}>
       {initials.map((m) => {
-        const on = selected === m.view, words = markWords(m, heading(m))
+        const on = selected === m.view, words = markWords(m)
         return (
           <button key={`${m.view}`} type="button" aria-pressed={on} aria-label={words} title={words} data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
@@ -114,9 +110,9 @@ export function CardViewInitials({ card }: { card: string }): JSX.Element | null
   )
 }
 
-/** Core's marks on this card's rail, just below it, out of flow, so no card moves; else the interim per-person chips. */
+/** Core's marks on this card's rail, just below it, out of flow, so no card moves. */
 export function CardViewChips({ card }: { card: string }): JSX.Element | null {
-  const { chips, cardChips, view, heading } = useMarks(card)
+  const { cardChips, view } = useMarks(card)
   const open = useReveal((s) => s)
   const openChip = openChipOf(revealOf(view), open)
   const rail = (children: JSX.Element[]) => (
@@ -128,15 +124,10 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   )
   if (cardChips.length > 0) {
     return rail(cardChips.map((chip, i) => {
-      // Each person's figure, or each piece of evidence in its bringer's words, is the hover beneath core's words for the mark.
-      const detail = chip.kind === 'evidence'
-        ? chip.evidence.flatMap((id) => { const e = view?.evidence.find((x) => x.id === id); return e === undefined ? [] : [`${e.by} · ${e.text}`] })
-        : chips.filter((m) => chip.views.includes(m.view)).map((m) => markWords(m, heading(m)))
-      const hover = [chip.text, ...detail].join('\n')
       // No ring of its own when open: the card's ring is the one selection ring (approved v2.1); the open chip is raised.
       const on = openChip?.key === chip.key
       return (
-        <button key={chip.key} type="button" aria-pressed={on} aria-label={hover.replace(/\n/g, ' · ')} title={hover} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
+        <button key={chip.key} type="button" aria-pressed={on} aria-label={chip.label} title={chip.title} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
           className={`pointer-events-auto inline-flex h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 ${i === 0 ? 'pr-2.5' : 'pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
@@ -149,23 +140,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
       )
     }))
   }
-  if (chips.length === 0) return null
-  // Interim, for a core without `collab.marks`: one chip per person on the card they differ on.
-  return rail(chips.map((m, i) => {
-    const on = open.selected === m.view
-    return (
-      <button key={`${m.view}:${m.figure?.quantity ?? ''}`} type="button" aria-pressed={on} aria-label={m.chip ?? markWords(m, heading(m))} title={m.chip ?? markWords(m, heading(m))}
-        data-reveal-chip={m.view} data-reveal-status={m.status ?? undefined}
-        onClick={(e) => { e.stopPropagation(); openView(m.view) }}
-        className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${i === 0 ? 'flex-none' : 'min-w-0'} ${on ? 'border-text-header ring-1 ring-text-header' : 'border-text-header'}`}>
-        <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">{initial(m.by)}</span>
-        <GitFork aria-hidden="true" className="h-3 w-3 flex-none text-text-body" />
-        {/* On the board, who and their figure, in core's words; core's sentence for a changed leader (`chip`) is the hover and the label for
-            readers, and leads the dock (it runs to two lines and more, too long for a marker on a link). */}
-        <span className="truncate">{m.figure === null ? m.by : `${m.by}: ${m.figure.text}`}</span>
-      </button>
-    )
-  }))
+  return null
 }
 
 /**

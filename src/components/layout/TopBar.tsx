@@ -9,7 +9,7 @@ import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioR
 import { VersionsTrigger } from '../../canvas/versions/VersionsTrigger'
 import { DecisionBriefTrigger } from '../../canvas/decisionBrief/DecisionBriefTrigger'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
-import { ViewBriefTrigger } from '../../olumiView/ViewBrief'
+import { ViewSummaryTrigger } from '../../olumiView/ViewSummary'
 import { TeamPresence } from '../../olumiView/TeamPresence'
 import { StrategyOverviewOpener } from '../../olumiView/strategy/overview/StrategyOverviewOpener'
 import { ownerPanelHash } from '../../collab/panelRoute'
@@ -455,11 +455,9 @@ export const TopBar = ({
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
-        {/* On the olumi-core lane the Summary is the View's own (question, Run lines, each option's rows), not the adapter's saved model. */}
+        {/* On the olumi-core lane the Summary is core's (src/olumiView/ViewSummary.tsx): one saved version, to read, download or print. */}
         {coreLaneShowsSurface('summary') && (isOlumiCoreLane() ? (
-          <Tooltip content="Summary: the question, the latest Run and each option's chances">
-            <ViewBriefTrigger className={styles.iconButton} />
-          </Tooltip>
+          <ViewSummaryTrigger className={styles.iconButton} tooltip="Summary: the question, each option's chance, assumptions, evidence and commitments, to read, download or print" />
         ) : (
           <Tooltip content="Summary: the saved model and its latest Run, to print or share">
             <DecisionBriefTrigger className={styles.iconButton} />

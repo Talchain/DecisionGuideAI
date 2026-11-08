@@ -3,8 +3,8 @@
  * but the latest approved model as it stands, one dashed strip above it says which, in words already said on this lane, with the way
  * back beside them. One state at a time, in this order:
  *   1. a proposal held: core's heading and the version it is on (`proposal.heading`, `.on`), the pair HeldProposalLine draws;
- *   2. an approved version looked at (`at`): the composer's own sentence, "Version n is on the canvas, as it was.", and its act, Back to
- *      the latest (`look(null)`). The number is `at`, the version the person chose, as the composer and the Team tab read it;
+ *   2. an approved version looked at (`at`): nothing yet. Core sends no sentence for that state, and this tab composes none (Codex on
+ *      PR0, DL 7 Nov); the composer keeps its own way back. The state is still read, so a past version is never said to be a what-if;
  *   3. a what-if shown on this version, by the one gate the what-if box draws by (`useWhatIfOn`): the box's own label, "What-if, not
  *      saved", and its own act, Clear, which drops it (nothing was saved, so nothing is undone). The box under it then draws no label of
  *      its own, so the state is said once.
@@ -23,9 +23,7 @@ import { TYPE } from '../port/type'
 import { action } from '../../components/results/analysisNew/panelSurfaces'
 
 /** The strip's own words, each already said on this lane: the composer's way back (ViewChat.tsx), the what-if box's label and act. */
-export const STATE_WORDS = { latest: 'Back to the latest', whatIf: 'What-if, not saved', clear: 'Clear' } as const
-/** The composer's sentence for an approved version looked at (ViewChat.tsx, TeamTab.tsx), the number the person chose. */
-export const pastLine = (n: number): string => `Version ${n} is on the canvas, as it was.`
+export const STATE_WORDS = { whatIf: 'What-if, not saved', clear: 'Clear' } as const
 
 const STRIP = `${TYPE.meta} flex min-h-[36px] items-center gap-2 rounded-lg border-[1.5px] border-dashed px-3 py-1 text-text-header`
 
@@ -37,21 +35,14 @@ export function useTabState(model: ViewModel | null): TabState {
   return proposal !== null ? 'proposal' : at !== null ? 'past' : whatIf !== null ? 'whatif' : null
 }
 
-/** The strip for the state the block read (`useTabState`), so the strip and the what-if box below it act on one answer. */
+/** The strip for the state the block read (`useTabState`), so the strip and the what-if box below it act on one answer. A past version
+ * draws nothing until core sends that state's sentence. */
 export function StateStrip({ state }: { state: TabState }) {
-  const proposal = useViewStore((s) => s.view?.proposal ?? null), at = useViewStore((s) => s.at)
+  const proposal = useViewStore((s) => s.view?.proposal ?? null)
   if (state === 'proposal' && proposal !== null) {
     return (
       <div className={`${STRIP} border-info`} role="status" data-testid="view-reasoning-state" data-state="proposal">
         <p className="m-0 min-w-0" data-testid="view-tabs-held-proposal"><span data-view-proposal="heading">{proposal.heading}</span> <span data-view-proposal="on">{proposal.on}</span></p>
-      </div>
-    )
-  }
-  if (state === 'past' && at !== null) {
-    return (
-      <div className={`${STRIP} border-text-light`} role="status" data-testid="view-reasoning-state" data-state="past">
-        <p className="m-0 min-w-0 flex-1" data-testid="view-reasoning-past">{pastLine(at)}</p>
-        <button type="button" className={`${action('quiet')} shrink-0`} data-testid="view-reasoning-back" onClick={() => void useViewStore.getState().look(null)}>{STATE_WORDS.latest}</button>
       </div>
     )
   }

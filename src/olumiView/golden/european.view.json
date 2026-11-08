@@ -37,7 +37,9 @@
     "label": "Expand 5 reasoning records",
     "open": false,
     "proposed": false,
-    "change": ""
+    "change": "",
+    "words": "2 figures, 1 claim, 1 link, 1 open question",
+    "icon": "● ❝ ↝"
    }
   },
   "whole": false,
@@ -166,7 +168,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
     },
     "values": null,
     "rests_on": [],
@@ -217,7 +221,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim, 1 link, 1 challenge, 1 open question",
+     "icon": "❝ ↝ !"
     },
     "values": [
      {
@@ -297,7 +303,9 @@
      "label": "Expand 2 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim, 1 open question",
+     "icon": "❝ ○"
     },
     "values": null,
     "rests_on": [],
@@ -305,6 +313,81 @@
      "by": "person",
      "text": "The team’s figure",
      "title": "Theirs: “If it goes beyond 12%, we're in danger of losing money.”"
+    },
+    "failed": []
+   },
+   {
+    "id": "existing_market_acquisitions",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "New customers from existing markets",
+    "typed": false,
+    "detail": "New customers from existing markets · quantity · Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied. · Plausible range: 10 to 160 customers/month",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10 to 160 customers/month",
+     "title": "Plausible range: 10 to 160 customers/month",
+     "edit": {
+      "prompt": "New figure for “New customers from existing markets” (customer/month): one number, or a range like 150 to 400",
+      "ask": "For “New customers from existing markets”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+    },
+    "failed": []
+   },
+   {
+    "id": "customer_flow_assumptions",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Customer flow assumptions",
+    "typed": true,
+    "detail": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets. · assumption · Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects. · Applied in the calculation",
+    "col": 1,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
     },
     "failed": []
    },
@@ -340,7 +423,6 @@
      "records": [
       "percent_conversion",
       "churn_fraction",
-      "existing_market_acquisitions",
       "europe_acquisitions",
       "total_acquisitions",
       "customer_losses",
@@ -350,12 +432,14 @@
       "customer_stock",
       "monthly_churn_frequency"
      ],
-     "text": "● = +11",
-     "title": "quantity: Percentage to fraction\nquantity: Monthly churn fraction\nquantity: New customers from existing markets\nquantity: Incremental European customer acquisitions\nquantity: Total monthly new customers\nquantity: Monthly customers lost\nrelation: how Monthly churn fraction is worked out\nrelation: how Total monthly new customers is worked out\nrelation: how Monthly customers lost is worked out\nrelation: how Customer base is worked out\nquantity: Monthly churn application frequency",
-     "label": "Expand 11 reasoning records",
+     "text": "● = +10",
+     "title": "quantity: Percentage to fraction\nquantity: Monthly churn fraction\nquantity: Incremental European customer acquisitions\nquantity: Total monthly new customers\nquantity: Monthly customers lost\nrelation: how Monthly churn fraction is worked out\nrelation: how Total monthly new customers is worked out\nrelation: how Monthly customers lost is worked out\nrelation: how Customer base is worked out\nquantity: Monthly churn application frequency",
+     "label": "Expand 10 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "6 figures, 4 calculations",
+     "icon": "● ="
     },
     "values": [
      {
@@ -485,7 +569,9 @@
      "label": "Expand 2 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 challenge, 1 open question",
+     "icon": "! ○"
     },
     "values": null,
     "rests_on": [],
@@ -531,40 +617,6 @@
     "failed": []
    },
    {
-    "id": "customer_flow_assumptions",
-    "family": "assumption",
-    "glyph": "◇",
-    "heading": "Customer flow assumptions",
-    "typed": true,
-    "detail": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets. · assumption · Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects. · Applied in the calculation",
-    "col": 3,
-    "h": 112,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": null,
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": "Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
-    "badge": null,
-    "values": null,
-    "rests_on": [],
-    "author": {
-     "by": "olumi",
-     "text": "Proposed by Olumi",
-     "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
-    },
-    "failed": []
-   },
-   {
     "id": "investment_limit",
     "family": "limit",
     "glyph": "□",
@@ -601,7 +653,9 @@
      "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure, 1 claim, 1 open question",
+     "icon": "● ❝ ○"
     },
     "values": null,
     "rests_on": [],
@@ -797,7 +851,9 @@
      "label": "Expand 7 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "3 figures, 2 claims, 2 challenges",
+     "icon": "● ❝ !"
     },
     "values": null,
     "rests_on": [
@@ -1036,7 +1092,9 @@
      "label": "Expand 6 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "3 figures, 2 claims, 1 challenge",
+     "icon": "● ❝ !"
     },
     "values": null,
     "rests_on": [
@@ -1180,7 +1238,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 challenge",
+     "icon": "!"
     },
     "values": null,
     "rests_on": [
@@ -1222,7 +1282,28 @@
     "proposed": false,
     "title": "worked out through Monthly churn fraction, Monthly customers lost · Proposed by Olumi: Percentage conversion for the stock-flow calculation. · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "convert_churn",
+     "calculate_losses",
+     "customer_stock"
+    ]
+   },
+   {
+    "from": "existing_market_acquisitions",
+    "to": "customers",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "effect": null,
+    "remove": null,
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ]
    },
    {
     "from": "customers",
@@ -1234,7 +1315,11 @@
     "proposed": false,
     "title": "worked out through Monthly customers lost · Proposed by Olumi: Multiplies the opening customer stock by the monthly churn fraction and its once-per-month application frequency to express customer losses in customer/month. This makes the existing monthly timing convention explicit without changing its numerical meaning. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_losses",
+     "customer_stock"
+    ]
    },
    {
     "from": "starting_customers",
@@ -1246,7 +1331,10 @@
     "proposed": false,
     "title": "starts at · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "customer_stock"
+    ]
    },
    {
     "from": "customers",
@@ -1258,7 +1346,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "customer_target",
@@ -1270,7 +1359,8 @@
     "proposed": false,
     "title": "target",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "investment_cap",
@@ -1282,7 +1372,8 @@
     "proposed": false,
     "title": "bound",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "churn_rate",
@@ -1294,7 +1385,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "churn_danger_threshold",
@@ -1306,7 +1398,8 @@
     "proposed": false,
     "title": "bound",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "broader_entry",
@@ -1318,7 +1411,11 @@
     "proposed": false,
     "title": "worked out through Broader-entry acquisition what-if, Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ]
    },
    {
     "from": "broader_entry",
@@ -1330,7 +1427,8 @@
     "proposed": false,
     "title": "worked out through Post-entry churn what-if",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "broader_entry",
@@ -1342,7 +1440,8 @@
     "proposed": false,
     "title": "worked out through Broader-entry investment what-if, Total investment committed to expansion",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "single_country_test",
@@ -1354,7 +1453,11 @@
     "proposed": false,
     "title": "worked out through Single-country test acquisition what-if, Incremental European customer acquisitions, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "add_acquisitions",
+     "customer_stock"
+    ]
    },
    {
     "from": "single_country_test",
@@ -1366,7 +1469,8 @@
     "proposed": false,
     "title": "worked out through Post-entry churn what-if",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "single_country_test",
@@ -1378,7 +1482,8 @@
     "proposed": false,
     "title": "worked out through Single-country test investment what-if, Total investment committed to expansion",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "country_readiness",
@@ -1390,7 +1495,8 @@
     "proposed": false,
     "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "country_readiness",
@@ -1402,7 +1508,8 @@
     "proposed": false,
     "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "country_readiness",
@@ -1414,7 +1521,8 @@
     "proposed": false,
     "title": "prerequisite: For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "country_readiness",
@@ -1426,7 +1534,8 @@
     "proposed": false,
     "title": "worked out through Total investment committed to expansion",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "target_interpretation",
@@ -1438,7 +1547,8 @@
     "proposed": false,
     "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "target_interpretation",
@@ -1450,7 +1560,8 @@
     "proposed": false,
     "title": "assumption: Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "customer_flow_assumptions",
@@ -1462,19 +1573,21 @@
     "proposed": false,
     "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "customer_flow_assumptions",
-    "to": "customers",
+    "to": "existing_market_acquisitions",
     "kind": "reason",
-    "label": "",
+    "label": "◇",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "worked out through New customers from existing markets, Total monthly new customers · Proposed by Olumi: Arithmetic identity for monthly new customers. · Proposed by Olumi: Next month's customer base equals the opening base plus new customers minus churned customers.",
+    "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "customer_flow_assumptions",
@@ -1486,7 +1599,8 @@
     "proposed": false,
     "title": "assumption: Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "shared_churn_stress",
@@ -1498,7 +1612,8 @@
     "proposed": false,
     "title": "worked out through Post-entry churn what-if",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "shared_churn_stress",
@@ -1510,7 +1625,8 @@
     "proposed": false,
     "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "shared_churn_stress",
@@ -1522,7 +1638,8 @@
     "proposed": false,
     "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "shared_churn_stress",
@@ -1534,7 +1651,8 @@
     "proposed": false,
     "title": "assumption: Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    }
   ],
   "run": {
@@ -2377,5 +2495,200 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "starting_customers": "Please change “Current customer base”: ",
+   "customer_target": "Please change “Customer target”: ",
+   "horizon": "Please change “Proposed comparison horizon”: ",
+   "entry_delay": "Please change “Expansion start after now”: ",
+   "churn_rate": "Please change “Monthly customer churn”: ",
+   "churn_danger_threshold": "Please change “Churn danger threshold”: ",
+   "percent_conversion": "Please change “Percentage to fraction”: ",
+   "churn_fraction": "Please change “Monthly churn fraction”: ",
+   "existing_market_acquisitions": "Please change “New customers from existing markets”: ",
+   "europe_acquisitions": "Please change “Incremental European customer acquisitions”: ",
+   "broad_entry_acquisitions": "Please change “Broader-entry acquisition what-if”: ",
+   "pilot_acquisitions": "Please change “Single-country test acquisition what-if”: ",
+   "expansion_churn": "Please change “Post-entry churn what-if”: ",
+   "total_acquisitions": "Please change “Total monthly new customers”: ",
+   "customer_losses": "Please change “Monthly customers lost”: ",
+   "customers": "Please change “Customer base”: ",
+   "investment_cap": "Please change “Investment budget ceiling”: ",
+   "expansion_investment": "Please change “Total investment committed to expansion”: ",
+   "broad_entry_investment": "Please change “Broader-entry investment what-if”: ",
+   "pilot_investment": "Please change “Single-country test investment what-if”: ",
+   "profitability": "Please change “Profitability”: ",
+   "convert_churn": "Please change “how Monthly churn fraction is worked out”: ",
+   "add_acquisitions": "Please change “how Total monthly new customers is worked out”: ",
+   "calculate_losses": "Please change “how Monthly customers lost is worked out”: ",
+   "customer_stock": "Please change “how Customer base is worked out”: ",
+   "reach_customer_target": "Please change “Reach 800 customers”: ",
+   "investment_limit": "Please change “Stay within £500k investment budget”: ",
+   "churn_profit_warning": "Please change “Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.”: ",
+   "churn_profit_influence": "Please change “Monthly customer churn → Profitability”: ",
+   "proposed_churn_guardrail": "Please change “Proposed guardrail: churn no higher than 12%”: ",
+   "broader_entry": "Please change “Enter multiple European countries”: ",
+   "single_country_test": "Please change “Test one country before broader commitment”: ",
+   "no_new_european_entry": "Please change “No new European entry during this window”: ",
+   "competition_varies": "Please change “Competition intensity varies; countries should not be treated as interchangeable demand environments.”: ",
+   "regulatory_complexity": "Please change “Multiple complex country regulations are a consideration.”: ",
+   "country_readiness": "Please change “For each proposed country, establish the applicable permissions, tax, data, consumer or sector rules and the cost and time needed to satisfy them before selling. Recording this prerequisite does not mean it is met.”: ",
+   "test_geographic_explanation": "Please change “Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.”: ",
+   "target_interpretation": "Please change “Provisionally read 800 as the total active customer base reached at least once within twelve months, not 800 European customers or a requirement to sustain 800 thereafter.”: ",
+   "entry_interpretation": "Please change “Read 6–12 months as the window for starting European sales. Before entry, incremental European acquisitions are zero; after entry, the selected average acquisition rate and churn what-if apply.”: ",
+   "customer_flow_assumptions": "Please change “Churn means customer-count churn applied to the opening monthly customer base. Existing-market acquisition is held unchanged across options. New customers are added at period end, and one blended churn rate covers all markets.”: ",
+   "shared_churn_stress": "Please change “Both expansion designs use the same broad post-entry churn stress range; there is no evidence yet that either design improves or worsens retention. Without entry, the observed 8% is held constant as a scenario assumption.”: ",
+   "profit_gap": "Please change “Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.”: ",
+   "ramp_gap": "Please change “The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.”: ",
+   "validate_acquisition_cost_pairings": "Please change “Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.”: ",
+   "monthly_churn_frequency": "Please change “Monthly churn application frequency”: "
+  }
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 7 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
  }
 }

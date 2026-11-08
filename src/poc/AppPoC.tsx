@@ -12,6 +12,7 @@ import DevRoutesGuard from '../components/auth/DevRoutesGuard'
 import { isE2EEnabled } from '../flags'
 import { coreLaneHasAccounts } from '../olumiCore/lane'
 import { SignedOut } from '../olumiCore/SignedOut'
+import { LaneHome, laneAccountRoutes } from '../olumiCore/accounts/routes'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
@@ -979,6 +980,8 @@ export default function AppPoC() {
                     who their private link says), so `NotOnTheLane` lands each on the canvas. */}
                 {/* The olumi-core lane's Sign out lands here (src/olumiCore/SignedOut.tsx); off the lane it goes home. */}
                 <Route path="/signed-out" element={<SignedOut />} />
+                {/* PoC accounts on the olumi-core lane (src/olumiCore/accounts/): sign in, sign up, join, organisation, account. */}
+                {laneAccountRoutes()}
                 <Route element={<NotOnTheLane />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
@@ -998,8 +1001,9 @@ export default function AppPoC() {
                   <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   {/* The rest need accounts, CEE or the v10 design: not on the olumi-core lane (`NotOnTheLane`). */}
+                  {/* Home: My scenarios on the olumi-core lane (src/olumiCore/accounts/), the scenario list off it. */}
+                  <Route path="/" element={<LaneHome otherwise={<ScenarioListPage />} />} />
                   <Route element={<NotOnTheLane />}>
-                  <Route path="/" element={<ScenarioListPage />} />
                   <Route path="/scenarios" element={<ScenarioListPage />} />
                   <Route path="/scenario/:id/compare" element={<RouteContent><ScenarioComparePage /></RouteContent>} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a

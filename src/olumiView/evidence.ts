@@ -9,7 +9,7 @@
  * today, read here when present; until then the dock draws core's own fields (words, source, concerns, stance, `considered.why`).
  */
 import type { View } from './client'
-import { cardOfQuantity } from './reveal'
+export { evidenceCards, evidenceOn } from './layout'
 
 export type Evidence = View['evidence'][number]
 
@@ -27,17 +27,4 @@ export function chainOf(e: Evidence): readonly ChainStep[] | null {
     return [{ level: y.level as ChainStep['level'], text: y.text, status: typeof y.status === 'string' && y.status !== '' ? y.status : null, card: typeof y.card === 'string' ? y.card : null }]
   })
   return steps.length === 0 ? null : steps
-}
-
-/** The cards a piece of evidence concerns, each once, in core's order; a record the canvas does not draw is left out. */
-export function evidenceCards(view: View, e: Evidence): readonly string[] {
-  const out: string[] = []
-  for (const r of e.concerns) { const c = cardOfQuantity(view, r); if (c !== null && !out.includes(c)) out.push(c) }
-  return out
-}
-
-/** The evidence drawn on one card, in core's order. None for a member core still holds (gated): as with the reveal, nothing of the team's is drawn on the board for them until they have given their own view. */
-export function evidenceOn(view: View | null, card: string): readonly Evidence[] {
-  if (view === null || view.gated || view.model == null) return []
-  return view.evidence.filter((e) => evidenceCards(view, e).includes(card))
 }

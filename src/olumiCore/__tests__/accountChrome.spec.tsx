@@ -57,8 +57,24 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     expect(mark.getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
     expect(mark.textContent).toBe('A')
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
-    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Terms', 'Privacy', 'Sign out', 'Delete my data'])
-    for (const gone of [/Profile settings/, /My scenarios/, /Sign in/, /Delete account/]) expect(screen.queryByText(gone)).toBeNull()
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['My scenarios', 'Organisation', 'Account', 'Terms', 'Privacy', 'Sign out', 'Delete my data'])
+    for (const gone of [/Profile settings/, /Sign in/, /Delete account/]) expect(screen.queryByText(gone)).toBeNull()
+  })
+
+  it.each([['My scenarios', '/'], ['Organisation', '/organisation'], ['Account', '/account']] as const)('PoC accounts: %s goes to its page on the lane (%s)', (label, to) => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
+    render(
+      <MemoryRouter initialEntries={['/canvas']}>
+        <Routes>
+          <Route path="/canvas" element={<UserAvatarMenu size="compact" />} />
+          <Route path={to} element={<div data-testid="landed" data-at={to} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: label }))
+    expect(screen.getByTestId('landed').getAttribute('data-at')).toBe(to)
   })
 
   it('Sign out asks core to sign this browser out, then lands on the signed-out screen with nothing of Ada\'s kept', async () => {
@@ -69,7 +85,7 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     lanePage()
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' })) })
-    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Terms' + 'Privacy')
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Sign in with your email and password' + 'Terms' + 'Privacy')
     expect(screen.queryByTestId('canvas-page')).toBeNull()
     expect(useMe.getState().me).toBeNull()
     expect(useViewStore.getState().sid).toBeNull()

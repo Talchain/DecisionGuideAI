@@ -17,4 +17,5 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
 }
 
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
+/** "Find evidence" (research/FindEvidence.tsx) is not offered in N1: web research returns in N2 once its checks pass review. */
 export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (s.kind === 'node' ? <SelectedRename id={s.id} /> : null)

@@ -3,7 +3,7 @@
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -12,6 +12,7 @@ import { useViewStore } from '../store'
 import { optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
+import { PortAnalysis } from '../port/PortAnalysisTab'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { attCards, ringCards } from '../ring'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -44,7 +45,8 @@ const unbound = (root: HTMLElement, also: string[]) => {
 function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
-  let x: unknown = id === 'run' ? m.run : m.cards.find((c) => c.id === id)
+  // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
+  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -93,6 +95,9 @@ describe('the Reasoning glance: the previous strip\'s rows, counts and canvas co
 })
 
 describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Paul, 6 Nov; C1 4 Nov)', () => {
+  // R24: a figure the options set that feeds another figure and no aim is a driver, glanced with the factors, not the outcomes (layout.isDriver).
+  // Pinned by id: core 6192ad6b's app-launch has one (option_delay sets release_offset, which feeds readiness_margin) and its european one (two options set the editable `churn_rate`, which feeds `customers`); no other golden here does.
+  const DRIVERS: Record<string, string[]> = { 'app-launch.view.json': ['release_offset'], 'european.view.json': ['churn_rate'] }
   for (const golden of ['bakery.view.json', 'european.view.json', 'studio.view.json', 'app-launch.view.json', 'pricing.view.json', 's_ce285b3617bb.view.json']) {
     it(`${golden}: glance, challenges, premises, what would change your mind and outcomes, every string bound to its View path; none of the Analysis tab's option rows`, () => {
       const view = read(golden), m = view.model!
@@ -100,8 +105,9 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       render(<ViewReasoning model={m} brief={view.brief} />)
       const root = screen.getByTestId('view-reasoning')
       openAll(root)
-      // Not the Analysis tab again: no chance row, no driver marker, no sensitivity line, no lead (they are the Analysis tab's).
-      expect(root.querySelector('[data-view-row]')).toBeNull()
+      // Not the Analysis tab again: no driver marker, no sensitivity line, no lead (they are the Analysis tab's). An option's rows are drawn
+      // only in the rack, through the one component the Analysis tab draws them with (DL ruling 1, 7 Nov).
+      expect([...root.querySelectorAll('[data-view-row]')].filter((e) => e.closest('[data-testid="view-reasoning-rack"]') === null)).toEqual([])
       expect(root.querySelector('[data-testid^="view-range-driver-"]')).toBeNull()
       expect(root.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
       expect(root.querySelector('[data-view="run.lead"]')).toBeNull()
@@ -113,7 +119,7 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       expect(root.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
       for (const g of m.cards.filter((c) => c.family === 'goal')) expect(root.querySelector(`[data-testid="view-reasoning-glance"] [data-view="${g.id}.heading"]`), g.id).not.toBeNull()
       const marked = [...root.querySelectorAll<HTMLElement>('[data-glance-card]')]
-      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && through.has(c.id) === o)
+      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && (through.has(c.id) && !(DRIVERS[golden] ?? []).includes(c.id)) === o)
       expect(marked.map((e) => e.dataset['glanceCard'])).toEqual([...m.cards.filter((c) => c.family === 'option'), ...fig(false), ...m.cards.filter((c) => c.family === 'risk'), ...fig(true)].map((c) => c.id))
       for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
       // Challenge Your Thinking: exactly the cards core marks challenged.
@@ -139,7 +145,7 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
     render(<ViewReasoning model={m} brief={view.brief} />)
     const root = screen.getByTestId('view-reasoning')
     openAll(root)
-    const order = [...root.querySelectorAll('section[aria-label]')].map((e) => e.getAttribute('aria-label'))
+    const order = [...root.querySelectorAll('section[aria-label]:not([data-testid="view-reasoning-rack"])')].map((e) => e.getAttribute('aria-label'))
     expect(order.slice(0, 2)).toEqual([REASONING_LABELS.challenge, REASONING_LABELS.premises])
     expect(root.querySelector('[data-reasoning-challenge="a_challenge"] [data-view="a_challenge.reason"]')?.textContent).toBe('Demand may fall first.')
     expect([...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)).toEqual(['A shared premise.', 'A note on the figure.'])
@@ -357,6 +363,34 @@ describe('the glance as an instrument: each mark rings, selects and follows its 
     await act(async () => { await Promise.resolve() })
     expect(lit()).toEqual([target])
   })
+
+  it('pressing a selected card\'s mark lets go of that card only; the rest of a multi-selection stays', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const [a, b] = strip().map((e) => e.dataset['glanceMark']!)
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([a!, b!]), edgeIds: new Set<string>(), anchorPosition: null } } as never) })
+    fireEvent.click(mark(a!))
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([b])
+    fireEvent.click(mark(b!))
+    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
+  })
+
+  it('negative: a card the View no longer draws is not ringed from the mark that was under the pointer', () => {
+    const { rerender } = render(<ViewReasoning model={m} brief={view.brief} />)
+    const gone = strip().map((e) => e.dataset['glanceCard']).find((x): x is string => x !== undefined)!
+    fireEvent.mouseEnter(mark(gone))
+    expect(lit()).toEqual([gone])
+    rerender(<ViewReasoning model={{ ...m, cards: m.cards.filter((c) => c.id !== gone) }} brief={view.brief} />)
+    expect(lit()).not.toContain(gone)
+  })
+
+  it('Esc from a mark also lets go of that mark\'s own ring', () => {
+    render(<ViewReasoning model={m} brief={view.brief} />)
+    const id = strip().map((e) => e.dataset['glanceCard']).find((x): x is string => x !== undefined)!
+    act(() => { mark(id).focus() })
+    expect(lit()).toEqual([id])
+    fireEvent.keyDown(mark(id), { key: 'Escape' })
+    expect(lit()).toEqual([])
+  })
 })
 
 // The redesign's head row (reasoning-redesign-SPEC.md §3 Z1, PR0): one home for the tab's state, above the tab, each state said once in
@@ -380,15 +414,13 @@ describe('the tab says its state once, above it', () => {
     expect(strip.compareDocumentPosition(screen.getByTestId('view-reasoning')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('a past version: the number the person chose (`at`), not the View\'s own, and Back to the latest asks core for the latest', () => {
-    const bakery = read('bakery.view.json'), look = vi.fn(async () => null)
-    expect(bakery.version!.n).not.toBe(3)
-    ready(bakery, { at: 3, look })
-    render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('past')
-    expect(screen.getByTestId('view-reasoning-past').textContent).toBe('Version 3 is on the canvas, as it was.')
-    fireEvent.click(screen.getByTestId('view-reasoning-back'))
-    expect(look.mock.calls).toEqual([[null]])
+  it('negative: a past version draws no strip and no sentence of the tab\'s own (core sends none for that state; DL 7 Nov)', () => {
+    const bakery = read('bakery.view.json')
+    ready(bakery, { at: 3 })
+    const { container } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning')).toBeInTheDocument()
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(container.textContent).not.toMatch(/Version 3|as it was|Back to the latest/)
   })
 
   it('a what-if on this version: said once, in the strip, and Clear there drops it; one asked on another version or scenario is not said', () => {
@@ -493,7 +525,7 @@ describe('each option\'s outcome band', () => {
     return [bar.style.left, bar.style.width, mid.style.left].map((x) => (parseFloat(x).toFixed(2) + '%').replace('.00%', '%'))
   }
   /** The View a core before c838f56 (e16a497) serves: chance rows without `outcome`. */
-  const withoutOutcome = (model: ViewModel) => ({ ...model, cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => { const { outcome: _gone, ...rest } = r as typeof r & { outcome?: unknown }; return rest }) })) }) as unknown as ViewModel
+  const withoutOutcome = (model: ViewModel) => ({ ...model, cards: model.cards.map((c) => ({ ...c, rows: c.rows.map((r) => { const rest: Record<string, unknown> = { ...r }; delete rest['outcome']; return rest }) })) }) as unknown as ViewModel
 
   it('under each chance row, the aim\'s outcome in core\'s own line, its range reading on hover, every option placed on the aim\'s one axis; no card band beside it', () => {
     ready(view)
@@ -695,5 +727,221 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
     render(<ViewReasoning model={short.model!} brief={short.brief} />)
     expect(screen.queryByTestId('view-reasoning-brief')).toBeNull()
     expect(screen.getByTestId('view-reasoning-glance').querySelector('[data-view="brief"]')?.textContent).toBe(short.brief)
+  })
+})
+
+// The option rack (the redesign's Z3; DL ruling 1, 7 Nov): each option's chance through the one readout the served Analysis tab's option
+// row draws it with (port/HeroOptionRow HeroReadout, as PortAnalysisTab mounts AnalysisHeroPanel), in core's order, beside the marks of
+// what it rests on; each option a control into the canvas.
+describe('the option rack: each option\'s chance, through the served Analysis row\'s one readout, beside what it rests on', () => {
+  const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
+  const none = () => ({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } }) as never
+  let focused: string[] = [], unregister: () => void = () => {}
+  const mount = (view: View) => {
+    for (const c of view.model!.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${c.id}"></div>`)
+    ready(view)
+    return render(<ViewReasoning model={view.model!} brief={view.brief} />).container
+  }
+  beforeEach(() => { focused = []; unregister = registerFocusHelpers((id) => { focused.push(id) }, () => {}); useCanvasStore.setState(none()) })
+  afterEach(() => { cleanup(); unregister(); ringCards([]); attCards([]); document.querySelectorAll('.react-flow__node').forEach((e) => e.remove()); useCanvasStore.setState(none()) })
+  const rack = () => screen.getByTestId('view-reasoning-rack')
+  const lit = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']!).sort()
+
+  for (const golden of ['bakery.view.json', 'european.view.json', 'proposal.view.json']) {
+    it(`catch: ${golden}: the options in core's order under core's lens label; each row's readout is the served Analysis row's, the same markup`, () => {
+      const view = read(golden), m = view.model!
+      mount(view)
+      expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(optionCards(m).map((c) => c.id))
+      const li = (m.run!.lenses ?? []).findIndex((l) => l.id === 'goal')
+      if (li >= 0) expect(rack().querySelector(`[data-view="run.lenses.${li}.label"]`)?.textContent).toBe(m.run!.lenses![li]!.label)
+      const readout = (root: Element, at: string) => {
+        const row = root.querySelector(`[data-view-row="${at}"]`)
+        return [row?.querySelector('[data-testid="port-row-mark"]')?.outerHTML, row?.querySelector('[data-testid="port-row-readout"]')?.outerHTML, row?.getAttribute('title')]
+      }
+      const ats = optionCards(m).flatMap((c) => c.rows.map((_, i) => `${c.id}.rows.${i}`))
+      const here = ats.map((at) => readout(rack(), at))
+      cleanup()
+      render(<PortAnalysis model={m} />)
+      const hero = screen.getByTestId('port-analysis-hero')
+      expect(ats.map((at) => readout(hero, at))).toEqual(here)
+      for (const [mark, words, title] of here) expect([mark, words, title]).not.toContain(undefined)
+    })
+  }
+
+  it('catch: bakery: each row is core\'s aim at its path over its readout; a refusal is core\'s words for what it waits on, never 0; no track', () => {
+    const view = read('bakery.view.json'), m = view.model!
+    mount(view)
+    for (const c of optionCards(m)) c.rows.forEach((r, i) => {
+      const at = `${c.id}.rows.${i}`, row = rack().querySelector(`[data-view-row="${at}"]`)!
+      if (r.kind === 'none') {
+        expect([row.querySelector(`[data-view="${at}.aim"]`), row.querySelector(`[data-view="${at}.text"]`)?.textContent], at).toEqual([null, r.text])
+      } else {
+        expect(row.querySelector(`[data-view="${at}.aim"]`)?.textContent, at).toBe(r.aim)
+        expect(row.querySelector(`[data-view="${at}.value"]`)?.textContent, at).toBe(r.value)
+        // Core's own most-likely mark (◉) where core gives one, and nowhere else.
+        const likely = row.querySelector(`[data-view="${at}.likely.glyph"]`)
+        expect(likely === null ? null : [likely.textContent, likely.getAttribute('title')], at).toEqual(r.kind === 'chance' && r.likely != null ? [r.likely.glyph, r.likely.title] : null)
+      }
+    })
+    expect(rack().querySelectorAll('[data-view$=".likely.glyph"]').length).toBeGreaterThan(0)
+    expect(rack().querySelector('[data-testid="port-row-track"], [role="progressbar"]')).toBeNull()
+  })
+
+  it('pressing an option asks the canvas to focus its card; it shows as pressed while selected, and pressing again lets it go; hover rings it', () => {
+    const view = read('bakery.view.json'), o = optionCards(view.model!)[1]!
+    mount(view)
+    const press = rack().querySelector<HTMLButtonElement>(`[data-rack-press="${o.id}"]`)!
+    expect([press.tagName, press.querySelector(`[data-view="${o.id}.heading"]`)?.textContent]).toEqual(['BUTTON', o.heading])
+    fireEvent.click(press)
+    expect(focused).toEqual([o.id])
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([o.id]), edgeIds: new Set<string>(), anchorPosition: null } } as never) })
+    expect(press.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(press)
+    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
+    fireEvent.mouseEnter(press)
+    expect(lit()).toEqual([o.id])
+    fireEvent.mouseLeave(press)
+    expect(lit()).toEqual([])
+  })
+
+  it('catch: european: what each option rests on, one mark per card core names, in core\'s order, core\'s Olumi glyph by its key id; an id no card draws is not drawn', () => {
+    const view = read('european.view.json'), m = view.model!, k = m.key.findIndex((x) => x.id === 'olumi')
+    mount(view)
+    let skipped = 0
+    for (const o of optionCards(m)) {
+      const want = o.rests_on.filter((r) => m.cards.some((c) => c.id === r.id))
+      skipped += o.rests_on.length - want.length
+      const marks = [...rack().querySelectorAll<HTMLElement>(`[data-rack-rests="${o.id}"] [data-rack-rest]`)]
+      expect(marks.map((e) => e.dataset['rackRest']), o.id).toEqual(want.map((r) => r.id))
+      for (const e of marks) {
+        const c = m.cards.find((x) => x.id === e.dataset['rackRest'])!
+        expect([e.dataset['whose'], e.getAttribute('title'), e.getAttribute('aria-label'), e.querySelector(`[data-view="key.${k}.glyph"]`)?.textContent], c.id).toEqual(['olumi', c.heading, `${c.heading}, ${m.key[k]!.text}`, m.key[k]!.glyph])
+      }
+    }
+    expect(skipped).toBeGreaterThan(0)
+  })
+
+  it('hovering what an option rests on rings that card, together with the glance\'s own ring', () => {
+    const view = real('hiring'), m = view.model!, o = optionCards(m)[0]!, rest = o.rests_on[0]!.id
+    mount(view)
+    const glance = document.querySelector<HTMLElement>('[data-glance-card]')!
+    fireEvent.mouseEnter(glance)
+    fireEvent.mouseEnter(rack().querySelector(`[data-rack-rests="${o.id}"] [data-rack-rest="${rest}"]`)!)
+    expect(lit()).toEqual([...new Set([glance.dataset['glanceCard']!, rest])].sort())
+    fireEvent.mouseLeave(glance)
+    expect(lit()).toEqual([rest])
+  })
+
+  it('negative: a person\'s own (theirs) has no Olumi glyph, partly Olumi\'s has core\'s; past 8, the rest is a count', () => {
+    const view = structuredClone(read('european.view.json')), m = view.model!, o = optionCards(m)[0]!
+    const figures = m.cards.filter((c) => c.family !== 'option').slice(0, 10)
+    expect(figures.length).toBe(10)
+    o.rests_on = figures.map((c, i) => ({ id: c.id, whose: i === 0 ? 'theirs' : i === 1 ? 'mixed' : 'olumi' }))
+    mount(view)
+    const marks = [...rack().querySelectorAll<HTMLElement>(`[data-rack-rests="${o.id}"] [data-rack-rest]`)]
+    expect(marks.map((e) => e.dataset['rackRest'])).toEqual(figures.slice(0, 8).map((c) => c.id))
+    const p = m.key.findIndex((x) => x.id === 'partly_olumi')
+    expect([marks[0]!.querySelector('[data-view]'), marks[0]!.getAttribute('aria-label')]).toEqual([null, figures[0]!.heading])
+    expect(marks[1]!.querySelector(`[data-view="key.${p}.glyph"]`)?.textContent).toBe(m.key[p]!.glyph)
+    expect(rack().querySelector(`[data-rack-rests="${o.id}"] [data-rack-rests-more]`)?.textContent).toBe(`+${figures.length - 8}`)
+  })
+
+  it('negative: bakery\'s options rest on nothing core names: no marks, and no empty list', () => {
+    mount(read('bakery.view.json'))
+    expect(rack().querySelector('[data-rack-rests]')).toBeNull()
+  })
+})
+
+// The people strip (the redesign's Z4; DL ruling 2, 7 Nov): read-only, the views core shares with this viewer only, each played in the
+// Team tab's own components with no call; nothing for a viewer core holds back.
+describe('the people strip: the views core shares, read-only, each played in core\'s words', () => {
+  const r5 = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', `${n}.view3.json`), 'utf8'))
+  const strip = () => screen.queryByTestId('view-reasoning-people')
+  const chip = (id: number) => document.querySelector<HTMLButtonElement>(`[data-people-chip="${id}"]`)!
+  afterEach(() => { cleanup(); ringCards([]); attCards([]); document.querySelectorAll('.react-flow__node').forEach((e) => e.remove()) })
+
+  it('catch: r5 effects, on the tab as the dock mounts it: one chip per shared view in core\'s order, its name, a mark per kind of effect in core\'s words', () => {
+    const view = r5('effects'), c = view.collab, h = c.effect_headings!
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(strip()?.getAttribute('aria-label')).toBe(c.heading)
+    expect(strip()!.querySelector('[data-view="collab.heading"]')?.textContent).toBe(c.heading)
+    const shared = c.shared.filter((v) => !v.skip)
+    expect([...strip()!.querySelectorAll<HTMLElement>('[data-people-chip]')].map((e) => [Number(e.dataset['peopleChip']), e.querySelector('[data-people-by]')?.textContent])).toEqual(shared.map((v) => [v.id, v.by]))
+    for (const v of shared) {
+      const want = (['changes', 'moves', 'same'] as const).filter((st) => (v.effects ?? []).some((e) => 'status' in e && e.status === st))
+      expect([...chip(v.id).querySelectorAll<HTMLElement>('[data-people-status]')].map((e) => [e.dataset['peopleStatus'], e.getAttribute('aria-label')]), v.by).toEqual(want.map((st) => [st, h[st]]))
+    }
+    // No colour for a person or a stance (keyboard focus keeps the lane's focus ring, a state of the control, not of the person).
+    expect(strip()!.outerHTML).not.toMatch(/(?<![\w:-])(?:bg|text|border|ring)-(?:info|primary|blue)/)
+    expect(strip()!.outerHTML).toMatch(/focus-visible:ring/)
+  })
+
+  it('pressing a chip plays that view: its figures and each effect in core\'s words, nothing sent; one at a time; pressing again closes it', () => {
+    const view = r5('effects'), c = view.collab, h = c.effect_headings!, [paul, sam] = c.shared
+    const calls: unknown[] = []
+    setTeamFetch((async (...a: unknown[]) => { calls.push(a); throw new Error('no call expected') }) as never)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('view-reasoning-people-open')).toBeNull()
+    fireEvent.click(chip(paul!.id))
+    const open = screen.getByTestId('view-reasoning-people-open')
+    expect(chip(paul!.id).getAttribute('aria-pressed')).toBe('true')
+    expect([...open.querySelectorAll('[data-testid$="-figures"] li')].map((e) => e.textContent)).toEqual(paul!.figures.map((f) => `${f.label}: ${f.text}`))
+    expect([...open.querySelectorAll<HTMLElement>('[data-effect]')].map((e) => e.dataset['effect'])).toEqual(paul!.effects!.map((e) => e.quantity))
+    const changes = paul!.effects!.find((e) => 'status' in e && e.status === 'changes') as { quantity: string; gap_text: string }
+    const row = open.querySelector(`[data-effect="${changes.quantity}"]`)!
+    expect(row.querySelector('[data-effect-status]')?.textContent).toBe(h.changes)
+    expect(row.querySelector('[data-effect-gap]')?.textContent).toBe(changes.gap_text)
+    fireEvent.click(chip(sam!.id))
+    expect(screen.getByTestId('view-reasoning-people-open').dataset['peopleOpen']).toBe(String(sam!.id))
+    expect([...screen.getByTestId('view-reasoning-people-open').querySelectorAll('[data-effect-status]')].map((e) => e.textContent)).toEqual(sam!.effects!.map(() => h.refused))
+    fireEvent.click(chip(sam!.id))
+    expect(screen.queryByTestId('view-reasoning-people-open')).toBeNull()
+    expect(calls).toEqual([])
+  })
+
+  it('where the Team tab\'s "Where you differ" picture would place a figure, the strip still says all of it (no picture is beside it here)', () => {
+    const view = structuredClone(r5('effects')), c = view.collab, h = c.effect_headings!, [paul, sam] = c.shared
+    const run = paul!.effects!.find((e) => 'status' in e) as Extract<NonNullable<typeof paul>['effects'][number], { status: string }>
+    run.leader = 'add_one'
+    sam!.effects = [{ ...run, status: 'moves', leader: 'hold' }] as never
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.click(chip(paul!.id))
+    const row = screen.getByTestId('view-reasoning-people-open').querySelector(`[data-effect="${run.quantity}"]`)!
+    expect(row.querySelector('[data-effect-status]')?.textContent).toBe(h[run.status as 'changes'])
+    expect(row.querySelector('[data-effect-leader] [data-effect-option]')?.textContent).toBe(view.model!.cards.find((k) => k.id === 'add_one')!.heading)
+  })
+
+  it('hovering a chip rings the cards that view\'s figures sit on', () => {
+    const view = r5('effects'), paul = view.collab.shared[0]!
+    for (const k of view.model!.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${k.id}"></div>`)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.mouseEnter(chip(paul.id))
+    const want = paul.effects!.map((e) => e.quantity).filter((q) => view.model!.cards.some((k) => k.id === q)).sort()
+    expect(want.length).toBeGreaterThan(0)
+    expect([...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']).sort()).toEqual(want)
+    fireEvent.mouseLeave(chip(paul.id))
+    expect(document.querySelectorAll('.react-flow__node.v10-lit').length).toBe(0)
+  })
+
+  it('negative: a viewer core holds back (gated) sees no strip; nor does a View in which nobody has shared', () => {
+    ready(r5('effects-gated'))
+    const { unmount } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('view-reasoning')).toBeInTheDocument()
+    expect(strip()).toBeNull()
+    unmount()
+    ready(r5('proposal'))
+    render(<ViewReasoningBlock />)
+    expect(strip()).toBeNull()
+  })
+
+  it('negative: a gated viewer sees no strip even were core to send shared views (core\'s rule, held here too)', () => {
+    const view = structuredClone(r5('effects')); view.gated = true
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(strip()).toBeNull()
   })
 })

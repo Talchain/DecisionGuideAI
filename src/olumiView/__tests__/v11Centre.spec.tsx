@@ -3,13 +3,23 @@
  * instead of shrinking the model. Bound by identity: the card id comes from the REAL fixtures; the camera numbers are the 1232 x 704 board
  * (free canvas 880 x 704 beside the 352 px dock; core's card width, 220).
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
-import { evidenceCards } from '../evidence'
-import { CARD_WIDTH } from '../layout'
-import { openedCardOf, openInViewTarget, OPEN_MIN_ZOOM, revealFocusTarget } from '../revealCamera'
+import * as layout from '../layout'
+import { CARD_WIDTH, evidenceCards } from '../layout'
+import { useViewStore } from '../store'
+import { computeFitPadding } from '../../canvas/utils/computeFitPadding'
+import { openedCardOf, openInViewTarget, OPEN_MIN_ZOOM, revealFocusTarget, useRevealInView } from '../revealCamera'
+
+const camera = vi.hoisted(() => ({
+  getViewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: vi.fn(), getInternalNode: (_id: string): unknown => undefined,
+}))
+vi.mock('@xyflow/react', async (original) => ({ ...await original<typeof import('@xyflow/react')>(), useReactFlow: () => camera }))
+vi.mock('../canvas', () => ({ viewLaying: () => false }))
+afterEach(() => { cleanup(); document.body.replaceChildren(); vi.useRealTimers(); camera.setViewport.mockClear() })
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', f), 'utf8'))
 const evidenceView = load('consulting-evidence.view3.json')
@@ -97,4 +107,40 @@ describe('a reveal centres the contested card and its chips (ruling D; design ow
     const to = revealFocusTarget({ card, chipH: 32, pane, viewport })!
     expect(revealFocusTarget({ card, chipH: 32, pane, viewport: to })).toBeNull()
   })
+})
+
+it('N2 contract, on V11 centring: layout places evidence by identity; the revealed chip waits for its exact position, then its card and chips are centred in the free canvas', () => {
+  const own = evidenceView.evidence[0]!
+  const placed = layout.evidenceOn?.(evidenceView, DIAG)
+  expect.soft(placed?.[0]).toBe(own)
+  expect.soft(placed?.map((e) => [e.id, e.text])).toEqual(evidenceView.evidence.map((e) => [e.id, e.text]))
+  const view = load('consulting-chain.view3.json')
+  const mark = view.collab.marks!.find((m) => m.card === 'diagnostic_time_to_contract' && m.kind === 'disagreement')!
+  expect(mark.text).toBe('Priya and Tom differ')
+  useViewStore.setState({ view, sid: view.id, at: null })
+  const pane = document.createElement('div'), node = document.createElement('div'), rail = document.createElement('div'), chip = document.createElement('button')
+  pane.className = 'react-flow'
+  node.className = 'react-flow__node'; node.dataset.id = mark.card
+  rail.dataset.testid = `reveal-chips-${mark.card}`
+  chip.dataset.revealKind = mark.kind
+  chip.textContent = mark.text
+  rail.append(chip); node.append(rail); pane.append(node); document.body.append(pane)
+  const card = { x: 300, y: 800, w: CARD_WIDTH, h: 96 }
+  camera.getInternalNode = (id: string) => (id === mark.card ? { measured: { width: card.w, height: card.h }, internals: { positionAbsolute: { x: card.x, y: card.y } } } : undefined)
+  let y = 800.1
+  pane.getBoundingClientRect = () => new DOMRect(0, 0, PANE.w, PANE.h)
+  rail.getBoundingClientRect = () => new DOMRect(300, y, CARD_WIDTH, CHIP_H)
+  chip.getBoundingClientRect = () => new DOMRect(300, y, CARD_WIDTH, CHIP_H)
+  vi.useFakeTimers()
+  renderHook(() => useRevealInView({ current: 0 }))
+  act(() => vi.advanceTimersByTime(250))
+  y = 800.2
+  act(() => vi.advanceTimersByTime(250))
+  expect.soft(camera.setViewport.mock.calls).toEqual([])
+  act(() => vi.advanceTimersByTime(250))
+  const pad = computeFitPadding(pane), num = (v: string | number) => (typeof v === 'number' ? v : parseFloat(v) || 0)
+  const inset = { left: num(pad.left), top: num(pad.top), right: num(pad.right), bottom: num(pad.bottom) }
+  const want = revealFocusTarget({ card, chipH: CHIP_H + 4, pane: PANE, inset, viewport: { x: 0, y: 0, zoom: 1 } })
+  expect(want).not.toBeNull()
+  expect(camera.setViewport.mock.calls).toEqual([[want, { duration: 300 }]])
 })

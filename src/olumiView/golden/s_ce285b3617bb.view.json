@@ -103,7 +103,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 open question",
+     "icon": "○"
     },
     "values": null,
     "rests_on": [],
@@ -151,7 +153,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
     },
     "values": null,
     "rests_on": [],
@@ -236,7 +240,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
     },
     "values": null,
     "rests_on": [],
@@ -301,7 +307,9 @@
      "label": "Expand 18 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "10 figures, 3 calculations, 2 claims, 1 challenge, 2 open questions",
+     "icon": "● = ❝"
     },
     "values": [
      {
@@ -389,7 +397,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
     },
     "values": [
      {
@@ -477,7 +487,9 @@
      "label": "Expand 3 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 figure, 2 open questions",
+     "icon": "● ○"
     },
     "values": null,
     "rests_on": [],
@@ -521,7 +533,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 open question",
+     "icon": "○"
     },
     "values": null,
     "rests_on": [],
@@ -614,7 +628,9 @@
      "label": "Expand 5 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 claims, 1 figure, 2 open questions",
+     "icon": "❝ ● ○"
     },
     "values": null,
     "rests_on": [],
@@ -714,7 +730,9 @@
      "label": "Expand 1 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
     },
     "values": null,
     "rests_on": [
@@ -849,7 +867,9 @@
      "label": "Expand 6 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 claims, 1 challenge, 1 open question",
+     "icon": "● ❝ !"
     },
     "values": null,
     "rests_on": [
@@ -1023,7 +1043,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "3 figures, 1 open question",
+     "icon": "● ○"
     },
     "values": null,
     "rests_on": [
@@ -1103,7 +1125,11 @@
     "proposed": false,
     "title": "worked out through Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_operating_spend",
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "horizon",
@@ -1115,7 +1141,11 @@
     "proposed": false,
     "title": "worked out through Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_operating_spend",
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "opening_cash",
@@ -1130,7 +1160,10 @@
     "remove": {
      "record": "calculate_end_cash_margin",
      "part": "opening_cash"
-    }
+    },
+    "records": [
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "net_funding",
@@ -1145,7 +1178,10 @@
     "remove": {
      "record": "calculate_end_cash_margin",
      "part": "net_funding"
-    }
+    },
+    "records": [
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "net_funding",
@@ -1157,7 +1193,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "end_cash_margin",
@@ -1169,7 +1206,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "add_angel_bridge",
@@ -1181,7 +1219,12 @@
     "proposed": false,
     "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_angel_funding",
+     "calculate_net_funding",
+     "calculate_institutional_funding"
+    ]
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1193,7 +1236,12 @@
     "proposed": false,
     "title": "worked out through Qualified angel opportunities under the bridge route, Qualified angel opportunities worked during the funding window, Angel net funding received during the window, Institutional fundraising capacity retained while pursuing angels, Institutional fundraising capacity retained, Institutional net funding received during the window · Proposed by Olumi: Only opportunities converting to cleared cash within the funding window contribute proceeds. · Proposed by Olumi: The two funding routes contribute to the same cash requirement. · Proposed by Olumi: A pipeline-throughput approximation makes the potential displacement of institutional fundraising explicit.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_angel_funding",
+     "calculate_net_funding",
+     "calculate_institutional_funding"
+    ]
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1205,7 +1253,11 @@
     "proposed": false,
     "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_operating_spend",
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "pipeline_approximation",
@@ -1217,7 +1269,8 @@
     "proposed": false,
     "title": "assumption: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "pipeline_approximation",
@@ -1229,7 +1282,8 @@
     "proposed": false,
     "title": "assumption: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "window_accounting",
@@ -1241,7 +1295,8 @@
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "window_accounting",
@@ -1253,7 +1308,8 @@
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "window_accounting",
@@ -1265,7 +1321,8 @@
     "proposed": false,
     "title": "assumption: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "deferral_feasibility",
@@ -1277,7 +1334,8 @@
     "proposed": false,
     "title": "assumption: Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "deferral_feasibility",
@@ -1289,7 +1347,11 @@
     "proposed": false,
     "title": "worked out through Operating burn retained after temporary spend deferral, Operating burn retained, Net operating cash consumed during the window · Proposed by Olumi: A window-total cash calculation, not a monthly cash-flow forecast. · Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_operating_spend",
+     "calculate_end_cash_margin"
+    ]
    },
    {
     "from": "deferral_feasibility",
@@ -1301,7 +1363,8 @@
     "proposed": false,
     "title": "assumption: Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1313,7 +1376,8 @@
     "proposed": false,
     "title": "prerequisite: Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1325,7 +1389,8 @@
     "proposed": false,
     "title": "prerequisite: Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1337,7 +1402,10 @@
     "proposed": false,
     "title": "worked out through Institutional net funding received during the window · Proposed by Olumi: The two funding routes contribute to the same cash requirement.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "calculate_net_funding"
+    ]
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1349,7 +1417,8 @@
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1361,7 +1430,8 @@
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1373,7 +1443,8 @@
     "proposed": false,
     "title": "assumption: Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    }
   ],
   "run": {
@@ -2106,5 +2177,201 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "horizon": "Please change “Funding window”: ",
+   "target_firm_deal_size": "Please change “Deal size of investment firms being targeted”: ",
+   "current_focus": "Please change “The current search focuses mainly on UK investment firms. Cold email and attempts to find warm connections will continue.”: ",
+   "cash_urgency": "Please change “Cash is expected to run out soon. Cash on hand and approximate monthly spending have now been supplied; the exact cash-out date remains unresolved.”: ",
+   "opening_cash": "Please change “Available unrestricted cash”: ",
+   "monthly_burn": "Please change “Monthly net operating cash burn before new funding”: ",
+   "institutional_opportunities": "Please change “Qualified institutional opportunities worked during the funding window”: ",
+   "institutional_cash_conversion": "Please change “Institutional opportunity share reaching cash receipt within the window”: ",
+   "institutional_net_cheque": "Please change “Net cash per funded institutional opportunity”: ",
+   "institutional_capacity": "Please change “Institutional fundraising capacity retained”: ",
+   "bridge_capacity_retained": "Please change “Institutional fundraising capacity retained while pursuing angels”: ",
+   "angel_opportunities": "Please change “Qualified angel opportunities worked during the funding window”: ",
+   "bridge_angel_opportunities": "Please change “Qualified angel opportunities under the bridge route”: ",
+   "angel_cash_conversion": "Please change “Angel opportunity share reaching cash receipt within the window”: ",
+   "angel_cheque": "Please change “Gross cash per funded angel opportunity”: ",
+   "angel_proceeds_retained": "Please change “Angel proceeds retained after transaction cash costs”: ",
+   "burn_retained": "Please change “Operating burn retained”: ",
+   "deferred_spend_burn_retained": "Please change “Operating burn retained after temporary spend deferral”: ",
+   "institutional_funding": "Please change “Institutional net funding received during the window”: ",
+   "calculate_institutional_funding": "Please change “how Institutional net funding received during the window is worked out”: ",
+   "angel_net_funding": "Please change “Angel net funding received during the window”: ",
+   "calculate_angel_funding": "Please change “how Angel net funding received during the window is worked out”: ",
+   "net_funding": "Please change “Total net funding received during the window”: ",
+   "calculate_net_funding": "Please change “how Total net funding received during the window is worked out”: ",
+   "window_operating_spend": "Please change “Net operating cash consumed during the window”: ",
+   "calculate_operating_spend": "Please change “how Net operating cash consumed during the window is worked out”: ",
+   "end_cash_margin": "Please change “Cash surplus or shortfall at the funding window's end”: ",
+   "calculate_end_cash_margin": "Please change “how Cash surplus or shortfall at the funding window's end is worked out”: ",
+   "zero_cash": "Please change “Cash break-even boundary”: ",
+   "secure_funding": "Please change “Secure funding within the funding window”: ",
+   "cash_survival": "Please change “Buy more operating time”: ",
+   "continue_outreach": "Please change “Continue institutional cold email and warm introductions”: ",
+   "add_angel_bridge": "Please change “Pursue an angel bridge alongside institutional outreach”: ",
+   "bridge_and_spend_deferral": "Please change “Combine an angel bridge with temporary spend deferral”: ",
+   "angel_speed_hypothesis": "Please change “Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements.”: ",
+   "overhead_tradeoff": "Please change “The value of an angel bridge depends on whether the extra operating time justifies its overhead.”: ",
+   "pipeline_approximation": "Please change “Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success.”: ",
+   "window_accounting": "Please change “Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date.”: ",
+   "deferral_feasibility": "Please change “Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window.”: ",
+   "test_speed_bottleneck": "Please change “Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.”: ",
+   "bridge_terms_compatibility": "Please change “Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.”: ",
+   "receipt_timing_gap": "Please change “A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out.”: ",
+   "funding_adequacy": "Please change “The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer.”: ",
+   "bridge_overhead_gap": "Please change “The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.”: ",
+   "probability_gap": "Please change “Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal.”: ",
+   "reported_cash_and_spend_basis": "Please change “Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.”: "
+  }
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 6 to check or set"
+ },
+ "team_presence": {
+  "title": "DL journey test (you)",
+  "label": "Team: DL journey test (you)",
+  "members": [
+   {
+    "id": "5",
+    "text": "DL journey test (you)"
+   }
+  ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
  }
 }

@@ -14,7 +14,7 @@ import { ArrowUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
-import { LENS_COPY, LENS_ICON } from '../canvas/artefacts/lenses'
+import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { askMethod, giveReasons, showOlumisNow, useViewChat } from './ViewChat'
@@ -48,20 +48,21 @@ export function writeMine(): void {
 export function ViewPreMortemKey(): JSX.Element | null {
   const on = useViewLens((s) => s.lens === 'premortem')
   const model = useViewStore((s) => s.view?.model ?? null)
+  const label = useViewStore((s) => s.view?.lens_words.label.premortem ?? null) // core's (N3)
   const offered = useViewStore((s) => s.view?.session?.methods.some((m) => m.id === MOVE) ?? false)
   const mine = useMineWritten(), stories = useFailureStories()
   const typed = useViewChat((s) => s.text.trimStart().startsWith(WRITE_MINE_DRAFT.trimEnd()))
   const gate = useViewStore((s) => s.view?.session?.pre_mortem ?? null)
   const entry = gate !== null && gate.state === 'closed' ? gate : null
-  if (!on || model === null) return null
+  if (!on || model === null || label === null) return null
   const Icon = LENS_ICON.premortem
   return (
-    <section aria-label={LENS_COPY.label.premortem} data-testid="view-premortem-key" data-mine={mine ? '' : undefined}
+    <section aria-label={label} data-testid="view-premortem-key" data-mine={mine ? '' : undefined}
       className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
       style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, width: 'min(420px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
       <header className="flex items-center gap-2 px-4 pb-2 pt-3">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? LENS_COPY.label.premortem : entry.heading}</h2>
+        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? label : entry.heading}</h2>
         <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
           className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
           <X aria-hidden="true" className="h-4 w-4" />

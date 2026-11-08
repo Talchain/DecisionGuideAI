@@ -513,13 +513,13 @@ export type OutlineGroupId = 'goal' | 'options' | 'factors' | 'outcomes-risks' |
 /**
  * The Model tab's outline narrowed to a filter's words (case aside): each group's cards by their heading, the question by its words, each
  * link by its two ends' words; `ids`, the groups the outline draws (every group with a card, the question's always, Relationships when there
- * is a link), whatever the filter. An empty filter narrows nothing.
+ * is a link, and Factors where the first figure is added), whatever the filter. An empty filter narrows nothing.
  */
 export function modelOutlineOf(model: ViewModel, filter: string) {
   const needle = filter.trim().toLowerCase(), matches = (words: string) => needle === '' || words.toLowerCase().includes(needle)
   const groups = modelGroupsOf(model).map((g) => ({ ...g, rows: g.cards.filter((c) => matches(c.heading)), question: g.id === 'goal' && matches(model.question.text) }))
   const links = model.links.map((l, i) => ({ l, i, from: linkEndHeading(model, l.from), to: linkEndHeading(model, l.to) })).filter((x) => matches(`${x.from} ${x.to}`))
-  const ids: OutlineGroupId[] = [...groups.filter((g) => g.cards.length > 0 || g.id === 'goal').map((g) => g.id), ...(model.links.length === 0 ? [] : ['relationships' as const])]
+  const ids: OutlineGroupId[] = [...groups.filter((g) => g.cards.length > 0 || g.id === 'goal' || g.id === 'factors').map((g) => g.id), ...(model.links.length === 0 ? [] : ['relationships' as const])]
   return { searching: needle !== '', groups, links, ids }
 }
 /** The canvas kinds among a group's cards that Outcomes & risks marks (outcome, risk), each once, in the cards' order. */
@@ -682,15 +682,73 @@ export function restingRingOf(cards: readonly string[], inFocus: readonly string
   return cards.filter((id) => !inFocus.includes(id))
 }
 
-/**
- * The aims whose one shared reason covers this option (core's `run.shared_blockers`, by aim id and option id, never by its words). Core
- * says that reason once for every option it covers, and the panel draws it once (ViewChances `SharedBlockers`); the card and the panel's option row leave
- * the row to it, and the card shows its title until a figure exists (V11, the boards Paul approved on 7 Nov). Core still sends each covered card its short
- * row, so a canvas that does not read the field keeps saying something. Fails closed: a core before the field covers nothing.
- */
-export function sharedAimsOf(run: ViewRun | null | undefined, option: string): readonly string[] {
-  return (run?.shared_blockers ?? []).filter((b) => b.options.includes(option)).map((b) => b.aim_id)
+/** The card a figure's quantity is drawn on: its own card, else the card whose badge holds that record; null when the canvas has neither. */
+export function cardOfQuantity(view: View, quantity: string): string | null {
+  const cards = view.model?.cards ?? []
+  if (cards.some((c) => c.id === quantity)) return quantity
+  return cards.find((c) => c.badge?.records.includes(quantity) === true)?.id ?? null
 }
-/** This row is an option's short row for an aim whose shared reason the panel says once (`sharedAimsOf`): draw no repeat of it. */
-export const saidOnce = (run: ViewRun | null | undefined, option: string, row: ViewRow): boolean =>
-  row.kind === 'none' && row.aim_id !== null && sharedAimsOf(run, option).includes(row.aim_id)
+
+/** The cards a piece of evidence concerns, each once, in core's order; a record the canvas does not draw is left out. */
+export function evidenceCards(view: View, e: View['evidence'][number]): readonly string[] {
+  const out: string[] = []
+  for (const r of e.concerns) { const c = cardOfQuantity(view, r); if (c !== null && !out.includes(c)) out.push(c) }
+  return out
+}
+
+/** The evidence drawn on one card, in core's order. None for a member core still holds (gated): as with the reveal, nothing of the team's is drawn on the board for them until they have given their own view. */
+export function evidenceOn(view: View | null, card: string): readonly View['evidence'][number][] {
+  if (view === null || view.gated || view.model == null) return []
+  return view.evidence.filter((e) => evidenceCards(view, e).includes(card))
+}
+
+/** Revealed chip identities for camera placement, in the View's order. */
+export const chipViewIds = (marks: readonly { readonly isChip: boolean; readonly view: number }[]): number[] =>
+  marks.filter((m) => m.isChip).map((m) => m.view)
+
+// ── N3 (strategy screen): the picks the reveal, the docks and the header make, here in the one module allowed to pick ─────────────────
+type RevealMarkPick = { readonly view: number; readonly by_id: string; readonly card: string; readonly isChip: boolean }
+
+/** The revealed views to draw: every shared view but a skip, in core's order. */
+export function revealedViews(view: View): View['collab']['shared'] {
+  return view.collab.shared.filter((v) => !v.skip)
+}
+
+/** The marks on one card: its chips, and its initials (each person once, among the views no chip there gathers). */
+export function marksOnCard<M extends RevealMarkPick>(marks: readonly M[], card: string): { readonly chips: readonly M[]; readonly initials: readonly M[] } {
+  const here = marks.filter((m) => m.card === card)
+  const chips = here.filter((m) => m.isChip)
+  const chipped = new Set(chips.map((m) => m.view))
+  const eligible = here.filter((m) => !m.isChip && !chipped.has(m.view))
+  return { chips, initials: eligible.filter((m, i) => eligible.findIndex((x) => x.by_id === m.by_id) === i) }
+}
+
+/** The other views on an open chip's card, each once, in core's order: the ones that chip does not gather. */
+export function otherViewsOn(marks: readonly RevealMarkPick[], card: string, gathered: readonly number[]): number[] {
+  return [...new Set(marks.filter((m) => m.card === card && !gathered.includes(m.view)).map((m) => m.view))]
+}
+
+/** The views among `lead` core ran a figure of (any effect). */
+export function withEffects<V>(lead: readonly V[], effects: (v: V) => readonly unknown[]): V[] {
+  return lead.filter((v) => effects(v).length > 0)
+}
+
+/** The evidence on a card that no chip there already gathers. */
+export function evidenceOffChips<E extends { readonly id: number }>(items: readonly E[], chipped: ReadonlySet<number>): E[] {
+  return items.filter((e) => !chipped.has(e.id))
+}
+
+/** Core's chain split into its observation lines and the steps after them, each in core's order. */
+export function chainParts<S extends { readonly level: string }>(steps: readonly S[]): { readonly seen: readonly S[]; readonly rest: readonly S[] } {
+  return { seen: steps.filter((st) => st.level === 'observation'), rest: steps.filter((st) => st.level !== 'observation') }
+}
+
+/** The members other than the viewer, in core's order. */
+export function othersOf(view: View): View['members'] {
+  return view.members.filter((m) => m.id !== view.you_id)
+}
+
+/** Every item of a list but one, in its order. */
+export function allBut<T>(list: readonly T[], x: T): T[] {
+  return list.filter((y) => y !== x)
+}

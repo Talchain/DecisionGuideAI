@@ -10,12 +10,14 @@ import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { KIND_GLYPH } from '../../canvas/model-tab-v2/rowPresentation'
 import type { ViewLink, ViewModel } from '../client'
-import { FigureEditor } from './editors'
-import { MODEL_EDIT_WORDS as W } from './editing'
+import { FigureEditor, WithdrawnNote } from './editors'
+import { useModelWords } from './editing'
 import { LinkDetail } from './detail'
 import { useModelTab } from './state'
+import { linkEndPath } from './targets'
 
 export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; link: ViewLink; i: number; row: string; from: string; to: string }) {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const open = useModelTab((s) => s.open === row)
   const editing = useModelTab((s) => (s.editing?.row === row && s.editing.what === 'figure' ? s.editing : null))
@@ -30,9 +32,9 @@ export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; l
         <span className="min-w-0 flex-1">
           <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${row}` : undefined} data-model-select={row} data-model-link-line={row}
             onClick={(e) => { e.stopPropagation(); select() }} className={`block min-h-[24px] w-full cursor-pointer break-words rounded-sm text-left text-text-header ${ACTION_FOCUS}`}>
-            <span>{from}</span>
+            <span data-view={linkEndPath(model, link.from)}>{from}</span>
             <span role="img" aria-label={W.to} className="text-text-light"> → </span>
-            <span>{to}</span>
+            <span data-view={linkEndPath(model, link.to)}>{to}</span>
             {link.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{link.label}</span></span> : null}
           </button>
           {(expert || open) && link.effect != null ? (
@@ -44,9 +46,9 @@ export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; l
           )}
         </span>
       </div>
-      {editing !== null && editingFigure !== null ? (
+      {editing === null ? null : editingFigure !== null ? (
         <div className="pb-2 pl-8 pr-2"><FigureEditor key={editing.quantity} mine={editing} edit={editingFigure} /></div>
-      ) : null}
+      ) : <div className="pb-2 pl-8 pr-2"><WithdrawnNote mine={editing} /></div>}
       {open ? <LinkDetail model={model} link={link} row={row} /> : null}
     </li>
   )

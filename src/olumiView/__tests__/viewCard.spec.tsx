@@ -8,6 +8,7 @@ import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
+import { badgeNamed } from '../Badge'
 
 const DIR = path.resolve('src/olumiView')
 // The real dense boards from the R2 witness store (DL 4 Nov), walked as the goldens are.
@@ -37,10 +38,18 @@ function at(model: ViewModel, p: string): unknown {
 // A chance row's finding (`text`, at most two sentences) and its basis line (`rests_on_text`) (core 550ad5f, the R3 Analysis wall) are
 // the Analysis tab's and the Summary's words (ViewChances, ViewBrief: viewFindings.spec), not the card face's: exempt here, the
 // finding only on a chance row (a 'none' row's `text` is its face line). `rests_on` (row-level: the basis ids) is already exempt.
-const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text'])
+// `author` (core 6192ad6b, `cards[].author: { by, text, title }`): who stated the card's figure. The Model tab draws it (an icon whose name
+// and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card has no slot for it
+// and keeps Olumi's mark alone, so it is exempt from this surface's "every word drawn" set and from nothing else.
+const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
   : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') || (k === 'text' && (x as { kind?: unknown }).kind === 'chance') ? [] : shown(y, `${p}.${k}`))) : []
+
+/** The badge's own button, whichever way core words it (named: icon and words; else its text). */
+const badgeButton = (c: Element, id: string) => c.querySelector(`[data-view="${id}.badge.words"], [data-view="${id}.badge.text"]`)?.closest('button') ?? null
+/** A badge as a core without `icon`/`words` sends it: its count text alone. */
+const plainBadge = <B extends object>(b: B) => { const { icon: _i, words: _w, ...rest } = b as B & { icon?: string; words?: string }; return rest as B }
 
 describe('the canvas card draws the View exactly', () => {
   for (const n of GOLDEN) {
@@ -54,7 +63,11 @@ describe('the canvas card draws the View exactly', () => {
         // run-on sentence (R3 pristine): each option's line is then the drawn string, and the sentence stays the rows' hover (core's title).
         const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
         const want = perOption ? [...shown(fields, card.id).filter((p) => p !== `${card.id}.figure.text`), ...card.values!.map((_, i) => `${card.id}.values.${i}.text`)] : shown(fields, card.id)
-        for (const p of want) expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
+        // A badge core names (its `icon` and `words`, both sent) draws those in place of its count text (Badge.tsx badgeNamed: the count is
+        // said once); `text` stays its name to a reader (core's `label`). Without both, `text` is drawn.
+        const named = card.badge !== null && badgeNamed(card.badge) !== null
+        for (const p of want) if (!(named && p === `${card.id}.badge.text`)) expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
+        if (named) expect(container.querySelector(`[data-view="${card.id}.badge.text"]`), `${card.id}.badge.text said once`).toBeNull()
         if (card.detail !== '') expect(container.querySelector(`[data-view="${card.id}.heading"]`)?.getAttribute('title'), `${card.id}.detail on hover`).toBe(card.detail)
         unmount()
       }
@@ -107,10 +120,10 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     setTeamFetch((async (u: unknown) => { paths.push(decodeURIComponent(String(u))); return new Response(JSON.stringify(view), { status: 200 }) }) as unknown as typeof fetch)
     useViewStore.setState({ uuid: 'u', sid: 's_0123456789ab', view, opened: { open: new Map(), all: false }, status: 'ready', error: null, stale: false })
     const { container, rerender } = render(<ViewCard card={{ ...card, badge: { ...card.badge!, open: false } }} />)
-    fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
+    fireEvent.click(badgeButton(container, card.id)!)
     await waitFor(() => expect(paths.at(-1)).toBe(`/api/scenarios/s_0123456789ab/view?schema=3&open=${JSON.stringify({ [card.id]: card.badge!.records })}`))
     rerender(<ViewCard card={{ ...card, badge: { ...card.badge!, open: true } }} />)
-    fireEvent.click(container.querySelector(`[data-view="${card.id}.badge.text"]`)!)
+    fireEvent.click(badgeButton(container, card.id)!)
     await waitFor(() => expect(paths.at(-1)).toBe('/api/scenarios/s_0123456789ab/view?schema=3'))
     setTeamFetch(null)
   })
@@ -118,11 +131,11 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     const card = golden('european').model!.cards.find((c) => c.badge !== null)!
     const marked = render(<ViewCard card={{ ...card, badge: { ...card.badge!, proposed: true, change: '+ ↻' } }} />).container
     expect(marked.querySelector(`[data-view="${card.id}.badge.change"]`)?.textContent).toBe('+ ↻')
-    expect(marked.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.getAttribute('data-proposed')).toBe('true')
+    expect(badgeButton(marked, card.id)?.getAttribute('data-proposed')).toBe('true')
     marked.remove()
     const plain = render(<ViewCard card={{ ...card, badge: { ...card.badge!, proposed: false, change: '' } }} />).container
     expect(plain.querySelector(`[data-view="${card.id}.badge.change"]`)).toBeNull()
-    expect(plain.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('button')?.hasAttribute('data-proposed')).toBe(false)
+    expect(badgeButton(plain, card.id)?.hasAttribute('data-proposed')).toBe(false)
   })
   it('DL 7 Nov: the face names what is folded in core\'s `words` with core\'s `icon` (glyphs, no count); without both, core\'s `text` alone', () => {
     const card = golden('european').model!.cards.find((c) => c.badge !== null)!
@@ -136,7 +149,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(btn.getAttribute('aria-label')).toBe(card.badge!.label)
     named.remove()
     for (const half of [{ words: '1 open question' }, { icon: '○' }, {}]) {
-      const bare = render(<ViewCard card={{ ...card, badge: { ...card.badge!, ...half } as never }} />).container
+      const bare = render(<ViewCard card={{ ...card, badge: { ...plainBadge(card.badge!), ...half } as never }} />).container
       expect(bare.querySelector(`[data-view="${card.id}.badge.words"]`)).toBeNull()
       expect(bare.querySelector(`[data-view="${card.id}.badge.text"]`)?.textContent).toBe(card.badge!.text)
       bare.remove()
@@ -167,14 +180,15 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
     expect(words.closest('.invisible')).toBeNull()
     expect(words.closest(`[data-badge-at-rest="${card.id}"]`)?.className).toContain('text-[12px]')
     rest.remove()
-    const glyphs = render(<ViewCard card={card} selected={false} />).container
+    const glyphs = render(<ViewCard card={{ ...card, badge: plainBadge(card.badge!) }} selected={false} />).container
     expect(glyphs.querySelector(`[data-view="${card.id}.badge.text"]`)?.closest('[data-at-rest-hidden]')?.classList.contains('invisible')).toBe(true)
   })
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
-  const MORE = /^[^.]+\.(status|reason|bound\..*|premises\..*)$/
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
+  const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {
     it(`${n}: unselected, a card shows only its glyph, heading, marks, figure and rows (an assumption its reason); the rest opens on selection`, () => {
       for (const card of golden(n).model!.cards) {
@@ -183,7 +197,9 @@ describe('the compact face (Paul 4 Nov: the causal graph reads; every word of co
           const p = el.dataset['view']!, hidden = el.closest('[hidden]') !== null
           // An assumption or condition (no figure, no rows) says what it holds in its reason: on the face, whole on hover.
           const says = card.figure === null && card.rows.length === 0 && p === `${card.id}.reason`
-          if (says) expect([hidden, el.getAttribute('title')], `${p} on the face`).toEqual([false, card.reason])
+          if (says) expect([hidden, el.closest('[title]')?.getAttribute('title')], `${p} on the face`).toEqual([false, card.reason]) // whole on hover, on the reason's line (Disclosed)
+          // A proposed addition's change words are its sr-only caption on the face; a changed card's open with its other words (ViewCardNode).
+          else if (p === `${card.id}.change.title`) expect(hidden, `${p} ${card.change!.kind}`).toBe(card.change!.kind === 'changed')
           else if (MORE.test(p)) expect(hidden, `${p} folded`).toBe(true)
           else expect(ON_FACE.test(p) && !hidden, `${p} on the face`).toBe(true)
         }
@@ -203,19 +219,22 @@ describe('the original card\'s look and its named places (DL 4 Nov: an improved 
       expect(slots, card.id).toEqual(expect.arrayContaining(['title-mark', 'marks', 'olumi-badge']))
       expect(slots.includes('driver-badge') && slots.includes('outcome-band'), `${card.id} option places`).toBe(card.family === 'option' && card.rows.length > 0)
       expect(slots.includes('figure-side') && slots.includes('values-band'), `${card.id} figure places`).toBe(card.figure !== null)
-      expect([...c.querySelectorAll('[data-slot]')].every((e) => e.childElementCount === 0 && e.textContent === ''), `${card.id} places are empty`).toBe(true)
+      // V11 card: core's named badge sits at rest as the first signal in the marks band; every other place is empty.
+      const filled = [...c.querySelectorAll<HTMLElement>('[data-slot]')].filter((e) => [...e.children].some((k) => !k.hasAttribute('data-badge-at-rest')) || (e.childElementCount === 0 && e.textContent !== ''))
+      expect(filled.map((e) => e.dataset['slot']), `${card.id} places are empty`).toEqual([])
       expect(c.querySelector('[data-view-card]')!.getAttribute('data-slot-outline')).toBe('next-step')
     }
   })
   it('an option the team committed to says who in the marks row, when on hover (olumi.view/3 `committed`); an option without one says nothing', () => {
     const option = golden('european').model!.cards.find((c) => c.family === 'option')!
-    const c = render(<ViewCard card={{ ...option, committed: { by: 'Bea', at: '2026-11-04T10:00:00Z' } }} />).container
+    // Without its badge (V11 draws core's named badge first in the same marks band), so the row reads the commitment alone.
+    const c = render(<ViewCard card={{ ...option, badge: null, committed: { by: 'Bea', at: '2026-11-04T10:00:00Z' } }} />).container
     const marks = c.querySelector('[data-slot="marks"]')!
     expect(marks.querySelector(`[data-view="${option.id}.committed.by"]`)?.textContent).toBe('Bea')
     expect(marks.textContent).toBe('Committed by: Bea')
     expect(marks.querySelector(`[data-committed="${option.id}"]`)?.getAttribute('title')).toBe('Committed by: Bea · 2026-11-04T10:00:00Z')
     // CONTRAST: core's null draws an empty marks row
-    expect(render(<ViewCard card={{ ...option, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
+    expect(render(<ViewCard card={{ ...option, badge: null, committed: null }} />).container.querySelector('[data-slot="marks"]')!.childElementCount).toBe(0)
   })
   it('the number before the title, as the original numbers its cards', () => {
     const card = model.cards.find((c) => c.family === 'option')!

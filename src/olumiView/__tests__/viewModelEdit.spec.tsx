@@ -6,7 +6,7 @@
  * (fixtures/real/european-22cards.view3.json, edit_base 1), bound by card id.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
@@ -19,8 +19,12 @@ import { useModelNotice } from '../notice'
 import { ASIDE_WORDS } from '../FigureEdit'
 import { ViewModelTab, ViewModelTabBlock } from '../ViewModelTab'
 import { FACTORS_ROW, RELATIONSHIPS_ROW, resetModelTab, useModelTab } from '../model/state'
-import { MODEL_EDIT_WORDS } from '../model/editing'
+import { modelEditNow } from '../model/editing'
+import { forgetThisPerson } from '../../olumiCore/signout'
+import { useWhatIf } from '../whatif'
 import { linkRowOf } from '../model/targets'
+import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { useUIStore } from '../../stores/uiStore'
 
 const SID = 's_0123456789ab'
 const wire: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
@@ -78,6 +82,28 @@ const draw = (v: View = view) => {
   fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
   return c
 }
+
+it('N2 blocker 8: starting_customers label, refusal and draft are model_words by identity', () => {
+  const supplied = structuredClone(wire)
+  // Swap in other exact core strings so a UI constant or a UI-built draft cannot satisfy this row.
+  supplied.model_words.setFigure = wire.model_words.changeFigure
+  supplied.model_words.withdrawnHeld = wire.model_words.withdrawnPast
+  supplied.model_words.askChangeDraft[figure.id] = wire.model_words.askChangeDraft[derived.id]!
+  useViewStore.setState({ view: supplied })
+  const prefill = vi.fn()
+  useGuidanceStore.setState({ _prefillChat: prefill })
+  const c = draw(supplied)
+  fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+  expect.soft(c.querySelector(`[data-model-editor-save="${figure.id}"]`)?.textContent).toBe(supplied.model_words.setFigure)
+  act(() => useViewStore.setState({ view: { ...supplied, model: { ...supplied.model!, edit_base: null }, proposal: {
+    id: 91, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [], changes: [], groups: null, from: null,
+  } } }))
+  expect.soft(c.querySelector(`[data-model-editor-withdrawn="${figure.id}"]`)?.textContent).toBe(supplied.model_words.withdrawnHeld)
+  fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+  fireEvent.click(c.querySelector(`[data-model-ask="change:${figure.id}"]`)!)
+  expect.soft(prefill).toHaveBeenCalledWith(supplied.model_words.askChangeDraft[figure.id])
+  useGuidanceStore.setState({ _prefillChat: null })
+})
 
 describe('a figure is changed where it stands', () => {
   it('catch: a figure core lets the person set carries ✎ (shown on hover, focus and an open row), and a worked-out figure does not', () => {
@@ -308,6 +334,36 @@ describe('whose it is, and another scenario', () => {
 })
 
 describe('adding and taking away', () => {
+  it('N2 blocker 7: empty Factors opens and saves q_first_factor through Add a figure', async () => {
+    // Labelled fixture: an approved model with its goal and options, before anyone has added a factor.
+    const ids = ['reach_customer_target', 'broader_entry', 'single_country_test', 'no_new_european_entry']
+    const empty: View = { ...wire, model: { ...wire.model!, cards: wire.model!.cards.filter((c) => ids.includes(c.id)), links: [] } }
+    useViewStore.setState({ view: empty })
+    const c = render(<ViewModelTabBlock />).container
+    const factors = c.querySelector('[data-model-group-toggle="factors"]')
+    expect(factors).not.toBeNull()
+    expect(factors?.getAttribute('aria-label')).toBe('Factors, 0 elements')
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(factors?.getAttribute('aria-expanded')).toBe('true')
+    const add = c.querySelector('[data-model-group="factors"] [data-model-add-figure="open"]')!
+    expect(add.textContent).toBe('Add a figure')
+    fireEvent.click(add)
+    fireEvent.change(c.querySelector('[data-model-add-figure="name"]')!, { target: { value: 'Sales team' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="typed"]')!, { target: { value: '4 to 6' } })
+    fireEvent.change(c.querySelector('[data-model-add-figure="unit"]')!, { target: { value: 'people' } })
+    const first = { ...figure, id: 'q_first_factor', heading: 'Sales team', figure: { ...figure.figure!, text: '4–6 people' } }
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r_first_factor', record: first.id } }
+    view = { ...empty, version: { ...wire.version!, id: 2, n: 2 }, model: { ...empty.model!, edit_base: 2, cards: [...empty.model!.cards, first] } }
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(c.querySelector(`[data-view="${first.id}.heading"]`)?.textContent).toBe('Sales team'))
+    expect(posts()).toEqual([
+      { method: 'POST', path: `/api/scenarios/${SID}/figures`, body: { base: 1, label: 'Sales team', typed: '4 to 6', unit: 'people', op: expect.any(String) } },
+    ])
+    expect(c.querySelector(`[data-view="${first.id}.figure.text"]`)?.textContent).toBe('4–6 people')
+    expect(c.querySelector('[data-model-group-count="factors"]')?.textContent).toBe('1')
+    expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull()
+  })
+
   it('HIGH: Add a figure sends the name, the figure as typed and the unit on the base it opened on; the form closes once the new View lands', async () => {
     answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
     const c = draw()
@@ -362,7 +418,7 @@ const limit = wire.model!.cards.find((k) => k.id === 'investment_limit')!
 const cap = wire.model!.cards.find((k) => k.id === 'investment_cap')!
 const plainLink = wire.model!.links.findIndex((l) => l.kind === 'plain')
 /** ⚠ LABELLED FIXTURE (as the rows above): one plain line sized by an editable figure and removable in core's { record, part } shape. */
-const useFixture = (): View => {
+const withFixture = (): View => {
   view = { ...wire, model: { ...wire.model!, links: wire.model!.links.map((l, i) => (i === plainLink ? { ...l, effect: { text: '1.5', title: 'x', figure: figure.id }, remove: { record: 'rel_x', part: 'part_y' } } : l)) } }
   useViewStore.setState({ view })
   return view
@@ -422,7 +478,7 @@ describe('the write key is the canvas editor\'s, and it is held while core has t
   })
 
   it('HIGH: Remove link holds `<sid>:remove-link:<record>.<part>` (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     hold()
     const c = draw(v)
@@ -449,7 +505,7 @@ describe('what an editor opened on is what core gets: the base at the press, exa
   })
 
   it('HIGH: Remove link sends the base its ask opened on, as exactly { base, record, part, op } (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = draw(v)
     openLink(c, row)
@@ -477,7 +533,7 @@ describe('what an editor opened on is what core gets: the base at the press, exa
   })
 
   it('HIGH: a link\'s strength sends its sizing figure on the base it opened on, as exactly { base, quantity, typed, op } (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = draw(v)
     openLink(c, row)
@@ -518,7 +574,7 @@ describe('core refuses: its own words in the editor that asked, the typing kept'
   })
 
   it('HIGH: a target, a bound, a strength and a name each say core\'s refusal under their own field, the typing kept', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = draw(v)
     const refused = async (at: string, sel: string, typed: string, words: string, field = `[data-model-editor-input="${at}"]`) => {
@@ -546,7 +602,7 @@ describe('core refuses: its own words in the editor that asked, the typing kept'
   })
 
   it('HIGH: Add a figure and Remove link say core\'s refusal in their own place, the form and the ask kept (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = draw(v)
     answer = { status: 409, body: { error: CORE.stale('add') } }
@@ -579,6 +635,8 @@ describe('the offer withdrawn while an editor is open (Olumi\'s change held mean
     act(() => { useViewStore.setState({ view: heldView(wire) }) })
     expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull() // core offers no edit while it waits
     expect(c.querySelector('[data-testid="view-model-held"]')).not.toBeNull()
+    // Never silently (UI audit of 3f7817bd): the row says why, and that the typing is kept.
+    expect(c.querySelector(`[data-model-editor-kept="${figure.id}"] [role="status"]`)?.textContent).toBe(wire.model_words.withdrawnHeld)
     act(() => { useViewStore.setState({ view: { ...wire, model: { ...wire.model!, edit_base: 2 } } }) }) // set aside: version 2 offered
     expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
     fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
@@ -592,7 +650,7 @@ describe('the offer withdrawn while an editor is open (Olumi\'s change held mean
     fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
     typeIn(c, `[data-model-renamer-input="${figure.id}"]`, 'Customers today')
     act(() => { useViewStore.setState({ view: heldView(wire) }) })
-    expect(c.querySelector(`[data-model-renamer-withdrawn="${figure.id}"]`)?.textContent).toBe(MODEL_EDIT_WORDS.withdrawnHeld)
+    expect(c.querySelector(`[data-model-renamer-withdrawn="${figure.id}"]`)?.textContent).toBe(wire.model_words.withdrawnHeld)
     expect((c.querySelector(`[data-model-renamer-save="${figure.id}"]`) as HTMLButtonElement).disabled).toBe(true)
     expect((c.querySelector(`[data-model-renamer-input="${figure.id}"]`) as HTMLInputElement).value).toBe('Customers today')
     fireEvent.submit(c.querySelector(`[data-model-renamer="${figure.id}"]`)!)
@@ -605,7 +663,7 @@ describe('the offer withdrawn while an editor is open (Olumi\'s change held mean
 })
 
 describe('an editor closes only once the View read after the save shows it', () => {
-  it('HIGH: while the read is on its way the editor stays, saying Saving…, and the old figure stands; it closes once the new one is drawn', async () => {
+  it('HIGH: while the read after a save is on its way, nothing of the stale View is drawn, only "Saving…"; then the new figure, core\'s version, the groups as left', async () => {
     const releaseRead = holdReads()
     view = withFigure(wire, figure.id, '450 to 520')
     const c = render(<ViewModelTabBlock />).container
@@ -613,24 +671,15 @@ describe('an editor closes only once the View read after the save shows it', () 
     openFigure(c, figure.id, '450 to 520')
     fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
     await waitFor(() => expect(viewReads().length).toBe(1))
-    expect(c.querySelector(`[data-model-editor-sending="${figure.id}"]`)?.textContent).toBe('Saving…')
-    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).not.toBeNull()
-    expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe(figure.figure!.text)
+    // The View is stale until this read lands (store.ts modelChanged): none of it is drawn and nothing offers an edit (Codex review-ui 6).
+    expect(c.querySelector('[data-testid="view-model-not-current-why"]')?.textContent).toBe(wire.model_words.saving)
+    expect(c.querySelector(`[data-model-editor="${figure.id}"], [data-view="${figure.id}.figure.text"]`)).toBeNull()
+    expect(useModelTab.getState().editing?.typed).toBe('450 to 520') // the draft is kept, not drawn
     releaseRead()
-    await waitFor(() => expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull())
-    expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe('450 to 520')
+    await waitFor(() => expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe('450 to 520'))
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull()
     expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
-  })
-
-  it('HIGH: a read that fails keeps the editor, says it was saved but not shown, the typing kept, no receipt', async () => {
-    readFails = 1
-    const c = draw()
-    openFigure(c, figure.id, '450')
-    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
-    await waitFor(() => expect(c.querySelector(`[data-model-editor-error="${figure.id}"]`)?.textContent).toBe(MODEL_EDIT_WORDS.savedNotShown))
-    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
-    expect(c.querySelector(`[data-model-saved="${figure.id}"]`)).toBeNull()
-    expect(useModelTab.getState().busy).toBeNull()
+    expect(c.querySelector('[data-model-group="factors"]')?.getAttribute('data-open')).toBe('true') // the tab stayed: its groups as left
   })
 
   it('HIGH: a read a newer one overtook is not a failed one: the editor waits for the newer read, then closes with core\'s version', async () => {
@@ -717,7 +766,7 @@ describe('a save that lands after the page moved to another scenario says nothin
 
 describe('Remove link: what it came to, said where the person was', () => {
   it('HIGH: once the View shows the line gone, its detail closes and the Relationships group says core\'s version (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = render(<ViewModelTabBlock />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
@@ -732,7 +781,7 @@ describe('Remove link: what it came to, said where the person was', () => {
   })
 
   it('catch: a row opened while core had the removal stays open (the removal closes only its own detail)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     hold()
     const c = draw(v)
@@ -763,7 +812,7 @@ describe('Remove link: what it came to, said where the person was', () => {
 
 describe('the minors of the audit', () => {
   it('catch: while core has one write, Save, Add and Remove each send nothing', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     hold()
     const c = draw(v)
@@ -784,7 +833,7 @@ describe('the minors of the audit', () => {
   })
 
   it('catch: in Plain a line\'s strength shows while its row is open, beside its detail\'s Change strength; closed, it does not (labelled fixture)', () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     const c = draw(v)
     expect(useModelTab.getState().expert).toBe(false)
@@ -799,23 +848,29 @@ describe('the minors of the audit', () => {
     useViewStore.setState({ view })
     readFails = 1
     hold()
-    const c = draw(view)
+    const c = render(<ViewModelTabBlock />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
     const confirm = c.querySelector('[data-testid="view-model-held-confirm"]') as HTMLButtonElement
     confirm.focus()
     fireEvent.click(confirm)
     // While core has it: the notice's own words, the pressed control inert but never disabled.
-    await waitFor(() => expect(c.querySelector('[data-testid="view-model-held-sending"]')?.textContent).toBe(MODEL_EDIT_WORDS.settingAside))
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-held-sending"]')?.textContent).toBe(wire.model_words.settingAside))
     expect([confirm.disabled, confirm.getAttribute('aria-disabled')]).toEqual([false, 'true'])
     release()
-    await waitFor(() => expect(c.querySelector('[data-testid="view-model-held-done"]')?.textContent).toBe(ASIDE_WORDS.notShown))
-    const done = c.querySelector('[data-testid="view-model-held-done"]')!
-    expect(done.getAttribute('role')).toBe('alert')
-    await waitFor(() => expect(document.activeElement).toBe(done))
-    const notice = c.querySelector('[data-testid="view-model-held"]')!
-    expect(notice.textContent).not.toContain(MODEL_EDIT_WORDS.heldLead)
-    expect(notice.querySelector('[data-testid="view-model-held-aside"], [data-testid="view-model-held-confirm"]')).toBeNull()
+    // The read failed: the tab draws no View (Codex review-ui 6) and says, in the canvas's words, that core set it aside.
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(ASIDE_WORDS.notShown))
+    const said = c.querySelector('[data-testid="view-model-not-current-unshown"]')!
+    expect(said.getAttribute('role')).toBe('alert')
+    await waitFor(() => expect(document.activeElement).toBe(said)) // focus that was on the pressed control goes to what it says
+    expect(c.textContent).not.toContain(wire.model_words.heldLead)
+    expect(c.querySelector('[data-testid="view-model-held"]')).toBeNull()
     expect(posts().map((p) => p.path)).toEqual(['/api/proposals/9/discard'])
+    // CONTRAST: the next View that lands shows it gone, and the words go with it; nothing is sent again.
+    view = wire
+    await act(async () => { await useViewStore.getState().refresh() })
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current"]')).toBeNull())
+    expect([useModelTab.getState().receipt, c.querySelector('[data-testid="view-model-held"]')]).toEqual([null, null])
+    expect(posts().length).toBe(1)
   })
 
   it('catch: a person who moved on while core had the save keeps their focus where they put it', async () => {
@@ -856,7 +911,7 @@ describe('the review of 9e40765e: what a write says when its form has gone, and 
   })
 
   it('HIGH: Remove link refused after Relationships was closed says core\'s words on the Relationships group (labelled fixture)', async () => {
-    const v = useFixture()
+    const v = withFixture()
     const row = linkRowOf(v.model!, plainLink)
     answer = { status: 409, body: { error: CORE.stale('remove') } }
     hold()
@@ -902,7 +957,473 @@ describe('the review of 9e40765e: what a write says when its form has gone, and 
     fireEvent.click(tryIt)
     await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/whatif`]))
     expect([tryIt.disabled, tryIt.getAttribute('aria-disabled'), document.activeElement === tryIt]).toEqual([false, 'true', true])
+    expect(c.querySelector(`[data-model-editor-trying="${figure.id}"]`)?.textContent).toBe(wire.model_words.trying) // words, not a fade
     release()
     await waitFor(() => expect(tryIt.getAttribute('aria-disabled')).toBeNull())
+    expect(c.querySelector(`[data-model-editor-trying="${figure.id}"]`)).toBeNull()
+  })
+})
+
+describe('the UI audit of 3f7817bd', () => {
+  const classes = (root: Element) => [root, ...root.querySelectorAll('*')].map((e) => e.getAttribute('class') ?? '')
+  /** A dimming class: any opacity below full, on any state (disabled:, read-only:, aria-…), but not the ✎ cue's own show-on-hover (0 / 100). */
+  const dims = (root: Element) => classes(root).filter((k) => /(^|\s)([a-z-]+:)*opacity-(?!0(\s|$)|100(\s|$))\d+/.test(k))
+  /** Olumi's blue in any form a class paints it: its text, a fill or a border, in any state; `primary` is that blue by token (brand.css). */
+  const blue = (root: Element) => [root, ...root.querySelectorAll('*')].filter((e) => /(^|\s)([a-z-]+:)*(text-info|bg-info|bg-primary|border-info|border-primary|text-primary)(\/\d+)?(\s|$)/.test(e.getAttribute('class') ?? ''))
+
+  it('catch: the person\'s own controls are grey; only Olumi\'s hand-offs are blue', () => {
+    useGuidanceStore.setState({ _prefillChat: () => undefined })
+    try {
+      const v = withFixture()
+      const row = linkRowOf(v.model!, plainLink)
+      const c = draw(v)
+      openFigure(c, figure.id, '450') // Set figure, Try without saving, Cancel
+      fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!) // Add, Cancel
+      fireEvent.click(c.querySelector(`[data-model-select="${derived.id}"]`)!) // Change figure, Rename, Show on canvas; Ask Olumi to change this
+      const pressed = (sel: string) => c.querySelector(sel)!
+      const own = ['[data-model-editor-save]', '[data-model-editor-try]', '[data-model-editor-cancel]', '[data-model-add-figure="add"]', '[data-model-add-figure="cancel"]',
+        '[data-model-expert-arm="plain"]', '[data-model-expert-arm="expert"]', `[data-model-detail="${derived.id}"] [data-model-action="rename"]`, `[data-model-detail="${derived.id}"] [data-model-action="canvas"]`]
+      for (const sel of own) expect(blue(pressed(sel)), sel).toEqual([])
+      openLink(c, row)
+      fireEvent.click(c.querySelector(`[data-model-remove-link-open="${row}"]`)!) // Remove, Keep
+      for (const sel of [`[data-model-remove-link-yes="${row}"]`, `[data-model-remove-link-keep="${row}"]`, `[data-model-detail="${row}"] [data-model-action="strength"]`]) expect(blue(pressed(sel)), sel).toEqual([])
+      // Blue is Olumi's only: every blue element is an Ask Olumi hand-off, and every hand-off is blue.
+      const asks = [...c.querySelectorAll('[data-model-ask]')]
+      expect(asks.length).toBeGreaterThan(2)
+      expect(blue(c)).toEqual(asks)
+      for (const a of asks) expect(a.className).toMatch(/(^|\s)text-info(\s|$)/)
+    } finally { useGuidanceStore.setState({ _prefillChat: null }) }
+  })
+
+  it('catch: the held notice\'s own controls are grey too (Set it aside, Set aside, Keep it)', () => {
+    view = heldView(wire)
+    useViewStore.setState({ view })
+    const c = draw(view)
+    expect(c.querySelector('[data-testid="view-model-held-aside"]')!.className).not.toMatch(/text-info/)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    expect(blue(c.querySelector('[data-testid="view-model-held"]')!)).toEqual([])
+  })
+
+  it('catch: nothing dims: a control that cannot act keeps its full weight and a line says why (saving; another change saving; saved, not shown)', async () => {
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
+    hold()
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect(c.querySelector('[data-model-add-figure="sending"]')?.textContent).toBe(wire.model_words.saving)
+    expect(c.querySelector(`[data-model-editor-waiting="${figure.id}"]`)?.textContent).toBe(wire.model_words.savingOther)
+    expect(dims(c)).toEqual([])
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    expect(c.querySelector(`[data-model-editor-waiting="${figure.id}"]`)).toBeNull() // CONTRAST: settled, the line goes
+    readFails = 1
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+    expect(dims(c)).toEqual([])
+  })
+
+  it('catch: a what-if that lands after the page moved scenario raises no Results tab there; on the same scenario it does', async () => {
+    answer = { status: 200, body: { variants: [] } }
+    const was = useUIStore.getState().forceActivateOutputTab
+    const raise = vi.fn()
+    useUIStore.setState({ forceActivateOutputTab: raise } as never)
+    try {
+      hold()
+      let c = draw()
+      openFigure(c, figure.id, '450')
+      fireEvent.click(c.querySelector(`[data-model-editor-try="${figure.id}"]`)!)
+      await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/whatif`]))
+      act(() => { useViewStore.setState({ sid: 's_ffffffffffff' }) })
+      release()
+      await new Promise((r) => setTimeout(r, 50))
+      expect(raise).not.toHaveBeenCalled()
+      cleanup(); resetModelTab(); gate = null
+      act(() => { useViewStore.setState({ sid: SID }) })
+      c = draw()
+      openFigure(c, figure.id, '450')
+      fireEvent.click(c.querySelector(`[data-model-editor-try="${figure.id}"]`)!)
+      await waitFor(() => expect(raise).toHaveBeenCalledWith('results'))
+    } finally { useUIStore.setState({ forceActivateOutputTab: was } as never) }
+  })
+})
+
+// Rename, Add a figure and Remove link each get the figure editor's three rows (UI audit of 3f7817bd): saved but not shown; a read a newer
+// one overtook; the page moved scenario while core had the write.
+type Flow = {
+  name: string
+  answer?: unknown
+  start: (c: HTMLElement) => void
+  press: string
+  error: string
+  /** The control that closes once its write is saved, what of it the tab then holds (nothing), and where core's version is then said. */
+  control: string
+  closed: () => unknown
+  unseen: string
+  done: (c: HTMLElement) => void
+}
+const removeRow = () => linkRowOf(view.model!, plainLink)
+const FLOWS: Flow[] = [
+  {
+    name: 'Rename',
+    start: (c) => {
+      fireEvent.click(c.querySelector(`[data-model-select="${figure.id}"]`)!)
+      fireEvent.click(c.querySelector(`[data-model-detail="${figure.id}"] [data-model-action="rename"]`)!)
+      typeIn(c, `[data-model-renamer-input="${figure.id}"]`, 'Customers today')
+    },
+    press: `[data-model-renamer-save="${figure.id}"]`,
+    error: `[data-model-renamer-error="${figure.id}"]`,
+    control: `[data-model-renamer="${figure.id}"]`,
+    closed: () => useModelTab.getState().editing,
+    unseen: figure.id,
+    done: (c) => {
+      expect(c.querySelector(`[data-model-renamer="${figure.id}"]`)).toBeNull()
+      expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.')
+    },
+  },
+  {
+    name: 'Add a figure',
+    answer: { version: 2, n: 2, receipt: 'r', record: 'q_new' },
+    start: (c) => {
+      fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+      typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+      typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    },
+    press: '[data-model-add-figure="add"]',
+    error: '[data-model-add-figure="error"]',
+    control: '[data-model-add-figure="form"]',
+    closed: () => useModelTab.getState().adding,
+    unseen: FACTORS_ROW,
+    done: (c) => {
+      expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull()
+      expect(useModelTab.getState().receipt).toEqual({ row: 'q_new', words: 'Version 2 saved.', tone: 'saved' }) // on the new card's row
+    },
+  },
+  {
+    name: 'Remove link',
+    start: (c) => {
+      openLink(c, removeRow())
+      fireEvent.click(c.querySelector(`[data-model-remove-link-open="${removeRow()}"]`)!)
+    },
+    press: '[data-model-remove-link-yes]',
+    error: '[data-model-remove-link-error]',
+    control: '[data-model-remove-link-yes]',
+    closed: () => useModelTab.getState().open, // the link's detail: the link is gone
+    unseen: RELATIONSHIPS_ROW,
+    done: (c) => {
+      expect(useModelTab.getState().open).toBeNull()
+      expect(c.querySelector(`[data-model-saved="${RELATIONSHIPS_ROW}"]`)?.textContent).toBe('Version 2 saved.')
+    },
+  },
+]
+
+describe.each(FLOWS)('$name, as the figure editor (UI audit of 3f7817bd)', (f) => {
+  const ready = () => {
+    if (f.answer !== undefined) answer = { status: 201, body: f.answer }
+    withFixture() // the removable line; the other flows do not touch it
+    const c = render(<ViewModelTabBlock />).container // the surface the dock mounts: the View's validity gate on
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    f.start(c)
+    return c
+  }
+
+  it('HIGH: saved but not shown: it closes (nothing of it to send again) and the tab says so; a later View says core\'s version on its row or group', async () => {
+    readFails = 1
+    const c = ready()
+    fireEvent.click(c.querySelector(f.press)!)
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+    expect(document.activeElement).toBe(c.querySelector('[data-testid="view-model-not-current-unshown"]')) // focus had nowhere else to be
+    expect(c.querySelector('[data-view]')).toBeNull() // none of the View it kept
+    expect([f.closed(), useModelTab.getState().busy]).toEqual([null, null])
+    view = { ...view, model: { ...view.model!, edit_base: 2 } } // core's View once the write is in it (the next base is its version)
+    await act(async () => { await useViewStore.getState().refresh() })
+    await waitFor(() => expect(c.querySelector(`[data-model-saved="${f.unseen}"]`)?.textContent).toBe('Version 2 saved.'))
+    expect([c.querySelector(f.control), c.querySelector('[data-testid="view-model-not-current"]')]).toEqual([null, null])
+    expect(posts().length).toBe(1)
+  })
+
+  it('HIGH: a read a newer one overtook is not a failed one: it waits for the newer read, then says core\'s version', async () => {
+    const releaseOurs = holdReads()
+    const c = ready()
+    fireEvent.click(c.querySelector(f.press)!)
+    await waitFor(() => expect(viewReads().length).toBe(1))
+    const releaseNewer = holdReads()
+    void useViewStore.getState().refresh()
+    await waitFor(() => expect(viewReads().length).toBe(2))
+    releaseOurs()
+    await new Promise((r) => setTimeout(r, 200))
+    expect(c.querySelector(f.error)).toBeNull()
+    expect(useModelTab.getState().busy).not.toBeNull() // still with core's read, not settled as failed
+    releaseNewer()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    f.done(c)
+  })
+
+  it('HIGH: the page moved scenario while core had it: no notice, no View read, no receipt, nothing said', async () => {
+    hold()
+    const c = ready()
+    fireEvent.click(c.querySelector(f.press)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ sid: 's_ffffffffffff' }) })
+    release()
+    await waitFor(() => expect(sendingKeys()).toEqual([]))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(useModelNotice.getState().notice).toBeNull()
+    expect(viewReads()).toEqual([])
+    expect(useModelTab.getState().receipt).toBeNull()
+    expect(c.querySelector(`${f.error}, [data-model-failed], [data-model-saved]`)).toBeNull()
+  })
+})
+
+describe('the review of 2f060f5a: an unseen save keeps its words and settles once a read shows it', () => {
+  it('HIGH: a figure saved unseen: the tab says so, and again when the person leaves the Model tab and comes back (the words live with the tab)', async () => {
+    readFails = 1
+    let c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+    cleanup()
+    c = render(<ViewModelTabBlock />).container
+    expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown)
+  })
+
+  it('HIGH: saved but not shown while the tab drew nothing: the failed read and the save are said, nothing of the stale View; a later read settles it', async () => {
+    readFails = 1
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+    const why = c.querySelector('[data-testid="view-model-not-current-why"]')!
+    expect([why.textContent, why.getAttribute('role')]).toEqual(['down', 'alert']) // the failed read, in its own words
+    expect(c.querySelector('[data-view], [data-model-editor]')).toBeNull()
+    expect(useModelTab.getState().editing).toBeNull() // it was saved: its editor closed, nothing to send again
+    expect(useModelTab.getState().busy).toBeNull()
+    view = withFigure(wire, figure.id, '450')
+    await act(async () => { await useViewStore.getState().refresh() })
+    await waitFor(() => expect(c.querySelector(`[data-model-saved="${figure.id}"]`)?.textContent).toBe('Version 2 saved.'))
+    expect(c.querySelector(`[data-view="${figure.id}.figure.text"]`)?.textContent).toBe('450')
+    expect(c.querySelector(`[data-model-editor="${figure.id}"]`)).toBeNull() // the next View draws no editor for it
+    expect(posts().length).toBe(1) // and nothing more is sent
+  })
+
+  it('HIGH: Add a figure saved but not shown while the tab drew nothing: said; a later read settles it on Factors as core\'s version', async () => {
+    answer = { status: 201, body: { version: 2, n: 2, receipt: 'r', record: 'q_new' } }
+    readFails = 1
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    fireEvent.click(c.querySelector('[data-model-add-figure="add"]')!)
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+    view = { ...wire, model: { ...wire.model!, cards: [...wire.model!.cards, { ...figure, id: 'q_new', heading: 'Sales team' }] } } // core's View with the card
+    await act(async () => { await useViewStore.getState().refresh() })
+    await waitFor(() => expect(c.querySelector(`[data-model-saved="${FACTORS_ROW}"]`)?.textContent).toBe('Version 2 saved.'))
+    expect(c.querySelector('[data-model-add-figure="form"]')).toBeNull()
+    expect(c.querySelector('[data-model-row="q_new"]')).not.toBeNull()
+  })
+
+  it('catch: a link\'s strength editor whose offer core withdrew leaves a line on the link\'s row, not silence (labelled fixture)', () => {
+    const v = withFixture()
+    const row = linkRowOf(v.model!, plainLink)
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    openLink(c, row)
+    fireEvent.click(c.querySelector(`[data-model-detail="${row}"] [data-model-action="strength"]`)!)
+    typeIn(c, `[data-model-editor-input="${row}"]`, '2')
+    act(() => { useViewStore.setState({ view: heldView(v) }) })
+    expect(c.querySelector(`[data-model-editor="${row}"]`)).toBeNull()
+    expect(c.querySelector(`[data-model-item="${row}"] [data-model-editor-kept="${row}"] [role="status"]`)?.textContent).toBe(wire.model_words.withdrawnHeld)
+    fireEvent.click(c.querySelector(`[data-model-editor-drop="${row}"]`)!)
+    expect(useModelTab.getState().editing).toBeNull() // Cancel drops the typing
+  })
+})
+
+describe('Codex review-ui blockers 3 and 6 (N2)', () => {
+  it('HIGH (3): forgetting the person leaves nothing of theirs in the Model tab store: no typing, no unseen write\'s View, no receipt, nothing open', () => {
+    const typed = 'my private figure 4,321', named = 'my private card'
+    useModelTab.setState({ sid: SID, open: figure.id, busy: `${SID}:edit:${figure.id}`,
+      receipt: { row: figure.id, words: wire.model_words.savedNotShown, tone: 'failed', unseen: { n: 2, view: wire } },
+      editing: { row: figure.id, what: 'figure', quantity: figure.id, sid: SID, base: 1, typed },
+      adding: { sid: SID, base: 1, label: named, typed: '7', unit: '' } })
+    useWhatIf.setState({ shown: { sid: SID, base: 1, quantity: figure.id, typed, variant: {} as never } }) // tried without saving
+    forgetThisPerson()
+    const s = useModelTab.getState()
+    expect([s.sid, s.open, s.editing, s.adding, s.busy, s.receipt]).toEqual([null, null, null, null, null, null])
+    expect(JSON.stringify(s)).not.toMatch(/my private|you_id|european/i)
+    expect(useWhatIf.getState().shown).toBeNull()
+  })
+
+  it('DL 7 Nov: forgetting the person drops the requests they typed into unconfirmed writes, and their saved notice; a lock stays', () => {
+    const typed = JSON.stringify({ text: 'my private view 4,321' })
+    useWrites.setState({ attempts: { [`${SID}:evidence`]: { op: 'op-1', request: typed } }, locked: { [`${SID}:view`]: true }, sending: {} })
+    useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: 'Priya', sid: SID } })
+    forgetThisPerson()
+    expect(useWrites.getState().attempts).toEqual({})
+    expect(JSON.stringify(useWrites.getState())).not.toMatch(/my private/)
+    expect(useWrites.getState().locked).toEqual({ [`${SID}:view`]: true }) // it may have saved: a reload still says
+    expect(useModelNotice.getState().notice).toBeNull()
+  })
+
+  const block = () => {
+    const c = render(<ViewModelTabBlock />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    return c
+  }
+
+  it('HIGH (6): a stale View: none of its words are drawn and nothing offers an edit; the draft is kept and comes back with the next valid View', () => {
+    const c = block()
+    openFigure(c, figure.id, '450')
+    expect(c.querySelectorAll('[data-view]').length).toBeGreaterThan(20) // CONTRAST: a valid View is drawn
+    act(() => { useViewStore.setState({ stale: true }) })
+    expect(c.querySelectorAll('[data-view]').length).toBe(0)
+    expect(c.querySelector('[data-model-editor], [data-model-value-edit], [data-model-add-figure], [data-model-select]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-model-not-current-why"]')?.textContent).toBe(wire.model_words.reading)
+    expect(modelEditNow().base).toBeNull() // the edit gate offers no base either
+    expect(useModelTab.getState().editing?.typed).toBe('450')
+    act(() => { useViewStore.setState({ stale: false }) })
+    expect((c.querySelector(`[data-model-editor-input="${figure.id}"]`) as HTMLInputElement).value).toBe('450')
+    expect(modelEditNow().base).toBe(1)
+  })
+
+  it('HIGH (6): Add a figure\'s typing is a draft too: kept while a stale View draws no form, and back in the form with the next valid View', () => {
+    const c = block()
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    typeIn(c, '[data-model-add-figure="name"]', 'Sales team')
+    typeIn(c, '[data-model-add-figure="typed"]', '4 to 6')
+    act(() => { useViewStore.setState({ stale: true }) })
+    expect(c.querySelector('[data-model-add-figure]')).toBeNull()
+    act(() => { useViewStore.setState({ stale: false }) })
+    const value = (k: string) => (c.querySelector(`[data-model-add-figure="${k}"]`) as HTMLInputElement | null)?.value
+    expect([value('name'), value('typed'), value('unit')]).toEqual(['Sales team', '4 to 6', ''])
+  })
+
+  it('catch: an editor drawn again once the View is valid takes focus back only from nowhere, never from where the person put it', () => {
+    const c = block()
+    openFigure(c, figure.id, '450')
+    const input = () => c.querySelector(`[data-model-editor-input="${figure.id}"]`)
+    expect(document.activeElement).toBe(input()) // opened from its row: the field takes focus
+    const chat = document.body.appendChild(document.createElement('input')) // the chat's composer, say
+    try {
+      chat.focus()
+      act(() => { useViewStore.setState({ stale: true }) })
+      act(() => { useViewStore.setState({ stale: false }) })
+      expect([document.activeElement === chat, (input() as HTMLInputElement).value]).toEqual([true, '450'])
+      // CONTRAST: focus that had nowhere to go (it was in the field the tab stopped drawing) comes back to it.
+      chat.blur()
+      act(() => { useViewStore.setState({ stale: true }) })
+      act(() => { useViewStore.setState({ stale: false }) })
+      expect(document.activeElement).toBe(input())
+    } finally { chat.remove() }
+  })
+
+  it('catch: what a write came to never takes focus from where the person put it', async () => {
+    readFails = 1
+    hold()
+    const c = block()
+    openFigure(c, figure.id, '450')
+    fireEvent.click(c.querySelector(`[data-model-editor-save="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    const chat = document.body.appendChild(document.createElement('input'))
+    try {
+      chat.focus()
+      release()
+      await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe(wire.model_words.savedNotShown))
+      expect(document.activeElement).toBe(chat)
+    } finally { chat.remove() }
+  })
+
+  it('HIGH: setting Olumi\'s change aside is one write of the tab\'s: drawn again while core has it, the notice says so and sends nothing more', async () => {
+    view = heldView(wire)
+    useViewStore.setState({ view })
+    hold()
+    const c = block()
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-confirm"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ stale: true }) }) // a change elsewhere (the chat): the tab draws no View for a while
+    act(() => { useViewStore.setState({ stale: false }) })
+    expect(c.querySelector('[data-testid="view-model-held-sending"]')?.textContent).toBe(wire.model_words.settingAside)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    expect(c.querySelector('[data-testid="view-model-held-confirm"]')).toBeNull() // inert while core has it
+    release()
+    await waitFor(() => expect(useModelTab.getState().busy).toBeNull())
+    expect(posts().map((p) => p.path)).toEqual(['/api/proposals/9/discard'])
+  })
+
+  it('catch: a set-aside core refuses while the tab draws no View is said there, and on the notice once it is drawn again', async () => {
+    view = heldView(wire)
+    useViewStore.setState({ view })
+    answer = { status: 409, body: { error: 'Olumi\'s change was already decided.' } }
+    hold()
+    const c = block()
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-confirm"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ stale: true }) })
+    release()
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe('Olumi\'s change was already decided.'))
+    act(() => { useViewStore.setState({ stale: false }) })
+    expect(c.querySelector('[data-testid="view-model-held-error"]')?.textContent).toBe('Olumi\'s change was already decided.')
+  })
+
+  it('catch: a set-aside refusal is said only on the change it was about; once the View no longer holds that change, it goes', async () => {
+    view = heldView(wire)
+    useViewStore.setState({ view })
+    answer = { status: 409, body: { error: 'Olumi\'s change was already decided.' } }
+    hold()
+    const c = block()
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-aside"]')!)
+    fireEvent.click(c.querySelector('[data-testid="view-model-held-confirm"]')!)
+    await waitFor(() => expect(posts().length).toBe(1))
+    act(() => { useViewStore.setState({ stale: true }) })
+    release()
+    await waitFor(() => expect(c.querySelector('[data-testid="view-model-not-current-unshown"]')?.textContent).toBe('Olumi\'s change was already decided.'))
+    act(() => { useViewStore.setState({ stale: false, view: wire }) }) // decided elsewhere meanwhile: nothing held now
+    expect(useModelTab.getState().receipt).toBeNull()
+    const next = heldView(wire)
+    act(() => { useViewStore.setState({ view: { ...next, proposal: { ...next.proposal!, id: 10 } } }) }) // Olumi holds another change
+    expect(c.querySelector('[data-testid="view-model-held"]')).not.toBeNull()
+    expect(c.querySelector('[data-testid="view-model-held-error"]')).toBeNull()
+  })
+
+  it('HIGH (3): a Try without saving that lands after the person is forgotten leaves nothing of it', async () => {
+    answer = { status: 200, body: { scenario: SID, version: { id: 1, n: 1 }, hypothetical: true, saved: false,
+      variants: [{ hypothetical: true, edits: [], blocked: null, stopped: null, moved: false, why_not: null, rows: [], most_likely: null }] } }
+    hold()
+    const c = block()
+    openFigure(c, figure.id, '4,321')
+    fireEvent.click(c.querySelector(`[data-model-editor-try="${figure.id}"]`)!)
+    await waitFor(() => expect(posts().map((p) => p.path)).toEqual([`/api/scenarios/${SID}/whatif`]))
+    forgetThisPerson()
+    release()
+    await new Promise((r) => setTimeout(r, 30))
+    expect(useWhatIf.getState().shown).toBeNull()
+    // CONTRAST: on the scenario still on screen, the what-if is kept (drawn over the chances).
+    cleanup(); resetModelTab(); gate = null
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false, at: null })
+    useMe.setState({ me: { id: wire.you_id, name: wire.you }, status: 'ready' })
+    const d = block()
+    openFigure(d, figure.id, '4,321')
+    fireEvent.click(d.querySelector(`[data-model-editor-try="${figure.id}"]`)!)
+    await waitFor(() => expect(useWhatIf.getState().shown?.typed).toBe('4,321'))
+  })
+
+  it('HIGH (6): a failed read: none of the View it kept is drawn, nothing offers an edit, and the failure is said in the read\'s words', () => {
+    const c = block()
+    openFigure(c, figure.id, '450')
+    act(() => { useViewStore.setState({ error: 'Olumi could not read this scenario just now.' }) })
+    expect(c.querySelectorAll('[data-view]').length).toBe(0)
+    expect(c.querySelector('[data-model-editor], [data-model-value-edit], [data-model-select]')).toBeNull()
+    const why = c.querySelector('[data-testid="view-model-not-current-why"]')!
+    expect([why.textContent, why.getAttribute('role')]).toEqual(['Olumi could not read this scenario just now.', 'alert'])
+    expect(modelEditNow().base).toBeNull()
+    expect(useModelTab.getState().editing?.typed).toBe('450')
   })
 })

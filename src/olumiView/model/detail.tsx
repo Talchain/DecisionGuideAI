@@ -3,9 +3,9 @@
  * progressive disclosure"). The crafted tab's detail region (legacy `ModelDetailRegion.tsx`), in its order and rendered only where it has
  * something to say: what the person can do here, whose it is, what it is linked to, then (Expert) the science behind its figure.
  *
- * Every model word is core's, drawn verbatim under its View path; headings and buttons are UI chrome (`MODEL_EDIT_WORDS`).
+ * Every model word is core's, drawn verbatim under its View path; headings and buttons are core’s `model_words`.
  */
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, FileText, LocateFixed, Pencil, Type, User } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -16,12 +16,12 @@ import { writes } from '../client'
 import { useViewStore } from '../store'
 import { linkEndHeading } from '../layout'
 import { authorAnyOf } from './author'
-import { MODEL_EDIT_WORDS as W, openEditor, readAfter, useModelEdit } from './editing'
+import { useModelWords, openEditor, readAfter, useModelEdit } from './editing'
 import { ASIDE_WORDS } from '../FigureEdit'
-import { focusIsWith, RECIPE } from './editors'
-import { useModelTab } from './state'
-import { linksOf, strengthCardOf, targetCardOf } from './targets'
-import { AskOlumi, RemoveLink } from './structure'
+import { RECIPE } from './editors'
+import { HELD_PREFIX, heldRow, useModelTab } from './state'
+import { linkEndPath, linksOf, strengthCardOf, targetCardOf } from './targets'
+import { AskOlumi, RemoveLink, useMounted } from './structure'
 
 const SECTION = `${typography.viewPanelMeta} m-0 mb-1 text-text-light`
 const ICON = 'h-3.5 w-3.5 flex-none'
@@ -30,11 +30,12 @@ function Section({ title, children, at }: { title: string; children: ReactNode; 
   return <section aria-label={title} data-model-detail-section={at}><h4 className={SECTION}>{title}</h4>{children}</section>
 }
 
-/** A detail action, as the crafted tab's group actions were: a quiet text action with its icon, never a boxed chip. */
-function Action({ icon, label, onPress, at }: { icon: ReactNode; label: string; onPress: () => void; at: string }) {
+/** A detail action, as the crafted tab's group actions were: a quiet text action with its icon, never a boxed chip. A label that is a
+ *  model word (a link end's heading) carries its View path. */
+function Action({ icon, label, onPress, at, path }: { icon: ReactNode; label: string; onPress: () => void; at: string; path?: string }) {
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onPress() }} className={RECIPE.action} data-model-action={at}>
-      {icon}<span>{label}</span>
+      {icon}<span data-view={path}>{label}</span>
     </button>
   )
 }
@@ -44,6 +45,7 @@ function Action({ icon, label, onPress, at }: { icon: ReactNode; label: string; 
  * partly Olumi's carry core's own glyph: the card's mark, else core's key entry for that kind; none is drawn where core gives none.
  */
 function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; keyEntries: ViewModel['key'] }) {
+  const W = useModelWords()!
   const a = authorAnyOf(card)
   if (a === null && card.olumi === null) return null
   const glyph = card.olumi?.glyph ?? (a === null ? null : keyEntries.find((k) => k.id === (a.by === 'mixed' ? 'partly_olumi' : 'olumi'))?.glyph ?? null)
@@ -64,6 +66,7 @@ function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; 
 /** The lines that start or end at this card, each pressing to the card at its other end, with core's mark for its kind or sign; Expert adds
  *  its strength. A line's removal and strength editor are on its own row in Relationships. */
 function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expert: boolean }) {
+  const W = useModelWords()!
   const lines = linksOf(model, card.id)
   if (lines.length === 0) return null
   return (
@@ -79,7 +82,7 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
                   {out ? <ArrowRight aria-hidden="true" className={ICON} /> : <ArrowLeft aria-hidden="true" className={ICON} />}
                 </span>
                 <span className="min-w-0 flex-1 break-words">
-                  <span>{linkEndHeading(model, other)}</span>
+                  <span data-view={linkEndPath(model, other)}>{linkEndHeading(model, other)}</span>
                   {l.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{l.label}</span></span> : null}
                   {expert && l.effect != null ? <span className={`${typography.viewPanelMeta} block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span> : null}
                 </span>
@@ -94,6 +97,7 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
 
 /** Expert: what would change an option's chance most, in core's words (its driver); the figure's own reading is the row's Expert line. */
 function Science({ card }: { card: ViewCard }) {
+  const W = useModelWords()!
   if (card.driver === null) return null
   return (
     <Section title={W.whatWouldChange} at="science">
@@ -103,6 +107,7 @@ function Science({ card }: { card: ViewCard }) {
 }
 
 export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }) {
+  const W = useModelWords()!
   const expert = useModelTab((s) => s.expert)
   const { base } = useModelEdit()
   const canEdit = base !== null
@@ -116,7 +121,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
         {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
         <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
-      <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={`${W.askChangeDraft} “${card.heading}”: `} />
+      <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={W.askChangeDraft[card.id]!} />
       <Whose card={card} expert={expert} keyEntries={model.key} />
       <Links model={model} card={card} expert={expert} />
       {expert ? <Science card={card} /> : null}
@@ -127,6 +132,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
 /** A link's detail: its two ends (each pressing to its card), and where core offers it, its strength's editor (its row shows the
  *  strength while open, so the action names something on screen in Plain too) and its removal. */
 export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewLink; row: string }) {
+  const W = useModelWords()!
   const { base } = useModelEdit()
   const strength = base === null ? null : strengthCardOf(model, link)
   return (
@@ -134,8 +140,8 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(row) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={row}>
         {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => openEditor({ row, what: 'figure', quantity: strength.id })} />}
-        <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} onPress={() => focusNodeById(link.from)} />
-        <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} onPress={() => focusNodeById(link.to)} />
+        <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} path={linkEndPath(model, link.from)} onPress={() => focusNodeById(link.from)} />
+        <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} path={linkEndPath(model, link.to)} onPress={() => focusNodeById(link.to)} />
       </div>
       {base === null ? null : <RemoveLink link={link} row={row} />}
     </div>
@@ -144,56 +150,59 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
 
 /**
  * Olumi's change is held: core takes no direct edit until it is approved or set aside (`edit_base` null). Said once, at the head of the tab,
- * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied). Once
- * core has set it aside it no longer reads as waiting: if the View read after it fails (one a newer read overtook is that read's to
- * settle), it says so in the canvas's words, and it is never sent twice.
+ * with core's heading for it, and a two-step set-aside (the canvas's HeldEditOffer route: `POST …/discard`, nothing in it applied). It is
+ * one write of the tab's (`useModelTab.busy`), so a notice drawn again while core has it says so and sends nothing more. If the View read
+ * after it fails (one a newer read overtook is that read's to settle), the tab draws no View and says, in the canvas's words, that core set
+ * it aside; a refusal that lands while no notice is drawn is said on the tab the same way, and on that change's notice once it is drawn
+ * again (never on another change's: it goes once the View no longer holds the change it was about).
  */
 export function HeldNotice() {
+  const W = useModelWords()!
   const { sid, held } = useModelEdit()
   const [asking, setAsking] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [aside, setAside] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const box = useRef<HTMLDivElement>(null)
-  const said = useRef<HTMLParagraphElement>(null)
+  const mounted = useMounted()
+  const key = sid === null || held === null ? '' : `${sid}:discard:${held.id}`
+  const row = held === null ? null : heldRow(held.id)
+  const busy = useModelTab((s) => key !== '' && s.busy === key)
+  const refused = useModelTab((s) => (row !== null && s.receipt?.row === row && s.receipt.unseen === undefined ? s.receipt.words : null))
+  // A refusal about a change this View no longer holds (decided elsewhere meanwhile) is no one's to read: it goes.
+  const moot = useModelTab((s) => s.receipt !== null && s.receipt.row.startsWith(HELD_PREFIX) && s.receipt.unseen === undefined && s.receipt.row !== row)
+  useEffect(() => { if (moot) useModelTab.getState().say(null) }, [moot])
   if (held === null || sid === null) return null
-  const done = aside === held.id
   const setItAside = async () => {
-    if (busy || done) return
+    if (useModelTab.getState().busy !== null) return
     const id = held.id
-    setBusy(true); setError(null)
+    const here = () => useViewStore.getState().sid === sid
+    setError(null); if (refused !== null) useModelTab.getState().say(null)
+    useModelTab.getState().setBusy(key)
     try {
       await writes.discard(id)
       const shown = await readAfter(sid, () => useViewStore.getState().refresh(), () => useViewStore.getState().view?.proposal?.id !== id)
-      if (shown === 'failed') {
-        // Core set it aside; the View could not show it. Said once, never sent again, and focus that was here moves to what it says.
-        const had = focusIsWith(box.current)
-        setAside(id); setError(ASIDE_WORDS.notShown)
-        if (had) setTimeout(() => said.current?.focus(), 0)
-      }
+      if (shown === 'failed') useModelTab.getState().say({ row: heldRow(id), words: ASIDE_WORDS.notShown, tone: 'failed', unseen: { n: null, view: useViewStore.getState().view } })
       setAsking(false)
     } catch (e) {
-      setError(e instanceof TeamApiError ? e.message : W.heldFailed)
-    } finally { setBusy(false) }
+      const words = e instanceof TeamApiError ? e.message : W.heldFailed
+      if (!here()) return
+      if (mounted.current) setError(words); else useModelTab.getState().say({ row: heldRow(id), words, tone: 'failed' })
+    } finally {
+      if (useModelTab.getState().busy === key) useModelTab.getState().setBusy(null)
+    }
   }
-  if (done) return (
-    <div className="rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held" data-held-set-aside={held.id}>
-      <p ref={said} tabIndex={-1} role="alert" className={`${typography.viewPanelMeta} m-0 text-text-body ${ACTION_FOCUS}`} data-testid="view-model-held-done">{error}</p>
-    </div>
-  )
+  const said = error ?? refused
   return (
-    <div ref={box} className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
+    <div className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-model-held">
       <p className="m-0 text-text-header">{W.heldLead}</p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-light`}><span data-view="proposal.heading">{held.heading}</span> · <span data-view="proposal.on">{held.on}</span></p>
       <p className={`${typography.viewPanelMeta} m-0 text-text-body`}>{W.heldBody}</p>
-      {error === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{error}</p>}
+      {said === null ? null : <p role="alert" className={RECIPE.error} data-testid="view-model-held-error">{said}</p>}
       {asking ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={`${RECIPE.secondary} ${busy ? 'opacity-50' : ''}`} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
+          <button type="button" autoFocus aria-disabled={busy || undefined} onClick={() => void setItAside()} className={RECIPE.secondary} data-testid="view-model-held-confirm">{W.heldConfirm}</button>
           <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) { setAsking(false); setError(null) } }} className={RECIPE.quiet}>{W.heldKeep}</button>
         </div>
       ) : (
-        <button type="button" onClick={() => setAsking(true)} className={RECIPE.action} data-testid="view-model-held-aside">{W.heldAside}</button>
+        <button type="button" aria-disabled={busy || undefined} onClick={() => { if (!busy) setAsking(true) }} className={RECIPE.action} data-testid="view-model-held-aside">{W.heldAside}</button>
       )}
       {busy ? <p role="status" className={RECIPE.status} data-testid="view-model-held-sending">{W.settingAside}</p> : null}
     </div>

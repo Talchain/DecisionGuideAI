@@ -5,7 +5,7 @@
  * only one side has, an option only one side has, a cell resting on Olumi's proposals, and a side with no saved results.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { CompareWithScenario, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
 import { useViewStore } from '../../olumiView/store'
@@ -273,5 +273,84 @@ describe('a what-if of several figures, and the change that moves each chance mo
     const { container } = render(<ScenarioComparisonView c={c} />)
     const line = container.querySelector('[data-compare-moves]')!
     expect([line.textContent, line.getAttribute('title'), line.getAttribute('data-compare-moves')]).toEqual(['On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', 'Set "today" to 95.', 'today'])
+  })
+})
+
+describe('Codex review-ui items 2 and 4: a compare and a what-if draft stay with the scenario and version they started on', () => {
+  it('switching scenario clears the result shown and drops an answer still on its way for the scenario left', async () => {
+    let land: (r: Response) => void = () => {}
+    routed()
+    const base = (async (u: unknown, init?: { method?: string; body?: string }) => {
+      const p = String(u); paths.push(p)
+      if (p.startsWith('/api/compare?a=s_a') && paths.filter((x) => x.startsWith('/api/compare')).length === 2) return new Promise<Response>((r) => { land = r })
+      const body = p === '/api/me' ? { scenarios: [{ id: 's_a', title: 'Rota' }, { id: 's_c', title: 'Launch' }] }
+        : p.endsWith('/whatifs') ? { whatifs: p.includes('s_a') ? [WHATIF] : [] } : p.endsWith('/versions') ? { versions: [{ n: 1 }, { n: 2 }] } : PAIR
+      return new Response(JSON.stringify(body), { status: init?.method === 'POST' ? 201 : 200 })
+    })
+    setTeamFetch(base as unknown as typeof fetch)
+    const { rerender } = render(<CompareWithScenario sid="s_a" />)
+    await waitFor(() => expect((screen.getByTestId('scenario-compare-pick') as HTMLSelectElement).value).toBe('w_7'))
+    // A's first comparison lands and is drawn; switching to C clears it.
+    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+    await screen.findByTestId('scenario-compare-out')
+    // A's second comparison is still on its way when the person switches to C.
+    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+    await waitFor(() => expect(paths.filter((x) => x.startsWith('/api/compare')).length).toBe(2))
+    rerender(<CompareWithScenario sid="s_c" />)
+    expect(screen.queryByTestId('scenario-compare-out')).toBeNull()
+    land(new Response(JSON.stringify(PAIR), { status: 200 }))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByTestId('scenario-compare-out')).toBeNull()
+    expect(screen.queryByTestId('scenario-compare-error')).toBeNull()
+    // C's own pickers: its first side is C now.
+    await waitFor(() => expect((screen.getByTestId('scenario-compare-pick-a') as HTMLSelectElement).value).toBe('s_c'))
+  })
+
+  const two = (over: Record<string, unknown> = {}) => useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: null, version: { id: 41, n: 2, label: 'v2', changed: [] },
+    model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: { prompt: 'Tickets a week today', ask: 'A' } } },
+      { id: 'target', heading: 'target', figure: { text: '100 tickets/week', title: 'T', edit: { prompt: 'The target', ask: 'A' } } }] }, ...over } as never })
+  /** Start a draft of today = 95 named 'Busier', then let `change` happen, then press Save: what is said, and what was posted. */
+  async function drafted(change: () => void) {
+    routed(); two()
+    render(<CompareWithScenario sid="s_a" />)
+    const form = await screen.findByTestId('whatif-save')
+    fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '95' } })
+    fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Busier' } })
+    act(() => change())
+    const go = screen.queryByTestId('whatif-save-go')
+    if (go) fireEvent.click(go)
+    await new Promise((r) => setTimeout(r, 20))
+    const said = screen.queryByTestId('whatif-save-stale')?.textContent ?? null
+    const posted = paths.filter((p) => p.startsWith('POST '))
+    useViewStore.setState({ view: null, sid: null })
+    return { said, posted }
+  }
+  it('the version changes while the draft is open (2 to 3): it says so, names both versions, and sends nothing', async () => {
+    const { said, posted } = await drafted(() => two({ version: { id: 42, n: 3, label: 'v3', changed: [] } }))
+    expect([said, posted]).toEqual(['This what-if was started on version 2; version 3 is shown now, so it is not saved. Start again to try it on version 3.', []])
+  })
+  it('the figure it sets is no longer one the person can set: it names that figure and sends nothing (never another figure)', async () => {
+    const { said, posted } = await drafted(() => useViewStore.setState((s) => ({ view: { ...s.view!, model: { cards: (s.view!.model as { cards: unknown[] }).cards.slice(1) } } as never })))
+    expect([said, posted]).toEqual(['‘today’ is no longer a figure you can set here, so this what-if is not saved. Start again to choose another figure.', []])
+  })
+  it("the page now shows another scenario's model under this form: it says so and sends nothing", async () => {
+    const { said, posted } = await drafted(() => useViewStore.setState({ sid: 's_c' }))
+    expect([said, posted]).toEqual(['This what-if was started on another scenario, so it is not saved here. Start again to try figures on this one.', []])
+  })
+  it('Start again clears the draft, and a what-if then saves on the version shown', async () => {
+    routed(); two()
+    render(<CompareWithScenario sid="s_a" />)
+    let form = await screen.findByTestId('whatif-save')
+    fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '95' } })
+    act(() => two({ version: { id: 42, n: 3, label: 'v3', changed: [] } }))
+    fireEvent.click(await screen.findByTestId('whatif-save-again'))
+    form = await screen.findByTestId('whatif-save')
+    fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '96' } })
+    fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Busier' } })
+    fireEvent.click(within(form).getByTestId('whatif-save-go'))
+    await waitFor(() => expect(paths.some((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))).toBe(true))
+    const body = JSON.parse(paths.find((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))!.slice('POST /api/scenarios/s_a/whatifs '.length)) as { base: number; edits: unknown }
+    expect([body.base, body.edits]).toEqual([42, [{ quantity: 'today', typed: '96' }]])
+    useViewStore.setState({ view: null, sid: null })
   })
 })

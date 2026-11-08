@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const KEYWORDS = new Set(['$schema', 'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'oneOf', 'const', 'enum'])
+const KEYWORDS = new Set(['$schema', 'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'oneOf', 'const', 'enum', 'propertyNames'])
 
 export function typeOf(s, pad = '') {
   for (const k of Object.keys(s)) if (!KEYWORDS.has(k)) throw new Error(`unsupported schema keyword: ${k}`)
@@ -27,6 +27,8 @@ export function typeOf(s, pad = '') {
     case 'object': {
       const req = new Set(s.required ?? []), inner = `${pad}  `
       const rows = Object.entries(s.properties ?? {}).map(([k, v]) => `${inner}${k}${req.has(k) ? '' : '?'}: ${typeOf(v, inner)}`)
+      if (s.propertyNames) typeOf(s.propertyNames, inner)
+      if (s.additionalProperties && typeof s.additionalProperties === 'object') rows.push(`${inner}[key: string]: ${typeOf(s.additionalProperties, inner)}`)
       return rows.length ? `{\n${rows.join('\n')}\n${pad}}` : 'Record<string, never>'
     }
     default: throw new Error(`unsupported schema type: ${JSON.stringify(s.type)}`)

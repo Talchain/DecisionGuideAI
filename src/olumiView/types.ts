@@ -35,6 +35,8 @@ export type View = {
         open: boolean
         proposed: boolean
         change: string
+        words: string
+        icon: string
       } | null
     }
     whole: boolean
@@ -160,6 +162,8 @@ export type View = {
         open: boolean
         proposed: boolean
         change: string
+        words: string
+        icon: string
       } | null
       values: Array<{
         option: string
@@ -213,6 +217,7 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
+      records: Array<string>
       effect: {
         text: string
         title: string
@@ -499,6 +504,8 @@ export type View = {
         unit: string
         version: number
         value: number
+        mark_text: string
+        mark_label: string
       } | {
         quantity: string
         label: string
@@ -509,6 +516,8 @@ export type View = {
         low: number
         high: number
         range_kind: "bounds" | "plausible"
+        mark_text: string
+        mark_label: string
       }>
       effects: Array<{
         quantity: string
@@ -548,6 +557,13 @@ export type View = {
       kind?: "shared" | "unique" | "disagreement"
       about?: Array<string>
       stance?: string | null
+      items?: Array<{
+        about: string
+        text: string
+        stance: string
+        source: string | null
+        pill: string
+      }>
     }>
     mine: Array<{
       id: number
@@ -704,6 +720,8 @@ export type View = {
         option: string
         text: string
       }>
+      title: string
+      label: string
     }>
   }
   evidence: Array<{
@@ -732,6 +750,11 @@ export type View = {
       status: string | null
       card: string | null
     }> | null
+    stance_text: string
+    switch_text: string
+    mark_label: string
+    mark_title: string
+    bears_on_text: string | null
   }>
   chat: Array<{
     id: number
@@ -784,6 +807,66 @@ export type View = {
       label: string
     } | null
   }>
+  model_words: {
+    changeFigure: string
+    setFigure: string
+    tryIt: string
+    cancel: string
+    rename: string
+    saveName: string
+    newName: string
+    showOnCanvas: string
+    addFigure: string
+    name: string
+    figure: string
+    unit: string
+    add: string
+    figureHint: string
+    removeLink: string
+    removeAsk: string
+    remove: string
+    keep: string
+    links: string
+    restsOn: string
+    whose: string
+    about: string
+    whatWouldChange: string
+    saving: string
+    reading: string
+    savingOther: string
+    trying: string
+    changeTarget: string
+    changeLimit: string
+    changeStrength: string
+    heldLead: string
+    heldBody: string
+    heldAside: string
+    heldConfirm: string
+    heldKeep: string
+    heldFailed: string
+    settingAside: string
+    plain: string
+    expert: string
+    detail: string
+    to: string
+    from: string
+    askChange: string
+    askOption: string
+    askOptionDraft: string
+    askRisk: string
+    askRiskDraft: string
+    askLink: string
+    askLinkDraft: string
+    failed: string
+    withdrawnHeld: string
+    withdrawnPast: string
+    withdrawn: string
+    savedNotShown: string
+    triedFailed: string
+    askChangeDraft: {
+      [key: string]: string
+    }
+  }
   brief: string
   gated: boolean
   session: {
@@ -969,6 +1052,85 @@ export type View = {
       items: string
       views: string
       overview: string
+    }
+  }
+  evidence_words: {
+    heading: string
+    close: string
+    bearsOn: string
+    steps: {
+      observation: string
+      claim: string
+      inference: string
+      estimate: string
+    }
+    stances: Array<{
+      id: "supports" | "challenges" | "unclear"
+      text: string
+    }>
+  }
+  reveal_words: {
+    revealedTogether: string
+    close: string
+    bringEvidence: string
+    keepOpen: string
+  }
+  lens_words: {
+    bar: string
+    explore: string
+    team: string
+    needsRun: string
+    label: {
+      full: string
+      tradeoffs: string
+      rests_on: string
+      premortem: string
+      what_changes: string
+      what_if: string
+    }
+    hint: {
+      full: string
+      tradeoffs: string
+      rests_on: string
+      premortem: string
+      what_changes: string
+      what_if: string
+    }
+    rests_on_label: string
+  }
+  team_presence: {
+    title: string
+    label: string
+    members: Array<{
+      id: string
+      text: string
+    }>
+  }
+  team_words: {
+    failed: string
+    evidence: {
+      add: string
+      text: string
+      source: string
+      sourcePlaceholder: string
+      choose: string
+      nothingYet: string
+      stanceLegend: string
+      sharedNote: string
+      cancel: string
+      consider: string
+      consideredBy: string
+      sourcePrefix: string
+    }
+    views: {
+      held: string
+      theirSkip: string
+      mySkip: string
+      private: string
+      shareTitle: string
+      share: string
+      give: string
+      skip: string
     }
   }
 }

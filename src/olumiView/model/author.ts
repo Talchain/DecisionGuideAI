@@ -1,13 +1,9 @@
 /**
- * WHO STATED A CARD, IN CORE'S WORDS: olumi.view/3 `cards[].author { by: 'person' | 'brief' | 'olumi' | 'mixed', text, title } | null`
- * (core `src/view/author.ts`, the one producer of authorship words; served on core wip/summary a62f0899, 7 Nov, not yet in candidate).
- * A person's card ("The team’s figure", "Priya’s figure", "Stated by the team") and, once core records the split, the brief's carry an
- * icon whose name is core's `text` and whose hover is `text` then `title` (the quote and party), both verbatim. Olumi's (◆) and partly
- * Olumi's (◐) stay core's own mark on `cards[].olumi`, whose hover is the same `title`, so they are drawn once. null is the model's
- * structure, which no one authored: nothing is drawn.
+ * WHO STATED A CARD'S FIGURE, WHEN CORE SAYS SO. CORE'S FIELD (served since core 6192ad6b; in the View's generated types):
+ * `cards[].author: { by: 'person' | 'brief' | 'olumi' | 'mixed', text, title } | null`. Olumi's own are marked ◆, ◐ on
+ * `cards[].olumi`): a person's or the brief's figure carries none, and `model.key` has no entry for them, so the tab draws this icon for them.
  *
- * Read defensively: DGAI's vendored View type does not hold the field until its schema is re-vendored, a View built before core served it
- * omits it, and any other shape reads as absent (an authorship the page cannot read is drawn as nothing, never guessed).
+ * Read defensively: a shape other than core's reads as absent (an authorship the page cannot read is drawn as nothing, never guessed). The words are core's; the page picks only the icon.
  */
 import type { ViewCard } from '../client'
 

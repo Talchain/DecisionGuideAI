@@ -16,10 +16,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { ViewCard, ViewModel } from '../client'
 import { familyCards, glanceRows, type GlanceKind } from '../layout'
-import { attCards } from '../ring'
+import { pressCard, ringFrom } from './tabRing'
 import type { REASONING_LABELS } from '../ViewReasoning'
 import { Clamped } from './parts'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../../canvas/store'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
@@ -46,12 +45,14 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
   const at = Math.min(active, Math.max(order.length - 1, 0))
 
   // The tab's ring: the kind whose row is pressed, the mark under the pointer, and the mark with keyboard focus. Cleared when the tab goes.
-  const ringed = new Set([...(family === null ? [] : rows.find((r) => r.kind === family)?.cards ?? []).map((c) => c.id), ...[hover, focus].filter((x): x is string => x !== null)])
+  // Hover and focus are held by id, so a card the View no longer draws (a new version, a what-if) is never ringed from a stale id.
+  const present = new Set(order.map((c) => c.id))
+  const ringed = new Set([...(family === null ? [] : rows.find((r) => r.kind === family)?.cards ?? []).map((c) => c.id), ...[hover, focus].filter((x): x is string => x !== null && present.has(x))])
   const key = [...ringed].join('\n')
-  useEffect(() => { attCards(key === '' ? [] : key.split('\n')) }, [key])
-  useEffect(() => () => attCards([]), [])
+  useEffect(() => { ringFrom('glance', key === '' ? [] : key.split('\n')) }, [key])
+  useEffect(() => () => ringFrom('glance', []), [])
 
-  const press = (id: string) => { if (selected.has(id)) useCanvasStore.getState().clearSelection(); else focusNodeById(id) }
+  const press = pressCard
   const go = (i: number) => {
     if (order.length === 0) return
     const k = ((i % order.length) + order.length) % order.length
@@ -74,7 +75,7 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
       case 'Home': go(0); break
       case 'End': go(order.length - 1); break
       case 'n': case 'N': step(e.shiftKey ? -1 : 1); break
-      case 'Escape': useCanvasStore.getState().clearSelection(); setFamily(null); setHover(null); break
+      case 'Escape': useCanvasStore.getState().clearSelection(); setFamily(null); setHover(null); setFocus(null); break
       default: return
     }
     e.preventDefault()

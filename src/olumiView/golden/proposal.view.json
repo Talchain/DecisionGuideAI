@@ -36,7 +36,9 @@
     "label": "Expand 4 reasoning records",
     "open": false,
     "proposed": false,
-    "change": ""
+    "change": "",
+    "words": "1 figure, 1 link, 1 disagreement, 1 open question",
+    "icon": "● ↝ ⚑"
    }
   },
   "whole": false,
@@ -190,7 +192,9 @@
      "label": "Expand 4 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
     },
     "values": [
      {
@@ -442,7 +446,9 @@
      "label": "Expand 2 reasoning records",
      "open": false,
      "proposed": false,
-     "change": ""
+     "change": "",
+     "words": "1 link, 1 disagreement",
+     "icon": "↝ ⚑"
     },
     "values": null,
     "rests_on": [],
@@ -541,7 +547,11 @@
     "proposed": false,
     "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "added_def",
+     "total_def"
+    ]
    },
    {
     "from": "existing_capacity",
@@ -553,7 +563,10 @@
     "proposed": false,
     "title": "adds to · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "total_def"
+    ]
    },
    {
     "from": "total_capacity",
@@ -565,7 +578,8 @@
     "proposed": false,
     "title": "measured by",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "capacity_target",
@@ -577,7 +591,8 @@
     "proposed": false,
     "title": "target",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "add_one",
@@ -589,7 +604,8 @@
     "proposed": false,
     "title": "option input",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": []
    },
    {
     "from": "one_specialist",
@@ -601,7 +617,11 @@
     "proposed": false,
     "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
     "effect": null,
-    "remove": null
+    "remove": null,
+    "records": [
+     "added_def",
+     "total_def"
+    ]
    }
   ],
   "run": {
@@ -1205,5 +1225,173 @@
   ],
   "figure_first": null,
   "pre_mortem": null
+ },
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "existing_capacity": "Please change “existing capacity”: ",
+   "per_specialist": "Please change “per specialist”: ",
+   "specialists": "Please change “specialists”: ",
+   "one_specialist": "Please change “one specialist”: ",
+   "added_capacity": "Please change “added capacity”: ",
+   "total_capacity": "Please change “total capacity”: ",
+   "capacity_target": "Please change “capacity target”: ",
+   "team_morale": "Please change “team morale”: ",
+   "added_def": "Please change “how added capacity is worked out”: ",
+   "total_def": "Please change “how total capacity is worked out”: ",
+   "morale_link": "Please change “Add one specialist → team morale”: ",
+   "capacity_goal": "Please change “At least 100 a week”: ",
+   "hold": "Please change “Keep current staffing”: ",
+   "add_one": "Please change “Add one specialist”: ",
+   "lead_doubt": "Please change “our team lead: A new hire may unsettle the team.”: ",
+   "morale_left_out": "Please change “How the team feels about a new hire”: ",
+   "deadline": "Please change “deadline”: ",
+   "start_delay": "Please change “start delay”: "
+  }
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
  }
 }

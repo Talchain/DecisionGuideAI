@@ -3,7 +3,7 @@
  * its card in front through the canvas's own focus. Fixture: the european View from the wire. Bound by identity (each row by its card id).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -12,15 +12,17 @@ import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
 import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_ROW_LABELS } from '../model/ModelCardRow'
+import { useViewStore } from '../store'
 import { resetModelTab, useModelTab } from '../model/state'
-import { linkRowOf } from '../model/targets'
+import { linkEndPath, linkRowOf } from '../model/targets'
 import { authorKeyOf } from '../model/premises'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../../canvas/domain/vocabulary'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/european.view.json'), 'utf8'))
 const model = view.model!
-afterEach(() => { cleanup(); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
+beforeEach(() => useViewStore.setState({ view }))
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }); try { localStorage.clear() } catch { /* none */ } resetModelTab() })
 
 describe('the Model tab, from the View', () => {
   it('the legacy groups in order; each card in the group its canvas kind says, assumptions and conditions in none', () => {
@@ -171,7 +173,10 @@ describe('the crafted Model tab, from the View', () => {
     expect(glyphs[0]!.getAttribute('aria-label')).toBe(marked.olumi!.title)
     expect(glyphs[0]!.parentElement!.querySelector(`[data-view="${marked.id}.figure.text"]`)).not.toBeNull() // beside its figure
     const unmarked = model.cards.find((k) => k.figure !== null && k.olumi === null)!
-    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [role="img"]`)).toBeNull() // CONTRAST: absence drawn as absence
+    // CONTRAST: absence drawn as absence. Olumi's mark only: the golden now carries `author` on every card (core a62f0899 on), so a person's figure
+    // draws its own icon (role img, `data-view-author`, bound on the wire in the author test below), never Olumi's glyph.
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [data-view="${unmarked.id}.olumi.glyph"]`)).toBeNull()
+    expect(c.querySelector(`[data-model-row="${unmarked.id}"] [data-view-author="${unmarked.id}"]`)?.getAttribute('data-author-by')).toBe('person')
     expect([...c.querySelectorAll('[data-testid="view-model-key"] [data-view-key]')].map((k) => k.textContent)).toEqual(
       model.key.filter((k) => k.id === 'olumi').map((k) => `${k.glyph} ${k.text}`)) // ◆ only: no card here is partly Olumi's
   })
@@ -219,7 +224,15 @@ describe('the crafted Model tab, from the View', () => {
     expect(c.querySelector('[data-view-author="investment_cap"]')).toBeNull() // a shape core never sends: nothing
     expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
     expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
-    expect(c.querySelector('[data-view-author="customer_target"]')).toBeNull() // CONTRAST: no author, no icon
+    // The golden gives `customer_target` a person's author: its icon is core's words (identity by id and text).
+    expect(c.querySelector('[data-view-author="customer_target"]')?.getAttribute('aria-label')).toBe('The team’s figure')
+    // CONTRAST: the same card with no author draws no icon
+    cleanup()
+    set('customer_target', null)
+    const bare = render(<ViewModelTab model={withAuthor} />).container
+    fireEvent.click(bare.querySelector('[data-testid="view-model-toggle-all"]')!)
+    expect(bare.querySelector('[data-model-row="customer_target"]')).not.toBeNull()
+    expect(bare.querySelector('[data-view-author="customer_target"]')).toBeNull()
   })
 })
 
@@ -356,5 +369,29 @@ describe('the key, and what the Model tab deliberately does not draw', () => {
     expect(line.contains(strength)).toBe(false)
     expect(strength.className).toContain('block')
     expect(line.compareDocumentPosition(strength) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('the Model tab: every model word carries its View path', () => {
+  it('catch (UI audit of 3f7817bd): each link end is drawn at its own path (its card\'s heading, or the question), its words the words there', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    let n = 0
+    model.links.forEach((l, i) => {
+      const line = c.querySelector(`[data-model-link-line="${linkRowOf(model, i)}"]`)!
+      for (const end of [l.from, l.to]) {
+        const path = linkEndPath(model, end)
+        expect(path, `links.${i} ${end}`).toBeDefined()
+        expect(line.querySelector(`[data-view="${path}"]`)?.textContent, `links.${i} ${end}`).toBe(linkEndHeading(model, end))
+        n++
+      }
+    })
+    expect(n).toBe(model.links.length * 2)
+    // And in a link's detail, its two ends' actions.
+    fireEvent.click(c.querySelector(`[data-model-select="${linkRowOf(model, 0)}"]`)!)
+    const l = model.links[0]!
+    const detail = c.querySelector(`[data-model-detail="${linkRowOf(model, 0)}"]`)!
+    expect(detail.querySelector(`[data-model-action="from"] [data-view="${linkEndPath(model, l.from)}"]`)?.textContent).toBe(linkEndHeading(model, l.from))
+    expect(detail.querySelector(`[data-model-action="to"] [data-view="${linkEndPath(model, l.to)}"]`)?.textContent).toBe(linkEndHeading(model, l.to))
   })
 })

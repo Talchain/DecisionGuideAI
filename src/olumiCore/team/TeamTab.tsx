@@ -5,6 +5,7 @@ import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
 import { DissentPanel } from './DissentPanel'
+import { DifferencesPanel } from './DifferencesPanel'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
@@ -71,7 +72,7 @@ export function TeamTab(): JSX.Element {
         <>
           {past !== null && (
             <div className={`${CARD} flex flex-wrap items-center gap-2`} data-testid="team-past">
-              <span className={BODY}>Version {past} is on the canvas, as it was. {TEAM_PAST_HELD}</span>
+              <span className={BODY}>{TEAM_PAST_HELD}</span>
               <Button size="sm" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
             </div>
           )}
@@ -81,6 +82,8 @@ export function TeamTab(): JSX.Element {
           <StrategyOverviewSection view={shown} />
           <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          {/* Where your explanations differ (core GET …/differences): the revealed figures you differ on, side by side, and what to do with each. */}
+          <fieldset disabled={past !== null} className="contents"><DifferencesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
           <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>

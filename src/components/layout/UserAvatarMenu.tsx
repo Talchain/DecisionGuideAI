@@ -3,12 +3,12 @@
  *
  * Shows a circular avatar with the user's display_name initial (or email initial).
  * Click opens dropdown: display name, email, "My decisions", "Profile settings", divider, "Sign out". On the olumi-core lane:
- * whose private link it is, the terms and the privacy notice, Sign out, and Delete my data.
+ * whose private link it is, My scenarios, Organisation and Account (PoC accounts), the terms and the privacy notice, Sign out, and Delete my data.
  */
 
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, LogOut, LayoutGrid, FileText, ShieldCheck, Trash2 } from 'lucide-react'
+import { Settings, LogOut, LayoutGrid, FileText, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
@@ -72,6 +72,13 @@ function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: Re
  *     (src/olumiCore/DeleteMyDataDialog.tsx).
  * Sign out and a completed deletion both land on the signed-out screen.
  */
+/** The PoC account pages on the lane (src/olumiCore/accounts/routes.tsx): home is My scenarios. */
+const LANE_PAGES = [
+  { label: 'My scenarios', to: '/', Icon: LayoutGrid },
+  { label: 'Organisation', to: '/organisation', Icon: Users },
+  { label: 'Account', to: '/account', Icon: Settings },
+] as const
+
 function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const person = useMe((s) => s.me)
   const navigate = useNavigate()
@@ -132,6 +139,22 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
           <div className="px-4 py-3">
             <p className={`${typography.label} text-text-header truncate`}>{person?.name ?? ''}</p>
             <p className={`${typography.bodySmall} text-text-light`}>{words}</p>
+          </div>
+          {/* PoC accounts (src/olumiCore/accounts/): back to My scenarios, the organisation and the account page from a scenario. */}
+          <div className="py-1">
+            {LANE_PAGES.map(({ label, to, Icon }) => (
+              <button
+                key={to}
+                type="button"
+                role="menuitem"
+                data-testid={`olumi-core-go-${to === '/' ? 'home' : to.slice(1)}`}
+                onClick={() => { setOpen(false); navigate(to) }}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+              >
+                <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
+                <span className={typography.bodySmall}>{label}</span>
+              </button>
+            ))}
           </div>
           <div className="py-1">
             {NOTICES.map(({ label, href }) => {

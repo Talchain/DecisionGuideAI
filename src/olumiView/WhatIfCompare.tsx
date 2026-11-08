@@ -13,7 +13,8 @@ import type { useWhatIf } from './whatif'
 export function Compare({ model, shown }: { model: ViewModel; shown: NonNullable<ReturnType<typeof useWhatIf.getState>['shown']> }) {
   const v = shown.variant, tried = new Map(v.rows.map((o) => [o.option_id, o.rows]))
   if (v.stopped !== null) return <p data-view="whatif.stopped">{v.stopped}</p>
-  if (v.blocked !== null) return <p title={v.blocked} data-testid="view-whatif-key-blocked">{WHAT_IF_COPY.refused}</p>
+  // Core's own reason it could not run this what-if is the words on the card (N3), never a sentence of the UI's.
+  if (v.blocked !== null) return <p data-testid="view-whatif-key-blocked">{v.blocked}</p>
   return (
     <div className="space-y-2" data-testid="view-whatif-key-compare">
       {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}

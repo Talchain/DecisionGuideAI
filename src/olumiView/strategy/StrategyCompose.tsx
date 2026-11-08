@@ -1,71 +1,82 @@
 /**
- * Strategy lane, slice 1: a person adds a qualitative view on one card from the dock, in their own words, with a stance and a source. The
- * cards are the model's (their headings as core names them); the stance words are core's (GET …/strategy/vocabulary), read once; the post is
- * core's own `POST …/views` with `items` (olumi-core API.md, "Strategy"), through the Team tab's one write path (writes.ts runWrite: a lost
- * answer locks it, never a second send). Private until revealed, like any view. Mount: inside the V11 build's ViewsPanel, by agreement.
+ * Strategy lane, slice 1, folded into the Team tab's one view form (N2, UI 7 Nov): a person's view can speak to one card of the model, with
+ * a stance and a source. These are the form's extra fields, not a form of their own: the view's own words are the item's words, and the
+ * one post is core's `POST …/views` with `text`, `figures` and `items` together (olumi-core wip/strategy-n2c 5bfc55d7: src/server/app.ts:348-350
+ * passes `items` to `service.contribute`, src/app/service.ts:474-488 stores them on the same private view; API.md:615). Every word is core's
+ * (GET …/strategy/vocabulary `form`, `stances`, `limits`), read once; a core without the lane, or an answer not in the vocabulary's shape,
+ * draws none of these fields and the view form is as it was. The cards are the model's, by their headings as core names them.
  */
 import { useEffect, useState } from 'react'
-import { Button } from '../../components/ui/Button'
-import { call, TeamApiError } from '../../olumiCore/team/api'
-import { BODY, ERR, FIELD, LABEL, META } from '../../olumiCore/team/ui'
-import { runWrite, useWriteLocked, useWriteSending } from '../../olumiCore/team/writes'
+import { call } from '../../olumiCore/team/api'
+import { FIELD, LABEL } from '../../olumiCore/team/ui'
 import type { View } from '../client'
 
-type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string; word?: string }[]; limits: { text: number; source: number; concerns: number; items: number } }
+type FormWords = { about: string; stance: string; text: string; source: string; source_example: string; send: string; private: string }
+export type Vocabulary = { kinds: { id: string; text: string }[]; stances: { id: string; text: string; word?: string }[]; form: FormWords; limits: { text: number; source: number; concerns: number; items: number } }
 const FAMILIES = new Set(['quantity', 'option', 'risk', 'goal'])
+const isVocabulary = (v: unknown): v is Vocabulary => {
+  const x = v as Partial<Vocabulary> | null
+  return x !== null && typeof x === 'object' && Array.isArray(x.stances) && x.stances.length > 0 && x.stances.every((s) => typeof s?.id === 'string' && typeof s?.text === 'string')
+    && typeof x.limits === 'object' && x.limits !== null && typeof x.limits.text === 'number' && typeof x.limits.source === 'number'
+    // Every word on the fields is core's (`form`): a core that sends none draws no fields rather than ones in words of the page's own.
+    && typeof x.form === 'object' && x.form !== null && (['about', 'stance', 'text', 'source', 'source_example', 'send', 'private'] as const).every((k) => typeof x.form![k] === 'string' && x.form![k] !== '')
+}
 
-export function StrategyCompose({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => unknown }): JSX.Element | null {
+/** Core's vocabulary is available before the first item view, independently of the scenario's strategy payload. */
+export function useStrategyVocabulary(sid: string): Vocabulary | null {
   const [vocab, setVocab] = useState<Vocabulary | null>(null)
-  const [about, setAbout] = useState<string>('')
-  const [stance, setStance] = useState<string>('')
-  const [text, setText] = useState('')
-  const [source, setSource] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const key = `${sid}:strategy-view`
-  const locked = useWriteLocked(key), sending = useWriteSending(key)
-  const cards = (view.model?.cards ?? []).filter((c) => FAMILIES.has(c.family))
-  // Core's vocabulary route exists only where core serves the strategy key; without it there is nothing to compose and nothing is asked.
-  const strategic = (view as { strategy?: unknown }).strategy !== undefined
   useEffect(() => {
-    if (!strategic) return
+    setVocab(null)
     let live = true
-    call<Vocabulary>('GET', `/api/scenarios/${encodeURIComponent(sid)}/strategy/vocabulary`)
-      .then((v) => { if (live) { setVocab(v); setStance((s) => s || v.stances[0]?.id || '') } })
-      .catch((e: unknown) => { if (live) setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now.') })
+    call<unknown>('GET', `/api/scenarios/${encodeURIComponent(sid)}/strategy/vocabulary`)
+      .then((v) => { if (live && isVocabulary(v)) setVocab(v) })
+      .catch(() => undefined)
     return () => { live = false }
-  }, [sid, strategic])
-  useEffect(() => { setAbout((a) => a || cards[0]?.id || '') }, [cards.length]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (vocab === null) return error === null ? null : <p role="alert" className={ERR}>{error}</p>
-  const ready = about !== '' && stance !== '' && text.trim() !== '' && !locked && !sending
-  const send = async () => {
-    setError(null)
-    try {
-      await runWrite(key, { op: false }, null, () => call('POST', `/api/scenarios/${encodeURIComponent(sid)}/views`, {
-        text: text.trim(), version: view.version?.n ?? null, items: [{ about, stance, text: text.trim(), source: source.trim() === '' ? null : source.trim() }] }))
-      setText(''); setSource('')
-      await onWrote()
-    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') }
-  }
+  }, [sid])
+  return vocab
+}
+
+/** What the person chose: the card the view speaks to ('' for none: a plain view), the stance and the source. */
+export type StrategyPick = { about: string; stance: string; source: string }
+export const NO_PICK: StrategyPick = { about: '', stance: '', source: '' }
+
+/** The view's one item, or none: only when the person chose a card AND a stance (core takes an item only with one). No stance is ever
+ *  chosen for them: the item's stance is the one they picked, and its words are the view's own (core keeps them on the view). */
+export function itemsOf(pick: StrategyPick, vocab: Vocabulary | null, text: string): { about: string; stance: string; text: string; source: string | null }[] {
+  if (vocab === null || pick.about === '' || pick.stance === '') return []
+  return [{ about: pick.about, stance: pick.stance, text: text.trim(), source: pick.source.trim() === '' ? null : pick.source.trim() }]
+}
+
+/** A view on a card waits for the person's stance: core takes the card's item only with one, and none is chosen for them. */
+export const needsStance = (pick: StrategyPick, vocab: Vocabulary | null): boolean => vocab !== null && pick.about !== '' && pick.stance === ''
+
+/** The cards a view can speak to, in the model's order. */
+export const strategyCards = (view: View) => (view.model?.cards ?? []).filter((c) => FAMILIES.has(c.family))
+
+/** The fields, in core's words: a card (none chosen at rest, so a plain view stays one), a stance and a source. */
+export function StrategyFields({ vocab, view, pick, onPick, disabled }: { vocab: Vocabulary; view: View; pick: StrategyPick; onPick: (p: StrategyPick) => void; disabled: boolean }) {
+  const cards = strategyCards(view)
+  if (cards.length === 0) return null
   return (
-    <div className="grid gap-2" data-testid="strategy-compose">
-      <label className={LABEL}>On
-        <select data-testid="strategy-compose-about" className={`${FIELD} mt-1`} value={about} onChange={(e) => setAbout(e.target.value)}>
+    <div className="grid gap-2" data-testid="team-view-strategy">
+      <label className={LABEL}>{vocab.form.about}
+        <select data-testid="team-view-about" className={`${FIELD} mt-1`} value={pick.about} disabled={disabled} onChange={(e) => onPick({ ...pick, about: e.target.value })}>
+          <option value="" />
           {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
         </select>
       </label>
-      <label className={LABEL}>You
-        <select data-testid="strategy-compose-stance" className={`${FIELD} mt-1`} value={stance} onChange={(e) => setStance(e.target.value)}>
+      <label className={LABEL}>{vocab.form.stance}
+        <select data-testid="team-view-stance" className={`${FIELD} mt-1`} value={pick.stance} disabled={disabled} onChange={(e) => onPick({ ...pick, stance: e.target.value })}>
+          <option value="" />
           {vocab.stances.map((s) => <option key={s.id} value={s.id}>{s.text}</option>)}
         </select>
       </label>
-      <textarea data-testid="strategy-compose-text" className={`${FIELD} min-h-[72px]`} maxLength={vocab.limits.text} value={text} onChange={(e) => setText(e.target.value)} aria-label="What you hold about it, in your words" placeholder="What you hold about it, in your words" />
-      <input type="text" data-testid="strategy-compose-source" className={FIELD} maxLength={vocab.limits.source} value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source, if you have one" placeholder="Source, if you have one (two rollouts, a report…)" autoComplete="off" />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" data-testid="strategy-compose-send" disabled={!ready} onClick={() => void send()}>Add my view</Button>
-        <span className={META}>Private until the team’s views are revealed.</span>
-      </div>
-      {error === null ? null : <p role="alert" className={ERR}>{error}</p>}
-      {locked ? <p className={BODY}>Reload the page to see what Olumi holds.</p> : null}
+      {pick.about === '' ? null : (
+        <>
+          <input type="text" data-testid="team-view-source" className={FIELD} maxLength={vocab.limits.source} value={pick.source} disabled={disabled}
+            onChange={(e) => onPick({ ...pick, source: e.target.value })} aria-label={vocab.form.source} placeholder={vocab.form.source_example} autoComplete="off" />
+        </>
+      )}
     </div>
   )
 }

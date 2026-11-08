@@ -7,6 +7,7 @@
  * Each answer is null where core offers no edit, so nothing is drawn that core would refuse.
  */
 import type { ViewCard, ViewLink, ViewModel } from '../client'
+import { QUESTION } from '../layout'
 
 const editable = (model: ViewModel, id: string | null | undefined): ViewCard | null => {
   const c = id == null ? undefined : model.cards.find((k) => k.id === id)
@@ -33,4 +34,15 @@ export function linkRowOf(model: ViewModel, i: number): string {
   const l = model.links[i]!
   const before = model.links.slice(0, i).filter((k) => k.from === l.from && k.to === l.to).length
   return before === 0 ? `link:${l.from}>${l.to}` : `link:${l.from}>${l.to}#${before}`
+}
+
+/**
+ * The View path of a link end's words, as `linkEndHeading` draws them (UI audit of 3f7817bd: every model word carries its path): the
+ * question's text, or the heading of the card at that end (the card itself, or the card whose badge holds that record). None where the
+ * end draws no words.
+ */
+export function linkEndPath(model: ViewModel, id: string): string | undefined {
+  if (id === QUESTION) return 'model.question.text'
+  const card = model.cards.find((c) => c.id === id) ?? model.cards.find((c) => c.badge?.records.includes(id) === true)
+  return card === undefined ? undefined : `${card.id}.heading`
 }

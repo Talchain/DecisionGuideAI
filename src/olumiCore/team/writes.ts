@@ -31,6 +31,9 @@ const inFlight = new Map<string, Promise<unknown>>()
 
 /** For specs. */
 export function resetWrites(): void { inFlight.clear(); useWrites.setState({ attempts: {}, locked: {}, sending: {} }) }
+/** The person is forgotten (sign-out, Delete my data): the requests they typed go with them. Locks stay: such a write may have been
+ *  saved, and a reload is still the only way to see whether it was. */
+export function forgetAttempts(): void { useWrites.setState({ attempts: {} }) }
 /** Is this write locked (it may have been saved, and cannot be asked about)? */
 export const useWriteLocked = (key: string): boolean => useWrites((s) => s.locked[key] === true)
 /** Is this write on its way now? A form drawn again while it is says so and offers no second send. */

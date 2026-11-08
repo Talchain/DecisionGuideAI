@@ -16,7 +16,7 @@
  */
 import { useId, useState, type ReactNode } from 'react'
 import type { ViewCard, ViewModel, ViewRun, ViewTurn } from '../client'
-import { newestNextOf, saidOnce } from '../layout'
+import { newestNextOf } from '../layout'
 import { figureCard, mostLikelyHover, SharedBlockers, TimingAssumptions } from '../ViewChances'
 import { Words } from '../ViewChat'
 import { mostLikelyBasisOf } from '../standin'
@@ -123,7 +123,6 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                       domain={domain}
                       tipping={tippingFor(run, entry.card.id, g.aimId)}
                       figure={figureOf(entry.card)}
-                      saidAbove={saidOnce(run, entry.card.id, entry.row)}
                     >
                       {rowAction?.(entry)}
                     </HeroOptionRow>

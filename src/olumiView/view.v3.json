@@ -149,6 +149,12 @@
             },
             "change": {
              "type": "string"
+            },
+            "words": {
+             "type": "string"
+            },
+            "icon": {
+             "type": "string"
             }
            },
            "required": [
@@ -158,7 +164,9 @@
             "label",
             "open",
             "proposed",
-            "change"
+            "change",
+            "words",
+            "icon"
            ],
            "additionalProperties": false
           },
@@ -818,6 +826,12 @@
              },
              "change": {
               "type": "string"
+             },
+             "words": {
+              "type": "string"
+             },
+             "icon": {
+              "type": "string"
              }
             },
             "required": [
@@ -827,7 +841,9 @@
              "label",
              "open",
              "proposed",
-             "change"
+             "change",
+             "words",
+             "icon"
             ],
             "additionalProperties": false
            },
@@ -1133,6 +1149,12 @@
          "title": {
           "type": "string"
          },
+         "records": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         },
          "effect": {
           "anyOf": [
            {
@@ -1196,6 +1218,7 @@
          "alert",
          "proposed",
          "title",
+         "records",
          "effect",
          "remove"
         ],
@@ -2718,6 +2741,12 @@
             },
             "value": {
              "type": "number"
+            },
+            "mark_text": {
+             "type": "string"
+            },
+            "mark_label": {
+             "type": "string"
             }
            },
            "required": [
@@ -2727,7 +2756,9 @@
             "title",
             "unit",
             "version",
-            "value"
+            "value",
+            "mark_text",
+            "mark_label"
            ],
            "additionalProperties": false
           },
@@ -2764,6 +2795,12 @@
               "bounds",
               "plausible"
              ]
+            },
+            "mark_text": {
+             "type": "string"
+            },
+            "mark_label": {
+             "type": "string"
             }
            },
            "required": [
@@ -2775,7 +2812,9 @@
             "version",
             "low",
             "high",
-            "range_kind"
+            "range_kind",
+            "mark_text",
+            "mark_label"
            ],
            "additionalProperties": false
           }
@@ -3007,6 +3046,40 @@
          "string",
          "null"
         ]
+       },
+       "items": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "about": {
+           "type": "string"
+          },
+          "text": {
+           "type": "string"
+          },
+          "stance": {
+           "type": "string"
+          },
+          "source": {
+           "type": [
+            "string",
+            "null"
+           ]
+          },
+          "pill": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "about",
+          "text",
+          "stance",
+          "source",
+          "pill"
+         ],
+         "additionalProperties": false
+        }
        }
       },
       "required": [
@@ -3820,6 +3893,12 @@
          ],
          "additionalProperties": false
         }
+       },
+       "title": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
        }
       },
       "required": [
@@ -3829,7 +3908,9 @@
        "evidence",
        "text",
        "reading",
-       "options"
+       "options",
+       "title",
+       "label"
       ],
       "additionalProperties": false
      }
@@ -4003,6 +4084,24 @@
         "type": "null"
        }
       ]
+     },
+     "stance_text": {
+      "type": "string"
+     },
+     "switch_text": {
+      "type": "string"
+     },
+     "mark_label": {
+      "type": "string"
+     },
+     "mark_title": {
+      "type": "string"
+     },
+     "bears_on_text": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     },
     "required": [
@@ -4016,7 +4115,12 @@
      "concerns",
      "stance",
      "version",
-     "considered"
+     "considered",
+     "stance_text",
+     "switch_text",
+     "mark_label",
+     "mark_title",
+     "bears_on_text"
     ],
     "additionalProperties": false
    }
@@ -4318,6 +4422,244 @@
     ],
     "additionalProperties": false
    }
+  },
+  "model_words": {
+   "type": "object",
+   "properties": {
+    "changeFigure": {
+     "type": "string"
+    },
+    "setFigure": {
+     "type": "string"
+    },
+    "tryIt": {
+     "type": "string"
+    },
+    "cancel": {
+     "type": "string"
+    },
+    "rename": {
+     "type": "string"
+    },
+    "saveName": {
+     "type": "string"
+    },
+    "newName": {
+     "type": "string"
+    },
+    "showOnCanvas": {
+     "type": "string"
+    },
+    "addFigure": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "figure": {
+     "type": "string"
+    },
+    "unit": {
+     "type": "string"
+    },
+    "add": {
+     "type": "string"
+    },
+    "figureHint": {
+     "type": "string"
+    },
+    "removeLink": {
+     "type": "string"
+    },
+    "removeAsk": {
+     "type": "string"
+    },
+    "remove": {
+     "type": "string"
+    },
+    "keep": {
+     "type": "string"
+    },
+    "links": {
+     "type": "string"
+    },
+    "restsOn": {
+     "type": "string"
+    },
+    "whose": {
+     "type": "string"
+    },
+    "about": {
+     "type": "string"
+    },
+    "whatWouldChange": {
+     "type": "string"
+    },
+    "saving": {
+     "type": "string"
+    },
+    "reading": {
+     "type": "string"
+    },
+    "savingOther": {
+     "type": "string"
+    },
+    "trying": {
+     "type": "string"
+    },
+    "changeTarget": {
+     "type": "string"
+    },
+    "changeLimit": {
+     "type": "string"
+    },
+    "changeStrength": {
+     "type": "string"
+    },
+    "heldLead": {
+     "type": "string"
+    },
+    "heldBody": {
+     "type": "string"
+    },
+    "heldAside": {
+     "type": "string"
+    },
+    "heldConfirm": {
+     "type": "string"
+    },
+    "heldKeep": {
+     "type": "string"
+    },
+    "heldFailed": {
+     "type": "string"
+    },
+    "settingAside": {
+     "type": "string"
+    },
+    "plain": {
+     "type": "string"
+    },
+    "expert": {
+     "type": "string"
+    },
+    "detail": {
+     "type": "string"
+    },
+    "to": {
+     "type": "string"
+    },
+    "from": {
+     "type": "string"
+    },
+    "askChange": {
+     "type": "string"
+    },
+    "askOption": {
+     "type": "string"
+    },
+    "askOptionDraft": {
+     "type": "string"
+    },
+    "askRisk": {
+     "type": "string"
+    },
+    "askRiskDraft": {
+     "type": "string"
+    },
+    "askLink": {
+     "type": "string"
+    },
+    "askLinkDraft": {
+     "type": "string"
+    },
+    "failed": {
+     "type": "string"
+    },
+    "withdrawnHeld": {
+     "type": "string"
+    },
+    "withdrawnPast": {
+     "type": "string"
+    },
+    "withdrawn": {
+     "type": "string"
+    },
+    "savedNotShown": {
+     "type": "string"
+    },
+    "triedFailed": {
+     "type": "string"
+    },
+    "askChangeDraft": {
+     "type": "object",
+     "propertyNames": {
+      "type": "string"
+     },
+     "additionalProperties": {
+      "type": "string"
+     }
+    }
+   },
+   "required": [
+    "changeFigure",
+    "setFigure",
+    "tryIt",
+    "cancel",
+    "rename",
+    "saveName",
+    "newName",
+    "showOnCanvas",
+    "addFigure",
+    "name",
+    "figure",
+    "unit",
+    "add",
+    "figureHint",
+    "removeLink",
+    "removeAsk",
+    "remove",
+    "keep",
+    "links",
+    "restsOn",
+    "whose",
+    "about",
+    "whatWouldChange",
+    "saving",
+    "reading",
+    "savingOther",
+    "trying",
+    "changeTarget",
+    "changeLimit",
+    "changeStrength",
+    "heldLead",
+    "heldBody",
+    "heldAside",
+    "heldConfirm",
+    "heldKeep",
+    "heldFailed",
+    "settingAside",
+    "plain",
+    "expert",
+    "detail",
+    "to",
+    "from",
+    "askChange",
+    "askOption",
+    "askOptionDraft",
+    "askRisk",
+    "askRiskDraft",
+    "askLink",
+    "askLinkDraft",
+    "failed",
+    "withdrawnHeld",
+    "withdrawnPast",
+    "withdrawn",
+    "savedNotShown",
+    "triedFailed",
+    "askChangeDraft"
+   ],
+   "additionalProperties": false
   },
   "brief": {
    "type": "string"
@@ -5327,6 +5669,340 @@
     "headings"
    ],
    "additionalProperties": false
+  },
+  "evidence_words": {
+   "type": "object",
+   "properties": {
+    "heading": {
+     "type": "string"
+    },
+    "close": {
+     "type": "string"
+    },
+    "bearsOn": {
+     "type": "string"
+    },
+    "steps": {
+     "type": "object",
+     "properties": {
+      "observation": {
+       "type": "string"
+      },
+      "claim": {
+       "type": "string"
+      },
+      "inference": {
+       "type": "string"
+      },
+      "estimate": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "observation",
+      "claim",
+      "inference",
+      "estimate"
+     ],
+     "additionalProperties": false
+    },
+    "stances": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "enum": [
+         "supports",
+         "challenges",
+         "unclear"
+        ]
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "text"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "heading",
+    "close",
+    "bearsOn",
+    "steps",
+    "stances"
+   ],
+   "additionalProperties": false
+  },
+  "reveal_words": {
+   "type": "object",
+   "properties": {
+    "revealedTogether": {
+     "type": "string"
+    },
+    "close": {
+     "type": "string"
+    },
+    "bringEvidence": {
+     "type": "string"
+    },
+    "keepOpen": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "revealedTogether",
+    "close",
+    "bringEvidence",
+    "keepOpen"
+   ],
+   "additionalProperties": false
+  },
+  "lens_words": {
+   "type": "object",
+   "properties": {
+    "bar": {
+     "type": "string"
+    },
+    "explore": {
+     "type": "string"
+    },
+    "team": {
+     "type": "string"
+    },
+    "needsRun": {
+     "type": "string"
+    },
+    "label": {
+     "type": "object",
+     "properties": {
+      "full": {
+       "type": "string"
+      },
+      "tradeoffs": {
+       "type": "string"
+      },
+      "rests_on": {
+       "type": "string"
+      },
+      "premortem": {
+       "type": "string"
+      },
+      "what_changes": {
+       "type": "string"
+      },
+      "what_if": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "full",
+      "tradeoffs",
+      "rests_on",
+      "premortem",
+      "what_changes",
+      "what_if"
+     ],
+     "additionalProperties": false
+    },
+    "hint": {
+     "type": "object",
+     "properties": {
+      "full": {
+       "type": "string"
+      },
+      "tradeoffs": {
+       "type": "string"
+      },
+      "rests_on": {
+       "type": "string"
+      },
+      "premortem": {
+       "type": "string"
+      },
+      "what_changes": {
+       "type": "string"
+      },
+      "what_if": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "full",
+      "tradeoffs",
+      "rests_on",
+      "premortem",
+      "what_changes",
+      "what_if"
+     ],
+     "additionalProperties": false
+    },
+    "rests_on_label": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bar",
+    "explore",
+    "team",
+    "needsRun",
+    "label",
+    "hint",
+    "rests_on_label"
+   ],
+   "additionalProperties": false
+  },
+  "team_presence": {
+   "type": "object",
+   "properties": {
+    "title": {
+     "type": "string"
+    },
+    "label": {
+     "type": "string"
+    },
+    "members": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "text"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "title",
+    "label",
+    "members"
+   ],
+   "additionalProperties": false
+  },
+  "team_words": {
+   "type": "object",
+   "properties": {
+    "failed": {
+     "type": "string"
+    },
+    "evidence": {
+     "type": "object",
+     "properties": {
+      "add": {
+       "type": "string"
+      },
+      "text": {
+       "type": "string"
+      },
+      "source": {
+       "type": "string"
+      },
+      "sourcePlaceholder": {
+       "type": "string"
+      },
+      "choose": {
+       "type": "string"
+      },
+      "nothingYet": {
+       "type": "string"
+      },
+      "stanceLegend": {
+       "type": "string"
+      },
+      "sharedNote": {
+       "type": "string"
+      },
+      "cancel": {
+       "type": "string"
+      },
+      "consider": {
+       "type": "string"
+      },
+      "consideredBy": {
+       "type": "string"
+      },
+      "sourcePrefix": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "add",
+      "text",
+      "source",
+      "sourcePlaceholder",
+      "choose",
+      "nothingYet",
+      "stanceLegend",
+      "sharedNote",
+      "cancel",
+      "consider",
+      "consideredBy",
+      "sourcePrefix"
+     ],
+     "additionalProperties": false
+    },
+    "views": {
+     "type": "object",
+     "properties": {
+      "held": {
+       "type": "string"
+      },
+      "theirSkip": {
+       "type": "string"
+      },
+      "mySkip": {
+       "type": "string"
+      },
+      "private": {
+       "type": "string"
+      },
+      "shareTitle": {
+       "type": "string"
+      },
+      "share": {
+       "type": "string"
+      },
+      "give": {
+       "type": "string"
+      },
+      "skip": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "held",
+      "theirSkip",
+      "mySkip",
+      "private",
+      "shareTitle",
+      "share",
+      "give",
+      "skip"
+     ],
+     "additionalProperties": false
+    }
+   },
+   "required": [
+    "failed",
+    "evidence",
+    "views"
+   ],
+   "additionalProperties": false
   }
  },
  "required": [
@@ -5344,9 +6020,15 @@
   "collab",
   "evidence",
   "chat",
+  "model_words",
   "brief",
   "gated",
-  "session"
+  "session",
+  "evidence_words",
+  "reveal_words",
+  "lens_words",
+  "team_presence",
+  "team_words"
  ],
  "additionalProperties": false
 }

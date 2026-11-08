@@ -13,7 +13,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
-import { LENS_COPY, LENS_ICON } from '../canvas/artefacts/lenses'
+import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { WHAT_IF_COPY } from '../canvas/artefacts/whatIfCopy'
 import { TeamApiError } from '../olumiCore/team/api'
@@ -61,12 +61,12 @@ export function ViewWhatIfKey(): JSX.Element | null {
       <p className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p></>
 
   return (
-    <section aria-label={LENS_COPY.label.what_if} data-testid="view-whatif-key"
+    <section aria-label={view.lens_words.label.what_if} data-testid="view-whatif-key"
       className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
       style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxHeight: 'min(52vh, 460px)' }}>
       <header className="flex items-center gap-2 px-4 pb-2 pt-3">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{LENS_COPY.label.what_if}</h2>
+        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{view.lens_words.label.what_if}</h2>
         <button type="button" onClick={() => setFolded((f) => !f)} aria-label={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} aria-expanded={!folded}
           title={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid="view-whatif-key-fold"
           className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
