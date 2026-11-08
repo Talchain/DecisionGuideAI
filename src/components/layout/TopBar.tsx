@@ -16,6 +16,7 @@ import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
+import { useViewStore } from '../../olumiView/store'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
 import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
 
@@ -91,6 +92,8 @@ export const TopBar = ({
   shareScenarioId = null,
 }: TopBarProps) => {
   const isViewer = useIsViewer()
+  // J1 step 5: the version core's model is at, in core's words ("version 1"); null off the lane or before a model.
+  const coreVersion = useViewStore((st) => st.view?.version?.label ?? null)
   const isConfirmedOwner = useIsConfirmedOwner()
   // The one selected card, as "Ask your team" prefills it (S4): the round page offers it only where a panel can answer it.
   const selectedCardId = useCanvasStore(s => {
@@ -291,6 +294,10 @@ export const TopBar = ({
           />
         )}
 
+        {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
+        {isOlumiCoreLane() && coreVersion !== null ? (
+          <span className={`rounded-full border border-border px-2 text-[12px] leading-5 text-text-header`} data-testid="topbar-version-pill">{coreVersion}</span>
+        ) : null}
         {/* Strategy lane (7 Nov, by agreement with the UI session): the Strategy Overview's opener, beside the name; null without core's key. */}
         {isOlumiCoreLane() ? <StrategyOverviewOpener /> : null}
 
@@ -486,6 +493,14 @@ export const TopBar = ({
         />
 
         {isOlumiCoreLane() && <TeamPresence />}
+        {/* J1 step 5: Share on the olumi-core lane is inviting someone into this scenario, which the Team tab does ("Invite a colleague"): it
+            opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
+        {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
+          <button type="button" className={styles.shareButton} data-testid="topbar-share-core" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
+            <Share2 size={14} aria-hidden="true" />
+            <span>Share</span>
+          </button>
+        ) : null}
 
         {/* User avatar + account dropdown — contract `.app-top .avatar`, 26px. */}
         <div className={styles.avatarSlot}>

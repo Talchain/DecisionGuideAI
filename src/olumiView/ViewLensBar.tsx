@@ -42,9 +42,11 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
       const width = bar.current?.getBoundingClientRect().width ?? 0
       if (!compactNow.current) labelledWidth.current = width
       const at = { viewportWidth: window.innerWidth, pillRight: pill && pill.width > 0 ? pill.right : 0, dockInset: measureDockInset() }
-      const nextCompact = !lensBarFitsBesidePill({ ...at, barWidth: labelledWidth.current })
-      if (nextCompact !== compactNow.current) { compactNow.current = nextCompact; setCompact(nextCompact); return } // measured again once drawn
-      const next = placeLensBar({ ...at, barWidth: width })
+      // J1 step 5 (the prototype's labelled Model / Explore / Team bar): when the labelled bar does not fit beside the pill, it takes its own
+      // row on the canvas, at the pill's left under it, and keeps its labels; it is never drawn icon-only.
+      const beside = lensBarFitsBesidePill({ ...at, barWidth: labelledWidth.current })
+      if (compactNow.current) { compactNow.current = false; setCompact(false); return } // measured again once drawn
+      const next = beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.round(pill.left), top: Math.round(pill.bottom + 8) }
       setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
     }
     measure()

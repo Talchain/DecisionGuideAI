@@ -54,7 +54,7 @@ describe('core\'s words on the face are whole, never cut (R3 pristine 4; R25, Pa
   })
 })
 
-describe('the lens bar keeps the top row: icon-only when its labels do not fit beside the pill (R3 pristine 5)', () => {
+describe('the lens bar beside the pill when it fits; else labelled, on the row under it (R3 pristine 5; J1 step 5)', () => {
   it('fits: the run between the pill and the dock, less the gaps, holds the bar', () => {
     expect(lensBarFitsBesidePill({ viewportWidth: 1440, pillRight: 600, dockInset: 500, barWidth: 300 })).toBe(true)
     expect(lensBarFitsBesidePill({ viewportWidth: 1440, pillRight: 860, dockInset: 500, barWidth: 300 })).toBe(false)
@@ -73,18 +73,13 @@ describe('the lens bar keeps the top row: icon-only when its labels do not fit b
     return () => banner.remove()
   }
 
-  it('no room for the labels (1440, pill to 860): each label is hidden but named, and on hover; the bar stays on the top row', async () => {
+  it('J1 step 5 (the prototype\'s labelled bar): no room beside the pill (1440, pill to 860): the bar keeps every label and takes the row under the pill, at its left', async () => {
     const done = draw(600, 160) // run beside the pill: 1440 − 12 − (860 + 12) = 556
     await act(async () => { window.dispatchEvent(new Event('resize')) })
     const bar = screen.getByTestId('lens-bar')
-    expect(bar.getAttribute('data-compact')).toBe('true')
-    for (const b of screen.getAllByRole('radio')) {
-      const id = b.getAttribute('data-testid')!.slice('lens-bar-'.length) as keyof typeof LENS_COPY.label
-      expect(b.querySelector('[data-lens-label]')!.className, id).toContain('sr-only')
-      if (b.getAttribute('aria-disabled') !== 'true') expect(b.getAttribute('title'), id).toBe(LENS_COPY.label[id])
-      expect(b.getAttribute('aria-label'), id).toContain(LENS_COPY.label[id])
-    }
-    expect(parseFloat(bar.style.top)).toBeLessThan(40) // the pill's row, not the row under it
+    expect(bar.hasAttribute('data-compact')).toBe(false)
+    for (const b of screen.getAllByRole('radio')) expect(b.querySelector('[data-lens-label]')!.className).not.toContain('sr-only')
+    expect([parseFloat(bar.style.left), parseFloat(bar.style.top)]).toEqual([16, 56 + 8]) // the pill's left, under its bottom
     done()
   })
 
