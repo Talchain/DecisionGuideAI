@@ -19,6 +19,8 @@
  * Core's V11 fields (asked of the DL 7 Nov; shipped on core wip/debate eaab1331, src/view/reveal.ts, olumi.view/3 additive and optional):
  * read through the readers below, so a View from an older core draws by the interim rule.
  */
+import { cardOfQuantity } from './layout'
+export { cardOfQuantity } from './layout'
 import { create } from 'zustand'
 import { useViewStore } from './store'
 import type { View } from './client'
@@ -141,13 +143,6 @@ function statusOf(effects: readonly ViewEffect[], quantity: string): { status: S
     if (best === null || RANK[e.status] > RANK[best.status]) { best = e; chip = chipOf(e) }
   }
   return { status: best?.status ?? null, chip }
-}
-
-/** The card a figure's quantity is drawn on: its own card, else the card whose badge holds that record; null when the canvas has neither. */
-export function cardOfQuantity(view: View, quantity: string): string | null {
-  const cards = view.model?.cards ?? []
-  if (cards.some((c) => c.id === quantity)) return quantity
-  return cards.find((c) => c.badge?.records.includes(quantity) === true)?.id ?? null
 }
 
 /**

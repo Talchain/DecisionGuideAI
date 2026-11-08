@@ -11,6 +11,7 @@ import { revealOf, useReveal } from './reveal'
 import { evidenceCards } from './evidence'
 import type { View } from './client'
 import { viewLaying } from './canvas'
+import { chipViewIds } from './layout'
 
 /** Room kept between the chip and the canvas's edge (px). */
 const MARGIN = 40
@@ -20,7 +21,7 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
   const { getViewport, setViewport } = useReactFlow()
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   const key = useMemo(() => {
-    const ids = revealOf(view)?.marks.filter((m) => m.isChip).map((m) => m.view).join(',') ?? ''
+    const ids = chipViewIds(revealOf(view)?.marks ?? []).join(',')
     return ids === '' ? '' : `${sid}:${ids}`
   }, [view, sid])
   const done = useRef(new Set<string>())
@@ -36,7 +37,7 @@ export function useRevealInView(movedAt: MutableRefObject<number>): void {
       if (chip === null || pane === null || viewLaying()) return
       const c = chip.getBoundingClientRect(), p = pane.getBoundingClientRect()
       // Settled: the chip has kept its place for one tick (the board's own framing eases for 400 ms).
-      const here = `${Math.round(c.x)},${Math.round(c.y)}`
+      const here = `${c.x},${c.y}`
       if (here !== last) { last = here; return }
       finish()
       const below = c.bottom - (p.bottom - MARGIN), above = p.top + MARGIN - c.top
