@@ -119,7 +119,9 @@ export function questionPlace(model: ViewModel): { width: number } {
   // R25 (Paul 7 Nov: the aims in view at 1232): with an aim beside it the question is narrower, so the head row (two aims: 2 × 220 +
   // 2 × 16 + 272 = 744; one aim: the options' 756) fits the visible canvas at 1232 at the 1.0 floor (about 770 px between the canvas
   // controls and the dock; DL 7 Nov, fresh-brief board: one aim beside a full-width question ran under the dock).
-  return { width: aimsOf(model).length >= 1 ? QUESTION_FLANKED_W : 2 * W + GAP_X }
+  // J1 step 1: the board is three columns (causalColumns), so the question heads the left one at the narrower width, aim or none.
+  void model
+  return { width: QUESTION_FLANKED_W }
 }
 /** The question's width with an aim beside it (R25). */
 export const QUESTION_FLANKED_W = 272
@@ -190,6 +192,39 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 }
 
 /**
+ * J1 step 1 (Codex's order, DL 8 Nov: "one readable path"): a relation core draws as a card, whose reason links name the two drawn cards
+ * of a link between them, is that link: the board draws the link and not the card ("Visits revenue" and "Reminded" were cards sitting
+ * between the cards they join). Its words stay core's, on the Model tab and in the View. A relation card that explains no drawn link
+ * (a link core does not draw) stays a card, so no dependency is lost. Picking only: no word is read or written.
+ */
+export function linkCards(model: ViewModel): ReadonlySet<string> {
+  const isRelation = new Set(model.cards.filter((c) => c.family === 'relation').map((c) => c.id))
+  const joined = new Set(model.links.filter((l) => l.kind !== 'reason' && !isRelation.has(l.from) && !isRelation.has(l.to)).map((l) => `${l.from}>${l.to}`))
+  const out = new Set<string>()
+  for (const id of isRelation) {
+    const ends = model.links.filter((l) => l.kind === 'reason' && l.from === id).map((l) => l.to)
+    if (ends.length === 2 && (joined.has(`${ends[0]}>${ends[1]}`) || joined.has(`${ends[1]}>${ends[0]}`))) out.add(id)
+  }
+  return out
+}
+/** The model the board draws: core's, less the relation cards that are their link (`linkCards`) and those cards' reason links. */
+export function drawnModelOf(model: ViewModel): ViewModel {
+  const asLinks = linkCards(model)
+  if (asLinks.size === 0) return model
+  return { ...model, cards: model.cards.filter((c) => !asLinks.has(c.id)), links: model.links.filter((l) => !asLinks.has(l.from) && !asLinks.has(l.to)) }
+}
+/**
+ * J1 step 1: on a scenario's first version, each card's fold (core's badge: the records core folded into it, such as Olumi's own reading
+ * of what drives a figure) is opened once, so the route Olumi inferred is on the board, not behind a count. The question's own fold (the
+ * figures behind a risk, what was left out) stays as core folds it. Empty after the first version, when a fold is already open, or when
+ * the person has opened or shut any fold themselves.
+ */
+export function firstLookOpen(view: View | null, opened: { readonly open: ReadonlyMap<string, readonly string[]>; readonly all: boolean }): Map<string, readonly string[]> {
+  if (view?.model == null || view.version?.n !== 1 || opened.all || opened.open.size > 0) return new Map()
+  return new Map(view.model.cards.filter((c) => c.badge !== null && !c.badge.open && c.badge.records.length > 0).map((c) => [c.id, c.badge!.records] as const))
+}
+
+/**
  * SC-01 PREVIEW (option A, Paul 8 Nov: "Show me your recommended option. I don't want to commit to it yet"): the cause-to-aim story read
  * left to right in three columns, so a 16-card board is seen whole at 1232 x 704 at the 0.9 floor (camera.ts READABLE_WHOLE_ZOOM).
  *   0: the question, then the options, in the View's order;
@@ -201,8 +236,12 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 export const COLUMN_GAP_X = 56, COLUMN_GAP_Y = 12, RAIL_GAP_Y = 32 // a rail is 28 px: one chip (24) and its 4 px margin
 export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set()): Map<string, { x: number; y: number }> {
   const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
-  const aims = new Set(aimsOf(model))
   const reasonCard = (c: ViewCard) => c.family === 'relation'
+  // Where the story ends: the aims and limits; on a board with none yet (J1, a first version), the figures every link leads to (a card
+  // with a plain link into it and none out of it), so the story still reads from its causes to what they move.
+  const plainOut = new Set(model.links.filter((l) => l.kind !== 'reason').map((l) => l.from)), plainIn = new Set(model.links.filter((l) => l.kind !== 'reason').map((l) => l.to))
+  const stated = aimsOf(model)
+  const aims = new Set(stated.length > 0 ? stated : model.cards.filter((c) => !reasonCard(c) && drawKindOf(c, model) !== 'option' && plainIn.has(c.id) && !plainOut.has(c.id)).map((c) => c.id))
   // How many plain links lie between a card and an aim (the longest way): 0 for an aim, undefined with no way to one.
   const out = new Map<string, string[]>()
   for (const l of model.links) if (l.kind !== 'reason') out.set(l.from, [...(out.get(l.from) ?? []), l.to])
@@ -219,10 +258,21 @@ export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>,
     return d
   }
   const columnOf = new Map<string, number>([[QUESTION, 0]])
+  // The right column takes where the story ends, then each next layer by distance from it while that column stays no taller than the
+  // middle one would be (J1: the figure alone, its drivers in the middle; the 16-card growth board: the aim and the two figures feeding it).
+  const causes = model.cards.filter((c) => !reasonCard(c) && drawKindOf(c, model) !== 'option')
+  const layer = (c: ViewCard) => depthOf(c.id) ?? Number.POSITIVE_INFINITY
+  const tall = (cs: readonly ViewCard[]) => { let h = 0; for (const c of cs) h += at(c.id).height + COLUMN_GAP_Y; return h }
+  const layers = [...new Set(causes.map(layer))].filter(Number.isFinite)
+  let reach = 0
+  for (const d of Array.from({ length: layers.length }, (_, k) => k)) {
+    const right = causes.filter((c) => layer(c) <= d), middle = causes.filter((c) => layer(c) > d)
+    if (d === 0 || tall(right) <= tall(middle)) reach = d
+    else break
+  }
   for (const c of model.cards) {
     if (reasonCard(c)) continue
-    const k = drawKindOf(c, model), d = depthOf(c.id)
-    columnOf.set(c.id, k === 'option' ? 0 : aims.has(c.id) || (d !== undefined && d <= 2) ? 2 : 1)
+    columnOf.set(c.id, drawKindOf(c, model) === 'option' ? 0 : layer(c) <= reach ? 2 : 1)
   }
   // A reason card beside the first card it explains (its links run from it to the two cards of the link it explains).
   const explains = (c: ViewCard) => model.links.filter((l) => l.from === c.id).map((l) => l.to).filter((id) => columnOf.has(id))
@@ -233,7 +283,9 @@ export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>,
     const inCol = plain.filter((c) => columnOf.get(c.id) === col).map((c) => c.id)
     // The right column reads down to the aim: the furthest from the aims first, the aims last; the View's order within each.
     const far = Math.max(0, ...inCol.map((id) => depthOf(id) ?? 0))
-    const here = col !== 2 ? inCol : [...Array.from({ length: far }, (_, k) => inCol.filter((id) => !aims.has(id) && (depthOf(id) ?? 0) === far - k)).flat(), ...inCol.filter((id) => aims.has(id))]
+    // Each column reads down toward where the story ends: the furthest from it first, the ends last; the View's order within each.
+    const unreached = inCol.filter((id) => depthOf(id) === undefined)
+    const here = col === 0 ? inCol : [...unreached, ...Array.from({ length: far }, (_, k) => inCol.filter((id) => !aims.has(id) && depthOf(id) === far - k)).flat(), ...inCol.filter((id) => aims.has(id))]
     for (const id of here) {
       order[col]!.push(id)
       // Each reason card straight after the first card it explains, in this column.
