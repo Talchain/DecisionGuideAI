@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
@@ -19,6 +19,8 @@ import { resetDifferences, useDifferences, type Differences } from '../team/diff
 import { LinkStance } from '../team/LinkStance'
 import { DifferencesPanel } from '../team/DifferencesPanel'
 import { resetWrites } from '../team/writes'
+import { TeamTab } from '../team/TeamTab'
+import { useMe } from '../me'
 import { useViewStore } from '../../olumiView/store'
 
 const DIR = path.resolve('src/olumiView/fixtures/disagree')
@@ -134,6 +136,18 @@ describe('What you have said', () => {
     expect(yours.querySelector('p')!.textContent).toBe(w['yours'])
     expect([...yours.querySelectorAll('li')].map((li) => [li.getAttribute('data-link-said'), [...li.querySelectorAll('span')].map((x) => x.textContent)])).toEqual([['morale_link|', ["'Add one specialist' → 'team morale'", w['keep'], ADA]]])
     expect(yours.textContent).not.toContain(BEA)
+  })
+})
+
+describe('Its place in the Team tab', () => {
+  it('LS7 the form comes before "Where your explanations differ", which shows what it does (the UI gate: below, it read as part of the figures\' section)', async () => {
+    serve((s) => (s.url.endsWith('/differences') ? { status: 200, body: diffRevealed } : { status: 200, body: {} }))
+    useMe.setState({ me: { id: revealed.you_id, name: revealed.you }, status: 'ready' } as never)
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: revealed, status: 'ready', error: null, stale: false })
+    render(<TeamTab />)
+    const [form, diffs] = await waitFor(() => { const f = screen.getByTestId('team-link-stance'), d = screen.getByTestId('team-differences'); return [f, d] as const })
+    expect(form.compareDocumentPosition(diffs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    useMe.setState({ me: null, status: 'none' } as never)
   })
 })
 
