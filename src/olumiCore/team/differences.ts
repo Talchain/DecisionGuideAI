@@ -5,6 +5,7 @@
  * is core's; this module only reads it and checks its shape. A core without the route (404) or with another shape draws nothing.
  */
 import { create } from 'zustand'
+import type { View } from '../../olumiView/client'
 import { call, TeamApiError } from './api'
 
 /** `withheld` (core 84e2bada): a version's Run withholds a chance the other gives; said with its reason, never read as the same. */
@@ -30,6 +31,11 @@ export interface Differences { readonly scenario: string; readonly version: numb
 
 const path = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}/differences`
 
+/** The View a read is for: the scenario, the version, whether this viewer is gated and the revealed views, so the Team tab and the canvas
+ *  share one read per View (and read again whenever a poll brings a reveal). */
+export const differencesKey = (sid: string, view: View): string =>
+  `${sid}|${view.version?.n ?? 'none'}|${view.gated ? 'g' : ''}|${view.collab.shared.map((s) => s.id).join(',')}|${view.signature}`
+
 const isStr = (x: unknown): x is string => typeof x === 'string'
 /** Core's shape, or null: a read that is not it is never drawn as if it were. */
 export function differencesShape(x: unknown): Differences | null {
@@ -47,9 +53,11 @@ export function differencesShape(x: unknown): Differences | null {
   return d as Differences
 }
 
-interface DifferencesState { readonly sid: string | null; readonly key: string | null; readonly data: Differences | null; readonly error: string | null }
+/** `key`: the View last read for (whether or not that read answered); `read`: the View `data` was read for. A failed read keeps the
+ *  last answer drawn in the Team tab, under its own View, never under the new one (the canvas draws only a read for its very View). */
+interface DifferencesState { readonly sid: string | null; readonly key: string | null; readonly read?: string | null; readonly data: Differences | null; readonly error: string | null }
 /** The last read, by the View it was read for (`key`), so changing tabs neither re-reads nor forgets it. */
-export const useDifferences = create<DifferencesState>()(() => ({ sid: null, key: null, data: null, error: null }))
+export const useDifferences = create<DifferencesState>()(() => ({ sid: null, key: null, read: null, data: null, error: null }))
 const inFlight = new Map<string, Promise<void>>()
 
 /** Read for this View (`key`: the scenario, the version and the revealed views), and again after a step. The last read for the same scenario
@@ -60,11 +68,11 @@ export function readDifferences(sid: string, key: string): Promise<void> {
   const p = (async () => {
     try {
       const got = differencesShape(await call<unknown>('GET', path(sid)))
-      useDifferences.setState({ sid, key, data: got, error: null })
+      useDifferences.setState({ sid, key, read: key, data: got, error: null })
     } catch (e) {
       // 404: this core has no such read yet (served before wip/debate); nothing is drawn.
-      if (e instanceof TeamApiError && e.status === 404) useDifferences.setState({ sid, key, data: null, error: null })
-      else useDifferences.setState((s) => ({ sid, key, data: s.sid === sid ? s.data : null, error: e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.' }))
+      if (e instanceof TeamApiError && e.status === 404) useDifferences.setState({ sid, key, read: key, data: null, error: null })
+      else useDifferences.setState((s) => ({ sid, key, read: s.sid === sid ? s.read ?? null : null, data: s.sid === sid ? s.data : null, error: e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.' }))
     } finally { inFlight.delete(key) }
   })()
   inFlight.set(key, p)
@@ -77,4 +85,4 @@ export const stepDifference = (sid: string, record: string, step: 'dissent' | 'r
   call<{ step: number }>('POST', `${path(sid)}/${encodeURIComponent(record).replace(/%3A/gi, ':')}/steps`, { step })
 
 /** For specs. */
-export function resetDifferences(): void { inFlight.clear(); useDifferences.setState({ sid: null, key: null, data: null, error: null }) }
+export function resetDifferences(): void { inFlight.clear(); useDifferences.setState({ sid: null, key: null, read: null, data: null, error: null }) }

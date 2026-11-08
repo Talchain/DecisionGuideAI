@@ -3,13 +3,15 @@
  * (RevealMarks.tsx CardViewChips, core-mark branch: the people's initials and core's short sentence, below the card on its outgoing links).
  * Mounted beside CardViewChips in the card's rail portal (v10.tsx, one portal, by agreement with the V11 build, 7 Nov); null when the reveal
  * already marks the card or the View has no `strategy`. Selecting it opens the first person's view in the dock, as the reveal's chip does.
+ * When it is the card's only rail, the links the team's explanations differ on (TM-04, CardDiffers.tsx) sit in it too: never a second rail.
  */
 import { typography } from '../../styles/typography'
 import { CARD_WIDTH } from '../layout'
 import { openView } from '../RevealMarks'
-import { useReveal } from '../reveal'
+import { marksOn, revealOf, useReveal } from '../reveal'
 import { useViewStore } from '../store'
 import { peopleOf, strategyMarkOn } from './strategy'
+import { DifferChip, useLinkDiffers } from '../../olumiCore/team/CardDiffers'
 
 const initial = (by: string) => by.slice(0, 1).toUpperCase()
 const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
@@ -17,11 +19,13 @@ const CHIPS_WIDTH = Math.max(CARD_WIDTH, 380)
 export function StrategyChips({ card }: { card: string }): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const selected = useReveal((s) => s.selected)
+  const differs = useLinkDiffers(card)
   const mark = strategyMarkOn(view, card)
   if (mark === null) return null
+  const hostsDiffers = marksOn(revealOf(view), card).cardChips.length === 0
   const people = peopleOf(view, mark), on = selected !== null && mark.views.includes(selected)
   return (
-    <div className="nodrag mt-1 flex justify-center" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`strategy-chips-${card}`}>
+    <div className="nodrag mt-1 flex flex-row flex-nowrap justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`strategy-chips-${card}`}>
       <button type="button" aria-pressed={on} aria-label={mark.text} title={mark.text} data-strategy-chip={mark.views[0]} data-strategy-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openView(mark.views[0]!, card) }}
         className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
@@ -30,6 +34,7 @@ export function StrategyChips({ card }: { card: string }): JSX.Element | null {
         </span>
         <span className="truncate" data-strategy-chip-text="">{mark.text}</span>
       </button>
+      {hostsDiffers ? differs.map((d) => <DifferChip key={d.record} d={d} card={card} first={false} />) : null}
     </div>
   )
 }

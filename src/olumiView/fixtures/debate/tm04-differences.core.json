@@ -1,0 +1,637 @@
+{
+ "scenario": "s_a88ba245176e",
+ "version": 2,
+ "heading": "Where your explanations differ",
+ "headings": {
+  "sides": "Your figures",
+  "explanations": "Your explanations",
+  "options": "Chance of meeting the aim",
+  "model": "With the model's figure",
+  "settle": "What would tell your explanations apart",
+  "steps": "What you decided",
+  "dissent": "Keep this as a disagreement",
+  "research": "Agree to find out",
+  "commit": "Commit to a next step"
+ },
+ "stances": [
+  {
+   "id": "know",
+   "text": "What I know"
+  },
+  {
+   "id": "suspect",
+   "text": "What I suspect"
+  },
+  {
+   "id": "unsure",
+   "text": "Unsure"
+  },
+  {
+   "id": "would_try",
+   "text": "What I would try"
+  },
+  {
+   "id": "others_may_miss",
+   "text": "What others may miss"
+  }
+ ],
+ "empty": "Once two of you have revealed different figures for the same card, they show here side by side, with what each does to the chances.",
+ "gated": false,
+ "differences": [
+  {
+   "kind": "figure",
+   "record": "diagnostic_time_to_contract",
+   "label": "Time to first signed contract for the paid diagnostic",
+   "cards": [
+    "diagnostic_time_to_contract"
+   ],
+   "sides_heading": "Your figures",
+   "goal": "generate_revenue_quickly",
+   "goal_label": "Generate revenue as quickly as possible",
+   "status": "changes",
+   "status_text": "With Priya's figure, no option is clearly most likely to achieve 'Generate revenue as quickly as possible'; with Tom's figure, 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' is the option most likely to achieve 'Generate revenue as quickly as possible'. Which option is most likely in this model turns on this difference. The chance that 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' achieves 'Generate revenue as quickly as possible' is under 1% with Priya's figure and about 68% with Tom's figure.",
+   "sides": [
+    {
+     "view": 19,
+     "holder": "Priya",
+     "holder_id": "12",
+     "figure": "6 to 12 months",
+     "title": "Plausible range: 6 to 12 months",
+     "leader": null,
+     "text": "Priya: 6 to 12 months"
+    },
+    {
+     "view": 20,
+     "holder": "Tom",
+     "holder_id": "14",
+     "figure": "1 to 3 months",
+     "title": "Plausible range: 1 to 3 months",
+     "leader": "paid_enterprise_diagnostic",
+     "text": "Tom: 1 to 3 months"
+    }
+   ],
+   "options": [
+    {
+     "option": "add_consulting",
+     "label": "Add consulting services to the AI startup",
+     "model": "about 13%",
+     "chances": [
+      {
+       "holder_id": "12",
+       "chance": 0.1321,
+       "text": "about 13%",
+       "withheld": null
+      },
+      {
+       "holder_id": "14",
+       "chance": 0.1321,
+       "text": "about 13%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "paid_enterprise_diagnostic",
+     "label": "Test a fixed-scope paid enterprise diagnostic before offering broader consulting",
+     "model": "about 49%",
+     "chances": [
+      {
+       "holder_id": "12",
+       "chance": 0.0029,
+       "text": "under 1%",
+       "withheld": null
+      },
+      {
+       "holder_id": "14",
+       "chance": 0.6777,
+       "text": "about 68%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "focus_product_sales",
+     "label": "Focus on selling the product",
+     "model": "about 12%",
+     "chances": [
+      {
+       "holder_id": "12",
+       "chance": 0.1242,
+       "text": "about 12%",
+       "withheld": null
+      },
+      {
+       "holder_id": "14",
+       "chance": 0.1242,
+       "text": "about 12%",
+       "withheld": null
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "worth",
+     "fact": "F38",
+     "text": "Olumi's run already names 'Time to first signed contract for the paid diagnostic' as a figure where better information could change which option is most likely to achieve 'Generate revenue as quickly as possible'."
+    },
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells your figures apart only if it is more likely under one than the other: for example a recorded figure for 'Time to first signed contract for the paid diagnostic' from a past period or a comparable case, checked against each of yours. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": []
+  },
+  {
+   "kind": "link",
+   "record": "link:first_cash_timing:time_to_contract",
+   "label": "'Time from starting the offer to the first signed customer contract' → 'Time to first customer payment'",
+   "cards": [
+    "time_to_contract",
+    "time_to_first_cash"
+   ],
+   "sides_heading": "Your explanations",
+   "goal": "generate_revenue_quickly",
+   "goal_label": "Generate revenue as quickly as possible",
+   "status": "changes",
+   "status_text": "Without the link, 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' is the option most likely to achieve 'Generate revenue as quickly as possible'; with it, no option is clearly most likely to achieve 'Generate revenue as quickly as possible'. Which option is most likely in this model turns on whether this link holds. The chance that 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' achieves 'Generate revenue as quickly as possible' is about 96% without the link and about 49% with it. 5 other members have not said whether this link holds.",
+   "options": [
+    {
+     "option": "add_consulting",
+     "label": "Add consulting services to the AI startup",
+     "model": "about 13%",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": 0.4262,
+       "text": "about 43%",
+       "withheld": null
+      },
+      {
+       "holder_id": "35",
+       "chance": 0.1321,
+       "text": "about 13%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "paid_enterprise_diagnostic",
+     "label": "Test a fixed-scope paid enterprise diagnostic before offering broader consulting",
+     "model": "about 49%",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": 0.9587,
+       "text": "about 96%",
+       "withheld": null
+      },
+      {
+       "holder_id": "35",
+       "chance": 0.4938,
+       "text": "about 49%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "focus_product_sales",
+     "label": "Focus on selling the product",
+     "model": "about 12%",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": 0.4304,
+       "text": "about 43%",
+       "withheld": null
+      },
+      {
+       "holder_id": "35",
+       "chance": 0.1242,
+       "text": "about 12%",
+       "withheld": null
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells these explanations apart if it shows whether 'Time to first customer payment' moves when 'Time from starting the offer to the first signed customer contract' changes: for example a past period or a comparable case where 'Time from starting the offer to the first signed customer contract' changed, and what happened to 'Time to first customer payment'. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": [],
+   "sides": [
+    {
+     "view": 37,
+     "holder": "Ana (TM-04 witness)",
+     "holder_id": "33",
+     "leader": "paid_enterprise_diagnostic",
+     "figure": "doubts this link holds",
+     "title": "Their version of the model leaves this link out.",
+     "text": "Ana (TM-04 witness): doubts this link holds"
+    },
+    {
+     "view": 39,
+     "holder": "Ben (TM-04 witness)",
+     "holder_id": "35",
+     "leader": null,
+     "figure": "keeps the link as the model has it",
+     "title": "Their version of the model keeps this link.",
+     "text": "Ben (TM-04 witness): keeps the link as the model has it"
+    }
+   ]
+  },
+  {
+   "kind": "link",
+   "record": "link:first_cash_timing:time_to_contract",
+   "label": "'Time from starting the offer to the first signed customer contract' → 'Time to first customer payment'",
+   "cards": [
+    "time_to_contract",
+    "time_to_first_cash"
+   ],
+   "sides_heading": "Your explanations",
+   "goal": "enterprise_opportunities",
+   "goal_label": "Create additional opportunities to sell the product",
+   "status": "withheld",
+   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Ana (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Ben (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
+   "options": [
+    {
+     "option": "add_consulting",
+     "label": "Add consulting services to the AI startup",
+     "model": "about 55%",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Add consulting services to the AI startup' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from starting the offer to the first signed customer contract', which 'Add consulting services to the AI startup' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from starting the offer to the first signed customer contract' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "35",
+       "chance": 0.5542,
+       "text": "about 55%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "paid_enterprise_diagnostic",
+     "label": "Test a fixed-scope paid enterprise diagnostic before offering broader consulting",
+     "model": "about 55%",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from starting the offer to the first signed customer contract', which 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from starting the offer to the first signed customer contract' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "35",
+       "chance": 0.5543,
+       "text": "about 55%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "focus_product_sales",
+     "label": "Focus on selling the product",
+     "model": "not worked out",
+     "chances": [
+      {
+       "holder_id": "33",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Focus on selling the product' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from starting the offer to the first signed customer contract', which 'Focus on selling the product' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from starting the offer to the first signed customer contract' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "35",
+       "chance": null,
+       "text": "not worked out",
+       "withheld": {
+        "value": "not worked out",
+        "reason": "The chance that 'Focus on selling the product' meets 'Create additional opportunities to sell the product' is not worked out: under 'Focus on selling the product', 'Additional qualified enterprise product sales opportunities from completed service engagements' is 0 by that option's own setting ('Focus on selling the product' sets 'Service engagements under product-only selling' to 0), which is exact for what the measure counts. The measure covers only part of the aim; left out: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. What 'Focus on selling the product' would do for 'Create additional opportunities to sell the product' through what the measure leaves out is not in the model yet."
+       }
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells these explanations apart if it shows whether 'Time to first customer payment' moves when 'Time from starting the offer to the first signed customer contract' changes: for example a past period or a comparable case where 'Time from starting the offer to the first signed customer contract' changed, and what happened to 'Time to first customer payment'. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": [],
+   "sides": [
+    {
+     "view": 37,
+     "holder": "Ana (TM-04 witness)",
+     "holder_id": "33",
+     "leader": null,
+     "figure": "doubts this link holds",
+     "title": "Their version of the model leaves this link out.",
+     "text": "Ana (TM-04 witness): doubts this link holds"
+    },
+    {
+     "view": 39,
+     "holder": "Ben (TM-04 witness)",
+     "holder_id": "35",
+     "leader": null,
+     "figure": "keeps the link as the model has it",
+     "title": "Their version of the model keeps this link.",
+     "text": "Ben (TM-04 witness): keeps the link as the model has it"
+    }
+   ]
+  },
+  {
+   "kind": "link",
+   "record": "link:first_cash_timing:contract_to_cash",
+   "label": "'Time from first signed contract to first customer payment' → 'Time to first customer payment'",
+   "cards": [
+    "contract_to_cash",
+    "time_to_first_cash"
+   ],
+   "sides_heading": "Your explanations",
+   "goal": "generate_revenue_quickly",
+   "goal_label": "Generate revenue as quickly as possible",
+   "status": "moves",
+   "status_text": "With or without the link, no option is clearly most likely to achieve 'Generate revenue as quickly as possible'; the chances move. The chance that 'Add consulting services to the AI startup' achieves 'Generate revenue as quickly as possible' is about 57% without the link and about 13% with it. 5 other members have not said whether this link holds.",
+   "options": [
+    {
+     "option": "add_consulting",
+     "label": "Add consulting services to the AI startup",
+     "model": "about 13%",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": 0.5706,
+       "text": "about 57%",
+       "withheld": null
+      },
+      {
+       "holder_id": "45",
+       "chance": 0.1321,
+       "text": "about 13%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "paid_enterprise_diagnostic",
+     "label": "Test a fixed-scope paid enterprise diagnostic before offering broader consulting",
+     "model": "about 49%",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": 0.5672,
+       "text": "about 57%",
+       "withheld": null
+      },
+      {
+       "holder_id": "45",
+       "chance": 0.4938,
+       "text": "about 49%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "focus_product_sales",
+     "label": "Focus on selling the product",
+     "model": "about 12%",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": 0.5538,
+       "text": "about 55%",
+       "withheld": null
+      },
+      {
+       "holder_id": "45",
+       "chance": 0.1242,
+       "text": "about 12%",
+       "withheld": null
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells these explanations apart if it shows whether 'Time to first customer payment' moves when 'Time from first signed contract to first customer payment' changes: for example a past period or a comparable case where 'Time from first signed contract to first customer payment' changed, and what happened to 'Time to first customer payment'. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": [],
+   "sides": [
+    {
+     "view": 47,
+     "holder": "Cara (TM-04 witness)",
+     "holder_id": "43",
+     "leader": null,
+     "figure": "doubts this link holds",
+     "title": "Their version of the model leaves this link out.",
+     "text": "Cara (TM-04 witness): doubts this link holds"
+    },
+    {
+     "view": 49,
+     "holder": "Dan (TM-04 witness)",
+     "holder_id": "45",
+     "leader": null,
+     "figure": "keeps the link as the model has it",
+     "title": "Their version of the model keeps this link.",
+     "text": "Dan (TM-04 witness): keeps the link as the model has it"
+    }
+   ]
+  },
+  {
+   "kind": "link",
+   "record": "link:first_cash_timing:contract_to_cash",
+   "label": "'Time from first signed contract to first customer payment' → 'Time to first customer payment'",
+   "cards": [
+    "contract_to_cash",
+    "time_to_first_cash"
+   ],
+   "sides_heading": "Your explanations",
+   "goal": "enterprise_opportunities",
+   "goal_label": "Create additional opportunities to sell the product",
+   "status": "withheld",
+   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Cara (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Dan (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
+   "options": [
+    {
+     "option": "add_consulting",
+     "label": "Add consulting services to the AI startup",
+     "model": "about 55%",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Add consulting services to the AI startup' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from first signed contract to first customer payment', which 'Add consulting services to the AI startup' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from first signed contract to first customer payment' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "45",
+       "chance": 0.5542,
+       "text": "about 55%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "paid_enterprise_diagnostic",
+     "label": "Test a fixed-scope paid enterprise diagnostic before offering broader consulting",
+     "model": "about 55%",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from first signed contract to first customer payment', which 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from first signed contract to first customer payment' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "45",
+       "chance": 0.5543,
+       "text": "about 55%",
+       "withheld": null
+      }
+     ]
+    },
+    {
+     "option": "focus_product_sales",
+     "label": "Focus on selling the product",
+     "model": "not worked out",
+     "chances": [
+      {
+       "holder_id": "43",
+       "chance": null,
+       "text": "not counted by the measure",
+       "withheld": {
+        "value": "not counted by the measure",
+        "reason": "The chance that 'Focus on selling the product' meets 'Create additional opportunities to sell the product' is not worked out: the measure, 'Additional qualified enterprise product sales opportunities from completed service engagements', is worked out from 'Enterprise service engagements completed within the exploration window' and 'Additional qualified enterprise opportunities per completed engagement', and does not count 'Time from first signed contract to first customer payment', which 'Focus on selling the product' also changes; left out of the measure: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. To compare it, add to the model how 'Time from first signed contract to first customer payment' changes 'Additional qualified enterprise product sales opportunities from completed service engagements', or measure 'Create additional opportunities to sell the product' so it counts this route too."
+       }
+      },
+      {
+       "holder_id": "45",
+       "chance": null,
+       "text": "not worked out",
+       "withheld": {
+        "value": "not worked out",
+        "reason": "The chance that 'Focus on selling the product' meets 'Create additional opportunities to sell the product' is not worked out: under 'Focus on selling the product', 'Additional qualified enterprise product sales opportunities from completed service engagements' is 0 by that option's own setting ('Focus on selling the product' sets 'Service engagements under product-only selling' to 0), which is exact for what the measure counts. The measure covers only part of the aim; left out: The opportunity count covers service-generated product opportunities, not opportunities from direct product selling, eventual wins, sales value, opportunities arising before service completion, or product opportunities lost through displaced selling effort. What 'Focus on selling the product' would do for 'Create additional opportunities to sell the product' through what the measure leaves out is not in the model yet."
+       }
+      }
+     ]
+    }
+   ],
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence tells these explanations apart if it shows whether 'Time to first customer payment' moves when 'Time from first signed contract to first customer payment' changes: for example a past period or a comparable case where 'Time from first signed contract to first customer payment' changed, and what happened to 'Time to first customer payment'. Evidence that fits both does not settle it."
+    }
+   ],
+   "steps": [],
+   "sides": [
+    {
+     "view": 47,
+     "holder": "Cara (TM-04 witness)",
+     "holder_id": "43",
+     "leader": null,
+     "figure": "doubts this link holds",
+     "title": "Their version of the model leaves this link out.",
+     "text": "Cara (TM-04 witness): doubts this link holds"
+    },
+    {
+     "view": 49,
+     "holder": "Dan (TM-04 witness)",
+     "holder_id": "45",
+     "leader": null,
+     "figure": "keeps the link as the model has it",
+     "title": "Their version of the model keeps this link.",
+     "text": "Dan (TM-04 witness): keeps the link as the model has it"
+    }
+   ]
+  },
+  {
+   "kind": "factor",
+   "record": "factor:38",
+   "label": "Whether the sales team has the hours to run the change alongside current deals",
+   "cards": [],
+   "sides_heading": "Your explanations",
+   "goal": "",
+   "goal_label": "",
+   "status": "not_run",
+   "options": [],
+   "steps": [],
+   "sides": [
+    {
+     "view": 37,
+     "holder": "Ana (TM-04 witness)",
+     "holder_id": "33",
+     "leader": null,
+     "figure": "thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals",
+     "title": "In their own words.",
+     "text": "Ana (TM-04 witness): thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
+    }
+   ],
+   "status_text": "Ana (TM-04 witness) thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence that it matters: a past period or a comparable case where it changed, and what happened to the aim. If nothing moved, it may matter less than it seems."
+    }
+   ]
+  },
+  {
+   "kind": "factor",
+   "record": "factor:48",
+   "label": "Whether the sales team has the hours to run the change alongside current deals",
+   "cards": [],
+   "sides_heading": "Your explanations",
+   "goal": "",
+   "goal_label": "",
+   "status": "not_run",
+   "options": [],
+   "steps": [],
+   "sides": [
+    {
+     "view": 47,
+     "holder": "Cara (TM-04 witness)",
+     "holder_id": "43",
+     "leader": null,
+     "figure": "thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals",
+     "title": "In their own words.",
+     "text": "Cara (TM-04 witness): thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
+    }
+   ],
+   "status_text": "Cara (TM-04 witness) thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
+   "settle": [
+    {
+     "kind": "diagnostic",
+     "fact": null,
+     "text": "Evidence that it matters: a past period or a comparable case where it changed, and what happened to the aim. If nothing moved, it may matter less than it seems."
+    }
+   ]
+  }
+ ]
+}
