@@ -8,7 +8,7 @@ import { useWhatIf, type WhatIfAnswer } from '../../olumiView/whatif'
 import { useViewLens } from '../../olumiView/lens'
 import { call, TeamApiError } from './api'
 import { putDraft } from './drafts'
-import { readDifferences, stepDifference, useDifferences, type Difference, type Differences } from './differences'
+import { differencesKey, readDifferences, stepDifference, useDifferences, type Difference, type Differences } from './differences'
 import { runWrite } from './writes'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
 
@@ -24,7 +24,7 @@ import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
  */
 export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element | null {
   // Read again whenever the View's version or its revealed views change (each poll that brings a reveal brings this too).
-  const key = `${sid}|${view.version?.n ?? 'none'}|${view.gated ? 'g' : ''}|${view.collab.shared.map((s) => s.id).join(',')}|${view.signature}`
+  const key = differencesKey(sid, view)
   const data = useDifferences((s) => (s.sid === sid ? s.data : null))
   const error = useDifferences((s) => (s.sid === sid ? s.error : null))
   useEffect(() => { void readDifferences(sid, key) }, [sid, key])
