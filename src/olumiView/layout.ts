@@ -1080,3 +1080,9 @@ export function unmarkedDiffers<D extends { readonly record: string }>(view: Vie
   const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record))
   return differs.filter((d) => !marked.has(d.record))
 }
+
+/** The Analysis panel's option rows a shared reason covers leave the row to it (strategy audit 7 Nov: "it belongs once, in the panel";
+ *  5d53244d, restored 9 Nov after a merge dropped it).
+ *  This row is an option's short row for an aim whose shared reason the panel says once (`sharedAimsOf`): draw no repeat of it. */
+export const saidOnce = (run: ViewRun | null | undefined, option: string, row: ViewRow): boolean =>
+  row.kind === 'none' && row.aim_id !== null && sharedAimsOf(run, option).includes(row.aim_id)

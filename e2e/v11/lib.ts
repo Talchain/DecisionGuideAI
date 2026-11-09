@@ -73,6 +73,10 @@ export async function audit(p: Page, limits: { out: number; crossings: number },
   const a = await p.evaluate(measure)
   expect.soft(a.wordsOver, `${label}: link words over cards`).toBe(0)
   expect.soft(a.underZoom, `${label}: cards under the zoom panel`).toEqual([])
+  // The regions (layout pass): the head band is drawn, no card is under it, and the first paint fits or the cue says what is below.
+  expect.soft(a.band, `${label}: the head band`).toBe(true)
+  expect.soft(a.underHead, `${label}: cards under the head band`).toEqual([])
+  expect.soft(a.firstPaint, `${label}: first paint`).not.toBe('neither')
   expect.soft(a.trunc, `${label}: cut text`).toEqual([])
   expect.soft(a.smallTargets, `${label}: controls under 24 px`).toEqual([])
   dockFloats(a, label)

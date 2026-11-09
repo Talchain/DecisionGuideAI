@@ -38,6 +38,7 @@ import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon
 import { usePanelWidth } from './usePanelWidth'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { HIT_44 } from '../../../styles/hitArea'
+import { SELECTED } from '../../../styles/selected'
 import {
   SHELL_TAB_HEIGHT_PX,
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
@@ -550,7 +551,7 @@ export function WorkspaceShellTabStrip({
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
                   // V11 pixel pass (9 Nov): on the olumi-core lane the comp's selected tab (`.ptab.on`): the canvas fill and 600, seen at a glance.
-                  ? `text-text-header ${coreLane ? 'font-semibold bg-canvas rounded-md' : 'font-medium bg-[var(--panel-tab-active-bg)]'}`
+                  ? (coreLane ? `${SELECTED} rounded-md` : 'text-text-header font-medium bg-[var(--panel-tab-active-bg)]')
                   : 'text-text-body hover:text-text-header'
               }`}
               // The olumi-core lane's tab is a 44 px target (Paul's look rule).

@@ -1,33 +1,20 @@
 /**
- * DL round 5 (9 Nov; rehearsal item 10): the canvas's controls along its head (Model · Explore · Team, Add a figure) sit on an opaque band
- * of the canvas colour, so a card the person pans up goes under the band instead of showing its words through the controls. The band runs
- * from the window's top to just below the lowest of those controls, across the free canvas (left of the dock). It takes no clicks and
- * says nothing; the board's fit already keeps every card below it at rest (computeFitPadding counts the lens bar).
+ * The canvas's HEAD region drawn (./regions.ts): an opaque band of the canvas colour under Model · Explore · Team and Add a figure, from
+ * the window's top to just below the lowest of them, across the free canvas, so a card the person pans up goes under it instead of showing
+ * its words through the controls (DL round 5). It takes no clicks and says nothing.
  */
 import { useLayoutEffect, useState } from 'react'
-import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
-import { LENS_BAR_TESTID } from '../canvas/artefacts/LensBar'
-
-/** Clear space below the lowest head control, px. */
-export const BAND_GAP = 8
-const HEAD_CONTROLS = [`[data-testid="${LENS_BAR_TESTID}"]`, '[data-testid="view-add-figure"]'] as const
-
-/** The band's height: the lowest head control's foot plus the gap; 0 when none is drawn. */
-export function bandHeightOf(feet: readonly number[]): number {
-  let low = 0
-  for (const f of feet) if (f > low) low = f
-  return low === 0 ? 0 : Math.ceil(low + BAND_GAP)
-}
+import { regionsOf } from './regions'
 
 export function CanvasHeadBand(): JSX.Element | null {
   const [box, setBox] = useState({ h: 0, right: 0 })
   useLayoutEffect(() => {
     const measure = () => {
-      const feet = HEAD_CONTROLS.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect().bottom))
-      const next = { h: bandHeightOf(feet), right: measureDockInset() }
+      const { head } = regionsOf(), next = { h: head.bottom, right: window.innerWidth - head.right }
       setBox((b) => (b.h === next.h && b.right === next.right ? b : next))
     }
     measure()
+    // The lens bar settles its place after mount and moves with the dock; a light re-read keeps the band under it.
     const t = setInterval(measure, 500)
     window.addEventListener('resize', measure)
     return () => { clearInterval(t); window.removeEventListener('resize', measure) }

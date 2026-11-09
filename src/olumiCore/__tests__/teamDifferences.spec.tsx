@@ -71,6 +71,23 @@ describe('where your explanations differ', () => {
     expect(sent.find((s) => s.method === 'POST')!.url).toBe('/api/scenarios/s_x/differences/link:total_def:existing_capacity/steps')
   })
 
+  it('a link core sends once per aim draws its two explanations once, on its first card; the second keeps its aim (DL 9 Nov)', async () => {
+    const link = { ...core.differences[0], kind: 'link', record: 'link:total_def:existing_capacity', label: "'existing capacity' → 'total capacity'", cards: ['existing_capacity', 'total_capacity'], steps: [] }
+    const other = { ...link, goal: 'cost_goal', goal_label: 'Keep cost down' }
+    serve(() => ({ status: 200, body: { ...core, differences: [link, other] } }))
+    render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
+    await screen.findByTestId('team-difference-link:total_def:existing_capacity-cost_goal')
+    expect(screen.getByTestId('team-difference-link:total_def:existing_capacity-capacity_goal-sides')).toBeTruthy()
+    expect(screen.queryByTestId('team-difference-link:total_def:existing_capacity-cost_goal-sides')).toBeNull()
+    expect(screen.getByTestId('team-difference-link:total_def:existing_capacity-cost_goal').textContent).toContain('Keep cost down')
+    // Contrast: a figure difference sent for two aims keeps its sides on both (only a link is grouped).
+    cleanup()
+    const fig = core.differences[0], fig2 = { ...fig, goal: 'cost_goal', goal_label: 'Keep cost down' }
+    serve(() => ({ status: 200, body: { ...core, differences: [fig, fig2] } }))
+    render(<DifferencesPanel sid="s_x" view={view()} onWrote={async () => true} />)
+    expect(await screen.findByTestId(`team-difference-${fig.record}-cost_goal-sides`)).toBeTruthy()
+  })
+
   it('"Preview on the canvas" runs that person\'s figure as core\'s what-if (nothing saved) and turns the What if lens on', async () => {
     const fig = { quantity: 'per_specialist', label: 'per specialist', text: '22 to 40 tickets/week/specialist', title: 't', unit: 'ticket/week/specialist', version: 1, low: 22, high: 40, range_kind: 'plausible' }
     const v = view({ version: { ...fx.version!, id: 6 }, collab: { ...fx.collab, shared: [{ ...fx.collab.shared[0]!, id: core.differences[0].sides[1].view, figures: [fig] }] } } as Partial<View>)

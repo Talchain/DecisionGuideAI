@@ -39,7 +39,8 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
       {error && <p role="alert" className={ERR} data-testid="team-differences-error">{error}</p>}
       {data.differences.length === 0
         ? <p className={META} data-testid="team-differences-empty">{data.empty}</p>
-        : data.differences.map((d) => <DifferenceCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={data} d={d} ring={ring} onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
+        : data.differences.map((d, i) => <DifferenceCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={data} d={d} ring={ring} onWrote={async () => { await readDifferences(sid, key); return onWrote() }}
+            sidesSaid={d.kind === 'link' && data.differences.findIndex((x) => x.kind === 'link' && x.record === d.record) < i} />)}
     </section>
   )
 }
@@ -47,7 +48,9 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
 /** A side's own words (core v1.30 `words`: a stance said after the reveal), or null; read here until differences.ts types the field. */
 const wordsOf = (s: Difference['sides'][number]): string | null => { const w = (s as { words?: unknown }).words; return typeof w === 'string' && w !== '' ? w : null }
 
-function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; view: View; data: Differences; d: Difference; ring: (ids: readonly string[]) => void; onWrote: () => Promise<boolean> }): JSX.Element {
+/** `sidesSaid`: core sends a link once per aim; its explanations (both sides' words) are drawn on its first card only (DL 9 Nov: one link,
+ *  its two explanations together, said once), and each later card keeps what differs by aim. */
+function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }: { sid: string; view: View; data: Differences; d: Difference; ring: (ids: readonly string[]) => void; onWrote: () => Promise<boolean>; sidesSaid?: boolean }): JSX.Element {
   const h = data.headings
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -93,7 +96,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
         </button>
       ) : <p className={`${BODY} break-words text-text-header`}><span data-testid={`${at}-label`}>{d.label}</span></p>}
 
-      <div className="grid gap-1" data-testid={`${at}-sides`}>
+      {sidesSaid ? null : <div className="grid gap-1" data-testid={`${at}-sides`}>
         <p className={META}>{d.sides_heading ?? h.sides}</p>
         <ul className="m-0 grid list-none gap-1 p-0">
           {d.sides.map((s) => (
@@ -110,7 +113,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
             </li>
           ))}
         </ul>
-      </div>
+      </div>}
 
       <p className={`${BODY} break-words ${d.status === 'changes' ? 'font-medium text-text-header' : ''}`} data-testid={`${at}-status`}>{d.status_text}</p>
 

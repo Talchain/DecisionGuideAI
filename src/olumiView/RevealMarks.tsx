@@ -5,6 +5,7 @@
  * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's, whole (N3): each mark's hover and name, each
  * figure's and each piece of evidence's own, never composed here.
  */
+import { SELECTED_RING } from '../styles/selected'
 import { FileText, GitFork, Users } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { useCanvasStore } from '../canvas/store'
@@ -62,7 +63,7 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
         return (
           <button key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e.id}
             onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
-            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? 'border-text-header ring-1 ring-text-header' : 'border-panel-border'}`}>
+            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             <FileText aria-hidden="true" className="h-3 w-3" />
           </button>
         )
@@ -108,7 +109,7 @@ export function CardViewInitials({ card }: { card: string }): JSX.Element | null
         return (
           <button key={`${m.view}`} type="button" aria-pressed={on} aria-label={words} title={words} data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
-            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas ${typography.viewLabel} text-text-body transition-colors duration-fast hover:border-text-header ${on ? 'border-text-header ring-1 ring-text-header' : 'border-panel-border'}`}>
+            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas ${typography.viewLabel} text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             {initial(m.by)}
           </button>
         )

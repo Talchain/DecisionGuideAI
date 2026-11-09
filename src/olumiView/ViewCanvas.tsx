@@ -39,7 +39,7 @@ import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { BelowCue } from './BelowCue'
 import { CanvasHeadBand } from './CanvasHeadBand'
-import { useFormClearOfFoot } from './clearOfFoot'
+import { useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
@@ -138,8 +138,8 @@ function ViewFlow() {
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
   useOpenInView(movedAt)
-  // Nothing sits under an open form: a card's editor is moved clear of the zoom row and the more-below cue (./clearOfFoot.ts).
-  useFormClearOfFoot()
+  // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
+  useCardClearOfRegions()
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).

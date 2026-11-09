@@ -10,6 +10,7 @@
 import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflow/react'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { paddingToInsets } from '../utils/cameraComfort'
+import { SELECTED_RING } from '../../styles/selected'
 import { panToKeepInView } from '../utils/keepInView'
 import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -263,7 +264,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
     // carries the comp's ink ring (`.card.sel`, V11 pixel pass 9 Nov): the one selection cue, never blue (blue is Olumi's).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : card.family === 'goal' ? 'border-[#F5C433]' : 'border-[#B0A899]'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''} ${selected && !pulsed && driverOf === null ? 'ring-1 ring-text-header' : ''}`}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : card.family === 'goal' ? 'border-[#F5C433]' : 'border-[#B0A899]'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''} ${selected && !pulsed && driverOf === null ? SELECTED_RING : ''}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined} data-inferred={inferred || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
