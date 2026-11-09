@@ -65,6 +65,9 @@
       },
       "at": {
        "type": "string"
+      },
+      "at_text": {
+       "type": "string"
       }
      },
      "required": [

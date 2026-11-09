@@ -12,6 +12,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { BriefPanel, useBriefPanelLeft } from '../BriefPanel'
+import { briefAccountOf } from '../layout'
 import { TeamPresence } from '../TeamPresence'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/j1/${f}`), 'utf8'))
@@ -56,5 +57,21 @@ describe('the people the brief names who are not on the team', () => {
   it('CONTRAST: a team of one where core names no one draws nothing', () => {
     useViewStore.setState({ view: { ...now, team_presence: { ...now.team_presence, unjoined: null } }, sid: now.id })
     expect(render(<TeamPresence />).container.innerHTML).toBe('')
+  })
+})
+
+describe('the brief panel’s version line carries core’s save date (core ad57a105 `version.at_text`)', () => {
+  it('the account reads the date by the version, and a View without it has none', () => {
+    const dated: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/version-at/app-launch.core-ad57a105.view3.json'), 'utf8'))
+    expect(briefAccountOf(dated).versionAt).toBe(dated.version!.at_text)
+    expect(briefAccountOf(dated).versionAt).toBe('2 Nov 2026')
+    expect(briefAccountOf(now).versionAt).toBeNull()
+  })
+  it('drawn after the label in the first look’s meta line, by its own data-view', () => {
+    useViewStore.setState({ view: { ...now, version: { ...now.version!, at_text: '9 Nov 2026' } }, sid: now.id })
+    render(<BriefPanel />)
+    const meta = screen.getByTestId('brief-panel-meta')
+    expect(meta.querySelector('[data-view="version.at_text"]')!.textContent).toBe('9 Nov 2026')
+    expect(meta.textContent).toBe(`${now.version!.label} · 9 Nov 2026 · ${now.chat[0]!.by}`)
   })
 })

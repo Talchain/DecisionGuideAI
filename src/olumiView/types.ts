@@ -17,6 +17,7 @@ export type View = {
     label: string
     changed: Array<string>
     at?: string
+    at_text?: string
   } | null
   model: {
     question: {

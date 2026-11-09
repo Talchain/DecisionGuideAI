@@ -42,7 +42,7 @@ export function BriefPanel(): JSX.Element | null {
             <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-semibold text-text-header`}><FileText aria-hidden="true" className="h-4 w-4" />Your brief, as you wrote it</h2>
             <button type="button" className={`${typography.viewPanelMeta} flex-none cursor-pointer text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
           </div>
-          {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version !== null && a.by !== null ? ' · ' : null}{a.by}</p>}
+          {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version === null || a.versionAt === null ? null : <> · <span data-view="version.at_text">{a.versionAt}</span></>}{a.version !== null && a.by !== null ? ' · ' : null}{a.by}</p>}
         </header>
         <blockquote className={`${typography.viewPanelBody} text-text-body`} data-testid="brief-panel-brief">“{a.brief}”</blockquote>
         <dl className={`${typography.viewPanelBody} space-y-1.5 text-text-body`}>

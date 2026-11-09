@@ -97,6 +97,8 @@ export const TopBar = ({
   const isViewer = useIsViewer()
   // J1 step 5: the version core's model is at, in core's words ("version 1"); null off the lane or before a model.
   const coreVersion = useViewStore((st) => st.view?.version?.label ?? null)
+  // V11 J1 #7: the version's save date in core's words ("9 Nov 2026"), beside its label; nothing where core sends none.
+  const coreVersionAt = useViewStore((st) => st.view?.version?.at_text ?? null)
   const isConfirmedOwner = useIsConfirmedOwner()
   // The one selected card, as "Ask your team" prefills it (S4): the round page offers it only where a panel can answer it.
   const selectedCardId = useCanvasStore(s => {
@@ -308,7 +310,7 @@ export const TopBar = ({
 
         {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
         {isOlumiCoreLane() && coreVersion !== null ? (
-          <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill">{coreVersion}</span>
+          <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill"><span data-view="version.label">{coreVersion}</span>{coreVersionAt === null ? null : <> · <span data-view="version.at_text">{coreVersionAt}</span></>}</span>
         ) : null}
         {/* J1 gate: on the strip, history sits beside the version it lists. */}
         {strip && !isViewer && coreLaneShowsSurface('versions') && (
