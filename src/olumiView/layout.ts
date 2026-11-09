@@ -259,9 +259,12 @@ export function isFirstLook(view: View | null): boolean {
  * by their labels; whether there is an aim yet and whether any option has a chance; Olumi's one question (the newest reply's next step).
  * Core's notes on what Olumi used, inferred and left out (ED-12) are not served yet: `notes` says so, and nothing stands in for them.
  */
+/** A part of the brief Olumi left out (ED-12, core 11df609): the words left out as the brief has them (`quote`, null when they are not in
+ *  it), else the record's own label, and core's note on why (`why`, absent on a core before it). */
+export type LeftOut = { readonly id: string; readonly quote: string | null; readonly label: string | null; readonly why: string | null }
 export type BriefAccount = {
   readonly brief: string; readonly by: string | null; readonly version: string | null
-  readonly used: readonly string[]; readonly inferred: readonly string[]; readonly leftOut: readonly string[]
+  readonly used: readonly string[]; readonly inferred: readonly string[]; readonly leftOut: readonly LeftOut[]
   readonly noAim: boolean; readonly noChances: boolean; readonly notes: null
   readonly question: { readonly label: string | null; readonly text: string } | null
 }
@@ -276,7 +279,8 @@ export function briefAccountOf(view: View): BriefAccount {
   return {
     brief: view.brief, by: view.chat[0]?.by ?? null, version: view.version?.label ?? null,
     used: by(['person', 'brief', 'mixed']), inferred: by(['olumi']),
-    leftOut: view.collab.records.flatMap((r) => (r.family === 'left_out' && r.label !== null ? [r.label] : [])),
+    leftOut: view.collab.records.flatMap((r) => (r.family === 'left_out' && (r.quote != null || r.label !== null)
+      ? [{ id: r.id, quote: r.quote ?? null, label: r.label, why: r.why ?? null }] : [])),
     noAim: aimsOf(model).length === 0, noChances: optionsNotYet(model) || model.cards.every((c) => c.family !== 'option'), notes: null,
     // A cite in Olumi's question points at a Run finding; a first version has none, so only its words are read.
     question: next === null ? null : { label: next.label, text: next.text.map((t) => ('text' in t ? t.text : '')).join('') },

@@ -1,17 +1,33 @@
 /**
  * Team presence (V11, Paul 6 Nov): the scenario's other members as overlapping initial discs in the header. Names are core's
  * (`view.members`); its hover and name are core's (`team_presence`, N3), the viewer marked "(you)" there. Meaningful activity lives on the model, not here.
- * Clicking opens the Team tab. Nothing while there is no View, or when the scenario has one member.
+ * Clicking opens the Team tab. Beside it, the people the brief names whom no member matches (`team_presence.unjoined`), in core's words.
+ * Nothing while there is no View, or when the scenario has one member and core names no one else.
  */
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { othersOf } from './layout'
+import type { View } from './client'
 
 export function TeamPresence() {
   const view = useViewStore((s) => s.view)
-  if (!view || view.members.length < 2) return null
+  // V11 J1 #6 (core f44bd1c): the people the brief names whom no member matches, in core's words. It shows on a team of one too (the
+  // first look), where there are no discs. Core never says "not yet invited": the View is not given invitations.
+  const unjoined = view?.team_presence.unjoined ?? null
+  if (!view || (view.members.length < 2 && unjoined === null)) return null
   const others = othersOf(view)
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      {view.members.length < 2 ? null : <Discs view={view} others={others} />}
+      {unjoined === null ? null : (
+        <span className={`${typography.viewPanelMeta} min-w-0 max-w-[420px] truncate text-text-body`} title={unjoined.text} data-testid="team-presence-unjoined" data-view="team_presence.unjoined.text">{unjoined.text}</span>
+      )}
+    </span>
+  )
+}
+
+function Discs({ view, others }: { view: View; others: ReturnType<typeof othersOf> }) {
   return (
     <button
       type="button"

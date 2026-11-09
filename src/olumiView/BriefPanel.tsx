@@ -48,10 +48,21 @@ export function BriefPanel(): JSX.Element | null {
         <dl className={`${typography.viewPanelBody} space-y-1.5 text-text-body`}>
           {a.used.length === 0 ? null : <div data-testid="brief-panel-used"><dt className="inline font-semibold text-text-header">Used: </dt><dd className="inline">{list(a.used)}.</dd></div>}
           {a.inferred.length === 0 ? null : <div data-testid="brief-panel-inferred"><dt className="inline font-semibold text-text-header">Inferred</dt> <dd className="inline">(dashed): {list(a.inferred)}. Yours to change.</dd></div>}
-          {a.leftOut.length === 0 ? null : <div data-testid="brief-panel-left-out"><dt className="inline font-semibold text-text-header">Left out: </dt><dd className="inline">{a.leftOut.map((x) => `“${x}”`).join(', ')}.</dd></div>}
+          {a.leftOut.length === 0 ? null : (
+            <div data-testid="brief-panel-left-out"><dt className="inline font-semibold text-text-header">Left out: </dt>
+              {/* Each part as the brief has it, in quotes (core's `quote`); a part not in the brief's words is named by its label, unquoted.
+                  Core's note on why follows it. */}
+              {a.leftOut.map((x) => (
+                <dd key={x.id} className="inline" data-left-out={x.id}>
+                  {x.quote !== null ? <>“<span data-view={`collab.records.${x.id}.quote`}>{x.quote}</span>”</> : <span data-view={`collab.records.${x.id}.label`}>{x.label}</span>}
+                  {x.why === null ? '. ' : <>. <span className="text-text-light" data-view={`collab.records.${x.id}.why`}>{x.why}</span> </>}
+                </dd>
+              ))}
+            </div>
+          )}
           {!a.noAim && !a.noChances ? null : <div data-testid="brief-panel-not-yet"><dt className="inline font-semibold text-text-header">Not yet: </dt><dd className="inline">{a.noAim ? 'an aim' : null}{a.noAim && a.noChances ? ', ' : null}{a.noChances ? 'chances' : null}.</dd></div>}
         </dl>
-        <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-notes-missing">Olumi’s own notes on why it used, inferred or left out each part are not available yet.</p>
+        <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-notes-missing">{a.leftOut.some((x) => x.why !== null) ? 'Olumi’s own notes on why it used or inferred each part are not available yet.' : 'Olumi’s own notes on why it used, inferred or left out each part are not available yet.'}</p>
       </div>
       {a.question === null ? null : (
         <div className="mt-auto space-y-2 bg-[#FEF9F3] px-3.5 pb-1 pt-3" data-testid="brief-panel-question">

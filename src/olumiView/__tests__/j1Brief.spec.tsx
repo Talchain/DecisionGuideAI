@@ -21,7 +21,7 @@ describe('the brief’s account, from core’s data', () => {
     expect(a.brief).toBe(view.brief)
     expect(a.used).toEqual(['monthly_revenue', 'rival_sales', 'newsletter', 'price_cut'].map(heading))
     expect(a.inferred).toEqual(['visits', 'spend_per_visit'].map(heading))
-    expect(a.leftOut).toEqual([view.collab.records.find((r) => r.id === 'emails_left_out')!.label])
+    expect(a.leftOut).toEqual([{ id: 'emails_left_out', quote: null, label: view.collab.records.find((r) => r.id === 'emails_left_out')!.label, why: null }])
     expect([a.noAim, a.noChances, a.notes]).toEqual([true, true, null])
     expect(a.question?.text).toBe('Is revenue flat because fewer people come in, or because each visit buys less?')
   })
