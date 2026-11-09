@@ -22,11 +22,11 @@ afterEach(cleanup)
 const root = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-view-card]')!
 
 describe('a card the proposal adds is drawn as a ghost', () => {
-  it('translucent, a solid info border, never dashed, with core\'s words as its caption', () => {
+  it('opaque (nothing faded at rest, 9 Nov craft), a solid info border, never dashed, with core\'s words as its caption', () => {
     const c = render(<ViewCard card={added} />).container
     const el = root(c)
     expect(el.dataset['proposedCard']).toBe('true')
-    expect(el.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel/80', 'border-info']))
+    expect(el.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel', 'border-info']))
     expect(el.className).not.toContain('border-dashed')
     expect(c.querySelector('[data-view="added_one.change.title"]')?.textContent).toBe('Proposed addition')
   })

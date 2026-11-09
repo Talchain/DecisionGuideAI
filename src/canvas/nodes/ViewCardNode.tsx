@@ -51,7 +51,7 @@ const Slot = ({ name, className = '' }: { name: string; className?: string }) =>
 
 const NBSP = '\u00a0'
 const Mark = ({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) => (
-  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
+  mark === null ? null : <span className="font-normal" title={mark.title} aria-label={mark.title} data-view={`${at}.glyph`}>{mark.glyph}</span>
 )
 
 /** One row of an option card, as core wrote it: a chance, a limit, or why there is none yet. */
@@ -69,7 +69,7 @@ function valueMark(x: object, at: string, blanket: IfApproved): ValueMark {
   return blanket === null ? null : { glyph: blanket.glyph, title: blanket.title, at: `key.${blanket.i}.glyph` }
 }
 const IfApprovedMark = ({ mark }: { mark: ValueMark }) => (
-  mark === null ? null : <span title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
+  mark === null ? null : <span className="font-normal" title={mark.title} aria-label={mark.title} data-if-approved="" data-view={mark.at}>{mark.glyph}</span>
 )
 
 /** R18 fix 1: core's short companion words under a chance ("about 50% without Olumi's suggested risk"): muted, one line, cut short with core's
@@ -84,28 +84,12 @@ const Companion = ({ row, at }: { row: Extract<ViewRow, { kind: 'chance' }>; at:
 )
 
 /**
- * A LINE THAT CAN CARRY A WHOLE RUN SENTENCE (R25, DL 7 Nov: on a real fresh brief a 'none' row quoted an unmeasured figure's whole
- * note, ~25 lines a card, and the board could not be read). Three lines at most, then a real control that opens core's words in place
- * (a button, keyboard reachable, aria-expanded), never hover only. The words are whole in the DOM either way; a short line has no control.
+ * A LINE THAT CAN CARRY A WHOLE RUN SENTENCE: drawn whole, never clamped and never behind a "Show all" (Paul's visual gate, 8 Nov: nothing
+ * cut; it supersedes R25's three-line clamp of 7 Nov). The layout reads drawn heights, so a taller card re-lays the board. A sentence too
+ * long for a card face is core's to shorten (NEEDS-CORE #4: a concise none-row text and assumption reason), never the UI's to cut.
  */
-export const SHOW_ALL = 'Show all', SHOW_LESS = 'Show less'
 export function Disclosed({ at, className = '', title, children }: { at: string; className?: string; title?: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [open, setOpen] = useState(false)
-  const [over, setOver] = useState(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render while closed; an equal answer bails out
-  useLayoutEffect(() => { const el = ref.current; if (el !== null && !open) { const o = el.scrollHeight > el.clientHeight + 1; if (o !== over) setOver(o) } })
-  const id = `disclosed-${at.replace(/[^A-Za-z0-9_-]/g, '-')}`
-  return (
-    <div className={className} data-view-row={at}>
-      <div ref={ref} id={id} title={title} className={open ? undefined : 'line-clamp-3'} data-disclosure={over || open ? (open ? 'open' : 'closed') : undefined}>{children}</div>
-      {over || open ? (
-        <button type="button" aria-expanded={open} aria-controls={id} data-show-all={at}
-          onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-light underline underline-offset-2`}>{open ? SHOW_LESS : SHOW_ALL}</button>
-      ) : null}
-    </div>
-  )
+  return <div className={className} data-view-row={at}><div title={title}>{children}</div></div>
 }
 
 function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null; aimShown?: boolean }) {
@@ -226,7 +210,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // and whole on hover (DL 4 Nov). Any other card's reason opens with its other words.
   const says = card.figure === null && card.rows.length === 0 && card.reason !== null
   // A card Olumi's proposal adds (core's change `kind: 'added'`; the View's model is the proposal's while one is held): drawn as the original canvas's
-  // proposal ghost (ProposalGhostLayer: translucent, a solid 1px info border, never dashed, which means doubt), with core's own words
+  // proposal ghost (ProposalGhostLayer: opaque since the 9 Nov craft pass, nothing faded at rest; a solid 1px info border, never dashed, which means doubt), with core's own words
   // for it ("Proposed addition") as its caption. Approving stays the Proposal card's in the chat.
   const ghost = card.change?.kind === 'added'
   // A card the proposal changes (core's change `kind: 'changed'`): told apart at rest from a proposed addition and a kept card (plan v3
@@ -263,7 +247,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border ${ghost ? 'bg-panel/80' : 'bg-panel'} px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[1.35] font-sans text-text-body rounded-md border bg-panel px-3 pb-3 pt-3.5 space-y-1 shadow-sm ${card.doubt ? 'border-dashed' : ''} ${card.challenged ? 'border-[var(--olumi-mark-orange)]' : ghost || changed ? 'border-info' : 'border-border'} ${card.focus ? 'ring-2 ring-info' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
@@ -282,8 +266,8 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           title={tried} data-whatif-mark={card.id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
       )}
       {/* The original canvas's connector glyph: the card's kind as its shape, on the top edge where its links arrive. */}
-      <span className="absolute -top-[10px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true">
-        <NodeShapeIndicator nodeKind={kind} size={18} stroke="var(--bg-panel)" strokeWidth={0.6} />
+      <span className="absolute -top-[6px] left-1/2 -translate-x-1/2 leading-none" aria-hidden="true" data-kind-glyph={id}>
+        <NodeShapeIndicator nodeKind={kind} size={12} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
       {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is shown by its info-coloured border on a
           translucent card (solid, never dashed: dashed means core doubts it) and core's + mark; core's words for it ("Proposed addition") are
