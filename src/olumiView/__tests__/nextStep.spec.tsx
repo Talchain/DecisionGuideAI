@@ -74,6 +74,17 @@ describe('the next step', () => {
     expect(useUIStore.getState().activeOutputTab).toBe('team')
   })
 
+  it('catch (acceptance step 4): the newest reply ends in core\'s own next step, so the UI adds none; a held proposal still asks to approve', () => {
+    const view = golden('s_ce285b3617bb'), next = view.chat.at(-1)!.answer!.next
+    expect([view.proposal, view.collab.alone, next.text.length > 0]).toEqual([null, true, true])
+    const c = show(view)
+    expect(step(c)).toBeNull()
+    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(1) // the reply's own step, once
+    expect(nextStepOf({ ...view, proposal: golden('proposal').proposal })?.kind).toBe('approve')
+    // Contrast: the same View with no reply yet still offers the invitation.
+    expect(nextStepOf({ ...view, chat: [] })?.kind).toBe('invite')
+  })
+
   it('a team already, with nothing to approve or type: no step (the conversation is the next step)', () => {
     const view = golden('pricing')
     const c = show({ ...view, collab: { ...view.collab, alone: false } })

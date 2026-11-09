@@ -11,7 +11,7 @@ import { Handle, Position, useReactFlow, useStore, type NodeProps } from '@xyflo
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { paddingToInsets } from '../utils/cameraComfort'
 import { panToKeepInView } from '../utils/keepInView'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, User } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
@@ -326,6 +326,13 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
+      {card.figure === null || card.author == null || card.author.by === 'olumi' ? null : (
+        // Whose figure it is, at rest, in core's words (cards[].author, core view/author.ts: "The team's figure", "Priya's figure", "The team's
+        // figure, Olumi's range"), with core's hover (the quote). Paul's acceptance step 1: every figure he wrote is marked as his, not only
+        // Olumi's (whose ◆ above says it). Olumi's own figures keep that mark alone.
+        <p className={`${typography.viewLabel} inline-flex items-center gap-1 text-text-body`} title={card.author.title} data-author={card.author.by} data-view={`${id}.author.text`}>
+          <User aria-hidden="true" className="h-3 w-3 flex-none" />{card.author.text}</p>
+      )}
       {/* Core's honesty line (card.unused, candidate 2a283a4f): a figure Olumi's analysis does not use yet says so, once, under it, in
           core's words. The figure stays editable. */}
       {card.unused == null || card.unused === '' ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-card-unused" data-view={`${id}.unused`}>{card.unused}</p>}

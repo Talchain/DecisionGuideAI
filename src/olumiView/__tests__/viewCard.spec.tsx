@@ -38,8 +38,8 @@ function at(model: ViewModel, p: string): unknown {
 // the Analysis tab's and the Summary's words (ViewChances, ViewBrief: viewFindings.spec), not the card face's: exempt here, the
 // finding only on a chance row (a 'none' row's `text` is its face line). `rests_on` (row-level: the basis ids) is already exempt.
 // `author` (core 6192ad6b, `cards[].author: { by, text, title }`): who stated the card's figure. The Model tab draws it (an icon whose name
-// and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card has no slot for it
-// and keeps Olumi's mark alone, so it is exempt from this surface's "every word drawn" set and from nothing else.
+// and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card draws it only for a
+// person's figure (acceptance step 1, authorMark.spec), Olumi's keeping its mark alone, so it stays exempt from the "every word drawn" set.
 const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
@@ -160,7 +160,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|unused|face\.(title|line)\.text)$/ // unused: core's honesty line under the figure (DL 8 Nov, on the face by ruling). values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|unused|face\.(title|line)\.text|author\.text)$/ // unused: core's honesty line under the figure (DL 8 Nov, on the face by ruling). values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
   const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {

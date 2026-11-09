@@ -792,7 +792,10 @@ export function nextStepOf(view: View): NextStep | null {
   if (view.proposal !== null) return { kind: 'approve' }
   const item = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
   if (item) return { kind: 'figure', item: item as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  if (view.version !== null && view.collab.alone) return { kind: 'invite' }
+  // Paul's acceptance step 4 (9 Nov): Olumi's reply ends in ONE question or step. Where the newest reply carries core's own next step
+  // (answer.next, drawn under it), the invitation is not stacked under it as a second step; Team still offers it. (A held proposal and a
+  // figure to type stay: each is the one move, the reply's tap waiting behind More ways, DL ruling b, 7 Nov.)
+  if (view.version !== null && view.collab.alone && (view.chat.at(-1)?.answer?.next?.text.length ?? 0) === 0) return { kind: 'invite' }
   return null
 }
 
