@@ -1,0 +1,948 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_e2420d6969b0",
+ "title": "Bookshop: lift monthly revenue",
+ "commit": "172e23aec016264e75fd6f7b3d5cf3ea3d57dc0a",
+ "signature": "[34,null,[[32,\"approved\"]],[],[\"Maya\"],[],[\"26\"]]",
+ "you": "Maya",
+ "you_id": "26",
+ "members": [
+  {
+   "id": "26",
+   "name": "Maya"
+  }
+ ],
+ "version": {
+  "id": 34,
+  "n": 1,
+  "label": "Version 1",
+  "changed": []
+ },
+ "model": {
+  "question": {
+   "text": "Why has revenue been flat since May?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "rival_chance",
+     "rival_keep",
+     "emails_left_out"
+    ],
+    "text": "● ○ +3",
+    "title": "quantity: Chance the rival is running sales\nquantity: Share of visits kept\nleft out: The emails are annoying",
+    "label": "Expand 3 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": "",
+    "words": "2 figures, 1 open question",
+    "icon": "● ○"
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "monthly_revenue",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Monthly revenue",
+    "typed": false,
+    "detail": "Monthly revenue · quantity · Theirs: “Revenue’s been flat since May, about £4,300 a month” · An approximate figure: £4,300/month",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◐",
+     "title": "Theirs: “Revenue’s been flat since May, about £4,300 a month” · Olumi reads it as their figure most likely, 10% either way for 8 draws in 10, until they give a range."
+    },
+    "change": null,
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "≈£4,300/month",
+     "title": "An approximate figure: £4,300/month",
+     "edit": {
+      "prompt": "New figure for “Monthly revenue” (GBP/month): one number, or a range like 150 to 400",
+      "ask": "For “Monthly revenue”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "visits",
+      "spend_per_visit",
+      "visits_revenue",
+      "spend_revenue",
+      "reminded"
+     ],
+     "text": "● ↝ +5",
+     "title": "quantity: Visits each month\nquantity: Spend per visit\nrelation: Visits each month → Monthly revenue\nrelation: Spend per visit → Monthly revenue\nrelation: Start a monthly newsletter → Visits each month",
+     "label": "Expand 5 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures, 3 links",
+     "icon": "● ↝"
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Revenue’s been flat since May, about £4,300 a month",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "mixed",
+     "text": "The team’s figure, Olumi’s range",
+     "title": "Theirs: “Revenue’s been flat since May, about £4,300 a month” · Olumi reads it as their figure most likely, 10% either way for 8 draws in 10, until they give a range."
+    },
+    "failed": []
+   },
+   {
+    "id": "rival_sales",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "A rival bookshop may be running sales",
+    "typed": false,
+    "detail": "A rival bookshop may be running sales · risk · Theirs: “I keep hearing a rival might be running sales”",
+    "col": 0,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "A rival bookshop may be running sales",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “I keep hearing a rival might be running sales”"
+    },
+    "failed": []
+   },
+   {
+    "id": "newsletter",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Start a monthly newsletter",
+    "typed": false,
+    "detail": "Start a monthly newsletter · option · Theirs: “a newsletter”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": null,
+      "text": "No chance can be worked out for this option yet",
+      "title": "No chance can be worked out for this option yet"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "reminded"
+     ],
+     "text": "↝ +1",
+     "title": "relation: Start a monthly newsletter → Visits each month",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 link",
+     "icon": "↝"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Start a monthly newsletter",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “a newsletter”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": null,
+     "state": "none",
+     "text": "this option: no chance yet",
+     "title": "No chance can be worked out for this option yet",
+     "range": null,
+     "why": "No chance can be worked out for this option yet",
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "price_cut",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Cut prices by 10%",
+    "typed": false,
+    "detail": "Cut prices by 10% · option · Theirs: “Tom wants a 10% price cut” (Tom)",
+    "col": 0,
+    "h": 84,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": null,
+      "text": "No chance can be worked out for this option yet",
+      "title": "No chance can be worked out for this option yet"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cut prices by 10%",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by Tom",
+     "title": "Theirs: “Tom wants a 10% price cut” (Tom)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": null,
+     "state": "none",
+     "text": "this option: no chance yet",
+     "title": "No chance can be worked out for this option yet",
+     "range": null,
+     "why": "No chance can be worked out for this option yet",
+     "add": null,
+     "shared": false
+    }
+   }
+  ],
+  "links": [
+   {
+    "from": "newsletter",
+    "to": "monthly_revenue",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Visits each month · Proposed by Olumi: Olumi’s reading of “it might remind people we exist” · Proposed by Olumi: fewer people come in",
+    "records": [
+     "reminded",
+     "visits_revenue"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "rival_sales",
+    "to": "monthly_revenue",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Visits each month · Proposed by Olumi: fewer people come in",
+    "records": [
+     "visits_revenue"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": null,
+   "lead": null,
+   "all_withheld": false,
+   "most_likely": null,
+   "waits_on": null,
+   "notes": [],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": []
+  },
+  "edit_base": 34,
+  "holdable": [
+   {
+    "link": {
+     "record": "visits_revenue",
+     "part": null
+    },
+    "from": "visits",
+    "to": "monthly_revenue",
+    "text": "'Visits each month' → 'Monthly revenue'",
+    "line": false,
+    "card": "monthly_revenue"
+   },
+   {
+    "link": {
+     "record": "spend_revenue",
+     "part": null
+    },
+    "from": "spend_per_visit",
+    "to": "monthly_revenue",
+    "text": "'Spend per visit' → 'Monthly revenue'",
+    "line": false,
+    "card": "monthly_revenue"
+   },
+   {
+    "link": {
+     "record": "reminded",
+     "part": null
+    },
+    "from": "newsletter",
+    "to": "visits",
+    "text": "'Start a monthly newsletter' → 'Visits each month'",
+    "line": false,
+    "card": "monthly_revenue"
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "unsized",
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "removed": [],
+  "aim": null,
+  "sharpen": [
+   {
+    "id": "option_breadth",
+    "lead": "You are comparing two options.",
+    "emphasis": "A materially different route widens the comparison.",
+    "rationale": "Option generation: comparing only similar routes narrows what the analysis can see. A structurally different option often reveals a better or lower-regret path.",
+    "move": "widen_options"
+   },
+   {
+    "id": "risk_count",
+    "lead": "One risk captured.",
+    "emphasis": "A pre-mortem typically surfaces failure modes you have not listed.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "26",
+    "name": "Maya"
+   }
+  ],
+  "records": [
+   {
+    "id": "monthly_revenue",
+    "family": "quantity",
+    "label": "Monthly revenue"
+   },
+   {
+    "id": "visits",
+    "family": "quantity",
+    "label": "Visits each month"
+   },
+   {
+    "id": "spend_per_visit",
+    "family": "quantity",
+    "label": "Spend per visit"
+   },
+   {
+    "id": "visits_revenue",
+    "family": "relation",
+    "label": "Visits each month → Monthly revenue"
+   },
+   {
+    "id": "spend_revenue",
+    "family": "relation",
+    "label": "Spend per visit → Monthly revenue"
+   },
+   {
+    "id": "rival_chance",
+    "family": "quantity",
+    "label": "Chance the rival is running sales"
+   },
+   {
+    "id": "rival_keep",
+    "family": "quantity",
+    "label": "Share of visits kept"
+   },
+   {
+    "id": "rival_sales",
+    "family": "risk",
+    "label": "A rival bookshop may be running sales"
+   },
+   {
+    "id": "newsletter",
+    "family": "option",
+    "label": "Start a monthly newsletter"
+   },
+   {
+    "id": "price_cut",
+    "family": "option",
+    "label": "Cut prices by 10%"
+   },
+   {
+    "id": "reminded",
+    "family": "relation",
+    "label": "Start a monthly newsletter → Visits each month"
+   },
+   {
+    "id": "emails_left_out",
+    "family": "left_out",
+    "label": "The emails are annoying"
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 32,
+   "by": "Maya",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Revenue’s been flat since May, about £4,300 a month, and I don’t get why. Regulars tell us the emails are annoying. Tom wants a 10% price cut. I’m not sure a newsletter is worth the effort, though it might remind people we exist. I keep hearing a rival might be running sales.",
+   "answer": {
+    "answer": [
+     {
+      "text": "Here is a first model of your brief, for you to change. Nothing can be worked out yet."
+     }
+    ],
+    "why": [],
+    "next": {
+     "label": "What counts as success?",
+     "text": [
+      {
+       "text": "Is revenue flat because fewer people come in, or because each visit buys less?"
+      }
+     ],
+     "about": [
+      "visits",
+      "spend_per_visit"
+     ],
+     "at": "visits",
+     "newest": true,
+     "move": "define_success"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "26",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "monthly_revenue": "Please change “Monthly revenue”: ",
+   "visits": "Please change “Visits each month”: ",
+   "spend_per_visit": "Please change “Spend per visit”: ",
+   "visits_revenue": "Please change “Visits each month → Monthly revenue”: ",
+   "spend_revenue": "Please change “Spend per visit → Monthly revenue”: ",
+   "rival_chance": "Please change “Chance the rival is running sales”: ",
+   "rival_keep": "Please change “Share of visits kept”: ",
+   "rival_sales": "Please change “A rival bookshop may be running sales”: ",
+   "newsletter": "Please change “Start a monthly newsletter”: ",
+   "price_cut": "Please change “Cut prices by 10%”: ",
+   "reminded": "Please change “Start a monthly newsletter → Visits each month”: ",
+   "emails_left_out": "Please change “The emails are annoying”: "
+  }
+ },
+ "brief": "Revenue’s been flat since May, about £4,300 a month, and I don’t get why. Regulars tell us the emails are annoying. Tom wants a 10% price cut. I’m not sure a newsletter is worth the effort, though it might remind people we exist. I keep hearing a rival might be running sales.",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-09T01:52:38.452Z",
+  "job": 28,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-09T01:52:38.372Z"
+ },
+ "turn": {
+  "job": 41,
+  "status": "failed",
+  "said": "Not sure",
+  "ask": "message",
+  "by": "Maya",
+  "by_id": "26",
+  "words": "Olumi could not finish this turn. Please try again in a moment.",
+  "started": "2026-11-09T01:59:49.983Z",
+  "at": "2026-11-09T01:59:49.998Z"
+ },
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 1 to check or set"
+ },
+ "team_presence": {
+  "title": "Maya (you)",
+  "label": "Team: Maya (you)",
+  "members": [
+   {
+    "id": "26",
+    "text": "Maya (you)"
+   }
+  ]
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}

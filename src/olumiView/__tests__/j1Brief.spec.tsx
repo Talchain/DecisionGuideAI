@@ -43,3 +43,21 @@ describe('the panel', () => {
     expect(useBriefPanelLeft.getState().left.has(view.id)).toBe(true)
   })
 })
+
+describe('a reply sent from the first look (V11 integration, 9 Nov: core candidate 172e23ae, the reply failed at call cap 0)', () => {
+  const failed: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1/bookshop-v1-turn-failed.core-172e23ae.view3.json'), 'utf8'))
+  it('shows here, where it was sent: their words, core’s reason, and Try again', () => {
+    expect([isFirstLook(failed), failed.turn?.status]).toEqual([true, 'failed'])
+    useViewStore.setState({ view: failed, sid: failed.id })
+    render(<BriefPanel />)
+    const turn = screen.getByTestId('brief-panel-turn')
+    expect(turn.querySelector('[data-view="turn.said"]')!.textContent).toBe(failed.turn!.said)
+    expect(turn.querySelector('[data-view="turn.words"]')!.textContent).toBe(failed.turn!.words)
+    expect(turn.querySelector('[data-testid="view-chat-turn-again"]')).not.toBeNull()
+  })
+  it('CONTRAST: with no turn held, the panel draws none', () => {
+    useViewStore.setState({ view, sid: view.id })
+    render(<BriefPanel />)
+    expect(screen.queryByTestId('brief-panel-turn')).toBeNull()
+  })
+})

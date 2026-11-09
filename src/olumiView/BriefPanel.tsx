@@ -3,7 +3,7 @@
  * account, instead of the tabs: the brief as the person wrote it, then what the model used from it, what Olumi inferred, what was left out
  * and what is not there yet, then Olumi's one question. Every item is core's own words (layout.ts briefAccountOf); the few labels are the
  * panel's. Core's own notes on what Olumi used, inferred and left out (ED-12) are not served yet, so the panel says that and composes none.
- * "All tabs" goes back to the dock as it was; the dock's own composer stays below it for a reply.
+ * "All tabs" goes back to the dock as it was; the dock's own composer stays below it for a reply, and a reply sent from it shows here.
  */
 import { FileText } from 'lucide-react'
 import { create } from 'zustand'
@@ -11,6 +11,7 @@ import { typography } from '../styles/typography'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
 import { useViewStore } from './store'
 import { briefAccountOf, isFirstLook } from './layout'
+import { TurnInFlight } from './ViewChat'
 
 /** The scenarios whose brief's account the person has left for the tabs, this session. */
 export const useBriefPanelLeft = create<{ left: ReadonlySet<string> }>(() => ({ left: new Set() }))
@@ -53,6 +54,9 @@ export function BriefPanel(): JSX.Element | null {
           <p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OlumiAiIcon size={16} aria-hidden="true" className="mt-0.5 flex-none" /><span>{a.question.text}</span></p>
         </div>
       )}
+      {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain
+          reason with Try again when it ends unanswered, here where it was sent (the same turn the Olumi tab draws, ViewChat TurnInFlight). */}
+      {view.turn == null ? null : <div className="bg-[#FEF9F3] px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
     </section>
   )
 }
