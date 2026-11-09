@@ -81,7 +81,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
               <li key={x.key} className={`${BODY} grid gap-0.5 break-words`} data-link-said={x.key}>
                 {x.text !== null && <span className="text-text-header">{x.text}</span>}
                 <span>{words[x.stance]}</span>
-                {x.words ? <span className="text-text-light">{x.words}</span> : null}
+                {/* Her own words in body colour, as everywhere a person's words are read (the UI lane, 9 Nov; gate grade 2 polish). */}
+                {x.words ? <span className="text-text-body" data-link-said-words="">{x.words}</span> : null}
               </li>
             ))}
           </ul>

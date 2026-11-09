@@ -3,7 +3,7 @@
  * reaches this page without a press or a reload. About every POLL_MS while the page is visible, the store reads the View again through
  * its numbered reads (`store.refresh`), so a newer read (a write's own) always wins and an older answer is dropped. Never two at once: a
  * re-read waits for its own answer before the next is timed, and none starts while any other read is on its way. Paused while the page is
- * hidden; on coming back into view it reads at once.
+ * hidden; on coming back into view, or when its window gains focus again, it reads at once.
  *
  * AI JOBS (core API v1.26, 8 Nov): a first draft runs in the server after its brief is accepted, and the View's `draft` says how far it
  * is, in core's words. While the scenario on screen is drafting, this same loop reads about every DRAFT_POLL_MS (no second loop, the same
@@ -50,10 +50,14 @@ export function useViewPoll(on: boolean): void {
     const onVisibility = () => {
       if (seen()) { if (timer === null && !going) void tick() } else if (timer !== null) { clearTimeout(timer); timer = null }
     }
+    // Back to this window (X2 rehearsal, DL 9 Nov: another window approved; re-entering the same address reads nothing, since a browser
+    // fires no event for an identical URL): read at once, as on coming back into view, unless a read is on its way.
+    const onFocus = () => { if (seen() && !going) { if (timer !== null) { clearTimeout(timer); timer = null } void tick() } }
     // A draft that starts while a slow re-read is timed (the page just moved to the scenario its brief made): time the next one sooner.
     const unwatch = useViewStore.subscribe(() => { if (timer !== null && !fast && !going && drafting()) { clearTimeout(timer); timer = null; next() } })
     next()
     document.addEventListener('visibilitychange', onVisibility)
-    return () => { stopped = true; unwatch(); if (timer !== null) clearTimeout(timer); document.removeEventListener('visibilitychange', onVisibility) }
+    window.addEventListener('focus', onFocus)
+    return () => { stopped = true; unwatch(); if (timer !== null) clearTimeout(timer); document.removeEventListener('visibilitychange', onVisibility); window.removeEventListener('focus', onFocus) }
   }, [on])
 }
