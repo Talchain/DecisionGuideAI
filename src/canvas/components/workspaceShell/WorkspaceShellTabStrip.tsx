@@ -37,6 +37,7 @@ import { VersionsTrigger } from '../../versions/VersionsTrigger'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { HIT_44 } from '../../../styles/hitArea'
 import {
   SHELL_TAB_HEIGHT_PX,
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
@@ -52,7 +53,7 @@ import {
  */
 const ROW_ICON_CONTROL =
   'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
-  `${typography.panelMeta} text-text-header hover:bg-panel shrink-0`
+  `${typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
 
 /**
  * The DOM id of a dock tab, and of the panel they all control. Both halves of

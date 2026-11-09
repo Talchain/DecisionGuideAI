@@ -74,8 +74,9 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 /** The chips' row: wide enough for two chips side by side. */
 // J1 gate: a rail is as wide as its card and the room beside it, so two cards' rails side by side never overlap (they did at 380 px);
-// a chip's words wrap inside it rather than run under its neighbour's.
-const CHIPS_WIDTH = CARD_WIDTH + 16
+// a chip's words wrap inside it rather than run under its neighbour's. V11 pixel pass (9 Nov): exactly the card's width, so two
+// neighbours' rails keep the board's gap between them (at + 16 they met, chip against chip, on the Reveal at 1232).
+const CHIPS_WIDTH = CARD_WIDTH
 
 /** What a mark says on hover and to a reader, in core's words: the person's figure mark (who, the figure, core's heading for its effect), or,
  *  for a view placed by its words, the person. */

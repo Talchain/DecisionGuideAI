@@ -349,6 +349,27 @@ describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
     fireEvent.click(screen.getByTestId('lens-bar-team'))
     expect(force).toHaveBeenCalledWith('team')
   })
+
+  it('DL ruling 9 Nov: Model and Team are one destination each, the canvas bar and the dock tab always in sync', () => {
+    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
+    useViewLens.setState({ lens: 'tradeoffs' })
+    act(() => { useUIStore.getState().setActiveOutputTab('olumi') })
+    render(<ViewLensBar nav />)
+    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'false')
+    // The canvas Model opens the dock's Model tab on the plain model.
+    fireEvent.click(screen.getByTestId('lens-bar-full'))
+    expect(force).toHaveBeenCalledWith('diagnostics')
+    expect(useViewLens.getState().lens).toBe('full')
+    // The dock's Model tab turns a lens off and presses the canvas Model; the dock's Team presses the canvas Team, never both.
+    act(() => { useViewLens.setState({ lens: 'tradeoffs' }); useUIStore.getState().setActiveOutputTab('olumi') })
+    act(() => { useUIStore.getState().setActiveOutputTab('diagnostics') })
+    expect(useViewLens.getState().lens).toBe('full')
+    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'true')
+    act(() => { useUIStore.getState().setActiveOutputTab('team') })
+    expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
+  })
 })
 
 describe('every selection brings its card to the centre (design owner, 8 Nov)', () => {

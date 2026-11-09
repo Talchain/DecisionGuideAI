@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type 
 import { Compass } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
+import { HIT_44 } from '../styles/hitArea'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar'
@@ -95,7 +96,7 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
 /** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
 const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 // J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
-const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS}`
+const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
 const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-text-header bg-[#FEF9F3] text-text-header' : 'border-[#EEE6D8] bg-transparent text-text-body hover:text-text-header'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
@@ -116,13 +117,17 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   }, [open])
   useEffect(() => { if (open) menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"], [role="menuitemradio"]:not([aria-disabled])')?.focus() }, [open])
   const exploring = lens !== 'full'
+  // DL ruling 9 Nov: Model and Team are one destination each, on the canvas and in the dock, always in sync. The canvas Model opens the
+  // dock's Model tab on the plain model; the dock's Model tab turns any lens off; each is pressed while its dock tab is open.
+  const dockTab = useUIStore((s) => s.activeOutputTab)
+  useEffect(() => { if (dockTab === 'diagnostics' && useViewLens.getState().lens !== 'full') useViewLens.setState({ lens: 'full' }) }, [dockTab])
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
     <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
       className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
       style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
-      <button type="button" aria-pressed={!exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
-        onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false) }} className={segment(!exploring)}>
+      <button type="button" aria-pressed={dockTab === 'diagnostics' && !exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
+        onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false); useUIStore.getState().forceActivateOutputTab('diagnostics') }} className={segment(dockTab === 'diagnostics' && !exploring)}>
 <span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
       </button>
       <div className="relative h-full">
@@ -152,7 +157,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
           </div>
         )}
       </div>
-      <button type="button" data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => { setOpen(false); useUIStore.getState().forceActivateOutputTab('team') }} className={segment(false)}>
+      <button type="button" aria-pressed={dockTab === 'team'} data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => { setOpen(false); useUIStore.getState().forceActivateOutputTab('team') }} className={segment(dockTab === 'team')}>
 <span className={compact ? 'sr-only' : undefined}>{W.team}</span>
       </button>
     </div>

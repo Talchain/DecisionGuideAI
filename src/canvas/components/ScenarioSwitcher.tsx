@@ -26,6 +26,7 @@ import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
 import { coreLaneAllows } from '../../olumiCore/lane'
+import { HIT_44 } from '../../styles/hitArea'
 
 /** Matches the character budget the removed TopBar title input enforced. */
 const MAX_NAME_LENGTH = 60
@@ -461,7 +462,7 @@ export function ScenarioSwitcher({
 
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="shrink-0 inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
+            className={`shrink-0 inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors ${HIT_44}`}
             type="button"
             aria-expanded={isOpen}
             aria-haspopup="true"

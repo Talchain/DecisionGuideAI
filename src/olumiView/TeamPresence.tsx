@@ -21,7 +21,8 @@ export function TeamPresence() {
     <span className="inline-flex min-w-0 items-center gap-2">
       {view.members.length < 2 ? null : <Discs view={view} others={others} />}
       {unjoined === null ? null : (
-        <span className={`${typography.viewPanelMeta} min-w-0 max-w-[420px] truncate text-text-body`} title={unjoined.text} data-testid="team-presence-unjoined" data-view="team_presence.unjoined.text">{unjoined.text}</span>
+        // V11 pixel pass (9 Nov): two short lines with room before Share (one 360 px line crowded it at 1232), never cut.
+        <span className={`${typography.viewPanelMeta} mr-2 min-w-0 max-w-[240px] text-right text-text-body`} title={unjoined.text} data-testid="team-presence-unjoined" data-view="team_presence.unjoined.text">{unjoined.text}</span>
       )}
     </span>
   )

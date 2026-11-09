@@ -463,3 +463,20 @@
   outline: 2px solid var(--text-header);
   outline-offset: 2px;
 }
+
+/* V11 pixel pass (9 Nov, Paul's look rule: 44 px targets): the top bar's icon controls and the home mark keep their drawn size and
+ * take a 44 px hit area, centred, as the comps do (`.btn-sm::after`). The kebab composes .iconButton, so it has one too. */
+.iconButton,
+.logoLink {
+  position: relative;
+}
+.iconButton::after,
+.logoLink::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}

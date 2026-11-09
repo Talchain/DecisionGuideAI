@@ -36,6 +36,13 @@ describe('the opening board shows the question, the aims and the options', () =>
     // The story follows below the head: no story card sits above the options' row.
     for (const c of hiring.model!.cards) if (!headOf(hiring).includes(c.id)) expect(places.get(c.id)!.y).toBeGreaterThan(optionsTop)
   })
+  it('V11 pixel pass (9 Nov): no story card straddles the opening room\'s foot; the story starts whole below it', () => {
+    const places = routeTree(hiring.model!, sizes(hiring), QW, new Set(), ROOM, ROOM_W)
+    const story = hiring.model!.cards.filter((c) => !headOf(hiring).includes(c.id))
+    const straddle = story.filter((c) => places.get(c.id)!.y < ROOM && places.get(c.id)!.y + c.h > ROOM).map((c) => c.id)
+    expect(straddle).toEqual([])
+    expect(Math.min(...story.map((c) => places.get(c.id)!.y))).toBeGreaterThan(ROOM)
+  })
   it('CONTRAST: without the room (no measured canvas) the board is the prototype route tree, where the aims end the story off the frame', () => {
     const places = routeTree(hiring.model!, sizes(hiring), QW, new Set(), 0, 0)
     expect(inRoom(hiring, places).down).toBeGreaterThan(ROOM)
