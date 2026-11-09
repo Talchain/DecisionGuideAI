@@ -5,22 +5,23 @@
  * plain reason when it failed or was lost), announced as a status, with the seconds since the brief was ACCEPTED (core's `started`, so a
  * reload or another device counts from the same moment; a line that never moves reads as stuck, PL 4 Nov). Nothing streams, nothing is
  * estimated, and no word here is the page's own but the Try again control. A failed or lost draft offers Try again: a new attempt on the
- * saved brief (a new op). The poller reads the View about every 1.5 s while it drafts (poll.ts).
+ * saved brief (a new op); so does a stopped one, whose words core says ('You stopped this draft…'). While it drafts, its author sees core's
+ * Stop (`draft.stop`, label and hover verbatim; core API v1.34): it stops the job and the View is read again. The poller reads the View about every 1.5 s while it drafts (poll.ts).
  */
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
-import { tryAgain, useViewChat } from './ViewChat'
+import { stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { useViewStore } from './store'
 import type { View } from './client'
 
 type Draft = NonNullable<View['draft']>
 
-/** The board shows a first draft that is running, or one that failed or was lost before any model or proposal exists. */
+/** The board shows a first draft that is running, or one that failed, was lost or was stopped before any model or proposal exists. */
 export const boardDraftOf = (view: View | null): Draft | null => {
   const d = view?.draft ?? null
   if (d === null || view === null || view.version !== null || view.proposal !== null || typeof d.words !== 'string') return null
-  return d.status === 'drafting' || d.status === 'failed' || d.status === 'lost' ? d : null
+  return d.status === 'drafting' || d.status === 'failed' || d.status === 'lost' || d.status === 'stopped' ? d : null
 }
 
 export function DraftingBoard(): JSX.Element | null {
@@ -44,8 +45,10 @@ function Drafting({ draft }: { draft: Draft }): JSX.Element {
           {running ? <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-info motion-safe:animate-pulse" /> : null}
           <span data-view="draft.words" data-testid="view-drafting-words">{draft.words}</span>
         </p>
+        {running && s !== null ? <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p> : null}
         {running
-          ? (s === null ? null : <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p>)
+          ? (draft.stop == null ? null : <button type="button" disabled={busy} title={draft.stop.title} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
+              className="min-h-[44px] rounded-md border border-border px-4 text-text-body hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">{draft.stop.label}</button>)
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
               className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </div>

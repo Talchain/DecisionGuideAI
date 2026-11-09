@@ -493,11 +493,19 @@ export function restorePendingBrief(): boolean {
   return true
 }
 
-/** Try again (core API v1.26): a new attempt on the scenario's saved brief after its first draft failed or was lost, under a new op. */
+/** Try again (core API v1.26): a new attempt on the scenario's saved brief after its first draft failed, was lost or was stopped, under a new op. */
 export function tryAgain(): Promise<boolean> {
-  const { sid, view } = useViewStore.getState()
-  if (sid === null || (view?.draft?.status !== 'failed' && view?.draft?.status !== 'lost')) return Promise.resolve(false)
-  return write('redraft', `${sid}:${view.draft.job ?? ''}`, (op) => writes.redraft(sid, op))
+  const { sid, view } = useViewStore.getState(), status = view?.draft?.status
+  if (sid === null || (status !== 'failed' && status !== 'lost' && status !== 'stopped')) return Promise.resolve(false)
+  return write('redraft', `${sid}:${view!.draft!.job ?? ''}`, (op) => writes.redraft(sid, op))
+}
+
+/** Stop (core API v1.34): only while core offers it (`draft.stop`, the draft's author, while it drafts); then the View is read again. */
+export function stopDraft(): Promise<boolean> {
+  const { sid, view } = useViewStore.getState(), d = view?.draft
+  if (sid === null || d?.status !== 'drafting' || d.stop == null || typeof d.job !== 'number') return Promise.resolve(false)
+  const job = d.job
+  return act(() => writes.stopDraft(sid, job))
 }
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */

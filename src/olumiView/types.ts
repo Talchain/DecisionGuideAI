@@ -1088,13 +1088,19 @@ export type View = {
     } | null
   }
   draft?: {
-    status: "drafting" | "done" | "failed" | "lost"
+    status: "drafting" | "done" | "failed" | "lost" | "stopped"
     reason: string | null
     at: string
     job?: number
     stage?: "reading" | "building" | "analysing" | null
     words?: string | null
     started?: string
+    by?: string
+    by_id?: string
+    stop?: {
+      label: string
+      title: string
+    } | null
   } | null
   turn?: {
     job: number

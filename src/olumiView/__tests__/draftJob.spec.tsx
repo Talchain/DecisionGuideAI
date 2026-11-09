@@ -89,6 +89,46 @@ describe('the drafting board', () => {
     await tick(0)
     expect(posts).toEqual([{ url: `/api/scenarios/${SID_A}/draft`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
   })
+
+  // Stop (core c94d6bd5, API v1.34; DL 9 Nov): core's words, verbatim (src/words/draft.ts STOP_CONTROL and stoppedWords).
+  const STOP = { label: 'Stop', title: 'Stop drafting this first model. Your brief is kept.' }
+  const STOPPED = 'You stopped this draft, so Olumi will not finish it. Your brief is kept: Try again drafts it afresh.'
+  it('U1c its author sees core\'s Stop while it drafts; pressing it posts …/jobs/7/stop with {} and reads the View again; anyone else sees none', async () => {
+    on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), draft: { ...drafting(SID_A, 'building').draft!, stop: STOP } } as unknown as View)
+    const stopped = { ...drafting(SID_A, 'building'), draft: { status: 'stopped', reason: null, at: STARTED, job: 7, stage: 'building', words: STOPPED, started: STARTED, by: 'Paul', by_id: '7', stop: null } } as unknown as View
+    served.set(SID_A, stopped)
+    post = () => new Response(JSON.stringify({ id: 7, kind: 'draft', scenario: SID_A, status: 'stopped' }), { status: 200 })
+    const c = render(<DraftingBoard />).container
+    const stop = c.querySelector<HTMLButtonElement>('[data-testid="view-drafting-stop"]')!
+    expect([stop.textContent, stop.getAttribute('title'), stop.getAttribute('data-view')]).toEqual([STOP.label, STOP.title, 'draft.stop.label'])
+    await act(async () => { fireEvent.click(stop) })
+    await tick(0)
+    expect(posts).toEqual([{ url: `/api/scenarios/${SID_A}/jobs/7/stop`, body: {} }])
+    expect(reads.some((u) => u.includes(`/api/scenarios/${SID_A}/view`))).toBe(true)
+    // Stopped: core's sentence verbatim, Try again, no Stop and no running seconds.
+    expect(c.querySelector('[data-testid="view-drafting-board"]')?.getAttribute('data-draft')).toBe('stopped')
+    expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe(STOPPED)
+    expect(c.querySelector('[data-testid="view-drafting-again"]')).not.toBeNull()
+    expect(c.querySelector('[data-testid="view-drafting-stop"]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-drafting-seconds"]')).toBeNull()
+    // Contrast: another member's View of the same running draft carries stop: null, so no Stop is drawn (and none on a core before v1.34).
+    cleanup()
+    on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), draft: { ...drafting(SID_A, 'building').draft!, stop: null } } as unknown as View)
+    const other = render(<DraftingBoard />).container
+    expect(other.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model')
+    expect(other.querySelector('[data-testid="view-drafting-stop"]')).toBeNull()
+  })
+
+  it('U1d Try again on a stopped draft sends a new attempt on the saved brief (POST …/draft with a new op)', async () => {
+    on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), draft: { status: 'stopped', reason: null, at: STARTED, job: 7, stage: 'building', words: STOPPED.replace(/^You/, 'Paul').replace('Your brief', 'The brief'), started: STARTED, by: 'Paul', by_id: '8', stop: null } } as unknown as View)
+    served.set(SID_A, drafting(SID_A, 'reading'))
+    post = () => new Response(JSON.stringify({ scenario: SID_A, job: { id: 9, status: 'running' }, proposal: null, status_url: `/api/scenarios/${SID_A}/jobs/9` }), { status: 202 })
+    const c = render(<DraftingBoard />).container
+    expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Paul stopped this draft, so Olumi will not finish it. The brief is kept: Try again drafts it afresh.')
+    await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-drafting-again"]')!) })
+    await tick(0)
+    expect(posts).toEqual([{ url: `/api/scenarios/${SID_A}/draft`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } }])
+  })
 })
 
 describe('the one poller while a draft runs', () => {

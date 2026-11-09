@@ -66,7 +66,7 @@ export type FigureFirstShown = {
  */
 const scenarioPath = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}`
 /** A first draft as core runs it (core API v1.26, AI jobs): accepted at once, then drafted in the server. `words` are core's, drawn verbatim. */
-export type DraftJob = { id: number; kind: 'draft'; scenario: string; status: 'running' | 'done' | 'failed' | 'lost'; stage: 'reading' | 'building' | 'analysing' | null
+export type DraftJob = { id: number; kind: 'draft'; scenario: string; status: 'running' | 'done' | 'failed' | 'lost' | 'stopped'; stage: 'reading' | 'building' | 'analysing' | null
   words: string | null; reason: string | null; proposal: number | null; started: string; at: string }
 /** What accepting a brief answers: `202` while its job runs, `200` when the same op replays a job that has ended (core API v1.26). */
 export type DraftAccepted = { scenario: string; job: DraftJob | null; proposal: number | null; status_url: string | null }
@@ -77,6 +77,8 @@ export const writes = {
   create: (brief: string, op: string) => call<DraftAccepted>('POST', '/api/scenarios', { brief, op }),
   /** Try again (core API v1.26 `POST …/draft`): a new attempt on the scenario's saved brief, under a NEW op, after its draft failed or was lost. */
   redraft: (sid: string, op: string) => call<DraftAccepted>('POST', `${scenarioPath(sid)}/draft`, { op }),
+  /** Stop (core API v1.34 `POST …/jobs/:id/stop`, body {}): the first draft's author stops it; answered as it stands if already ended. No AI call. */
+  stopDraft: (sid: string, job: number) => call<DraftJob>('POST', `${scenarioPath(sid)}/jobs/${job}/stop`, {}),
   message: (sid: string, text: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
   challenge: (sid: string, kind: string, record: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   /** What the team came for (core API `POST …/goal`, canon wave step 1): one of the View's `session.goals[].id`, or null to clear. No AI call. */

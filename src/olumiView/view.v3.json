@@ -5867,7 +5867,8 @@
         "drafting",
         "done",
         "failed",
-        "lost"
+        "lost",
+        "stopped"
        ]
       },
       "reason": {
@@ -5905,6 +5906,35 @@
       },
       "started": {
        "type": "string"
+      },
+      "by": {
+       "type": "string"
+      },
+      "by_id": {
+       "type": "string"
+      },
+      "stop": {
+       "anyOf": [
+        {
+         "type": "object",
+         "properties": {
+          "label": {
+           "type": "string"
+          },
+          "title": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "label",
+          "title"
+         ],
+         "additionalProperties": false
+        },
+        {
+         "type": "null"
+        }
+       ]
       }
      },
      "required": [
