@@ -111,13 +111,21 @@ describe('the writes go straight to core, and the View is read again', () => {
     const held = golden('proposal')
     const ev = { id: 5, at: '2026-11-04T09:00:00Z', by: 'Bea', by_id: 'p_2', text: 'Churn in DACH was 2 in 100.', source: null, link: null, concerns: [], stance: 'challenges', version: 1, considered: { at: '2026-11-04T09:05:00Z', by: 'Ada', proposal: held.proposal!.id, why: null },
       stance_text: 'Bea: Challenges it', switch_text: 'Bea’s evidence', mark_label: 'Bea · Churn in DACH was 2 in 100.', mark_title: 'Bea · Churn in DACH was 2 in 100.', bears_on_text: null }
-    useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: { evidence: 5, asked_by: 'Ada' } } } })
+    // Core v3 (80bcc0b): `asked_by` is the asker's member id; `by` is core's words for them. The card names them by `by`, never the id.
+    useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: { evidence: 5, asked_by: 'p_3', by: 'Ada' } } } })
     const { container } = renderTab()
     const from = container.querySelector('[data-testid="view-chat-proposal-from"]')!
-    expect(from.querySelector('[data-view="proposal.from.asked_by"]')?.textContent).toBe('Ada')
+    expect(from.querySelector('[data-view="proposal.from.by"]')?.textContent).toBe('Ada')
     expect(from.querySelector('[data-testid="view-chat-proposal-from-evidence"]')?.textContent).toBe(ev.text)
     expect(from.textContent).toBe(`Asked by: AdaFrom evidence: “${ev.text}”`)
     expect(from.textContent).not.toContain('Bea')
+    expect(container.textContent).not.toContain('p_3')
+    // CONTRAST: a core that sends no words for the asker names no one, and still never the id
+    cleanup()
+    useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: { evidence: 5, asked_by: 'p_3' } as NonNullable<View['proposal']>['from'] } } })
+    const older = renderTab().container
+    expect(older.querySelector('[data-testid="view-chat-proposal-from"]')!.textContent).toBe(`From evidence: “${ev.text}”`)
+    expect(older.textContent).not.toContain('p_3')
     // CONTRAST: a proposal not made from evidence says nothing of it
     cleanup()
     useViewStore.setState({ view: { ...held, evidence: [ev], proposal: { ...held.proposal!, from: null } } })

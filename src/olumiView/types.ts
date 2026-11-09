@@ -16,6 +16,7 @@ export type View = {
     n: number
     label: string
     changed: Array<string>
+    at?: string
   } | null
   model: {
     question: {
@@ -526,6 +527,7 @@ export type View = {
     from: {
       evidence: number
       asked_by: string
+      by: string
     } | null
     verdict?: {
       supported: boolean
@@ -713,6 +715,8 @@ export type View = {
       id: string
       family: string | null
       label: string | null
+      why?: string
+      quote?: string | null
     }>
     dissent: Array<{
       id: string
@@ -1207,6 +1211,10 @@ export type View = {
       id: string
       text: string
     }>
+    unjoined?: {
+      names: Array<string>
+      text: string
+    } | null
   }
   team_words: {
     failed: string

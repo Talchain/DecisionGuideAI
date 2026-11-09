@@ -248,8 +248,10 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
  */
 export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
-  // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words.
-  const from = p.from == null ? null : { by: p.from.asked_by, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
+  // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
+  // core's words for them (`from.by`: "You", their name, "a former member"), never `asked_by`, which is their member id; a core that sends
+  // no words names no one.
+  const from = p.from == null ? null : { by: p.from.by ?? null, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
   const changes = p.changes ?? [], groups = p.groups ?? null
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
@@ -273,7 +275,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
-          <p>Asked by: <span data-view="proposal.from.asked_by">{from.by}</span></p>
+          {from.by === null ? null : <p>Asked by: <span data-view="proposal.from.by">{from.by}</span></p>}
           {from.text === null ? null : <p>From evidence: “<span data-testid="view-chat-proposal-from-evidence">{from.text}</span>”</p>}
         </div>
       )}
