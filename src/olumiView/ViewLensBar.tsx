@@ -121,13 +121,16 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   // dock's Model tab on the plain model; the dock's Model tab turns any lens off; each is pressed while its dock tab is open.
   const dockTab = useUIStore((s) => s.activeOutputTab)
   useEffect(() => { if (dockTab === 'diagnostics' && useViewLens.getState().lens !== 'full') useViewLens.setState({ lens: 'full' }) }, [dockTab])
+  // DL round 5 (rehearsal item 4): one control is always pressed. Model is what the canvas shows unless a lens is on (Explore) or the Team
+  // panel is open, so it carries the selected ring at rest too, not only while its panel is open.
+  const modelOn = !exploring && dockTab !== 'team'
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
     <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
       className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
       style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
-      <button type="button" aria-pressed={dockTab === 'diagnostics' && !exploring} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
-        onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false); useUIStore.getState().forceActivateOutputTab('diagnostics') }} className={segment(dockTab === 'diagnostics' && !exploring)}>
+      <button type="button" aria-pressed={modelOn} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
+        onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false); useUIStore.getState().forceActivateOutputTab('diagnostics') }} className={segment(modelOn)}>
 <span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
       </button>
       <div className="relative h-full">

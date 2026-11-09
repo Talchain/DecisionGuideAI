@@ -11,8 +11,11 @@ export type AimRow = { card: ViewCard; row: ViewRow; i: number }
 export type AimGroup = { aimId: string | null; aim: { text: string; at: string } | null; rows: AimRow[] }
 
 /**
- * Every compared option's rows, grouped by the aim each is about: the aims in the order they first appear, each option in core's card
- * order. Nothing is sorted by its chance and nothing is dropped (a row with no aim keeps a group of its own, with no heading).
+ * Every compared option's rows, grouped by the aim each is about: the aim core's lead speaks of first (`leadAimOf`), then the others in the
+ * order they first appear, each option in core's card order. Nothing is sorted by its chance and nothing is dropped (a row with no aim keeps
+ * a group of its own, with no heading). DL round 5 (hiring, 9 Nov): core lists an option's unchecked aim before the aim its lead and every
+ * card headline give a chance for, so in first-appearance order "Not checked yet: maintaining code quality" sat straight under "Chance of
+ * 'increase productivity'" while the canvas said "about 23% chance": one field read two ways.
  */
 export function aimGroupsOf(model: ViewModel): AimGroup[] {
   const groups: AimGroup[] = []
@@ -28,7 +31,13 @@ export function aimGroupsOf(model: ViewModel): AimGroup[] {
       g.rows.push({ card, row, i })
     })
   }
-  return groups
+  const lead = leadAimOf(model), at = lead === null ? -1 : groups.findIndex((g) => g.aimId === lead)
+  return at > 0 ? [groups[at]!, ...groups.slice(0, at), ...groups.slice(at + 1)] : groups
+}
+
+/** The aim core's lead speaks of: its most-likely line's aim, else the aim the options' headlines are about (the canvas's chance). */
+export function leadAimOf(model: ViewModel): string | null {
+  return lensAimOf(model.run) ?? optionCards(model).find((c) => c.headline != null)?.headline!.aim_id ?? null
 }
 
 /**

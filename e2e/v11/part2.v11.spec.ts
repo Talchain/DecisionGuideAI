@@ -68,6 +68,10 @@ test('6.4 one doubts a link in their words, the other keeps it; both shown, no s
   await A.reload(); await A.waitForTimeout(3000); await team(A)
   const all = await text(A)
   expect(all).toContain(DOUBT); expect(all).toContain(KEEP)
+  // DL round 5 (critic on 6h-6j): both sets of words are in "Where your explanations differ" itself, not only somewhere on the page.
+  const differ = A.getByTestId('team-differences')
+  await expect(differ).toBeVisible()
+  await expect(differ).toContainText(DOUBT); await expect(differ).toContainText(KEEP)
   expect(['is right', 'is wrong', 'wins', 'better argument', 'correct view'].filter((w) => all.toLowerCase().includes(w)), 'picks a side').toEqual([])
   passed('p2.6.4')
 })

@@ -29,6 +29,8 @@ export function stanceWordsOf(x: unknown): StanceWords | null {
   const { pick, yours, ...rest } = w as unknown as StanceWords
   return { ...rest, ...(said(pick) ? { pick } : {}), ...(said(yours) ? { yours } : {}) }
 }
+/** The page's one word here (DL round 5, 9 Nov): it reopens the form; no stance is chosen or changed by pressing it. */
+export const CHANGE_MY_VIEW = 'Change my view'
 const keyOf = (l: { record: string; part: string | null }) => `${l.record}|${l.part ?? ''}`
 
 export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element | null {
@@ -39,12 +41,14 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const [said, setSaid] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // DL round 5 (rehearsal 6h/6i): once this member has a stance recorded, the form folds to what they said plus "Change my view".
+  const [changing, setChanging] = useState(false)
   const headingId = useId()
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
   // A link's chip asks for its link (linkPick.ts, Paul's step 6): picked here once this form offers it.
-  useTakeLinkPick(view.model?.holdable == null ? [] : offeredOf(view, heading).map((l) => keyOf(l.link)), (k) => { setPick(k); setError(null) })
+  useTakeLinkPick(view.model?.holdable == null ? [] : offeredOf(view, heading).map((l) => keyOf(l.link)), (k) => { setPick(k); setError(null); setChanging(true) })
   // Only a core that holds `model.holdable` takes a stance (it checks the link against it). One place at a time (DL 9 Nov): core's
   // `collab.link_route` says when ('stance': the View shows this member a reveal); a core before it, once anything is revealed to them.
   const route = view.collab.link_route, here = route !== undefined ? route === 'stance' : view.collab.shared.length > 0
@@ -63,7 +67,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
     // Core keys a stance by its op, so a re-send after a lost answer is the first stance, never a second.
     try {
       await runWrite(`${sid}:link-stance`, { op: true }, body, (op) => call<{ stance: number }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/links/stance`, { ...body, op }))
-      setPick(''); setStance(null); setSaid('')
+      setPick(''); setStance(null); setSaid(''); setChanging(false)
       await readDifferences(sid, differencesKey(sid, view))
       await onWrote()
     } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
@@ -88,6 +92,9 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
           </ul>
         </div>
       )}
+      {mine.length > 0 && !changing ? (
+        <div><Button size="sm" variant="secondary" data-testid={`${at}-change`} onClick={() => setChanging(true)}>{CHANGE_MY_VIEW}</Button></div>
+      ) : <>
       <label className={`${META} grid gap-0.5`}>
         <span className="text-text-header">{words.link}</span>
         <select data-testid={`${at}-link`} className={FIELD} value={pick} disabled={busy} onChange={(e) => { setPick(e.target.value); setError(null) }}>
@@ -109,6 +116,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
       </label>
       {/* A person's own stance, not Olumi's: ink, never blue (blue is only for what is Olumi's). */}
       <div><Button size="sm" variant="secondary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
+      </>}
       {error ? <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p> : null}
     </section>
   )

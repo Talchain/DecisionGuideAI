@@ -150,6 +150,19 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     c = render(<TeamTab />).container
     expect(c.querySelector('[data-testid="team-mark-diagnostic_time_to_contract-disagreement"], [data-testid="team-views-next"]')).toBeNull()
   })
+  it('a reveal mark in the Team panel names the figure it is about, by its card\'s heading (DL round 5: "Only Sam raised it" was an orphan)', () => {
+    const tm04: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/tm04-cara.view3.json'), 'utf8'))
+    // Core's own marks and model (tm04, core-produced) on the spec's base View, as the debate row above builds its excerpt.
+    const { strategy: _s, ...plain } = real
+    const view: View = { ...plain, id: 's_a88ba245176e', model: tm04.model, collab: { ...real.collab, shared: tm04.collab.shared, marks: tm04.collab.marks } }
+    useViewStore.setState({ sid: view.id, view })
+    const c = render(<TeamTab />).container
+    const m = tm04.collab.marks!.find((x) => x.kind === 'unique')!, card = tm04.model!.cards.find((x) => x.id === m.card)!
+    const mark = c.querySelector(`[data-testid="team-mark-${m.card}-unique"]`)!
+    expect(mark.querySelector(`[data-testid="team-mark-heading-${m.card}"]`)?.textContent).toBe(card.heading)
+    expect(mark.textContent).toContain(m.text)
+  })
+
   it('D: one stance selector sends suspect for both item cross_team_adoption and saved view 99', async () => {
     const differences = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8')), scenario: real.id, differences: [], stances: VOCAB.stances }
     setTeamFetch((async (url: RequestInfo | URL, init?: RequestInit) => {

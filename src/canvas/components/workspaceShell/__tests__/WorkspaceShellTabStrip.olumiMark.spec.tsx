@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
 import { WorkspaceShellTabStrip } from '../WorkspaceShellTabStrip'
+import { isOlumiCoreLane } from '../../../../olumiCore/lane'
 import { PanelWidthProvider } from '../usePanelWidth'
 import type { WorkspaceSurfaceDescriptor } from '../shellContract'
 
@@ -37,11 +38,21 @@ function draw() {
 }
 
 describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
-  it('draws the mark and no visible word', () => {
+  it('draws the mark and no visible word (on the olumi-core lane, the mark beside its name, as the other tabs are named: DL round 5)', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-olumi')
     expect(tab.querySelector('[data-testid="outputs-dock-tab-olumi-mark"][data-icon="olumi-ai"]')).not.toBeNull()
-    expect(tab.textContent).toBe('')
+    expect(tab.textContent).toBe(isOlumiCoreLane() ? 'Olumi' : '')
+  })
+
+  it('on the olumi-core lane the dock\'s controls sit in a header above the tabs, not in the tab row (DL round 5)', () => {
+    draw()
+    const head = screen.queryByTestId('outputs-dock-tabstrip-head')
+    if (!isOlumiCoreLane()) { expect(head).toBeNull(); return }
+    expect(head).not.toBeNull()
+    expect(head!.querySelector('[role="tab"]')).toBeNull()
+    expect(head!.querySelectorAll('button').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByTestId('outputs-dock-tablist').contains(head)).toBe(false)
   })
 
   it('keeps "Olumi" as its accessible name and its tooltip', () => {

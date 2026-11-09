@@ -16,6 +16,9 @@ import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, t
 type Figure = View['collab']['mine'][number]['figures'][number]
 
 /** The figures a person gave with their view, each in core's words (its `text`, with core's `title` on hover), in core's order. */
+/** The heading of the card a reveal mark is about, or null when the canvas draws no such card. */
+const markHeading = (view: View, card: string): string | null => view.model?.cards.find((c) => c.id === card)?.heading ?? null
+
 export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX.Element | null {
   if (figures.length === 0) return null
   return (
@@ -172,6 +175,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
 
       {!view.gated && <>
         {(c.marks ?? []).map((m) => <div key={`${m.card}:${m.kind}`} className={CARD} data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')}>
+          {/* DL round 5 (rehearsal 6f/6g): the card says which figure it is about, by that card's heading (core's words), so "Only Sam raised
+              it" is never an orphan; a card the canvas does not draw has no heading here, and the mark's words stand alone as before. */}
+          {markHeading(view, m.card) === null ? null : <p className={META} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}>{markHeading(view, m.card)}</p>}
           <p className={`${BODY} text-text-header`}>{m.text}</p>
           {m.reading === null ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
             <p className={BODY}>{m.reading.text}</p><p className={META}>{m.reading.note}</p>

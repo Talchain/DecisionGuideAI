@@ -337,6 +337,11 @@ export function WorkspaceShellTabStrip({
   // controls, never by a tab; the dock's tabs are Olumi, Analysis, Reasoning and Compare, one row (their labels need about 210 px).
   const shown = coreLane ? surfaces.filter(s => !PANEL_ONLY.has(s.id)) : surfaces
   const wrapTabs = !isCompact
+  // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
+  // four tabs, never floating over its end; elsewhere they stay in the row.
+  const wrapHead = (c: JSX.Element) => coreLane
+    ? <div className="order-first flex basis-full items-center justify-end gap-1 pt-1" data-testid="outputs-dock-tabstrip-head">{c}</div>
+    : c
 
   const inspect =
     onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
@@ -408,7 +413,7 @@ export function WorkspaceShellTabStrip({
     // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
     <div
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
-      className={`flex items-center ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
+      className={`flex items-center ${coreLane ? 'flex-wrap gap-x-2 px-2' : isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
       style={coreLane ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
@@ -545,7 +550,7 @@ export function WorkspaceShellTabStrip({
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
                   // V11 pixel pass (9 Nov): on the olumi-core lane the comp's selected tab (`.ptab.on`): the canvas fill and 600, seen at a glance.
-                  ? `text-text-header ${coreLane ? 'font-semibold bg-canvas' : 'font-medium bg-[var(--panel-tab-active-bg)]'}`
+                  ? `text-text-header ${coreLane ? 'font-semibold bg-canvas rounded-md' : 'font-medium bg-[var(--panel-tab-active-bg)]'}`
                   : 'text-text-body hover:text-text-header'
               }`}
               // The olumi-core lane's tab is a 44 px target (Paul's look rule).
@@ -559,7 +564,12 @@ export function WorkspaceShellTabStrip({
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
                 {surface.id === 'olumi' ? (
-                  <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
+                  // DL round 5: on the olumi-core lane the Olumi tab is named like the others (its mark beside its name), so no tab is a bare
+                  // mark that reads as a slab; elsewhere the mark alone (vision spec §3).
+                  <>
+                    <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
+                    {coreLane ? <span className="truncate tracking-tight">{surface.label}</span> : null}
+                  </>
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
                   // five fit the 347px dock whole; the legacy lane is unchanged.
@@ -617,6 +627,7 @@ export function WorkspaceShellTabStrip({
           control is omitted — both stay reachable, just behind one more
           keypress. */}
       {/* The prototype's `.tabbar>.iconbtn`: the ⓘ sits first after the tabs. */}
+      {wrapHead(<>
       {inspectControl}
       {isCompact ? (
         <TabStripOverflowMenu
@@ -653,6 +664,7 @@ export function WorkspaceShellTabStrip({
         </>
       )}
       <CollapseControl isOpen={isOpen} onToggle={onToggleOpen} />
+      </>)}
     </div>
   )
 }

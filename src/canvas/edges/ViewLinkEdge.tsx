@@ -121,13 +121,17 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   if (!driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
+  // DL round 5 (rehearsal item 10): a rail round the board is quiet at rest, the neutral link grey at 1 px, so the rails are not the first
+  // thing the eye meets; near (either card hovered or selected, the link selected or focused) it takes its sign's colour and full weight.
+  // Never faded: a quieter colour, not opacity (nothing dims). An alert, a proposal or a driver link is never quiet.
+  const quiet = rail !== null && !near && !link.alert && !link.proposed && !marked && !removing
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={byOlumi || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={byOlumi || undefined}>
       <title>{link.title}</title>
       <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill={stroke} /></marker></defs>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd ?? `url(#${arrow})`} style={{ stroke, strokeWidth: driver ? 2.5 : 1.5, ...(link.doubt || byOlumi ? { strokeDasharray: '5 5' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd ?? `url(#${arrow})`} style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : 1.5, ...(link.doubt || byOlumi ? { strokeDasharray: '5 5' } : {}) }} />
       {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}

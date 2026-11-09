@@ -57,6 +57,14 @@ test('2 "6 developers" becomes 7 and the chances move', async () => {
   await page.getByTestId('view-figure-edit-developers').first().dispatchEvent('click')
   const box = page.getByTestId('view-figure-typed-developers').first(); await box.waitFor()
   await box.fill('7')
+  // DL round 5 (rehearsal 2b): nothing sits under the open form (the zoom row, the more-below cue). Contrast: without useFormClearOfFoot this is 1.
+  await page.waitForTimeout(1000)
+  const under = await page.evaluate(() => {
+    const f = document.querySelector('[data-testid="view-figure-form-developers"]')!.getBoundingClientRect()
+    return [...document.querySelectorAll('nav[aria-label="Viewport controls"], [data-testid="view-below-cue"] button')].map((e) => e.getBoundingClientRect())
+      .filter((z) => Math.min(f.right, z.right) > Math.max(f.left, z.left) && Math.min(f.bottom, z.bottom) > Math.max(f.top, z.top)).length
+  })
+  expect(under, 'nothing sits under the open form').toBe(0)
   const t1 = Date.now(); await page.getByTestId('view-figure-set-developers').first().dispatchEvent('click')
   await page.getByTestId('view-figure-form-developers').waitFor({ state: 'detached', timeout: 30_000 })
   expect(Date.now() - t1, 'saved within 3 s').toBeLessThanOrEqual(3000)

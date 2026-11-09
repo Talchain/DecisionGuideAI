@@ -24,7 +24,9 @@ const view = read<View>('x2-stances.view3.json'), diff = read<Differences>('x2-r
 const SID = view.id
 const mark = view.collab.link_marks![0] as LinkMark
 const select = () => screen.getByTestId('team-link-stance-link') as HTMLSelectElement
-const form = () => render(<LinkStance sid={SID} view={view} onWrote={async () => true} />)
+const drawForm = () => render(<LinkStance sid={SID} view={view} onWrote={async () => true} />)
+/** The form, opened: this member already holds a stance in the fixture, so it is folded (DL round 5) until "Change my view". */
+const form = () => { const r = drawForm(); const c = screen.queryByTestId('team-link-stance-change'); if (c) act(() => { fireEvent.click(c) }); return r }
 
 function setup(at: number | null = null) {
   setTeamFetch((async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
@@ -71,6 +73,19 @@ describe("a link's chip opens Team with its link picked", () => {
     act(() => { openLinkStance({ record: 'not_a_link', part: null }) })
     expect(select().value).toBe('')
     expect(useLinkPick.getState().want).toBe('not_a_link|')
+  })
+
+  it('LP6 with a stance recorded the form is folded to what they said and "Change my view"; a chip opens it with its link picked', () => {
+    setup()
+    render(<LinkMarkCardChip mark={mark} />)
+    drawForm()
+    expect(screen.getByTestId('team-link-stance-yours')).toBeTruthy()
+    expect(screen.getByTestId('team-link-stance-change').textContent).toBe('Change my view')
+    expect(screen.queryByTestId('team-link-stance-link')).toBeNull()
+    expect(screen.queryByTestId('team-link-stance-send')).toBeNull()
+    act(() => { fireEvent.click(screen.getByRole('button', { name: mark.label })) })
+    expect(select().value).toBe('morale_link|')
+    expect(screen.queryByTestId('team-link-stance-change')).toBeNull()
   })
 
   it('LP5 on an earlier version nothing opens and nothing is picked', () => {
