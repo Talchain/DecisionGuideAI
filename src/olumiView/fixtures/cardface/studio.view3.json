@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -837,7 +837,8 @@
      "takings_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "class_fee",
@@ -852,7 +853,8 @@
      "takings_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "evening_classes",
@@ -870,6 +872,10 @@
     "remove": {
      "record": "evening_mood",
      "part": null
+    },
+    "holds": {
+     "record": "evening_mood",
+     "part": null
     }
    },
    {
@@ -885,7 +891,11 @@
      "mood_members"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": {
+     "record": "mood_members",
+     "part": null
+    }
    },
    {
     "from": "evening_mood",
@@ -898,7 +908,8 @@
     "title": "relation: Evening classes → How members feel",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "evening_mood",
@@ -911,7 +922,8 @@
     "title": "relation: Evening classes → How members feel",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "mood_members",
@@ -924,7 +936,8 @@
     "title": "relation: How members feel → members",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "mood_members",
@@ -937,7 +950,8 @@
     "title": "relation: How members feel → members",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "takings",
@@ -950,7 +964,8 @@
     "title": "measured by",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "takings_target",
@@ -963,7 +978,8 @@
     "title": "target",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "members",
@@ -976,7 +992,8 @@
     "title": "measured by",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "members_target",
@@ -989,7 +1006,8 @@
     "title": "target",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "evening_classes",
@@ -1002,7 +1020,8 @@
     "title": "option input",
     "records": [],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "evening_extra",
@@ -1018,7 +1037,8 @@
      "takings_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    },
    {
     "from": "weekend_workshops",
@@ -1034,12 +1054,13 @@
      "takings_rel"
     ],
     "effect": null,
-    "remove": null
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Take £2,640 a month’",
-   "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+   "lead": "Chance of ‘Take £2,640 a month’, in this model on current information",
    "all_withheld": false,
    "shared_blockers": [
     {
@@ -1215,6 +1236,30 @@
    ]
   },
   "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "evening_mood",
+     "part": null
+    },
+    "from": "evening_classes",
+    "to": "member_mood",
+    "text": "'Evening classes' → 'How members feel'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "mood_members",
+     "part": null
+    },
+    "from": "member_mood",
+    "to": "members",
+    "text": "'How members feel' → 'members'",
+    "line": true,
+    "card": null
+   }
+  ],
   "key": [
    {
     "id": "olumi",
@@ -1533,7 +1578,8 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [],

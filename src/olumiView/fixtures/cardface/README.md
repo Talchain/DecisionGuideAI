@@ -1,1 +1,1 @@
-Core golden bakery/studio.view3.json, unedited, from olumi-core merge-tree(2a283a4f0e81 candidate, bdc126c4 wip/card-face) = tree af406d829d34d26b404d61b2b0aaf4394db0afc7 (8 Nov). The option face is headline.text.
+Core golden bakery/studio .view3.json, unedited, from olumi-core PR #24 42dbc844a68b (on candidate 6f6b2b0e, carries card-face bdc126c4), 8 Nov. The option face is headline.text.

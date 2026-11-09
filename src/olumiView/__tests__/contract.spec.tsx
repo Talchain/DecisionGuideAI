@@ -165,7 +165,12 @@ describe('the Run beside the chances says what the base dock said, word for word
     it(`${n}: lead, most likely, notes in order, and what the chances wait on`, () => {
       const model = golden(n).model!, o = oracle[n]!
       const { container } = render(<ViewChances model={model} />)
-      expect(container.querySelector('[data-view="run.lead"]')?.textContent ?? null).toBe(o.lead)
+      // Core's short lead (3f36d04c, DL ruling 9 Nov): core changed the lead's words on purpose, and its frozen dock.oracle (the base
+      // dock's words) still holds the long one. The lead is bound to core's own golden run.lead, by identity; the oracle copy stays
+      // byte-identical to core's, and every other key below still answers to it. Contrast: the oracle's long lead is not drawn.
+      const lead = container.querySelector('[data-view="run.lead"]')?.textContent ?? null
+      expect(lead).toBe(model.run?.lead ?? null)
+      if (o.lead !== null && o.lead !== model.run?.lead) expect(lead).not.toBe(o.lead)
       // On olumi.view/3 (core 550ad5f) the base dock's one sentence is split: its head on screen (`text`), what it rests on as its hover
       // (`rests_on_text`). Together they are still the base dock's words, in order, none dropped.
       const ml = model.run?.most_likely ?? null
