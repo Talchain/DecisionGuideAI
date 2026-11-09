@@ -33,6 +33,8 @@ export function measure(): Audit {
     const st = getComputedStyle(e) as CSSStyleDeclaration & { webkitLineClamp?: string }
     if ((st.textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1) || (st.webkitLineClamp && st.webkitLineClamp !== 'none' && e.scrollHeight > e.clientHeight + 1)) trunc.push((e.textContent ?? '').trim().slice(0, 70))
   }
+  // A typed value wider than its box is cut too (the re-score's "≈£4,300/mont" in Compare's what-if, round 6).
+  if (dockEl) for (const e of dockEl.querySelectorAll<HTMLInputElement>('input:not([type]), input[type="text"]')) if (vis(e) && e.value !== '' && e.scrollWidth > e.clientWidth + 1) trunc.push(`input: ${e.value.slice(0, 60)}`)
   const v = document.querySelector('.react-flow__viewport'), zm = v && getComputedStyle(v).transform.match(/matrix\(([^,]+)/), zoom = zm ? +zm[1] : 1
   const sizes = new Set<number>(), tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
   for (let n = tw.nextNode(); n; n = tw.nextNode()) { if (!(n.textContent ?? '').trim()) continue; const e = n.parentElement; if (!e || !vis(e)) continue

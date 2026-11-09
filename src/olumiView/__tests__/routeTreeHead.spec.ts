@@ -5,6 +5,7 @@
  *   zero calls), whose aims ended a tall story at its foot, off the opening frame;
  * - CONTRAST: the J1 bookshop and the strategy Reveal boards, which fit as the prototype draws them and keep that layout.
  */
+import { FOOT_CLEAR, FOOT_W } from '../regions'
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -41,7 +42,24 @@ describe('the opening board shows the question, the aims and the options', () =>
     const story = hiring.model!.cards.filter((c) => !headOf(hiring).includes(c.id))
     const straddle = story.filter((c) => places.get(c.id)!.y < ROOM && places.get(c.id)!.y + c.h > ROOM).map((c) => c.id)
     expect(straddle).toEqual([])
-    expect(Math.min(...story.map((c) => places.get(c.id)!.y))).toBeGreaterThan(ROOM)
+  })
+  it('DL ruling (9 Nov): hiring\'s first story row, the person\'s first figures, is read whole in the opening room, FOOT_CLEAR above its foot', () => {
+    const places = routeTree(hiring.model!, sizes(hiring), QW, new Set(), ROOM, ROOM_W)
+    const story = hiring.model!.cards.filter((c) => !headOf(hiring).includes(c.id))
+    const top = Math.min(...story.map((c) => places.get(c.id)!.y)), row = story.filter((c) => places.get(c.id)!.y === top)
+    expect(top).toBeLessThan(ROOM)
+    // Over the foot controls' columns a card ends FOOT_CLEAR above the room's foot; elsewhere within the room.
+    for (const c of row) expect(top + c.h, c.id).toBeLessThanOrEqual(ROOM - (places.get(c.id)!.x < FOOT_W ? FOOT_CLEAR : 0))
+    // The question flanks the aims and the options: they sit to its right.
+    for (const id of headOf(hiring).filter((x) => x !== QUESTION)) expect(places.get(id)!.x, id).toBeGreaterThan(0)
+  })
+  it('CONTRAST: in a room too short for that row, the story starts whole past the room\'s foot, never cut', () => {
+    const story = hiring.model!.cards.filter((c) => !headOf(hiring).includes(c.id))
+    const full = routeTree(hiring.model!, sizes(hiring), QW, new Set(), ROOM, ROOM_W), top = Math.min(...story.map((c) => full.get(c.id)!.y))
+    // One pixel too short for the first row to end FOOT_CLEAR above the foot.
+    const short = Math.max(...story.filter((c) => full.get(c.id)!.y === top).map((c) => top + c.h + (full.get(c.id)!.x < FOOT_W ? FOOT_CLEAR : 0))) - 1
+    const places = routeTree(hiring.model!, sizes(hiring), QW, new Set(), short, ROOM_W)
+    expect(Math.min(...story.map((c) => places.get(c.id)!.y))).toBeGreaterThan(short)
   })
   it('CONTRAST: without the room (no measured canvas) the board is the prototype route tree, where the aims end the story off the frame', () => {
     const places = routeTree(hiring.model!, sizes(hiring), QW, new Set(), 0, 0)

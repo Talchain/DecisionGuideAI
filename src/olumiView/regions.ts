@@ -26,6 +26,18 @@ import { LENS_BAR_TESTID } from '../canvas/artefacts/LensBar'
 export type Rect = { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }
 export type Regions = { readonly head: Rect; readonly foot: readonly Rect[]; readonly dock: Rect }
 
+/**
+ * FIRST-PAINT NUMBERS (DL ruling 9 Nov: hiring must fit at zoom 1; owned here, read by layout.ts headFirst).
+ * STORY_ROOM_Y: the room between the options and the first story row, flow px (was TREE_ROOM_Y 96 plus a jump past the room).
+ * FOOT_CLEAR: how far above the layout's room foot (canvas.ts roomOf, the fit's insets) a story card over the foot controls' columns
+ * (FOOT_W) must end to be read whole above them; a row any card of which would end lower starts past the room instead, never drawn cut.
+ */
+export const STORY_ROOM_Y = 20
+/** Measured at 1232x704 (9 Nov): the room's foot is 52 px below the foot controls' top; plus REGION_GAP. */
+export const FOOT_CLEAR = 64
+/** The foot controls' span from the canvas's left, px: the zoom row and, beside it, the more-below cue. A card right of it needs only to end
+ *  within the room; a card over it must end FOOT_CLEAR above the room's foot. */
+export const FOOT_W = 360
 /** Clear space kept between a card and a region, px. */
 export const REGION_GAP = 12
 /** Clear space below the lowest head control, px. */

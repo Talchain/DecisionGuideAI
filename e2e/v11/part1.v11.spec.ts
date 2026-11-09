@@ -57,7 +57,7 @@ test('2 "6 developers" becomes 7 and the chances move', async () => {
   await page.getByTestId('view-figure-edit-developers').first().dispatchEvent('click')
   const box = page.getByTestId('view-figure-typed-developers').first(); await box.waitFor()
   await box.fill('7')
-  // DL round 5 (rehearsal 2b): nothing sits under the open form (the zoom row, the more-below cue). Contrast: without useFormClearOfFoot this is 1.
+  // DL round 5 (rehearsal 2b): nothing sits under the open form (the zoom row, the more-below cue). The mechanism: regions.ts useCardClearOfRegions.
   await page.waitForTimeout(1000)
   const under = await page.evaluate(() => {
     const f = document.querySelector('[data-testid="view-figure-form-developers"]')!.getBoundingClientRect()

@@ -5,6 +5,7 @@
  */
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
+import { FOOT_CLEAR, FOOT_W, STORY_ROOM_Y } from './regions'
 import type { View, ViewCard, ViewModel, ViewReading, ViewRow, ViewRun, ViewTurn } from './client'
 import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
@@ -462,24 +463,42 @@ function headInRoom(places: ReadonlyMap<string, { x: number; y: number }>, head:
  */
 function headFirst(model: ViewModel, rows: readonly (readonly string[])[], head: readonly string[], options: readonly string[], at: (id: string) => Size, below: (id: string) => number, roomW: number, room: number): Map<string, { x: number; y: number }> {
   const places = new Map<string, { x: number; y: number }>()
-  const band = (ids: readonly string[], top: number, wrap: boolean): number => {
-    let x = 0, y = top, tall = 0
+  const band = (ids: readonly string[], top: number, wrap: boolean, x0 = 0): number => {
+    let x = x0, y = top, tall = 0
     for (const id of ids) {
-      if (wrap && x > 0 && x + at(id).width > roomW) { x = 0; y += tall + TREE_GAP_Y; tall = 0 }
+      if (wrap && x > x0 && x + at(id).width > roomW) { x = x0; y += tall + TREE_GAP_Y; tall = 0 }
       places.set(id, { x, y }); x += at(id).width + TREE_GAP_X; tall = Math.max(tall, below(id))
     }
     return ids.length === 0 ? top : y + tall
   }
   const top = head.filter((id) => !options.includes(id))
-  let y = band(top, 0, true) + TREE_GAP_Y
-  y = band(options, y, true) + TREE_ROOM_Y
+  // The question flanks the aims and the options (DL ruling 9 Nov, hiring at 1232x704): where it is the tallest head card and the aims and the
+  // options each fit one row beside it, it stands as the left column and they sit to its right, so the head row is as tall as the aims,
+  // not the question. Otherwise the bands run across the top as before.
+  const aims = top.filter((id) => id !== QUESTION), rowW = (ids: readonly string[]) => { let w = 0; for (const id of ids) w += at(id).width + TREE_GAP_X; return w - TREE_GAP_X }
+  let tallAims = 0
+  for (const id of aims) tallAims = Math.max(tallAims, below(id))
+  const qx = top.includes(QUESTION) ? at(QUESTION).width + TREE_GAP_X : 0
+  const flank = qx > 0 && aims.length > 0 && below(QUESTION) > tallAims && qx + rowW(aims) <= roomW && qx + rowW(options) <= roomW
+  let y: number
+  if (flank) {
+    places.set(QUESTION, { x: 0, y: 0 })
+    y = Math.max(band(options, band(aims, 0, true, qx) + TREE_GAP_Y, true, qx), below(QUESTION))
+  } else {
+    y = band(top, 0, true) + TREE_GAP_Y
+    y = band(options, y, true)
+  }
+  y += STORY_ROOM_Y
   const placedHead = new Set(head)
   const story = rows.map((ids) => ids.filter((id) => !placedHead.has(id) && model.cards.some((c) => c.id === id))).filter((ids) => ids.length > 0)
-  const first = story[0]
-  // The story starts past the room's foot: the room (canvas.ts roomOf) stops above the canvas's bottom margin, which is still on screen,
-  // so a story placed just under the room's foot was drawn cut at 704 on the served hiring board (9 Nov). TREE_ROOM_Y clears that margin.
-  if (first !== undefined && y < room + TREE_ROOM_Y) y = room + TREE_ROOM_Y
-  for (const rest of story) y = band(rest, y, false) + TREE_GAP_Y
+  // A story row is read whole on the opening board when it fits the room (regions.ts; the person's first figures, DL 9 Nov): a card over
+  // the foot controls' columns (x < FOOT_W) ends FOOT_CLEAR above the room's foot, any other within it, placed as `band` places it, left to
+  // right from x 0. A row that does not fit starts past the room instead, so no card is drawn cut at the window's foot (9 Nov).
+  const fits = (ids: readonly string[], top: number) => { let fx = 0, ok = true; for (const id of ids) { if (top + below(id) > room - (fx < FOOT_W ? FOOT_CLEAR : 0)) ok = false; fx += at(id).width + TREE_GAP_X } return ok }
+  for (const rest of story) {
+    if (!fits(rest, y) && y < room + TREE_ROOM_Y) y = room + TREE_ROOM_Y
+    y = band(rest, y, false) + TREE_GAP_Y
+  }
   return places
 }
 
@@ -1080,9 +1099,3 @@ export function unmarkedDiffers<D extends { readonly record: string }>(view: Vie
   const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record))
   return differs.filter((d) => !marked.has(d.record))
 }
-
-/** The Analysis panel's option rows a shared reason covers leave the row to it (strategy audit 7 Nov: "it belongs once, in the panel";
- *  5d53244d, restored 9 Nov after a merge dropped it).
- *  This row is an option's short row for an aim whose shared reason the panel says once (`sharedAimsOf`): draw no repeat of it. */
-export const saidOnce = (run: ViewRun | null | undefined, option: string, row: ViewRow): boolean =>
-  row.kind === 'none' && row.aim_id !== null && sharedAimsOf(run, option).includes(row.aim_id)

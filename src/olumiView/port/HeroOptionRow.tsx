@@ -88,7 +88,7 @@ export const isLeader = ({ row }: AimRow, lens: HeroLensId): boolean => lens ===
  * marks) on the goal lens, the outcome band on the outcome lens, or why there is nothing yet. The one drawing of an option's chance on
  * the lane: the Analysis tab's option row and the Reasoning tab's rack both draw it with this (DL ruling 1, 7 Nov).
  */
-export function HeroReadout({ entry, lens, saidAbove = false }: { entry: AimRow; lens: HeroLensId; saidAbove?: boolean }) {
+export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }) {
   const { card, row, i } = entry
   const at = `${card.id}.rows.${i}`
   const chance = row.kind === 'chance' ? row : null
@@ -97,7 +97,7 @@ export function HeroReadout({ entry, lens, saidAbove = false }: { entry: AimRow;
   // (never the chance or a limit's value under "Likely outcome": checker, 7 Nov). A row that says why it has nothing says so on both.
   const outcomeReadout = lens === 'outcome' && chance?.outcome != null
   const readout = row.kind === 'none'
-    ? saidAbove ? null : (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
+    ? (row.text == null ? <span data-view={`${at}.title`}>{row.title}</span> : <span data-view={`${at}.text`}>{row.text}</span>)
     : lens === 'outcome'
       ? (outcomeReadout ? <span data-view={`${at}.outcome.text`} title={chance!.outcome!.title}>{chance!.outcome!.text}</span> : null)
       : (
@@ -126,8 +126,6 @@ function WholeLine({ id, title, children }: { id: string; title?: string; childr
 }
 
 export interface HeroOptionRowProps {
-  /** This row's reason is one every option shares, said once at the panel's head (layout.ts `saidOnce`): the row draws no repeat. */
-  saidAbove?: boolean
   /** The option's row, at its View path. */
   entry: AimRow
   lens: HeroLensId
@@ -144,7 +142,7 @@ export interface HeroOptionRowProps {
   children?: ReactNode
 }
 
-export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping = [], figure = null, children, saidAbove = false }: HeroOptionRowProps) {
+export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping = [], figure = null, children }: HeroOptionRowProps) {
   const regionId = useId(), labelId = useId()
   const { card, row, i } = entry
   const at = `${card.id}.rows.${i}`
@@ -207,13 +205,12 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {/* 1232 polish (track 4 step 3): the option's name is the row's label (12px) and core's chance is its finding, full weight on every
           row (none dims), so the eye lands on the chance first. */}
       <span id={labelId} className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
-      {/* A row whose reason is said once above (`saidAbove`) and has nothing to open is its option's name alone: no empty finding line. */}
-      {saidAbove && !expandable ? null : (
-        <span className="flex w-full items-baseline gap-1.5">
-          <HeroReadout entry={entry} lens={lens} saidAbove={saidAbove} />
-          <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
-        </span>
-      )}
+      {/* Every option shows a chance or one plain reason (DL 9 Nov): a row a shared reason covers draws core's short mark ("No chance
+          yet", design call 8 Nov (c)), its hover the reason; the reason itself is said once at the panel's head. */}
+      <span className="flex w-full items-baseline gap-1.5">
+        <HeroReadout entry={entry} lens={lens} />
+        <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
+      </span>
       {lens === 'outcome' && (
         <span aria-hidden="true" className="relative block h-5 w-full" data-testid="port-row-track">
           <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />

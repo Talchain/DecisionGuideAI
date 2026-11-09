@@ -63,3 +63,15 @@
   border-style: dashed;
 }
 
+
+/* ── 4. The dock says there is more below (DL round 6, the re-score's #2) ───────────────────────────────────────────────────────── */
+/* Overlay scrollbars hide until scrolled, so a panel cut above the composer read as ended. The dock's scrolling panes keep a thin thumb in
+   the light text colour; with the soft edge above the composer (round 5) it says the panel goes on. No new colour: --text-light. */
+[data-presentation="v10"] [data-testid="outputs-dock"] .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-light) transparent;
+  scrollbar-gutter: stable;
+}
+[data-presentation="v10"] [data-testid="outputs-dock"] .overflow-y-auto::-webkit-scrollbar { width: 6px; }
+[data-presentation="v10"] [data-testid="outputs-dock"] .overflow-y-auto::-webkit-scrollbar-thumb { background: var(--text-light); border-radius: 3px; }
+[data-presentation="v10"] [data-testid="outputs-dock"] .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }

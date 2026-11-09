@@ -311,8 +311,10 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
       <p className={META}>Tried on a copy of version {draft?.n ?? view?.version?.n}; the model itself does not change.</p>
       {rows.map((r, i) => {
         const card = figures.find((c) => c.id === picks[i])!
+        // One column (DL round 6, the re-score's #3): `sm:` reads the window, not the 300 px dock, so two columns cut the figure's name and
+        // value ("Monthly reve"). Stacked, each field takes the dock's width.
         return (
-          <div key={i} className="grid gap-2 sm:grid-cols-2" data-whatif-row={i}>
+          <div key={i} className="grid gap-2" data-whatif-row={i}>
             <label className="grid content-start gap-1">
               <span className={META}>Figure</span>
               <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={picks[i]} disabled={busy} onChange={(e) => set(i, { quantity: e.target.value })}>
