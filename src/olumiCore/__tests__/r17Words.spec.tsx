@@ -83,6 +83,7 @@ describe('the view form uses core\'s limit and words', () => {
     const givable = (v.model?.cards ?? []).filter((c) => c.figure?.edit)
     expect(givable.length, 'fixture has two figure cards').toBeGreaterThan(1)
     show(v)
+    fireEvent.click(screen.getByTestId('team-view-more')) // DL ruling 9 Nov: the figure fields are behind "Add figures to your view"
     const inputs = givable.map((c) => screen.getByTestId(`team-view-figure-${c.id}`) as HTMLInputElement)
     fireEvent.change(inputs[0]!, { target: { value: '5' } })
     expect(screen.getByTestId('team-view-figures-cap').textContent).toBe('LIMIT words from core')

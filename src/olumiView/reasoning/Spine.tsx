@@ -119,7 +119,8 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
             className={`${LABEL} min-h-[24px] rounded text-left hover:text-text-body ${ACTION_FOCUS} ${family === kind ? 'text-text-header' : ''}`}>
             <NodeShapeIndicator nodeKind={kind} size={10} />{label[kind]}
           </button>
-          <span className="flex min-w-0 flex-1 flex-wrap items-center">
+          {/* 4 px between marks (V11 pixel pass, 9 Nov): a ringed mark's ring no longer runs into its neighbour. */}
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             {cards.map((c) => {
               const { ring, ...p } = pointer(c)
               return (

@@ -47,6 +47,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setState({ me: null, status: 'none' }) })
 
 const type = (id: string, value: string) => fireEvent.change(screen.getByTestId(id), { target: { value } })
+// DL ruling 9 Nov: the view form opens on one box; its card, stance and source are behind "Add figures to your view" (or writing).
+const openForm = async () => fireEvent.click(await screen.findByTestId('team-view-more'))
 
 describe('one view form: a view speaks to a card with a stance and a source, in one post (real View, core vocabulary)', () => {
   it('A: strategy card cross_team_adoption opens Priya view 12 in the mounted Team dock', async () => {
@@ -77,7 +79,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
       if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
       return json(fresh)
     }) as typeof fetch)
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     const about = await screen.findByTestId('team-view-about')
     expect(reads.filter((u) => u === `/api/scenarios/${real.id}/strategy/vocabulary`)).toEqual(['/api/scenarios/s_98e93f5d2389/strategy/vocabulary'])
     expect(about.querySelector('option[value="cross_team_adoption"]')!.textContent).toBe('Cross-team adoption')
@@ -91,12 +93,12 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
       body: { text: 'Teams adopt once an owner is named.', items: [{ about: 'cross_team_adoption', stance: 'suspect', source: 'two pilots', text: 'Teams adopt once an owner is named.' }], op: expect.any(String) } })
   })
   it('draws core\'s stance words verbatim when the read carries stances, and nothing when it carries none', async () => {
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     const stance = await screen.findByTestId('team-view-stance') as HTMLSelectElement
     expect([...stance.options].map((o) => [o.value, o.textContent])).toEqual([['', ''], ...VOCAB.stances.map((s) => [s.id, s.text])])
     cleanup()
     vocab = { ...VOCAB, stances: [] }
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     await screen.findByTestId('team-view-give')
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByTestId('team-view-stance')).toBeNull()
@@ -159,7 +161,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
       if (u === '/api/me') return json({ me: { id: real.you_id, name: real.you } })
       return json(u.endsWith('/differences') ? differences : u.endsWith('/strategy/vocabulary') ? VOCAB : real)
     }) as typeof fetch)
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     await screen.findByTestId('team-view-about')
     type('team-view-about', 'cross_team_adoption')
     await waitFor(() => expect(useDifferences.getState().data?.scenario).toBe('s_98e93f5d2389'))
@@ -176,7 +178,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     ])
   })
   it('catch: the Team tab as mounted, after a reveal: one form, core\'s words; a view on a card posts ONCE with its text, version, items and an op', async () => {
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     const about = await screen.findByTestId('team-view-about') as HTMLSelectElement
     // One form: the strategy compose form is gone, and the one view form holds its fields.
     expect(screen.queryByTestId('strategy-compose')).toBeNull()
@@ -204,11 +206,14 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect(posts[0]!.as).toBe(real.you_id)
     // The form stays after the reveal (a new view opens the next round), cleared for the next one.
     await waitFor(() => expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).value).toBe(''))
+    // DL ruling 9 Nov: cleared, it opens on its one box again; its card field comes back empty behind "Add figures to your view".
+    expect(screen.queryByTestId('team-view-about')).toBeNull()
+    fireEvent.click(screen.getByTestId('team-view-more'))
     expect((screen.getByTestId('team-view-about') as HTMLSelectElement).value).toBe('')
   })
 
   it('a plain view posts no items or stance unless chosen; its source is offered after choosing a card', async () => {
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     await screen.findByTestId('team-view-about')
     expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
     expect(screen.queryByTestId('team-view-source')).toBeNull()
@@ -220,7 +225,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
   })
 
   it('no stance is chosen for the person: a view on a card shows no stance until they pick one, and is not sent until they do', async () => {
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
     type('team-view-text', 'Teams adopt once an owner is named.')
@@ -238,7 +243,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
   it('a lost answer: the same request is sent again with the SAME op, never a second view under a new one', async () => {
     let n = 0
     answer = () => { n++; if (n === 1) throw new TypeError('network'); return json({ contribution: 99 }, 201) }
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     type('team-view-text', 'Teams adopt once an owner is named.')
     type('team-view-stance', 'know')
@@ -262,7 +267,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
 
   it('core\'s own refusal words when core refuses the item', async () => {
     answer = () => json({ error: 'stance must be one of: know, suspect, unsure, would_try, others_may_miss' }, 400)
-    render(<TeamTab />)
+    render(<TeamTab />); await openForm()
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     type('team-view-text', 'x')
     type('team-view-stance', 'know')

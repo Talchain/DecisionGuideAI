@@ -123,6 +123,8 @@ describe('a private view\'s links and factor', () => {
     useViewLens.setState({ lens: 'premortem' })
     supported() // ViewsPanel alone needs the debate capability that TeamTab normally reads.
     const ada = render(panels(adaView))
+    // DL ruling 9 Nov: the view form opens on one box; the rest is behind "Add figures to your view".
+    fireEvent.click(await screen.findByTestId('team-view-more'))
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: 'existing_capacity' } })
     fireEvent.change(screen.getByTestId('team-view-stance'), { target: { value: 'suspect' } })
     const privateTeamText = {
@@ -174,6 +176,8 @@ describe('a private view\'s links and factor', () => {
     const bobView = asPerson('p_bob', 'Bob')
     show(bobView)
     render(panels(bobView))
+    // The form opens closed for Bob (nothing of Ada's is written in it); open it to check every field is empty.
+    fireEvent.click(await screen.findByTestId('team-view-more'))
     const about = await screen.findByTestId('team-view-about') as HTMLSelectElement
     expect(about.value).toBe('')
     expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')

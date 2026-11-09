@@ -98,7 +98,12 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const vocab = useStrategyVocabulary(sid)
   const [pick, setPick] = useState<StrategyPick>(NO_PICK)
   const items = itemsOf(pick, vocab, text)
-  const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK) }
+  // V11 pixel pass, DL ruling 9 Nov: the form opens on one box, the view in their own words. Its figures, card, stance and doubted links
+  // follow once they start writing, or behind "Add figures to your view" (it opened on nine fields before one act). Anything already
+  // entered keeps them shown.
+  const [more, setMore] = useState(false)
+  const open = more || text.trim() !== '' || figures.length > 0 || pick !== NO_PICK
+  const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK); setMore(false) }
   // Both core projections keep the contribution id: draw its items, never another person's words.
   const itemLines = (v: { id: number; text: string; items?: View['collab']['shared'][number]['items'] }) => {
     const lines = v.items?.map((l) => ({ ...l, about: { id: l.about, label: view.model?.cards.find((c) => c.id === l.about)?.heading } }))
@@ -206,7 +211,12 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           aria-label={c.placeholder} placeholder={c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
           value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
         />
-        {givable.length === 0 ? null : (
+        {open || (givable.length === 0 && vocab === null) ? null : (
+          <button type="button" data-testid="team-view-more" disabled={busy || sending || viewLocked} onClick={() => setMore(true)}
+            className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:text-text-light`}
+          >Add figures to your view</button>
+        )}
+        {!open || givable.length === 0 ? null : (
           <div className="grid gap-1" data-testid="team-view-figures">
             {givable.map((card) => {
               // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
@@ -225,8 +235,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
             {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
           </div>
         )}
-        {vocab === null ? null : <StrategyFields vocab={vocab} view={view} pick={pick} onPick={(p) => { setPick(p); if (error) setError(null) }} disabled={busy || sending || viewLocked} />}
-        <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} />
+        {!open || vocab === null ? null : <StrategyFields vocab={vocab} view={view} pick={pick} onPick={(p) => { setPick(p); if (error) setError(null) }} disabled={busy || sending || viewLocked} />}
+        {open ? <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} /> : null}
         {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>

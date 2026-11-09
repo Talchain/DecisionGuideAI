@@ -266,3 +266,14 @@
     display: none;
   }
 }
+
+/* V11 pixel pass, DL ruling 9 Nov: the zoom and fit buttons are 36×36 with 4 px between them, so no hit area overlaps its neighbour
+ * (44 px is for the main controls). The shared 29×31 tool button above is unchanged for the other toolbars. */
+.viewportControls .group {
+  gap: 4px;
+}
+.viewportControls .iconButton,
+.viewportControls .iconButtonActive {
+  width: 36px;
+  height: 36px;
+}

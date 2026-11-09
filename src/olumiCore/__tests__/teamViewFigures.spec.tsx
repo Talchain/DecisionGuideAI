@@ -30,11 +30,26 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites() })
 const show = (v: View = view) => render(<ViewsPanel sid={SID} view={v} onWrote={async () => true} />)
 const field = (id: string) => screen.getByTestId(`team-view-figure-${id}`)
+// DL ruling 9 Nov: the form opens on one box; its figure fields are behind "Add figures to your view", or appear once they write.
+const showOpen = (v: View = view) => { show(v); fireEvent.click(screen.getByTestId('team-view-more')) }
 
 describe('a view carries the member\'s own figures, as typed', () => {
+  it('DL ruling 9 Nov: the form opens on one box; the figure fields appear behind "Add figures to your view", or once they write', () => {
+    show()
+    expect(screen.getByTestId('team-view-text')).toBeTruthy()
+    expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(0)
+    fireEvent.click(screen.getByTestId('team-view-more'))
+    expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(givable.length)
+    expect(screen.queryByTestId('team-view-more')).toBeNull()
+    cleanup(); resetDrafts()
+    show()
+    fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'Churn will bite harder abroad.' } })
+    expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(givable.length)
+  })
+
   it('one field per card core offers a figure edit for, labelled by that card\'s heading', () => {
     expect(givable.length).toBeGreaterThan(1)
-    show()
+    showOpen()
     for (const c of givable) expect(within(field(c.id).closest('label')!).getByText(c.heading)).toBeTruthy()
     const offered = [...document.querySelectorAll('[data-testid^="team-view-figure-"]')].map((e) => e.getAttribute('data-testid'))
     expect(offered).toEqual(givable.map((c) => `team-view-figure-${c.id}`))
@@ -77,7 +92,7 @@ describe('a view carries the member\'s own figures, as typed', () => {
     expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(0)
   })
   it('CATCH: no field shows the card\'s current figure (Olumi\'s) before the member enters their own; core\'s neutral words are its label\'s hover', () => {
-    show()
+    showOpen()
     const shown = givable.filter((c) => c.figure!.text !== c.figure!.edit!.prompt)
     expect(shown.length).toBeGreaterThan(0)
     for (const c of givable) {
@@ -91,7 +106,7 @@ describe('a view carries the member\'s own figures, as typed', () => {
 
   it('CATCH: a fourth figure cannot be entered; the three stay editable, clearing one frees a field, and the post never carries four', async () => {
     expect(givable.length).toBeGreaterThan(3)
-    show()
+    showOpen()
     const [a, b, c, d] = givable
     for (const [i, card] of [a!, b!, c!].entries()) fireEvent.change(field(card.id), { target: { value: String(10 + i) } })
     expect((field(d!.id) as HTMLInputElement).disabled).toBe(true)

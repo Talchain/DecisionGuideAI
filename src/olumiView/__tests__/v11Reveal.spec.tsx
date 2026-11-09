@@ -87,8 +87,12 @@ describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () 
   const rec = (marked.collab as unknown as { marks: { card: string }[] }).marks[0]!.card
   it('one chip per card in core’s own words, of every kind, gathering its people', () => {
     const r = revealOf(marked)!
-    expect(marksOn(r, DIAG).cardChips).toEqual([{ key: `${rec}:disagreement`, card: DIAG, kind: 'disagreement', text: 'Priya and Tom differ', views: [id('Priya'), id('Tom')], evidence: [], people: [{ id: id('Priya'), by: 'Priya' }, { id: id('Tom'), by: 'Tom' }], reading: null, options: [],
-      title: marked.collab.marks![0]!.title, label: marked.collab.marks![0]!.label }])
+    // Bound by identity (DL ruling 9 Nov): core's mark gained `question` (holds), so the row checks the one chip and who and what it is,
+    // not a key count.
+    const chips0 = marksOn(r, DIAG).cardChips
+    expect(chips0.map((c) => c.key)).toEqual([`${rec}:disagreement`])
+    expect(chips0[0]).toMatchObject({ key: `${rec}:disagreement`, card: DIAG, kind: 'disagreement', text: 'Priya and Tom differ', views: [id('Priya'), id('Tom')], evidence: [], people: [{ id: id('Priya'), by: 'Priya' }, { id: id('Tom'), by: 'Tom' }], reading: null, options: [],
+      title: marked.collab.marks![0]!.title, label: marked.collab.marks![0]!.label })
     expect(marksOn(r, DIAG).initials).toEqual([])
     // Every kind is a chip (Paul's approved grammar, 7 Nov v2.1): "Only Maya raised it" too, so the kind reads without a click.
     expect(marksOn(r, 'contract_to_cash')).toMatchObject({ cardChips: [{ kind: 'unique', text: 'Only Maya raised it', views: [id('Maya')] }], initials: [] })
