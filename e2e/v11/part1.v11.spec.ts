@@ -70,6 +70,8 @@ test('2 "6 developers" becomes 7 and the chances move', async () => {
   expect(Date.now() - t1, 'saved within 3 s').toBeLessThanOrEqual(3000)
   v = await until(page, async () => { const x = await view3(page, sid); return x?.version?.n === n0 + 1 && JSON.stringify(chancesOf(x)) !== JSON.stringify(before) ? x : null }, 30_000)
   expect(v.model!.cards.find((c) => c.id === 'developers')?.figure?.text ?? '').toMatch(/\b7\b|seven/i)
+  // Core cc1b522e (DL 9 Nov): a person's edit never names its card. The card keeps its figure's name; the edit's words are not its title.
+  await expect(page.locator('[data-id="developers"]')).not.toContainText('Set "')
   await page.waitForTimeout(2000)
   for (const c of v.model!.cards.filter((c) => c.family === 'option' && c.headline?.text)) await expect(page.locator(`[data-id="${c.id}"]`)).toContainText(c.headline!.text)
   passed('p1.2')
