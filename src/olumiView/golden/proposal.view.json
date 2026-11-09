@@ -72,6 +72,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "existing capacity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -112,6 +120,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "per specialist",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -148,6 +164,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "one specialist",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -226,6 +250,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "total capacity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -262,6 +294,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "at least 100 tickets a week",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -298,6 +338,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "At least 100 a week",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -364,6 +412,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep current staffing",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -467,6 +523,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Add one specialist",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -515,6 +579,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "In 12 weeks",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -555,6 +627,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "could only start after 4 weeks",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",

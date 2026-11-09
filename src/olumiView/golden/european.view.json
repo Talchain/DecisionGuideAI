@@ -76,6 +76,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Current customer base",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -115,6 +123,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Customer target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -187,6 +203,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Expansion start after now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -272,6 +296,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly customer churn",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -324,6 +356,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Churn danger threshold",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -366,6 +406,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "New customers from existing markets",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -400,6 +448,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about New customers from existing markets",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -491,6 +547,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Customer base",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -530,6 +594,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Investment budget ceiling",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -603,6 +675,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Reach 800 customers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -637,6 +717,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -687,6 +775,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Stay within £500k investment budget",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -726,6 +822,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Proposed guardrail: churn no higher than 12%",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -931,6 +1035,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Enter multiple European countries",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -977,6 +1089,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Prerequisite for Enter multiple European countries",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1011,6 +1131,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Post-entry churn what-if",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1202,6 +1330,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Test one country before broader commitment",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1359,6 +1495,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "No new European entry during this window",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",

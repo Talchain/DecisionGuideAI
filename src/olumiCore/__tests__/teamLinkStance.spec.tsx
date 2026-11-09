@@ -153,6 +153,12 @@ describe('What you have said', () => {
     expect([...yours.querySelectorAll('li')].map((li) => [li.getAttribute('data-link-said'), [...li.querySelectorAll('span')].map((x) => x.textContent)])).toEqual([['morale_link|', ["'Add one specialist' → 'team morale'", w['keep'], ADA]]])
     expect(yours.textContent).not.toContain(BEA)
   })
+  it('LS9 her own words are in body colour, never the faded grey (the UI lane, 9 Nov: the gate\'s grade-2 polish)', () => {
+    differences(diffStances)
+    render(<LinkStance sid={SID} view={stances} onWrote={async () => true} />)
+    const hers = [...screen.getByTestId('team-link-stance-yours').querySelectorAll('[data-link-said-words]')]
+    expect(hers.map((x) => [x.textContent, x.classList.contains('text-text-body'), x.classList.contains('text-text-light')])).toEqual([[ADA, true, false]])
+  })
 })
 
 describe('Its place in the Team tab', () => {

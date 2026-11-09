@@ -60,6 +60,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "within the next 2 months",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -111,6 +119,14 @@
     "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "investment firms that do deals between £1-2 million",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -162,6 +178,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Available unrestricted cash",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -196,6 +220,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Available unrestricted cash",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -250,6 +282,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly net operating cash burn before new funding",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "mixed",
      "text": "The team’s figure, Olumi’s range",
@@ -349,6 +389,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Total net funding received during the window",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -445,6 +493,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cash surplus or shortfall at the funding window's end",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -509,6 +565,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Secure funding within the funding window",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -555,6 +619,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Secure funding within the funding window",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -589,6 +661,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Secure funding within the funding window",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -655,6 +735,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Buy more operating time",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -774,6 +862,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Continue institutional cold email and warm introductions",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -935,6 +1031,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Pursue an angel bridge alongside institutional outreach",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -981,6 +1085,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Prerequisite",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1131,6 +1243,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Combine an angel bridge with temporary spend deferral",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1177,6 +1297,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",

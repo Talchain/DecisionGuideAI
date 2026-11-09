@@ -81,6 +81,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "margin",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -120,6 +128,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "margin raised",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -159,6 +175,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -201,6 +225,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups change",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -276,6 +308,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "profit",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -315,6 +355,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "profit target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -351,6 +399,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Make £7,000 a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -446,6 +502,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Raise the price by 45p",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -524,6 +588,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep the price",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",

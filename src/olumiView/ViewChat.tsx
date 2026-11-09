@@ -29,6 +29,7 @@ import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
+import { ViewChoices } from './ViewChoices'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { endRing, pointRing, restRing } from './ring'
 import { Button } from '../components/ui/Button'
@@ -114,6 +115,8 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   const restKey = answerFirst ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
   // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
   const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
+  // V11 #5: the newest reply's answers as choices are held as the composer's Send is (a write in flight, Olumi answering, a past version shown).
+  const chatBusy = useViewChat((st) => st.busy), choicesHeld = useViewStore((st) => isAnswering(st.view) || st.at !== null)
   useEffect(() => {
     if (!answerFirst) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
@@ -142,6 +145,7 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
+      {answerFirst && t.answer.next.newest && t.answer.next.choices ? <ViewChoices choices={t.answer.next.choices} at={`${at}.answer.next.choices`} held={chatBusy || choicesHeld} say={say} /> : null}
       <Stories answer={t.answer} at={at} />
     </div>
   )
