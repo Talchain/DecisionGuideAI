@@ -3,6 +3,10 @@ import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError, type Invite } from './api'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { useDraft } from './drafts'
+
+/** The invite form's name, as a draft: the header's "Named in the brief but not matched" notice fills it with the first name core lists. */
+export const inviteNameKey = (sid: string) => `${sid}:invite-name`
 
 /**
  * BRING A COLLEAGUE IN (core API v1.8, "joining by link"): any member makes a colleague their own private link, which signs them in as a
@@ -10,7 +14,8 @@ import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
  * the link once, in its answer, and never again: it is shown here until the tab is left. The people this member invited are listed as core lists them, and the inviter may revoke a link.
  */
 export function InvitePanel({ sid }: { sid: string }): JSX.Element {
-  const [name, setName] = useState('')
+  // A draft, so a name put here from elsewhere (the header's "not matched" notice, DL 9 Nov) is the form's when it opens.
+  const [name, setName] = useDraft(inviteNameKey(sid), '')
   const [made, setMade] = useState<{ name: string; link: string } | null>(null)
   const [invites, setInvites] = useState<readonly Invite[]>([])
   const [error, setError] = useState<string | null>(null)

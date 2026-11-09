@@ -1,7 +1,7 @@
 /**
  * The model at a glance, as an instrument (the redesign's spine: reasoning-redesign-SPEC.md §3 Z2 and §7). The crafted strip Paul liked
  * (6 Nov side by side) keeps its rows: the brief, each goal, and one mark per option, factor, risk and outcome in its canvas shape and
- * colour, with each row's count. Now every mark points into the model:
+ * colour, named by its card's heading (DL 9 Nov), with each row's count. Now every mark points into the model:
  *   - hover or focus a mark: its card is ringed on the canvas (ring.ts, the tab's own slot beside the chat's, so neither clears the other);
  *     the pointer and the keyboard each hold their own, so moving the pointer off never drops the ring of the mark that has focus;
  *   - press a mark, or a goal: the canvas selects and centres its card (`focusNodeById`); press it again to let it go;
@@ -124,9 +124,12 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
             {cards.map((c) => {
               const { ring, ...p } = pointer(c)
               return (
+                // Named (DL 9 Nov, alpha comprehension: unlabelled marks could not be told apart): each mark carries its card's heading, core's
+                // words, whole and wrapping; its shape stays before it.
                 <button key={c.id} {...p} title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}
-                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
+                  className={`${typography.viewPanelMeta} inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
                   <NodeShapeIndicator nodeKind={kind} size={10} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
+                  <span className="min-w-0 break-words" data-view={`${c.id}.heading`}>{c.heading}</span>
                 </button>
               )
             })}

@@ -213,6 +213,8 @@ describe('the glance as an instrument: each mark rings, selects and follows its 
     for (const id of ids) {
       expect(mark(id).tagName).toBe('BUTTON')
       expect(mark(id).getAttribute('aria-label')).toBe(card(id).heading)
+      // Named on screen too (DL 9 Nov: unlabelled marks could not be told apart): its heading, by its own card, whole.
+      expect(mark(id).querySelector(`[data-view="${id}.heading"]`)?.textContent).toBe(card(id).heading)
     }
     fireEvent.click(mark(ids[2]!))
     expect(focused).toEqual([ids[2]])

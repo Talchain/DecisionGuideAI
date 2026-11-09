@@ -9,9 +9,18 @@ import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { othersOf } from './layout'
 import type { View } from './client'
+import { putDraft } from '../olumiCore/team/drafts'
+import { inviteNameKey } from '../olumiCore/team/InvitePanel'
+
+/** Open Team with the invite form holding `name`, and bring the form into view. */
+export function inviteUnjoined(sid: string, name: string): void {
+  if (name !== '') putDraft<string>(inviteNameKey(sid), () => name)
+  useUIStore.getState().forceActivateOutputTab('team')
+  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('[data-testid="team-invite"]')?.scrollIntoView({ block: 'nearest' })))
+}
 
 export function TeamPresence() {
-  const view = useViewStore((s) => s.view)
+  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   // V11 J1 #6 (core f44bd1c): the people the brief names whom no member matches, in core's words. It shows on a team of one too (the
   // first look), where there are no discs. Core never says "not yet invited": the View is not given invitations.
   const unjoined = view?.team_presence.unjoined ?? null
@@ -22,7 +31,11 @@ export function TeamPresence() {
       {view.members.length < 2 ? null : <Discs view={view} others={others} />}
       {unjoined === null ? null : (
         // V11 pixel pass (9 Nov): two short lines with room before Share (one 360 px line crowded it at 1232), never cut.
-        <span className={`${typography.viewPanelMeta} mr-2 min-w-0 max-w-[240px] text-right text-text-body`} title={unjoined.text} data-testid="team-presence-unjoined" data-view="team_presence.unjoined.text">{unjoined.text}</span>
+        // An action (DL 9 Nov: the person must be able to do something about it): pressing core's sentence opens Team with the invite form
+        // holding the first name core lists, ready to make that person's link. The words stay core's; the press is the page's.
+        <button type="button" onClick={() => inviteUnjoined(sid ?? view.id, unjoined.names[0] ?? '')} aria-label={`${unjoined.text}. Invite ${unjoined.names[0] ?? ''}`}
+          className={`${typography.viewPanelMeta} mr-2 min-w-0 max-w-[240px] cursor-pointer rounded text-right text-text-body underline decoration-panel-border underline-offset-2 hover:text-text-header hover:decoration-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
+          title={unjoined.text} data-testid="team-presence-unjoined"><span data-view="team_presence.unjoined.text">{unjoined.text}</span></button>
       )}
     </span>
   )

@@ -8,7 +8,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useUIStore } from '../../stores/uiStore'
+import { draftOf } from '../../olumiCore/team/drafts'
+import { inviteNameKey } from '../../olumiCore/team/InvitePanel'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { BriefPanel, useBriefPanelLeft } from '../BriefPanel'
@@ -53,6 +56,13 @@ describe('the people the brief names who are not on the team', () => {
     const line = screen.getByTestId('team-presence-unjoined')
     expect([line.textContent, line.getAttribute('title')]).toEqual([u.text, u.text])
     expect(screen.queryByTestId('team-presence')).toBeNull()
+  })
+  it('it is an action (DL 9 Nov): pressing it opens Team with the invite form holding the first name core lists', () => {
+    useViewStore.setState({ view: now, sid: now.id })
+    render(<TeamPresence />)
+    fireEvent.click(screen.getByTestId('team-presence-unjoined'))
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+    expect(draftOf<string>(inviteNameKey(now.id))).toBe(now.team_presence.unjoined!.names[0])
   })
   it('CONTRAST: a team of one where core names no one draws nothing', () => {
     useViewStore.setState({ view: { ...now, team_presence: { ...now.team_presence, unjoined: null } }, sid: now.id })
