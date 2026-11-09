@@ -244,6 +244,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
   const aims = card.rows.filter((r) => r.kind === 'chance').length
+  const faceTitle = card.face?.title ?? null, faceLine = card.face?.line ?? null
   // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
   const rowsDrawn = (
     <>
@@ -294,7 +295,12 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       <p data-view-title={id} className={(card.family === 'option' && card.driver !== null) || (card.family !== 'option' && more) ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
-        <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+        {/* FL1 (core `face`, #20): the face's title, said once (their words, Olumi's, or the card's own name); `heading` stays the whole label,
+            for a screen reader and on hover where the title is shorter. A core before `face` draws the heading as before (same as V11 J1). */}
+        {faceTitle === null || faceTitle.text === card.heading
+          ? <span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? undefined : card.detail} data-view={`${id}.heading`}>{card.heading}</span>
+          : <><span className={`${typography.viewTitle} font-semibold text-text-header`} title={card.detail === '' ? card.heading : `${card.heading} · ${card.detail}`} data-face-words={faceTitle.words} data-view={`${id}.face.title.text`}>{faceTitle.text}</span>
+            <span className="sr-only" data-view={`${id}.heading`}>{card.heading}</span></>}
         {card.olumi === null ? null : <>{' '}<Mark at={`${id}.olumi`} mark={card.olumi} /></>}
         {card.change === null ? null : <>{' '}<Mark at={`${id}.change`} mark={card.change} /></>}
         <Slot name={VIEW_CARD_SLOTS.titleMark} className="ml-1 empty:hidden" />
@@ -302,6 +308,11 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
+      {faceLine === null ? null : (
+        // FL1: the face's one short line under the title, core's words whole (never clamped). On an option (a route's own quote) it shows
+        // while hovered, focused or opened, so the options stay one line each at rest (core's headline); every other card's line is at rest.
+        <p className={`${typography.viewLabel} text-text-body ${card.family === 'option' && !selected ? 'hidden group-hover:block group-focus-within:block' : ''}`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
+      )}
       {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
       {card.bound === null ? null : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the

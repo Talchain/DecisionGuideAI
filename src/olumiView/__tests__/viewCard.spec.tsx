@@ -160,7 +160,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|unused)$/ // unused: core's honesty line under the figure (DL 8 Nov, on the face by ruling). values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|unused|face\.(title|line)\.text)$/ // unused: core's honesty line under the figure (DL 8 Nov, on the face by ruling). values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
   const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {

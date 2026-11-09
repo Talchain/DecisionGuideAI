@@ -60,6 +60,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "class fee",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -99,6 +107,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "classes now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -138,6 +154,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "evening extra",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -223,6 +247,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "takings",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -262,6 +294,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "takings target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -301,6 +341,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "members",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -340,6 +388,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "members target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -382,6 +438,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "How members feel",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -429,6 +493,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "How members feel → members",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -465,6 +537,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Take £2,640 a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -501,6 +581,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep at least 140 members",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -582,6 +670,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Evening classes",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -625,6 +721,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Evening classes → How members feel",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -718,6 +822,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Weekend workshops",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -802,6 +914,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Carry on as now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",

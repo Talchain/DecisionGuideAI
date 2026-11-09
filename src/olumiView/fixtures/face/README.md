@@ -1,0 +1,1 @@
+Core own viewOf, unedited: short-line.test V11 J1 bookshop gate board (fixtures/bookshop-gate-model.json + its explains/line words), on olumi-core tree 34ba70ee (candidate 7b7fadaa + coach-choices ebf5bec9), local commit d4f989a2, 9 Nov.
