@@ -3,6 +3,7 @@
  * this link"), core's words whole, each holder's stance in their own words as its hover and name (`title`, `label`). The chip is found by
  * the line's `holds` (the record and part it stands for), never by its two ends: two lines between the same cards are different links.
  * A mark core sets off the line (`line: false`) is drawn on its card instead (RevealMarks), never here.
+ * Selecting either chip opens the Team tab with its link picked where the person says where they stand on it (linkPick.ts, Paul's step 6).
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { EdgeLabelRenderer } from '@xyflow/react'
@@ -11,6 +12,7 @@ import { linkWordsAt } from '../canvas/edges/linkWordsPlace'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../canvas/utils/goalChanceDriverLinks'
 import type { View, ViewLink } from './client'
 import { useViewStore } from './store'
+import { openLinkStance } from './linkPick'
 
 type Box = { readonly id?: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export type LinkMark = NonNullable<View['collab']['link_marks']>[number]
@@ -27,7 +29,7 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
   const mark = useViewStore((s) => linkMarkOf(s.view, link))
   const [size, setSize] = useState({ w: 0, h: 0 })
   const seen = useRef<ResizeObserver | null>(null)
-  const attach = useCallback((el: HTMLDivElement | null) => {
+  const attach = useCallback((el: HTMLElement | null) => {
     seen.current?.disconnect(); seen.current = null
     if (!el) return
     const read = () => setSize((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
@@ -41,14 +43,15 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (
     <EdgeLabelRenderer>
-      <div ref={attach} role="note" aria-label={mark.label} title={mark.title} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
-        className={`nodrag nopan inline-flex min-h-6 max-w-[240px] items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1`}
+      <button type="button" ref={attach} aria-label={mark.label} title={mark.title} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
+        onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
+        className={`nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}
         style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${at?.x ?? midX}px, ${at?.y ?? midY}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, pointerEvents: 'auto', ...(at === null ? { visibility: 'hidden' as const } : {}) }}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
         </span>
         <span className="min-w-0" data-view={`collab.link_marks.${link.holds?.record}.text`}>{mark.text}</span>
-      </div>
+      </button>
     </EdgeLabelRenderer>
   )
 }
@@ -56,12 +59,13 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
 export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (
-    <span role="note" aria-label={mark.label} title={mark.title} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
-      className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1`}>
+    <button type="button" aria-label={mark.label} title={mark.title} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
+      onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
+      className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-flex flex-none">
         {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
       </span>
       <span className="min-w-0">{mark.text}</span>
-    </span>
+    </button>
   )
 }

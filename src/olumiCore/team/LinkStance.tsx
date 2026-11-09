@@ -5,6 +5,7 @@ import { call, TeamApiError } from './api'
 import { differencesKey, readDifferences, useDifferences } from './differences'
 import { runWrite } from './writes'
 import { offeredOf } from './ViewDoubts'
+import { useTakeLinkPick } from '../../olumiView/linkPick'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 /**
@@ -42,6 +43,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
+  // A link's chip asks for its link (linkPick.ts, Paul's step 6): picked here once this form offers it.
+  useTakeLinkPick(view.model?.holdable == null ? [] : offeredOf(view, heading).map((l) => keyOf(l.link)), (k) => { setPick(k); setError(null) })
   // Only a core that holds `model.holdable` takes a stance (it checks the link against it). One place at a time (DL 9 Nov): core's
   // `collab.link_route` says when ('stance': the View shows this member a reveal); a core before it, once anything is revealed to them.
   const route = view.collab.link_route, here = route !== undefined ? route === 'stance' : view.collab.shared.length > 0
