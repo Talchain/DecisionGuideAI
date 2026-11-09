@@ -3170,10 +3170,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     right: insetDock ? 8 : 0,
     top: insetDock ? 'calc(var(--topbar-h, 0px) + 8px)' : 'var(--topbar-h, 0px)',
     // V11 rehearsal (DL 9 Nov): flush to the window's foot, no gap under the dock.
-    bottom: insetDock ? 0 : 'var(--bottombar-h)',
+    bottom: insetDock ? 8 : 'var(--bottombar-h)',
     background: insetDock ? 'var(--bg-panel)' : 'rgb(var(--bg-panel-rgb) / 0.95)',
     backdropFilter: 'blur(8px)',
-    borderRadius: insetDock ? '16px 16px 0 0' : 0,
+    borderRadius: insetDock ? 16 : 0,
     border: insetDock ? '1px solid #DDD4C4' : undefined,
     boxShadow: insetDock ? '0 8px 24px rgba(38,38,38,0.14)' : 'none',
     zIndex: 900,

@@ -51,7 +51,7 @@ export function TeamTab(): JSX.Element {
         <h2 className={H}>Team</h2>
         <button
           type="button" data-testid="team-check" disabled={!sid || status === 'loading'} onClick={() => void refresh()}
-          className={`${META} inline-flex cursor-pointer items-center gap-1 underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:no-underline disabled:text-text-light `}
+          className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1 underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:no-underline disabled:text-text-light `}
         >
           {status === 'loading' ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" /> : <RefreshCw aria-hidden="true" className="h-3 w-3" />}
           Check for new views

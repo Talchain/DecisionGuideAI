@@ -40,7 +40,7 @@ export function BriefPanel(): JSX.Element | null {
         <header className="space-y-0.5">
           <div className="flex items-start justify-between gap-2">
             <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-semibold text-text-header`}><FileText aria-hidden="true" className="h-4 w-4" />Your brief, as you wrote it</h2>
-            <button type="button" className={`${typography.viewPanelMeta} flex-none cursor-pointer text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
+            <button type="button" className={`${typography.viewPanelMeta} inline-flex min-h-[24px] flex-none cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
           </div>
           {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version === null || a.versionAt === null ? null : <> · <span data-view="version.at_text">{a.versionAt}</span></>}{a.version !== null && a.by !== null ? ' · ' : null}{a.by}</p>}
         </header>
