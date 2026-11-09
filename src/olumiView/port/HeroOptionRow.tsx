@@ -179,6 +179,8 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
   const hl = lens === 'goal' && card.headline != null && headlineRowOf(card) === i ? card.headline : null
   const range = hl?.state === 'chance' && hl.range !== null && hl.range !== '' ? hl.range : null
   const add = hl?.state === 'none' && hl.add !== null && hl.add !== '' ? hl.add : null
+  // Science (core wip/science-spread-chance): a chance headline's own sentence on why it is what it is, under its range; null for none.
+  const why = hl?.state === 'chance' && hl.why !== null && hl.why !== '' ? hl.why : null
   // Where the range is drawn on the driver's own row and the driver's sentence opens with it (the same driver), that sentence is not
   // drawn as words; on any other row or lens, or for another driver, it is drawn as before.
   const shortDriver = range !== null && driverRow && card.driver!.text.startsWith(range)
@@ -236,10 +238,11 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           {grid}
         </button>
       ) : <div className={HERO_ROW_STACK}>{grid}</div>}
-      {headTrack || headLine !== null || headDriverWords || range !== null || add !== null ? (
+      {headTrack || headLine !== null || headDriverWords || range !== null || why !== null || add !== null ? (
         <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">
           {headTrack ? <DriverTrack card={card} chance={chance!.chance} labelled /> : null}
           {range === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} title={hl!.title} data-testid="port-row-headline-range" data-view={`${card.id}.headline.range`}>{range}</p>}
+          {why === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-why" data-view={`${card.id}.headline.why`}>{why}</p>}
           {add === null ? null : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="port-row-headline-add" data-view={`${card.id}.headline.add`}>{add}</p>}
           {headLine !== null ? (
             <WholeLine id={`${regionId}-tip`} title={headLine.line.hover}>

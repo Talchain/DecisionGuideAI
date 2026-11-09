@@ -54,6 +54,27 @@ describe('AN-01: each option\'s headline on the mounted Analysis row', () => {
     expect(at(`${c.id}.rows.${k}.value`)).toHaveLength(1)
   })
 
+  it('chance with a why (science, core wip/science-spread-chance): the headline\'s own sentence under its range on the row it is about, once, by card id; with why null, nothing', () => {
+    // Core serves why: null for a chance today; science adds the sentence. The View is core's own (studio); only `why` is set here.
+    const base = viewOf('core/an01-studio'), WHY = 'The range is wide because evening extra is still a guess.'
+    const withWhy = structuredClone(base), c = withWhy.model!.cards.find((x) => x.id === 'evening_classes')!
+    expect([c.headline!.state, base.model!.cards.find((x) => x.id === 'evening_classes')!.headline!.why]).toEqual(['chance', null])
+    c.headline = { ...c.headline!, why: WHY }
+    mount(withWhy)
+    const why = at(`${c.id}.headline.why`)
+    expect(why).toHaveLength(1)
+    expect(why[0]!.textContent).toBe(WHY)
+    const k = c.rows.findIndex((r) => r.aim_id === c.headline!.aim_id)
+    expect(why[0]!.closest('[data-testid="port-option-row"]')!.getAttribute('data-view-row')).toBe(`${c.id}.rows.${k}`)
+    // No other option takes it: every other card's why is absent
+    for (const o of withWhy.model!.cards) if (o.id !== c.id) expect(at(`${o.id}.headline.why`)).toHaveLength(0)
+    cleanup()
+    // CONTRAST: core's View as served (why null): nothing is drawn, and the range still is
+    mount(base)
+    expect(at(`${c.id}.headline.why`)).toHaveLength(0)
+    expect(at(`${c.id}.headline.range`)).toHaveLength(1)
+  })
+
   it('Likely outcome lens (studio): no range, and the driver\'s sentence is drawn again in the row\'s detail', () => {
     const view = viewOf('core/an01-studio'), c = view.model!.cards.find((x) => x.id === 'evening_classes')!
     mount(view)
