@@ -18,7 +18,7 @@ import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/c
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
-import { railObstacles, useRailBoxes } from '../../olumiView/railBoxes'
+import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 
@@ -87,8 +87,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
-  const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, clearOf, cards) : linkWordsAt(path, clearOf, size, { x: midX, y: midY })),
-    [path, clearOf, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
+  // Clear of the words of the links before this one too (railBoxes.ts useLinkWordsBoxes): opened cards' near links no longer stack words.
+  const before = wordsBefore(useLinkWordsBoxes((s) => s.boxes), i)
+  const clearOfWords = useMemo(() => (before.list.length === 0 ? clearOf : [...clearOf, ...before.list]), [clearOf, before.key]) // eslint-disable-line react-hooks/exhaustive-deps -- the key names the boxes
+  const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, clearOfWords, cards) : linkWordsAt(path, clearOfWords, size, { x: midX, y: midY })),
+    [path, clearOfWords, size, midX, midY]) // eslint-disable-line react-hooks/exhaustive-deps -- `rail` follows `path`
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
   // or focused, or a card at either end is hovered or selected, and on a driver link.
   const near = selected || focused || driver || active.has(source) || active.has(target)
@@ -98,6 +101,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
   const hidden = placed.far === true && !near
+  // This link's words, while drawn, are a box the later links keep clear of.
+  const putWords = useLinkWordsBoxes((s) => s.put), dropWords = useLinkWordsBoxes((s) => s.drop)
+  const shown = words && !hidden && size.w > 0
+  useLayoutEffect(() => { if (shown) putWords(i, { id: '', x: placed.x - size.w / 2, y: placed.y - size.h / 2, w: size.w, h: size.h }); else dropWords(i) }, [shown, i, placed.x, placed.y, size.w, size.h, putWords, dropWords])
+  useLayoutEffect(() => () => dropWords(i), [i, dropWords])
   // The remove control (R25 slice 2b) goes by the words' own rule: at the point nearest the link where its measured box touches no card
   // and not the link's words (DL 7 Nov: under the words it covered OC1 "total capacity" at every width). Measured as it attaches and
   // whenever its size changes (its ask is wider than its button); until measured it is not shown.

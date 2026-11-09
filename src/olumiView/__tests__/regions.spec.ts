@@ -33,3 +33,15 @@ describe('clearOf: how far the board moves so an open card clears the regions', 
     expect(headHeightOf([])).toBe(0)
   })
 })
+
+describe('link words keep clear of the words of the links before them (railBoxes.ts; the re-score\'s #1)', () => {
+  it('a link sees only the boxes of lower-indexed links, and its key moves only when one of them moves', async () => {
+    const { wordsBefore } = await import('../railBoxes')
+    const b = (x: number) => ({ id: '', x, y: 0, w: 40, h: 16 })
+    const boxes = { 0: b(10), 2: b(30), 5: b(50) }
+    expect(wordsBefore(boxes, 3).list).toEqual([b(10), b(30)])
+    expect(wordsBefore(boxes, 0).list).toEqual([])
+    expect(wordsBefore({ ...boxes, 5: b(90) }, 3).key).toBe(wordsBefore(boxes, 3).key)
+    expect(wordsBefore({ ...boxes, 2: b(31) }, 3).key).not.toBe(wordsBefore(boxes, 3).key)
+  })
+})

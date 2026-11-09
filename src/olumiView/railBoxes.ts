@@ -93,3 +93,26 @@ export function useRailBoxesRef(key: string, card: string): (el: HTMLDivElement 
     }
   }, [key, read])
 }
+
+/**
+ * The link words on the board (DL round 6, the re-score's #1: opening a card shows every near link's strength words at once, and they
+ * landed on each other between two rows). Each link publishes the box its words take (flow units), by its index in core's links; a link
+ * places its words clear of the boxes of the links before it, so the order is acyclic and the board settles. Nothing moves a line.
+ */
+export type WordsBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+interface LinkWordsState {
+  readonly boxes: Readonly<Record<number, WordsBox>>
+  put(i: number, box: WordsBox): void
+  drop(i: number): void
+}
+export const useLinkWordsBoxes = create<LinkWordsState>((set, get) => ({
+  boxes: {},
+  put: (i, b) => { const a = get().boxes[i]; if (a === undefined || a.x !== b.x || a.y !== b.y || a.w !== b.w || a.h !== b.h) set((s) => ({ boxes: { ...s.boxes, [i]: b } })) },
+  drop: (i) => { if (get().boxes[i] !== undefined) set((s) => { const next = { ...s.boxes }; delete next[i]; return { boxes: next } }) },
+}))
+/** The boxes of the links before link `i`, as one key (so a placement re-runs only when one of them moved) and the boxes. */
+export function wordsBefore(boxes: Readonly<Record<number, WordsBox>>, i: number): { key: string; list: WordsBox[] } {
+  const list: WordsBox[] = []
+  for (const k of Object.keys(boxes)) if (Number(k) < i) list.push(boxes[Number(k)]!)
+  return { key: list.map((b) => `${b.x},${b.y},${b.w},${b.h}`).join(';'), list }
+}

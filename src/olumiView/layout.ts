@@ -495,6 +495,7 @@ function headFirst(model: ViewModel, rows: readonly (readonly string[])[], head:
   // the foot controls' columns (x < FOOT_W) ends FOOT_CLEAR above the room's foot, any other within it, placed as `band` places it, left to
   // right from x 0. A row that does not fit starts past the room instead, so no card is drawn cut at the window's foot (9 Nov).
   const fits = (ids: readonly string[], top: number) => { let fx = 0, ok = true; for (const id of ids) { if (top + below(id) > room - (fx < FOOT_W ? FOOT_CLEAR : 0)) ok = false; fx += at(id).width + TREE_GAP_X } return ok }
+  // Story rows do not wrap at the room's width: wrapping put cards across the links of the rows above (crossings 9 -> 17 on hiring, round 7).
   for (const rest of story) {
     if (!fits(rest, y) && y < room + TREE_ROOM_Y) y = room + TREE_ROOM_Y
     y = band(rest, y, false) + TREE_GAP_Y
