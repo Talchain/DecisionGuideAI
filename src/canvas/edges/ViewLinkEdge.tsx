@@ -157,11 +157,14 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [shownChip, chipAt, chip, id, i])
   useEffect(() => () => useLineChips.getState().drop(id), [id])
   if (!drawn) return null
-  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
+  // A link carrying a chip is drawn in body ink, a little stronger than the resting links, so its chip reads as its own where other links
+  // cross by it (the line-chip gate, 9 Nov: "which connector it refers to"); a challenged, proposed or driver link keeps its own colour.
+  const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)'
+    : mark !== null ? 'var(--text-body)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
   return (
     <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : mark !== null ? 1.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}
