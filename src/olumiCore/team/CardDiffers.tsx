@@ -14,6 +14,8 @@
  * debate.ts:346), so it is said in the Team tab only. A figure the team differs on is already the reveal's own chip. Before the reveal,
  * while gated, or on an earlier version, nothing is read or drawn. The read is the Team tab's own (`differencesKey`), so the dock and the
  * canvas never read the same View twice.
+ * Core's one chip per link (`collab.link_marks`, LinkMarks.tsx) replaces this chip: a link this canvas draws a link mark for is not drawn
+ * here. Without link marks (an older core), or for a link whose mark has no line or card here, this chip is drawn as before.
  */
 import { Fragment, useEffect, type CSSProperties } from 'react'
 import { Unlink2 } from 'lucide-react'
@@ -22,6 +24,7 @@ import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'
 import { CARD_WIDTH } from '../../olumiView/layout'
 import { differencesKey, readDifferences, useDifferences, type Difference } from './differences'
+import { usePlacedKeys } from './LinkMarks'
 
 const NONE: readonly Difference[] = []
 
@@ -38,10 +41,12 @@ export function useLinkDiffers(card: string): readonly Difference[] {
   // Only an answer read for this very View: an older one (another version, before a reveal, or kept after a failed read) is never drawn as
   // this one's.
   const data = useDifferences((s) => (key !== null && s.read === key ? s.data : null))
+  // A link core draws its own one chip for (on its line or its folding card) is not drawn again here (keyed on records).
+  const marked = usePlacedKeys()
   if (data === null || data.gated) return NONE
   const seen = new Set<string>()
   return data.differences.filter((d) => {
-    if (d.kind !== 'link' || !(d.cards ?? []).includes(card) || seen.has(d.record)) return false
+    if (d.kind !== 'link' || !(d.cards ?? []).includes(card) || seen.has(d.record) || marked.has(d.record)) return false
     seen.add(d.record)
     return true
   })
