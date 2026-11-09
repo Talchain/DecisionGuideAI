@@ -106,7 +106,7 @@ function Premises({ card, keyEntries, expert }: { card: ViewCard; keyEntries: Vi
       {!glyph ? null : kindOf(premise.glyph) === null
         ? <span aria-hidden="true" className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>
         : <span role="img" aria-label={kindOf(premise.glyph)!} title={kindOf(premise.glyph)!} className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>}
-      <span className="min-w-0" data-view={`${card.id}.premises.${i}.text`}>{premise.text}</span>
+      <span className="min-w-0"><span data-view={`${card.id}.premises.${i}.text`}>{premise.text}</span>{(premise.olumi ?? null) === null ? null : <>{' '}<span title={premise.olumi!.title} aria-label={premise.olumi!.title} data-view={`${card.id}.premises.${i}.olumi.glyph`}>{premise.olumi!.glyph}</span></>}</span>
     </li>
   )
   return (

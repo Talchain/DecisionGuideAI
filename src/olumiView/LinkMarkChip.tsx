@@ -11,8 +11,6 @@ import { linkWordsAt } from '../canvas/edges/linkWordsPlace'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../canvas/utils/goalChanceDriverLinks'
 import type { View, ViewLink } from './client'
 import { useViewStore } from './store'
-import { railedOf } from './canvas'
-import { TREE_RAIL_Y } from './layout'
 
 type Box = { readonly id?: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export type LinkMark = NonNullable<View['collab']['link_marks']>[number]
@@ -36,11 +34,9 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
     read()
     if (typeof ResizeObserver !== 'undefined') { seen.current = new ResizeObserver(read); seen.current.observe(el) }
   }, [])
-  // At the point along the line nearest its middle where the chip touches no card (the link words' own rule, linkWordsPlace.ts).
-  // A card's chip rail hangs under it, out of its measured box (RevealMarks): the chip keeps off the rail too (TREE_RAIL_Y, 8 px a side).
-  const view = useViewStore((s) => s.view), railed = useMemo(() => railedOf(view), [view])
-  const boxes = useMemo(() => cards.map((c) => (c.id !== undefined && railed.has(c.id) ? { x: c.x - 8, y: c.y, w: c.w + 16, h: c.h + TREE_RAIL_Y } : c)), [cards, railed])
-  const at = useMemo(() => (size.w === 0 ? null : linkWordsAt(path, boxes, size, { x: midX, y: midY })), [path, boxes, size, midX, midY])
+  // At the point along the line nearest its middle where the chip touches no card and no card's chip rail (the edge passes the rails as
+  // obstacles, railBoxes.ts), and not this line's own words: the link words' own rule (linkWordsPlace.ts).
+  const at = useMemo(() => (size.w === 0 ? null : linkWordsAt(path, cards, size, { x: midX, y: midY })), [path, cards, size, midX, midY])
   if (mark === null) return null
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (

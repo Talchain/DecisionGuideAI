@@ -15,9 +15,7 @@ const EXIT = 20
 /** How far under the source's row the link runs along to its rail. */
 const UNDER = 12
 
-// SC-01 preview (three columns, read left to right): a link into a card in a column to its right is drawn as its curve, left to right.
-const rightward = (from: Box, to: Box): boolean => to.x >= from.x + from.w
-const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => !rightward(from, to) && to.y + to.h < from.y && to.y <= Math.min(...cards.map((c) => c.y)) + 1
+const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => to.y + to.h < from.y && to.y <= Math.min(...cards.map((c) => c.y)) + 1
 const sideOf = (to: Box, cards: readonly Box[]): 'left' | 'right' => {
   const left = Math.min(...cards.map((c) => c.x)), right = Math.max(...cards.map((c) => c.x + c.w))
   return to.x + to.w / 2 < (left + right) / 2 ? 'left' : 'right'
@@ -56,13 +54,14 @@ const WORDS_STEP = 8, WORDS_ROOM = 4
 
 /**
  * Where a rail link's words sit: on its rail, at the point of the climb nearest its middle where the words' box (as measured) touches no
- * card. Where no point of the climb is clear (a box wider than the rail's room beside cards all the way up), the box moves out just past
- * the board's edge, still across its rail; every card lies inside the board, so it then touches none.
+ * card (nor, given in `cards`, a chip on a card's rail). Where no point of the climb is clear (a box wider than the rail's room beside cards
+ * all the way up), the box moves out just past the board's edge, still across its rail; every card lies inside the board, so it then
+ * touches none. The board's edge is the cards' own (`board`, the cards alone when given), never a chip's overhang.
  */
-export function railWordsAt(r: Rail, size: { readonly w: number; readonly h: number }, cards: readonly Box[]): { x: number; y: number } {
+export function railWordsAt(r: Rail, size: { readonly w: number; readonly h: number }, cards: readonly Box[], board: readonly Box[] = cards): { x: number; y: number } {
   const clear = (x: number, y: number) => cards.every((c) => !(x - size.w / 2 < c.x + c.w && x + size.w / 2 > c.x && y - size.h / 2 < c.y + c.h && y + size.h / 2 > c.y))
   const lo = r.top + size.h / 2, hi = r.bottom - size.h / 2, n = Math.ceil(Math.max(0, r.bottom - r.top) / WORDS_STEP)
   for (let k = 0; k <= n; k++) for (const y of k === 0 ? [r.y] : [r.y - k * WORDS_STEP, r.y + k * WORDS_STEP]) if (y >= lo && y <= hi && clear(r.x, y)) return { x: r.x, y }
-  const edge = r.onLeft ? Math.min(...cards.map((c) => c.x)) - WORDS_ROOM - size.w / 2 : Math.max(...cards.map((c) => c.x + c.w)) + WORDS_ROOM + size.w / 2
+  const edge = r.onLeft ? Math.min(...board.map((c) => c.x)) - WORDS_ROOM - size.w / 2 : Math.max(...board.map((c) => c.x + c.w)) + WORDS_ROOM + size.w / 2
   return { x: r.onLeft ? Math.min(r.x, edge) : Math.max(r.x, edge), y: r.y }
 }

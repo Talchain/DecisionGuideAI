@@ -11,7 +11,7 @@ import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
 import { drawViewCanvas, layViewCanvas, useViewCanvas, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
-import { askKindOf, CARD_WIDTH, causalColumns, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
+import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
 vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
@@ -32,8 +32,7 @@ describe('the View draws the canvas', () => {
     const model = golden('pricing').model!
     expect(await layViewCanvas(model)).toBe(true)
     const { nodes, edges } = useCanvasStore.getState()
-    // SC-01 preview: the canvas lays core's model out in three cause-to-aim columns (layout.ts causalColumns).
-    const places = causalColumns(model, new Map(), questionPlace(model).width), cards = nodes.slice(1)
+    const places = await causalPlaces(model, new Map(), questionPlace(model).width), cards = nodes.slice(1)
     expect(cards.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
     expect(cards.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
     expect(edges.map((e) => [e.source, e.target])).toEqual(model.links.map((l) => [l.from, l.to]))
@@ -85,16 +84,16 @@ describe('the View draws the canvas', () => {
 
 describe('the causal graph, not core\'s columns (Paul 4 Nov: "the horizontal model is an absolute mess")', () => {
   for (const n of ['european', 'bakery']) {
-    it(`${n}: SC-01 preview: the question and the options in the left column, the aims in the right one; no two cards overlap`, async () => {
+    it(`${n}: the question on top with the goal beside it (R25), the options below both; no two cards overlap`, async () => {
       const model = golden(n).model!
       await layViewCanvas(model)
-      const nodes = useCanvasStore.getState().nodes, at = (id: string) => nodes.find((x) => x.id === id)!.position
-      const byFamily = (f: string) => model.cards.filter((c) => askKindOf(c.family) === f).map((c) => at(c.id))
-      expect(at(QUESTION)).toEqual({ x: 0, y: 0 })
-      expect(byFamily('option').every((p) => p.x === 0 && p.y > 0)).toBe(true)
-      const right = Math.max(...nodes.map((x) => x.position.x))
-      expect(byFamily('goal').every((p) => p.x === right)).toBe(true)
-      const box = (id: string) => { const c = model.cards.find((x) => x.id === id)!, p = at(id); return [p.x, p.y, p.x + CARD_WIDTH, p.y + c.h] }
+      const nodes = useCanvasStore.getState().nodes, y = (id: string) => nodes.find((x) => x.id === id)!.position.y
+      const byFamily = (f: string) => model.cards.filter((c) => askKindOf(c.family) === f).map((c) => y(c.id))
+      expect(Math.max(...byFamily('option'))).toBeGreaterThan(y(QUESTION))
+      // R25 (Paul 7 Nov: the aims in view at 1232): the aims are the head of the board, beside the question, above the options.
+      expect(byFamily('goal').every((g) => g === y(QUESTION))).toBe(true)
+      expect(Math.min(...byFamily('option'))).toBeGreaterThan(Math.max(...model.cards.filter((c) => askKindOf(c.family) === 'goal').map((c) => y(c.id) + c.h)))
+      const box = (id: string) => { const c = model.cards.find((x) => x.id === id)!, p = nodes.find((x) => x.id === id)!.position; return [p.x, p.y, p.x + CARD_WIDTH, p.y + c.h] }
       for (const a of model.cards) for (const b of model.cards) {
         if (a.id >= b.id) continue
         const [ax, ay, aX, aY] = box(a.id), [bx, by, bX, bY] = box(b.id)
@@ -116,9 +115,9 @@ describe('the canvas keeps what core\'s page shows (00057)', () => {
     await layViewCanvas(model)
     const { nodes, edges } = useCanvasStore.getState()
     expect([nodes[0]!.id, nodes[0]!.type]).toEqual([QUESTION, VIEW_QUESTION])
-    // SC-01 preview: the question heads the left column; every card in that column is below it, every other card to its right.
-    expect(nodes[0]!.position).toEqual({ x: 0, y: 0 })
-    expect(nodes.slice(1).every((n) => n.position.x > 0 || n.position.y > 0)).toBe(true)
+    // Every card below it, but the aims, which sit beside it (R25).
+    const aim = new Set(model.cards.filter((c) => askKindOf(c.family) === 'goal' || askKindOf(c.family) === 'constraint').map((c) => c.id))
+    expect(nodes.slice(1).every((n) => (aim.has(n.id) ? n.position.y === nodes[0]!.position.y : n.position.y > nodes[0]!.position.y))).toBe(true)
     expect((nodes[0]!.data as { question: unknown }).question).toBe(model.question)
     const toQuestion = model.links.filter((l) => l.to === QUESTION)
     expect(toQuestion.length).toBeGreaterThan(0)

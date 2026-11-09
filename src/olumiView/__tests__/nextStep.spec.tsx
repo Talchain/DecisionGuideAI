@@ -35,11 +35,33 @@ describe('the next step', () => {
   it('no proposal and the chances wait on a figure the person can type: that figure, in core\'s words, with its editor', () => {
     const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
     const c = show(view)
+    const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
     expect(step(c)?.getAttribute('data-step')).toBe('figure')
-    expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.figure)
-    expect(step(c)).toHaveTextContent(item.text)
+    // Core's words only: its label and the figure's name at their paths, core's hover; no sentence of the UI's own.
+    const waits = step(c)!.querySelector('[data-testid="view-next-figure-waits"]')!
+    expect(waits.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(w.label)
+    expect(waits.querySelector(`[data-view="run.waits_on.items.${k}.text"]`)?.textContent).toBe(item.text)
+    expect(waits.getAttribute('title')).toBe(item.title)
+    expect(waits.textContent).toBe(`${w.label} ${item.text}${item.unknown ?? ''}`)
     fireEvent.click(step(c)!.querySelector(`[data-testid="next-figure-edit-${item.id}"]`)!)
     expect(step(c)!.querySelector(`label[for="next-figure-${item.id}"]`)?.textContent).toBe(item.edit!.prompt)
+  })
+
+  it('catch (strategy witness 8, 8 Nov): a figure no one can size yet is said as core says it, never as one only the person can give', () => {
+    const view = golden('studio'), w = view.model!.run!.waits_on!, item = w.items.find((i) => i.edit !== null)!, k = w.items.indexOf(item)
+    expect([item.answer, typeof item.unknown]).toEqual([false, 'string'])
+    const c = show(view)
+    expect(step(c)?.getAttribute('data-step')).toBe('figure')
+    const waits = step(c)!.querySelector('[data-testid="view-next-figure-waits"]')!
+    expect(waits.querySelector(`[data-view="run.waits_on.items.${k}.unknown"]`)?.textContent).toBe(item.unknown)
+    expect(waits.textContent).toBe(`${w.label} ${item.text}${item.unknown}`)
+    expect(step(c)!.textContent).not.toMatch(/only you can give/)
+    // Contrast: an asked figure (bakery) carries no unknown clause.
+    cleanup()
+    const b = golden('bakery'), bi = b.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
+    expect([bi.answer, bi.unknown]).toEqual([true, null])
+    const bc = show(b)
+    expect(step(bc)!.querySelectorAll('[data-view$=".unknown"]')).toHaveLength(0)
   })
 
   it('nothing to approve or type, and they are the only member: bring a colleague in, which opens Team', () => {

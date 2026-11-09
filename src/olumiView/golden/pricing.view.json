@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": [
      {
       "option": "raise_price",
@@ -116,6 +117,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -154,6 +156,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -195,6 +198,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -248,6 +252,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "raise_price",
@@ -307,6 +312,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -380,7 +386,7 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎."
+       "title": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎."
       },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
@@ -447,7 +453,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "profit_goal",
+     "state": "chance",
+     "text": "about 49% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+     "range": "under 1% if 'cups change' is low, over 99% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "carry_on",
@@ -515,7 +531,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "profit_goal",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    }
   ],
   "links": [
@@ -528,12 +554,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "cups_rel",
      "profit_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "cups_change",
@@ -544,12 +571,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "cups_rel",
      "profit_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "margin",
@@ -560,11 +588,12 @@
     "alert": false,
     "proposed": false,
     "title": "multiplies · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "profit_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "profit",
@@ -575,9 +604,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "profit_target",
@@ -588,9 +618,10 @@
     "alert": false,
     "proposed": false,
     "title": "target",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "raise_price",
@@ -601,9 +632,10 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "margin_raised",
@@ -614,9 +646,10 @@
     "alert": false,
     "proposed": false,
     "title": "replaces margin",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "raise_price",
@@ -627,25 +660,26 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through rise switched on, rise on, cups · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ],
     "effect": {
      "text": "−900 to −100 cups/month",
      "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
     },
     "remove": null,
-    "records": [
-     "cups_rel",
-     "profit_rel"
-    ]
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Make £7,000 a month’",
-   "lead": "In this model, on current information, each option’s chance of ‘Make £7,000 a month’:",
+   "lead": "Chance of ‘Make £7,000 a month’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
-    "text": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
-    "title": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%, against under 1% for 'Keep the price'); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
+    "text": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
+    "title": "If Olumi's estimates hold, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -772,6 +806,7 @@
    ]
   },
   "edit_base": 1,
+  "holdable": [],
   "key": [
    {
     "id": "olumi",
@@ -1049,10 +1084,84 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "margin": "Please change “margin”: ",
+   "margin_raised": "Please change “margin raised”: ",
+   "cups_now": "Please change “cups now”: ",
+   "rise_on": "Please change “rise on”: ",
+   "rise_switched_on": "Please change “rise switched on”: ",
+   "cups_change": "Please change “cups change”: ",
+   "cups": "Please change “cups”: ",
+   "profit": "Please change “profit”: ",
+   "profit_target": "Please change “profit target”: ",
+   "cups_rel": "Please change “how cups is worked out”: ",
+   "profit_rel": "Please change “how profit is worked out”: ",
+   "profit_goal": "Please change “Make £7,000 a month”: ",
+   "raise_price": "Please change “Raise the price by 45p”: ",
+   "carry_on": "Please change “Keep the price”: "
+  }
+ },
  "brief": "Should the café raise its coffee price?",
  "gated": true,
  "session": {
@@ -1135,79 +1244,6 @@
   ],
   "figure_first": null,
   "pre_mortem": null
- },
- "model_words": {
-  "changeFigure": "Change figure",
-  "setFigure": "Set figure",
-  "tryIt": "Try without saving",
-  "cancel": "Cancel",
-  "rename": "Rename",
-  "saveName": "Save name",
-  "newName": "New name",
-  "showOnCanvas": "Show on canvas",
-  "addFigure": "Add a figure",
-  "name": "Name",
-  "figure": "Figure",
-  "unit": "Unit (optional)",
-  "add": "Add",
-  "figureHint": "One number, or a range like 150 to 400",
-  "removeLink": "Remove link",
-  "removeAsk": "Remove this link?",
-  "remove": "Remove",
-  "keep": "Keep",
-  "links": "Links",
-  "restsOn": "Rests on",
-  "whose": "Whose",
-  "about": "About",
-  "whatWouldChange": "What would change it",
-  "saving": "Saving…",
-  "reading": "Reading the model…",
-  "savingOther": "Another change is saving…",
-  "trying": "Trying it without saving…",
-  "changeTarget": "Change target",
-  "changeLimit": "Change limit",
-  "changeStrength": "Change strength",
-  "heldLead": "Olumi’s pending change is waiting for you.",
-  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
-  "heldAside": "Set it aside",
-  "heldConfirm": "Set aside",
-  "heldKeep": "Keep it",
-  "heldFailed": "That did not go through. Nothing was set aside.",
-  "settingAside": "Setting it aside…",
-  "plain": "Plain",
-  "expert": "Expert",
-  "detail": "Detail",
-  "to": "to",
-  "from": "from",
-  "askChange": "Ask Olumi to change this",
-  "askOption": "Ask Olumi for another option",
-  "askOptionDraft": "Suggest another option we have not considered.",
-  "askRisk": "Ask Olumi what risks are missing",
-  "askRiskDraft": "Which risks are missing from this model?",
-  "askLink": "Ask Olumi about missing links",
-  "askLinkDraft": "Which links between these factors are missing or wrong?",
-  "failed": "That did not go through. Nothing was saved.",
-  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
-  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
-  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
-  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
-  "triedFailed": "That did not go through. Nothing was tried.",
-  "askChangeDraft": {
-   "margin": "Please change “margin”: ",
-   "margin_raised": "Please change “margin raised”: ",
-   "cups_now": "Please change “cups now”: ",
-   "rise_on": "Please change “rise on”: ",
-   "rise_switched_on": "Please change “rise switched on”: ",
-   "cups_change": "Please change “cups change”: ",
-   "cups": "Please change “cups”: ",
-   "profit": "Please change “profit”: ",
-   "profit_target": "Please change “profit target”: ",
-   "cups_rel": "Please change “how cups is worked out”: ",
-   "profit_rel": "Please change “how profit is worked out”: ",
-   "profit_goal": "Please change “Make £7,000 a month”: ",
-   "raise_price": "Please change “Raise the price by 45p”: ",
-   "carry_on": "Please change “Keep the price”: "
-  }
  },
  "evidence_words": {
   "heading": "Evidence",

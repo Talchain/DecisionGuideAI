@@ -112,6 +112,8 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   // note is open on steps out, as a selected card does in ring.ts: one focus per screen. Keyed by value, so an equal reply rewrites nothing.
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] ?? null)
   const restKey = answerFirst ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
+  // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
+  const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
   useEffect(() => {
     if (!answerFirst) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
@@ -125,7 +127,9 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   const whyFirst: number[] = []
   let nextFirst = 1
   if (t.answer !== null) { nextFirst += citesIn(t.answer.answer); for (const w of t.answer.why) { whyFirst.push(nextFirst); nextFirst += citesIn(w) } }
-  const answer = t.answer === null ? null : (
+  const answer = t.answer === null ? (reply === null ? null : (
+    <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
+  )) : (
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
       <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
       {t.answer.why.length === 0 ? null : (
@@ -185,6 +189,33 @@ export function ViewConversation({ chat, moves = false }: { chat: View['chat']; 
         </details>
       )}
     </div>
+  )
+}
+
+/**
+ * A turn Olumi is answering in core, or that ended unanswered (core API v1.28: the View's `turn`). Their words, then core's line verbatim
+ * (`turn.words`) as a status, with the seconds since core accepted it (`started`, so a reload counts from the same moment). A failed or lost
+ * turn shows core's plain reason and Try again (the same words, a new op). No word here is the page's own but the Try again control.
+ */
+export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me: string | null }) {
+  const running = turn.status === 'answering'
+  const busy = useViewChat((s) => s.busy)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
+  const from = Date.parse(turn.started), secs = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
+  return (
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status}>
+      <li className="space-y-1">
+        {turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>}
+        {turn.said === null ? null : <div className={styles.messageBubbleUser}><p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
+        <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
+          <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
+          {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
+        </p>
+        {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
+          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:opacity-40">Try again</button>}
+      </li>
+    </ol>
   )
 }
 
@@ -378,6 +409,52 @@ function watchPageMoves(): void {
 
 /** The scenario on screen is drafting its first model in core (core API v1.26: the View's `draft`, the job's state in core's words). */
 export const isDrafting = (view: View | null): boolean => view?.draft?.status === 'drafting'
+/** A turn on the scenario on screen is being answered in core (core API v1.28: the View's `turn`); Send waits until it has answered. */
+export const isAnswering = (view: View | null): boolean => view?.turn?.status === 'answering'
+
+/** A message sent whose acceptance has not come back yet: kept in this tab per person, as a brief is, so a reload asks core again by the SAME op. */
+const PENDING_TURN = (person: string) => `olumi-pending-turn:${person}`
+function keepPendingTurn(sid: string, text: string, op: string): void {
+  const me = pendingPerson()
+  if (me === null) return
+  try { sessionStorage.setItem(PENDING_TURN(me), JSON.stringify({ sid, text, op })) } catch { /* no storage: the op lives only in this page */ }
+}
+function dropPendingTurn(op: string): void {
+  const me = pendingPerson()
+  if (me === null) return
+  try { if (pendingTurn(me)?.op === op) sessionStorage.removeItem(PENDING_TURN(me)) } catch { /* nothing kept */ }
+}
+/** This person's message still waiting for core's acceptance in this tab, if any: its scenario, words and op. */
+export function pendingTurn(person: string): { sid: string; text: string; op: string } | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown } | null
+    return v !== null && typeof v.sid === 'string' && /^s_[0-9a-f]+$/.test(v.sid) && typeof v.text === 'string' && v.text.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { sid: v.sid, text: v.text, op: v.op } : null
+  } catch { return null }
+}
+/**
+ * After a reload, a message whose acceptance never came back is put back in the box with the op it was sent with, so Send asks core again
+ * by that op: core answers a replay with the turn it already has (never a second answer), or takes it as new if it never arrived. It is
+ * never dropped because the View shows the same words, which may be someone else's or an earlier message of theirs (Codex review 07 #5).
+ * Reloading sends nothing.
+ */
+export function restorePendingTurn(): boolean {
+  const me = pendingPerson(), { uuid, sid, view } = useViewStore.getState()
+  if (me === null || sid === null || view === null) return false
+  const p = pendingTurn(me)
+  if (p === null || p.sid !== sid) return false
+  if (useViewChat.getState().text !== '' || useViewChat.getState().busy) return false
+  useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, 'message', p.text), p.op) })
+  return true
+}
+/** Try again on a plain message that ended unanswered (failed or lost): the same words, under a new op. A challenge, method question, move
+ *  or evidence to consider is asked again from its own control, so it keeps what it was (Codex review 07 #4); it never becomes words. */
+export function sayAgain(): Promise<boolean> {
+  const { sid, view } = useViewStore.getState()
+  const t = view?.turn
+  if (sid === null || t == null || t.status === 'answering' || t.said === null || t.ask !== 'message') return Promise.resolve(false)
+  const said = t.said
+  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op))
+}
 
 /** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
 const PENDING = (person: string) => `olumi-pending-brief:${person}`
@@ -439,7 +516,8 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 function say(text: string): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
   if (isDrafting(view)) return Promise.resolve(false) // its first model is still drafting: a second Send never makes a second scenario
-  return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid)) : write('message', text, (op) => writes.message(sid!, text, op))
+  return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid))
+    : write('message', text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op); dropPendingTurn(op); return r })
 }
 
 async function send(): Promise<void> {
@@ -607,7 +685,8 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   if (sid === null) return false
   let stale = false
   const sent = await write(`move:${next.move}`, String(turn), async (op) => {
-    try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409) stale = true; throw e }
+    // Core's one-turn-at-a-time refusal is a 409 too, told apart by its code (`turn_busy`): that move is still offered, so it is never dropped.
+    try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409 && e.code !== 'turn_busy') stale = true; throw e }
   }, false, uuid)
   // The pre-mortem tap with the gate closed is also a 409: it opens the entry; any other 409 is the stale move below.
   if (stale && next.move === PRE_MORTEM && await openPreMortemEntry()) return sent
@@ -661,7 +740,7 @@ const keep = (text: string): void => {
   useViewChat.setState({ text: now.trim() === '' ? text : `${now}\n${text}` })
 }
 const keptWhileBusy = (text: string): boolean => {
-  if (!useViewChat.getState().busy) return false
+  if (!useViewChat.getState().busy && !isAnswering(useViewStore.getState().view)) return false
   keep(text)
   useViewChat.setState({ said: STILL_ANSWERING })
   return true
@@ -717,12 +796,26 @@ export function nextStepOf(view: View): NextStep | null {
   return null
 }
 
+// A figure step has no words of the UI's own: it says what the chances wait on in core's words (`run.waits_on`), so it never claims who can
+// give the figure (strategy witness 8, 8 Nov: core said "which no one can size yet" where the UI said "only you can give").
 export const NEXT_STEP_WORDS = {
   // R25 (Paul's 6 Nov test: no ✎ appeared while a proposal waited): say why, here, where the decision is (core holds edits by contract).
   approve: 'Olumi proposes changes, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve, and figure edits wait until then.',
-  figure: 'The chances wait on a figure only you can give:',
   invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
 } as const
+
+/** What the chances wait on, for the figure step, in core's words at their paths: its label, the figure's name, and, where core says no one
+ *  can size it yet, that clause. The hover is core's (the question asked, or why it is unknown). */
+function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
+  const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
+  return (
+    <p title={item.title} data-testid="view-next-figure-waits">
+      <span data-view="run.waits_on.label">{w.label}</span>{' '}
+      <span data-view={`run.waits_on.items.${k}.text`}>{item.text}</span>
+      {item.unknown === null || item.unknown === '' ? null : <span data-view={`run.waits_on.items.${k}.unknown`}>{item.unknown}</span>}
+    </p>
+  )
+}
 
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
@@ -731,11 +824,11 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   return (
     <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
-      <p>{NEXT_STEP_WORDS[step.kind]}</p>
+      {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
       {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
-          <p title={step.item.title} data-view={`run.waits_on.items.${view.model!.run!.waits_on!.items.indexOf(step.item)}.text`}>{step.item.text}</p>
+          <FigureWaits view={view} item={step.item} />
           <FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" />
         </div>
       ) : null}
@@ -903,6 +996,7 @@ export function ViewChat() {
         <ModelNoticeLine />
         {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
             behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
+        {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
         {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} />}
         {view === null ? null : <NextStepCard view={view} busy={busy} />}
         {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
@@ -960,7 +1054,7 @@ export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now 
 export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
-  const drafting = isDrafting(view)
+  const drafting = isDrafting(view), answering = isAnswering(view)
   // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
   const unknown = sid !== null && view === null
   const held = busy || past !== null || drafting || unknown
@@ -969,6 +1063,9 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   // A brief whose answer was lost before a reload is back in the box, with its op (restorePendingBrief); nothing is sent until Send.
   const me = useMe((m) => m.me)
   useEffect(() => { if (me !== null && sid === null) restorePendingBrief() }, [me, sid])
+  // A message whose acceptance was lost before a reload is back in the box with its op (restorePendingTurn), once the View is read.
+  const known = view !== null
+  useEffect(() => { if (me !== null && sid !== null && known) restorePendingTurn() }, [me, sid, known])
   // A scenario waiting for its brief puts the person in the brief box (canvas A S6 D6), once no write holds it disabled (00065).
   useEffect(() => { if (brief && !busy) box.current?.focus() }, [brief, busy])
   // The dock's focus channel reaches this composer (review 00065 ledger).
@@ -1009,7 +1106,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
               <RefreshCw className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
             </button>
           )}
-          <button type="button" disabled={held || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
+          <button type="button" disabled={held || answering || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-header text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default">
             <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
           </button>

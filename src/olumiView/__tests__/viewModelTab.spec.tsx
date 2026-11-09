@@ -159,7 +159,10 @@ describe('the crafted Model tab, from the View', () => {
     card.premises.forEach((p, i) => {
       const item = c.querySelector(`[data-view-premise="${card.id}.premises.${i}"]`)!
       expect(item.querySelector(`[data-view="${card.id}.premises.${i}.text"]`)?.textContent, `premise ${i}`).toBe(p.text)
-      expect(item.textContent, `premise ${i}`).toBe(`${p.glyph}${p.text}`)
+      // ED-12: core's Olumi mark, where core sends one, follows the text at its own path (never inside the text's element).
+      const mark = p.olumi ?? null
+      expect(item.textContent, `premise ${i}`).toBe(mark === null ? `${p.glyph}${p.text}` : `${p.glyph}${p.text} ${mark.glyph}`)
+      expect(item.querySelector(`[data-view="${card.id}.premises.${i}.olumi.glyph"]`)?.textContent ?? null, `premise ${i}`).toBe(mark === null ? null : mark.glyph)
     })
     expect(c.querySelector(`[data-model-premises="${card.id}"] [data-view-key]`)).toBeNull() // CONTRAST: no Expert headings
   })

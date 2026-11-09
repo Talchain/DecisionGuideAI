@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -95,6 +96,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -133,6 +135,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -186,6 +189,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "evening_classes",
@@ -255,6 +259,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -293,6 +298,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -331,6 +337,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -372,6 +379,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -385,7 +393,7 @@
     "id": "mood_members",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Mood members",
+    "heading": "How members feel → members",
     "typed": true,
     "detail": "How members feel → members · relation · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
     "col": 1,
@@ -404,7 +412,7 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "How members feel → members",
+    "reason": "Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
     "badge": {
      "records": [
       "co_owner_view",
@@ -520,7 +528,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -531,7 +539,7 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎."
+       "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎."
       },
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
@@ -581,13 +589,23 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "chance",
+     "text": "about 89% chance",
+     "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+     "range": "about 68% if 'evening extra' is low, over 99% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "evening_mood",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Evening mood",
+    "heading": "Evening classes → How members feel",
     "typed": true,
     "detail": "Evening classes → How members feel · relation · Theirs: “Members have asked for evening slots”",
     "col": 0,
@@ -603,7 +621,7 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "Evening classes → How members feel",
+    "reason": "Members have asked for evening slots.",
     "badge": null,
     "values": null,
     "rests_on": [],
@@ -637,7 +655,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -707,7 +725,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "carry_on",
@@ -729,7 +757,7 @@
      {
       "kind": "none",
       "aim_id": "keep_members",
-      "text": "cannot be worked out yet · Keep at least 140 members",
+      "text": "No chance yet",
       "title": "cannot be worked out yet · Keep at least 140 members"
      },
      {
@@ -781,7 +809,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    }
   ],
   "links": [
@@ -794,12 +832,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "classes_rel",
      "takings_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "class_fee",
@@ -810,11 +849,12 @@
     "alert": false,
     "proposed": false,
     "title": "multiplies · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "takings_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "evening_classes",
@@ -825,14 +865,18 @@
     "alert": false,
     "proposed": false,
     "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”",
+    "records": [
+     "evening_mood"
+    ],
     "effect": null,
     "remove": {
      "record": "evening_mood",
      "part": null
     },
-    "records": [
-     "evening_mood"
-    ]
+    "holds": {
+     "record": "evening_mood",
+     "part": null
+    }
    },
    {
     "from": "member_mood",
@@ -843,11 +887,15 @@
     "alert": false,
     "proposed": false,
     "title": "link in words: depends on conditions, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
-    "effect": null,
-    "remove": null,
     "records": [
      "mood_members"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "mood_members",
+     "part": null
+    }
    },
    {
     "from": "evening_mood",
@@ -858,9 +906,10 @@
     "alert": false,
     "proposed": false,
     "title": "relation: Evening classes → How members feel",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "evening_mood",
@@ -871,9 +920,10 @@
     "alert": false,
     "proposed": false,
     "title": "relation: Evening classes → How members feel",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "mood_members",
@@ -884,9 +934,10 @@
     "alert": false,
     "proposed": false,
     "title": "relation: How members feel → members",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "mood_members",
@@ -897,9 +948,10 @@
     "alert": false,
     "proposed": false,
     "title": "relation: How members feel → members",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "takings",
@@ -910,9 +962,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "takings_target",
@@ -923,9 +976,10 @@
     "alert": false,
     "proposed": false,
     "title": "target",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "members",
@@ -936,9 +990,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "members_target",
@@ -949,9 +1004,10 @@
     "alert": false,
     "proposed": false,
     "title": "target",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "evening_classes",
@@ -962,9 +1018,10 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "evening_extra",
@@ -975,12 +1032,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "classes_rel",
      "takings_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "weekend_workshops",
@@ -991,17 +1049,18 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through workshop extra, extra classes, classes · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "classes_rel",
      "takings_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Take £2,640 a month’",
-   "lead": "In this model, on current information, each option’s chance of ‘Take £2,640 a month’:",
+   "lead": "Chance of ‘Take £2,640 a month’, in this model on current information",
    "all_withheld": false,
    "shared_blockers": [
     {
@@ -1011,12 +1070,12 @@
       "weekend_workshops",
       "carry_on"
      ],
-     "text": "The chance of 'Keep at least 140 members' cannot be worked out yet: rests on \"How members feel\", which is not measured: No one can measure how members feel yet; repeat bookings might show it; rests on the link \"Evening classes → How members feel\", which is in words, never calculated; rests on the link \"How members feel → members\", which is in words, never calculated."
+     "text": "No option's chance of 'Keep at least 140 members' can be worked out yet: it rests on 3 things the model cannot yet put a figure on."
     }
    ],
    "most_likely": {
-    "text": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
-    "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%, against under 1% for 'Weekend workshops'); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "text": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "title": "If Olumi's estimates hold, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -1041,7 +1100,7 @@
       "text": "‘How members feel’",
       "title": "No one can measure how members feel yet; repeat bookings might show it.",
       "answer": false,
-      "unknown": ", which no one can size yet (No one can measure how members feel yet; repeat bookings might show it)",
+      "unknown": ", which no one can size yet",
       "edit": {
        "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
        "ask": "For “How members feel”, type one number, or a range like 150 to 400."
@@ -1049,16 +1108,16 @@
      },
      {
       "id": "evening_mood",
-      "text": "‘evening_mood’",
-      "title": "evening_mood",
+      "text": "‘Evening classes → How members feel’",
+      "title": "Evening classes → How members feel",
       "answer": false,
       "unknown": null,
       "edit": null
      },
      {
       "id": "mood_members",
-      "text": "‘mood_members’",
-      "title": "mood_members",
+      "text": "‘How members feel → members’",
+      "title": "How members feel → members",
       "answer": false,
       "unknown": null,
       "edit": null
@@ -1177,6 +1236,30 @@
    ]
   },
   "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "evening_mood",
+     "part": null
+    },
+    "from": "evening_classes",
+    "to": "member_mood",
+    "text": "'Evening classes' → 'How members feel'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "mood_members",
+     "part": null
+    },
+    "from": "member_mood",
+    "to": "members",
+    "text": "'How members feel' → 'members'",
+    "line": true,
+    "card": null
+   }
+  ],
   "key": [
    {
     "id": "olumi",
@@ -1495,10 +1578,92 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "class_fee": "Please change “class fee”: ",
+   "classes_now": "Please change “classes now”: ",
+   "extra_classes": "Please change “extra classes”: ",
+   "evening_extra": "Please change “evening extra”: ",
+   "workshop_extra": "Please change “workshop extra”: ",
+   "classes": "Please change “classes”: ",
+   "takings": "Please change “takings”: ",
+   "takings_target": "Please change “takings target”: ",
+   "members": "Please change “members”: ",
+   "members_target": "Please change “members target”: ",
+   "member_mood": "Please change “How members feel”: ",
+   "classes_rel": "Please change “how classes is worked out”: ",
+   "takings_rel": "Please change “how takings is worked out”: ",
+   "evening_mood": "Please change “Evening classes → How members feel”: ",
+   "mood_members": "Please change “How members feel → members”: ",
+   "takings_goal": "Please change “Take £2,640 a month”: ",
+   "keep_members": "Please change “Keep at least 140 members”: ",
+   "evening_classes": "Please change “Evening classes”: ",
+   "weekend_workshops": "Please change “Weekend workshops”: ",
+   "carry_on": "Please change “Carry on as now”: ",
+   "co_owner_view": "Please change “my co-owner: Evening classes will crowd the studio and put off daytime members.”: ",
+   "if_slots_suit": "Please change “It depends on whether evening slots suit the members who work days.”: "
+  }
+ },
  "brief": "Should the studio add evening classes?",
  "gated": true,
  "session": {
@@ -1581,87 +1746,6 @@
   ],
   "figure_first": null,
   "pre_mortem": null
- },
- "model_words": {
-  "changeFigure": "Change figure",
-  "setFigure": "Set figure",
-  "tryIt": "Try without saving",
-  "cancel": "Cancel",
-  "rename": "Rename",
-  "saveName": "Save name",
-  "newName": "New name",
-  "showOnCanvas": "Show on canvas",
-  "addFigure": "Add a figure",
-  "name": "Name",
-  "figure": "Figure",
-  "unit": "Unit (optional)",
-  "add": "Add",
-  "figureHint": "One number, or a range like 150 to 400",
-  "removeLink": "Remove link",
-  "removeAsk": "Remove this link?",
-  "remove": "Remove",
-  "keep": "Keep",
-  "links": "Links",
-  "restsOn": "Rests on",
-  "whose": "Whose",
-  "about": "About",
-  "whatWouldChange": "What would change it",
-  "saving": "Saving…",
-  "reading": "Reading the model…",
-  "savingOther": "Another change is saving…",
-  "trying": "Trying it without saving…",
-  "changeTarget": "Change target",
-  "changeLimit": "Change limit",
-  "changeStrength": "Change strength",
-  "heldLead": "Olumi’s pending change is waiting for you.",
-  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
-  "heldAside": "Set it aside",
-  "heldConfirm": "Set aside",
-  "heldKeep": "Keep it",
-  "heldFailed": "That did not go through. Nothing was set aside.",
-  "settingAside": "Setting it aside…",
-  "plain": "Plain",
-  "expert": "Expert",
-  "detail": "Detail",
-  "to": "to",
-  "from": "from",
-  "askChange": "Ask Olumi to change this",
-  "askOption": "Ask Olumi for another option",
-  "askOptionDraft": "Suggest another option we have not considered.",
-  "askRisk": "Ask Olumi what risks are missing",
-  "askRiskDraft": "Which risks are missing from this model?",
-  "askLink": "Ask Olumi about missing links",
-  "askLinkDraft": "Which links between these factors are missing or wrong?",
-  "failed": "That did not go through. Nothing was saved.",
-  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
-  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
-  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
-  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
-  "triedFailed": "That did not go through. Nothing was tried.",
-  "askChangeDraft": {
-   "class_fee": "Please change “class fee”: ",
-   "classes_now": "Please change “classes now”: ",
-   "extra_classes": "Please change “extra classes”: ",
-   "evening_extra": "Please change “evening extra”: ",
-   "workshop_extra": "Please change “workshop extra”: ",
-   "classes": "Please change “classes”: ",
-   "takings": "Please change “takings”: ",
-   "takings_target": "Please change “takings target”: ",
-   "members": "Please change “members”: ",
-   "members_target": "Please change “members target”: ",
-   "member_mood": "Please change “How members feel”: ",
-   "classes_rel": "Please change “how classes is worked out”: ",
-   "takings_rel": "Please change “how takings is worked out”: ",
-   "evening_mood": "Please change “Evening classes → How members feel”: ",
-   "mood_members": "Please change “How members feel → members”: ",
-   "takings_goal": "Please change “Take £2,640 a month”: ",
-   "keep_members": "Please change “Keep at least 140 members”: ",
-   "evening_classes": "Please change “Evening classes”: ",
-   "weekend_workshops": "Please change “Weekend workshops”: ",
-   "carry_on": "Please change “Carry on as now”: ",
-   "co_owner_view": "Please change “my co-owner: Evening classes will crowd the studio and put off daytime members.”: ",
-   "if_slots_suit": "Please change “It depends on whether evening slots suit the members who work days.”: "
-  }
  },
  "evidence_words": {
   "heading": "Evidence",

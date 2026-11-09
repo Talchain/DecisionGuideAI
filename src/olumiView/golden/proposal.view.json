@@ -15,7 +15,7 @@
  "version": {
   "id": 4,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -69,6 +69,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -108,6 +109,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -143,6 +145,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -196,6 +199,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "hold",
@@ -255,6 +259,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -366,7 +371,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "capacity_goal",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "add_one",
@@ -393,7 +408,7 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire."
+       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). It leaves out: How the team feels about a new hire."
       },
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
@@ -459,7 +474,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "capacity_goal",
+     "state": "chance",
+     "text": "about 74% chance",
+     "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+     "range": "about 22% if 'per specialist' is low, over 99% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "deadline",
@@ -487,6 +512,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -526,6 +552,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -546,12 +573,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null,
-    "remove": null,
     "records": [
      "added_def",
      "total_def"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "existing_capacity",
@@ -562,11 +590,12 @@
     "alert": false,
     "proposed": false,
     "title": "adds to · Theirs: “total is today plus the specialists”",
-    "effect": null,
-    "remove": null,
     "records": [
      "total_def"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "total_capacity",
@@ -577,9 +606,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "capacity_target",
@@ -590,9 +620,10 @@
     "alert": false,
     "proposed": false,
     "title": "target",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "add_one",
@@ -603,9 +634,10 @@
     "alert": false,
     "proposed": false,
     "title": "option input",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "one_specialist",
@@ -616,21 +648,22 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through specialists, added capacity · Proposed by Olumi: each specialist adds their weekly capacity · Theirs: “total is today plus the specialists”",
-    "effect": null,
-    "remove": null,
     "records": [
      "added_def",
      "total_def"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘At least 100 a week’",
-   "lead": "In this model, on current information, each option’s chance of ‘At least 100 a week’:",
+   "lead": "Chance of ‘At least 100 a week’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
-    "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing').",
-    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%, against under 1% for 'Keep current staffing'). It leaves out: How the team feels about a new hire.",
+    "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it).",
+    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). It leaves out: How the team feels about a new hire.",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -640,7 +673,7 @@
     },
     "if_approved": {
      "glyph": "↻",
-     "title": "if approved; now If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%, against under 1% for 'Keep current staffing'); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
+     "title": "if approved; now If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%; 'Keep current staffing' never meets it); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
     },
     "option": "add_one",
     "aim_id": "capacity_goal",
@@ -925,7 +958,8 @@
    }
   ],
   "groups": null,
-  "from": null
+  "from": null,
+  "verdict": null
  },
  "collab": {
   "alone": true,
@@ -1068,7 +1102,8 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [
@@ -1143,6 +1178,83 @@
    "choice": null
   }
  ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "existing_capacity": "Please change “existing capacity”: ",
+   "per_specialist": "Please change “per specialist”: ",
+   "specialists": "Please change “specialists”: ",
+   "one_specialist": "Please change “one specialist”: ",
+   "added_capacity": "Please change “added capacity”: ",
+   "total_capacity": "Please change “total capacity”: ",
+   "capacity_target": "Please change “capacity target”: ",
+   "team_morale": "Please change “team morale”: ",
+   "added_def": "Please change “how added capacity is worked out”: ",
+   "total_def": "Please change “how total capacity is worked out”: ",
+   "morale_link": "Please change “Add one specialist → team morale”: ",
+   "capacity_goal": "Please change “At least 100 a week”: ",
+   "hold": "Please change “Keep current staffing”: ",
+   "add_one": "Please change “Add one specialist”: ",
+   "lead_doubt": "Please change “our team lead: A new hire may unsettle the team.”: ",
+   "morale_left_out": "Please change “How the team feels about a new hire”: ",
+   "deadline": "Please change “deadline”: ",
+   "start_delay": "Please change “start delay”: "
+  }
+ },
  "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
  "gated": false,
  "session": {
@@ -1225,83 +1337,6 @@
   ],
   "figure_first": null,
   "pre_mortem": null
- },
- "model_words": {
-  "changeFigure": "Change figure",
-  "setFigure": "Set figure",
-  "tryIt": "Try without saving",
-  "cancel": "Cancel",
-  "rename": "Rename",
-  "saveName": "Save name",
-  "newName": "New name",
-  "showOnCanvas": "Show on canvas",
-  "addFigure": "Add a figure",
-  "name": "Name",
-  "figure": "Figure",
-  "unit": "Unit (optional)",
-  "add": "Add",
-  "figureHint": "One number, or a range like 150 to 400",
-  "removeLink": "Remove link",
-  "removeAsk": "Remove this link?",
-  "remove": "Remove",
-  "keep": "Keep",
-  "links": "Links",
-  "restsOn": "Rests on",
-  "whose": "Whose",
-  "about": "About",
-  "whatWouldChange": "What would change it",
-  "saving": "Saving…",
-  "reading": "Reading the model…",
-  "savingOther": "Another change is saving…",
-  "trying": "Trying it without saving…",
-  "changeTarget": "Change target",
-  "changeLimit": "Change limit",
-  "changeStrength": "Change strength",
-  "heldLead": "Olumi’s pending change is waiting for you.",
-  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
-  "heldAside": "Set it aside",
-  "heldConfirm": "Set aside",
-  "heldKeep": "Keep it",
-  "heldFailed": "That did not go through. Nothing was set aside.",
-  "settingAside": "Setting it aside…",
-  "plain": "Plain",
-  "expert": "Expert",
-  "detail": "Detail",
-  "to": "to",
-  "from": "from",
-  "askChange": "Ask Olumi to change this",
-  "askOption": "Ask Olumi for another option",
-  "askOptionDraft": "Suggest another option we have not considered.",
-  "askRisk": "Ask Olumi what risks are missing",
-  "askRiskDraft": "Which risks are missing from this model?",
-  "askLink": "Ask Olumi about missing links",
-  "askLinkDraft": "Which links between these factors are missing or wrong?",
-  "failed": "That did not go through. Nothing was saved.",
-  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
-  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
-  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
-  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
-  "triedFailed": "That did not go through. Nothing was tried.",
-  "askChangeDraft": {
-   "existing_capacity": "Please change “existing capacity”: ",
-   "per_specialist": "Please change “per specialist”: ",
-   "specialists": "Please change “specialists”: ",
-   "one_specialist": "Please change “one specialist”: ",
-   "added_capacity": "Please change “added capacity”: ",
-   "total_capacity": "Please change “total capacity”: ",
-   "capacity_target": "Please change “capacity target”: ",
-   "team_morale": "Please change “team morale”: ",
-   "added_def": "Please change “how added capacity is worked out”: ",
-   "total_def": "Please change “how total capacity is worked out”: ",
-   "morale_link": "Please change “Add one specialist → team morale”: ",
-   "capacity_goal": "Please change “At least 100 a week”: ",
-   "hold": "Please change “Keep current staffing”: ",
-   "add_one": "Please change “Add one specialist”: ",
-   "lead_doubt": "Please change “our team lead: A new hire may unsettle the team.”: ",
-   "morale_left_out": "Please change “How the team feels about a new hire”: ",
-   "deadline": "Please change “deadline”: ",
-   "start_delay": "Please change “start delay”: "
-  }
  },
  "evidence_words": {
   "heading": "Evidence",

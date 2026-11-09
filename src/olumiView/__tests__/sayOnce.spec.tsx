@@ -64,6 +64,23 @@ describe('SC-02: each tab says each thing once', () => {
     })
   }
 
+  it('Analysis (strategy, every chance waits; strategy witness, 8 Nov): the head says core\'s count only; each figure and its "which no one can size yet" is said once, under What to act on next', () => {
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8')) as View, w = view.model!.run!.waits_on!
+    expect(view.model!.run!.all_withheld).toBe(true)
+    const unknown = w.items.flatMap((it, i) => (it.unknown === null ? [] : [i]))
+    expect(unknown.length).toBeGreaterThan(1)
+    ready(view)
+    render(<PortAnalysisTab />)
+    const head = screen.getByTestId('port-hero-waits-headline')
+    expect(head.querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(w.text)
+    expect(head.querySelectorAll('[data-view^="run.waits_on.items."]')).toHaveLength(0)
+    for (const b of closed()) if (b.closest('[data-testid="port-act-on-it"], [data-testid^="port-act"]')) fireEvent.click(b)
+    for (const i of unknown) expect([i, drawn(`run.waits_on.items.${i}.text`)]).toEqual([i, 1])
+    // Contrast: the clause is core's, said at most once per figure on the tab, never as a run in the head.
+    const tab = document.querySelector('[data-testid="port-analysis-tab"]')!.textContent!
+    expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(unknown.length)
+  })
+
   it('Model: the question is said once, above the outline; the Goal group, opened, keeps the aim it is measured by', () => {
     const view = real('european-22cards'), m = view.model!
     ready(view)

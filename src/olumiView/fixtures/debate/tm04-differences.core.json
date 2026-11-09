@@ -151,6 +151,7 @@
     "time_to_contract",
     "time_to_first_cash"
    ],
+   "chip": "Ana doubts this link",
    "sides_heading": "Your explanations",
    "goal": "generate_revenue_quickly",
    "goal_label": "Generate revenue as quickly as possible",
@@ -226,21 +227,21 @@
    "sides": [
     {
      "view": 37,
-     "holder": "Ana (TM-04 witness)",
+     "holder": "Ana",
      "holder_id": "33",
      "leader": "paid_enterprise_diagnostic",
      "figure": "doubts this link holds",
      "title": "Their version of the model leaves this link out.",
-     "text": "Ana (TM-04 witness): doubts this link holds"
+     "text": "Ana: doubts this link holds"
     },
     {
      "view": 39,
-     "holder": "Ben (TM-04 witness)",
+     "holder": "Ben",
      "holder_id": "35",
      "leader": null,
      "figure": "keeps the link as the model has it",
      "title": "Their version of the model keeps this link.",
-     "text": "Ben (TM-04 witness): keeps the link as the model has it"
+     "text": "Ben: keeps the link as the model has it"
     }
    ]
   },
@@ -252,11 +253,12 @@
     "time_to_contract",
     "time_to_first_cash"
    ],
+   "chip": "Ana doubts this link",
    "sides_heading": "Your explanations",
    "goal": "enterprise_opportunities",
    "goal_label": "Create additional opportunities to sell the product",
    "status": "withheld",
-   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Ana (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Ben (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
+   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Ana's version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Ben's version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
    "options": [
     {
      "option": "add_consulting",
@@ -339,21 +341,21 @@
    "sides": [
     {
      "view": 37,
-     "holder": "Ana (TM-04 witness)",
+     "holder": "Ana",
      "holder_id": "33",
      "leader": null,
      "figure": "doubts this link holds",
      "title": "Their version of the model leaves this link out.",
-     "text": "Ana (TM-04 witness): doubts this link holds"
+     "text": "Ana: doubts this link holds"
     },
     {
      "view": 39,
-     "holder": "Ben (TM-04 witness)",
+     "holder": "Ben",
      "holder_id": "35",
      "leader": null,
      "figure": "keeps the link as the model has it",
      "title": "Their version of the model keeps this link.",
-     "text": "Ben (TM-04 witness): keeps the link as the model has it"
+     "text": "Ben: keeps the link as the model has it"
     }
    ]
   },
@@ -365,6 +367,7 @@
     "contract_to_cash",
     "time_to_first_cash"
    ],
+   "chip": "Cara doubts this link",
    "sides_heading": "Your explanations",
    "goal": "generate_revenue_quickly",
    "goal_label": "Generate revenue as quickly as possible",
@@ -440,21 +443,21 @@
    "sides": [
     {
      "view": 47,
-     "holder": "Cara (TM-04 witness)",
+     "holder": "Cara",
      "holder_id": "43",
      "leader": null,
      "figure": "doubts this link holds",
      "title": "Their version of the model leaves this link out.",
-     "text": "Cara (TM-04 witness): doubts this link holds"
+     "text": "Cara: doubts this link holds"
     },
     {
      "view": 49,
-     "holder": "Dan (TM-04 witness)",
+     "holder": "Dan",
      "holder_id": "45",
      "leader": null,
      "figure": "keeps the link as the model has it",
      "title": "Their version of the model keeps this link.",
-     "text": "Dan (TM-04 witness): keeps the link as the model has it"
+     "text": "Dan: keeps the link as the model has it"
     }
    ]
   },
@@ -466,11 +469,12 @@
     "contract_to_cash",
     "time_to_first_cash"
    ],
+   "chip": "Cara doubts this link",
    "sides_heading": "Your explanations",
    "goal": "enterprise_opportunities",
    "goal_label": "Create additional opportunities to sell the product",
    "status": "withheld",
-   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Cara (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Dan (TM-04 witness)'s version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
+   "status_text": "With or without the link, no option is clearly most likely to achieve 'Create additional opportunities to sell the product'. In Cara's version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Add consulting services to the AI startup' (not counted by the measure), 'Test a fixed-scope paid enterprise diagnostic before offering broader consulting' (not counted by the measure) and 'Focus on selling the product' (not counted by the measure), so they are not compared. In Dan's version the engine gives no chance of achieving 'Create additional opportunities to sell the product' for 'Focus on selling the product' (not worked out), so it is not compared. 5 other members have not said whether this link holds.",
    "options": [
     {
      "option": "add_consulting",
@@ -553,21 +557,21 @@
    "sides": [
     {
      "view": 47,
-     "holder": "Cara (TM-04 witness)",
+     "holder": "Cara",
      "holder_id": "43",
      "leader": null,
      "figure": "doubts this link holds",
      "title": "Their version of the model leaves this link out.",
-     "text": "Cara (TM-04 witness): doubts this link holds"
+     "text": "Cara: doubts this link holds"
     },
     {
      "view": 49,
-     "holder": "Dan (TM-04 witness)",
+     "holder": "Dan",
      "holder_id": "45",
      "leader": null,
      "figure": "keeps the link as the model has it",
      "title": "Their version of the model keeps this link.",
-     "text": "Dan (TM-04 witness): keeps the link as the model has it"
+     "text": "Dan: keeps the link as the model has it"
     }
    ]
   },
@@ -585,15 +589,15 @@
    "sides": [
     {
      "view": 37,
-     "holder": "Ana (TM-04 witness)",
+     "holder": "Ana",
      "holder_id": "33",
      "leader": null,
      "figure": "thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals",
      "title": "In their own words.",
-     "text": "Ana (TM-04 witness): thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
+     "text": "Ana: thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
     }
    ],
-   "status_text": "Ana (TM-04 witness) thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
+   "status_text": "Ana thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
    "settle": [
     {
      "kind": "diagnostic",
@@ -616,15 +620,15 @@
    "sides": [
     {
      "view": 47,
-     "holder": "Cara (TM-04 witness)",
+     "holder": "Cara",
      "holder_id": "43",
      "leader": null,
      "figure": "thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals",
      "title": "In their own words.",
-     "text": "Cara (TM-04 witness): thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
+     "text": "Cara: thinks the model leaves out: Whether the sales team has the hours to run the change alongside current deals"
     }
    ],
-   "status_text": "Cara (TM-04 witness) thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
+   "status_text": "Cara thinks the model leaves this out. Olumi cannot run a factor the model has no figure for: add it as a figure on the canvas, with a range, to see whether it changes the chances.",
    "settle": [
     {
      "kind": "diagnostic",

@@ -516,9 +516,11 @@ export function WorkspaceShellTabStrip({
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
               className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${isOlumiCoreLane() ? typography.viewPanelMeta : typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
+                // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
-                  ? 'text-info bg-[var(--panel-tab-active-bg)]'
-                  : 'text-text-body hover:text-info'
+                  ? 'text-text-header font-medium bg-[var(--panel-tab-active-bg)]'
+                  : 'text-text-body hover:text-text-header'
               }`}
               style={{ height: SHELL_TAB_HEIGHT_PX }}
             >

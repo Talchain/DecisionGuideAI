@@ -14,7 +14,8 @@ import { CARD_WIDTH, evidenceOffChips } from './layout'
 import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
-import { DifferChip, useLinkDiffers } from '../olumiCore/team/CardDiffers'
+import { DifferChip, railLayout, useLinkDiffers } from '../olumiCore/team/CardDiffers'
+import { useRailBoxesRef } from './railBoxes'
 import { cardLinkMarksOf, LinkMarkCardChip } from './LinkMarkChip'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
@@ -125,12 +126,15 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   // Core's link marks fold the served doubt chip (TM-04): a link core marks is drawn once, by its mark, never again as a difference here.
   const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record)), offLine = cardLinkMarksOf(view, card)
   const differs = useLinkDiffers(card).filter((d) => !marked.has(d.record)), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
+  const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
+  // The link words keep clear of this rail's chips as of the card itself (railBoxes.ts).
+  const railRef = useRailBoxesRef(`reveal:${card}`, card)
   const rail = (children: JSX.Element[]) => (
-    // Centred under the card, side by side in ONE row inside the gap to the next row (a second row would sit on the cards below). The
-    // first (the difference that matters most) keeps all its words; a later one is drawn compact, its people and its kind's mark, with its
-    // full words in its hover and its name, so a rail never crowds into its neighbours.
-    // Above the card's own controls that hang below it (Olumi's corner, shown while selected or hovered); only the chips take the pointer.
-    <div className="nodrag pointer-events-none relative z-20 mt-1 flex flex-row flex-nowrap items-start justify-center gap-1.5" style={{ width: CHIPS_WIDTH, marginLeft: (CARD_WIDTH - CHIPS_WIDTH) / 2 }} data-testid={`reveal-chips-${card}`}>{children}</div>
+    // A rail of the reveal's chips alone (V11): centred under the card, side by side in ONE row inside the gap to the next row (a second
+    // row would sit on the cards below); two chips may reach past the card's edges. The first (the difference that matters most) keeps all
+    // its words; a later one gives way and ends in an ellipsis, its full words in its hover and its name. A rail that holds a doubted link
+    // (TM-04) is the card's width instead and wraps to a second row, every chip at its natural width (railLayout).
+    <div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
   if (cardChips.length > 0 || offLine.length > 0 || (hostsDiffers && differs.length > 0)) {
     return rail([...cardChips.map((chip, i) => {
@@ -148,7 +152,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>
       )
-    }), ...offLine.map((m) => <LinkMarkCardChip key={`${m.link.record}|${m.link.part ?? ''}`} mark={m} />), ...(hostsDiffers ? differs.map((d, i) => <DifferChip key={d.record} d={d} card={card} first={cardChips.length === 0 && i === 0} />) : [])])
+    }), ...offLine.map((m) => <LinkMarkCardChip key={`${m.link.record}|${m.link.part ?? ''}`} mark={m} />), ...(hostsDiffers ? differs.map((d) => <DifferChip key={d.record} d={d} card={card} />) : [])])
   }
   return null
 }

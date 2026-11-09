@@ -186,7 +186,7 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
 })
 
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
-  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|author\.text)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
+  const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|author\.text|unused|face\.(title|line)\.text|headline\.text)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
   const MORE = /^[^.]+\.(status|reason|premises\..*)$/
   for (const n of GOLDEN) {
@@ -201,6 +201,9 @@ describe('the compact face (Paul 4 Nov: the causal graph reads; every word of co
           // A proposed addition's change words are its sr-only caption on the face; a changed card's open with its other words (ViewCardNode).
           else if (p === `${card.id}.change.title`) expect(hidden, `${p} ${card.change!.kind}`).toBe(card.change!.kind === 'changed')
           else if (MORE.test(p)) expect(hidden, `${p} folded`).toBe(true)
+          // Core's option face (card-face, 8 Nov): an option with core's headline says that one line on the face; its rows open with it.
+          else if (card.family === 'option' && card.headline != null && card.headline.text !== '' && p === `${card.id}.headline.text`) expect(hidden, `${p} on the face`).toBe(false)
+          else if (card.family === 'option' && card.headline != null && card.headline.text !== '' && p.startsWith(`${card.id}.rows.`)) expect(hidden, `${p} opens with the card`).toBe(true)
           else expect(ON_FACE.test(p) && !hidden, `${p} on the face`).toBe(true)
         }
         const open = render(<ViewCard card={card} selected />).container

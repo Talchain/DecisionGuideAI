@@ -15,7 +15,7 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1",
+  "label": "Version 1",
   "changed": []
  },
  "model": {
@@ -57,6 +57,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -95,6 +96,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -136,6 +138,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -174,6 +177,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -226,6 +230,7 @@
      "words": "2 figures, 1 calculation",
      "icon": "● ="
     },
+    "unused": null,
     "values": [
      {
       "option": "second_oven",
@@ -295,6 +300,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -333,6 +339,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -371,6 +378,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -409,6 +417,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -447,6 +456,7 @@
     "bound": null,
     "reason": null,
     "badge": null,
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -500,6 +510,7 @@
      "words": "2 figures, 2 calculations",
      "icon": "● ="
     },
+    "unused": null,
     "values": null,
     "rests_on": [],
     "author": {
@@ -682,7 +693,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "chance",
+     "text": "about 72% chance",
+     "title": "If Olumi's estimates hold, the chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven).",
+     "range": "about 53% if 'extra sold per oven' is low, about 81% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "longer_hours",
@@ -774,7 +795,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "chance",
+     "text": "about 50% chance",
+     "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+     "range": "under 1% if 'extra hours sold' is low, over 99% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "carry_on",
@@ -848,7 +879,17 @@
     },
     "committed": null,
     "failed": [],
-    "failed_reason": null
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "chance",
+     "text": "under 1% chance",
+     "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "oven_repair",
@@ -892,11 +933,12 @@
     "alert": false,
     "proposed": false,
     "title": "base · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "sales_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "extra_sold_per_oven",
@@ -907,11 +949,12 @@
     "alert": false,
     "proposed": false,
     "title": "how much · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "sales_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "extra_hours_sold",
@@ -922,11 +965,12 @@
     "alert": false,
     "proposed": false,
     "title": "how much · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "sales_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "oven_price",
@@ -937,12 +981,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "oven_cost_rel",
      "spend_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "fitting",
@@ -953,12 +998,13 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "oven_cost_rel",
      "spend_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "sales",
@@ -969,9 +1015,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "sales_target",
@@ -982,9 +1029,10 @@
     "alert": false,
     "proposed": false,
     "title": "target",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "spend",
@@ -995,9 +1043,10 @@
     "alert": false,
     "proposed": false,
     "title": "measured by",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "budget",
@@ -1008,9 +1057,10 @@
     "alert": false,
     "proposed": false,
     "title": "bound",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    },
    {
     "from": "second_oven",
@@ -1021,15 +1071,16 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through one oven, ovens added · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
     "effect": {
      "text": "60 to 90 loaves/week/oven",
      "title": "extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through one oven, ovens added",
      "figure": "extra_sold_per_oven"
     },
     "remove": null,
-    "records": [
-     "sales_rel"
-    ]
+    "holds": null
    },
    {
     "from": "second_oven",
@@ -1040,11 +1091,12 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through one oven, ovens added · Proposed by Olumi: Olumi's estimate",
-    "effect": null,
-    "remove": null,
     "records": [
      "spend_rel"
-    ]
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "longer_hours",
@@ -1055,15 +1107,16 @@
     "alert": false,
     "proposed": false,
     "title": "worked out through hours switched on, hours on · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
     "effect": {
      "text": "40 to 80 loaves/week",
      "title": "extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours switched on, hours on",
      "figure": "extra_hours_sold"
     },
     "remove": null,
-    "records": [
-     "sales_rel"
-    ]
+    "holds": null
    },
    {
     "from": "oven_repair",
@@ -1074,14 +1127,15 @@
     "alert": false,
     "proposed": false,
     "title": "may change",
+    "records": [],
     "effect": null,
     "remove": null,
-    "records": []
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Sell at least 360 loaves a week’",
-   "lead": "In this model, on current information, each option’s chance of ‘Sell at least 360 loaves a week’:",
+   "lead": "Chance of ‘Sell at least 360 loaves a week’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
     "text": "If Olumi's estimates hold, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
@@ -1289,6 +1343,7 @@
    ]
   },
   "edit_base": 1,
+  "holdable": [],
   "key": [
    {
     "id": "olumi",
@@ -1621,93 +1676,11 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [],
- "brief": "Should the bakery buy a second oven or open longer?",
- "gated": true,
- "session": {
-  "goal": null,
-  "set_by": null,
-  "goals": [
-   {
-    "id": "better_option",
-    "text": "Find a better option"
-   },
-   {
-    "id": "solve_problem",
-    "text": "Solve a problem"
-   },
-   {
-    "id": "decide_fast",
-    "text": "Decide quickly"
-   },
-   {
-    "id": "understand",
-    "text": "Understand the situation"
-   }
-  ],
-  "methods": [
-   {
-    "id": "differ",
-    "text": "Does anyone's figure change the answer?",
-    "first": false
-   },
-   {
-    "id": "find_first",
-    "text": "What should we find out first?",
-    "first": false
-   },
-   {
-    "id": "have_true",
-    "text": "What would have to be true?",
-    "first": false
-   },
-   {
-    "id": "go_wrong",
-    "text": "What could go wrong?",
-    "first": false
-   },
-   {
-    "id": "else_do",
-    "text": "What else could we do?",
-    "first": false
-   },
-   {
-    "id": "right_question",
-    "text": "Are we asking the right question?",
-    "first": false
-   },
-   {
-    "id": "push",
-    "text": "Which way does each option push our aims?",
-    "first": false
-   },
-   {
-    "id": "similar",
-    "text": "How do similar situations turn out?",
-    "first": false
-   },
-   {
-    "id": "rests",
-    "text": "How much rests on Olumi's guesses?",
-    "first": false
-   },
-   {
-    "id": "success",
-    "text": "What counts as success?",
-    "first": false
-   },
-   {
-    "id": "bias",
-    "text": "Is a bias at work here?",
-    "first": false
-   }
-  ],
-  "figure_first": null,
-  "pre_mortem": null
- },
  "model_words": {
   "changeFigure": "Change figure",
   "setFigure": "Set figure",
@@ -1791,6 +1764,89 @@
    "carry_on": "Please change “Carry on as now”: ",
    "oven_repair": "Please change “The new oven needs a repair”: "
   }
+ },
+ "brief": "Should the bakery buy a second oven or open longer?",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
  },
  "evidence_words": {
   "heading": "Evidence",

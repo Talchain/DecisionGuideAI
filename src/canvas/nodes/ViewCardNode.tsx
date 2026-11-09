@@ -240,7 +240,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // grows the card past the screen (R3 pristine: OC1 on the capacity model ran 8 lines).
   const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
   // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
-  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed
+  // Core's option face (card-face, 8 Nov: core owns the dedupe): an option card with core's `headline` draws that one line on its face,
+  // core's `headline.title` on hover, and its rows only when opened. A View without a headline keeps its rows on the face.
+  const optionFace = card.family === 'option' && card.headline != null && card.headline.text !== '' ? card.headline : null
+  const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed || (optionFace !== null && card.rows.length > 0)
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
   const aims = card.rows.filter((r) => r.kind === 'chance').length
@@ -253,6 +256,21 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   const provenance = author === null ? null : (
     <span className={`${typography.viewPanelMeta} ${provenanceAtRest ? 'inline-block' : 'hidden group-hover:inline-block group-focus-within:inline-block'} max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id} data-provenance-at-rest={provenanceAtRest || undefined}
       title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
+  )
+  // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
+  const rowsDrawn = (
+    <>
+      {card.rows.map((row, i) => (
+        <span key={i} className="contents">
+          {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
+              (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
+          {/* J1 step 3: while no option has a chance yet (layout.ts optionsNotYet), the panel says so once; no option card repeats it. */}
+          {row.kind === 'none' && ((row.aim_id !== null && shared.includes(row.aim_id)) || (notYet && card.family === 'option')) ? null
+            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
+          {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
+        </span>
+      ))}
+    </>
   )
   return (
     // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
@@ -342,16 +360,12 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
-      {card.rows.map((row, i) => (
-        <span key={i} className="contents">
-          {/* A reason every option shares (core's `run.shared_blockers`, `shared` here, by aim id and option id) is the panel's to say, once
-              (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
-          {/* J1 step 3: while no option has a chance yet (layout.ts optionsNotYet), the panel says so once; no option card repeats it. */}
-          {row.kind === 'none' && ((row.aim_id !== null && shared.includes(row.aim_id)) || (notYet && card.family === 'option')) ? null
-            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
-          {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
-        </span>
-      ))}
+      {/* Core's honesty line (card.unused, candidate 2a283a4f): a figure Olumi's analysis does not use yet says so, once, under it, in
+          core's words. The figure stays editable. */}
+      {card.unused == null || card.unused === '' ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-card-unused" data-view={`${id}.unused`}>{card.unused}</p>}
+      {optionFace !== null
+        ? <p className={`${typography.viewHeadline} tracking-tight text-text-header`} title={optionFace.title} data-option-face={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
+        : rowsDrawn}
       {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
       {/* A badge with no words (glyphs only), or an open one (what it folded is on the board already: J1 step 3, nothing repeated), shows
           on hover, focus or selection. */}
@@ -389,6 +403,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         // Rename is in the dock's "Selected:" row (SelectedRename.tsx), so a card with nothing more opens nothing over its neighbour.
         <div hidden={!selected} data-panel-side={side} className={`absolute ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-10 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
+          {optionFace === null ? null : <div className="space-y-1" data-option-rows={id}>{rowsDrawn}</div>}
           {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
           {changed ? <p className="whitespace-pre-line" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
           {card.status === null ? null : <p data-view={`${id}.status`}>{card.status}</p>}
@@ -396,7 +411,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {card.premises.map((p, j) => (
             // Whole, the glyph first (plan v3: full text on selection or keyboard focus, not hover only); these words show only with the
             // card open, beside it, so a premise shared by several options never lengthens a card at rest (DL 4 Nov).
-            <p key={j} title={p.title} data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span></p>
+            <p key={j} title={p.title} data-premise-row={`${id}.${j}`}><span data-view={`${id}.premises.${j}.glyph`}>{p.glyph}</span> <span data-view={`${id}.premises.${j}.text`}>{p.text}</span>{(p.olumi ?? null) === null ? null : <>{' '}<span title={p.olumi!.title} aria-label={p.olumi!.title} data-view={`${id}.premises.${j}.olumi.glyph`}>{p.olumi!.glyph}</span></>}</p>
           ))}
         </div>
       ) : null}

@@ -44,6 +44,9 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
   )
 }
 
+/** A side's own words (core v1.30 `words`: a stance said after the reveal), or null; read here until differences.ts types the field. */
+const wordsOf = (s: Difference['sides'][number]): string | null => { const w = (s as { words?: unknown }).words; return typeof w === 'string' && w !== '' ? w : null }
+
 function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; view: View; data: Differences; d: Difference; ring: (ids: readonly string[]) => void; onWrote: () => Promise<boolean> }): JSX.Element {
   const h = data.headings
   const [busy, setBusy] = useState(false)
@@ -97,6 +100,8 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote }: { sid: string; vi
             <li key={s.holder_id} className={`${BODY} flex items-start gap-1.5 break-words`} data-difference-side={s.holder_id} title={s.title}>
               <span aria-hidden="true" className={AVATAR}>{s.holder.slice(0, 1).toUpperCase()}</span>
               <span className="grid gap-0.5"><span data-difference-figure=""><span className="text-text-header">{s.holder}</span>: {s.figure}</span>
+                {/* A stance said after the reveal carries the member's own words (core's `words`), drawn as given under their line. */}
+                {wordsOf(s) !== null && <span className="break-words text-text-light" data-difference-words={s.holder_id}>{wordsOf(s)}</span>}
                 {(d.kind ?? 'figure') === 'figure' && figureOf(s.view) !== null && view.version !== null && (
                   <button type="button" data-testid={`${at}-preview-${s.holder_id}`} disabled={busy} onClick={() => void preview(s.view)}
                     title="Shows the chances with this figure on the canvas, under What if. Nothing is saved."
