@@ -71,3 +71,42 @@ export function railWordsAt(r: Rail, size: { readonly w: number; readonly h: num
 }
 /** How far past the board's edge the box may step to clear a chip out there (OUT_STEPS × WORDS_STEP flow units). */
 const OUT_STEPS = 64
+
+/**
+ * A LINK INTO A CARD BELOW ITS SOURCE RUNS DOWN THE GAP (craft 8, UI craft pass 9 Nov: connector congestion, the canvas grade's top defect).
+ * The board is laid out in rows, top to bottom, but the cards' handles are on their left and right sides, so a link into the next row left
+ * its source sideways and swung into the column gap. A link whose target lies wholly below its source runs instead from the source's bottom
+ * edge to the target's top edge. The links leaving one card's bottom are spread along it, the k-th of n at x + w(k+1)/(n+1), in the order
+ * of their far ends' centres (ties on the edge id), so two siblings never cross; likewise the links arriving at one card's top. The caller
+ * gives only the links drawn now. A link in its source's row, or into a card above it, is not here: it keeps its handle path (or its rail).
+ * Pure geometry in flow units.
+ */
+export type DownLink = { readonly id: string; readonly from: Box & { readonly id: string }; readonly to: Box & { readonly id: string } }
+/** Where a link down the gap leaves its source (sx, sy: on the source's bottom edge) and reaches its target (tx, ty: on its top edge). */
+export type DownEnds = { readonly sx: number; readonly sy: number; readonly tx: number; readonly ty: number }
+
+/** The target lies wholly below the source; both are measured (an unmeasured card has no height, so no edge to leave by). */
+export const goesDown = (from: Box, to: Box): boolean => from.h > 0 && to.h > 0 && to.y >= from.y + from.h
+
+const centre = (b: Box) => b.x + b.w / 2
+/** Each link's x on the edge of its card at `at` ('from': the source's bottom, 'to': the target's top), by its far end's centre. */
+function spread(links: readonly DownLink[], at: 'from' | 'to'): Map<string, number> {
+  const far = at === 'from' ? 'to' : 'from'
+  const byCard = new Map<string, DownLink[]>()
+  for (const l of links) byCard.set(l[at].id, [...(byCard.get(l[at].id) ?? []), l])
+  const out = new Map<string, number>()
+  for (const group of byCard.values()) {
+    const order = [...group].sort((a, b) => centre(a[far]) - centre(b[far]) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    order.forEach((l, k) => out.set(l.id, l[at].x + (l[at].w * (k + 1)) / (order.length + 1)))
+  }
+  return out
+}
+
+/** The ends of every link given that runs down the gap, by edge id. */
+export function downSlots(links: readonly DownLink[]): Map<string, DownEnds> {
+  const down = links.filter((l) => goesDown(l.from, l.to))
+  const sx = spread(down, 'from'), tx = spread(down, 'to')
+  const out = new Map<string, DownEnds>()
+  for (const l of down) out.set(l.id, { sx: sx.get(l.id)!, sy: l.from.y + l.from.h, tx: tx.get(l.id)!, ty: l.to.y })
+  return out
+}

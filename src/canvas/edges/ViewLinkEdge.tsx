@@ -8,9 +8,9 @@
  * olumiCore/team/LinkMarks.tsx), clear of the cards, the cards' rails and the chips of the links before it; the words keep clear of it.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
-import { railOf, railSlots, railWordsAt } from './linkRail'
+import { downSlots, goesDown, railOf, railSlots, railWordsAt, type DownEnds } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
@@ -19,7 +19,7 @@ import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/c
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { railObstacles, useRailBoxes } from '../../olumiView/railBoxes'
-import { LinkMarkChip, useLineMark } from '../../olumiCore/team/LinkMarks'
+import { LinkMarkChip, linkKeyOf, useLineMark, usePlacedKeys } from '../../olumiCore/team/LinkMarks'
 import { CHIP_ROOM, chipsBefore, useLineChips } from './lineChipBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
@@ -33,6 +33,8 @@ export type CardBox = { readonly id: string; readonly x: number; readonly y: num
  */
 export const cardBoxesOf = (s: ReactFlowState): CardBox[] =>
   [...s.nodeLookup.values()].map((n) => ({ id: n.id, x: n.internals.positionAbsolute.x, y: n.internals.positionAbsolute.y, w: n.measured.width ?? 0, h: n.measured.height ?? 0 }))
+/** The selected cards' ids, one per line: a value, so an edge draws again only when the selection changes (craft 8 counts the drawn links). */
+export const selectedKeyOf = (s: ReactFlowState): string => { let k = ''; for (const n of s.nodeLookup.values()) if (n.selected) k += (k === '' ? '' : '\n') + n.id; return k }
 export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
   a.length === b.length && a.every((p, k) => { const q = b[k]!; return p.id === q.id && p.x === q.x && p.y === q.y && p.w === q.w && p.h === q.h })
 
@@ -100,8 +102,32 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const focused = useViewFocusLink((f) => f.id === id)
   // A removal on its way keeps the link and its ask drawn, whatever focus does (Codex delta 4960db98).
   const removing = useRemovingLink(link.remove)
+  // A link someone said they doubt or keep is drawn at rest with its chip, a reason link too (which otherwise shows only while one of its
+  // cards is hovered or selected): its chip is that link's one mark, and it would vanish under the pointer on its way to it.
+  const drawn = driver || focused || removing || mark !== null || linkDrawn(link, active)
   const rail = from && to ? railOf(from, to, cards, slot) : null
-  const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
+  // Craft 8 (UI craft pass, 9 Nov): a link into a card wholly below its source runs from the source's bottom edge to the target's top edge,
+  // its ends spread along each edge in the order of the far ends (linkRail.ts downSlots), counting only the links drawn now: the others at
+  // rest by `linkDrawn` (with every hovered or selected card) or by their chip, this one by its own rule. Same-row and upward links keep
+  // their handles (or their rail).
+  const selectedKey = useStore(selectedKeyOf)
+  const placedKeys = usePlacedKeys()
+  const down: DownEnds | null = useMemo(() => {
+    if (!drawn || !from || !to || !goesDown(from, to)) return null
+    const act = new Set(selectedKey === '' ? [] : selectedKey.split('\n'))
+    if (hovered !== null) act.add(hovered)
+    const at = (n: string) => cards.find((c) => c.id === n)
+    const others = edges.flatMap((e) => {
+      const d = e.data as ViewLinkData | undefined, f = at(e.source), t = at(e.target)
+      if (e.id === id || d?.link == null || !f || !t) return []
+      const shown = linkDrawn(d.link, act) || (d.link.holds != null && placedKeys.has(linkKeyOf(d.link.holds)))
+      return shown ? [{ id: e.id, from: f, to: t }] : []
+    })
+    return downSlots([...others, { id, from, to }]).get(id) ?? null
+  }, [drawn, from, to, selectedKey, hovered, cards, edges, id, placedKeys])
+  const [bezier, midX, midY] = rail === null && down !== null
+    ? getBezierPath({ sourceX: down.sx, sourceY: down.sy, sourcePosition: Position.Bottom, targetX: down.tx, targetY: down.ty, targetPosition: Position.Top })
+    : getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
   const placed: Placed = useMemo(() => (rail ? railWordsAt(rail, size, wordsClear, cards) : linkWordsAt(path, wordsClear, size, { x: midX, y: midY })),
@@ -146,9 +172,6 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...wordsClear, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, wordsClear, midX, midY])
-  // A link someone said they doubt or keep is drawn at rest with its chip, a reason link too (which otherwise shows only while one of its
-  // cards is hovered or selected): its chip is that link's one mark, and it would vanish under the pointer on its way to it.
-  const drawn = driver || focused || removing || mark !== null || linkDrawn(link, active)
   // The chip's box, once drawn and measured, for the words of every link and the chips after it; taken back when it goes.
   const shownChip = mark !== null && drawn && chipAt !== null && chip.w > 0
   useLayoutEffect(() => {
@@ -157,12 +180,13 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [shownChip, chipAt, chip, id, i])
   useEffect(() => () => useLineChips.getState().drop(id), [id])
   if (!drawn) return null
+  // A resting link is solid --edge-neutral: nothing fades at rest (craft 12, UI craft pass 9 Nov; it was a 55% mix towards transparent).
   // A link carrying a chip is drawn in body ink, a little stronger than the resting links, so its chip reads as its own where other links
   // cross by it (the line-chip gate, 9 Nov: "which connector it refers to"); a challenged, proposed or driver link keeps its own colour.
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)'
-    : mark !== null ? 'var(--text-body)' : 'color-mix(in srgb, var(--text-light, #6E6B6B) 55%, transparent)'
+    : mark !== null ? 'var(--text-body)' : 'var(--edge-neutral)'
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
+    <g data-view-link={`links.${i}`} data-route={rail ? 'rail' : down !== null ? 'down' : 'handle'} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined}>
       <title>{link.title}</title>
       <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke, strokeWidth: driver ? 2.5 : mark !== null ? 1.5 : 1, ...(link.doubt ? { strokeDasharray: '4 4' } : {}) }} />
       {words && !hidden && placed.leaderTo ? (

@@ -4,7 +4,7 @@
  * through any card but its two ends; every other link keeps its curve.
  */
 import { describe, expect, it } from 'vitest'
-import { RAIL_GAP, RAIL_STEP, railOf, railSlots, railWordsAt, type Box } from '../linkRail'
+import { downSlots, goesDown, RAIL_GAP, RAIL_STEP, railOf, railSlots, railWordsAt, type Box } from '../linkRail'
 
 // Paul's board shape at 1.0: two aims beside the question; options; drivers; outcomes and risks in one row (the outcome row).
 const aimL = { x: 243, y: 0, w: 220, h: 115 }, question = { x: 479, y: 0, w: 272, h: 145 }, aimR = { x: 767, y: 0, w: 220, h: 192 }
@@ -94,5 +94,33 @@ describe('a link into an aim beside the question runs round the board, through n
   it('must not change: a downward link, and an upward link into a middle row, keep their curve', () => {
     expect(railOf(option, outcomeL, cards)).toBeNull()
     expect(railOf(riskA, driverA, cards)).toBeNull()
+  })
+})
+
+describe('craft 8: a link into a card wholly below its source runs down the gap, its ends spread so siblings never cross', () => {
+  const at = (id: string, b: Box) => ({ id, ...b })
+  // Paul's board shape: the option over the two drivers (624, below its foot at 554); outcomeL and riskA in the row below them.
+  const opt = at('option', option), dA = at('driverA', driverA), dB = at('driverB', driverB), oL = at('outcomeL', outcomeL), rA = at('riskA', riskA)
+
+  it('HIGH: from the source\'s bottom edge to the target\'s top edge, at the edges\' middles when it is the only link there', () => {
+    expect(downSlots([{ id: 'e1', from: opt, to: dA }]).get('e1')).toEqual({ sx: option.x + option.w / 2, sy: option.y + option.h, tx: driverA.x + driverA.w / 2, ty: driverA.y })
+  })
+
+  it('HIGH: two links leaving one card never cross: each leaves at the k-th of n in the order of its target across the board; swapping the targets swaps the slots', () => {
+    const slot = (n: number) => option.x + (option.w * n) / 3
+    const two = downSlots([{ id: 'a', from: opt, to: dA }, { id: 'b', from: opt, to: dB }])
+    expect([two.get('a')!.sx, two.get('b')!.sx]).toEqual([slot(1), slot(2)]) // driverA (left) first, driverB second
+    const swapped = downSlots([{ id: 'a', from: opt, to: dB }, { id: 'b', from: opt, to: dA }])
+    expect([swapped.get('a')!.sx, swapped.get('b')!.sx]).toEqual([slot(2), slot(1)])
+    // Likewise the links arriving at one card's top, by their sources across the board; ties on the edge id.
+    const into = downSlots([{ id: 'z', from: dB, to: oL }, { id: 'y', from: dA, to: oL }])
+    expect([into.get('y')!.tx, into.get('z')!.tx]).toEqual([outcomeL.x + outcomeL.w / 3, outcomeL.x + (outcomeL.w * 2) / 3])
+    const tie = downSlots([{ id: 'q', from: opt, to: dA }, { id: 'p', from: opt, to: { ...dA, id: 'driverA2' } }])
+    expect([tie.get('p')!.sx, tie.get('q')!.sx]).toEqual([slot(1), slot(2)])
+  })
+
+  it('HIGH: a link in its source\'s row, or into a card above it, or between cards not yet measured, is not routed down (it keeps its handles)', () => {
+    expect(downSlots([{ id: 'row', from: oL, to: rA }, { id: 'up', from: dA, to: opt }, { id: 'unmeasured', from: { ...opt, h: 0 }, to: dA }]).size).toBe(0)
+    expect([goesDown(option, driverA), goesDown(outcomeL, riskA), goesDown(driverA, option)]).toEqual([true, false, false])
   })
 })
