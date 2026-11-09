@@ -232,7 +232,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>
           <button
             type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
-            className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
+            className={`${META} cursor-pointer underline underline-offset-2 hover:text-text-body disabled:text-text-light disabled:cursor-not-allowed`}
             onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
           >{view.team_words.views.skip}</button>
         </div>

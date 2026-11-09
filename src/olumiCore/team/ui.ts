@@ -6,7 +6,7 @@
 import { typography } from '../../styles/typography'
 
 export const FIELD =
-  `w-full min-h-[40px] rounded-md border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-50`
+  `w-full min-h-[40px] rounded-md border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 export const CARD = 'grid gap-2.5 rounded-[14px] border border-panel-border bg-panel p-3'
 export const H = `${typography.panelHeader} text-text-header m-0`
 export const BODY = `${typography.viewPanelBody} text-text-body m-0`
