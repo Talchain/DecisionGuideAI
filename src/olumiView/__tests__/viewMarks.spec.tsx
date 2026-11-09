@@ -26,7 +26,12 @@ describe('#1 the question', () => {
     expect(c.querySelector('[data-view="question.decide_by.text"]')?.textContent).toBe('by 2027-03-31')
     expect(c.querySelector('[data-view="question.decide_by.text"]')?.getAttribute('title')).toBe('You set this date')
     expect(q.badge).not.toBeNull()
-    expect(c.querySelector('[data-view="question.badge.text"]')?.textContent).toBe(q.badge!.text)
+    // Core names what the badge folds (`icon` and `words`, cd99ab32): the badge draws those; with neither, its `text` (Badge.tsx badgeNamed).
+    const b = q.badge as typeof q.badge & { icon?: string; words?: string }
+    if (b.icon && b.words) {
+      expect(c.querySelector('[data-view="question.badge.icon"]')?.textContent).toBe(b.icon)
+      expect(c.querySelector('[data-view="question.badge.words"]')?.textContent).toBe(b.words)
+    } else expect(c.querySelector('[data-view="question.badge.text"]')?.textContent).toBe(b.text)
   })
 
   it('a date Olumi set, a question Olumi points at, and one with a proposed change each show', () => {
@@ -63,7 +68,11 @@ describe('#3 a link keeps its meaning', () => {
       const c = edge(l)
       expect(c.querySelector('g[data-view-link] > title')?.textContent).toBe(l.title)
       expect(c.querySelector('g[data-view-link]')?.getAttribute('data-kind')).toBe(l.kind)
-      expect((c.querySelector('path') as SVGPathElement).style.strokeDasharray).toBe(l.doubt ? '4 4' : '')
+      // Dashed means doubt (the J1 gate's links draw the dash as 5 5): bound to dashed or not, not to one pattern's bytes.
+      // The line itself (React Flow's edge path), not the arrowhead's path in <defs>, which now comes first.
+      const dash = (c.querySelector('path.react-flow__edge-path') as SVGPathElement).style.strokeDasharray
+      if (l.doubt) expect(dash, 'doubted is dashed').not.toBe('')
+      else expect(dash, 'firm is solid').toBe('')
     }
   })
 
