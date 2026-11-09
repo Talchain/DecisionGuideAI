@@ -1,0 +1,3156 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_dc9a71c29b29",
+ "title": "Hiring for productivity before launch",
+ "commit": "5968ecfa19d488e05f91a83f33197a7507c1a60c",
+ "signature": "[22,null,[[7,\"approved\"],[10,\"approved\"],[16,\"discarded\"],[19,\"approved\"],[21,\"approved\"]],[],[\"Candidate check\",\"Probe\",\"Probe\"],[],[\"1\",\"23\",\"25\"]][\"answered\",[10]][\"figure_first\",\"team_delivery_throughput_change_per_person\",null,null,null]",
+ "you": "Probe",
+ "you_id": "25",
+ "members": [
+  {
+   "id": "1",
+   "name": "Candidate check"
+  },
+  {
+   "id": "23",
+   "name": "Probe"
+  },
+  {
+   "id": "25",
+   "name": "Probe"
+  }
+ ],
+ "version": {
+  "id": 22,
+  "n": 4,
+  "label": "Version 4",
+  "changed": [
+   "weekly_churn"
+  ],
+  "at": "2026-11-09T04:38:40.469Z",
+  "at_text": "9 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "developers_with_the_option",
+     "developers_with_the_option_sum",
+     "onboarding_absorbs_existing_developer_time_chance",
+     "onboarding_absorbs_existing_developer_time_factor",
+     "does_the_delivery_bottleneck_actually_come_from_missing_technica",
+     "whether_the_launch_itself_lands_on_time",
+     "budget_period_and_cost_coverage",
+     "individual_candidate_capability_and_availability"
+    ],
+    "text": "● = ! +8",
+    "title": "quantity: Developers with the option\nrelation: how Developers with the option is worked out\nquantity: Chance: Onboarding absorbs existing developer time\nquantity: Share kept if it happens: Onboarding absorbs existing developer time\nchallenge: Does the delivery bottleneck actually come from missing technical leadership, rather than unclear requirements, external dependencies or limited implementation capacity?\nleft out: Whether the launch itself lands on time\nleft out: Budget period and cost coverage\nleft out: Individual candidate capability and availability",
+    "label": "Expand 8 reasoning records",
+    "open": false,
+    "proposed": false,
+    "change": "",
+    "words": "3 figures, 1 calculation, 1 challenge, 3 things left out",
+    "icon": "● = !"
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers",
+    "typed": false,
+    "detail": "Developers · quantity · Theirs: “Set \"Developers\" to 8.6 developer.” · 8.6 developers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "8.6 developers",
+     "title": "8.6 developers",
+     "edit": {
+      "prompt": "New figure for “Developers” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Developers”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Set \"Developers\" to 8.6 developer.",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “Set \"Developers\" to 8.6 developer.”"
+    },
+    "failed": []
+   },
+   {
+    "id": "tech_leads_added_hire_a_tech_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Tech leads added: Hire a Tech lead",
+    "typed": false,
+    "detail": "Tech leads added: Hire a Tech lead · quantity · Theirs: “hire a Tech lead” (Candidate check) · 1 person",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 person",
+     "title": "1 person",
+     "edit": {
+      "prompt": "New figure for “Tech leads added: Hire a Tech lead” (person): one number, or a range like 150 to 400",
+      "ask": "For “Tech leads added: Hire a Tech lead”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Tech leads added: Hire a Tech lead",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s figure, from the brief",
+     "title": "Theirs: “hire a Tech lead” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "developers_added_hire_two_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers added: Hire two developers",
+    "typed": false,
+    "detail": "Developers added: Hire two developers · quantity · Theirs: “two developers” (Candidate check) · 2 developers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "2 developers",
+     "title": "2 developers",
+     "edit": {
+      "prompt": "New figure for “Developers added: Hire two developers” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Developers added: Hire two developers”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Developers added: Hire two developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s figure, from the brief",
+     "title": "Theirs: “two developers” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "hire_a_tech_lead",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a Tech lead",
+    "typed": false,
+    "detail": "Hire a Tech lead · option · Theirs: “hire a Tech lead” (Candidate check)",
+    "col": 0,
+    "h": 144,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "maintaining_code_quality",
+      "text": "not checked yet · maintaining code quality",
+      "title": "not checked yet · maintaining code quality"
+     },
+     {
+      "kind": "chance",
+      "value": "about 23% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 36%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per person added' (−5 to 20 %/person), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', not yet confirmed by them. It leaves out: Output per developer.",
+      "chance": 0.2254,
+      "companion": "about 36% without Olumi's suggested risk",
+      "companion_title": "about 36% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "text": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 36%.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [
+        "team_delivery_throughput_change_per_person",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "estimates": [
+        "team_delivery_throughput_change_per_person",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim and 3 what-ifs.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "about 95%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "budget",
+      "aim_id": "budget",
+      "title": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' stays within 'budget', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Change in Team delivery throughput per person added' is low, about 66% if it is high: Under 'Hire a Tech lead', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput per person added': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'Change in Team delivery throughput per person added' is low, about 66% if it is high: Under 'Hire a Tech lead', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput per person added': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "team_delivery_throughput_change_per_person",
+     "low": 0,
+     "high": 0.6573657365736574
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "writer_so_we_re_lacking_leadership"
+     ],
+     "text": "❝ +1",
+     "title": "claim: so we're lacking leadership",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Hire a Tech lead",
+      "whole": true,
+      "words": "name"
+     },
+     "line": {
+      "text": "hire a Tech lead",
+      "words": "theirs"
+     }
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s idea, from the brief",
+     "title": "Theirs: “hire a Tech lead” (Candidate check)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 23% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Hire a Tech lead' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 36%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per person added' (−5 to 20 %/person), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', not yet confirmed by them. It leaves out: Output per developer. about 36% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'.",
+     "range": "under 1% if 'Change in Team delivery throughput per person added' is low, about 66% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire two developers",
+    "typed": false,
+    "detail": "Hire two developers · option · Theirs: “two developers” (Candidate check)",
+    "col": 0,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "maintaining_code_quality",
+      "text": "not checked yet · maintaining code quality",
+      "title": "not checked yet · maintaining code quality"
+     },
+     {
+      "kind": "chance",
+      "value": "about 9% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Hire two developers' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 19%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput if developers grew by as many again as there are now' (−12 to 54%), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', not yet confirmed by them. It leaves out: Output per developer.",
+      "chance": 0.093,
+      "companion": "about 19% without Olumi's suggested risk",
+      "companion_title": "about 19% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "text": "If Olumi's estimates hold, the chance that 'Hire two developers' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 19%.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [
+        "team_delivery_throughput_change_per_share_of_developers",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "estimates": [
+        "team_delivery_throughput_change_per_share_of_developers",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim and 3 what-ifs.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "about 71%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "budget",
+      "aim_id": "budget",
+      "title": "If Olumi's estimates hold, the chance that 'Hire two developers' stays within 'budget', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Change in Team delivery throughput if developers grew by as many again as there are now' is low, about 28% if it is high: Under 'Hire two developers', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput if developers grew by as many again as there are now': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'Change in Team delivery throughput if developers grew by as many again as there are now' is low, about 28% if it is high: Under 'Hire two developers', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput if developers grew by as many again as there are now': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "team_delivery_throughput_change_per_share_of_developers",
+     "low": 0,
+     "high": 0.279027902790279
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Hire two developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s idea, from the brief",
+     "title": "Theirs: “two developers” (Candidate check)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 9% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Hire two developers' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 19%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput if developers grew by as many again as there are now' (−12 to 54%), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', not yet confirmed by them. It leaves out: Output per developer. about 19% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'.",
+     "range": "under 1% if 'Change in Team delivery throughput if developers grew by as many again as there are now' is low, about 28% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "reallocate_a_developer_day_each_week_to_technical_leadership",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Reallocate a developer-day each week to technical leadership",
+    "typed": false,
+    "detail": "Reallocate a developer-day each week to technical leadership · option · Proposed by Olumi: An internal allocation tests the leadership mechanism without depending on recruiting and onboarding before launch; its benefit depends on someone in the current team being able to perform the work.",
+    "col": 0,
+    "h": 144,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: An internal allocation tests the leadership mechanism without depending on recruiting and onboarding before launch; its benefit depends on someone in the current team being able to perform the work."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "maintaining_code_quality",
+      "text": "not checked yet · maintaining code quality",
+      "title": "not checked yet · maintaining code quality"
+     },
+     {
+      "kind": "chance",
+      "value": "about 4% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "If Olumi's estimates hold, the chance that 'Reallocate a developer-day each week to technical leadership' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 10%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per day/week added' (−4 to 10 % weeks/day), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', 'Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership', not yet confirmed by them. It leaves out: Output per developer.",
+      "chance": 0.0399,
+      "companion": "about 10% without Olumi's suggested risk",
+      "companion_title": "about 10% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "text": "If Olumi's estimates hold, the chance that 'Reallocate a developer-day each week to technical leadership' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 10%.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [
+        "team_delivery_throughput_change_per_day_week",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "estimates": [
+        "developer_time_allocated_to_technical_leadership_added_reallocat",
+        "team_delivery_throughput_change_per_day_week",
+        "onboarding_absorbs_existing_developer_time_chance",
+        "onboarding_absorbs_existing_developer_time_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "always within in this model",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "budget",
+      "aim_id": "budget",
+      "title": "With the model's figures, 'Reallocate a developer-day each week to technical leadership' always stays within 'budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Change in Team delivery throughput per day/week added' is low, about 12% if it is high: Under 'Reallocate a developer-day each week to technical leadership', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput per day/week added': these are its chances over the lowest and highest third of that figure's draws.",
+     "title": "under 1% if 'Change in Team delivery throughput per day/week added' is low, about 12% if it is high: Under 'Reallocate a developer-day each week to technical leadership', the chance of meeting 'increase productivity' moves most with 'Change in Team delivery throughput per day/week added': these are its chances over the lowest and highest third of that figure's draws.",
+     "figure": "team_delivery_throughput_change_per_day_week",
+     "low": 0,
+     "high": 0.11971197119711971
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "developer_time_allocated_to_technical_leadership_added_reallocat"
+     ],
+     "text": "● +1",
+     "title": "quantity: Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Reallocate a developer-day each week to technical leadership",
+      "whole": true,
+      "words": "name"
+     },
+     "line": {
+      "text": "Existing team time shifts to technical leadership.",
+      "words": "olumi"
+     }
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: An internal allocation tests the leadership mechanism without depending on recruiting and onboarding before launch; its benefit depends on someone in the current team being able to perform the work."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 4% chance",
+     "title": "If Olumi's estimates hold, the chance that 'Reallocate a developer-day each week to technical leadership' meets 'increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time', which is Olumi's own hypothesis and a different model from this one, the chance is about 10%. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per day/week added' (−4 to 10 % weeks/day), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', 'Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership', not yet confirmed by them. It leaves out: Output per developer. about 10% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time'.",
+     "range": "under 1% if 'Change in Team delivery throughput per day/week added' is low, about 12% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "team_delivery_throughput_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Team delivery throughput",
+    "typed": false,
+    "detail": "Change in Team delivery throughput · quantity · Proposed by Olumi: Use the rate of completed, accepted work for the whole team, with a consistent definition of work. The brief does not specify whether productivity is total output or output per developer. Applying the launch horizon to this outcome is Olumi's reading. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Use the rate of completed, accepted work for the whole team, with a consistent definition of work. The brief does not specify whether productivity is total output or output per developer. Applying the launch horizon to this outcome is Olumi's reading."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about 3.89% (−3.4 to 15%) · Hire two developers: about 2.61% (−1.81 to 9.77%) · Reallocate a developer-day each week to technical leadership: about 1.87% (−2.67 to 7.6%)",
+     "title": "Modelled range at the end of month 3: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about 3.89% (−3.4 to 15%); Hire two developers: about 2.61% (−1.81 to 9.77%); Reallocate a developer-day each week to technical leadership: about 1.87% (−2.67 to 7.6%). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "tech_leads_added",
+      "developers_added",
+      "developer_time_allocated_to_technical_leadership_added",
+      "developers_added_as_a_share_of_developers_now",
+      "developers_added_as_a_share_of_developers_now_def",
+      "no_change_percent",
+      "team_delivery_throughput_change_from_the_options"
+     ],
+     "text": "● = +7",
+     "title": "quantity: Tech leads added\nquantity: Developers added\nquantity: Developer time allocated to technical leadership added\nquantity: Developers added as a share of developers now\nrelation: how Developers added as a share of developers now is worked out\nquantity: No change (%)\nrelation: how Change in Team delivery throughput is worked out",
+     "label": "Expand 7 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "5 figures, 2 calculations",
+     "icon": "● ="
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about 3.89% (−3.4 to 15%)",
+      "p10": -3.395957237762988,
+      "p50": 3.89189471652097,
+      "p90": 15.01594603125826,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about 2.61% (−1.81 to 9.77%)",
+      "p10": -1.8053274570395543,
+      "p50": 2.6102307641031155,
+      "p90": 9.767212177161356,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "reallocate_a_developer_day_each_week_to_technical_leadership",
+      "text": "about 1.87% (−2.67 to 7.6%)",
+      "p10": -2.6708266106785246,
+      "p50": 1.8747211401691322,
+      "p90": 7.59693757759657,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Team delivery throughput",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Use the rate of completed, accepted work for the whole team, with a consistent definition of work. The brief does not specify whether productivity is total output or output per developer. Applying the launch horizon to this outcome is Olumi's reading."
+    },
+    "failed": []
+   },
+   {
+    "id": "increase_productivity_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Target: increase productivity",
+    "typed": false,
+    "detail": "Target: increase productivity · quantity · Theirs: “increase productivity by at least 10%” (Candidate check) · 10%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10%",
+     "title": "10%",
+     "edit": {
+      "prompt": "New figure for “Target: increase productivity” in %: one number, or a range like 40 to 70",
+      "ask": "For “Target: increase productivity”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "increase productivity by at least 10%",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s figure, from the brief",
+     "title": "Theirs: “increase productivity by at least 10%” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "time_to_the_urgent_launch",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time to the urgent launch",
+    "typed": false,
+    "detail": "Time to the urgent launch · quantity · Theirs: “We have an urgent launch date in the next three months.” (Candidate check) · 3 months",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "3 months",
+     "title": "3 months",
+     "edit": {
+      "prompt": "New figure for “Time to the urgent launch” (month): one number, or a range like 150 to 400",
+      "ask": "For “Time to the urgent launch”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "We have an urgent launch date in the next three months.",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s figure, from the brief",
+     "title": "Theirs: “We have an urgent launch date in the next three months.” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "increase_productivity",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "increase productivity",
+    "typed": false,
+    "detail": "increase productivity · goal · Theirs: “increase productivity by at least 10%” (Candidate check)",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "Output per developer",
+      "title": "Output per developer · left out · Proposed by Olumi: Total team throughput can rise through additional staffing without improving individual productivity. · Total team throughput can rise through additional staffing without improving individual productivity.",
+      "id": "output_per_developer",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Total team throughput can rise through additional staffing without improving individual productivity."
+      }
+     }
+    ],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least 10%",
+     "title": "Does productivity mean total team delivery or output per developer?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Increase productivity",
+      "whole": false,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s idea, from the brief",
+     "title": "Theirs: “increase productivity by at least 10%” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Escaped defects per delivered change",
+    "typed": false,
+    "detail": "Change in Escaped defects per delivered change · quantity · Proposed by Olumi: Defects reaching users per delivered change provide a quality measure that does not automatically worsen merely because delivery volume increases. Applying the launch horizon to this guardrail is Olumi's reading. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Defects reaching users per delivered change provide a quality measure that does not automatically worsen merely because delivery volume increases. Applying the launch horizon to this guardrail is Olumi's reading."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about −8.07% (−24.8 to 8.09%) · Hire two developers: about 2.84% (−4.22 to 11.3%) · Reallocate a developer-day each week to technical leadership: about −6.03% (−17.8 to 4.1%)",
+     "title": "Modelled range at the end of month 3: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about −8.07% (−24.8 to 8.09%); Hire two developers: about 2.84% (−4.22 to 11.3%); Reallocate a developer-day each week to technical leadership: about −6.03% (−17.8 to 4.1%). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "tech_leads_added",
+      "developers_added",
+      "developer_time_allocated_to_technical_leadership_added",
+      "developers_added_as_a_share_of_developers_now",
+      "developers_added_as_a_share_of_developers_now_def",
+      "no_change_percent",
+      "escaped_defects_per_delivered_change_change_per_person",
+      "escaped_defects_per_delivered_change_change_per_share_of_develop",
+      "escaped_defects_per_delivered_change_change_per_day_week",
+      "escaped_defects_per_delivered_change_change_from_the_options"
+     ],
+     "text": "● = +10",
+     "title": "quantity: Tech leads added\nquantity: Developers added\nquantity: Developer time allocated to technical leadership added\nquantity: Developers added as a share of developers now\nrelation: how Developers added as a share of developers now is worked out\nquantity: No change (%)\nquantity: Change in Escaped defects per delivered change per person added\nquantity: Change in Escaped defects per delivered change if developers grew by as many again as there are now\nquantity: Change in Escaped defects per delivered change per day/week added\nrelation: how Change in Escaped defects per delivered change is worked out",
+     "label": "Expand 10 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "8 figures, 2 calculations",
+     "icon": "● ="
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about −8.07% (−24.8 to 8.09%)",
+      "p10": -24.794651595677426,
+      "p50": -8.072487304709414,
+      "p90": 8.089906666557313,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about 2.84% (−4.22 to 11.3%)",
+      "p10": -4.221127350430209,
+      "p50": 2.8405143665990797,
+      "p90": 11.345772915994631,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "reallocate_a_developer_day_each_week_to_technical_leadership",
+      "text": "about −6.03% (−17.8 to 4.1%)",
+      "p10": -17.83309981626966,
+      "p50": -6.027664963519975,
+      "p90": 4.098527592799342,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Escaped defects per delivered change",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Defects reaching users per delivered change provide a quality measure that does not automatically worsen merely because delivery volume increases. Applying the launch horizon to this guardrail is Olumi's reading."
+    },
+    "failed": []
+   },
+   {
+    "id": "maintaining_code_quality_bound",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Olumi reading: no increase in escaped-defect rate",
+    "typed": false,
+    "detail": "Olumi reading: no increase in escaped-defect rate · quantity · Proposed by Olumi: A proposed fixed guardrail, not an estimate or a figure supplied by Candidate check: interpret maintaining quality as no increase in escaped defects per delivered change relative to now. This covers escaped defects only, not maintainability or architectural quality, and remains subject to their confirmation. · 0%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A proposed fixed guardrail, not an estimate or a figure supplied by Candidate check: interpret maintaining quality as no increase in escaped defects per delivered change relative to now. This covers escaped defects only, not maintainability or architectural quality, and remains subject to their confirmation."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0%",
+     "title": "0%",
+     "edit": {
+      "prompt": "New figure for “Olumi reading: no increase in escaped-defect rate” in %: one number, or a range like 40 to 70",
+      "ask": "For “Olumi reading: no increase in escaped-defect rate”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Olumi reading: no increase in escaped-defect rate",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A proposed fixed guardrail, not an estimate or a figure supplied by Candidate check: interpret maintaining quality as no increase in escaped defects per delivered change relative to now. This covers escaped defects only, not maintainability or architectural quality, and remains subject to their confirmation."
+    },
+    "failed": []
+   },
+   {
+    "id": "maintaining_code_quality",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "maintaining code quality",
+    "typed": false,
+    "detail": "maintaining code quality · limit · Theirs: “while maintaining code quality” (Candidate check)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most 0%",
+     "title": "Olumi proposes no increase in escaped defects per delivered change as the measurable guardrail. Does that fit, or what quality measure and bound would you use?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "maintainability_and_architectural_quality"
+     ],
+     "text": "○ +1",
+     "title": "left out: Maintainability and architectural quality",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 thing left out",
+     "icon": "○"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Maintaining code quality",
+      "whole": false,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s idea, from the brief",
+     "title": "Theirs: “while maintaining code quality” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "additional_staffing_spend_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Additional staffing spend",
+    "typed": false,
+    "detail": "Change in Additional staffing spend · quantity · Proposed by Olumi: Treat the stated budget as a ceiling on incremental staffing costs for the alternatives. Its accounting period and included costs are not specified. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Treat the stated budget as a ceiling on incremental staffing costs for the alternatives. Its accounting period and included costs are not specified."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about £134,000 (£99,900 to £185,000) · Hire two developers: about £170,000 (£120,000 to £240,000) · Reallocate a developer-day each week to technical leadership: £0",
+     "title": "Modelled range at the end of month 3: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about £134,000 (£99,900 to £185,000); Hire two developers: about £170,000 (£120,000 to £240,000); Reallocate a developer-day each week to technical leadership: £0. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "tech_leads_added",
+      "developers_added",
+      "developer_time_allocated_to_technical_leadership_added",
+      "additional_staffing_spend_change_per_person",
+      "additional_staffing_spend_change_per_developer",
+      "additional_staffing_spend_change_per_day_week",
+      "no_change_gbp",
+      "additional_staffing_spend_change_from_the_options",
+      "lower_additional_staffing_spend"
+     ],
+     "text": "● = ↓ +9",
+     "title": "quantity: Tech leads added\nquantity: Developers added\nquantity: Developer time allocated to technical leadership added\nquantity: Change in Additional staffing spend per person added\nquantity: Change in Additional staffing spend per developer added\nquantity: Change in Additional staffing spend per day/week added\nquantity: No change (GBP)\nrelation: how Change in Additional staffing spend is worked out\npreference: Change in Additional staffing spend: lower",
+     "label": "Expand 9 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "7 figures, 1 calculation, 1 preference",
+     "icon": "● = ↓"
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about £134,000 (£99,900 to £185,000)",
+      "p10": 99881.01587093143,
+      "p50": 134396.61640317785,
+      "p90": 185286.28988475568,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about £170,000 (£120,000 to £240,000)",
+      "p10": 120335.59958641468,
+      "p50": 170188.5893095477,
+      "p90": 239904.80237435378,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "reallocate_a_developer_day_each_week_to_technical_leadership",
+      "text": "£0",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Additional staffing spend",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Treat the stated budget as a ceiling on incremental staffing costs for the alternatives. Its accounting period and included costs are not specified."
+    },
+    "failed": []
+   },
+   {
+    "id": "budget_bound",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Bound: budget",
+    "typed": false,
+    "detail": "Bound: budget · quantity · Theirs: “Our budget is £200,000” (Candidate check) · £200,000",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£200,000",
+     "title": "£200,000",
+     "edit": {
+      "prompt": "New figure for “Bound: budget” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Bound: budget”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Our budget is £200,000",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s figure, from the brief",
+     "title": "Theirs: “Our budget is £200,000” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "budget",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "budget",
+    "typed": false,
+    "detail": "budget · limit · Theirs: “Our budget is £200,000” (Candidate check)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most £200,000",
+     "title": "at most £200,000",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "writer_we_d_like_to_spend_less"
+     ],
+     "text": "❝ +1",
+     "title": "claim: we'd like to spend less",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim",
+     "icon": "❝"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Budget",
+      "whole": false,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Candidate check’s idea, from the brief",
+     "title": "Theirs: “Our budget is £200,000” (Candidate check)"
+    },
+    "failed": []
+   },
+   {
+    "id": "team_delivery_throughput_change_per_person",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Team delivery throughput per person added",
+    "typed": false,
+    "detail": "Change in Team delivery throughput per person added · quantity · Proposed by Olumi: Olumi estimate of cumulative delivery over the three month launch window, relative to the existing team's output. Assumes recruitment starts now and a typical external hire joins partway through the window. Leadership could unblock six mid weight developers, but hiring and learning the codebase limit the immediate gain. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer; this is old evidence from one financial services firm, not a software leadership benchmark. Additional disruption to existing developers is reserved for the separate onboarding risk. · Plausible range: −5 to 20 %/person, most likely 6 %/person",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi estimate of cumulative delivery over the three month launch window, relative to the existing team's output. Assumes recruitment starts now and a typical external hire joins partway through the window. Leadership could unblock six mid weight developers, but hiring and learning the codebase limit the immediate gain. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer; this is old evidence from one financial services firm, not a software leadership benchmark. Additional disruption to existing developers is reserved for the separate onboarding risk."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−5 to 20 %/person",
+     "title": "Plausible range: −5 to 20 %/person, most likely 6 %/person",
+     "edit": {
+      "prompt": "New figure for “Change in Team delivery throughput per person added” in %/person: one number, or a range like 40 to 70",
+      "ask": "For “Change in Team delivery throughput per person added”, type it in %/person: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Team delivery throughput per person added",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi estimate of cumulative delivery over the three month launch window, relative to the existing team's output. Assumes recruitment starts now and a typical external hire joins partway through the window. Leadership could unblock six mid weight developers, but hiring and learning the codebase limit the immediate gain. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer; this is old evidence from one financial services firm, not a software leadership benchmark. Additional disruption to existing developers is reserved for the separate onboarding risk."
+    },
+    "failed": []
+   },
+   {
+    "id": "team_delivery_throughput_change_per_share_of_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Team delivery throughput if developers grew by as many again as there are now",
+    "typed": false,
+    "detail": "Change in Team delivery throughput if developers grew by as many again as there are now · quantity · Proposed by Olumi: Olumi estimate for a whole doubling of the current developer team, calibrated to the actual addition of two developers over three months. The two developer option receives one third of this effect. Recruitment and ramp up leave substantially less productive time than immediate fully effective staffing would imply, while the leadership gap remains. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer, based on an old study of one financial services firm. The wide range allows limited early contribution or unusually fast starts; existing staff onboarding disruption is reserved for the separate risk. · Plausible range: −12 to 54%, most likely 18%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi estimate for a whole doubling of the current developer team, calibrated to the actual addition of two developers over three months. The two developer option receives one third of this effect. Recruitment and ramp up leave substantially less productive time than immediate fully effective staffing would imply, while the leadership gap remains. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer, based on an old study of one financial services firm. The wide range allows limited early contribution or unusually fast starts; existing staff onboarding disruption is reserved for the separate risk."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−12 to 54%",
+     "title": "Plausible range: −12 to 54%, most likely 18%",
+     "edit": {
+      "prompt": "New figure for “Change in Team delivery throughput if developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+      "ask": "For “Change in Team delivery throughput if developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi estimate for a whole doubling of the current developer team, calibrated to the actual addition of two developers over three months. The two developer option receives one third of this effect. Recruitment and ramp up leave substantially less productive time than immediate fully effective staffing would imply, while the leadership gap remains. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer, based on an old study of one financial services firm. The wide range allows limited early contribution or unusually fast starts; existing staff onboarding disruption is reserved for the separate risk."
+    },
+    "failed": []
+   },
+   {
+    "id": "team_delivery_throughput_change_per_day_week",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Team delivery throughput per day/week added",
+    "typed": false,
+    "detail": "Change in Team delivery throughput per day/week added · quantity · Proposed by Olumi: Olumi estimate for allocating one existing developer day each week to technical leadership throughout the three month window. Assumes a normal five day working week and that a capable mid weight developer can resolve some coordination and review bottlenecks. The direct loss of implementation time is included. Benefits could outweigh that loss across six developers, but unclear authority or limited leadership experience could leave a net reduction. No directly applicable published rate is available. · Plausible range: −4 to 10 % weeks/day, most likely 3 % weeks/day",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi estimate for allocating one existing developer day each week to technical leadership throughout the three month window. Assumes a normal five day working week and that a capable mid weight developer can resolve some coordination and review bottlenecks. The direct loss of implementation time is included. Benefits could outweigh that loss across six developers, but unclear authority or limited leadership experience could leave a net reduction. No directly applicable published rate is available."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−4 to 10 % weeks/day",
+     "title": "Plausible range: −4 to 10 % weeks/day, most likely 3 % weeks/day",
+     "edit": {
+      "prompt": "New figure for “Change in Team delivery throughput per day/week added” (% week/day): one number, or a range like 150 to 400",
+      "ask": "For “Change in Team delivery throughput per day/week added”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Team delivery throughput per day/week added",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi estimate for allocating one existing developer day each week to technical leadership throughout the three month window. Assumes a normal five day working week and that a capable mid weight developer can resolve some coordination and review bottlenecks. The direct loss of implementation time is included. Benefits could outweigh that loss across six developers, but unclear authority or limited leadership experience could leave a net reduction. No directly applicable published rate is available."
+    },
+    "failed": []
+   },
+   {
+    "id": "onboarding_absorbs_existing_developer_time",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Onboarding absorbs existing developer time",
+    "typed": false,
+    "detail": "Onboarding absorbs existing developer time · risk · Proposed by Olumi: Recruiting and onboarding may consume a material share of the short launch horizon, while current developers spend time supporting new colleagues.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Recruiting and onboarding may consume a material share of the short launch horizon, while current developers spend time supporting new colleagues."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Onboarding absorbs existing developer time",
+      "whole": true,
+      "words": "name"
+     },
+     "line": {
+      "text": "New hires can temporarily slow the existing team.",
+      "words": "olumi"
+     }
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Recruiting and onboarding may consume a material share of the short launch horizon, while current developers spend time supporting new colleagues."
+    },
+    "failed": []
+   },
+   {
+    "id": "weekly_churn",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Weekly churn",
+    "typed": false,
+    "detail": "Weekly churn · quantity · Theirs: “Added \"Weekly churn\" at 12 ticket/week.” · 12 tickets/week",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12 tickets/week",
+     "title": "12 tickets/week",
+     "edit": {
+      "prompt": "New figure for “Weekly churn” (ticket/week): one number, or a range like 150 to 400",
+      "ask": "For “Weekly churn”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Added \"Weekly churn\" at 12 ticket/week.",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “Added \"Weekly churn\" at 12 ticket/week.”"
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "developers",
+    "to": "team_delivery_throughput_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developers added as a share of developers now · Proposed by Olumi: What the options add, divided by their figure for developers now. · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def",
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−12 to 54%",
+     "title": "Change in Team delivery throughput if developers grew by as many again as there are now · Plausible range: −12 to 54%, most likely 18% · worked out through Developers added as a share of developers now",
+     "figure": "team_delivery_throughput_change_per_share_of_developers"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers",
+    "to": "escaped_defects_per_delivered_change_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developers added as a share of developers now · Proposed by Olumi: What the options add, divided by their figure for developers now. · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def",
+     "escaped_defects_per_delivered_change_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−18 to 48%",
+     "title": "Change in Escaped defects per delivered change if developers grew by as many again as there are now · Plausible range: −18 to 48%, most likely 12% · worked out through Developers added as a share of developers now",
+     "figure": "escaped_defects_per_delivered_change_change_per_share_of_develop"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "team_delivery_throughput_change_per_person",
+    "to": "team_delivery_throughput_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "team_delivery_throughput_change_per_share_of_developers",
+    "to": "team_delivery_throughput_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "team_delivery_throughput_change_per_day_week",
+    "to": "team_delivery_throughput_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_a_tech_lead",
+    "to": "tech_leads_added_hire_a_tech_lead",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added_hire_a_tech_lead",
+    "to": "team_delivery_throughput_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Tech leads added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−5 to 20 %/person",
+     "title": "Change in Team delivery throughput per person added · Plausible range: −5 to 20 %/person, most likely 6 %/person · worked out through Tech leads added",
+     "figure": "team_delivery_throughput_change_per_person"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added_hire_a_tech_lead",
+    "to": "escaped_defects_per_delivered_change_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Tech leads added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "escaped_defects_per_delivered_change_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−25 to 8 %/person",
+     "title": "Change in Escaped defects per delivered change per person added · Plausible range: −25 to 8 %/person, most likely −8 %/person · worked out through Tech leads added",
+     "figure": "escaped_defects_per_delivered_change_change_per_person"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added_hire_a_tech_lead",
+    "to": "additional_staffing_spend_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Tech leads added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "additional_staffing_spend_change_from_the_options"
+    ],
+    "effect": {
+     "text": "£100,000 to £185,000/person",
+     "title": "Change in Additional staffing spend per person added · Plausible range: £100,000 to £185,000/person, most likely £135,000/person · worked out through Tech leads added",
+     "figure": "additional_staffing_spend_change_per_person"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_two_developers",
+    "to": "developers_added_hire_two_developers",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers_added_hire_two_developers",
+    "to": "team_delivery_throughput_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developers added, Developers added as a share of developers now · Proposed by Olumi: What the options add, divided by their figure for developers now. · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def",
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−12 to 54%",
+     "title": "Change in Team delivery throughput if developers grew by as many again as there are now · Plausible range: −12 to 54%, most likely 18% · worked out through Developers added, Developers added as a share of developers now",
+     "figure": "team_delivery_throughput_change_per_share_of_developers"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers_added_hire_two_developers",
+    "to": "escaped_defects_per_delivered_change_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developers added, Developers added as a share of developers now · Proposed by Olumi: What the options add, divided by their figure for developers now. · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def",
+     "escaped_defects_per_delivered_change_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−18 to 48%",
+     "title": "Change in Escaped defects per delivered change if developers grew by as many again as there are now · Plausible range: −18 to 48%, most likely 12% · worked out through Developers added, Developers added as a share of developers now",
+     "figure": "escaped_defects_per_delivered_change_change_per_share_of_develop"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers_added_hire_two_developers",
+    "to": "additional_staffing_spend_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developers added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "additional_staffing_spend_change_from_the_options"
+    ],
+    "effect": {
+     "text": "£60,000 to £120,000/developer",
+     "title": "Change in Additional staffing spend per developer added · Plausible range: £60,000 to £120,000/developer, most likely £85,000/developer · worked out through Developers added",
+     "figure": "additional_staffing_spend_change_per_developer"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "reallocate_a_developer_day_each_week_to_technical_leadership",
+    "to": "team_delivery_throughput_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "team_delivery_throughput_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−4 to 10 % weeks/day",
+     "title": "Change in Team delivery throughput per day/week added · Plausible range: −4 to 10 % weeks/day, most likely 3 % weeks/day · worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added",
+     "figure": "team_delivery_throughput_change_per_day_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "reallocate_a_developer_day_each_week_to_technical_leadership",
+    "to": "escaped_defects_per_delivered_change_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "escaped_defects_per_delivered_change_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−18 to 4 % weeks/day",
+     "title": "Change in Escaped defects per delivered change per day/week added · Plausible range: −18 to 4 % weeks/day, most likely −6 % weeks/day · worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added",
+     "figure": "escaped_defects_per_delivered_change_change_per_day_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "reallocate_a_developer_day_each_week_to_technical_leadership",
+    "to": "additional_staffing_spend_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "additional_staffing_spend_change_from_the_options"
+    ],
+    "effect": {
+     "text": "0 to 0 GBP weeks/day",
+     "title": "Change in Additional staffing spend per day/week added · Plausible range: 0 to 0 GBP weeks/day · worked out through Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership, Developer time allocated to technical leadership added",
+     "figure": "additional_staffing_spend_change_per_day_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "team_delivery_throughput_change",
+    "to": "increase_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "increase_productivity_target",
+    "to": "increase_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "escaped_defects_per_delivered_change_change",
+    "to": "maintaining_code_quality",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "maintaining_code_quality_bound",
+    "to": "maintaining_code_quality",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "additional_staffing_spend_change",
+    "to": "budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "budget_bound",
+    "to": "budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "onboarding_absorbs_existing_developer_time",
+    "to": "team_delivery_throughput_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘increase productivity’",
+   "lead": "Chance of ‘increase productivity’, in this model on current information",
+   "all_withheld": false,
+   "shared_blockers": [
+    {
+     "aim_id": "maintaining_code_quality",
+     "options": [
+      "hire_a_tech_lead",
+      "hire_two_developers",
+      "reallocate_a_developer_day_each_week_to_technical_leadership"
+     ],
+     "text": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?"
+    }
+   ],
+   "most_likely": {
+    "text": "Which option leads depends on Olumi's estimate of 'Change in Team delivery throughput per person added': 'Hire two developers' leads when it is low, 'Hire a Tech lead' when it is high. Give yours with ✎.",
+    "title": "Which option leads depends on Olumi's estimate of 'Change in Team delivery throughput per person added': 'Hire two developers' leads when it is low, 'Hire a Tech lead' when it is high. Give yours with ✎. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput if developers grew by as many again as there are now' (−12 to 54%), 'Chance: Onboarding absorbs existing developer time' (70% to 99%), 'Share kept if it happens: Onboarding absorbs existing developer time' (0.35 to 0.95). It rests on Olumi's proposed figures for 'Onboarding absorbs existing developer time', not yet confirmed by them. It leaves out: Output per developer.",
+    "rests_on": {
+     "reading": true,
+     "target": false,
+     "what_ifs": [
+      "team_delivery_throughput_change_per_person",
+      "team_delivery_throughput_change_per_share_of_developers",
+      "onboarding_absorbs_existing_developer_time_chance",
+      "onboarding_absorbs_existing_developer_time_factor"
+     ],
+     "estimates": [
+      "team_delivery_throughput_change_per_person",
+      "team_delivery_throughput_change_per_share_of_developers",
+      "onboarding_absorbs_existing_developer_time_chance",
+      "onboarding_absorbs_existing_developer_time_factor"
+     ],
+     "approx": []
+    },
+    "rests_on_text": "Rests on Olumi's reading of the aim and 3 what-ifs.",
+    "if_approved": null,
+    "option": null,
+    "aim_id": "increase_productivity",
+    "estimate": "team_delivery_throughput_change_per_person"
+   },
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 1 thing",
+    "items": [
+     {
+      "id": "maintaining_code_quality_bound",
+      "text": "‘Olumi reading: no increase in escaped-defect rate’",
+      "title": "Olumi reading: no increase in escaped-defect rate",
+      "answer": false,
+      "unknown": null,
+      "edit": {
+       "prompt": "New figure for “Olumi reading: no increase in escaped-defect rate” in %: one number, or a range like 40 to 70",
+       "ask": "For “Olumi reading: no increase in escaped-defect rate”, type it in %: one number, or a range like 40 to 70."
+      }
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "This leaves out: Output per developer.",
+     "title": "This leaves out: Output per developer."
+    },
+    {
+     "text": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?",
+     "title": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?"
+    },
+    {
+     "text": "about 95%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' stays within 'budget', in this model.",
+     "title": "about 95%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' stays within 'budget', in this model."
+    },
+    {
+     "text": "about 5%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' goes outside 'budget', in this model.",
+     "title": "about 5%: If Olumi's estimates hold, the chance that 'Hire a Tech lead' goes outside 'budget', in this model."
+    },
+    {
+     "text": "about 71%: If Olumi's estimates hold, the chance that 'Hire two developers' stays within 'budget', in this model.",
+     "title": "about 71%: If Olumi's estimates hold, the chance that 'Hire two developers' stays within 'budget', in this model."
+    },
+    {
+     "text": "about 29%: If Olumi's estimates hold, the chance that 'Hire two developers' goes outside 'budget', in this model.",
+     "title": "about 29%: If Olumi's estimates hold, the chance that 'Hire two developers' goes outside 'budget', in this model."
+    },
+    {
+     "text": "always within in this model: With the model's figures, 'Reallocate a developer-day each week to technical leadership' always stays within 'budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "title": "always within in this model: With the model's figures, 'Reallocate a developer-day each week to technical leadership' always stays within 'budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+    },
+    {
+     "text": "Olumi's what-if for 'Change in Team delivery throughput per person added', not their figure: −5 to 20 %/person. Basis: Olumi estimate of cumulative delivery over the three month launch window, relative to the existing team's output. Assumes recruitment starts now and a typical external hire joins partway through the window. Leadership could unblock six mid weight developers, but hiring and learning the codebase limit the immediate gain. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer; this is old evidence from one financial services firm, not a software leadership benchmark. Additional disruption to existing developers is reserved for the separate onboarding risk.",
+     "title": "Olumi's what-if for 'Change in Team delivery throughput per person added', not their figure: −5 to 20 %/person. Basis: Olumi estimate of cumulative delivery over the three month launch window, relative to the existing team's output. Assumes recruitment starts now and a typical external hire joins partway through the window. Leadership could unblock six mid weight developers, but hiring and learning the codebase limit the immediate gain. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer; this is old evidence from one financial services firm, not a software leadership benchmark. Additional disruption to existing developers is reserved for the separate onboarding risk."
+    },
+    {
+     "text": "Olumi's what-if for 'Change in Team delivery throughput if developers grew by as many again as there are now', not their figure: −12 to 54%. Basis: Olumi estimate for a whole doubling of the current developer team, calibrated to the actual addition of two developers over three months. The two developer option receives one third of this effect. Recruitment and ramp up leave substantially less productive time than immediate fully effective staffing would imply, while the leadership gap remains. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer, based on an old study of one financial services firm. The wide range allows limited early contribution or unusually fast starts; existing staff onboarding disruption is reserved for the separate risk.",
+     "title": "Olumi's what-if for 'Change in Team delivery throughput if developers grew by as many again as there are now', not their figure: −12 to 54%. Basis: Olumi estimate for a whole doubling of the current developer team, calibrated to the actual addition of two developers over three months. The two developer option receives one third of this effect. Recruitment and ramp up leave substantially less productive time than immediate fully effective staffing would imply, while the leadership gap remains. MIT Sloan Management Review research by Rollag, Parise and Cross reports external hire ramp times of eight to twenty six weeks or longer, based on an old study of one financial services firm. The wide range allows limited early contribution or unusually fast starts; existing staff onboarding disruption is reserved for the separate risk."
+    },
+    {
+     "text": "Olumi's what-if for 'Change in Team delivery throughput per day/week added', not their figure: −4 to 10 % weeks/day. Basis: Olumi estimate for allocating one existing developer day each week to technical leadership throughout the three month window. Assumes a normal five day working week and that a capable mid weight developer can resolve some coordination and review bottlenecks. The direct loss of implementation time is included. Benefits could outweigh that loss across six developers, but unclear authority or limited leadership experience could leave a net reduction. No directly applicable published rate is available.",
+     "title": "Olumi's what-if for 'Change in Team delivery throughput per day/week added', not their figure: −4 to 10 % weeks/day. Basis: Olumi estimate for allocating one existing developer day each week to technical leadership throughout the three month window. Assumes a normal five day working week and that a capable mid weight developer can resolve some coordination and review bottlenecks. The direct loss of implementation time is included. Benefits could outweigh that loss across six developers, but unclear authority or limited leadership experience could leave a net reduction. No directly applicable published rate is available."
+    },
+    {
+     "text": "Olumi's what-if for 'Chance: Onboarding absorbs existing developer time', not their figure: 70% to 99%. Basis: Olumi estimate of at least one material diversion of existing developer time into onboarding during the three month launch window, conditional on an external hire joining before launch. Codebase explanation, environment setup and review commonly require existing staff involvement, particularly without an established technical lead. Exceptionally strong documentation or a very late start could limit the diversion. No directly applicable published event frequency is available.",
+     "title": "Olumi's what-if for 'Chance: Onboarding absorbs existing developer time', not their figure: 70% to 99%. Basis: Olumi estimate of at least one material diversion of existing developer time into onboarding during the three month launch window, conditional on an external hire joining before launch. Codebase explanation, environment setup and review commonly require existing staff involvement, particularly without an established technical lead. Exceptionally strong documentation or a very late start could limit the diversion. No directly applicable published event frequency is available."
+    },
+    {
+     "text": "Olumi's what-if for 'Share kept if it happens: Onboarding absorbs existing developer time', not their figure: 0.35 to 0.95. Basis: Olumi estimate of the share of the projected throughput change retained if material onboarding demands occur during the three month window. This multiplies the incremental throughput change, not the existing team's total output. Assumes routine mentoring and review absorb some expected gains, with heavier demands for two simultaneous hires and lighter demands for an experienced lead. The broad range reflects unknown documentation, codebase complexity and arrival dates. Hiring delay and the new hire's own ramp up are already included in the throughput estimates.",
+     "title": "Olumi's what-if for 'Share kept if it happens: Onboarding absorbs existing developer time', not their figure: 0.35 to 0.95. Basis: Olumi estimate of the share of the projected throughput change retained if material onboarding demands occur during the three month window. This multiplies the incremental throughput change, not the existing team's total output. Assumes routine mentoring and review absorb some expected gains, with heavier demands for two simultaneous hires and lighter demands for an experienced lead. The broad range reflects unknown documentation, codebase complexity and arrival dates. Hiring delay and the new hire's own ramp up are already included in the throughput estimates."
+    }
+   ],
+   "readings": [
+    {
+     "aim_id": "increase_productivity",
+     "kind": "goal",
+     "source": "proposal",
+     "aggregation": "end",
+     "text": "Olumi reads this at the end of 3 months; change it if you meant over the period or on average."
+    },
+    {
+     "aim_id": "maintaining_code_quality",
+     "kind": "limit",
+     "source": "proposal",
+     "aggregation": "end",
+     "text": "Olumi reads this at the end of 3 months; change it if you meant over the period or on average."
+    }
+   ],
+   "timing": [],
+   "science": [
+    {
+     "id": "F26",
+     "kind": "worth",
+     "line": "'Change in Team delivery throughput per person added' (Olumi's estimate) · aim 'increase productivity' · worth finding out",
+     "hover": "In this model: 'Change in Team delivery throughput per person added' (Olumi's estimate); 'increase productivity'; within: budget; worth finding out. Not covered: maintaining code quality.\nabout 4 points, an estimate",
+     "aim": "increase_productivity",
+     "limits": [
+      "budget"
+     ],
+     "figure": {
+      "label": "Change in Team delivery throughput per person added",
+      "whose": "olumi",
+      "id": "team_delivery_throughput_change_per_person",
+      "mark": null,
+      "give": {
+       "text": "Give your figure with",
+       "edit": {
+        "prompt": "New figure for “Change in Team delivery throughput per person added” in %/person: one number, or a range like 40 to 70",
+        "ask": "For “Change in Team delivery throughput per person added”, type it in %/person: one number, or a range like 40 to 70."
+       }
+      }
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "sensitivity": {
+    "text": "These are its chances over the lowest and highest third of that figure's draws.",
+    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+   },
+   "compared": [
+    {
+     "id": "F29",
+     "kind": "middle",
+     "line": "'Hire a Tech lead' · aim 'increase productivity': misses it",
+     "hover": "option: 'Hire a Tech lead'; aim: 'increase productivity'; figures: the middle ones (every range at its most likely value); risks: none happening; status: misses it. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per person added' (−5 to 20 %/person). It leaves out: Output per developer.",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F30",
+     "kind": "middle",
+     "line": "'Hire two developers' · aim 'increase productivity': misses it",
+     "hover": "option: 'Hire two developers'; aim: 'increase productivity'; figures: the middle ones (every range at its most likely value); risks: none happening; status: misses it. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput if developers grew by as many again as there are now' (−12 to 54%). It leaves out: Output per developer.",
+     "aim": "increase_productivity",
+     "option": "hire_two_developers",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F31",
+     "kind": "middle",
+     "line": "'Reallocate a developer-day each week to technical leadership' · aim 'increase productivity': misses it",
+     "hover": "option: 'Reallocate a developer-day each week to technical leadership'; aim: 'increase productivity'; figures: the middle ones (every range at its most likely value); risks: none happening; status: misses it. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Change in Team delivery throughput per day/week added' (−4 to 10 % weeks/day). It rests on Olumi's proposed figures for 'Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership', not yet confirmed by them. It leaves out: Output per developer.",
+     "aim": "increase_productivity",
+     "option": "reallocate_a_developer_day_each_week_to_technical_leadership",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "increase_productivity",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_separated",
+       "text": "no option is clearly more likely than another to achieve 'increase productivity', so no crossing is worked out: it is worked out only where one option is clearly ahead",
+       "line": "No option is clearly more likely than another to achieve 'increase productivity', so no crossing is worked out: it is worked out only where one option is clearly ahead."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [
+    {
+     "id": "F35",
+     "kind": "goal",
+     "line": "For whether 'Hire a Tech lead' meets 'increase productivity', about 67% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 33% is unassigned).",
+     "hover": "For whether 'Hire a Tech lead' meets 'increase productivity': about 67% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 33% is unassigned). No one else has a range here. This is a share of what varies in this model's draws, by whose figure it is, not a forecast.",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead",
+     "olumi_share": 0.6729291483352238,
+     "person_share": 0,
+     "unassigned": 0.32707085166477623
+    },
+    {
+     "id": "F36",
+     "kind": "limit",
+     "line": "For whether 'Hire a Tech lead' stays within 'budget', about 89% of this limit's uncertainty traces to Olumi's ranges (a first-order estimate; about 11% is unassigned).",
+     "hover": "For whether 'Hire a Tech lead' stays within 'budget': about 89% of this limit's uncertainty traces to Olumi's ranges (a first-order estimate; about 11% is unassigned). No one else has a range here. This is a share of what varies in this model's draws, by whose figure it is, not a forecast.",
+     "aim": "budget",
+     "option": "hire_a_tech_lead",
+     "olumi_share": 0.8936655377403137,
+     "person_share": 0,
+     "unassigned": 0.10633446225968635
+    },
+    {
+     "id": "F37",
+     "kind": "goal",
+     "line": "For whether 'Hire two developers' meets 'increase productivity', about 53% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 47% is unassigned).",
+     "hover": "For whether 'Hire two developers' meets 'increase productivity': about 53% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 47% is unassigned). No one else has a range here. This is a share of what varies in this model's draws, by whose figure it is, not a forecast.",
+     "aim": "increase_productivity",
+     "option": "hire_two_developers",
+     "olumi_share": 0.5321235440638123,
+     "person_share": 0,
+     "unassigned": 0.46787645593618765
+    },
+    {
+     "id": "F38",
+     "kind": "limit",
+     "line": "For whether 'Hire two developers' stays within 'budget', about 98% of this limit's uncertainty traces to Olumi's ranges (a first-order estimate; about 2% is unassigned).",
+     "hover": "For whether 'Hire two developers' stays within 'budget': about 98% of this limit's uncertainty traces to Olumi's ranges (a first-order estimate; about 2% is unassigned). No one else has a range here. This is a share of what varies in this model's draws, by whose figure it is, not a forecast.",
+     "aim": "budget",
+     "option": "hire_two_developers",
+     "olumi_share": 0.9774042601652407,
+     "person_share": 0,
+     "unassigned": 0.022595739834759265
+    },
+    {
+     "id": "F39",
+     "kind": "goal",
+     "line": "For whether 'Reallocate a developer-day each week to technical leadership' meets 'increase productivity', about 44% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 56% is unassigned).",
+     "hover": "For whether 'Reallocate a developer-day each week to technical leadership' meets 'increase productivity': about 44% of this aim's uncertainty traces to Olumi's ranges (a first-order estimate; about 56% is unassigned). No one else has a range here. This is a share of what varies in this model's draws, by whose figure it is, not a forecast.",
+     "aim": "increase_productivity",
+     "option": "reallocate_a_developer_day_each_week_to_technical_leadership",
+     "olumi_share": 0.4415187478876984,
+     "person_share": 0,
+     "unassigned": 0.5584812521123016
+    }
+   ],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘increase productivity’."
+    }
+   ]
+  },
+  "edit_base": 22,
+  "holdable": [],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "unsized",
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "team_delivery_throughput_change",
+   "value": 10,
+   "unit": "%",
+   "text": "at least 10%",
+   "title": "10%",
+   "side": "at_least"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "One risk captured, all Olumi's so far.",
+    "emphasis": "A pre-mortem typically surfaces failure modes you have not listed.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": false,
+  "heading": "Team views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own view, private until revealed",
+  "can_reveal": false,
+  "waiting": "waiting for Candidate check, Probe",
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Candidate check"
+   },
+   {
+    "id": "23",
+    "name": "Probe"
+   },
+   {
+    "id": "25",
+    "name": "Probe"
+   }
+  ],
+  "records": [
+   {
+    "id": "developers",
+    "family": "quantity",
+    "label": "Developers"
+   },
+   {
+    "id": "tech_leads_added",
+    "family": "quantity",
+    "label": "Tech leads added"
+   },
+   {
+    "id": "tech_leads_added_hire_a_tech_lead",
+    "family": "quantity",
+    "label": "Tech leads added: Hire a Tech lead"
+   },
+   {
+    "id": "developers_added",
+    "family": "quantity",
+    "label": "Developers added"
+   },
+   {
+    "id": "developers_added_hire_two_developers",
+    "family": "quantity",
+    "label": "Developers added: Hire two developers"
+   },
+   {
+    "id": "developer_time_allocated_to_technical_leadership_added",
+    "family": "quantity",
+    "label": "Developer time allocated to technical leadership added"
+   },
+   {
+    "id": "developer_time_allocated_to_technical_leadership_added_reallocat",
+    "family": "quantity",
+    "label": "Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership"
+   },
+   {
+    "id": "hire_a_tech_lead",
+    "family": "option",
+    "label": "Hire a Tech lead"
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "label": "Hire two developers"
+   },
+   {
+    "id": "reallocate_a_developer_day_each_week_to_technical_leadership",
+    "family": "option",
+    "label": "Reallocate a developer-day each week to technical leadership"
+   },
+   {
+    "id": "developers_with_the_option",
+    "family": "quantity",
+    "label": "Developers with the option"
+   },
+   {
+    "id": "developers_with_the_option_sum",
+    "family": "relation",
+    "label": "how Developers with the option is worked out"
+   },
+   {
+    "id": "team_delivery_throughput_change",
+    "family": "quantity",
+    "label": "Change in Team delivery throughput"
+   },
+   {
+    "id": "output_per_developer",
+    "family": "left_out",
+    "label": "Output per developer",
+    "why": "Total team throughput can rise through additional staffing without improving individual productivity.",
+    "quote": null
+   },
+   {
+    "id": "increase_productivity_target",
+    "family": "quantity",
+    "label": "Target: increase productivity"
+   },
+   {
+    "id": "time_to_the_urgent_launch",
+    "family": "quantity",
+    "label": "Time to the urgent launch"
+   },
+   {
+    "id": "increase_productivity",
+    "family": "goal",
+    "label": "increase productivity"
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change",
+    "family": "quantity",
+    "label": "Change in Escaped defects per delivered change"
+   },
+   {
+    "id": "maintainability_and_architectural_quality",
+    "family": "left_out",
+    "label": "Maintainability and architectural quality",
+    "why": "Escaped defects do not capture all longer-term effects of technical decisions.",
+    "quote": null
+   },
+   {
+    "id": "maintaining_code_quality_bound",
+    "family": "quantity",
+    "label": "Olumi reading: no increase in escaped-defect rate"
+   },
+   {
+    "id": "maintaining_code_quality",
+    "family": "limit",
+    "label": "maintaining code quality"
+   },
+   {
+    "id": "additional_staffing_spend_change",
+    "family": "quantity",
+    "label": "Change in Additional staffing spend"
+   },
+   {
+    "id": "budget_bound",
+    "family": "quantity",
+    "label": "Bound: budget"
+   },
+   {
+    "id": "budget",
+    "family": "limit",
+    "label": "budget"
+   },
+   {
+    "id": "team_delivery_throughput_change_per_person",
+    "family": "quantity",
+    "label": "Change in Team delivery throughput per person added"
+   },
+   {
+    "id": "team_delivery_throughput_change_per_share_of_developers",
+    "family": "quantity",
+    "label": "Change in Team delivery throughput if developers grew by as many again as there are now"
+   },
+   {
+    "id": "developers_added_as_a_share_of_developers_now",
+    "family": "quantity",
+    "label": "Developers added as a share of developers now"
+   },
+   {
+    "id": "developers_added_as_a_share_of_developers_now_def",
+    "family": "relation",
+    "label": "how Developers added as a share of developers now is worked out"
+   },
+   {
+    "id": "team_delivery_throughput_change_per_day_week",
+    "family": "quantity",
+    "label": "Change in Team delivery throughput per day/week added"
+   },
+   {
+    "id": "no_change_percent",
+    "family": "quantity",
+    "label": "No change (%)"
+   },
+   {
+    "id": "team_delivery_throughput_change_from_the_options",
+    "family": "relation",
+    "label": "how Change in Team delivery throughput is worked out"
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change_per_person",
+    "family": "quantity",
+    "label": "Change in Escaped defects per delivered change per person added"
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change_per_share_of_develop",
+    "family": "quantity",
+    "label": "Change in Escaped defects per delivered change if developers grew by as many again as there are now"
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change_per_day_week",
+    "family": "quantity",
+    "label": "Change in Escaped defects per delivered change per day/week added"
+   },
+   {
+    "id": "escaped_defects_per_delivered_change_change_from_the_options",
+    "family": "relation",
+    "label": "how Change in Escaped defects per delivered change is worked out"
+   },
+   {
+    "id": "additional_staffing_spend_change_per_person",
+    "family": "quantity",
+    "label": "Change in Additional staffing spend per person added"
+   },
+   {
+    "id": "additional_staffing_spend_change_per_developer",
+    "family": "quantity",
+    "label": "Change in Additional staffing spend per developer added"
+   },
+   {
+    "id": "additional_staffing_spend_change_per_day_week",
+    "family": "quantity",
+    "label": "Change in Additional staffing spend per day/week added"
+   },
+   {
+    "id": "no_change_gbp",
+    "family": "quantity",
+    "label": "No change (GBP)"
+   },
+   {
+    "id": "additional_staffing_spend_change_from_the_options",
+    "family": "relation",
+    "label": "how Change in Additional staffing spend is worked out"
+   },
+   {
+    "id": "lower_additional_staffing_spend",
+    "family": "preference",
+    "label": "Change in Additional staffing spend: lower"
+   },
+   {
+    "id": "onboarding_absorbs_existing_developer_time_chance",
+    "family": "quantity",
+    "label": "Chance: Onboarding absorbs existing developer time"
+   },
+   {
+    "id": "onboarding_absorbs_existing_developer_time_factor",
+    "family": "quantity",
+    "label": "Share kept if it happens: Onboarding absorbs existing developer time"
+   },
+   {
+    "id": "onboarding_absorbs_existing_developer_time",
+    "family": "risk",
+    "label": "Onboarding absorbs existing developer time"
+   },
+   {
+    "id": "writer_so_we_re_lacking_leadership",
+    "family": "claim",
+    "label": "so we're lacking leadership"
+   },
+   {
+    "id": "writer_we_d_like_to_spend_less",
+    "family": "claim",
+    "label": "we'd like to spend less"
+   },
+   {
+    "id": "does_the_delivery_bottleneck_actually_come_from_missing_technica",
+    "family": "condition",
+    "label": "Does the delivery bottleneck actually come from missing technical leadership, rather than unclear requirements, external dependencies or limited implementation capacity?"
+   },
+   {
+    "id": "whether_the_launch_itself_lands_on_time",
+    "family": "left_out",
+    "label": "Whether the launch itself lands on time",
+    "why": "The launch supplies the evaluation horizon, but no remaining scope or delivery forecast is given to connect a productivity gain to launch completion.",
+    "quote": null
+   },
+   {
+    "id": "budget_period_and_cost_coverage",
+    "family": "left_out",
+    "label": "Budget period and cost coverage",
+    "why": "A launch-period budget and an annual employment budget imply different affordability comparisons; recruitment fees and employer costs may also matter.",
+    "quote": null
+   },
+   {
+    "id": "individual_candidate_capability_and_availability",
+    "family": "left_out",
+    "label": "Individual candidate capability and availability",
+    "why": "Role titles do not establish leadership effectiveness, coding contribution or how soon a suitable person can start.",
+    "quote": null
+   },
+   {
+    "id": "weekly_churn",
+    "family": "quantity",
+    "label": "Weekly churn"
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in these draws",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": "What do you know that others may not?",
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 7,
+   "by": "Candidate check",
+   "version": "earlier: version 1",
+   "earlier": true,
+   "status": null,
+   "said": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality? We have an urgent launch date in the next three months. We currently have six mid-weight developers, so we're lacking leadership. Our budget is £200,000, but we'd like to spend less.",
+   "answer": {
+    "answer": [
+     {
+      "text": "If Olumi’s estimates hold, hiring a Tech lead has a about 23% (about 36% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time') (if Olumi's estimates hold) chance of meeting your productivity target, versus about 20% (about 33% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time') (if Olumi's estimates hold) for hiring developers. These measure team throughput, not output per developer; code quality remains unchecked "
+     },
+     {
+      "cite": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?"
+     },
+     {
+      "text": ", and launch completion is not modelled."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "The lead’s throughput contribution matters because its assumed level shifts the chance of meeting your target from under 1% if 'Change in Team delivery throughput per person added' is low, about 66% if it is high."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What would change your mind?",
+     "text": [
+      {
+       "text": "What finding about a prospective lead’s availability and ability to unblock delivery before launch would change your estimate of their throughput contribution?"
+      }
+     ],
+     "about": [
+      "team_delivery_throughput_change_per_person"
+     ],
+     "at": "team_delivery_throughput_change_per_person",
+     "newest": false,
+     "move": "what_would_change_your_mind"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 10,
+   "by": "Candidate check",
+   "version": "earlier: version 2",
+   "earlier": true,
+   "status": null,
+   "said": "Candidate check set \"Developers\" to 7.2 developers.",
+   "answer": {
+    "answer": [
+     {
+      "text": "Developers is now 7.2 developers. With a larger baseline team, the same hires add proportionally less capacity, lowering Hire two developers’ productivity chance to about 14% (about 26% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time') (if Olumi's estimates hold), if Olumi’s estimates hold. Code quality remains unchecked "
+     },
+     {
+      "cite": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?"
+     },
+     {
+      "text": "."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "The assumed throughput gain from expanding the developer team matters: its low and high values shift the productivity chance under 1% if 'Change in Team delivery throughput if developers grew by as many again as there are now' is low, about 43% if it is high."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What would change your mind?",
+     "text": [
+      {
+       "text": "What evidence about new developers’ accepted work before launch would make you revise Olumi’s assumed throughput gain?"
+      }
+     ],
+     "about": [
+      "team_delivery_throughput_change_per_share_of_developers"
+     ],
+     "at": "team_delivery_throughput_change_per_share_of_developers",
+     "newest": false,
+     "move": "what_would_change_your_mind"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 16,
+   "by": "Candidate check",
+   "version": "proposal, not approved",
+   "earlier": true,
+   "status": "set aside",
+   "said": "Add a risk that two of our senior engineers leave within the year.",
+   "answer": {
+    "answer": [
+     {
+      "text": "The departure risk is now included using Olumi’s provisional assumptions about losses before launch, not an annual forecast. If Olumi’s estimates hold, productivity chances fall to about 21% (about 33% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time') (if Olumi's estimates hold) for Hire a Tech lead and about 13% (about 24% without Olumi's suggested risk assumption 'Onboarding absorbs existing developer time') (if Olumi's estimates hold) for Hire two developers. Code quality remains unchecked "
+     },
+     {
+      "cite": "'maintaining code quality' is not checked yet: its bound is not supported by what you gave. What figure should it be checked against?"
+     },
+     {
+      "text": "."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Change in Team delivery throughput per person added matters because the lead option’s chance varies across its assumed range: under 1% if 'Change in Team delivery throughput per person added' is low, about 61% if it is high."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What would change your mind?",
+     "text": [
+      {
+       "text": "What evidence about a lead’s contribution before launch would change your view of the throughput gain assumed here?"
+      }
+     ],
+     "about": [
+      "team_delivery_throughput_change_per_person"
+     ],
+     "at": "team_delivery_throughput_change_per_person",
+     "newest": false,
+     "move": "what_would_change_your_mind"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 19,
+   "by": "Candidate check",
+   "version": "earlier: version 3",
+   "earlier": true,
+   "status": null,
+   "said": "Candidate check set \"Developers\" to 8.6 developers.",
+   "answer": null,
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 21,
+   "by": "Candidate check",
+   "version": "version 4",
+   "earlier": false,
+   "status": null,
+   "said": "Candidate check added \"Weekly churn\" at 12 tickets/week.",
+   "answer": null,
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "developers": "Please change “Developers”: ",
+   "tech_leads_added": "Please change “Tech leads added”: ",
+   "tech_leads_added_hire_a_tech_lead": "Please change “Tech leads added: Hire a Tech lead”: ",
+   "developers_added": "Please change “Developers added”: ",
+   "developers_added_hire_two_developers": "Please change “Developers added: Hire two developers”: ",
+   "developer_time_allocated_to_technical_leadership_added": "Please change “Developer time allocated to technical leadership added”: ",
+   "developer_time_allocated_to_technical_leadership_added_reallocat": "Please change “Developer time allocated to technical leadership added: Reallocate a developer-day each week to technical leadership”: ",
+   "hire_a_tech_lead": "Please change “Hire a Tech lead”: ",
+   "hire_two_developers": "Please change “Hire two developers”: ",
+   "reallocate_a_developer_day_each_week_to_technical_leadership": "Please change “Reallocate a developer-day each week to technical leadership”: ",
+   "developers_with_the_option": "Please change “Developers with the option”: ",
+   "developers_with_the_option_sum": "Please change “how Developers with the option is worked out”: ",
+   "team_delivery_throughput_change": "Please change “Change in Team delivery throughput”: ",
+   "output_per_developer": "Please change “Output per developer”: ",
+   "increase_productivity_target": "Please change “Target: increase productivity”: ",
+   "time_to_the_urgent_launch": "Please change “Time to the urgent launch”: ",
+   "increase_productivity": "Please change “increase productivity”: ",
+   "escaped_defects_per_delivered_change_change": "Please change “Change in Escaped defects per delivered change”: ",
+   "maintainability_and_architectural_quality": "Please change “Maintainability and architectural quality”: ",
+   "maintaining_code_quality_bound": "Please change “Olumi reading: no increase in escaped-defect rate”: ",
+   "maintaining_code_quality": "Please change “maintaining code quality”: ",
+   "additional_staffing_spend_change": "Please change “Change in Additional staffing spend”: ",
+   "budget_bound": "Please change “Bound: budget”: ",
+   "budget": "Please change “budget”: ",
+   "team_delivery_throughput_change_per_person": "Please change “Change in Team delivery throughput per person added”: ",
+   "team_delivery_throughput_change_per_share_of_developers": "Please change “Change in Team delivery throughput if developers grew by as many again as there are now”: ",
+   "developers_added_as_a_share_of_developers_now": "Please change “Developers added as a share of developers now”: ",
+   "developers_added_as_a_share_of_developers_now_def": "Please change “how Developers added as a share of developers now is worked out”: ",
+   "team_delivery_throughput_change_per_day_week": "Please change “Change in Team delivery throughput per day/week added”: ",
+   "no_change_percent": "Please change “No change (%)”: ",
+   "team_delivery_throughput_change_from_the_options": "Please change “how Change in Team delivery throughput is worked out”: ",
+   "escaped_defects_per_delivered_change_change_per_person": "Please change “Change in Escaped defects per delivered change per person added”: ",
+   "escaped_defects_per_delivered_change_change_per_share_of_develop": "Please change “Change in Escaped defects per delivered change if developers grew by as many again as there are now”: ",
+   "escaped_defects_per_delivered_change_change_per_day_week": "Please change “Change in Escaped defects per delivered change per day/week added”: ",
+   "escaped_defects_per_delivered_change_change_from_the_options": "Please change “how Change in Escaped defects per delivered change is worked out”: ",
+   "additional_staffing_spend_change_per_person": "Please change “Change in Additional staffing spend per person added”: ",
+   "additional_staffing_spend_change_per_developer": "Please change “Change in Additional staffing spend per developer added”: ",
+   "additional_staffing_spend_change_per_day_week": "Please change “Change in Additional staffing spend per day/week added”: ",
+   "no_change_gbp": "Please change “No change (GBP)”: ",
+   "additional_staffing_spend_change_from_the_options": "Please change “how Change in Additional staffing spend is worked out”: ",
+   "lower_additional_staffing_spend": "Please change “Change in Additional staffing spend: lower”: ",
+   "onboarding_absorbs_existing_developer_time_chance": "Please change “Chance: Onboarding absorbs existing developer time”: ",
+   "onboarding_absorbs_existing_developer_time_factor": "Please change “Share kept if it happens: Onboarding absorbs existing developer time”: ",
+   "onboarding_absorbs_existing_developer_time": "Please change “Onboarding absorbs existing developer time”: ",
+   "writer_so_we_re_lacking_leadership": "Please change “so we're lacking leadership”: ",
+   "writer_we_d_like_to_spend_less": "Please change “we'd like to spend less”: ",
+   "does_the_delivery_bottleneck_actually_come_from_missing_technica": "Please change “Does the delivery bottleneck actually come from missing technical leadership, rather than unclear requirements, external dependencies or limited implementation capacity?”: ",
+   "whether_the_launch_itself_lands_on_time": "Please change “Whether the launch itself lands on time”: ",
+   "budget_period_and_cost_coverage": "Please change “Budget period and cost coverage”: ",
+   "individual_candidate_capability_and_availability": "Please change “Individual candidate capability and availability”: ",
+   "weekly_churn": "Please change “Weekly churn”: "
+  }
+ },
+ "brief": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality? We have an urgent launch date in the next three months. We currently have six mid-weight developers, so we're lacking leadership. Our budget is £200,000, but we'd like to spend less.",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "figure_first",
+    "text": "Let us give our figure first",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": {
+   "offer": {
+    "quantity": "team_delivery_throughput_change_per_person",
+    "label": "Change in Team delivery throughput per person added",
+    "text": "Let us give our figure first"
+   },
+   "given": null,
+   "headings": {
+    "theirs": "Your figure",
+    "olumi": "Olumi's figure",
+    "basis": "Olumi's basis",
+    "seen": "Before you gave yours",
+    "adopted": "Adopted"
+   }
+  },
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-09T04:36:44.305Z",
+  "job": 3,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-09T04:35:18.648Z"
+ },
+ "turn": null,
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 5 to check or set"
+ },
+ "team_presence": {
+  "title": "Candidate check, Probe, Probe (you)",
+  "label": "Team: Candidate check, Probe, Probe (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Candidate check"
+   },
+   {
+    "id": "23",
+    "text": "Probe"
+   },
+   {
+    "id": "25",
+    "text": "Probe (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}

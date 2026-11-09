@@ -344,7 +344,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {perOption ? (
             // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
             // compact, every row whole (R25: no cut text); core's sentence for every option stays the hover of the rows (R3 pristine).
-            <div className={`${typography.viewValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
+            // The rows take the card's whole width (never a narrow column beside the ✎ and the author pill, which wrapped a row one word
+            // to a line: V11 rehearsal, 9 Nov); the ✎ and the pill follow on the next line.
+            <div className={`${typography.viewValue} min-w-0 basis-full space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
               {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>

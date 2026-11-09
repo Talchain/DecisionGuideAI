@@ -440,6 +440,43 @@ export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, que
     for (const id of ids) { places.set(id, { x, y }); x += at(id).width + gapX }
     y += Math.max(...ids.map(below)) + gap
   }
+  // V11 rehearsal (DL 9 Nov, at 1232x704): the opening board shows the question, the aims and the options before any card detail. Where
+  // this board puts any of them outside the room the camera opens on (a large first model: the aims end a tall story at its foot), the head
+  // is organised instead: the question and the aims across the top, the options under them, the story below.
+  const opening = [QUESTION, ...aimsOf(model), ...options]
+  if (room > 0 && roomW > 0 && !headInRoom(places, opening, at, below, room, roomW)) return headFirst(model, rows, opening, options, at, below, roomW)
+  return places
+}
+
+/** Whether every head card lies inside the room the camera opens on: the board's top at the room's top, the head's width within the room. */
+function headInRoom(places: ReadonlyMap<string, { x: number; y: number }>, head: readonly string[], at: (id: string) => Size, below: (id: string) => number, room: number, roomW: number): boolean {
+  let x0 = Infinity, x1 = -Infinity, y1 = 0
+  for (const id of head) { const p = places.get(id); if (p === undefined) continue; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x + at(id).width); y1 = Math.max(y1, p.y + below(id)) }
+  return x1 - x0 <= roomW && y1 <= room
+}
+
+/**
+ * The head first (V11 rehearsal): the question and the aims in one band across the top, the options in the next, each band wrapping at
+ * the room's width; the story's rows below them, the furthest cause first, as `routeTree` orders them. Positions only.
+ */
+function headFirst(model: ViewModel, rows: readonly (readonly string[])[], head: readonly string[], options: readonly string[], at: (id: string) => Size, below: (id: string) => number, roomW: number): Map<string, { x: number; y: number }> {
+  const places = new Map<string, { x: number; y: number }>()
+  const band = (ids: readonly string[], top: number, wrap: boolean): number => {
+    let x = 0, y = top, tall = 0
+    for (const id of ids) {
+      if (wrap && x > 0 && x + at(id).width > roomW) { x = 0; y += tall + TREE_GAP_Y; tall = 0 }
+      places.set(id, { x, y }); x += at(id).width + TREE_GAP_X; tall = Math.max(tall, below(id))
+    }
+    return ids.length === 0 ? top : y + tall
+  }
+  const top = head.filter((id) => !options.includes(id))
+  let y = band(top, 0, true) + TREE_GAP_Y
+  y = band(options, y, true) + TREE_ROOM_Y
+  const placedHead = new Set(head)
+  for (const ids of rows) {
+    const rest = ids.filter((id) => !placedHead.has(id) && model.cards.some((c) => c.id === id))
+    if (rest.length > 0) y = band(rest, y, false) + TREE_GAP_Y
+  }
   return places
 }
 

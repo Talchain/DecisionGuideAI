@@ -14,6 +14,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { WorkspaceShellTabStrip } from '../WorkspaceShellTabStrip'
+// The lane is pinned per row: these rows are the flush dock's (every lane but olumi-core's, whose dock is a fixed 300 px card: the last
+// describe). Without the pin a run with VITE_OLUMI_CORE=1 in its environment would read the other lane's rule.
+const lane = vi.hoisted(() => ({ core: false }))
+vi.mock('../../../../olumiCore/lane', async (orig) => ({ ...(await orig<typeof import('../../../../olumiCore/lane')>()), isOlumiCoreLane: () => lane.core }))
 import { PanelWidthProvider } from '../usePanelWidth'
 import {
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
@@ -181,5 +185,21 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
     cleanup()
     draw(SHELL_TABSTRIP_COMPACT_BELOW_PX)
     expect(screen.queryByTestId('dock-overflow-trigger')).toBeNull()
+  })
+})
+
+describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never cut', () => {
+  afterEach(() => { lane.core = false })
+  it('the 300 px inset dock wraps its tabs to a second row (labels whole, the strip grows), where the flush dock keeps one row', () => {
+    lane.core = true
+    draw(300)
+    const tablist = screen.getByTestId('outputs-dock-tablist')
+    expect(tablist.className).toMatch(/\bflex-wrap\b/)
+    expect(tablist.className).not.toMatch(/\bflex-nowrap\b/)
+    expect(screen.getByTestId('outputs-dock-tabstrip').style.minHeight).toBe('45px')
+    expect(screen.getByTestId('outputs-dock-tabstrip').style.height).toBe('')
+    cleanup(); lane.core = false
+    draw(300)
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-nowrap\b/)
   })
 })

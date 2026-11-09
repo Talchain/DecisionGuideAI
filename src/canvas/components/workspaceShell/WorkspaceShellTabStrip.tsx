@@ -326,6 +326,9 @@ export function WorkspaceShellTabStrip({
   // strip goes compact rather than wrapping into a 2×2 grid.
   const { width } = usePanelWidth()
   const isCompact = width < SHELL_TABSTRIP_COMPACT_BELOW_PX
+  // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
+  // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
+  const wrapTabs = !isCompact || isOlumiCoreLane()
 
   const inspect =
     onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
@@ -384,7 +387,7 @@ export function WorkspaceShellTabStrip({
     <div
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
       className={`flex items-center ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
-      style={{ height: SHELL_TABSTRIP_HEIGHT_PX }}
+      style={isOlumiCoreLane() ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
       <span className={`sr-only ${typography.viewPanelBody}`} aria-live="polite">
@@ -437,7 +440,7 @@ export function WorkspaceShellTabStrip({
       <div
         // gap-0 in both modes: the spacing now lives inside each `flex-auto` tab,
         // so the divider at a tab's edge sits midway between two labels.
-        className={`flex flex-1 min-w-0 gap-0 ${isCompact ? 'flex-nowrap' : 'flex-wrap'}`}
+        className={`flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -515,7 +518,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${isOlumiCoreLane() ? typography.viewPanelMeta : typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${isOlumiCoreLane() ? typography.viewPanelMeta : typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
