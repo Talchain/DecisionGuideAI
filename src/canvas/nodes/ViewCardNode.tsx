@@ -30,6 +30,7 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge, badgeNamed } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
+import { StatedFigure } from '../../olumiView/StatedFigure'
 
 export type ViewCardData = { card: Card }
 
@@ -348,6 +349,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
             // to a line: V11 rehearsal, 9 Nov); the ✎ and the pill follow on the next line.
             <div className={`${typography.viewValue} min-w-0 basis-full space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
+              <StatedFigure id={id} card={card} />
               {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>
           ) : (
