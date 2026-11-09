@@ -154,10 +154,16 @@ describe('the chip replaces TM-04\'s card chip for its link', () => {
     expect(open).toHaveBeenCalledWith('team')
   })
 
-  it('catch: on an earlier version nothing of a link is drawn', async () => {
+  it('catch: on an earlier version nothing of a link is drawn, and nothing is read for it', async () => {
+    // CONTRAST: on the version shown, the folded chip is drawn.
+    show(x2, x2Diff)
+    const now = rails(['add_one'])
+    await waitFor(() => expect(now.querySelector('[data-link-mark]')).not.toBeNull())
+    cleanup(); resetDifferences()
     show(x2, x2Diff, 1)
     const c = rails(['add_one'])
     await new Promise((r) => setTimeout(r, 0))
     expect(c.querySelectorAll('[data-link-mark], [data-differ-chip]').length).toBe(0)
+    expect(useDifferences.getState().key).toBeNull()
   })
 })

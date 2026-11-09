@@ -65,6 +65,21 @@ describe('a link into an aim beside the question runs round the board, through n
     for (const c of board) expect(overlaps(p, size, c), `${JSON.stringify(p)} over ${JSON.stringify(c)}`).toBe(false)
     expect(p.x - size.w / 2 < r.x && r.x < p.x + size.w / 2).toBe(true)
   })
+  it('catch (line chip): past the edge, a chip already out there is stepped past: the link\'s words and its chip never sit on each other', () => {
+    // As above, no point of the climb is clear, so the link's chip (placed first) goes out past the board's edge; then its words, kept clear of
+    // the cards and that chip, step on outward past the chip rather than land on it at the same spot.
+    const wall = [{ x: 1000, y: 0, w: 127, h: 630 }, { x: 907, y: 630, w: 220, h: 600 }]
+    const low = { ...outcomeR, y: 1230 }, board = [aimL, question, aimR, option, outcomeL, riskB, ...wall, low]
+    const r = railOf(low, aimR, board)!, chipSize = { w: 150, h: 24 }, wordsSize = { w: 56, h: 18 }
+    const chip = railWordsAt(r, chipSize, board)
+    const chipBox = { x: chip.x - chipSize.w / 2, y: chip.y - chipSize.h / 2, w: chipSize.w, h: chipSize.h }
+    const words = railWordsAt(r, wordsSize, [...board, chipBox], board)
+    // CONTRAST: kept clear of the cards alone, the words land on the chip.
+    expect(overlaps(railWordsAt(r, wordsSize, board), wordsSize, chipBox)).toBe(true)
+    expect(overlaps(words, wordsSize, chipBox)).toBe(false)
+    for (const c of board) expect(overlaps(words, wordsSize, c)).toBe(false)
+    expect(words.y).toBe(r.y)
+  })
   it('must not change: a small label stays on its rail at the middle of the climb', () => {
     const r = railOf(outcomeR, aimR, cards)!
     expect(railWordsAt(r, { w: 20, h: 20 }, cards)).toEqual({ x: r.x, y: r.y })

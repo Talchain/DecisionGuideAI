@@ -19,6 +19,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
+import { useDifferences } from './differences'
 
 export type LinkMark = NonNullable<View['collab']['link_marks']>[number]
 type LinkRef = { readonly record: string; readonly part: string | null }
@@ -28,7 +29,8 @@ export const linkKeyOf = (l: LinkRef): string => `link:${l.record}${l.part ? `:$
 
 const NONE: readonly LinkMark[] = []
 const said = (x: unknown): x is string => typeof x === 'string' && x !== ''
-const sameLink = (a: LinkRef | null | undefined, b: LinkRef): boolean => a != null && a.record === b.record && (a.part ?? null) === (b.part ?? null)
+/** One link: the same record and the same part (no part, whether core says null or '', is one and the same, as in `linkKeyOf`). */
+const sameLink = (a: LinkRef | null | undefined, b: LinkRef): boolean => a != null && a.record === b.record && (a.part || null) === (b.part || null)
 
 /** The View's link marks in core's order, once per link (a second mark for one link is never drawn); a mark whose words are not words is
  *  dropped, never drawn as anything else. */
@@ -88,14 +90,16 @@ export function markHover(m: LinkMark): string {
 
 const quoted = (s: string) => s.replace(/["\\]/g, '\\$&')
 
-/** Selecting a chip opens the dock's Team tab at what the team can do about the link: its difference, where one member doubts it and another
- *  keeps it, else the form where a member says where they stand on a link. Nothing opens on an earlier version. */
+/** Selecting a chip opens the dock's Team tab at what the team can do about the link: its difference (the Team tab's own id for each of
+ *  this link's entries in core's differences, exactly, so another link's never answers), else the form where a member says where they
+ *  stand on a link. Nothing opens on an earlier version. */
 export function openLinkMark(m: LinkMark): void {
   if (useViewStore.getState().at !== null) return
   useUIStore.getState().forceActivateOutputTab('team')
-  const k = quoted(linkKeyOf(m.link))
+  const key = linkKeyOf(m.link)
+  const ids = (useDifferences.getState().data?.differences ?? []).filter((d) => d.record === key).map((d) => `team-difference-${d.record}${d.goal ? `-${d.goal}` : ''}`)
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const at = document.querySelector(`[data-testid="team-difference-${k}"], [data-testid^="team-difference-${k}-"]`) ?? document.querySelector('[data-testid="team-link-stance"]')
+    const at = ids.map((id) => document.querySelector(`[data-testid="${quoted(id)}"]`)).find((e) => e !== null) ?? document.querySelector('[data-testid="team-link-stance"]')
     at?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }))
 }

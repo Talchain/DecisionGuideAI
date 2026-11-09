@@ -146,7 +146,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...wordsClear, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, wordsClear, midX, midY])
-  const drawn = driver || focused || removing || linkDrawn(link, active)
+  // A link someone said they doubt or keep is drawn at rest with its chip, a reason link too (which otherwise shows only while one of its
+  // cards is hovered or selected): its chip is that link's one mark, and it would vanish under the pointer on its way to it.
+  const drawn = driver || focused || removing || mark !== null || linkDrawn(link, active)
   // The chip's box, once drawn and measured, for the words of every link and the chips after it; taken back when it goes.
   const shownChip = mark !== null && drawn && chipAt !== null && chip.w > 0
   useLayoutEffect(() => {

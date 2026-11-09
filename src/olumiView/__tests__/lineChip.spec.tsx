@@ -9,7 +9,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { Position, ReactFlowProvider, type Node } from '@xyflow/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
@@ -23,7 +23,8 @@ const links = view.model!.links
 const [ana, cara] = linkMarksOf(view)
 /** The chip's and the words' drawn sizes (jsdom lays nothing out; the browser witness measures the real ones). */
 const CHIP = { w: 150, h: 24 }, WORDS = { w: 56, h: 18 }
-const sizeOf = (el: HTMLElement) => (el.hasAttribute('data-link-mark-on') ? CHIP : el.hasAttribute('data-view-link-words') ? WORDS : { w: 0, h: 0 })
+const CTL = { w: 90, h: 24 }
+const sizeOf = (el: HTMLElement) => (el.hasAttribute('data-link-mark-on') ? CHIP : el.hasAttribute('data-view-link-words') ? WORDS : el.hasAttribute('data-link-remove-at') ? CTL : { w: 0, h: 0 })
 
 beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) { return sizeOf(this).w })
@@ -34,14 +35,20 @@ afterEach(() => { cleanup(); useLineChips.setState({ chips: {} }); vi.restoreAll
 
 // Every link's two cards, well away from the one path all three are drawn on (so the cards leave the middle free).
 const far = (id: string, k: number): Node => ({ id, position: { x: 2000 + 300 * k, y: 0 }, data: {}, width: 220, height: 100, measured: { width: 220, height: 100 } })
-const ids = [...new Set([0, 1, 8].flatMap((i) => [links[i]!.from, links[i]!.to]))]
+/** A reason link that is neither challenged nor proposed: drawn at rest only while it carries a chip. */
+const REASON = links.findIndex((l) => l.kind === 'reason' && !l.alert && !l.proposed)
+const ids = [...new Set([0, 1, 8, REASON].flatMap((i) => [links[i]!.from, links[i]!.to]))]
 const nodes: Node[] = ids.map((id, k) => far(id, k))
+/** A card lying on the path (flow units), for the rows where the middle is not free. */
+const lying = (x: number, y: number, w: number, h: number): Node => ({ id: 'lying', position: { x, y }, data: {}, width: w, height: h, measured: { width: w, height: h } })
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
-/** The links drawn, each on the path from (110, 100) down to (110, 500). */
-const draw = (is: readonly number[]) => render(<ReactFlowProvider initialNodes={nodes}><EdgeLabelLayer><svg>
+/** The links drawn, each on the path from (110, 100) down to (110, 500); `selected` links are selected. */
+const edges = (is: readonly number[], selected: readonly number[] = []) => <svg>
   {is.map((i) => <Edge key={i} id={`e${i}`} source={links[i]!.from} target={links[i]!.to} sourceX={110} sourceY={100} targetX={110} targetY={500}
-    sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: links[i], i }} />)}
-</svg></EdgeLabelLayer></ReactFlowProvider>).container
+    sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: links[i], i }} selected={selected.includes(i)} />)}
+</svg>
+const draw = (is: readonly number[], extra: readonly Node[] = [], selected: readonly number[] = []) =>
+  render(<ReactFlowProvider initialNodes={[...nodes, ...extra]}><EdgeLabelLayer>{edges(is, selected)}</EdgeLabelLayer></ReactFlowProvider>).container
 const at = (el: Element | null, size: { w: number; h: number }) => {
   const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)\s*$/.exec((el as HTMLElement).style.transform)!
   return { x: Number(m[1]) - size.w / 2, y: Number(m[2]) - size.h / 2, w: size.w, h: size.h }
@@ -86,6 +93,23 @@ describe('core\'s one chip per link, on its line', () => {
     expect(chipOf(c, 0)).toEqual({ x: 110 - CHIP.w / 2, y: 300 - CHIP.h / 2, ...CHIP }) // the chip did not move for the words
   })
 
+  it('a reason link someone doubts is drawn at rest with its chip (otherwise a reason link shows only while a card of it is active)', async () => {
+    // A reason link core holds no stance on; give it links.0's hold, as a core holding a stance on it would.
+    const reason = REASON
+    const held = structuredClone(view)
+    held.model!.links[reason]!.holds = held.model!.links[0]!.holds
+    held.model!.links[0]!.holds = null
+    // CONTRAST: as served (no stance on it), the reason link is not drawn at rest.
+    const plain = draw([reason])
+    expect(plain.querySelector(`[data-view-link="links.${reason}"]`)).toBeNull()
+    cleanup()
+    useViewStore.setState({ view: held })
+    const c = draw([reason])
+    await waitFor(() => expect(c.querySelector(`[data-link-mark-on="links.${reason}"]`)).toBeVisible())
+    expect(c.querySelector(`[data-view-link="links.${reason}"]`)).not.toBeNull()
+    expect(c.querySelector('[data-link-mark-text]')?.textContent).toBe('Ana doubts this link')
+  })
+
   it('two chips on one stretch of line never sit on each other: the later link\'s chip moves clear of the earlier one\'s', async () => {
     const c = draw([0, 1])
     await waitFor(() => expect(Object.keys(useLineChips.getState().chips).sort()).toEqual(['e0', 'e1']))
@@ -93,7 +117,7 @@ describe('core\'s one chip per link, on its line', () => {
     expect([chipOf(c, 0).y + CHIP.h / 2, chipOf(c, 1).x + CHIP.w / 2]).toEqual([300, 110])
   })
 
-  it('a chip that goes takes its box back, and the words return to their middle', async () => {
+  it('an edge that goes takes its chip\'s box back, and the words return to their middle', async () => {
     const c = draw([0, 8])
     await waitFor(() => expect(meet(wordsOf(c, 8), chipOf(c, 0))).toBe(false))
     cleanup()
@@ -102,9 +126,52 @@ describe('core\'s one chip per link, on its line', () => {
     expect(wordsOf(again, 8)).toEqual({ x: 110 - WORDS.w / 2, y: 300 - WORDS.h / 2, ...WORDS })
   })
 
-  it('catch: on an earlier version no chip is drawn on a line', () => {
+  it('a chip whose mark goes (the edge stays drawn) takes its box back, and the words return to their middle', async () => {
+    const c = draw([0, 8])
+    await waitFor(() => expect(meet(wordsOf(c, 8), chipOf(c, 0))).toBe(false))
+    act(() => { useViewStore.setState({ view: { ...view, collab: { ...view.collab, link_marks: undefined } } }) })
+    await waitFor(() => expect(useLineChips.getState().chips).toEqual({}))
+    expect(c.querySelector('[data-link-mark]')).toBeNull()
+    await waitFor(() => expect(wordsOf(c, 8)).toEqual({ x: 110 - WORDS.w / 2, y: 300 - WORDS.h / 2, ...WORDS }))
+  })
+
+  it('a card on the middle of the line: the chip sits along its line clear of it; with no room by the line at all, it sits at the clear point nearest it, joined by a leader, still shown', async () => {
+    // A card across the middle: the chip moves along its own line, off the card.
+    const across = lying(0, 250, 220, 100)
+    const c = draw([0], [across])
+    await waitFor(() => expect(Object.keys(useLineChips.getState().chips)).toEqual(['e0']))
+    const box = chipOf(c, 0)
+    expect(meet(box, { x: 0, y: 250, w: 220, h: 100 })).toBe(false)
+    expect(box.x + CHIP.w / 2).toBeCloseTo(110, 6) // on its line
+    expect(c.querySelector('[data-link-mark-leader="links.0"]')).toBeNull()
+    cleanup(); useLineChips.setState({ chips: {} })
+    // A card over the whole line: no point by it is clear, so the chip sits off it with a leader, and is shown at rest.
+    const over = lying(0, 90, 220, 420)
+    const d = draw([0], [over])
+    await waitFor(() => expect(Object.keys(useLineChips.getState().chips)).toEqual(['e0']))
+    expect(meet(chipOf(d, 0), { x: 0, y: 90, w: 220, h: 420 })).toBe(false)
+    expect(d.querySelector('[data-link-mark-leader="links.0"]')).not.toBeNull()
+    expect(d.querySelector('[data-link-mark-on="links.0"]')).toBeVisible()
+  })
+
+  it('the remove control of the selected link keeps clear of its chip', async () => {
+    const c = draw([0], [], [0])
+    await waitFor(() => expect(Object.keys(useLineChips.getState().chips)).toEqual(['e0']))
+    await waitFor(() => expect(c.querySelector('[data-link-remove-at="links.0"]')).toBeVisible())
+    const ctl = at(c.querySelector('[data-link-remove-at="links.0"]'), CTL)
+    // CONTRAST: the control's own first choice is the middle of the line, where the chip sits.
+    expect(meet({ x: 110 - CTL.w / 2, y: 300 - CTL.h / 2, ...CTL }, chipOf(c, 0))).toBe(true)
+    expect(meet(ctl, chipOf(c, 0))).toBe(false)
+  })
+
+  it('catch: on an earlier version no chip is drawn on a line', async () => {
+    // CONTRAST: on the version shown, the chip is drawn.
+    const now = draw([0])
+    await waitFor(() => expect(now.querySelector('[data-link-mark]')).not.toBeNull())
+    cleanup(); useLineChips.setState({ chips: {} })
     useViewStore.setState({ at: 1 })
     const c = draw([0, 1])
     expect(c.querySelector('[data-link-mark]')).toBeNull()
+    expect(useLineChips.getState().chips).toEqual({})
   })
 })
