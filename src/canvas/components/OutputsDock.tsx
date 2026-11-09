@@ -3830,7 +3830,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     exists. */}
                 {/* The olumi-core lane draws each option's lines from core's View (src/olumiView/), never from the adapter's CEE shape. */}
                 {isPreRun && nodes.length > 0 && ((isOlumiCoreLane() && coreView !== null) || viewOnlyChances !== null) && (
-                  <div className="px-4 py-3" data-testid="outputs-pre-run-view-only">
+                  // Round 7 (9 Nov, a probe at 1232): on the olumi-core lane this block is the whole tab and no CEE run ever ends "pre-run",
+                  // so the wrapper above never scrolls; the block scrolls itself, or what is below the fold cannot be reached.
+                  <div className={`${isOlumiCoreLane() ? 'olumi-scrollbar min-h-0 flex-1 overflow-y-auto ' : ''}px-4 py-3`} data-testid="outputs-pre-run-view-only">
                     {/* The View's lines as shown (`shownModel`): the approved model's, or a held proposal's under its heading (R25), drawn
                         with the crafted analysis components ported onto olumi.view/3 (src/olumiView/port/, Paul 7 Nov). */}
                     {isOlumiCoreLane() && coreView !== null ? <PortAnalysisTab /> : viewOnlyChances === null ? null : <ViewOnlyRunChancesBlock chances={viewOnlyChances} />}

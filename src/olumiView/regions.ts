@@ -52,6 +52,16 @@ export function headHeightOf(feet: readonly number[]): number {
   return low === 0 ? 0 : Math.ceil(low + BAND_GAP)
 }
 
+/**
+ * The camera's top inset, never above HEAD (round 7: the suite's hiring board framed 23 px under the band). The fit's padding can be read
+ * before the chips row is placed; then the top-left column's foot (`--chrome-top-left`, as canvas.ts roomOf reads it) plus BAND_GAP stands in.
+ */
+export function frameTop(top: number): number {
+  if (typeof document === 'undefined') return top
+  const column = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-left')) || 0
+  return Math.max(top, regionsOf().head.bottom, column === 0 ? 0 : column + BAND_GAP)
+}
+
 const rectsOf = (sels: readonly string[]) => sels.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect()))
 
 /** The regions as the window draws them now. */

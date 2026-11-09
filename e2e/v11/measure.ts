@@ -4,7 +4,7 @@
  * distinct on-screen type sizes (canvas text at the canvas zoom), controls under 24 px, and the dock's gaps to the header, the window's right
  * edge and its foot (DL 9 Nov: the comp's even 8 px float on every side).
  */
-export type Audit = { cards: number; out: string[]; wordsOver: number; crossings: number; trunc: string[]; sizes: number[]; smallTargets: string[]; dockGaps: { top: number; right: number; bottom: number } | null; underZoom: string[]; underHead: string[]; band: boolean; firstPaint: 'fits' | 'cue' | 'neither' }
+export type Audit = { cards: number; out: string[]; wordsOver: number; crossings: number; trunc: string[]; sizes: number[]; smallTargets: string[]; dockGaps: { top: number; right: number; bottom: number } | null; underZoom: string[]; underHead: string[]; dockClipped: string[]; band: boolean; firstPaint: 'fits' | 'cue' | 'neither' }
 
 export function measure(): Audit {
   const R = (e: Element) => e.getBoundingClientRect()
@@ -45,6 +45,8 @@ export function measure(): Audit {
   // Cards any part of which the zoom panel covers (DL ruling 9 Nov: none, at any audited width).
   const Z = document.querySelector('nav[aria-label="Viewport controls"]')?.getBoundingClientRect() ?? null
   const underZoom = Z === null ? [] : cards.filter((c) => inter(c.r, Z) > 0).map((c) => c.id)
+  // Dock content no one can reach (round 7: the Analysis tab was 928 px in a 499 px box that hides its overflow and nothing scrolled).
+  const dockClipped = dockEl === null ? [] : [dockEl, ...dockEl.querySelectorAll('*')].filter((e) => { const s = getComputedStyle(e); return vis(e) && s.overflowY === 'hidden' && e.clientHeight > 100 && e.scrollHeight > e.clientHeight + 4 }).map((e) => e.getAttribute('data-testid') ?? e.className.toString().slice(0, 40))
   // The layout pass's regions (DL 9 Nov): no card's drawn box is under the head band; and the first paint either shows every card or the
   // more-below cue says how many are below. Drawn boxes, not React Flow's node wrappers.
   const B = document.querySelector('[data-testid="view-canvas-head-band"]')?.getBoundingClientRect() ?? null
@@ -52,7 +54,7 @@ export function measure(): Audit {
   const underHead = B === null ? [] : drawn.filter((c) => inter(c.r, B) > 0).map((c) => c.id)
   const below = drawn.some((c) => c.r.top > innerHeight), cue = document.querySelector('[data-testid="view-below-cue"]') !== null
   const firstPaint = !below ? 'fits' : cue ? 'cue' : 'neither'
-  return { underZoom, underHead, band: B !== null, firstPaint, cards: cards.length, out, wordsOver, crossings, trunc, sizes: [...sizes].sort((a, b) => a - b), smallTargets,
+  return { underZoom, underHead, dockClipped, band: B !== null, firstPaint, cards: cards.length, out, wordsOver, crossings, trunc, sizes: [...sizes].sort((a, b) => a - b), smallTargets,
     dockGaps: D ? { top: Math.round(D.top - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0)), right: Math.round(innerWidth - D.right), bottom: Math.round(innerHeight - D.bottom) } : null }
 }
 

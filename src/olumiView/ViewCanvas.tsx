@@ -39,7 +39,7 @@ import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { BelowCue } from './BelowCue'
 import { CanvasHeadBand } from './CanvasHeadBand'
-import { useCardClearOfRegions } from './regions'
+import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
@@ -71,7 +71,8 @@ function frameFor(nodes: readonly Node[], pane: { width: number; height: number 
   // The top of the causal graph, which the camera centres on when the board is too large to read whole: the question and the options.
   const model = useViewStore.getState().view?.model
   const head = model ? measuredOf(nodes, headOf(model)) : []
-  const insets = paddingToInsets(padding)
+  // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
+  const raw = paddingToInsets(padding), insets = { ...raw, top: frameTop(raw.top) }
   // Too large to read whole: its top at the readable floor. Else whole, its top under the free canvas's top (J1 step 2, camera.ts).
   return readableFirstViewport(bounds, pane, insets, head.length > 0 ? getNodesBounds(head as Node[]) : bounds)
     ?? wholeAtTopViewport(bounds, pane, insets, 1)

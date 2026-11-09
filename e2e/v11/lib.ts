@@ -76,6 +76,7 @@ export async function audit(p: Page, limits: { out: number; crossings: number },
   // The regions (layout pass): the head band is drawn, no card is under it, and the first paint fits or the cue says what is below.
   expect.soft(a.band, `${label}: the head band`).toBe(true)
   expect.soft(a.underHead, `${label}: cards under the head band`).toEqual([])
+  expect.soft(a.dockClipped, `${label}: dock content no one can scroll to`).toEqual([])
   expect.soft(a.firstPaint, `${label}: first paint`).not.toBe('neither')
   expect.soft(a.trunc, `${label}: cut text`).toEqual([])
   expect.soft(a.smallTargets, `${label}: controls under 24 px`).toEqual([])
