@@ -57,4 +57,11 @@ describe('a link that carries a disagreement chip is drawn at rest', () => {
   it('CR4 must not change: on an earlier version the chipped reason link waits for focus again', () => {
     expect(line(edge(viewWith(4, true), 4, 1), 4)).toBeNull()
   })
+  it('CR5 ruling 1: a chipped "+" link keeps its sign\'s colour; the chip alone marks the disagreement', () => {
+    const plain = edge(viewWith(2, false), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
+    cleanup()
+    const marked = edge(viewWith(2, true), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
+    expect(marked).toBe(plain)
+    expect(marked.toLowerCase()).toMatch(/#62b290|rgb\(98, 178, 144\)/)
+  })
 })
