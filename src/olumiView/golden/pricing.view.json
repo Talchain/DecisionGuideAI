@@ -781,7 +781,12 @@
     },
     {
      "text": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
-     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1"
+     }
     }
    ],
    "readings": [],

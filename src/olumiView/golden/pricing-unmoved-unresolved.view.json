@@ -879,15 +879,30 @@
     },
     {
      "text": "about 49%: The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
-     "title": "about 49%: The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month)."
+     "title": "about 49%: The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+     "about": {
+      "kind": "chance",
+      "olumi": true,
+      "fact": "F3"
+     }
     },
     {
      "text": "never met in this model: With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
-     "title": "never met in this model: With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+     "title": "never met in this model: With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+     "about": {
+      "kind": "chance",
+      "olumi": false,
+      "fact": "F5"
+     }
     },
     {
      "text": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
-     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1"
+     }
     }
    ],
    "readings": [],

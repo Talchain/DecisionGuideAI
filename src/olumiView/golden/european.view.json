@@ -1980,71 +1980,156 @@
     },
     {
      "text": "This comparison depends on Olumi's assumed option effects.",
-     "title": "This comparison depends on Olumi's assumed option effects."
+     "title": "This comparison depends on Olumi's assumed option effects.",
+     "about": {
+      "kind": "depends",
+      "olumi": true,
+      "fact": "F49"
+     }
     },
     {
      "text": "about 75%: The chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model.",
-     "title": "about 75%: The chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model."
+     "title": "about 75%: The chance that 'Enter multiple European countries' stays within 'Stay within £500k investment budget', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F14"
+     }
     },
     {
      "text": "about 25%: The chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model.",
-     "title": "about 25%: The chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model."
+     "title": "about 25%: The chance that 'Enter multiple European countries' goes outside 'Stay within £500k investment budget', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F15"
+     }
     },
     {
      "text": "over 99%: The chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model.",
-     "title": "over 99%: The chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model."
+     "title": "over 99%: The chance that 'Test one country before broader commitment' stays within 'Stay within £500k investment budget', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F16"
+     }
     },
     {
      "text": "under 1%: The chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model.",
-     "title": "under 1%: The chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model."
+     "title": "under 1%: The chance that 'Test one country before broader commitment' goes outside 'Stay within £500k investment budget', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F17"
+     }
     },
     {
      "text": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
-     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Stay within £500k investment budget': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "about": {
+      "kind": "limit",
+      "olumi": false,
+      "fact": "F18"
+     }
     },
     {
      "text": "about 64%: The chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
-     "title": "about 64%: The chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+     "title": "about 64%: The chance that 'Enter multiple European countries' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F19"
+     }
     },
     {
      "text": "about 36%: The chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
-     "title": "about 36%: The chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model."
+     "title": "about 36%: The chance that 'Enter multiple European countries' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F20"
+     }
     },
     {
      "text": "about 64%: The chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
-     "title": "about 64%: The chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model."
+     "title": "about 64%: The chance that 'Test one country before broader commitment' stays within 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F21"
+     }
     },
     {
      "text": "about 36%: The chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
-     "title": "about 36%: The chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model."
+     "title": "about 36%: The chance that 'Test one country before broader commitment' goes outside 'Proposed guardrail: churn no higher than 12%', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F22"
+     }
     },
     {
      "text": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
-     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast."
+     "title": "always within in this model: With the model's figures, 'No new European entry during this window' always stays within 'Proposed guardrail: churn no higher than 12%': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F23"
+     }
     },
     {
      "text": "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied.",
-     "title": "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied."
+     "title": "Olumi's what-if for 'New customers from existing markets', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated what-if, not a forecast: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No sector or acquisition history was supplied.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1"
+     }
     },
     {
      "text": "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied.",
-     "title": "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied."
+     "title": "Olumi's what-if for 'Broader-entry acquisition what-if', not their figure: 10 to 160 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated incremental acquisition what-if after entry: an initial 20–80 customers/month guess widened twofold on a ratio scale to 10–160. No demand, funnel or country data was supplied.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2"
+     }
     },
     {
      "text": "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand.",
-     "title": "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand."
+     "title": "Olumi's what-if for 'Single-country test acquisition what-if', not their figure: 2.5 to 40 customers/month. Basis: no typical rate known; replace with your figure. Uncalibrated average monthly acquisition what-if: an initial 5–20 guess widened twofold on a ratio scale to 2.5–40. The smaller scale is a proposed test design, not evidence of country demand.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F3"
+     }
     },
     {
      "text": "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.25%. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified.",
-     "title": "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.25%. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified."
+     "title": "Olumi's what-if for 'Post-entry churn what-if', not their figure: 4 to 20.25%. Basis: no typical rate known; replace with your figure. Uncalibrated stress range, not a prediction of expansion's effect: an initial 6–13.5% guess widened twofold on a ratio scale to 4–20.25%. The supplied subscription-business benchmark is not applied because the business model is unspecified.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F4"
+     }
     },
     {
      "text": "Olumi's what-if for 'Broader-entry investment what-if', not their figure: £50,000 to £800,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost.",
-     "title": "Olumi's what-if for 'Broader-entry investment what-if', not their figure: £50,000 to £800,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost."
+     "title": "Olumi's what-if for 'Broader-entry investment what-if', not their figure: £50,000 to £800,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment what-if including setup, localisation, compliance and launch activity: an initial £100,000–£400,000 guess widened twofold on a ratio scale to £50,000–£800,000. The stated budget is a ceiling, not evidence of actual cost.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F5"
+     }
     },
     {
      "text": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation.",
-     "title": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation."
+     "title": "Olumi's what-if for 'Single-country test investment what-if', not their figure: £12,500 to £200,000. Basis: no typical rate known; replace with your figure. Uncalibrated total commitment for a deliberately narrower test: an initial £25,000–£100,000 guess widened twofold on a ratio scale to £12,500–£200,000. This is not a supplier quote or a spending recommendation.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F6"
+     }
     }
    ],
    "readings": [

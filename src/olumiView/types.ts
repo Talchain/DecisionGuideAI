@@ -356,6 +356,11 @@ export type View = {
       notes: Array<{
         text: string
         title: string
+        about?: {
+          kind: string
+          olumi: boolean
+          fact: string
+        }
       }>
       shared_rests?: Array<{
         aim_id: string

@@ -1944,6 +1944,26 @@
              },
              "title": {
               "type": "string"
+             },
+             "about": {
+              "type": "object",
+              "properties": {
+               "kind": {
+                "type": "string"
+               },
+               "olumi": {
+                "type": "boolean"
+               },
+               "fact": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "kind",
+               "olumi",
+               "fact"
+              ],
+              "additionalProperties": false
              }
             },
             "required": [
