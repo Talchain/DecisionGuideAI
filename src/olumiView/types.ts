@@ -861,10 +861,6 @@ export type View = {
         at: string | null
         newest: boolean
         move: string
-        choices?: Array<{
-          label: string
-          kind: "answer" | "own" | "unsure"
-        }>
       }
       stories: Array<{
         text: string

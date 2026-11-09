@@ -4718,30 +4718,6 @@
            },
            "move": {
             "type": "string"
-           },
-           "choices": {
-            "type": "array",
-            "items": {
-             "type": "object",
-             "properties": {
-              "label": {
-               "type": "string"
-              },
-              "kind": {
-               "type": "string",
-               "enum": [
-                "answer",
-                "own",
-                "unsure"
-               ]
-              }
-             },
-             "required": [
-              "label",
-              "kind"
-             ],
-             "additionalProperties": false
-            }
            }
           },
           "required": [
