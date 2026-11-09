@@ -31,6 +31,7 @@ const withStories = (stories = true, mine = false): View => ({
   model: { ...base.model!, cards: base.model!.cards.map((c) => ({ ...c, ...(stories ? failedOn[c.id] : {}) }) as ViewCard) },
   chat: mine ? [...base.chat, { ...base.chat[0]!, id: 99, by: base.you, by_id: base.you_id, said: MINE, answer: null }] : base.chat,
 })
+const headingOf = (id: string) => base.model!.cards.find((c) => c.id === id)!.heading
 const show = (v: View) => { useViewStore.setState({ view: v }); useViewLens.setState({ lens: 'premortem' }); useViewChat.setState({ text: '' }); return render(<ViewPreMortemKey />) }
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useViewLens.setState({ lens: 'full' }); useViewChat.setState({ text: '' }) })
 
@@ -70,8 +71,9 @@ describe('the "If it failed" lens on the lane', () => {
     expect(items.map((li) => li.querySelector('[data-testid="view-premortem-story-text"]')?.textContent)).toEqual([S1, S2])
     expect(items.map((li) => li.querySelector('[title]')?.textContent)).toEqual(['◆1 ', '◆2 '])
     expect(items.map((li) => li.querySelector('[data-testid="view-premortem-rests"]')?.textContent)).toEqual([
-      'Rests on: per specialist, Add one specialist, start delay',
-      'Rests on: start delay',
+      // Each card in its own heading, by id (headings start with a capital since core bec1d6ce name-case).
+      `Rests on: ${headingOf('per_specialist')}, ${headingOf('add_one')}, ${headingOf('start_delay')}`,
+      `Rests on: ${headingOf('start_delay')}`,
     ])
     expect(items[0]!.querySelector('[data-testid="view-premortem-control"]')?.textContent).toBe(CONTROL)
     expect(items[1]!.querySelector('[data-testid="view-premortem-control"]')).toBeNull()

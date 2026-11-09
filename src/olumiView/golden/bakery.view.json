@@ -34,7 +34,7 @@
     "id": "base_sales",
     "family": "quantity",
     "glyph": "●",
-    "heading": "base sales",
+    "heading": "Base sales",
     "typed": false,
     "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · 300 loaves/week",
     "col": 1,
@@ -64,7 +64,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "base sales",
+      "text": "Base sales",
       "whole": true,
       "words": "name"
      },
@@ -81,7 +81,7 @@
     "id": "sales_target",
     "family": "quantity",
     "glyph": "●",
-    "heading": "sales target",
+    "heading": "Sales target",
     "typed": false,
     "detail": "sales target · quantity · Theirs: “want to sell at least 360” · 360 loaves/week",
     "col": 1,
@@ -111,7 +111,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "sales target",
+      "text": "Sales target",
       "whole": true,
       "words": "name"
      },
@@ -128,7 +128,7 @@
     "id": "extra_sold_per_oven",
     "family": "quantity",
     "glyph": "●",
-    "heading": "extra sold per oven",
+    "heading": "Extra sold per oven",
     "typed": false,
     "detail": "extra sold per oven · quantity · Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes. · Plausible range: 60 to 90 loaves/week/oven",
     "col": 1,
@@ -161,7 +161,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "extra sold per oven",
+      "text": "Extra sold per oven",
       "whole": true,
       "words": "name"
      },
@@ -178,7 +178,7 @@
     "id": "extra_hours_sold",
     "family": "quantity",
     "glyph": "●",
-    "heading": "extra hours sold",
+    "heading": "Extra hours sold",
     "typed": false,
     "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: 40 to 80 loaves/week",
     "col": 1,
@@ -208,7 +208,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "extra hours sold",
+      "text": "Extra hours sold",
       "whole": true,
       "words": "name"
      },
@@ -225,7 +225,7 @@
     "id": "sales",
     "family": "quantity",
     "glyph": "●",
-    "heading": "sales",
+    "heading": "Sales",
     "typed": false,
     "detail": "sales · quantity · Proposed by Olumi: Olumi's estimate · Worked out from the figures it depends on",
     "col": 2,
@@ -300,7 +300,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "sales",
+      "text": "Sales",
       "whole": true,
       "words": "name"
      },
@@ -317,7 +317,7 @@
     "id": "repair_chance",
     "family": "quantity",
     "glyph": "●",
-    "heading": "repair chance",
+    "heading": "Repair chance",
     "typed": false,
     "detail": "repair chance · quantity · Theirs: “1 in 5 new ovens need a repair in the first months” (our oven supplier) · 0.2",
     "col": 1,
@@ -347,7 +347,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "repair chance",
+      "text": "Repair chance",
       "whole": true,
       "words": "name"
      },
@@ -364,7 +364,7 @@
     "id": "half_capacity",
     "family": "quantity",
     "glyph": "●",
-    "heading": "half capacity",
+    "heading": "Half capacity",
     "typed": false,
     "detail": "half capacity · quantity · Theirs: “then it runs at half capacity” · 0.5",
     "col": 1,
@@ -394,7 +394,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "half capacity",
+      "text": "Half capacity",
       "whole": true,
       "words": "name"
      },
@@ -411,7 +411,7 @@
     "id": "budget",
     "family": "quantity",
     "glyph": "●",
-    "heading": "budget",
+    "heading": "Budget",
     "typed": false,
     "detail": "budget · quantity · Theirs: “We have £3,000 to spend” · £3,000",
     "col": 1,
@@ -441,7 +441,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "budget",
+      "text": "Budget",
       "whole": true,
       "words": "name"
      },
@@ -458,7 +458,7 @@
     "id": "oven_price",
     "family": "quantity",
     "glyph": "●",
-    "heading": "oven price",
+    "heading": "Oven price",
     "typed": false,
     "detail": "oven price · quantity · Theirs: “” · What would the second oven cost?",
     "col": 1,
@@ -488,7 +488,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "oven price",
+      "text": "Oven price",
       "whole": true,
       "words": "name"
      },
@@ -505,7 +505,7 @@
     "id": "fitting",
     "family": "quantity",
     "glyph": "●",
-    "heading": "fitting",
+    "heading": "Fitting",
     "typed": false,
     "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · £400/oven",
     "col": 1,
@@ -535,7 +535,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "fitting",
+      "text": "Fitting",
       "whole": true,
       "words": "name"
      },
@@ -552,7 +552,7 @@
     "id": "spend",
     "family": "quantity",
     "glyph": "●",
-    "heading": "spend",
+    "heading": "Spend",
     "typed": false,
     "detail": "spend · quantity · Proposed by Olumi: Olumi's estimate · Worked out from other figures, but not yet: it waits on oven price",
     "col": 2,
@@ -597,7 +597,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "spend",
+      "text": "Spend",
       "whole": true,
       "words": "name"
      },
@@ -1220,7 +1220,7 @@
     ],
     "effect": {
      "text": "60 to 90 loaves/week/oven",
-     "title": "extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through one oven, ovens added",
+     "title": "Extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through one oven, ovens added",
      "figure": "extra_sold_per_oven"
     },
     "remove": null,
@@ -1259,7 +1259,7 @@
     ],
     "effect": {
      "text": "40 to 80 loaves/week",
-     "title": "extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours switched on, hours on",
+     "title": "Extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours switched on, hours on",
      "figure": "extra_hours_sold"
     },
     "remove": null,

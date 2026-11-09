@@ -101,7 +101,10 @@ describe('"If it failed": Olumi\'s failure stories on the reply they came with (
     shown(withStories(STORIES, 'If it failed'))
     const [first, second] = [...screen.getByTestId('view-chat-stories').querySelectorAll('[data-story]')]
     expect(first!.querySelector('[data-story-option]')?.textContent).toBe('Option: Add one specialist')
-    expect(first!.querySelector('[data-story-rests]')?.textContent).toBe('Rests on: per specialist, start delay')
+    // Each card in its own heading, by id (headings start with a capital since core bec1d6ce name-case).
+    const heading = (id: string) => cap.model!.cards.find((c) => c.id === id)!.heading
+    expect(first!.querySelector('[data-story-rests]')?.textContent).toBe(`Rests on: ${heading('per_specialist')}, ${heading('start_delay')}`)
+    expect(heading('per_specialist'), 'contrast: core\'s heading, not the id').not.toBe('per_specialist')
     expect(second!.querySelector('[data-story-option]')).toBeNull()
     expect(second!.querySelector('[data-story-rests]')).toBeNull()
     expect(screen.getByTestId('view-chat-stories').textContent).not.toContain('not_a_card')

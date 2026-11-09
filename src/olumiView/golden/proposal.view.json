@@ -49,7 +49,7 @@
     "id": "existing_capacity",
     "family": "quantity",
     "glyph": "●",
-    "heading": "existing capacity",
+    "heading": "Existing capacity",
     "typed": false,
     "detail": "existing capacity · quantity · Theirs: “our team resolves 80 tickets a week” · 80 tickets/week",
     "col": 1,
@@ -76,7 +76,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "existing capacity",
+      "text": "Existing capacity",
       "whole": true,
       "words": "name"
      },
@@ -93,7 +93,7 @@
     "id": "per_specialist",
     "family": "quantity",
     "glyph": "●",
-    "heading": "per specialist",
+    "heading": "Per specialist",
     "typed": false,
     "detail": "per specialist · quantity · Theirs: “would add about 25 tickets a week, somewhere between 15 and 35” · Plausible range: 15 to 35 tickets/week/specialist, most likely 25 tickets/week/specialist",
     "col": 1,
@@ -124,7 +124,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "per specialist",
+      "text": "Per specialist",
       "whole": true,
       "words": "name"
      },
@@ -141,7 +141,7 @@
     "id": "one_specialist",
     "family": "quantity",
     "glyph": "●",
-    "heading": "one specialist",
+    "heading": "One specialist",
     "typed": false,
     "detail": "one specialist · quantity · Theirs: “add one specialist” · 1 specialist",
     "col": 1,
@@ -168,7 +168,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "one specialist",
+      "text": "One specialist",
       "whole": true,
       "words": "name"
      },
@@ -185,7 +185,7 @@
     "id": "total_capacity",
     "family": "quantity",
     "glyph": "●",
-    "heading": "total capacity",
+    "heading": "Total capacity",
     "typed": false,
     "detail": "total capacity · quantity · Proposed by Olumi: today plus what is added · Worked out from the figures it depends on",
     "col": 2,
@@ -254,7 +254,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "total capacity",
+      "text": "Total capacity",
       "whole": true,
       "words": "name"
      },
@@ -271,7 +271,7 @@
     "id": "capacity_target",
     "family": "quantity",
     "glyph": "●",
-    "heading": "capacity target",
+    "heading": "Capacity target",
     "typed": false,
     "detail": "capacity target · quantity · Theirs: “at least 100 tickets a week” · 100 tickets/week",
     "col": 1,
@@ -556,7 +556,7 @@
     "id": "deadline",
     "family": "quantity",
     "glyph": "●",
-    "heading": "deadline",
+    "heading": "Deadline",
     "typed": false,
     "detail": "deadline · quantity · Theirs: “In 12 weeks” · 12 weeks",
     "col": 1,
@@ -600,7 +600,7 @@
     "id": "start_delay",
     "family": "quantity",
     "glyph": "●",
-    "heading": "start delay",
+    "heading": "Start delay",
     "typed": false,
     "detail": "start delay · quantity · Theirs: “could only start after 4 weeks” · 4 weeks",
     "col": 1,

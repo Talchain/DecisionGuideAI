@@ -250,7 +250,8 @@ describe('what the driver chances are: said once, and only beside the figures it
   // core a0e144f6: the figure the Run names as what moves an option's chance most is its own card, so on the goldens every marked option names it
   // (before, these figures were folded into a badge, the line was left out and only the markers were drawn). Bound by id and exact heading.
   const figuresOf: Record<string, Record<string, [string, string]>> = {
-    bakery: { second_oven: ['extra_sold_per_oven', 'extra sold per oven'], longer_hours: ['extra_hours_sold', 'extra hours sold'] },
+    // Headings are core's (name-case, core bec1d6ce: a heading starts with a capital by position).
+    bakery: { second_oven: ['extra_sold_per_oven', 'Extra sold per oven'], longer_hours: ['extra_hours_sold', 'Extra hours sold'] },
     european: { broader_entry: ['existing_market_acquisitions', 'New customers from existing markets'], single_country_test: ['existing_market_acquisitions', 'New customers from existing markets'],
       no_new_european_entry: ['existing_market_acquisitions', 'New customers from existing markets'] },
   }

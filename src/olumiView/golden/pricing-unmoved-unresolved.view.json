@@ -34,7 +34,7 @@
     "id": "margin",
     "family": "quantity",
     "glyph": "●",
-    "heading": "margin",
+    "heading": "Margin",
     "typed": false,
     "detail": "margin · quantity · Theirs: “each cup earns us £1.55” · £1.55/cup",
     "col": 1,
@@ -85,7 +85,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "margin",
+      "text": "Margin",
       "whole": true,
       "words": "name"
      },
@@ -102,7 +102,7 @@
     "id": "margin_raised",
     "family": "quantity",
     "glyph": "●",
-    "heading": "margin raised",
+    "heading": "Margin raised",
     "typed": false,
     "detail": "margin raised · quantity · Theirs: “so each cup earns £2.00” · £2/cup",
     "col": 1,
@@ -132,7 +132,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "margin raised",
+      "text": "Margin raised",
       "whole": true,
       "words": "name"
      },
@@ -149,7 +149,7 @@
     "id": "cups_now",
     "family": "quantity",
     "glyph": "●",
-    "heading": "cups now",
+    "heading": "Cups now",
     "typed": false,
     "detail": "cups now · quantity · Theirs: “sells 4,000 coffees a month” · 4,000 cups/month",
     "col": 1,
@@ -179,7 +179,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "cups now",
+      "text": "Cups now",
       "whole": true,
       "words": "name"
      },
@@ -196,7 +196,7 @@
     "id": "profit",
     "family": "quantity",
     "glyph": "●",
-    "heading": "profit",
+    "heading": "Profit",
     "typed": false,
     "detail": "profit · quantity · Proposed by Olumi: Olumi's estimate · Worked out from the figures it depends on",
     "col": 2,
@@ -263,7 +263,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "profit",
+      "text": "Profit",
       "whole": true,
       "words": "name"
      },
@@ -280,7 +280,7 @@
     "id": "profit_target",
     "family": "quantity",
     "glyph": "●",
-    "heading": "profit target",
+    "heading": "Profit target",
     "typed": false,
     "detail": "profit target · quantity · Theirs: “make at least £7,000 a month” · £7,000/month",
     "col": 1,
@@ -310,7 +310,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "profit target",
+      "text": "Profit target",
       "whole": true,
       "words": "name"
      },
@@ -534,7 +534,7 @@
     "id": "cups_kept",
     "family": "quantity",
     "glyph": "●",
-    "heading": "cups kept",
+    "heading": "Cups kept",
     "typed": false,
     "detail": "cups kept · quantity · Theirs: “sells 4,000 coffees a month” · 10,000,000,000,000,000 cups/month",
     "col": 1,
@@ -564,7 +564,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "cups kept",
+      "text": "Cups kept",
       "whole": true,
       "words": "name"
      },
@@ -581,7 +581,7 @@
     "id": "cups_floor",
     "family": "quantity",
     "glyph": "●",
-    "heading": "cups floor",
+    "heading": "Cups floor",
     "typed": false,
     "detail": "cups floor · quantity · Theirs: “sells 4,000 coffees a month” · 10,000,000,000,000,000 cups/month",
     "col": 1,
@@ -611,7 +611,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "cups floor",
+      "text": "Cups floor",
       "whole": true,
       "words": "name"
      },
@@ -790,7 +790,7 @@
     ],
     "effect": {
      "text": "−900 to −100 cups/month",
-     "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
+     "title": "Cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
     },
     "remove": null,
