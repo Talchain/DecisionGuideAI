@@ -9,7 +9,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../client'
 import { useViewStore } from '../store'
-import { optionCards } from '../layout'
+import { drawKindOf, modelGroupsOf, optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
 import { restsOfOption, SEE_CHANCES } from '../reasoning/Rack'
@@ -120,8 +120,13 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       expect(root.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
       for (const g of m.cards.filter((c) => c.family === 'goal')) expect(root.querySelector(`[data-testid="view-reasoning-glance"] [data-view="${g.id}.heading"]`), g.id).not.toBeNull()
       const marked = [...root.querySelectorAll<HTMLElement>('[data-glance-card]')]
-      const through = new Set(m.links.filter((l) => l.kind === 'through').map((l) => l.to)), fig = (o: boolean) => m.cards.filter((c) => c.family === 'quantity' && (through.has(c.id) && !(DRIVERS[golden] ?? []).includes(c.id)) === o)
-      expect(marked.map((e) => e.dataset['glanceCard'])).toEqual([...m.cards.filter((c) => c.family === 'option'), ...fig(false), ...m.cards.filter((c) => c.family === 'risk'), ...fig(true)].map((c) => c.id))
+      // V11 pixel pass (9 Nov): the glance picks as the Model tab's outline does (every card the canvas draws as that kind, assumptions and
+      // conditions aside), so the two never count one kind differently; was figures only for Factors and Outcomes.
+      const kindOf = (kind: string) => m.cards.filter((c) => c.family !== 'assumption' && c.family !== 'condition' && drawKindOf(c, m) === kind)
+      expect(marked.map((e) => e.dataset['glanceCard'])).toEqual(['option', 'factor', 'risk', 'outcome'].flatMap(kindOf).map((c) => c.id))
+      // R24 kept: a figure the options set that feeds another figure and no aim is a driver, glanced with the factors.
+      for (const id of DRIVERS[golden] ?? []) expect(kindOf('factor').map((c) => c.id), id).toContain(id)
+      for (const [glance, group] of [['factor', 'factors'], ['option', 'options']] as const) expect(kindOf(glance).map((c) => c.id), glance).toEqual(modelGroupsOf(m).find((g) => g.id === group)!.cards.map((c) => c.id))
       for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
       // Challenge Your Thinking: exactly the cards core marks challenged.
       expect([...root.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')].map((e) => e.dataset['reasoningChallenge'])).toEqual(m.cards.filter((c) => c.challenged === true).map((c) => c.id))

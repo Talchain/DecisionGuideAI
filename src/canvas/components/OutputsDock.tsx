@@ -4602,7 +4602,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             flag is on and the dock is expanded. flex-shrink-0 prevents the
             body's overflow from clipping these. */}
         {aiPanelV2On && effectiveIsOpen ? (
-          <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-[#FEF9F3]' : ''}`} data-testid="ai-panel-footer-stack">
+          <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-[#FEF9F3]' : ''}${isOlumiCoreLane() ? ' relative shadow-[0_-10px_14px_-10px_rgba(38,38,38,0.16)]' : ''}`} data-testid="ai-panel-footer-stack">
             {revealOpen && effectiveActiveTab === 'team' ? null : <SelectionPill after={isOlumiCoreLane() ? selectedRename : undefined} />}
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
                 one dock, and its rerun bypassed the canonical runner. The

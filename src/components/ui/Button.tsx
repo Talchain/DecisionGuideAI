@@ -16,7 +16,6 @@
  */
 import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { typo } from '../../styles/typography'
-import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'md' | 'sm'
@@ -35,10 +34,6 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   danger: 'bg-transparent text-danger-hover border border-danger/40 hover:bg-panel-hover',
 }
 
-// Paul's look rule "nothing dims" (DL ruling 9 Nov): on the olumi-core lane a disabled button stays solid, an outline in body ink on
-// the panel, and the surface says why beside it; never washed out.
-const DISABLED_SOLID = 'disabled:bg-panel disabled:text-text-body disabled:border-panel-border disabled:hover:bg-panel'
-
 const SIZE_CLASSES: Record<ButtonSize, { typo: 'button' | 'buttonSmall'; pad: string }> = {
   // Extraction-first: `sm` is PanelFooter's exact geometry (buttonSmall + px-4 py-2).
   md: { typo: 'button', pad: 'px-5 py-2.5' },
@@ -56,7 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       className={typo(
         s.typo,
-        `whitespace-nowrap rounded-full ${s.pad} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 disabled:cursor-not-allowed ${isOlumiCoreLane() ? DISABLED_SOLID : 'disabled:opacity-40'} ${VARIANT_CLASSES[variant]} ${className}`,
+        `whitespace-nowrap rounded-full ${s.pad} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 disabled:cursor-not-allowed disabled:opacity-40 ${VARIANT_CLASSES[variant]} ${className}`,
       )}
       {...rest}
     />

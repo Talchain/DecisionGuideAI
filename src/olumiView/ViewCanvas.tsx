@@ -37,6 +37,7 @@ import { useV10Lane, ViewCardV10 } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
+import { BelowCue } from './BelowCue'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
@@ -212,6 +213,8 @@ function ViewFlow() {
       {hasModel ? null : <DraftingBoard />}
       {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
       {hasModel ? <AddFigure /> : null}
+      {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
+      {hasModel ? <BelowCue /> : null}
       {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}
       {hasModel ? <ViewLensBar nav /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}

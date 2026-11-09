@@ -30,7 +30,7 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal, X } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
@@ -51,6 +51,9 @@ import {
  * controls have to read as one set — a control that self-styles differently
  * looks like a button that lost its styling.
  */
+/** The surfaces the olumi-core lane opens from the canvas, as a named panel, never as a tab (DL ruling 9 Nov). */
+const PANEL_ONLY: ReadonlySet<string> = new Set(['diagnostics', 'team'])
+
 const ROW_ICON_CONTROL =
   'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
   `${typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
@@ -330,7 +333,10 @@ export function WorkspaceShellTabStrip({
   // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
   // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
   const coreLane = isOlumiCoreLane()
-  const wrapTabs = !isCompact || coreLane
+  // DL ruling 9 Nov (one entry point each): on the olumi-core lane Model and Team are opened by the canvas's Model · Explore · Team
+  // controls, never by a tab; the dock's tabs are Olumi, Analysis, Reasoning and Compare, one row (their labels need about 210 px).
+  const shown = coreLane ? surfaces.filter(s => !PANEL_ONLY.has(s.id)) : surfaces
+  const wrapTabs = !isCompact
 
   const inspect =
     onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
@@ -358,14 +364,28 @@ export function WorkspaceShellTabStrip({
   const tabRefs = useRef(new Map<OutputTab, HTMLButtonElement | null>())
   const handleTabKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
-      const next = nextTabForKey(surfaces, activeTab, event.key)
+      const next = nextTabForKey(shown, activeTab, event.key)
       if (!next) return
       event.preventDefault()
       onTabClick(next.id)
       tabRefs.current.get(next.id)?.focus()
     },
-    [surfaces, activeTab, onTabClick],
+    [shown, activeTab, onTabClick],
   )
+
+  // The olumi-core lane's Model or Team, opened from the canvas: the panel's name as its header and a close back to Olumi, no tabs.
+  if (coreLane && PANEL_ONLY.has(activeTab)) {
+    const label = surfaces.find(s => s.id === activeTab)?.label ?? ''
+    return (
+      <div className="flex items-center justify-between gap-2 px-3" style={{ minHeight: SHELL_TABSTRIP_HEIGHT_PX }} data-testid="outputs-dock-panel-header">
+        <h2 className={`${typography.viewPanelBody} m-0 font-semibold text-text-header`} data-testid="outputs-dock-panel-title">{label}</h2>
+        <button type="button" onClick={() => onTabClick('olumi' as OutputTab)} aria-label={`Close ${label}`} data-testid="outputs-dock-panel-close"
+          className={`${ROW_ICON_CONTROL} border-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+          <X className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    )
+  }
 
   return (
     // ⚠ THE OUTER WRAPPER NO LONGER CARRIES `aria-label`. It is a role-less
@@ -388,8 +408,7 @@ export function WorkspaceShellTabStrip({
     // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
     <div
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
-      // V11 pixel pass (9 Nov): on the olumi-core lane the tabs are a grid of two even rows, so the row controls sit beside the first row.
-      className={`flex ${coreLane ? 'items-start' : 'items-center'} ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
+      className={`flex items-center ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
       style={coreLane ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
@@ -443,13 +462,12 @@ export function WorkspaceShellTabStrip({
       <div
         // gap-0 in both modes: the spacing now lives inside each `flex-auto` tab,
         // so the divider at a tab's edge sits midway between two labels.
-        // The olumi-core lane: three even columns, two rows (Paul 14 Oct, tabs spread evenly), never a ragged wrap.
-        className={coreLane ? 'grid flex-1 min-w-0 grid-cols-3 gap-0' : `flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
+        className={`flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
       >
-        {surfaces.map(surface => {
+        {shown.map(surface => {
           const isActive = activeTab === surface.id
           return (
             <button
@@ -522,7 +540,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border ${coreLane ? `[&:nth-child(3n+1)]:before:hidden ${typography.viewPanelMeta} focus-visible:ring-text-header` : `first:before:hidden ${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive

@@ -49,6 +49,15 @@ export const wholeOnBoard = (p: Page) => p.evaluate(() => {
 export async function openTab(p: Page, tab: string): Promise<void> {
   const allTabs = p.getByTestId('brief-panel-all-tabs')
   if (await allTabs.count()) { await allTabs.click(); await p.waitForTimeout(800) }
+  // DL ruling 9 Nov: Model and Team are opened from the canvas's Model · Explore · Team controls, as a named panel, not a dock tab.
+  if (tab === 'diagnostics' || tab === 'team') {
+    await p.getByTestId(tab === 'team' ? 'lens-bar-team' : 'lens-bar-full').click(); await p.waitForTimeout(1000)
+    await expect(p.getByTestId('outputs-dock-panel-title')).toHaveText(tab === 'team' ? 'Team' : 'Model')
+    return
+  }
+  // From the Model or Team panel the dock's tabs come back by the panel's close.
+  const close = p.getByTestId('outputs-dock-panel-close')
+  if (await close.count()) { await close.click(); await p.waitForTimeout(600) }
   await p.getByTestId(`outputs-dock-tab-${tab}`).click(); await p.waitForTimeout(1000)
 }
 
@@ -74,14 +83,13 @@ export async function audit(p: Page, limits: { out: number; crossings: number },
   const allTabs = p.getByTestId('brief-panel-all-tabs')
   if (await allTabs.count()) { await allTabs.click(); await p.waitForTimeout(800) }
   for (const tab of ['results', 'analysisNew', 'compare', 'diagnostics', 'team']) {
-    const t = p.getByTestId(`outputs-dock-tab-${tab}`)
-    await expect(t, `${label}: the ${tab} tab is drawn`).toBeVisible()
-    await t.click(); await expect(t).toHaveAttribute('aria-selected', 'true'); await p.waitForTimeout(1000)
+    await openTab(p, tab)
+    if (tab !== 'diagnostics' && tab !== 'team') await expect(p.getByTestId(`outputs-dock-tab-${tab}`), `${label}: the ${tab} tab is selected`).toHaveAttribute('aria-selected', 'true')
     const m = await p.evaluate(measure)
     expect.soft(m.trunc, `${label} ${tab}: cut text`).toEqual([])
     expect.soft(m.sizes.filter((s) => ![12, 14, 18].includes(s)), `${label} ${tab}: type sizes off 12/14/18`).toEqual([])
     dockFloats(m, `${label} ${tab}`)
   }
-  await p.getByTestId('outputs-dock-tab-olumi').click()
+  await openTab(p, 'olumi')
   return a
 }

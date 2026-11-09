@@ -48,7 +48,9 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
       <div className={CARD}>
         <label htmlFor="team-invite-name" className={LABEL}>Their name</label>
         <input id="team-invite-name" data-testid="team-invite-name" className={FIELD} value={name} disabled={busy || sending || locked} autoComplete="off" onChange={(e) => setName(e.target.value)} />
-        <div><Button size="sm" data-testid="team-invite-go" disabled={busy || sending || locked || name.trim() === ''} onClick={() => void invite()}>Make their link</Button></div>
+        <div className="flex flex-wrap items-center gap-3"><Button size="sm" data-testid="team-invite-go" disabled={busy || sending || locked || name.trim() === ''} onClick={() => void invite()}>Make their link</Button>
+          {/* Why it waits (DL ruling 9 Nov: a disabled button says why). */}
+          {busy || sending || locked || name.trim() !== '' ? null : <span className={META} data-testid="team-invite-why">Type their name first</span>}</div>
         {locked ? <p role="alert" className={ERR} data-testid="team-invite-error">{MAY_HAVE_SAVED}</p> : error && <p role="alert" className={ERR} data-testid="team-invite-error">{error}</p>}
       </div>
       {invites.length > 0 && (

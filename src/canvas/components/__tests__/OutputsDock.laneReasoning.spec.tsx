@@ -42,7 +42,9 @@ beforeEach(() => {
   sessionStorage.clear()
   useUIStore.setState({ activeRightPanel: null, activeOutputTab: 'analysisNew' } as never)
   useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }], edges: [], currentScenarioId: UUID, hasCompletedFirstRun: true } as never)
-  useViewStore.setState({ uuid: UUID, sid: view.id, view, error: null, stale: false, status: 'ready' } as never)
+  // Not a held member (`gated`, which the synthetic golden reads true): a held member lands on the Team panel, which on the lane has no
+  // tabs (DL ruling 9 Nov), and this row is about the Reasoning tab.
+  useViewStore.setState({ uuid: UUID, sid: view.id, view: { ...view, gated: false }, error: null, stale: false, status: 'ready' } as never)
 })
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); setTeamFetch(null) })
 

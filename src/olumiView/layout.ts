@@ -813,11 +813,13 @@ export function premisesOnce(model: ViewModel): { premises: { card: ViewCard; p:
 }
 /** The model at a glance, as the previous PoC's strip (side-by-side, 6 Nov): Options, Factors, Risks and Outcomes, each row the cards the
  *  canvas draws as that kind (drawKindOf: a figure core works out from others is an outcome, never a factor), in the View's order; every
- *  row present, empty or not. Only options, risks and figures are counted: a reasoning card (assumption, claim, …) is not one of these. */
+ *  row present, empty or not. Assumptions and conditions are not counted (they are what the others rest on). */
 export type GlanceKind = 'option' | 'factor' | 'risk' | 'outcome'
 export const GLANCE_KINDS: readonly GlanceKind[] = ['option', 'factor', 'risk', 'outcome']
+// V11 pixel pass (9 Nov): one picking with the Model tab's outline (modelGroupsOf: every card the canvas draws as that kind, assumptions
+// and conditions aside), so Reasoning and Model never count the same kind differently (the re-score found Factors 3 against 6 on J1).
 export const glanceRows = (model: ViewModel): { kind: GlanceKind; cards: ViewCard[] }[] =>
-  GLANCE_KINDS.map((kind) => ({ kind, cards: model.cards.filter((c) => (kind === 'option' || kind === 'risk' ? c.family === kind : c.family === 'quantity' && drawKindOf(c, model) === kind)) }))
+  GLANCE_KINDS.map((kind) => ({ kind, cards: model.cards.filter((c) => c.family !== 'assumption' && c.family !== 'condition' && drawKindOf(c, model) === kind) }))
 /** The options whose chance carries core's two driver chances (`driver.low` / `driver.high`, finite): the ones drawn as a marker. */
 export const markedOptions = (model: ViewModel): ViewCard[] => optionCards(model).filter((c) => c.driver != null && c.driver.low !== null && c.driver.high !== null && Number.isFinite(c.driver.low) && Number.isFinite(c.driver.high))
 
