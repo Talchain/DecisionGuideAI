@@ -17,7 +17,7 @@ export function ViewQuestion({ question, width }: ViewQuestionData) {
   const q = question
   return (
     <div
-      className={`relative ${typography.viewLabel} rounded-xl border bg-panel px-3 py-2.5 space-y-1 shadow-[0_2px_4px_rgba(37,37,32,0.02)] ${q.proposed ? 'border-dashed border-info' : 'border-text-light'} ${q.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : ''}`}
+      className={`relative ${typography.viewLabel} rounded-xl border bg-panel px-3 py-2.5 space-y-1 shadow-[0_2px_4px_rgba(37,37,32,0.02)] ${q.proposed ? 'border-info' : 'border-text-light'} ${q.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : ''}`}
       style={{ width }} data-view-question="" data-focus={q.focus || undefined} data-proposed={q.proposed || undefined}
     >
       {/* J1 step 5: the model's question is the board's one 18px headline (Paul's three sizes, 12 / 14 / 18); J1 gate: its shape inline. */}
