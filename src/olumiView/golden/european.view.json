@@ -16,7 +16,8 @@
   "id": 1,
   "n": 1,
   "label": "Version 1",
-  "changed": []
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z"
  },
  "model": {
   "question": {
@@ -76,6 +77,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Current customer base",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -115,6 +124,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Customer target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -187,6 +204,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Expansion start after now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -272,6 +297,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly customer churn",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -324,6 +357,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Churn danger threshold",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -366,6 +407,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "New customers from existing markets",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -400,9 +449,17 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about New customers from existing markets",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: Minimal stock-flow conventions. The brief does not specify revenue churn, cohort behaviour, cannibalisation or management-capacity effects."
     },
     "failed": []
@@ -491,6 +548,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Customer base",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -530,6 +595,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Investment budget ceiling",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -603,6 +676,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Reach 800 customers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -637,9 +718,17 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: Supplies a testable reading while leaving target scope and deadline open for correction."
     },
     "failed": []
@@ -687,6 +776,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Stay within £500k investment budget",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -726,6 +823,14 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Proposed guardrail: churn no higher than 12%",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -931,6 +1036,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Enter multiple European countries",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -977,9 +1090,17 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Prerequisite for Enter multiple European countries",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: Makes the stated country-regulation concern actionable without assuming Europe means the EU or that particular rules apply to this unspecified business."
     },
     "failed": []
@@ -1011,9 +1132,17 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Post-entry churn what-if",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: Avoids claiming that a smaller entry automatically protects retention. The current observation is not evidence that future churn will stay constant."
     },
     "failed": []
@@ -1202,6 +1331,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "Test one country before broader commitment",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -1359,6 +1496,14 @@
       "whose": "olumi"
      }
     ],
+    "face": {
+     "title": {
+      "text": "No new European entry during this window",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -2515,12 +2660,16 @@
    {
     "id": "profit_gap",
     "family": "left_out",
-    "label": "Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated."
+    "label": "Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
+    "why": "Prices, gross margins, acquisition costs, operating costs, cash balance and the definition of losing money are missing.",
+    "quote": null
    },
    {
     "id": "ramp_gap",
     "family": "left_out",
-    "label": "The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision."
+    "label": "The calculation uses an average acquisition rate after entry; it does not model sales ramp, country-specific cohorts, regulatory delays beyond the entry window, or a later scale-up decision.",
+    "why": "Country choices, sales channels and an implementation plan have not been supplied. A late entry may need a longer evaluation horizon than the provisional twelve months.",
+    "quote": null
    },
    {
     "id": "validate_acquisition_cost_pairings",
@@ -2812,7 +2961,8 @@
     "id": "p_1",
     "text": "Paul (you)"
    }
-  ]
+  ],
+  "unjoined": null
  },
  "team_words": {
   "failed": "That did not go through. Nothing was saved.",

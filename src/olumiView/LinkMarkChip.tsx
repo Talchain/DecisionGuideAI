@@ -53,11 +53,6 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
   )
 }
 
-/** Core's marks kept off the line (`line: false`): drawn on the card core names (`card`), in its chip rail. */
-export function cardLinkMarksOf(view: View | null, card: string): LinkMark[] {
-  return view?.collab.link_marks?.filter((m) => !m.line && m.card === card) ?? []
-}
-
 export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (

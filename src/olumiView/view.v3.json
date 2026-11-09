@@ -62,6 +62,9 @@
        "items": {
         "type": "string"
        }
+      },
+      "at": {
+       "type": "string"
       }
      },
      "required": [
@@ -2897,11 +2900,15 @@
           },
           "asked_by": {
            "type": "string"
+          },
+          "by": {
+           "type": "string"
           }
          },
          "required": [
           "evidence",
-          "asked_by"
+          "asked_by",
+          "by"
          ],
          "additionalProperties": false
         },
@@ -3895,6 +3902,15 @@
         ]
        },
        "label": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "why": {
+        "type": "string"
+       },
+       "quote": {
         "type": [
          "string",
          "null"
@@ -6481,6 +6497,32 @@
       ],
       "additionalProperties": false
      }
+    },
+    "unjoined": {
+     "anyOf": [
+      {
+       "type": "object",
+       "properties": {
+        "names": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "text": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "names",
+        "text"
+       ],
+       "additionalProperties": false
+      },
+      {
+       "type": "null"
+      }
+     ]
     }
    },
    "required": [

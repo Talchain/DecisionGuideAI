@@ -1021,3 +1021,16 @@ export function othersOf(view: View): View['members'] {
 export function allBut<T>(list: readonly T[], x: T): T[] {
   return list.filter((y) => y !== x)
 }
+
+type LinkMarkOf = NonNullable<View['collab']['link_marks']>[number]
+/** Core's link marks kept off the line (`line: false`): the ones drawn on the card core names (`card`), in its chip rail (RevealMarks). */
+export function cardLinkMarksOf(view: View | null, card: string): LinkMarkOf[] {
+  return view?.collab.link_marks?.filter((m) => !m.line && m.card === card) ?? []
+}
+
+/** The team's link differences (TM-04) on a link core does not mark: a link core marks is drawn once, by its mark (core's link_marks fold
+ *  the served doubt chip), never again as a difference. */
+export function unmarkedDiffers<D extends { readonly record: string }>(view: View | null, differs: readonly D[]): D[] {
+  const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record))
+  return differs.filter((d) => !marked.has(d.record))
+}

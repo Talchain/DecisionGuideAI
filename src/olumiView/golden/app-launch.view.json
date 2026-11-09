@@ -16,7 +16,8 @@
   "id": 1,
   "n": 1,
   "label": "Version 1",
-  "changed": []
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z"
  },
  "model": {
   "question": {
@@ -73,6 +74,14 @@
     "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Feared review rating",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "The team’s figure",
@@ -122,6 +131,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Broken release prompts one-star reviews",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -184,6 +201,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Explain the release decision without unfair team blame",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -234,6 +259,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Avoid damaging users' experience and trust",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -319,6 +352,14 @@
      }
     ],
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Time available before release",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -379,6 +420,14 @@
     "unused": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Release time minus repair and validation time",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Olumi’s estimate",
@@ -444,6 +493,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Allow time for repair and validation",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -522,6 +579,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep the currently scheduled full release",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -628,6 +693,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Postpone the full update",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "person",
      "text": "Stated by the team",
@@ -674,9 +747,17 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Postpone the full update",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them."
     },
     "failed": []
@@ -766,6 +847,14 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Explore shipping without the affected sync path",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
@@ -824,9 +913,13 @@
     },
     "values": null,
     "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
     "author": {
      "by": "olumi",
-     "text": "Proposed by Olumi",
+     "text": "Olumi inferred",
      "title": "Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change."
     },
     "failed": []
@@ -1396,7 +1489,9 @@
    {
     "id": "schedule_measure_exclusions",
     "family": "left_out",
-    "label": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer."
+    "label": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+    "why": "No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance.",
+    "quote": null
    },
    {
     "id": "option_scheduled",
@@ -1471,7 +1566,9 @@
    {
     "id": "review_rating_numeric_exclusion",
     "family": "left_out",
-    "label": "The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold."
+    "label": "The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
+    "why": "A possible individual review rating does not establish how many users would be affected, how many would post reviews, or the resulting overall rating. It therefore has no justified numerical bearing on the current aims; its qualitative bearing remains represented by the negative-review risk.",
+    "quote": null
    }
   ],
   "dissent": [],
@@ -1736,7 +1833,13 @@
     "id": "p_1",
     "text": "Paul (you)"
    }
-  ]
+  ],
+  "unjoined": {
+   "names": [
+    "Sarah"
+   ],
+   "text": "Named in the brief but not matched to anyone on the team: Sarah"
+  }
  },
  "team_words": {
   "failed": "That did not go through. Nothing was saved.",

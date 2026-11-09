@@ -10,13 +10,13 @@ import { useUIStore } from '../stores/uiStore'
 import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
-import { CARD_WIDTH, evidenceOffChips } from './layout'
+import { CARD_WIDTH, cardLinkMarksOf, evidenceOffChips, unmarkedDiffers } from './layout'
 import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
 import { DifferChip, railLayout, useLinkDiffers } from '../olumiCore/team/CardDiffers'
 import { useRailBoxesRef } from './railBoxes'
-import { cardLinkMarksOf, LinkMarkCardChip } from './LinkMarkChip'
+import { LinkMarkCardChip } from './LinkMarkChip'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
@@ -124,8 +124,8 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   const openChip = openChipOf(revealOf(view), open)
   // The doubted links sit here unless the strategy chip is this card's only rail (then they sit in that one): never a second rail.
   // Core's link marks fold the served doubt chip (TM-04): a link core marks is drawn once, by its mark, never again as a difference here.
-  const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record)), offLine = cardLinkMarksOf(view, card)
-  const differs = useLinkDiffers(card).filter((d) => !marked.has(d.record)), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
+  const offLine = cardLinkMarksOf(view, card)
+  const differs = unmarkedDiffers(view, useLinkDiffers(card)), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
   const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
   // The link words keep clear of this rail's chips as of the card itself (railBoxes.ts).
   const railRef = useRailBoxesRef(`reveal:${card}`, card)
