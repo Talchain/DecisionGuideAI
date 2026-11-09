@@ -360,6 +360,7 @@ export type View = {
           kind: string
           olumi: boolean
           fact: string
+          range: boolean
         }
       }>
       shared_rests?: Array<{

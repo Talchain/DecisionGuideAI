@@ -1335,7 +1335,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F1"
+      "fact": "F1",
+      "range": true
      }
     }
    ],

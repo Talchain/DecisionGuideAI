@@ -1170,7 +1170,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F1"
+      "fact": "F1",
+      "range": true
      }
     },
     {
@@ -1179,7 +1180,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F2"
+      "fact": "F2",
+      "range": true
      }
     },
     {
@@ -1188,7 +1190,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F3"
+      "fact": "F3",
+      "range": true
      }
     },
     {
@@ -1197,7 +1200,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F4"
+      "fact": "F4",
+      "range": true
      }
     },
     {
@@ -1206,7 +1210,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F8"
+      "fact": "F8",
+      "range": false
      }
     }
    ],

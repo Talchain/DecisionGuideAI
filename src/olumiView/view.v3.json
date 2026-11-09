@@ -1956,12 +1956,16 @@
                },
                "fact": {
                 "type": "string"
+               },
+               "range": {
+                "type": "boolean"
                }
               },
               "required": [
                "kind",
                "olumi",
-               "fact"
+               "fact",
+               "range"
               ],
               "additionalProperties": false
              }

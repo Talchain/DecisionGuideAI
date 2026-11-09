@@ -187,12 +187,17 @@ describe('the Run beside the chances says what the base dock said, word for word
       // Row 11 (core e653edb1, 9 Nov): so is what the diamond means (core's RELIANCE_LEAD), said once for the View; core's own oracle test
       // exempts it the same way (view.test.ts). Bound by its exact words, so any other new note still fails here.
       const RELIANCE_LEAD = "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
-      // FM-29 / ownership boundary (core cc1b522e, 9 Nov): a target or bound Olumi chose keeps its input line, said as Olumi's ("Olumi's estimate
-      // of 'X': …"); core's oracle test exempts it by the fact's typed `about`, which the View does not carry, so here by core's fixed opening.
-      const R18 = { test: (t: string) => t === RELIANCE_LEAD || /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: |Olumi's estimate of ')/.test(t) }
-      const drawn = texts(container, '[data-view^="run.notes."]')
-      expect(drawn.filter((t) => !R18.test(t ?? ''))).toEqual(o.notes)
-      expect(drawn.filter((t) => R18.test(t ?? '')), 'every additive R18 note core sends is drawn').toEqual(model.run!.notes.map((x) => x.text).filter((t) => R18.test(t)))
+      // FM-29 / ownership boundary (core cc1b522e, 9 Nov): a target or bound Olumi chose keeps its input line, said as Olumi's. Bound by the
+      // fact core says the note is about (core f6d1fd87, `run.notes[].about`): an input Olumi chose with no range (`range` false; a what-if
+      // always has one), as core's own oracle test binds it (view.test.ts), never by its words.
+      type Note = NonNullable<typeof model.run>['notes'][number]
+      const ownership = (n: Note) => n.about?.kind === 'input' && n.about.olumi && !n.about.range
+      const additive = (n: Note) => n.text === RELIANCE_LEAD || ownership(n) || /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: )/.test(n.text)
+      const notes = model.run!.notes
+      const drawnAt = [...container.querySelectorAll('[data-view^="run.notes."]')].map((e) => ({ i: Number(e.getAttribute('data-view')!.split('.')[2]), text: e.textContent }))
+      expect(drawnAt.every(({ i, text }) => notes[i]?.text === text), 'each note drawn at its own path, verbatim').toBe(true)
+      expect(drawnAt.filter(({ i }) => !additive(notes[i]!)).map((d) => d.text)).toEqual(o.notes)
+      expect(drawnAt.filter(({ i }) => additive(notes[i]!)).map((d) => d.text), 'every additive R18 note core sends is drawn').toEqual(notes.filter(additive).map((x) => x.text))
       if (o.waits_on === null) expect(container.querySelector('[data-testid="view-run-waits-on"]')).toBeNull()
       else {
         // When every option waits (core 534203e on), what they wait on heads the dock (its head and text), not the "Waits on:" line.

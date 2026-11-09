@@ -883,7 +883,8 @@
      "about": {
       "kind": "chance",
       "olumi": true,
-      "fact": "F3"
+      "fact": "F3",
+      "range": false
      }
     },
     {
@@ -892,7 +893,8 @@
      "about": {
       "kind": "chance",
       "olumi": false,
-      "fact": "F5"
+      "fact": "F5",
+      "range": false
      }
     },
     {
@@ -901,7 +903,8 @@
      "about": {
       "kind": "input",
       "olumi": true,
-      "fact": "F1"
+      "fact": "F1",
+      "range": true
      }
     }
    ],
