@@ -316,6 +316,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
             // compact, every row whole (R25: no cut text); core's sentence for every option stays the hover of the rows (R3 pristine).
             <div className={`${typography.viewValue} min-w-0 flex-1 space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate ? `${card.figure.title} · ${card.olumi!.title}` : card.figure.title}
               data-olumi={estimate || undefined} data-view-values={id}>
+              {/* Paul's acceptance step 2 (9 Nov witness): a figure the person typed that no option's own row says (each option keeps its
+                  own value) is still drawn, whole, in core's words above the rows, so the edit visibly lands; equal to a row, it is not
+                  said twice. Only a figure a person stated (core's author): a worked-out figure's run-on sentence stays off (R3 pristine). */}
+              {card.author == null || card.author.by === 'olumi' || card.values!.some((v) => v.text === card.figure!.text) ? null : <p className="text-text-header" data-view={`${id}.figure.text`}>{card.figure.text}</p>}
               {card.values!.map((v, i) => <OptionValueRow key={v.option} at={`${id}.values.${i}.text`} option={v.option} text={v.text} mark={valueMark(v, `${id}.values.${i}`, ifApproved)} />)}
             </div>
           ) : (

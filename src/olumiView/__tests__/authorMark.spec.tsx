@@ -37,3 +37,22 @@ describe('whose figure it is, on the card at rest', () => {
     }
   })
 })
+
+describe('a person\'s figure that each option overrides (acceptance step 2, 9 Nov witness on core f28da2b4)', () => {
+  const base = cards.find((c) => c.figure !== null && (c.values?.length ?? 0) > 1)!
+  it('precondition: the golden has a per-option figure card', () => { expect(base).toBeDefined() })
+  it('catch: the typed figure, said by no option row, is drawn whole above the rows with whose it is', () => {
+    const c = structuredClone(base)
+    c.figure = { ...c.figure!, text: '7 months', title: '7 months' }
+    c.author = { by: 'person', text: 'The team’s figure', title: 'Theirs: “7 month”' }
+    const r = render(<ViewCard card={c} />).container
+    expect(r.querySelector(`[data-view="${c.id}.figure.text"]`)?.textContent).toBe('7 months')
+    expect(r.querySelector(`[data-view="${c.id}.author.text"]`)?.textContent).toBe('The team’s figure')
+    expect(r.querySelectorAll(`[data-view^="${c.id}.values."][data-view$=".text"]`).length).toBe(c.values!.length)
+  })
+  it('must not change: a figure equal to an option\'s row is not said twice', () => {
+    const c = structuredClone(base)
+    c.figure = { ...c.figure!, text: c.values![0]!.text }
+    expect(render(<ViewCard card={c} />).container.querySelector(`[data-view="${c.id}.figure.text"]`)).toBeNull()
+  })
+})
