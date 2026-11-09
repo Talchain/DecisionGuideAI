@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
+import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
@@ -794,7 +795,7 @@ export function nextStepOf(view: View): NextStep | null {
   if (view.proposal !== null) return { kind: 'approve' }
   const item = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
   if (item) return { kind: 'figure', item: item as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  if (view.version !== null && view.collab.alone) return { kind: 'invite' }
+  if (view.version !== null && view.collab.alone && !replyHasNext(view)) return { kind: 'invite' }
   return null
 }
 
