@@ -69,6 +69,17 @@ export type View = {
         edit: {
           prompt: string
           ask: string
+        } | {
+          prompt: string
+          ask: string
+          route: "size"
+          record: string
+          note: string | null
+          fields: Array<{
+            key: "typed" | "chance" | "change"
+            prompt: string
+            ask: string
+          }>
         } | null
       } | null
       premises: Array<{
@@ -260,6 +271,26 @@ export type View = {
         record: string
         part: string | null
       } | null
+      size?: {
+        record: string
+        text: string
+        title: string
+        edit: {
+          prompt: string
+          ask: string
+        } | {
+          prompt: string
+          ask: string
+          route: "size"
+          record: string
+          note: string | null
+          fields: Array<{
+            key: "typed" | "chance" | "change"
+            prompt: string
+            ask: string
+          }>
+        } | null
+      }
     }>
     run: {
       aim: string | null
@@ -307,7 +338,19 @@ export type View = {
           edit: {
             prompt: string
             ask: string
+          } | {
+            prompt: string
+            ask: string
+            route: "size"
+            record: string
+            note: string | null
+            fields: Array<{
+              key: "typed" | "chance" | "change"
+              prompt: string
+              ask: string
+            }>
           } | null
+          stays_in_words?: string
         }>
       } | null
       notes: Array<{

@@ -300,20 +300,85 @@
              "edit": {
               "anyOf": [
                {
-                "type": "object",
-                "properties": {
-                 "prompt": {
-                  "type": "string"
+                "anyOf": [
+                 {
+                  "type": "object",
+                  "properties": {
+                   "prompt": {
+                    "type": "string"
+                   },
+                   "ask": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "prompt",
+                   "ask"
+                  ],
+                  "additionalProperties": false
                  },
-                 "ask": {
-                  "type": "string"
+                 {
+                  "type": "object",
+                  "properties": {
+                   "prompt": {
+                    "type": "string"
+                   },
+                   "ask": {
+                    "type": "string"
+                   },
+                   "route": {
+                    "type": "string",
+                    "const": "size"
+                   },
+                   "record": {
+                    "type": "string"
+                   },
+                   "note": {
+                    "type": [
+                     "string",
+                     "null"
+                    ]
+                   },
+                   "fields": {
+                    "type": "array",
+                    "items": {
+                     "type": "object",
+                     "properties": {
+                      "key": {
+                       "type": "string",
+                       "enum": [
+                        "typed",
+                        "chance",
+                        "change"
+                       ]
+                      },
+                      "prompt": {
+                       "type": "string"
+                      },
+                      "ask": {
+                       "type": "string"
+                      }
+                     },
+                     "required": [
+                      "key",
+                      "prompt",
+                      "ask"
+                     ],
+                     "additionalProperties": false
+                    }
+                   }
+                  },
+                  "required": [
+                   "prompt",
+                   "ask",
+                   "route",
+                   "record",
+                   "note",
+                   "fields"
+                  ],
+                  "additionalProperties": false
                  }
-                },
-                "required": [
-                 "prompt",
-                 "ask"
-                ],
-                "additionalProperties": false
+                ]
                },
                {
                 "type": "null"
@@ -1410,6 +1475,115 @@
             "type": "null"
            }
           ]
+         },
+         "size": {
+          "type": "object",
+          "properties": {
+           "record": {
+            "type": "string"
+           },
+           "text": {
+            "type": "string"
+           },
+           "title": {
+            "type": "string"
+           },
+           "edit": {
+            "anyOf": [
+             {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "prompt": {
+                  "type": "string"
+                 },
+                 "ask": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "prompt",
+                 "ask"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "object",
+                "properties": {
+                 "prompt": {
+                  "type": "string"
+                 },
+                 "ask": {
+                  "type": "string"
+                 },
+                 "route": {
+                  "type": "string",
+                  "const": "size"
+                 },
+                 "record": {
+                  "type": "string"
+                 },
+                 "note": {
+                  "type": [
+                   "string",
+                   "null"
+                  ]
+                 },
+                 "fields": {
+                  "type": "array",
+                  "items": {
+                   "type": "object",
+                   "properties": {
+                    "key": {
+                     "type": "string",
+                     "enum": [
+                      "typed",
+                      "chance",
+                      "change"
+                     ]
+                    },
+                    "prompt": {
+                     "type": "string"
+                    },
+                    "ask": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "key",
+                    "prompt",
+                    "ask"
+                   ],
+                   "additionalProperties": false
+                  }
+                 }
+                },
+                "required": [
+                 "prompt",
+                 "ask",
+                 "route",
+                 "record",
+                 "note",
+                 "fields"
+                ],
+                "additionalProperties": false
+               }
+              ]
+             },
+             {
+              "type": "null"
+             }
+            ]
+           }
+          },
+          "required": [
+           "record",
+           "text",
+           "title",
+           "edit"
+          ],
+          "additionalProperties": false
          }
         },
         "required": [
@@ -1646,25 +1820,93 @@
                  "edit": {
                   "anyOf": [
                    {
-                    "type": "object",
-                    "properties": {
-                     "prompt": {
-                      "type": "string"
+                    "anyOf": [
+                     {
+                      "type": "object",
+                      "properties": {
+                       "prompt": {
+                        "type": "string"
+                       },
+                       "ask": {
+                        "type": "string"
+                       }
+                      },
+                      "required": [
+                       "prompt",
+                       "ask"
+                      ],
+                      "additionalProperties": false
                      },
-                     "ask": {
-                      "type": "string"
+                     {
+                      "type": "object",
+                      "properties": {
+                       "prompt": {
+                        "type": "string"
+                       },
+                       "ask": {
+                        "type": "string"
+                       },
+                       "route": {
+                        "type": "string",
+                        "const": "size"
+                       },
+                       "record": {
+                        "type": "string"
+                       },
+                       "note": {
+                        "type": [
+                         "string",
+                         "null"
+                        ]
+                       },
+                       "fields": {
+                        "type": "array",
+                        "items": {
+                         "type": "object",
+                         "properties": {
+                          "key": {
+                           "type": "string",
+                           "enum": [
+                            "typed",
+                            "chance",
+                            "change"
+                           ]
+                          },
+                          "prompt": {
+                           "type": "string"
+                          },
+                          "ask": {
+                           "type": "string"
+                          }
+                         },
+                         "required": [
+                          "key",
+                          "prompt",
+                          "ask"
+                         ],
+                         "additionalProperties": false
+                        }
+                       }
+                      },
+                      "required": [
+                       "prompt",
+                       "ask",
+                       "route",
+                       "record",
+                       "note",
+                       "fields"
+                      ],
+                      "additionalProperties": false
                      }
-                    },
-                    "required": [
-                     "prompt",
-                     "ask"
-                    ],
-                    "additionalProperties": false
+                    ]
                    },
                    {
                     "type": "null"
                    }
                   ]
+                 },
+                 "stays_in_words": {
+                  "type": "string"
                  }
                 },
                 "required": [

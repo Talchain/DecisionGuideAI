@@ -184,7 +184,10 @@ describe('the Run beside the chances says what the base dock said, word for word
       if (hover !== null) expect(hover.length).toBeLessThanOrEqual(120)
       // R18 (core fixes 4: A1 "This comparison depends on...", E1 "Assumption to check: ...") adds two kinds of note the base dock never said: the
       // dock's own notes stay in its order and words; the additive ones are drawn too (viewCompanion.spec binds them).
-      const R18 = /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: )/
+      // Row 11 (core e653edb1, 9 Nov): so is what the diamond means (core's RELIANCE_LEAD), said once for the View; core's own oracle test
+      // exempts it the same way (view.test.ts). Bound by its exact words, so any other new note still fails here.
+      const RELIANCE_LEAD = "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+      const R18 = { test: (t: string) => t === RELIANCE_LEAD || /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: )/.test(t) }
       const drawn = texts(container, '[data-view^="run.notes."]')
       expect(drawn.filter((t) => !R18.test(t ?? ''))).toEqual(o.notes)
       expect(drawn.filter((t) => R18.test(t ?? '')), 'every additive R18 note core sends is drawn').toEqual(model.run!.notes.map((x) => x.text).filter((t) => R18.test(t)))
@@ -230,9 +233,16 @@ describe('a reason every option shares is said once, above the options; each cov
     for (const [id, mark] of Object.entries(oracle['pricing-unmoved-first']!.withheld)) {
       expect(shared[0]!.options).toContain(id)
       const card = model.cards.find((c) => c.id === id)!, i = card.rows.findIndex((r) => r.aim_id === shared[0]!.aim_id)
-      expect(container.querySelector(`[data-view-card="${id}"] [data-view="${id}.rows.${i}.text"]`)?.textContent, id).toBe(mark)
+      // Core's deliberate change (design call 8 Nov (c), DL go; core e653edb1 view.test.ts): where the Run says the reason once above the
+      // cards, the card's line is only 'No chance yet' and the oracle's words are its hover; every other withheld line is the words.
+      const text = container.querySelector(`[data-view-card="${id}"] [data-view="${id}.rows.${i}.text"]`)
+      expect(text?.textContent, id).toBe(card.rows[i]!.kind === 'none' ? card.rows[i]!.text : null)
+      if (text?.textContent === 'No chance yet') expect(text.closest('[data-view-row]')?.getAttribute('title'), id).toBe(mark)
+      else expect(text?.textContent, id).toBe(mark)
     }
-    expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(oracle['pricing-unmoved-first']!.lead)
+    // Core's deliberate lead change (DL, 8 Nov; core e653edb1 view.test.ts maps the oracle's lead the same way): one line, qualifier visible.
+    const lead = (l: string | null) => l?.replace(/^In this model, on current information, each option’s chance of (‘.*’):$/, 'Chance of $1, in this model on current information') ?? null
+    expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(lead(oracle['pricing-unmoved-first']!.lead))
   })
   it('absent: no View without the key draws a shared reason', () => {
     // (From core 89d09f0 the goldens carry the key where a blocker is shared: the absent case is made by taking it away.)

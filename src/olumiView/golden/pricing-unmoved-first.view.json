@@ -15,7 +15,10 @@
  "version": {
   "id": 1,
   "n": 1,
-  "label": "version 1"
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
  },
  "model": {
   "question": {
@@ -27,6 +30,74 @@
   },
   "whole": false,
   "cards": [
+   {
+    "id": "margin",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "margin",
+    "typed": false,
+    "detail": "margin · quantity · Theirs: “each cup earns us £1.55” · £1.55/cup",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£1.55/cup",
+     "title": "£1.55/cup",
+     "edit": {
+      "prompt": "New figure for “margin” (GBP/cup): one number, or a range like 150 to 400",
+      "ask": "For “margin”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": [
+     {
+      "option": "raise_price",
+      "text": "£2/cup",
+      "p10": 2,
+      "p50": 2,
+      "p90": 2,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "carry_on",
+      "text": "£1.55/cup",
+      "p10": 1.55,
+      "p50": 1.55,
+      "p90": 1.55,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "margin",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “each cup earns us £1.55”"
+    },
+    "failed": []
+   },
    {
     "id": "margin_raised",
     "family": "quantity",
@@ -55,7 +126,24 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "margin raised",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “so each cup earns £2.00”"
+    },
+    "failed": []
    },
    {
     "id": "cups_now",
@@ -85,28 +173,48 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “sells 4,000 coffees a month”"
+    },
+    "failed": []
    },
    {
-    "id": "rise_switched_on",
+    "id": "cups_change",
     "family": "quantity",
     "glyph": "●",
-    "heading": "rise switched on",
+    "heading": "cups change",
     "typed": false,
-    "detail": "rise switched on · quantity · Structure: The price rise, switched on. · 1",
+    "detail": "cups change · quantity · Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month. · Plausible range: −900 to −100 cups/month",
     "col": 1,
     "h": 88,
-    "olumi": null,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+    },
     "change": null,
     "focus": false,
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "1",
-     "title": "1",
+     "text": "−900 to −100 cups/month",
+     "title": "Plausible range: −900 to −100 cups/month",
      "edit": {
-      "prompt": "New figure for “rise switched on”: one number, or a range like 150 to 400",
-      "ask": "For “rise switched on”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “cups change” (cup/month): one number, or a range like 150 to 400",
+      "ask": "For “cups change”, type one number, or a range like 150 to 400."
      }
     },
     "premises": [],
@@ -115,7 +223,24 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups change",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
+    },
+    "failed": []
    },
    {
     "id": "profit",
@@ -135,8 +260,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Raise the price by 45p: £6,190 to £7,820/month · Keep the price: £6,200/month",
-     "title": "Modelled range at the end of month 1: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: £6,190 to £7,820/month; Keep the price: £6,200/month. Worked out from the figures it depends on.",
+     "text": "Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month) · Keep the price: £6,200/month",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -147,20 +272,58 @@
     "reason": null,
     "badge": {
      "records": [
-      "margin",
       "rise_on",
-      "cups_change",
       "cups",
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +6",
-     "title": "quantity: margin\nquantity: rise on\nquantity: cups change\nquantity: cups\nrelation: how cups is worked out\nrelation: how profit is worked out",
-     "label": "Expand 6 reasoning records",
+     "text": "● = +4",
+     "title": "Figure: rise on\nFigure: cups\nHow cups is worked out\nHow profit is worked out",
+     "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
-     "change": ""
-    }
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "icon": "● ="
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "raise_price",
+      "text": "about £6,990/month (£6,190 to £7,820/month)",
+      "p10": 6187.801740508874,
+      "p50": 6985.7864462053185,
+      "p90": 7820.149703344684,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "carry_on",
+      "text": "£6,200/month",
+      "p10": 6200,
+      "p50": 6200,
+      "p90": 6200,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "profit",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "failed": []
    },
    {
     "id": "profit_target",
@@ -190,7 +353,24 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "profit target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “make at least £7,000 a month”"
+    },
+    "failed": []
    },
    {
     "id": "raise_price",
@@ -200,7 +380,7 @@
     "typed": false,
     "detail": "Raise the price by 45p · option · Theirs: “raise the price by 45p”",
     "col": 0,
-    "h": 96,
+    "h": 124,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -212,8 +392,8 @@
      {
       "kind": "none",
       "aim_id": "steady_goal",
-      "text": "cannot be worked out yet · Sell at least 3,500 cups a month",
-      "title": "cannot be worked out yet · Sell at least 3,500 cups a month"
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Sell at least 3,500 cups a month"
      },
      {
       "kind": "chance",
@@ -224,17 +404,88 @@
        "glyph": "◆",
        "title": "Rests on Olumi’s proposals"
       },
-      "likely": null,
+      "likely": {
+       "glyph": "◉",
+       "title": "Among the options compared, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎."
+      },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'."
+      "title": "The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+      "chance": 0.4921,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 6187.801740508874,
+       "median": 6985.7864462053185,
+       "high": 7820.149703344684,
+       "unit": "GBP/month",
+       "text": "between £6,190 and £7,820/month (middle £6,990)",
+       "title": "Under 'Raise the price by 45p', 'profit' is likely to be in this range (8 times in 10). It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month)."
+      },
+      "text": "The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "cups_change"
+       ],
+       "estimates": [
+        "cups_change"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's what-if for 'cups change'.",
+      "if_approved": null,
+      "estimate": null
      }
     ],
     "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": {
+     "records": [
+      "rise_switched_on"
+     ],
+     "text": "● +1",
+     "title": "Figure: rise switched on",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Raise the price by 45p",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “raise the price by 45p”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "steady_goal",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Sell at least 3,500 cups a month",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
    },
    {
     "id": "carry_on",
@@ -256,8 +507,8 @@
      {
       "kind": "none",
       "aim_id": "steady_goal",
-      "text": "cannot be worked out yet · Sell at least 3,500 cups a month",
-      "title": "cannot be worked out yet · Sell at least 3,500 cups a month"
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Sell at least 3,500 cups a month"
      },
      {
       "kind": "chance",
@@ -268,14 +519,65 @@
       "likely": null,
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance."
+      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 6200,
+       "median": 6200,
+       "high": 6200,
+       "unit": "GBP/month",
+       "text": "£6,200/month",
+       "title": "Under 'Keep the price', 'profit' is this in at least 8 times in 10."
+      },
+      "text": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "if_approved": null,
+      "estimate": null
      }
     ],
     "driver": null,
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep the price",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “keep it as it is”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "steady_goal",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Sell at least 3,500 cups a month",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
    },
    {
     "id": "cups_floor",
@@ -305,7 +607,24 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups floor",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “sells 4,000 coffees a month”"
+    },
+    "failed": []
    },
    {
     "id": "steady_goal",
@@ -333,7 +652,23 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Sell at least 3,500 cups a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “make at least £7,000 a month”"
+    },
+    "failed": []
    },
    {
     "id": "profit_goal",
@@ -361,7 +696,23 @@
      "measured": true
     },
     "reason": null,
-    "badge": null
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Make £7,000 a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “make at least £7,000 a month”"
+    },
+    "failed": []
    }
   ],
   "links": [
@@ -373,7 +724,47 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "cups_change",
+    "to": "profit",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "margin",
+    "to": "profit",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "profit_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "raise_price",
@@ -383,37 +774,49 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "option input"
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "margin_raised",
-    "to": "profit",
-    "kind": "through",
-    "label": "",
+    "to": "margin",
+    "kind": "replaces",
+    "label": "replaces",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through margin · Proposed by Olumi: Olumi's estimate"
+    "title": "replaces margin",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "raise_price",
-    "to": "rise_switched_on",
-    "kind": "plain",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "option input"
-   },
-   {
-    "from": "rise_switched_on",
     "to": "profit",
     "kind": "through",
     "label": "",
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "worked out through rise on, cups · Proposed by Olumi: Olumi's estimate"
+    "title": "worked out through rise switched on, rise on, cups · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "cups_rel",
+     "profit_rel"
+    ],
+    "effect": {
+     "text": "−900 to −100 cups/month",
+     "title": "cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
+     "figure": "cups_change"
+    },
+    "remove": null,
+    "holds": {
+     "record": "cups_rel",
+     "part": "rise_on"
+    }
    },
    {
     "from": "cups_now",
@@ -423,7 +826,11 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "cups_floor",
@@ -433,7 +840,11 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "profit",
@@ -443,7 +854,11 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "measured by"
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    },
    {
     "from": "profit_target",
@@ -453,12 +868,16 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "target"
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
    }
   ],
   "run": {
    "aim": "chance of ‘Sell at least 3,500 cups a month’",
-   "lead": "In this model, on current information, each option’s chance of ‘Sell at least 3,500 cups a month’:",
+   "lead": "Chance of ‘Sell at least 3,500 cups a month’, in this model on current information",
    "all_withheld": true,
    "shared_blockers": [
     {
@@ -474,8 +893,12 @@
    "waits_on": null,
    "notes": [
     {
-     "text": "about 49%: If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'.",
-     "title": "about 49%: If Olumi's estimates hold, the chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change'."
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    },
+    {
+     "text": "about 49%: The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+     "title": "about 49%: The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month)."
     },
     {
      "text": "never met in this model: With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
@@ -486,9 +909,307 @@
      "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
     }
    ],
-   "science": []
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F14",
+     "kind": "middle",
+     "line": "'Raise the price by 45p' · aim 'Sell at least 3,500 cups a month': 4,000 cups/month, meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Raise the price by 45p', for 'Sell at least 3,500 cups a month': 'cups now' 4,000 cups/month, against a target of at least 3,500 cups/month: meets it.",
+     "aim": "steady_goal",
+     "option": "raise_price",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    },
+    {
+     "id": "F15",
+     "kind": "middle",
+     "line": "'Keep the price' · aim 'Sell at least 3,500 cups a month': 4,000 cups/month, meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Keep the price', for 'Sell at least 3,500 cups a month': 'cups now' 4,000 cups/month, against a target of at least 3,500 cups/month: meets it.",
+     "aim": "steady_goal",
+     "option": "carry_on",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    },
+    {
+     "id": "F16",
+     "kind": "middle",
+     "line": "'Raise the price by 45p' · aim 'Make £7,000 a month': £7,000/month, meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Raise the price by 45p', for 'Make £7,000 a month': 'profit' £7,000/month, against a target of at least £7,000/month: meets it. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+     "aim": "profit_goal",
+     "option": "raise_price",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F17",
+     "kind": "middle",
+     "line": "'Keep the price' · aim 'Make £7,000 a month': £6,200/month, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Keep the price', for 'Make £7,000 a month': 'profit' £6,200/month, against a target of at least £7,000/month: misses it.",
+     "aim": "profit_goal",
+     "option": "carry_on",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [
+    {
+     "id": "F18",
+     "kind": "chance",
+     "line": "For 'Raise the price by 45p' to meet 'Make £7,000 a month' more often than not, 'cups change' would have to be above about −502 cups/month (between −526 and −485 cups/month).",
+     "hover": "In this model, for 'Raise the price by 45p' to meet 'Make £7,000 a month' more often than not, 'cups change' (Olumi's estimate) would have to be above about −502 cups/month. In this model's samples, the chance of 'Raise the price by 45p' meeting 'Make £7,000 a month' passes 50% at about that value; the crossing sits between −526 and −485 cups/month, which is how far the samples leave it uncertain.",
+     "aim": "profit_goal",
+     "option": "raise_price",
+     "versus": null,
+     "figure": {
+      "id": "cups_change",
+      "label": "cups change",
+      "whose": "olumi"
+     },
+     "side": "above",
+     "at": -501.9118784454028,
+     "low": -525.2485873768961,
+     "high": -485.9495695362614,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "steady_goal",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Sell at least 3,500 cups a month': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Sell at least 3,500 cups a month': this version was saved before Olumi kept the reason."
+      }
+     ]
+    },
+    {
+     "aim": "profit_goal",
+     "lines": [
+      "F18"
+     ],
+     "silent": []
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [
+    {
+     "id": "F20",
+     "kind": "goal",
+     "line": "About 98% of the variation in whether 'Raise the price by 45p' meets 'Make £7,000 a month' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range.",
+     "hover": "About 98% of the variation in whether 'Raise the price by 45p' meets 'Make £7,000 a month' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "profit_goal",
+     "option": "raise_price",
+     "olumi_share": 0.9807830537368114,
+     "person_share": 0,
+     "unassigned": 0.019216946263188595
+    }
+   ],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": []
   },
-  "edit_base": 1
+  "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "cups_rel",
+     "part": "rise_on"
+    },
+    "from": "raise_price",
+    "to": "profit",
+    "text": "'rise on' → 'cups'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "unsized",
+    "glyph": "?",
+    "text": "unsized"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "cups_now",
+   "value": 3500,
+   "unit": "cup/month",
+   "text": "at least 3,500 cups/month",
+   "title": "3,500 cups/month",
+   "side": "at_least"
+  },
+  "sharpen": [
+   {
+    "id": "option_breadth",
+    "lead": "You are comparing two options.",
+    "emphasis": "A materially different route widens the comparison.",
+    "rationale": "Option generation: comparing only similar routes narrows what the analysis can see. A structurally different option often reveals a better or lower-regret path.",
+    "move": "widen_options"
+   },
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
+    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
  },
  "proposal": null,
  "collab": {
@@ -589,11 +1310,194 @@
     "label": "Make £7,000 a month"
    }
   ],
-  "dissent": []
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in this model's samples",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [
+   {
+    "option": "raise_price",
+    "aim": "profit_goal",
+    "fact": "F18",
+    "kind": "chance",
+    "text": "Reconsider if 'cups change' comes in below about −502 cups/month (between −526 and −485 cups/month): in this model, 'Raise the price by 45p' then meets 'Make £7,000 a month' less often than not."
+   }
+  ],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "margin": "Please change “margin”: ",
+   "margin_raised": "Please change “margin raised”: ",
+   "cups_now": "Please change “cups now”: ",
+   "rise_on": "Please change “rise on”: ",
+   "rise_switched_on": "Please change “rise switched on”: ",
+   "cups_change": "Please change “cups change”: ",
+   "cups": "Please change “cups”: ",
+   "profit": "Please change “profit”: ",
+   "profit_target": "Please change “profit target”: ",
+   "cups_rel": "Please change “how cups is worked out”: ",
+   "profit_rel": "Please change “how profit is worked out”: ",
+   "raise_price": "Please change “Raise the price by 45p”: ",
+   "carry_on": "Please change “Keep the price”: ",
+   "cups_floor": "Please change “cups floor”: ",
+   "steady_goal": "Please change “Sell at least 3,500 cups a month”: ",
+   "profit_goal": "Please change “Make £7,000 a month”: "
+  }
+ },
+ "brief": "Should the café raise its coffee price?",
  "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
  "evidence_words": {
   "heading": "Evidence",
   "close": "Close",
@@ -646,7 +1550,7 @@
    "what_changes": "What the last Run is most sensitive to",
    "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
   },
-  "rests_on_label": "Rests on"
+  "rests_on_label": "Rests on, 1 to check or set"
  },
  "team_presence": {
   "title": "Paul (you)",
@@ -656,7 +1560,8 @@
     "id": "p_1",
     "text": "Paul (you)"
    }
-  ]
+  ],
+  "unjoined": null
  },
  "team_words": {
   "failed": "That did not go through. Nothing was saved.",

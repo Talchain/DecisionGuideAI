@@ -17,7 +17,8 @@
   "n": 1,
   "label": "Version 1",
   "changed": [],
-  "at": "2026-11-02T00:00:00.000Z"
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
  },
  "model": {
   "question": {
@@ -33,8 +34,8 @@
      "morale_left_out"
     ],
     "text": "● ↝ ⚑ +4",
-    "title": "quantity: team morale\nrelation: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.\nleft out: How the team feels about a new hire",
-    "label": "Expand 4 reasoning records",
+    "title": "Figure: team morale\nLink: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.\nleft out: How the team feels about a new hire",
+    "label": "Show 4 notes behind this",
     "open": false,
     "proposed": false,
     "change": "",
@@ -100,7 +101,7 @@
     "olumi": null,
     "change": {
      "glyph": "↻",
-     "title": "Proposed change\nlow 10 → 15\nhigh 30 → 35\nlikely 20 → 25",
+     "title": "Olumi suggests changing this\nlow 10 → 15\nhigh 30 → 35\nlikely 20 → 25",
      "kind": "changed"
     },
     "focus": false,
@@ -199,7 +200,7 @@
     "doubt": false,
     "figure": {
      "text": "Keep current staffing: 80 tickets/week · Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week)",
-     "title": "Modelled range at the end of week 12: the middle 80% of the Run's draws, in this model on current figures, not a forecast; rounded to three figures. The first figure is the central value: half the draws fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on.",
+     "title": "Middle 80% of this model's calculated values at the end of week 12, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Keep current staffing: 80 tickets/week; Add one specialist: about 105 tickets/week (94.7 to 115 tickets/week). Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -216,8 +217,8 @@
       "total_def"
      ],
      "text": "● = +4",
-     "title": "quantity: specialists\nquantity: added capacity\nrelation: how added capacity is worked out\nrelation: how total capacity is worked out",
-     "label": "Expand 4 reasoning records",
+     "title": "Figure: specialists\nFigure: added capacity\nHow added capacity is worked out\nHow total capacity is worked out",
+     "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
@@ -380,7 +381,7 @@
       "likely": null,
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
-      "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+      "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. See the notes for what Olumi has not modelled.",
       "chance": 0,
       "companion": null,
       "companion_title": null,
@@ -392,7 +393,7 @@
        "high": 80,
        "unit": "ticket/week",
        "text": "80 tickets/week",
-       "title": "Under 'Keep current staffing', 'total capacity' at the end of the window is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire."
+       "title": "Under 'Keep current staffing', 'total capacity' at the end of the window is this in at least 8 times in 10. Olumi has not modelled: How the team feels about a new hire."
       },
       "text": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
       "rests_on": {
@@ -433,7 +434,7 @@
      "aim_id": "capacity_goal",
      "state": "fixed",
      "text": "never met in this model",
-     "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It leaves out: How the team feels about a new hire.",
+     "title": "With the model's figures, 'Keep current staffing' never meets 'At least 100 a week': nothing uncertain reaches it, so this is fixed by those figures, not a chance. See the notes for what Olumi has not modelled.",
      "range": null,
      "why": null,
      "add": null,
@@ -465,11 +466,11 @@
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). It leaves out: How the team feels about a new hire."
+       "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). Olumi has not modelled: How the team feels about a new hire."
       },
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
-      "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+      "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. See the notes for what Olumi has not modelled.",
       "chance": 0.739,
       "companion": null,
       "companion_title": null,
@@ -481,7 +482,7 @@
        "high": 114.91851476864522,
        "unit": "ticket/week",
        "text": "between 94.7 and 115 tickets/week (middle 105)",
-       "title": "Under 'Add one specialist', 'total capacity' at the end of the window is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire."
+       "title": "Under 'Add one specialist', 'total capacity' at the end of the window is likely to be in this range (8 times in 10). Olumi has not modelled: How the team feels about a new hire."
       },
       "text": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information.",
       "rests_on": {
@@ -499,8 +500,8 @@
      }
     ],
     "driver": {
-     "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
-     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are its chances over the lowest and highest third of that figure's draws.",
+     "text": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "about 22% if 'per specialist' is low, over 99% if it is high: Under 'Add one specialist', the chance of meeting 'At least 100 a week' moves most with 'per specialist': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
      "figure": "per_specialist",
      "low": 0.21692169216921692,
      "high": 1
@@ -514,8 +515,8 @@
       "lead_doubt"
      ],
      "text": "↝ ⚑ +2",
-     "title": "relation: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.",
-     "label": "Expand 2 reasoning records",
+     "title": "Link: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.",
+     "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
@@ -544,7 +545,7 @@
      "aim_id": "capacity_goal",
      "state": "chance",
      "text": "about 74% chance",
-     "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
+     "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. See the notes for what Olumi has not modelled.",
      "range": "about 22% if 'per specialist' is low, over 99% if it is high",
      "why": null,
      "add": null,
@@ -607,7 +608,7 @@
     "olumi": null,
     "change": {
      "glyph": "↻",
-     "title": "Proposed change\nfigure 0 → 4",
+     "title": "Olumi suggests changing this\nfigure 0 → 4",
      "kind": "changed"
     },
     "focus": false,
@@ -744,7 +745,7 @@
    "all_withheld": false,
    "most_likely": {
     "text": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it).",
-    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). It leaves out: How the team feels about a new hire.",
+    "title": "'Add one specialist' is the option most likely to achieve 'At least 100 a week' in this model (about 74%; 'Keep current staffing' never meets it). See the notes for what Olumi has not modelled.",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -754,7 +755,7 @@
     },
     "if_approved": {
      "glyph": "↻",
-     "title": "if approved; now If Olumi's estimates hold, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%; 'Keep current staffing' never meets it); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
+     "title": "if approved; now Among the options compared, 'Add one specialist' is more likely to achieve 'At least 100 a week' in this model (about 50%; 'Keep current staffing' never meets it); it rests on Olumi's estimate of 'per specialist' — give yours with ✎."
     },
     "option": "add_one",
     "aim_id": "capacity_goal",
@@ -763,23 +764,23 @@
    "waits_on": null,
    "notes": [
     {
-     "text": "This leaves out: How the team feels about a new hire.",
-     "title": "This leaves out: How the team feels about a new hire."
+     "text": "Olumi has not modelled: How the team feels about a new hire.",
+     "title": "Olumi has not modelled: How the team feels about a new hire."
     }
    ],
    "readings": [],
    "timing": [],
    "science": [],
    "sensitivity": {
-    "text": "These are its chances over the lowest and highest third of that figure's draws.",
-    "title": "For each option: the chance of meeting the aim when the figure its chance moves most with falls in the lowest third of its draws (low), and in the highest third (high); the Run's own numbers, in this model."
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [
     {
      "id": "F13",
      "kind": "middle",
      "line": "'Keep current staffing' · aim 'At least 100 a week': 80 tickets/week, misses it",
-     "hover": "option: 'Keep current staffing'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' at the end of the window 80 tickets/week; target: >= 100 tickets/week; status: misses it. It leaves out: How the team feels about a new hire.",
+     "hover": "With every figure at its most likely value and no risk happening, 'Keep current staffing', for 'At least 100 a week': 'total capacity' at the end of the window 80 tickets/week, against a target of at least 100 tickets/week: misses it. Olumi has not modelled: How the team feels about a new hire.",
      "aim": "capacity_goal",
      "option": "hold",
      "versus": null,
@@ -790,7 +791,7 @@
      "id": "F14",
      "kind": "middle",
      "line": "'Add one specialist' · aim 'At least 100 a week': 105 tickets/week, meets it",
-     "hover": "option: 'Add one specialist'; aim: 'At least 100 a week'; figures: the middle ones (every range at its most likely value); risks: none happening; outcome: 'total capacity' at the end of the window 105 tickets/week; target: >= 100 tickets/week; status: meets it. It leaves out: How the team feels about a new hire.",
+     "hover": "With every figure at its most likely value and no risk happening, 'Add one specialist', for 'At least 100 a week': 'total capacity' at the end of the window 105 tickets/week, against a target of at least 100 tickets/week: meets it. Olumi has not modelled: How the team feels about a new hire.",
      "aim": "capacity_goal",
      "option": "add_one",
      "versus": null,
@@ -808,7 +809,7 @@
      "id": "F15",
      "kind": "chance",
      "line": "For 'Add one specialist' to meet 'At least 100 a week' more often than not, 'per specialist' would have to be above about 19.8 tickets/week/specialist (between 18.9 and 20.3 tickets/week/specialist).",
-     "hover": "In this model, for 'Add one specialist' to meet 'At least 100 a week' more often than not, 'per specialist' (the person's range) would have to be above about 19.8 tickets/week/specialist: where its chance over slices of that figure's draws crosses a half, between 18.9 and 20.3 tickets/week/specialist in this Run's draws.",
+     "hover": "In this model, for 'Add one specialist' to meet 'At least 100 a week' more often than not, 'per specialist' (the person's range) would have to be above about 19.8 tickets/week/specialist. In this model's samples, the chance of 'Add one specialist' meeting 'At least 100 a week' passes 50% at about that value; the crossing sits between 18.9 and 20.3 tickets/week/specialist, which is how far the samples leave it uncertain.",
      "aim": "capacity_goal",
      "option": "add_one",
      "versus": null,
@@ -847,7 +848,7 @@
     {
      "id": "outcome",
      "label": "Likely outcome",
-     "title": "In this model, on current information, what each option’s outcome for ‘At least 100 a week’ is likely to be (8 draws in 10)."
+     "title": "In this model, on current information, what each option’s outcome for ‘At least 100 a week’ is likely to be (8 times in 10)."
     }
    ]
   },
@@ -1164,7 +1165,7 @@
   "effect_headings": {
    "changes": "Changes which option is most likely",
    "moves": "Moves the chances only",
-   "same": "The same chances in these draws",
+   "same": "The same chances in this model's samples",
    "refused": "Not run",
    "leader": "Most likely with theirs",
    "model_leader": "With the model's",
@@ -1180,7 +1181,7 @@
     "aim": "capacity_goal",
     "fact": "F14",
     "kind": "chance",
-    "text": "Reconsider if 'per specialist' comes in below about 20 tickets/week/specialist (between 19.4 and 20.4 tickets/week/specialist): in this model, if Olumi's estimates hold, 'Add one specialist' then meets 'At least 100 a week' less often than not."
+    "text": "Reconsider if 'per specialist' comes in below about 20 tickets/week/specialist (between 19.4 and 20.4 tickets/week/specialist): in this model, 'Add one specialist' then meets 'At least 100 a week' less often than not."
    }
   ],
   "max_view_figures": 3,
