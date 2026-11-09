@@ -5,6 +5,7 @@ import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { registerDockedOlumiFocus } from '../conversation/dockedOlumiFocus'
 import { AIInputBar, type AIInputBarHandle, type AIInputBarProps } from './AIInputBar'
+import { useUIStore } from '../../stores/uiStore'
 
 interface PersistentInputStripProps {
   /** True when the docked Olumi tab is the active dock tab. When true and
@@ -128,6 +129,20 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   // implies submit / cog functionality is misleading on this surface —
   // those affordances live in the floating composer that opens on click.
   // Only the chevron (expand affordance) is kept as a visual hint.
+  // DL ruling 9 Nov (one composer in the dock): where the lane has its own composer (the olumi-core lane's), every tab shows that same
+  // composer, never the legacy "Ask about this model…" bar. A message sent from another tab brings the Olumi tab forward, where the
+  // reply is drawn.
+  if (!isOlumiTabActive && composer) {
+    const toOlumi = () => { window.setTimeout(() => useUIStore.getState().forceActivateOutputTab('olumi'), 0) }
+    return (
+      <div className="bg-panel" data-testid="persistent-strip-composer"
+        onClickCapture={(e) => { if ((e.target as HTMLElement).closest('[data-testid="view-composer-send"]')) toOlumi() }}
+        onKeyDownCapture={(e) => { const t = e.target as HTMLTextAreaElement; if (e.key === 'Enter' && !e.shiftKey && t.tagName === 'TEXTAREA' && t.value.trim() !== '') toOlumi() }}>
+        {composer(analysisAction)}
+      </div>
+    )
+  }
+
   if (!isOlumiTabActive) {
     return (
       <button

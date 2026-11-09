@@ -4,7 +4,7 @@
  * distinct on-screen type sizes (canvas text at the canvas zoom), controls under 24 px, and the dock's gaps to the header, the window's right
  * edge and its foot (DL 9 Nov: the comp's even 8 px float on every side).
  */
-export type Audit = { cards: number; out: string[]; wordsOver: number; crossings: number; trunc: string[]; sizes: number[]; smallTargets: string[]; dockGaps: { top: number; right: number; bottom: number } | null }
+export type Audit = { cards: number; out: string[]; wordsOver: number; crossings: number; trunc: string[]; sizes: number[]; smallTargets: string[]; dockGaps: { top: number; right: number; bottom: number } | null; underZoom: string[] }
 
 export function measure(): Audit {
   const R = (e: Element) => e.getBoundingClientRect()
@@ -40,7 +40,10 @@ export function measure(): Audit {
   const smallTargets: string[] = []
   for (const e of document.querySelectorAll('button, a[href], [role="button"], input, select, textarea')) { if (!vis(e)) continue; const lab = e.matches('input') ? e.closest('label') : null, r = R(lab ?? e)
     if ((r.width < 23.99 || r.height < 23.99) && getComputedStyle(e).display !== 'inline') smallTargets.push((e.getAttribute('aria-label') ?? e.textContent ?? '').trim().slice(0, 30)) }
-  return { cards: cards.length, out, wordsOver, crossings, trunc, sizes: [...sizes].sort((a, b) => a - b), smallTargets,
+  // Cards any part of which the zoom panel covers (DL ruling 9 Nov: none, at any audited width).
+  const Z = document.querySelector('nav[aria-label="Viewport controls"]')?.getBoundingClientRect() ?? null
+  const underZoom = Z === null ? [] : cards.filter((c) => inter(c.r, Z) > 0).map((c) => c.id)
+  return { underZoom, cards: cards.length, out, wordsOver, crossings, trunc, sizes: [...sizes].sort((a, b) => a - b), smallTargets,
     dockGaps: D ? { top: Math.round(D.top - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0)), right: Math.round(innerWidth - D.right), bottom: Math.round(innerHeight - D.bottom) } : null }
 }
 

@@ -63,6 +63,7 @@ export async function audit(p: Page, limits: { out: number; crossings: number },
   await p.waitForTimeout(1500)
   const a = await p.evaluate(measure)
   expect.soft(a.wordsOver, `${label}: link words over cards`).toBe(0)
+  expect.soft(a.underZoom, `${label}: cards under the zoom panel`).toEqual([])
   expect.soft(a.trunc, `${label}: cut text`).toEqual([])
   expect.soft(a.smallTargets, `${label}: controls under 24 px`).toEqual([])
   dockFloats(a, label)

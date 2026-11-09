@@ -81,12 +81,15 @@ test('3 valid conditional analysis: each option\'s chance, no recommendation', a
 
 test('4 a useful next step, and Olumi\'s reply to an answer is shown', async () => {
   // Zero calls: the scripted coach answers about this model's own records, so this proves the page draws a reply core passes, not its quality.
-  await openTab(page, 'olumi')
+  // DL ruling 9 Nov (one composer in the dock): the answer is sent from the Analysis tab's composer, the same one; the dock then fronts
+  // the Olumi tab, where the reply is drawn.
+  await openTab(page, 'results')
   const n0 = (await view3(page, sid))?.chat?.length ?? 0
   await page.locator('#view-chat-text').fill('Mostly because nobody owns the architecture, so reviews and releases stall.')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   const x = await until(page, async () => { const y = await view3(page, sid); const a = [...(y?.chat ?? [])].reverse().find((t) => t.answer)?.answer; return (y?.chat?.length ?? 0) > n0 && a ? { y, a } : null })
   await page.waitForTimeout(2000)
+  await expect(page.getByTestId('outputs-dock-tab-olumi')).toHaveAttribute('aria-selected', 'true')
   const dock = page.locator('[data-testid="outputs-dock"]')
   await expect(dock).not.toContainText('broke its own rules')
   await expect(dock).not.toContainText('could not finish its reply')

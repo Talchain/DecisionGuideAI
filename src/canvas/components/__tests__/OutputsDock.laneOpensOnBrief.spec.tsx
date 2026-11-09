@@ -82,7 +82,9 @@ describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 
   beforeEach(() => { lane.on = true; useFloatingPanelState.setState({ isOpen: false, isMinimised: false } as never) })
   afterEach(() => useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }))
 
-  it('"Open Olumi" from another tab fronts the Olumi tab with its composer focused, and opens no floating panel', async () => {
+  // DL ruling 9 Nov (one composer in the dock): another tab shows the same composer, so the legacy "Open Olumi" bar and its redirect are
+  // gone. These three rows replace the redirect's ("fronts the Olumi tab with its composer focused" and the two "Open Olumi" rows).
+  it('another tab shows the dock\'s one composer, never the "Open Olumi" bar, and opens no floating panel', async () => {
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
     useCanvasStore.setState({ currentScenarioId: PAIRED } as never)
@@ -91,11 +93,9 @@ describe('on the lane every way to Olumi leads to the dock\'s Olumi tab (review 
     useCanvasStore.setState({ nodes: [{ id: 'a', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'A' } }] } as never)
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-results')
-    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
-    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
-    expect(fronted()).toBe('outputs-dock-tab-olumi')
+    expect(screen.queryByTestId('persistent-strip-composer-redirect')).toBeNull()
+    expect(screen.getByTestId('persistent-strip-composer').querySelector('#view-chat-text')).not.toBeNull()
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
-    expect(document.activeElement?.id).toBe('view-chat-text')
   })
 
   it('a floating panel this session left open never puts "Olumi is open" in place of the composer', async () => {
@@ -125,17 +125,16 @@ describe('on the lane nothing opens a floating panel, an empty scenario included
   beforeEach(() => { lane.on = true; useFloatingPanelState.setState({ isOpen: false, isMinimised: false } as never) })
   afterEach(() => useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }))
 
-  it('an empty scenario, then another tab: the footer offers "Open Olumi", which fronts the Olumi tab with its brief box focused', async () => {
+  it('an empty scenario, then another tab: the footer keeps the one composer, and no floating panel opens', async () => {
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-olumi')
     await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-tab-results')) })
     await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
     expect(useFloatingPanelState.getState().isOpen).toBe(false)
     expect(screen.queryByTestId('persistent-strip-status')).toBeNull()
-    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
-    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
-    expect(fronted()).toBe('outputs-dock-tab-olumi')
-    expect(document.activeElement?.id).toBe('view-chat-text')
+    expect(fronted()).toBe('outputs-dock-tab-results')
+    expect(screen.queryByTestId('persistent-strip-composer-redirect')).toBeNull()
+    expect(screen.getByTestId('persistent-strip-composer').querySelector('#view-chat-text')).not.toBeNull()
   })
 
   it('the floating panel\'s own open and toggle do nothing on the lane, and open it off the lane', () => {
@@ -148,16 +147,18 @@ describe('on the lane nothing opens a floating panel, an empty scenario included
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
   })
 
-  it('"Open Olumi" on a scenario with a model focuses the message box', async () => {
+  it('on a scenario with a model, another tab\'s composer is the message box itself; Enter on an empty box leaves the tab where it is', async () => {
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
     useCanvasStore.setState({ currentScenarioId: PAIRED } as never)
     useViewStore.setState({ uuid: PAIRED, sid: 's_000000000001', view: { ...view, proposal: null, gated: false }, error: null, status: 'ready' })
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
     useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }] } as never)
     await dock()
-    await act(async () => { fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect')) })
-    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
-    expect(document.activeElement?.id).toBe('view-chat-text')
+    const box = screen.getByTestId('persistent-strip-composer').querySelector<HTMLTextAreaElement>('#view-chat-text')!
+    expect(box).not.toBeNull()
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
+    expect(fronted()).toBe('outputs-dock-tab-results')
   })
 })
 

@@ -334,7 +334,9 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
         <span className={META}>Name this what-if</span>
         <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { begin(); setRows(fixed); setName(e.target.value); setError(null) }} />
       </label>
-      <div><Button size="sm" variant="secondary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button></div>
+      <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="secondary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button>
+        {/* Why it waits (DL ruling 9 Nov: a disabled button says why). */}
+        {ready || busy ? null : <span className={META} data-testid="whatif-save-why">{twice ? 'Each figure once' : rows.some((r) => r.typed.trim() === '') ? 'Type a figure to try' : 'Name this what-if'}</span>}</div>
       {error && <p role="alert" className={ERR} data-testid="whatif-save-error">{error}</p>}
     </form>
   )
@@ -399,6 +401,7 @@ function CompareSides({ sid }: { sid: string }): JSX.Element {
             <span className={META} aria-hidden="true">beside</span>
             <Pick id="scenario-compare-pick" label="Second side" groups={groupsB} value={b} disabled={busy} onChange={(v) => { setPicked(v); setShown(null); setError(null) }} />
             <Button size="sm" variant="secondary" data-testid="scenario-compare-go" disabled={busy || a === b} onClick={() => void go()}>Compare</Button>
+            {!busy && a === b ? <span className={META} data-testid="scenario-compare-why">Pick two different sides</span> : null}
           </div>
         )}
       {error && <p role="alert" className={ERR} data-testid="scenario-compare-error">{error}</p>}

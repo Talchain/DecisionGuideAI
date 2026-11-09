@@ -269,12 +269,14 @@
 
 /* V11 pixel pass, DL ruling 9 Nov: the zoom and fit buttons are 36×36 with 4 px between them, so no hit area overlaps its neighbour
  * (44 px is for the main controls). The shared 29×31 tool button above is unchanged for the other toolbars. */
-/* As the comp's `.zoom`: the 36 px buttons sit in the panel with no padding, so the panel is 38 px wide (it was 48 with 5 px padding,
- * and its right edge ran 16 px over a card on the Reveal at 1232). */
+/* As the comp's `.zoom`: the 36 px buttons sit in the panel with no padding. DL ruling 9 Nov (no card under the zoom panel at any
+ * audited width): the buttons run in one row along the canvas's foot, the board's emptiest edge, where the column covered the edge of
+ * the Reveal's option cards at 1232. Its menu still opens to its right. */
 .viewportControls {
   padding: 0;
 }
 .viewportControls .group {
+  flex-direction: row;
   gap: 4px;
 }
 .viewportControls .iconButton,
