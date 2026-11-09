@@ -5,6 +5,7 @@
  * panel's. Core's own notes on what Olumi used, inferred and left out (ED-12) are not served yet, so the panel says that and composes none.
  * "All tabs" goes back to the dock as it was; the dock's own composer stays below it for a reply, and a reply sent from it shows here.
  */
+import { useEffect, useRef } from 'react'
 import { FileText } from 'lucide-react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
@@ -28,6 +29,9 @@ const list = (items: readonly string[]) => items.join(', ')
 
 export function BriefPanel(): JSX.Element | null {
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
+  // The turn is brought into view as it starts and as it ends: the brief's account fills the panel, so it would sit below the fold.
+  const turnAt = useRef<HTMLDivElement | null>(null), turnKey = view?.turn == null ? null : `${view.turn.job}:${view.turn.status}`
+  useEffect(() => { if (turnKey !== null) turnAt.current?.scrollIntoView?.({ block: 'nearest' }) }, [turnKey])
   if (view === null || sid === null || !isFirstLook(view)) return null
   const a = briefAccountOf(view)
   return (
@@ -56,7 +60,7 @@ export function BriefPanel(): JSX.Element | null {
       )}
       {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain
           reason with Try again when it ends unanswered, here where it was sent (the same turn the Olumi tab draws, ViewChat TurnInFlight). */}
-      {view.turn == null ? null : <div className="bg-[#FEF9F3] px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
+      {view.turn == null ? null : <div ref={turnAt} className="bg-[#FEF9F3] px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
     </section>
   )
 }
