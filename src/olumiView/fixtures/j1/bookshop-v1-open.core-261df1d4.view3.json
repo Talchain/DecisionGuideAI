@@ -1,19 +1,19 @@
 {
  "schema": "olumi.view/3",
- "id": "s_16d1d2584731",
+ "id": "s_9a4cbd16e0af",
  "title": "Bookshop: lift monthly revenue",
- "commit": "eee8278e200f6ba78530ca9a1054da85046b0489",
- "signature": "[37,null,[[35,\"approved\"]],[],[\"Maya\"],[],[\"29\"]]",
+ "commit": "261df1d431b1d4c0657579df178091e5553195db",
+ "signature": "[34,null,[[32,\"approved\"]],[],[\"Maya\"],[],[\"26\"]]",
  "you": "Maya",
- "you_id": "29",
+ "you_id": "26",
  "members": [
   {
-   "id": "29",
+   "id": "26",
    "name": "Maya"
   }
  ],
  "version": {
-  "id": 37,
+  "id": 34,
   "n": 1,
   "label": "Version 1",
   "changed": []
@@ -610,7 +610,7 @@
    "rests_heading": "How much rests on Olumi's guesses",
    "lenses": []
   },
-  "edit_base": 37,
+  "edit_base": 34,
   "holdable": [
    {
     "link": {
@@ -810,7 +810,7 @@
   "commitments": [],
   "owners": [
    {
-    "id": "29",
+    "id": "26",
     "name": "Maya"
    }
   ],
@@ -893,12 +893,13 @@
   "suggested_triggers": [],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
-  "private_view_prompt": null
+  "private_view_prompt": null,
+  "link_route": "view"
  },
  "evidence": [],
  "chat": [
   {
-   "id": 35,
+   "id": 32,
    "by": "Maya",
    "version": "version 1",
    "earlier": false,
@@ -932,7 +933,7 @@
    "broke": null,
    "problem": null,
    "marks": [],
-   "by_id": "29",
+   "by_id": "26",
    "choice": null
   }
  ],
@@ -1105,11 +1106,11 @@
  "draft": {
   "status": "done",
   "reason": null,
-  "at": "2026-11-08T23:38:45.804Z",
-  "job": 31,
+  "at": "2026-11-09T00:45:09.536Z",
+  "job": 28,
   "stage": "analysing",
   "words": null,
-  "started": "2026-11-08T23:38:45.733Z"
+  "started": "2026-11-09T00:45:09.469Z"
  },
  "turn": null,
  "reply": null,
@@ -1172,7 +1173,7 @@
   "label": "Team: Maya (you)",
   "members": [
    {
-    "id": "29",
+    "id": "26",
     "text": "Maya (you)"
    }
   ]

@@ -12,7 +12,7 @@ import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
-import { linkByOlumi, linkDrawn } from '../../olumiView/layout'
+import { linkByOlumi, linkDrawn, routeRailAtRest } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
@@ -37,6 +37,7 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
+  const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
@@ -115,7 +116,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     return linkWordsAt(path, [...clearOf, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
-  if (!driver && !focused && !removing && !linkDrawn(link, active)) return null
+  // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
+  if (!driver && !focused && !removing && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'

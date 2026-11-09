@@ -242,7 +242,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // An aim's or limit's target is on its face (below), so it no longer opens the card's other words.
   // Core's option face (card-face, 8 Nov: core owns the dedupe): an option card with core's `headline` draws that one line on its face,
   // core's `headline.title` on hover, and its rows only when opened. A View without a headline keeps its rows on the face.
-  const optionFace = card.family === 'option' && card.headline != null && card.headline.text !== '' ? card.headline : null
+  // A headline core marks `shared` (every option says the same, "No chance yet"), or any option's "no chance yet" while no option has a
+  // chance (layout.ts optionsNotYet), is the panel's to say, once (J1 step 3): not on each card.
+  const optionFace = card.family === 'option' && card.headline != null && card.headline.text !== '' && card.headline.shared !== true && !(notYet && card.headline.state === 'none') ? card.headline : null
   const more = card.status !== null || (card.reason !== null && !says) || card.premises.length > 0 || changed || (optionFace !== null && card.rows.length > 0)
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
@@ -321,7 +323,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
       {faceLine === null ? null : (
         // FL1: the face's one short line under the title, core's words whole (never clamped), as the prototype's card sentence.
-        <p className={`${typography.viewLabel} text-text-body`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
+        // A route's line is its own quote from the brief: on its card while hovered, focused or opened, so the column of routes stays whole
+        // at 1232 (FL1: these lines are optional). Every other card's line is on its face at rest.
+        <p className={`${typography.viewLabel} text-text-body ${card.family === 'option' && !selected ? 'hidden group-hover:block group-focus-within:block' : ''}`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
       )}
       {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
       {card.bound === null ? null : (

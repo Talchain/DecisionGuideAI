@@ -541,6 +541,14 @@ export function packHead(places: Map<string, { x: number; y: number }>, options:
 export const linkDrawn = (link: { from: string; to: string; kind: string; alert: boolean; proposed: boolean }, active: ReadonlySet<string>): boolean =>
   link.kind !== 'reason' || link.alert || link.proposed || active.has(link.from) || active.has(link.to)
 
+/**
+ * A route's link that runs round the board as a rail (the routes head the left column, below the story's first row) is drawn only while
+ * either of its cards is hovered or selected, as a reason link is: four routes' rails never cross the board at rest (the prototype draws
+ * the routes' links only for the route in focus). Every other link is unaffected.
+ */
+export const routeRailAtRest = (link: { from: string; to: string }, fromRoute: boolean, railed: boolean, active: ReadonlySet<string>): boolean =>
+  !(railed && fromRoute) || active.has(link.from) || active.has(link.to)
+
 /** One thing the model rests on that a person can check or set, numbered in the View's order; `olumi` when core marks it Olumi's. */
 export type RestsOnItem = { readonly id: string; readonly n: number; readonly olumi: boolean }
 /**

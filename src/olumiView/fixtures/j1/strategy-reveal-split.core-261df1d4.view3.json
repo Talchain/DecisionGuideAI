@@ -1,9 +1,9 @@
 {
  "schema": "olumi.view/3",
- "id": "s_19c9da0467c7",
+ "id": "s_1fbfdcf5e5d2",
  "title": "2027 growth strategy",
- "commit": "eee8278e200f6ba78530ca9a1054da85046b0489",
- "signature": "[16,null,[[6,\"approved\"],[11,\"approved\"],[13,\"approved\"],[15,\"approved\"]],[[17,true],[18,true],[20,true]],[],[],[\"1\",\"2\",\"3\"]][\"evidence\",[[19,false]],[],null][\"links\",[[\"i_effort_pilot\",null,[[\"3\",\"doubt\",\"I doubt the effort to set it up is what decides whether a pilot converts.\"]]]]]",
+ "commit": "261df1d431b1d4c0657579df178091e5553195db",
+ "signature": "[19,null,[[9,\"approved\"],[14,\"approved\"],[16,\"approved\"],[18,\"approved\"]],[[20,true],[21,true],[23,true]],[],[],[\"1\",\"2\",\"3\"]][\"evidence\",[[22,false]],[],null][\"links\",[[\"i_effort_pilot\",null,[[\"3\",\"doubt\",\"I doubt the effort to set it up is what decides whether a pilot converts.\"]]]]]",
  "you": "Maya",
  "you_id": "1",
  "members": [
@@ -21,7 +21,7 @@
   }
  ],
  "version": {
-  "id": 16,
+  "id": 19,
   "n": 4,
   "label": "Version 4",
   "changed": [
@@ -58,7 +58,7 @@
     "typed": false,
     "detail": "Product-team beachhead · option · Theirs: “start inside product teams as a beachhead”",
     "col": 0,
-    "h": 84,
+    "h": 112,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -78,7 +78,20 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null,
+    "badge": {
+     "records": [
+      "speed_to_value__product_team_beachhead",
+      "cross_team_adoption__product_team_beachhead"
+     ],
+     "text": "● +2",
+     "title": "quantity: Time to value: Product-team beachhead\nquantity: Cross-team adoption: Product-team beachhead",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures",
+     "icon": "●"
+    },
     "values": null,
     "rests_on": [],
     "face": {
@@ -87,7 +100,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "start inside product teams as a beachhead",
+      "words": "theirs"
+     }
     },
     "author": {
      "by": "person",
@@ -116,7 +132,7 @@
     "typed": false,
     "detail": "Top-down enterprise sale · option · Theirs: “sell top-down to the enterprise”",
     "col": 0,
-    "h": 84,
+    "h": 112,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -136,7 +152,20 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null,
+    "badge": {
+     "records": [
+      "cross_team_adoption__top_down_enterprise_sale",
+      "implementation_effort__top_down_enterprise_sale"
+     ],
+     "text": "● +2",
+     "title": "quantity: Cross-team adoption: Top-down enterprise sale\nquantity: Implementation effort: Top-down enterprise sale",
+     "label": "Expand 2 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures",
+     "icon": "●"
+    },
     "values": null,
     "rests_on": [],
     "face": {
@@ -145,7 +174,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "sell top-down to the enterprise",
+      "words": "theirs"
+     }
     },
     "author": {
      "by": "person",
@@ -174,7 +206,7 @@
     "typed": false,
     "detail": "Partner-led pilots · option · Theirs: “run partner-led pilots”",
     "col": 0,
-    "h": 84,
+    "h": 112,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -194,7 +226,19 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null,
+    "badge": {
+     "records": [
+      "implementation_effort__partner_led_pilots"
+     ],
+     "text": "● +1",
+     "title": "quantity: Implementation effort: Partner-led pilots",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
+    },
     "values": null,
     "rests_on": [],
     "face": {
@@ -203,7 +247,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "run partner-led pilots",
+      "words": "theirs"
+     }
     },
     "author": {
      "by": "person",
@@ -232,7 +279,7 @@
     "typed": false,
     "detail": "Self-serve platform · option · Theirs: “build a self-serve platform”",
     "col": 0,
-    "h": 84,
+    "h": 112,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -252,7 +299,19 @@
     "status": null,
     "bound": null,
     "reason": null,
-    "badge": null,
+    "badge": {
+     "records": [
+      "speed_to_value__self_serve_platform"
+     ],
+     "text": "● +1",
+     "title": "quantity: Time to value: Self-serve platform",
+     "label": "Expand 1 reasoning records",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "icon": "●"
+    },
     "values": null,
     "rests_on": [],
     "face": {
@@ -261,7 +320,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "build a self-serve platform",
+      "words": "theirs"
+     }
     },
     "author": {
      "by": "person",
@@ -286,9 +348,9 @@
     "id": "speed_to_value",
     "family": "quantity",
     "glyph": "●",
-    "heading": "Speed to value",
+    "heading": "Time to value",
     "typed": false,
-    "detail": "Speed to value · quantity · Proposed by Olumi: a driver the beachhead route rests on · unknown: not sized yet: how quickly a pilot shows measurable impact",
+    "detail": "Time to value · quantity · Proposed by Olumi: a driver the beachhead route rests on · unknown: not sized yet: how quickly a pilot shows measurable impact",
     "col": 1,
     "h": 116,
     "olumi": {
@@ -303,8 +365,8 @@
      "text": "?",
      "title": "unknown: not sized yet: how quickly a pilot shows measurable impact",
      "edit": {
-      "prompt": "New figure for “Speed to value”: one number, or a range like 150 to 400",
-      "ask": "For “Speed to value”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “Time to value” (weeks): one number, or a range like 150 to 400",
+      "ask": "For “Time to value”, type one number, or a range like 150 to 400."
      }
     },
     "premises": [],
@@ -331,11 +393,14 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "Speed to value",
+      "text": "Time to value",
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "Pilot to measurable impact.",
+      "words": "olumi"
+     }
     },
     "author": {
      "by": "olumi",
@@ -348,14 +413,14 @@
     "id": "i_speed_pilot",
     "family": "relation",
     "glyph": "↝",
-    "heading": "Speed to value → Pilot conversion",
+    "heading": "Time to value → Pilot conversion",
     "typed": true,
-    "detail": "Speed to value → Pilot conversion · relation · Proposed by Olumi: faster value makes a pilot likelier to go paid",
+    "detail": "Time to value → Pilot conversion · relation · Proposed by Olumi: the longer a pilot takes to show value, the less likely it goes paid",
     "col": 1,
     "h": 112,
     "olumi": {
      "glyph": "◆",
-     "title": "Proposed by Olumi: faster value makes a pilot likelier to go paid"
+     "title": "Proposed by Olumi: the longer a pilot takes to show value, the less likely it goes paid"
     },
     "change": null,
     "focus": false,
@@ -367,13 +432,13 @@
     "driver": null,
     "status": null,
     "bound": null,
-    "reason": "faster value makes a pilot likelier to go paid",
+    "reason": "the longer a pilot takes to show value, the less likely it goes paid",
     "badge": null,
     "values": null,
     "rests_on": [],
     "face": {
      "title": {
-      "text": "Speed to value → Pilot conversion",
+      "text": "Time to value → Pilot conversion",
       "whole": true,
       "words": "name"
      },
@@ -382,7 +447,7 @@
     "author": {
      "by": "olumi",
      "text": "Proposed by Olumi",
-     "title": "Proposed by Olumi: faster value makes a pilot likelier to go paid"
+     "title": "Proposed by Olumi: the longer a pilot takes to show value, the less likely it goes paid"
     },
     "failed": []
    },
@@ -407,7 +472,7 @@
      "text": "?",
      "title": "unknown: not sized yet: use beyond the first team",
      "edit": {
-      "prompt": "New figure for “Cross-team adoption”: one number, or a range like 150 to 400",
+      "prompt": "New figure for “Cross-team adoption” (teams): one number, or a range like 150 to 400",
       "ask": "For “Cross-team adoption”, type one number, or a range like 150 to 400."
      }
     },
@@ -439,7 +504,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "Use spreading beyond the pilot team.",
+      "words": "olumi"
+     }
     },
     "author": {
      "by": "olumi",
@@ -511,7 +579,7 @@
      "text": "?",
      "title": "unknown: not sized yet: integration and training",
      "edit": {
-      "prompt": "New figure for “Implementation effort”: one number, or a range like 150 to 400",
+      "prompt": "New figure for “Implementation effort” (weeks): one number, or a range like 150 to 400",
       "ask": "For “Implementation effort”, type one number, or a range like 150 to 400."
      }
     },
@@ -531,7 +599,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "Integration and training.",
+      "words": "olumi"
+     }
     },
     "author": {
      "by": "olumi",
@@ -603,8 +674,8 @@
      "text": "?",
      "title": "unknown: not sized yet: pilots that go paid",
      "edit": {
-      "prompt": "New figure for “Pilot conversion”: one number, or a range like 150 to 400",
-      "ask": "For “Pilot conversion”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “Pilot conversion” in %: one number, or a range like 40 to 70",
+      "ask": "For “Pilot conversion”, type it in %: one number, or a range like 40 to 70."
      }
     },
     "premises": [],
@@ -623,7 +694,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "Pilots that go paid.",
+      "words": "olumi"
+     }
     },
     "author": {
      "by": "olumi",
@@ -805,7 +879,10 @@
       "whole": true,
       "words": "name"
      },
-     "line": null
+     "line": {
+      "text": "slow or partial rollouts",
+      "words": "theirs"
+     }
     },
     "author": {
      "by": "person",
@@ -864,11 +941,11 @@
     "from": "speed_to_value",
     "to": "pilot_conversion",
     "kind": "plain",
-    "label": "+",
+    "label": "−",
     "doubt": true,
     "alert": false,
     "proposed": false,
-    "title": "link in words: up, likely · Proposed by Olumi: faster value makes a pilot likelier to go paid",
+    "title": "link in words: down, likely · Proposed by Olumi: the longer a pilot takes to show value, the less likely it goes paid",
     "records": [
      "i_speed_pilot"
     ],
@@ -949,6 +1026,90 @@
     }
    },
    {
+    "from": "product_team_beachhead",
+    "to": "speed_to_value",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Time to value: Product-team beachhead",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "product_team_beachhead",
+    "to": "cross_team_adoption",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Cross-team adoption: Product-team beachhead",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "top_down_enterprise_sale",
+    "to": "cross_team_adoption",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Cross-team adoption: Top-down enterprise sale",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "top_down_enterprise_sale",
+    "to": "implementation_effort",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Implementation effort: Top-down enterprise sale",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "partner_led_pilots",
+    "to": "implementation_effort",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Implementation effort: Partner-led pilots",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "self_serve_platform",
+    "to": "speed_to_value",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Time to value: Self-serve platform",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
     "from": "execution_complexity",
     "to": "arr_2027",
     "kind": "plain",
@@ -998,7 +1159,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Speed to value → Pilot conversion",
+    "title": "relation: Time to value → Pilot conversion",
     "records": [],
     "effect": null,
     "remove": null,
@@ -1012,7 +1173,7 @@
     "doubt": false,
     "alert": false,
     "proposed": false,
-    "title": "relation: Speed to value → Pilot conversion",
+    "title": "relation: Time to value → Pilot conversion",
     "records": [],
     "effect": null,
     "remove": null,
@@ -1116,48 +1277,15 @@
       "partner_led_pilots",
       "self_serve_platform"
      ],
-     "text": "The chance of 'Sustainable enterprise growth' cannot be worked out yet: rests on \"Annual recurring revenue in 2027\", which is unknown: not yet modelled from the routes; rests on \"Pilot conversion\", which is not measured: not sized yet: pilots that go paid; rests on \"Implementation effort\", which is not measured: not sized yet: integration and training; rests on \"Cross-team adoption\", which is not measured: not sized yet: use beyond the first team; rests on \"Speed to value\", which is not measured: not sized yet: how quickly a pilot shows measurable impact; rests on the link \"Speed to value → Pilot conversion\", which is in words, never calculated; rests on the link \"Cross-team adoption → Pilot conversion\", which is in words, never calculated; rests on the link \"Implementation effort → Pilot conversion\", which is in words, never calculated; rests on the link \"Pilot conversion → Annual recurring revenue in 2027\", which is in words, never calculated."
+     "text": "No option's chance of 'Sustainable enterprise growth' can be worked out yet: it rests on 7 things the model cannot yet put a figure on."
     }
    ],
    "most_likely": null,
    "waits_on": {
     "head": "Chance of meeting the goal",
     "label": "Waits on:",
-    "text": "waits on 10 things",
+    "text": "waits on 16 things",
     "items": [
-     {
-      "id": "speed_to_value",
-      "text": "‘Speed to value’",
-      "title": "not sized yet: how quickly a pilot shows measurable impact",
-      "answer": false,
-      "unknown": ", which no one can size yet",
-      "edit": {
-       "prompt": "New figure for “Speed to value”: one number, or a range like 150 to 400",
-       "ask": "For “Speed to value”, type one number, or a range like 150 to 400."
-      }
-     },
-     {
-      "id": "cross_team_adoption",
-      "text": "‘Cross-team adoption’",
-      "title": "not sized yet: use beyond the first team",
-      "answer": false,
-      "unknown": ", which no one can size yet",
-      "edit": {
-       "prompt": "New figure for “Cross-team adoption”: one number, or a range like 150 to 400",
-       "ask": "For “Cross-team adoption”, type one number, or a range like 150 to 400."
-      }
-     },
-     {
-      "id": "implementation_effort",
-      "text": "‘Implementation effort’",
-      "title": "not sized yet: integration and training",
-      "answer": false,
-      "unknown": ", which no one can size yet",
-      "edit": {
-       "prompt": "New figure for “Implementation effort”: one number, or a range like 150 to 400",
-       "ask": "For “Implementation effort”, type one number, or a range like 150 to 400."
-      }
-     },
      {
       "id": "pilot_conversion",
       "text": "‘Pilot conversion’",
@@ -1165,8 +1293,8 @@
       "answer": false,
       "unknown": ", which no one can size yet",
       "edit": {
-       "prompt": "New figure for “Pilot conversion”: one number, or a range like 150 to 400",
-       "ask": "For “Pilot conversion”, type one number, or a range like 150 to 400."
+       "prompt": "New figure for “Pilot conversion” in %: one number, or a range like 40 to 70",
+       "ask": "For “Pilot conversion”, type it in %: one number, or a range like 40 to 70."
       }
      },
      {
@@ -1182,8 +1310,8 @@
      },
      {
       "id": "i_speed_pilot",
-      "text": "‘Speed to value → Pilot conversion’",
-      "title": "Speed to value → Pilot conversion",
+      "text": "‘Time to value → Pilot conversion’",
+      "title": "Time to value → Pilot conversion",
       "answer": false,
       "unknown": null,
       "edit": null
@@ -1219,6 +1347,105 @@
       "answer": false,
       "unknown": null,
       "edit": null
+     },
+     {
+      "id": "implementation_effort",
+      "text": "‘Implementation effort’",
+      "title": "not sized yet: integration and training",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Implementation effort” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Implementation effort”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "speed_to_value__product_team_beachhead",
+      "text": "‘Time to value: Product-team beachhead’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Time to value: Product-team beachhead” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Time to value: Product-team beachhead”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "cross_team_adoption__product_team_beachhead",
+      "text": "‘Cross-team adoption: Product-team beachhead’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Cross-team adoption: Product-team beachhead” (teams): one number, or a range like 150 to 400",
+       "ask": "For “Cross-team adoption: Product-team beachhead”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "speed_to_value",
+      "text": "‘Time to value’",
+      "title": "not sized yet: how quickly a pilot shows measurable impact",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Time to value” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Time to value”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "cross_team_adoption__top_down_enterprise_sale",
+      "text": "‘Cross-team adoption: Top-down enterprise sale’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Cross-team adoption: Top-down enterprise sale” (teams): one number, or a range like 150 to 400",
+       "ask": "For “Cross-team adoption: Top-down enterprise sale”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "implementation_effort__top_down_enterprise_sale",
+      "text": "‘Implementation effort: Top-down enterprise sale’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Implementation effort: Top-down enterprise sale” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Implementation effort: Top-down enterprise sale”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "cross_team_adoption",
+      "text": "‘Cross-team adoption’",
+      "title": "not sized yet: use beyond the first team",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Cross-team adoption” (teams): one number, or a range like 150 to 400",
+       "ask": "For “Cross-team adoption”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "implementation_effort__partner_led_pilots",
+      "text": "‘Implementation effort: Partner-led pilots’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Implementation effort: Partner-led pilots” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Implementation effort: Partner-led pilots”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "speed_to_value__self_serve_platform",
+      "text": "‘Time to value: Self-serve platform’",
+      "title": "The brief gives no figure for this change.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Time to value: Self-serve platform” (weeks): one number, or a range like 150 to 400",
+       "ask": "For “Time to value: Self-serve platform”, type one number, or a range like 150 to 400."
+      }
      }
     ]
    },
@@ -1258,7 +1485,7 @@
    "rests_heading": "How much rests on Olumi's guesses",
    "lenses": []
   },
-  "edit_base": 16,
+  "edit_base": 19,
   "holdable": [
    {
     "link": {
@@ -1267,7 +1494,7 @@
     },
     "from": "speed_to_value",
     "to": "pilot_conversion",
-    "text": "'Speed to value' → 'Pilot conversion'",
+    "text": "'Time to value' → 'Pilot conversion'",
     "line": true,
     "card": null
    },
@@ -1463,7 +1690,7 @@
   "open": false,
   "shared": [
    {
-    "id": 17,
+    "id": 20,
     "by": "Tom",
     "by_id": "2",
     "text": "Teams adopt fast once they see value. It won't be our constraint.",
@@ -1494,7 +1721,7 @@
     ]
    },
    {
-    "id": 18,
+    "id": 21,
     "by": "Maya",
     "by_id": "1",
     "text": "Would ask the two pilot teams how fast.",
@@ -1525,7 +1752,7 @@
     ]
    },
    {
-    "id": 20,
+    "id": 23,
     "by": "Priya",
     "by_id": "3",
     "text": "Adoption stalled until someone owned the change. It took two quarters.",
@@ -1591,7 +1818,7 @@
    {
     "id": "speed_to_value",
     "family": "quantity",
-    "label": "Speed to value"
+    "label": "Time to value"
    },
    {
     "id": "cross_team_adoption",
@@ -1607,6 +1834,36 @@
     "id": "pilot_conversion",
     "family": "quantity",
     "label": "Pilot conversion"
+   },
+   {
+    "id": "speed_to_value__product_team_beachhead",
+    "family": "quantity",
+    "label": "Time to value: Product-team beachhead"
+   },
+   {
+    "id": "cross_team_adoption__product_team_beachhead",
+    "family": "quantity",
+    "label": "Cross-team adoption: Product-team beachhead"
+   },
+   {
+    "id": "cross_team_adoption__top_down_enterprise_sale",
+    "family": "quantity",
+    "label": "Cross-team adoption: Top-down enterprise sale"
+   },
+   {
+    "id": "implementation_effort__top_down_enterprise_sale",
+    "family": "quantity",
+    "label": "Implementation effort: Top-down enterprise sale"
+   },
+   {
+    "id": "implementation_effort__partner_led_pilots",
+    "family": "quantity",
+    "label": "Implementation effort: Partner-led pilots"
+   },
+   {
+    "id": "speed_to_value__self_serve_platform",
+    "family": "quantity",
+    "label": "Time to value: Self-serve platform"
    },
    {
     "id": "arr_2027",
@@ -1631,7 +1888,7 @@
    {
     "id": "i_speed_pilot",
     "family": "relation",
-    "label": "Speed to value → Pilot conversion"
+    "label": "Time to value → Pilot conversion"
    },
    {
     "id": "i_adoption_pilot",
@@ -1688,9 +1945,9 @@
     "card": "cross_team_adoption",
     "kind": "shared",
     "views": [
-     17,
-     18,
-     20
+     20,
+     21,
+     23
     ],
     "evidence": [],
     "text": "Tom, Maya and Priya spoke to it",
@@ -1704,8 +1961,8 @@
     "card": "speed_to_value",
     "kind": "shared",
     "views": [
-     17,
-     18
+     20,
+     21
     ],
     "evidence": [],
     "text": "Tom and Maya observed it",
@@ -1713,14 +1970,14 @@
     "options": [],
     "title": "Tom and Maya observed it\nTom\nMaya",
     "label": "Tom and Maya observed it · Tom · Maya",
-    "question": "Do Tom and Maya mean the same thing by 'Speed to value'?"
+    "question": "Do Tom and Maya mean the same thing by 'Time to value'?"
    },
    {
     "card": "cross_team_adoption",
     "kind": "evidence",
     "views": [],
     "evidence": [
-     19
+     22
     ],
     "text": "Maya added evidence",
     "reading": null,
@@ -1730,6 +1987,7 @@
     "question": "What does the evidence Maya added show about 'Cross-team adoption' that the model does not hold yet?"
    }
   ],
+  "link_route": "stance",
   "link_marks": [
    {
     "link": {
@@ -1761,8 +2019,8 @@
  },
  "evidence": [
   {
-   "id": 19,
-   "at": "2026-11-08T02:42:49.785Z",
+   "id": 22,
+   "at": "2026-11-09T00:45:00.542Z",
    "by": "Maya",
    "by_id": "1",
    "text": "Pilot team B adopted in six weeks once a lead owned the rollout.",
@@ -1809,7 +2067,7 @@
  ],
  "chat": [
   {
-   "id": 6,
+   "id": 9,
    "by": "Maya",
    "version": "earlier: version 1",
    "earlier": true,
@@ -1852,7 +2110,7 @@
    "choice": null
   },
   {
-   "id": 11,
+   "id": 14,
    "by": "Priya",
    "version": "earlier: version 2",
    "earlier": true,
@@ -1866,7 +2124,7 @@
    "choice": null
   },
   {
-   "id": 13,
+   "id": 16,
    "by": "Tom",
    "version": "earlier: version 3",
    "earlier": true,
@@ -1880,7 +2138,7 @@
    "choice": null
   },
   {
-   "id": 15,
+   "id": 18,
    "by": "Maya",
    "version": "version 4",
    "earlier": false,
@@ -1955,15 +2213,21 @@
    "top_down_enterprise_sale": "Please change “Top-down enterprise sale”: ",
    "partner_led_pilots": "Please change “Partner-led pilots”: ",
    "self_serve_platform": "Please change “Self-serve platform”: ",
-   "speed_to_value": "Please change “Speed to value”: ",
+   "speed_to_value": "Please change “Time to value”: ",
    "cross_team_adoption": "Please change “Cross-team adoption”: ",
    "implementation_effort": "Please change “Implementation effort”: ",
    "pilot_conversion": "Please change “Pilot conversion”: ",
+   "speed_to_value__product_team_beachhead": "Please change “Time to value: Product-team beachhead”: ",
+   "cross_team_adoption__product_team_beachhead": "Please change “Cross-team adoption: Product-team beachhead”: ",
+   "cross_team_adoption__top_down_enterprise_sale": "Please change “Cross-team adoption: Top-down enterprise sale”: ",
+   "implementation_effort__top_down_enterprise_sale": "Please change “Implementation effort: Top-down enterprise sale”: ",
+   "implementation_effort__partner_led_pilots": "Please change “Implementation effort: Partner-led pilots”: ",
+   "speed_to_value__self_serve_platform": "Please change “Time to value: Self-serve platform”: ",
    "arr_2027": "Please change “Annual recurring revenue in 2027”: ",
    "arr_target": "Please change “ARR target for 2027”: ",
    "execution_complexity": "Please change “Execution complexity”: ",
    "sustainable_enterprise_growth": "Please change “Sustainable enterprise growth”: ",
-   "i_speed_pilot": "Please change “Speed to value → Pilot conversion”: ",
+   "i_speed_pilot": "Please change “Time to value → Pilot conversion”: ",
    "i_adoption_pilot": "Please change “Cross-team adoption → Pilot conversion”: ",
    "i_effort_pilot": "Please change “Implementation effort → Pilot conversion”: ",
    "i_pilot_arr": "Please change “Pilot conversion → Annual recurring revenue in 2027”: ",
@@ -2070,11 +2334,11 @@
  "draft": {
   "status": "done",
   "reason": null,
-  "at": "2026-11-08T02:42:49.764Z",
+  "at": "2026-11-09T00:45:00.510Z",
   "job": 5,
-  "stage": null,
+  "stage": "analysing",
   "words": null,
-  "started": "2026-11-08T02:42:49.702Z"
+  "started": "2026-11-09T00:45:00.439Z"
  },
  "turn": null,
  "reply": null,
@@ -2085,7 +2349,7 @@
     "kind": "claim",
     "kind_text": "Claim",
     "text": "Adoption needs an owner inside each team.",
-    "at": "2026-11-08T02:42:49.772Z",
+    "at": "2026-11-09T00:45:00.521Z",
     "by": "Priya",
     "by_id": "3",
     "concerns": [
@@ -2108,14 +2372,14 @@
     "kind": "assumption",
     "kind_text": "Assumption",
     "text": "Value is visible within the first quarter.",
-    "at": "2026-11-08T02:42:49.777Z",
+    "at": "2026-11-09T00:45:00.528Z",
     "by": "Tom",
     "by_id": "2",
     "concerns": [
      {
       "id": "speed_to_value",
       "family": "quantity",
-      "label": "Speed to value"
+      "label": "Time to value"
      }
     ],
     "version": 3,
@@ -2131,7 +2395,7 @@
     "kind": "question",
     "kind_text": "Open question",
     "text": "How fast did the two pilot teams adopt?",
-    "at": "2026-11-08T02:42:49.781Z",
+    "at": "2026-11-09T00:45:00.536Z",
     "by": "Maya",
     "by_id": "1",
     "concerns": [],
@@ -2146,7 +2410,7 @@
   ],
   "views": [
    {
-    "view": 17,
+    "view": 20,
     "by": "Tom",
     "by_id": "2",
     "mine": false,
@@ -2162,14 +2426,14 @@
     "text": "Teams adopt fast once they see value. It won't be our constraint."
    },
    {
-    "view": 17,
+    "view": 20,
     "by": "Tom",
     "by_id": "2",
     "mine": false,
     "about": {
      "id": "speed_to_value",
      "family": "quantity",
-     "label": "Speed to value"
+     "label": "Time to value"
     },
     "stance": "know",
     "stance_text": "Observed",
@@ -2178,7 +2442,7 @@
     "text": "Our two pilots showed value within weeks."
    },
    {
-    "view": 18,
+    "view": 21,
     "by": "Maya",
     "by_id": "1",
     "mine": false,
@@ -2194,14 +2458,14 @@
     "text": "Would ask the two pilot teams how fast."
    },
    {
-    "view": 18,
+    "view": 21,
     "by": "Maya",
     "by_id": "1",
     "mine": false,
     "about": {
      "id": "speed_to_value",
      "family": "quantity",
-     "label": "Speed to value"
+     "label": "Time to value"
     },
     "stance": "know",
     "stance_text": "Observed",
@@ -2210,7 +2474,7 @@
     "text": "The pilots showed value within a month."
    },
    {
-    "view": 20,
+    "view": 23,
     "by": "Priya",
     "by_id": "3",
     "mine": false,
@@ -2231,9 +2495,9 @@
     "card": "cross_team_adoption",
     "kind": "shared",
     "views": [
-     17,
-     18,
-     20
+     20,
+     21,
+     23
     ],
     "people": [
      {
@@ -2255,8 +2519,8 @@
     "card": "speed_to_value",
     "kind": "shared",
     "views": [
-     17,
-     18
+     20,
+     21
     ],
     "people": [
      {
@@ -2273,7 +2537,7 @@
   ],
   "gate": {
    "quantified": false,
-   "text": "The chance of 'Sustainable enterprise growth' cannot be worked out yet: rests on \"Annual recurring revenue in 2027\", which is unknown: not yet modelled from the routes; rests on \"Pilot conversion\", which is not measured: not sized yet: pilots that go paid; rests on \"Implementation effort\", which is not measured: not sized yet: integration and training; rests on \"Cross-team adoption\", which is not measured: not sized yet: use beyond the first team; rests on \"Speed to value\", which is not measured: not sized yet: how quickly a pilot shows measurable impact; rests on the link \"Speed to value → Pilot conversion\", which is in words, never calculated; rests on the link \"Cross-team adoption → Pilot conversion\", which is in words, never calculated; rests on the link \"Implementation effort → Pilot conversion\", which is in words, never calculated; rests on the link \"Pilot conversion → Annual recurring revenue in 2027\", which is in words, never calculated."
+   "text": "No option's chance of 'Sustainable enterprise growth' can be worked out yet: it rests on 7 things the model cannot yet put a figure on."
   },
   "overview": {
    "heading": "Strategy overview",
@@ -2442,14 +2706,14 @@
      "lines": [
       {
        "id": "speed_to_value",
-       "text": "Speed to value",
+       "text": "Time to value",
        "by": "Tom",
        "by_id": "2",
        "kind_text": null,
        "ref": {
         "id": "speed_to_value",
         "family": "quantity",
-        "label": "Speed to value"
+        "label": "Time to value"
        },
        "pill": "Tom and Maya observed it",
        "people": [
@@ -2519,6 +2783,120 @@
         "id": "pilot_conversion",
         "family": "quantity",
         "label": "Pilot conversion"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "speed_to_value__product_team_beachhead",
+       "text": "Time to value: Product-team beachhead",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "speed_to_value__product_team_beachhead",
+        "family": "quantity",
+        "label": "Time to value: Product-team beachhead"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "cross_team_adoption__product_team_beachhead",
+       "text": "Cross-team adoption: Product-team beachhead",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "cross_team_adoption__product_team_beachhead",
+        "family": "quantity",
+        "label": "Cross-team adoption: Product-team beachhead"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "cross_team_adoption__top_down_enterprise_sale",
+       "text": "Cross-team adoption: Top-down enterprise sale",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "cross_team_adoption__top_down_enterprise_sale",
+        "family": "quantity",
+        "label": "Cross-team adoption: Top-down enterprise sale"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "implementation_effort__top_down_enterprise_sale",
+       "text": "Implementation effort: Top-down enterprise sale",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "implementation_effort__top_down_enterprise_sale",
+        "family": "quantity",
+        "label": "Implementation effort: Top-down enterprise sale"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "implementation_effort__partner_led_pilots",
+       "text": "Implementation effort: Partner-led pilots",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "implementation_effort__partner_led_pilots",
+        "family": "quantity",
+        "label": "Implementation effort: Partner-led pilots"
+       },
+       "pill": "Olumi inferred",
+       "people": [
+        {
+         "id": "olumi",
+         "name": "Olumi"
+        }
+       ]
+      },
+      {
+       "id": "speed_to_value__self_serve_platform",
+       "text": "Time to value: Self-serve platform",
+       "by": "Olumi",
+       "by_id": "olumi",
+       "kind_text": null,
+       "ref": {
+        "id": "speed_to_value__self_serve_platform",
+        "family": "quantity",
+        "label": "Time to value: Self-serve platform"
        },
        "pill": "Olumi inferred",
        "people": [
