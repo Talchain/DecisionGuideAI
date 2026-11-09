@@ -27,16 +27,20 @@ describe('an option\'s chance definition is in its row\'s hover, never body text
     if (rows.length === 0) continue
     it(`${name}: the Analysis tab draws no definition on screen; each row's hover is core's title, which opens with it`, () => {
       const c = render(<ViewChances model={view.model!} />).container
+      // The option rows' own text (core cc1b522e may also send the line as one of the Run's notes, for an aim the Run is not about: that note
+      // is core's, drawn verbatim, and is not the row).
+      const onRows = [...c.querySelectorAll('[data-view-row]')].map((e) => e.textContent ?? '').join('\n')
       for (const { card, row, i } of rows) {
-        expect(c.textContent!.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
+        expect(onRows.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
         const hover = c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title') ?? ''
         expect([hover === row.title, hover.startsWith(row.text!)], `${card.id} row ${i} hover`).toEqual([true, true])
       }
     })
     it(`${name}: the Summary draws no definition on screen; each row's hover is core's title`, () => {
       const c = render(<ViewBriefBody model={view.model!} />).container
+      const onRows = [...c.querySelectorAll('[data-view-brief-row]')].map((e) => e.textContent ?? '').join('\n')
       for (const { card, row, i } of rows) {
-        expect(c.textContent!.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
+        expect(onRows.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
         expect(c.querySelector(`[data-view-brief-row="${card.id}.${i}"]`)?.getAttribute('title'), `${card.id} row ${i} hover`).toBe(row.title)
       }
     })

@@ -2,8 +2,8 @@
  * A reason every option shares, said once in the Analysis panel (the strategy audit, 7 Nov: "it belongs once, in the panel"), and every
  * option still shows a chance or one plain reason (DL 9 Nov: a blank row for a withheld option is a defect). Core (design call 8 Nov (c),
  * e653edb1) says the shared reason once (`run.shared_blockers`) and gives each covered row its short mark, "No chance yet", with the reason
- * as its hover; the panel draws both as core sends them. Fixtures are core e653edb1's own Views (the app-launch golden and its
- * pricing-unmoved-first case); bound by card id, row index and aim id.
+ * as its hover; the panel draws both as core sends them. Fixtures are core cc1b522e's own Views (the app-launch golden and its
+ * pricing-unmoved-unresolved case); bound by card id, row index and aim id.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
@@ -12,7 +12,7 @@ import { optionCards } from '../../layout'
 import { AnalysisHeroPanel } from '../AnalysisHeroPanel'
 import { viewOf } from './viewAt'
 afterEach(cleanup)
-const launch = viewOf('golden/app-launch'), unmoved = viewOf('golden/pricing-unmoved-first')
+const launch = viewOf('golden/app-launch'), unmoved = viewOf('golden/pricing-unmoved-unresolved')
 const draw = (v: View) => render(<AnalysisHeroPanel model={v.model!} chat={v.chat} />).container
 const rowEl = (c: HTMLElement, id: string, i: number) => c.querySelector<HTMLElement>(`[data-testid="port-option-row"][data-view-row="${id}.rows.${i}"]`)
 
@@ -37,7 +37,7 @@ describe('the Analysis panel says a shared reason once, and every covered option
     expect(rows).toBeGreaterThan(blockers.length)
   })
 
-  it('pricing-unmoved-first: the covered row says "No chance yet"; the option\'s own chance for its other aim is drawn as before', () => {
+  it('pricing-unmoved-unresolved: the covered row says "No chance yet"; the option\'s own chance for its other aim is drawn as before', () => {
     const c = draw(unmoved), [shared] = unmoved.model!.run!.shared_blockers!
     for (const card of optionCards(unmoved.model!)) {
       const s = card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === shared!.aim_id)

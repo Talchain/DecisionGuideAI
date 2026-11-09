@@ -193,56 +193,6 @@
     "failed": []
    },
    {
-    "id": "cups_change",
-    "family": "quantity",
-    "glyph": "●",
-    "heading": "cups change",
-    "typed": false,
-    "detail": "cups change · quantity · Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month. · Plausible range: −900 to −100 cups/month",
-    "col": 1,
-    "h": 88,
-    "olumi": {
-     "glyph": "◆",
-     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
-    },
-    "change": null,
-    "focus": false,
-    "challenged": false,
-    "doubt": false,
-    "figure": {
-     "text": "−900 to −100 cups/month",
-     "title": "Plausible range: −900 to −100 cups/month",
-     "edit": {
-      "prompt": "New figure for “cups change” (cup/month): one number, or a range like 150 to 400",
-      "ask": "For “cups change”, type one number, or a range like 150 to 400."
-     }
-    },
-    "premises": [],
-    "rows": [],
-    "driver": null,
-    "status": null,
-    "bound": null,
-    "reason": null,
-    "badge": null,
-    "unused": null,
-    "values": null,
-    "rests_on": [],
-    "face": {
-     "title": {
-      "text": "cups change",
-      "whole": true,
-      "words": "name"
-     },
-     "line": null
-    },
-    "author": {
-     "by": "olumi",
-     "text": "Olumi’s estimate",
-     "title": "Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month."
-    },
-    "failed": []
-   },
-   {
     "id": "profit",
     "family": "quantity",
     "glyph": "●",
@@ -273,17 +223,18 @@
     "badge": {
      "records": [
       "rise_on",
+      "cups_change",
       "cups",
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +4",
-     "title": "Figure: rise on\nFigure: cups\nHow cups is worked out\nHow profit is worked out",
-     "label": "Show 4 notes behind this",
+     "text": "● = +5",
+     "title": "Figure: rise on\nFigure: cups change\nFigure: cups\nHow cups is worked out\nHow profit is worked out",
+     "label": "Show 5 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
-     "words": "2 figures, 2 calculations",
+     "words": "3 figures, 2 calculations",
      "icon": "● ="
     },
     "unused": null,
@@ -380,7 +331,7 @@
     "typed": false,
     "detail": "Raise the price by 45p · option · Theirs: “raise the price by 45p”",
     "col": 0,
-    "h": 124,
+    "h": 110,
     "olumi": null,
     "change": null,
     "focus": false,
@@ -580,12 +531,12 @@
     }
    },
    {
-    "id": "cups_floor",
+    "id": "cups_kept",
     "family": "quantity",
     "glyph": "●",
-    "heading": "cups floor",
+    "heading": "cups kept",
     "typed": false,
-    "detail": "cups floor · quantity · Theirs: “sells 4,000 coffees a month” · 3,500 cups/month",
+    "detail": "cups kept · quantity · Theirs: “sells 4,000 coffees a month” · 10,000,000,000,000,000 cups/month",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -594,8 +545,55 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "3,500 cups/month",
-     "title": "3,500 cups/month",
+     "text": "10,000tn cups/month",
+     "title": "10,000,000,000,000,000 cups/month",
+     "edit": {
+      "prompt": "New figure for “cups kept” (cup/month): one number, or a range like 150 to 400",
+      "ask": "For “cups kept”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "cups kept",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “sells 4,000 coffees a month”"
+    },
+    "failed": []
+   },
+   {
+    "id": "cups_floor",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "cups floor",
+    "typed": false,
+    "detail": "cups floor · quantity · Theirs: “sells 4,000 coffees a month” · 10,000,000,000,000,000 cups/month",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10,000tn cups/month",
+     "title": "10,000,000,000,000,000 cups/month",
      "edit": {
       "prompt": "New figure for “cups floor” (cup/month): one number, or a range like 150 to 400",
       "ask": "For “cups floor”, type one number, or a range like 150 to 400."
@@ -646,8 +644,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 3,500 cups/month",
-     "title": "at least 3,500 cups/month",
+     "text": "at least 10,000tn cups/month",
+     "title": "at least 10,000tn cups/month",
      "olumi": null,
      "measured": true
     },
@@ -734,23 +732,6 @@
     "holds": null
    },
    {
-    "from": "cups_change",
-    "to": "profit",
-    "kind": "through",
-    "label": "",
-    "doubt": false,
-    "alert": false,
-    "proposed": false,
-    "title": "worked out through cups · Proposed by Olumi: Olumi's estimate",
-    "records": [
-     "cups_rel",
-     "profit_rel"
-    ],
-    "effect": null,
-    "remove": null,
-    "holds": null
-   },
-   {
     "from": "margin",
     "to": "profit",
     "kind": "plain",
@@ -819,7 +800,7 @@
     }
    },
    {
-    "from": "cups_now",
+    "from": "cups_kept",
     "to": "steady_goal",
     "kind": "plain",
     "label": "",
@@ -920,23 +901,23 @@
     {
      "id": "F14",
      "kind": "middle",
-     "line": "'Raise the price by 45p' · aim 'Sell at least 3,500 cups a month': 4,000 cups/month, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Raise the price by 45p', for 'Sell at least 3,500 cups a month': 'cups now' 4,000 cups/month, against a target of at least 3,500 cups/month: meets it.",
+     "line": "'Raise the price by 45p' · aim 'Sell at least 3,500 cups a month': 10,000,000,000,000,000 cups/month",
+     "hover": "With every figure at its most likely value and no risk happening, 'Raise the price by 45p', for 'Sell at least 3,500 cups a month': 'cups kept' 10,000,000,000,000,000 cups/month, against a target of at least 10,000,000,000,000,000 cups/month: can't be told apart from the target.",
      "aim": "steady_goal",
      "option": "raise_price",
      "versus": null,
-     "status": "met",
+     "status": "unresolved",
      "olumi": null
     },
     {
      "id": "F15",
      "kind": "middle",
-     "line": "'Keep the price' · aim 'Sell at least 3,500 cups a month': 4,000 cups/month, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Keep the price', for 'Sell at least 3,500 cups a month': 'cups now' 4,000 cups/month, against a target of at least 3,500 cups/month: meets it.",
+     "line": "'Keep the price' · aim 'Sell at least 3,500 cups a month': 10,000,000,000,000,000 cups/month",
+     "hover": "With every figure at its most likely value and no risk happening, 'Keep the price', for 'Sell at least 3,500 cups a month': 'cups kept' 10,000,000,000,000,000 cups/month, against a target of at least 10,000,000,000,000,000 cups/month: can't be told apart from the target.",
      "aim": "steady_goal",
      "option": "carry_on",
      "versus": null,
-     "status": "met",
+     "status": "unresolved",
      "olumi": null
     },
     {
@@ -1187,11 +1168,11 @@
   ],
   "removed": [],
   "aim": {
-   "quantity": "cups_now",
-   "value": 3500,
+   "quantity": "cups_kept",
+   "value": 10000000000000000,
    "unit": "cup/month",
-   "text": "at least 3,500 cups/month",
-   "title": "3,500 cups/month",
+   "text": "at least 10,000tn cups/month",
+   "title": "10,000,000,000,000,000 cups/month",
    "side": "at_least"
   },
   "sharpen": [
@@ -1293,6 +1274,11 @@
     "id": "carry_on",
     "family": "option",
     "label": "Keep the price"
+   },
+   {
+    "id": "cups_kept",
+    "family": "quantity",
+    "label": "cups kept"
    },
    {
     "id": "cups_floor",
@@ -1410,6 +1396,7 @@
    "profit_rel": "Please change “how profit is worked out”: ",
    "raise_price": "Please change “Raise the price by 45p”: ",
    "carry_on": "Please change “Keep the price”: ",
+   "cups_kept": "Please change “cups kept”: ",
    "cups_floor": "Please change “cups floor”: ",
    "steady_goal": "Please change “Sell at least 3,500 cups a month”: ",
    "profit_goal": "Please change “Make £7,000 a month”: "

@@ -187,7 +187,9 @@ describe('the Run beside the chances says what the base dock said, word for word
       // Row 11 (core e653edb1, 9 Nov): so is what the diamond means (core's RELIANCE_LEAD), said once for the View; core's own oracle test
       // exempts it the same way (view.test.ts). Bound by its exact words, so any other new note still fails here.
       const RELIANCE_LEAD = "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
-      const R18 = { test: (t: string) => t === RELIANCE_LEAD || /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: )/.test(t) }
+      // FM-29 / ownership boundary (core cc1b522e, 9 Nov): a target or bound Olumi chose keeps its input line, said as Olumi's ("Olumi's estimate
+      // of 'X': …"); core's oracle test exempts it by the fact's typed `about`, which the View does not carry, so here by core's fixed opening.
+      const R18 = { test: (t: string) => t === RELIANCE_LEAD || /^(This comparison depends on Olumi's assumed option effects\.|Assumption to check: |Olumi's estimate of ')/.test(t) }
       const drawn = texts(container, '[data-view^="run.notes."]')
       expect(drawn.filter((t) => !R18.test(t ?? ''))).toEqual(o.notes)
       expect(drawn.filter((t) => R18.test(t ?? '')), 'every additive R18 note core sends is drawn').toEqual(model.run!.notes.map((x) => x.text).filter((t) => R18.test(t)))
@@ -217,11 +219,12 @@ describe('the Run beside the chances says what the base dock said, word for word
 })
 
 describe('a reason every option shares is said once, above the options; each covered card carries only core\'s mark (core 23bc745 run.shared_blockers)', () => {
-  // pricing-unmoved-first: the View olumi-core 23bc745 serves for its own test case of that name (view.test.ts CASES), captured from it.
+  // pricing-unmoved-unresolved: the View core cc1b522e builds for its own test case of that name (view.test.ts CASES: an aim the engine cannot
+  // resolve, so a refusal only where it cannot compute, DL ruling 9 Nov), captured from core's viewOf; its oracle key followed the rename.
   type Oracle = { lead: string | null; withheld: Record<string, string> }
   const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, Oracle>
   it('present: the Run\'s sentence once, in core\'s words, before every option; each covered option\'s row is the mark the dock oracle names', () => {
-    const model = golden('pricing-unmoved-first').model!, shared = model.run!.shared_blockers!
+    const model = golden('pricing-unmoved-unresolved').model!, shared = model.run!.shared_blockers!
     expect(shared).toHaveLength(1)
     const { container } = render(<ViewChances model={model} />)
     const said = [...container.querySelectorAll('[data-testid="view-run-shared-blocker"]')]
@@ -230,7 +233,7 @@ describe('a reason every option shares is said once, above the options; each cov
     expect(container.textContent!.split(shared[0]!.text).length - 1).toBe(1)
     const first = container.querySelector('[data-view-card]')!
     expect(said[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    for (const [id, mark] of Object.entries(oracle['pricing-unmoved-first']!.withheld)) {
+    for (const [id, mark] of Object.entries(oracle['pricing-unmoved-unresolved']!.withheld)) {
       expect(shared[0]!.options).toContain(id)
       const card = model.cards.find((c) => c.id === id)!, i = card.rows.findIndex((r) => r.aim_id === shared[0]!.aim_id)
       // Core's deliberate change (design call 8 Nov (c), DL go; core e653edb1 view.test.ts): where the Run says the reason once above the
@@ -242,7 +245,7 @@ describe('a reason every option shares is said once, above the options; each cov
     }
     // Core's deliberate lead change (DL, 8 Nov; core e653edb1 view.test.ts maps the oracle's lead the same way): one line, qualifier visible.
     const lead = (l: string | null) => l?.replace(/^In this model, on current information, each option’s chance of (‘.*’):$/, 'Chance of $1, in this model on current information') ?? null
-    expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(lead(oracle['pricing-unmoved-first']!.lead))
+    expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(lead(oracle['pricing-unmoved-unresolved']!.lead))
   })
   it('absent: no View without the key draws a shared reason', () => {
     // (From core 89d09f0 the goldens carry the key where a blocker is shared: the absent case is made by taking it away.)
