@@ -10,8 +10,8 @@ import { act, renderHook } from '@testing-library/react'
 import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
-import { drawViewCanvas, layViewCanvas, useViewCanvas, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
-import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
+import { drawViewCanvas, layViewCanvas, roomOf, useViewCanvas, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
+import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace, routeTree } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
 vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
@@ -32,7 +32,8 @@ describe('the View draws the canvas', () => {
     const model = golden('pricing').model!
     expect(await layViewCanvas(model)).toBe(true)
     const { nodes, edges } = useCanvasStore.getState()
-    const places = await causalPlaces(model, new Map(), questionPlace(model).width), cards = nodes.slice(1)
+    // J1 gate (2946366a): the canvas places the board by the prototype's route tree in the room the camera frames, no longer causalPlaces.
+    const room = roomOf(), places = routeTree(model, new Map(), questionPlace(model).width, new Set(), room.h, room.w), cards = nodes.slice(1)
     expect(cards.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
     expect(cards.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
     expect(edges.map((e) => [e.source, e.target])).toEqual(model.links.map((l) => [l.from, l.to]))

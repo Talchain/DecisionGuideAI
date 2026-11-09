@@ -9,7 +9,7 @@ import path from 'node:path'
 import { typography } from '../../styles/typography'
 import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { CARD_WIDTH, causalPlaces, drawKindOf, familyTierOf, QUESTION_FLANKED_W, questionPlace, QUESTION } from '../layout'
+import { CARD_WIDTH, causalPlaces, drawKindOf, familyTierOf, QUESTION_W, questionPlace, QUESTION } from '../layout'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewOptionBand } from '../v10'
 
@@ -52,7 +52,7 @@ describe('family rows', () => {
     expect([...new Set(width(3).map((id) => Math.round(p.get(id)!.y)))].length).toBe(2)
     for (const t of [...tiers].filter((x) => x !== 0 && x !== 3 && x !== 5)) expect(new Set(width(t).map((id) => Math.round(p.get(id)!.y))).size, `family ${t}: one row`).toBe(1)
     const boxes = [...p].map(([id, x]) => ({ id, ...x }))
-    for (const a of boxes) for (const b of boxes) if (a.id < b.id && a.y === b.y) expect(Math.abs(a.x - b.x), `${a.id}/${b.id}`).toBeGreaterThanOrEqual(220)
+    for (const a of boxes) for (const b of boxes) if (a.id < b.id && a.y === b.y) expect(Math.abs(a.x - b.x), `${a.id}/${b.id}`).toBeGreaterThanOrEqual(CARD_WIDTH)
   })
 })
 
@@ -72,10 +72,10 @@ describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own ro
   })
   it('catch: the aims sit beside the question, one each side, and the rows go options, drivers, outcomes', async () => {
     const p = await causalPlaces(r24, new Map(), questionPlace(r24).width), q = p.get(QUESTION)!
-    expect(questionPlace(r24).width).toBe(QUESTION_FLANKED_W)
+    expect(questionPlace(r24).width).toBe(QUESTION_W)
     expect([p.get('aim_cash')!.y, p.get('aim_deals')!.y]).toEqual([q.y, q.y])
     expect(p.get('aim_cash')!.x + CARD_WIDTH).toBeLessThanOrEqual(q.x)
-    expect(p.get('aim_deals')!.x).toBeGreaterThanOrEqual(q.x + QUESTION_FLANKED_W)
+    expect(p.get('aim_deals')!.x).toBeGreaterThanOrEqual(q.x + QUESTION_W)
     expect(p.get('o1')!.y).toBeLessThan(p.get('lever_a')!.y)
     expect(p.get('lever_a')!.y).toBeLessThan(p.get('cash')!.y)
   })

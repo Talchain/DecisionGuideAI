@@ -41,6 +41,11 @@ function at(model: ViewModel, p: string): unknown {
 // `author` (core 6192ad6b, `cards[].author: { by, text, title }`): who stated the card's figure. The Model tab draws it (an icon whose name
 // and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card has no slot for it
 // and keeps Olumi's mark alone, so it is exempt from this surface's "every word drawn" set and from nothing else.
+// Core's option headline (AN-01, paired at 73880d3d; card face, a7b03610): the canvas card draws `headline.text` with its title on hover;
+// its `state` is a code, and its `range`, `why` and `add` lines are the Analysis panel's (HeroOptionRow, an01Headline.spec). A headline
+// core marks `shared` is the panel's to say once (J1 step 3; sharedBlockerPanel.spec), so the card draws its rows instead.
+const panelOnly = (card: ViewModel['cards'][number]): string[] => card.headline == null ? []
+  : [...['state', 'range', 'why', 'add'].map((k) => `${card.id}.headline.${k}`), ...(card.headline.shared === true ? [`${card.id}.headline.text`] : [])]
 const SKIP = new Set(['id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
@@ -62,13 +67,17 @@ describe('the canvas card draws the View exactly', () => {
         // A worked-out figure with a line per option (two or more `values`) is drawn as those lines, a row per option, in place of its one
         // run-on sentence (R3 pristine): each option's line is then the drawn string, and the sentence stays the rows' hover (core's title).
         const perOption = card.figure !== null && (card.values?.length ?? 0) > 1
-        const want = perOption ? [...shown(fields, card.id).filter((p) => p !== `${card.id}.figure.text`), ...card.values!.map((_, i) => `${card.id}.values.${i}.text`)] : shown(fields, card.id)
+        const off = new Set(panelOnly(card))
+        const all = shown(fields, card.id).filter((p) => !off.has(p))
+        const want = perOption ? [...all.filter((p) => p !== `${card.id}.figure.text`), ...card.values!.map((_, i) => `${card.id}.values.${i}.text`)] : all
         // A badge core names (its `icon` and `words`, both sent) draws those in place of its count text (Badge.tsx badgeNamed: the count is
         // said once); `text` stays its name to a reader (core's `label`). Without both, `text` is drawn.
         const named = card.badge !== null && badgeNamed(card.badge) !== null
         for (const p of want) if (!(named && p === `${card.id}.badge.text`)) expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
         if (named) expect(container.querySelector(`[data-view="${card.id}.badge.text"]`), `${card.id}.badge.text said once`).toBeNull()
-        if (card.detail !== '') expect(container.querySelector(`[data-view="${card.id}.heading"]`)?.getAttribute('title'), `${card.id}.detail on hover`).toBe(card.detail)
+        // The drawn title carries core's detail whole on hover: the heading, or core's face title where it says something else (a7b03610).
+        const titleEl = container.querySelector(`[data-view="${card.id}.face.title.text"]`) ?? container.querySelector(`[data-view="${card.id}.heading"]`)
+        if (card.detail !== '') expect(titleEl?.getAttribute('title'), `${card.id}.detail on hover`).toBe(card.detail)
         unmount()
       }
     })

@@ -36,9 +36,9 @@ import { useViewChat } from '../../../olumiView/ViewChat'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
 const UUID = '00000000-0000-4000-8000-000000000001', SID = 's_000000000001'
-const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
 // The person here wrote the brief, whom core never holds for their own view (`gated`); the golden, a synthetic fixture with no first
-// turn, reads it true.
+// turn, reads it true, so every View this page reads (the store and each GET the follow makes) says false (b07be4d0).
+const view = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8')), gated: false }
 let seen: { method: string; path: string; body?: unknown }[] = []
 let conversation: ReturnType<typeof useConversationContext> | null = null
 function Probe() { conversation = useConversationContext(); return null }

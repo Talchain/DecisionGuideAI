@@ -54,7 +54,7 @@ describe('proposed, changed and kept cards are told apart at rest', () => {
   it('CONTRAST: a kept card has the plain border and no change words; a proposed addition is the translucent ghost, not "changed"', () => {
     const k = render(<ViewCard card={kept} />).container.querySelector<HTMLElement>('[data-view-card]')!
     expect(k.hasAttribute('data-changed-card')).toBe(false)
-    expect(k.className).toContain('border-border')
+    expect(k.className.split(' ')).toContain('border-factor') // the prototype's plain card edge (J1 gate 2946366a), on the --factor token
     cleanup()
     const added = { ...kept, change: { kind: 'added', glyph: '+', title: 'Proposed addition' } } as typeof kept
     const a = render(<ViewCard card={added} />).container.querySelector<HTMLElement>('[data-view-card]')!

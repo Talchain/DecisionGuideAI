@@ -29,6 +29,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
+import { drawnByRows, driverCardsOf } from '../../../olumiView/port/pick'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hiring.view3.json'), 'utf8'))
@@ -69,8 +70,12 @@ describe('the Analysis tab on the olumi-core lane draws the ported components', 
     // the coach's newest next step, in core's words at its chat path (its move tap is the conversation's own control, in the slot)
     const k = view.chat.findIndex((t: { answer: { next: { newest: boolean } } | null }) => t.answer?.next.newest === true)
     expect(hero.querySelector(`[data-testid="port-hero-next"] [data-view="chat.${k}.answer.next.label"]`)!.textContent).toBe(view.chat[k].answer.next.label)
-    // the lower sections are mounted under the rows
-    expect(hero.querySelector('[data-testid="port-evidence-disclosure"]')).not.toBeNull()
+    // The lower sections hold only what no row says (SC-02, 502cb476: say each thing once). On this board each option's driver line is
+    // said under its row and core sends no tipping, rests, failure or trade-off lines, so the disclosure has nothing left and is not drawn.
+    const said = drawnByRows(view.model)
+    expect(driverCardsOf(view.model).map((c: { id: string }) => said.drivers.has(c.id))).toEqual(driverCardsOf(view.model).map(() => true))
+    expect(['tipping', 'rests', 'failure', 'compared'].map((k) => view.model.run[k] ?? null)).toEqual([null, null, null, null])
+    expect(hero.querySelector('[data-testid="port-evidence-disclosure"]')).toBeNull()
   })
 
   it('off the lane neither the ported hero nor the plain block mounts', async () => {

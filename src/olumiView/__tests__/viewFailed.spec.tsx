@@ -46,7 +46,16 @@ describe('"If it failed": Olumi\'s failure stories on the cards they rest on', (
 
   it('nothing is written by the UI: the marks row holds only core\'s glyphs, numbers and words', () => {
     const c = render(<ViewCard card={withK5(option, { failed: [{ n: 2, title: S2, olumi: OLUMI }], failed_reason: { text: 'most within your control', title: S2, olumi: OLUMI } })} />).container
-    expect(marks(c).textContent).toBe('◆2◆ most within your control')
+    // The marks band also leads with a badge core names in words (f687bf91, DL 7 Nov), core's own icon and words: K5's marks follow it.
+    const band = marks(c).cloneNode(true) as HTMLElement
+    const named = band.querySelector('[data-badge-at-rest]')
+    expect(named === null ? null : named.textContent, 'the badge is core\'s own, drawn as Badge draws it').toBe(named === null ? null : render(<ViewCard card={option} />).container.querySelector('[data-badge-at-rest]')!.textContent)
+    named?.remove()
+    // …and, on a card with no figure, who it is from: core's `author.text` (core 6192ad6b), at its path.
+    const from = band.querySelector(`[data-view="${option.id}.author.text"]`)
+    expect(from === null ? null : from.textContent).toBe(from === null ? null : (option as Card & { author: { text: string } }).author.text)
+    from?.remove()
+    expect(band.textContent).toBe('◆2◆ most within your control')
   })
 
   it('a card core sends no story for, an option with no story in its control, and a core before K5: nothing is drawn', () => {

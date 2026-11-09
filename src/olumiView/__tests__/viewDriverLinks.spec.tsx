@@ -61,6 +61,7 @@ describe('What would change on the links', () => {
     cleanup()
     c = edge(plain)
     expect(c.querySelector('[data-driver-link]')).toBeNull()
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('1')
+    // A plain link at rest is the prototype's 1.5 px (J1 gate 2946366a); only a quiet rail round the board is 1 px (be89ce54).
+    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('1.5')
   })
 })

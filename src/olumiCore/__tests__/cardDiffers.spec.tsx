@@ -115,7 +115,8 @@ describe('TM-04: a doubted link on both of its cards, in the card\'s one rail, i
     expect(v11.querySelectorAll('[data-reveal-card-chip]').length).toBeGreaterThan(0)
     expect(v11.querySelector('[data-differ-chip]')).toBeNull()
     expect(v11).toHaveClass('flex-nowrap')
-    expect([v11.style.width, v11.style.marginLeft]).toEqual(['380px', `${(CARD_WIDTH - 380) / 2}px`])
+    // V11's rail is exactly its card's width (J1 gate 2946366a; V11 pixel pass 4c24b10d: at 380 px neighbours' rails overlapped).
+    expect([v11.style.width, v11.style.marginLeft]).toEqual([`${CARD_WIDTH}px`, '0px'])
   })
 
   it('catch: a chip that is not words (core drift) is dropped from its entry and never drawn; the other link keeps its own', async () => {

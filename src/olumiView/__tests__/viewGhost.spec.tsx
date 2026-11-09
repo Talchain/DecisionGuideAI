@@ -34,7 +34,7 @@ describe('a card the proposal adds is drawn as a ghost', () => {
   it('CONTRAST: a card the proposal keeps is drawn as before; one it changes is not the ghost (opaque, its own mark: cardReadable.spec)', () => {
     const k = root(render(<ViewCard card={kept} />).container)
     expect(k.dataset['proposedCard']).toBeUndefined()
-    expect(k.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel', 'border-border']))
+    expect(k.className.split(' ')).toEqual(expect.arrayContaining(['bg-panel', 'border-factor'])) // J1 gate 2946366a: the prototype's plain edge
     expect(k.querySelector(`[data-view="${kept.id}.change.title"]`)).toBeNull()
     cleanup()
     // Plan v3 finish line (DL/PL 7 Nov): a changed card is told apart at rest, by the proposal's border on an opaque card, never the ghost.

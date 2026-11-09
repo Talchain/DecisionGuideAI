@@ -57,7 +57,7 @@ export const viewLaying = (): boolean => laying > 0
 const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, room: { h: number; w: number }) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed], room.h, room.w])
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
-const roomOf = (): { h: number; w: number } => {
+export const roomOf = (): { h: number; w: number } => {
   if (typeof window === 'undefined') return { h: 0, w: 0 }
   // The same insets the board's framing uses (ViewCanvas frameFor), so the rows fill exactly the room the camera frames.
   // The Model / Explore / Team row may not be placed yet when the board is first laid out: its foot is the top-left column's
@@ -175,8 +175,12 @@ let drew: { sid: string | null; n: number | null; model: ViewModel } | null = nu
 
 /** Each scenario's first look at its first version opens its cards' folds once (layout.ts firstLookOpen). */
 const looked = new Set<string>()
-/** The scenario whose first-look folds are opening: the cards they bring are already the person's model, so nothing pulses. */
-let quiet: string | null = null
+/**
+ * The scenario whose first-look folds are opening: the cards they bring are already the person's model, so nothing pulses. It holds only
+ * for the View the fold read lands (`view`, undefined while that read is on its way): a fold read that brings no card, or fails, never
+ * swallows a later approval's pulse (Design QA 9).
+ */
+let quiet: { sid: string; view: View | null | undefined } | null = null
 
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
@@ -187,7 +191,11 @@ export function useViewCanvas(on: boolean): void {
     if (!on || sid === null || looked.has(sid)) return
     const open = firstLookOpen(view, opened)
     if (view?.model != null) looked.add(sid)
-    if (open.size > 0) { quiet = sid; void setOpened({ open, all: false }) }
+    if (open.size > 0) {
+      const q = { sid, view: undefined as View | null | undefined }
+      quiet = q
+      void setOpened({ open, all: false }).then((ok) => { if (quiet === q) quiet = ok ? { sid, view: useViewStore.getState().view } : null })
+    }
   }, [on, view])
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
@@ -207,7 +215,9 @@ export function useViewCanvas(on: boolean): void {
       const arrived: string[] = []
       for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
       // The cards a first look's folds bring are the person's model already: they arrive without the applied-edit pulse.
-      if (quiet === sid && arrived.length > 0) { quiet = null; return }
+      const folds = quiet !== null && quiet.sid === sid && (quiet.view === undefined || quiet.view === view)
+      if (folds && arrived.length > 0) { quiet = null; return }
+      if (!folds && quiet !== null && quiet.view !== undefined) quiet = null
       // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
       const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
       // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.

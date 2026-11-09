@@ -73,11 +73,11 @@ describe('v10 on the core lane', () => {
     expect(corner.closest('[data-slot="olumi-badge"]')).not.toBeNull() // in the shell's bottom-right place, not beside the card
     act(() => { fireEvent.click(corner) })
     const box = container.querySelector<HTMLTextAreaElement>("#view-chat-text")!
-    expect(box.value).toBe(`About ${card.heading}:`) // requestAsk trims a prefill, as v10 does on #/canvas2
+    expect(box.value).toBe(`About ${card.heading}: `) // the corner's words verbatim, ready to type on (0c6854d0: drafts reach the composer whole)
     // A draft is never lost to the corner (Codex review dgai-v10 00002 #1): its words go after what was typed.
     fireEvent.change(box, { target: { value: 'Keep demand at 12,500; price stays £3.20' } })
     act(() => { fireEvent.click(corner) })
-    expect(box.value).toBe(`Keep demand at 12,500; price stays £3.20\nAbout ${card.heading}:`)
+    expect(box.value).toBe(`Keep demand at 12,500; price stays £3.20\nAbout ${card.heading}: `)
     expect(posts).toBe(0)
   })
 
