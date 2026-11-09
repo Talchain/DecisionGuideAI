@@ -25,6 +25,11 @@ export function linkMarkOf(view: View | null, link: Pick<ViewLink, 'holds'>): Li
   return lineMarkAt(view, null, link.holds)
 }
 
+/** DL ruling, 9 Nov: a line carrying core's disagreement chip is drawn at rest, a reason link or a route's rail too: a disagreement the team
+ *  cannot see defeats the point. The chip alone marks it; the line keeps its sign's colour (V11), so a link never carries two encodings. */
+export const useLineMarked = (i: number, link: Pick<ViewLink, 'holds'>): boolean =>
+  useViewStore((s) => s.at === null && lineMarkAt(s.view, i, link.holds) !== null)
+
 export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; link: ViewLink; path: string; cards: readonly Box[]; midX: number; midY: number }): JSX.Element | null {
   // Drawn once per link, on the first line holding it; on an earlier version nothing is drawn (it is shown as it was, without the dock).
   const mark = useViewStore((s) => (s.at === null ? lineMarkAt(s.view, i, link.holds) : null))

@@ -17,7 +17,7 @@ import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
-import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
+import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
 import { railObstacles, useRailBoxes } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
@@ -43,6 +43,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
   const driver = useDriverLink(i)
+  const marked = useLineMarked(i, link)
   const active = new Set<string>()
   if (hovered !== null) active.add(hovered)
   if (fromSelected) active.add(source)
@@ -117,7 +118,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
   // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
-  if (!driver && !focused && !removing && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
+  if (!driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
   const stroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
