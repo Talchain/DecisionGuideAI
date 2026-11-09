@@ -53,15 +53,21 @@ export function railOf(from: Box, to: Box, cards: readonly Box[], slot = 0): Rai
 const WORDS_STEP = 8, WORDS_ROOM = 4
 
 /**
- * Where a rail link's words sit: on its rail, at the point of the climb nearest its middle where the words' box (as measured) touches no
- * card (nor, given in `cards`, a chip on a card's rail). Where no point of the climb is clear (a box wider than the rail's room beside cards
- * all the way up), the box moves out just past the board's edge, still across its rail; every card lies inside the board, so it then
- * touches none. The board's edge is the cards' own (`board`, the cards alone when given), never a chip's overhang.
+ * Where a rail link's words (or its chip) sit: on its rail, at the point of the climb nearest its middle where the box (as measured)
+ * touches nothing in `cards` (the cards, and, as the caller gives them, the chips on a card's rail and the chips on the lines). Where no point
+ * of the climb is clear (a box wider than the rail's room beside cards all the way up), the box moves out just past the board's edge, still
+ * across its rail; every card lies inside the board, so it then touches none. The board's edge is the cards' own (`board`, the cards alone
+ * when given), never a chip's overhang; and where a chip already sits out there (another link's, or this link's own beside its words), the
+ * box steps on outward until it touches none.
  */
 export function railWordsAt(r: Rail, size: { readonly w: number; readonly h: number }, cards: readonly Box[], board: readonly Box[] = cards): { x: number; y: number } {
   const clear = (x: number, y: number) => cards.every((c) => !(x - size.w / 2 < c.x + c.w && x + size.w / 2 > c.x && y - size.h / 2 < c.y + c.h && y + size.h / 2 > c.y))
   const lo = r.top + size.h / 2, hi = r.bottom - size.h / 2, n = Math.ceil(Math.max(0, r.bottom - r.top) / WORDS_STEP)
   for (let k = 0; k <= n; k++) for (const y of k === 0 ? [r.y] : [r.y - k * WORDS_STEP, r.y + k * WORDS_STEP]) if (y >= lo && y <= hi && clear(r.x, y)) return { x: r.x, y }
   const edge = r.onLeft ? Math.min(...board.map((c) => c.x)) - WORDS_ROOM - size.w / 2 : Math.max(...board.map((c) => c.x + c.w)) + WORDS_ROOM + size.w / 2
-  return { x: r.onLeft ? Math.min(r.x, edge) : Math.max(r.x, edge), y: r.y }
+  let x = r.onLeft ? Math.min(r.x, edge) : Math.max(r.x, edge)
+  for (let k = 0; k < OUT_STEPS && !clear(x, r.y); k++) x += r.onLeft ? -WORDS_STEP : WORDS_STEP
+  return { x, y: r.y }
 }
+/** How far past the board's edge the box may step to clear a chip out there (OUT_STEPS × WORDS_STEP flow units). */
+const OUT_STEPS = 64
