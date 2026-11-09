@@ -190,12 +190,13 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
 
 describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never cut', () => {
   afterEach(() => { lane.core = false })
-  it('the 300 px inset dock wraps its tabs to a second row (labels whole, the strip grows), where the flush dock keeps one row', () => {
+  it('the 300 px inset dock lays its tabs out as two even rows of three 44 px tabs (labels whole, the strip grows), where the flush dock keeps one row', () => {
     lane.core = true
     draw(300)
     const tablist = screen.getByTestId('outputs-dock-tablist')
-    expect(tablist.className).toMatch(/\bflex-wrap\b/)
+    expect(tablist.className).toMatch(/\bgrid-cols-3\b/)
     expect(tablist.className).not.toMatch(/\bflex-nowrap\b/)
+    for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     expect(screen.getByTestId('outputs-dock-tabstrip').style.minHeight).toBe('45px')
     expect(screen.getByTestId('outputs-dock-tabstrip').style.height).toBe('')
     cleanup(); lane.core = false

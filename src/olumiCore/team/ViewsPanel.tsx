@@ -215,8 +215,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               <label key={card.id} className={`${META} grid gap-0.5`} title={card.figure!.edit!.prompt}>
                 <span className="text-text-header">{card.heading}</span>
                 <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
-                  // Core's own neutral words for the entry (what to type, never a figure): Olumi's figure is not shown before the member's.
-                  placeholder={card.figure!.edit!.prompt}
+                  // Core's own neutral words for the entry (what to type, never a figure) are the label's hover, whole: as a placeholder in
+                  // the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov), and the label above already names the figure.
                   value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
                   onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
               </label>

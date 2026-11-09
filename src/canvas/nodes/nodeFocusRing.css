@@ -57,3 +57,9 @@
 .react-flow .react-flow__node[tabindex]:focus-visible:has([data-analysis-driver='true']) {
   outline-offset: 7px;
 }
+
+/* V11 pixel pass (9 Nov): a View card (the olumi-core lane) takes the comp's ink focus ring (`:focus-visible { outline: 2px solid
+ * var(--ink) }`), because blue means Olumi only (Paul's look rule). Same specificity, later in the file, so only the colour changes. */
+.react-flow .react-flow__node-viewCard[tabindex]:focus-visible {
+  outline-color: var(--text-header);
+}

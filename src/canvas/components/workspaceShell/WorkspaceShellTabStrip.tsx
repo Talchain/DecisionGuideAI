@@ -328,7 +328,8 @@ export function WorkspaceShellTabStrip({
   const isCompact = width < SHELL_TABSTRIP_COMPACT_BELOW_PX
   // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
   // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
-  const wrapTabs = !isCompact || isOlumiCoreLane()
+  const coreLane = isOlumiCoreLane()
+  const wrapTabs = !isCompact || coreLane
 
   const inspect =
     onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
@@ -386,8 +387,9 @@ export function WorkspaceShellTabStrip({
     // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
     <div
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
-      className={`flex items-center ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
-      style={isOlumiCoreLane() ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
+      // V11 pixel pass (9 Nov): on the olumi-core lane the tabs are a grid of two even rows, so the row controls sit beside the first row.
+      className={`flex ${coreLane ? 'items-start' : 'items-center'} ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
+      style={coreLane ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
       <span className={`sr-only ${typography.viewPanelBody}`} aria-live="polite">
@@ -440,7 +442,8 @@ export function WorkspaceShellTabStrip({
       <div
         // gap-0 in both modes: the spacing now lives inside each `flex-auto` tab,
         // so the divider at a tab's edge sits midway between two labels.
-        className={`flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
+        // The olumi-core lane: three even columns, two rows (Paul 14 Oct, tabs spread evenly), never a ragged wrap.
+        className={coreLane ? 'grid flex-1 min-w-0 grid-cols-3 gap-0' : `flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -518,14 +521,16 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${isOlumiCoreLane() ? typography.viewPanelMeta : typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border ${coreLane ? `[&:nth-child(3n+1)]:before:hidden ${typography.viewPanelMeta} focus-visible:ring-text-header` : `first:before:hidden ${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
-                  ? 'text-text-header font-medium bg-[var(--panel-tab-active-bg)]'
+                  // V11 pixel pass (9 Nov): on the olumi-core lane the comp's selected tab (`.ptab.on`): the canvas fill and 600, seen at a glance.
+                  ? `text-text-header ${coreLane ? 'font-semibold bg-canvas' : 'font-medium bg-[var(--panel-tab-active-bg)]'}`
                   : 'text-text-body hover:text-text-header'
               }`}
-              style={{ height: SHELL_TAB_HEIGHT_PX }}
+              // The olumi-core lane's tab is a 44 px target (Paul's look rule).
+              style={{ height: coreLane ? 44 : SHELL_TAB_HEIGHT_PX }}
             >
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${

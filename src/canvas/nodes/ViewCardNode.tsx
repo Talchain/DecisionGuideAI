@@ -259,10 +259,11 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
     </>
   )
   return (
-    // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed).
+    // Core's marks on the card itself (00057 #4): Olumi points at it (`focus`), it is challenged, or core doubts it (dashed). The opened card
+    // carries the comp's ink ring (`.card.sel`, V11 pixel pass 9 Nov): the one selection cue, never blue (blue is Olumi's).
     <div
       style={{ width: CARD_WIDTH }}
-      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : card.family === 'goal' ? 'border-[#F5C433]' : 'border-[#B0A899]'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''}`}
+      className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : card.family === 'goal' ? 'border-[#F5C433]' : 'border-[#B0A899]'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''} ${selected && !pulsed && driverOf === null ? 'ring-1 ring-text-header' : ''}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined} data-inferred={inferred || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
@@ -362,9 +363,10 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           on hover, focus or selection. */}
       {card.badge === null || card.badge.open || badgeNamed(card.badge) !== null ? null
         : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
-      {/* An open badge takes no line: what it folded is on the board, so it waits in the card's corner to fold it back. */}
+      {/* An open badge takes no line at rest: what it folded is on the board. On hover, focus or selection it takes its own line at the
+          card's foot to fold it back, in flow like the author pill, so it never prints over that pill (V11 pixel pass, 9 Nov). */}
       {card.badge === null || !card.badge.open ? null
-        : <p className={`absolute bottom-1 right-2 ${typography.viewPanelMeta} ${selected ? '' : 'invisible group-hover:visible focus-within:visible'}`} data-at-rest-hidden="" data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
+        : <p className={`text-right ${typography.viewPanelMeta} ${selected ? '' : 'hidden group-hover:block group-focus-within:block'}`} data-at-rest-hidden="" data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex flex-wrap items-center gap-1 empty:hidden">
         {/* DL 7 Nov, the strategy session's rule on V11's card: a badge core names in words ("1 open question") is on the face at rest, one

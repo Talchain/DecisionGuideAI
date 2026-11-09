@@ -1,6 +1,7 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { typo } from '../../styles/typography'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useSelectionContext } from '../hooks/useSelectionContext'
@@ -98,6 +99,8 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
 
   const canAsk = Boolean(sendChip)
 
+  // V11 pixel pass (9 Nov): on the olumi-core lane the row is on Paul's three sizes (12 px, never the legacy 11).
+  const meta: 'viewPanelMeta' | 'panelMeta' = isOlumiCoreLane() ? 'viewPanelMeta' : 'panelMeta'
   return (
     <div
       className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
@@ -105,7 +108,7 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
       data-selection-kind={selection.kind}
       data-selection-actionable={canAsk ? 'true' : 'false'}
     >
-      <span className={typo('panelMeta', 'text-text-light')}>Selected:</span>
+      <span className={typo(meta, 'text-text-light')}>Selected:</span>
       {canAsk ? (
         <button
           type="button"
@@ -116,7 +119,7 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
           // cut names mid-word, which is the same artefact the confirm card was
           // criticised for.
           className={typo(
-            'panelMeta',
+            meta,
             'text-text-body text-left break-words underline decoration-dotted underline-offset-2 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm',
           )}
           aria-label={`Ask about ${label}`}
@@ -126,7 +129,7 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
           {label}
         </button>
       ) : (
-        <span className={typo('panelMeta', 'text-text-body break-words')}>{label}</span>
+        <span className={typo(meta, 'text-text-body break-words')}>{label}</span>
       )}
       {canAsk && (
         <button

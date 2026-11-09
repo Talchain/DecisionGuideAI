@@ -34,7 +34,7 @@ export function Badge({ cardId, badge, at }: { cardId: string; badge: BadgeT; at
       onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, badge) }}
     >{named !== null
         // The card face names what is folded, in core's words, with core's glyphs (no count: the words say it) as the icon.
-        ? <span className="inline-flex items-center gap-1"><span aria-hidden="true" data-view={`${at}.badge.icon`}>{named.icon}</span><span data-view={`${at}.badge.words`}>{named.words}</span></span>
+        ? <span className="inline-flex items-start gap-1"><span aria-hidden="true" className="shrink-0 whitespace-nowrap" data-view={`${at}.badge.icon`}>{named.icon}</span><span data-view={`${at}.badge.words`}>{named.words}</span></span>
         : <span data-view={`${at}.badge.text`}>{badge.text}</span>}{badge.proposed && badge.change !== '' ? <> <span className="text-info" data-view={`${at}.badge.change`}>{badge.change}</span></> : null}</button>
   )
 }
