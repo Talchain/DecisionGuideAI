@@ -77,7 +77,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
-          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:opacity-50`}>{ASIDE_WORDS.confirm}</button>
+          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed`}>{ASIDE_WORDS.confirm}</button>
         <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
@@ -154,9 +154,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''} onClick={primary === 'set' ? undefined : () => void save()}
-          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
+          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:opacity-50 ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
+          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>

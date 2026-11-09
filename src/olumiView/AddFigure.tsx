@@ -136,7 +136,7 @@ export function AddFigure(): JSX.Element | null {
           {error === null ? null : <p role="alert" className="text-danger" data-testid="view-add-figure-error">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={sending || label.trim() === '' || typed.trim() === ''} data-testid="view-add-figure-add"
-              className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded bg-primary px-3 text-text-on-color disabled:opacity-50`}>{ADD_FIGURE_WORDS.add}</button>
+              className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded bg-primary px-3 text-text-on-color disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed`}>{ADD_FIGURE_WORDS.add}</button>
             <button type="button" disabled={sending} onClick={close} className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>{ADD_FIGURE_WORDS.cancel}</button>
           </div>
         </form>

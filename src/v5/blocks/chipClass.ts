@@ -91,8 +91,8 @@ export const CHIP_PRIMARY_CLASS = [
  * The olumi-core lane's chips (R25, Paul 7 Nov: three sizes by role, 44px main targets; PL 7 Nov: lane-only): the same chips in the
  * lane's reading size (14px), the primary one a 44px target. The shared chips above keep their legacy size for the legacy surfaces.
  */
-export const VIEW_CHIP_CLASS = CHIP_CLASS.replace(typography.chatBody, typography.viewPanelBody)
-export const VIEW_CHIP_PRIMARY_CLASS = CHIP_PRIMARY_CLASS.replace(typography.chatBody, typography.viewPanelBody).replace('min-h-[28px]', 'min-h-[44px]')
+export const VIEW_CHIP_CLASS = CHIP_CLASS.replace(typography.chatBody, typography.viewPanelBody).replace('disabled:opacity-40', 'disabled:text-text-light disabled:cursor-not-allowed')
+export const VIEW_CHIP_PRIMARY_CLASS = CHIP_PRIMARY_CLASS.replace(typography.chatBody, typography.viewPanelBody).replace('min-h-[28px]', 'min-h-[44px]').replace('disabled:opacity-40', 'disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed')
 
 /**
  * CHIP_DISMISS_LINK_CLASS — DS v5 §21.2's "Dismiss → `text-text-light` link".

@@ -116,11 +116,11 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
       <p id="view-pm-question" className={`${typography.viewPanelBody} text-text-body`} data-view="session.pre_mortem.question">{gate.question}</p>
       <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (!busy && !empty) void giveReasons() }}>
         <textarea aria-labelledby="view-pm-question" rows={3} value={text} disabled={busy} data-testid="view-premortem-reasons"
-          className={`${typography.viewPanelBody} block w-full resize-none rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:opacity-40`}
+          className={`${typography.viewPanelBody} block w-full resize-none rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
         <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
-          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30">
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed">
           <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </form>

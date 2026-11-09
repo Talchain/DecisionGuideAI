@@ -3,7 +3,7 @@
  *
  *   1. Nothing dims. Under v10 a card the Changes view would subdue, or a selection or lens would dim, stays at full
  *      strength. The same store in the current design still dims (the contrast).
- *   2. Blue means Olumi only. The person's primary buttons resolve to ink #262626 (hover #3F3F3E, disabled 35%) inside
+ *   2. Blue means Olumi only. The person's primary buttons resolve to ink #262626 (hover #3F3F3E, disabled the 35% look, solid) inside
  *      a v10 subtree; the same markup outside it is untouched, and Olumi's own info elements are not matched.
  */
 import '@testing-library/jest-dom/vitest'
@@ -175,10 +175,10 @@ describe('v10 ruling 2: blue means Olumi only', () => {
     expect(importantRule(outside, 'background-color', '#262626')).toBe(false)
   })
 
-  it('the disabled send button is ink at 35% with a white arrow, not a grey chip', () => {
+  it('the disabled send button is the 35% ink look as one solid colour (nothing faded at rest, 9 Nov audit) with a white arrow', () => {
     const send = mount('<button class="send-btn" disabled><svg></svg></button>', 'v10')
-    expect(importantRule(send, 'background-color', '#262626')).toBe(true)
-    expect(getComputedStyle(send).opacity).toBe('0.35')
+    expect(importantRule(send, 'background-color', '#B3B3B3')).toBe(true)
+    expect(getComputedStyle(send).opacity).toBe('1')
     expect(importantRule(send.querySelector('svg')!, 'stroke', '#fff')).toBe(true)
   })
 
@@ -190,11 +190,12 @@ describe('v10 ruling 2: blue means Olumi only', () => {
     expect(bg(mount('<span class="bg-info">mark</span>', 'v10'))).toBe('rgb(39, 122, 157)')
   })
 
-  it('hover is #3F3F3E and disabled is ink at about 35%', () => {
+  it('hover is #3F3F3E and disabled is the 35% ink look, solid (opacity 1)', () => {
     expect(CSS).toMatch(/:hover:not\(:disabled\)[\s\S]*?background-color:\s*#3F3F3E/i)
     const el = mount('<button class="bg-primary" disabled>Save</button>', 'v10')
-    expect(bg(el)).toBe(INK)
-    expect(getComputedStyle(el).opacity).toBe('0.35')
+    expect(bg(el)).toBe('rgb(179, 179, 179)')
+    expect(getComputedStyle(el).opacity).toBe('1')
+    expect(bg(mount('<button class="bg-primary">Save</button>', 'v10'))).toBe(INK) // contrast: enabled stays ink
     expect(INK_HOVER).toBe('rgb(63, 63, 62)')
   })
 
@@ -249,6 +250,6 @@ describe('v10 scope reaches roots portalled into document.body', () => {
     mountProvider('v10')
     document.body.insertAdjacentHTML('beforeend', '<button disabled aria-label="Generate draft (Enter to send, Shift+Enter for new line)"></button>')
     const el = document.body.querySelector('button[aria-label^="Generate draft"]')!
-    expect(v10Rules().some((r) => el.matches(r.selectorText) && r.style.getPropertyValue('opacity') === '0.35')).toBe(true)
+    expect(v10Rules().some((r) => el.matches(r.selectorText) && /b3b3b3|179, 179, 179/i.test(r.style.getPropertyValue('background-color')) && r.style.getPropertyValue('opacity') === '1')).toBe(true)
   })
 })

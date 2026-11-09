@@ -39,16 +39,17 @@
   opacity: 1;
 }
 
-/* Disabled: the same ink at about 35%, whichever recipe the button came in. */
+/* Disabled: the look of the ink at about 35% on the panel, as one solid colour (Paul's gate, 8 Nov: nothing faded at rest; the 1232 audit on
+   0186d369 found the composer's Send at opacity 0.35), whichever recipe the button came in. */
 [data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):disabled,
 [data-presentation="v10"] button[class*="graphPatchAccept"]:disabled,
 [data-presentation="v10"] .send-btn:disabled,
 [data-presentation="v10"] button[aria-label^="Generate draft"]:disabled,
 [data-presentation="v10"] button[aria-label^="Rebuild model"]:disabled {
-  background-color: #262626 !important;
+  background-color: #B3B3B3 !important;
   border-color: transparent !important;
   color: #fff !important;
-  opacity: 0.35;
+  opacity: 1;
 }
 
 /* The send arrow and the draft box's glyph are inline-stroked in grey while disabled; keep them white on the ink. */

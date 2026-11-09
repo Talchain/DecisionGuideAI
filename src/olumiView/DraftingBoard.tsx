@@ -47,7 +47,7 @@ function Drafting({ draft }: { draft: Draft }): JSX.Element {
         {running
           ? (s === null ? null : <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p>)
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
-              className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:opacity-40">Try again</button>}
+              className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </div>
     </div>
   )

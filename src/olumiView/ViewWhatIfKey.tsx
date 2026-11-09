@@ -99,7 +99,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
             {error === null ? null : <p role="alert" data-testid="view-whatif-key-error" className="text-danger">{error}</p>}
             <div className="flex items-center gap-3">
               <button type="submit" data-testid="view-whatif-key-run" disabled={running || typed.trim() === ''}
-                className={`cursor-pointer rounded border border-info/30 px-2 py-0.5 text-info disabled:opacity-50 ${ACTION_FOCUS}`}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</button>
+                className={`cursor-pointer rounded border border-info/30 px-2 py-0.5 text-info disabled:text-text-light disabled:cursor-not-allowed ${ACTION_FOCUS}`}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</button>
               {current === null ? null : <button type="button" data-testid="view-whatif-key-clear" onClick={clearWhatIf}
                 className={`cursor-pointer text-text-light underline underline-offset-2 ${ACTION_FOCUS}`}>{WHAT_IF_COPY.clear}</button>}
             </div>
