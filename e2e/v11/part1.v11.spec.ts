@@ -1,5 +1,5 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test'
-import { BRIEF, audit, base, chancesOf, mint, openTab, passed, scenarioUrl, until, view3, wholeOnBoard, words, type View } from './lib'
+import { BRIEF, audit, base, chancesOf, mint, openTab, passed, until, view3, wholeOnBoard, words, type View } from './lib'
 import { measure, clampLongestDockLine } from './measure'
 
 // POC-ACCEPTANCE Part 1, steps 1 to 5, as Paul would at 1232x704: brief to model, edit, analysis, next step, reopen. One person.
@@ -114,10 +114,35 @@ test('4 a useful next step, and Olumi\'s reply to an answer is shown', async () 
 test('5 everything survives reopening', async () => {
   const snap = (x: View | null) => JSON.stringify({ version: x?.version?.id, cards: (x?.model?.cards ?? []).map((c) => [c.id, c.heading, c.figure?.text ?? null, (c.rows ?? []).map((r) => r.text)]), chances: chancesOf(x) })
   const pre = await view3(page, sid)
+  await page.mouse.move(5, 690); await page.waitForTimeout(800)
+  const wholeBefore = (await wholeOnBoard(page)).sort()
   await page.close(); page = await ctx.newPage(); page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto(`${base()}${link}`); await page.goto(scenarioUrl(sid)); await page.waitForSelector('.react-flow__node-viewCard'); await page.waitForTimeout(2500)
+  // As Paul and the rehearsal reopen it (DL 9 Nov, rehearsal fbd2 step 5): from My scenarios, by the scenario's name. The click leaves the
+  // pointer over the board's head, so a face that grew on hover would push the cards below it off the screen.
+  await page.goto(`${base()}${link}`); await page.getByText(pre!.title, { exact: true }).first().click()
+  await page.waitForURL(/#\/scenario\//); await page.waitForSelector('.react-flow__node-viewCard'); await page.waitForTimeout(2500)
   expect(snap(await view3(page, sid))).toBe(snap(pre))
+  expect((await wholeOnBoard(page)).sort(), 'the same cards whole on the board as before reopening').toEqual(wholeBefore)
   for (const c of pre!.model!.cards.filter((c) => c.family === 'option' && c.headline?.text)) await expect(page.locator(`[data-id="${c.id}"]`)).toContainText(c.headline!.text)
   expect(errors, 'page errors').toEqual([])
   passed('p1.5')
+})
+
+test('5b hovering or focusing a head-row card moves no other card', async () => {
+  // DL ruling 9 Nov: the canvas lays out at drawn heights, so nothing on a card's face may change height on hover or focus.
+  const head = v!.model!.cards.filter((c) => ['goal', 'limit', 'option'].includes(c.family)).map((c) => c.id)
+  const places = () => page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.react-flow__node-viewCard')].map((n) => { const r = n.getBoundingClientRect(); return [n.getAttribute('data-id'), [Math.round(r.left), Math.round(r.top)]] })))
+  await page.mouse.move(5, 690); await page.waitForTimeout(800)
+  const rest = await places()
+  expect(Object.keys(rest).length).toBeGreaterThan(head.length)
+  for (const id of head) {
+    const others = (now: Record<string, number[]>) => Object.fromEntries(Object.entries(now).filter(([k]) => k !== id))
+    const box = (await page.locator(`.react-flow__node-viewCard[data-id="${id}"] [data-view-card]`).first().boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + 12); await page.waitForTimeout(700)
+    expect(others(await places()), `hovering ${id}`).toEqual(others(rest))
+    await page.mouse.move(5, 690); await page.locator(`.react-flow__node-viewCard[data-id="${id}"]`).focus(); await page.waitForTimeout(700)
+    expect(others(await places()), `focusing ${id}`).toEqual(others(rest))
+    await page.locator('#view-chat-text').focus(); await page.waitForTimeout(400)
+  }
+  passed('p1.5b')
 })

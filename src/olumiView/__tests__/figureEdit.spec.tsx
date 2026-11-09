@@ -42,17 +42,18 @@ afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useViewStore.set
 const posts = () => calls.filter((c) => c.method === 'POST')
 
 describe('lane C: a card reads heading and figure first', () => {
-  // R25 (Paul's 6 Nov test: "I can't find manual editing"): the figure's ✎ is its at-rest cue; only its words wait for hover, focus or selection.
-  it('core\'s detail is the heading\'s hover, never a line; the figure\'s ✎ shows at rest, its words only on hover, focus or selection', async () => {
-    const { QUIET_WORDS } = await import('../FigureEdit')
+  // R25 (Paul's 6 Nov test: "I can't find manual editing"): the figure's ✎ is its at-rest cue. DL ruling 9 Nov (the face never changes height
+  // on hover, focus or opening): its words are its label and hover, never a line that appears.
+  it('core\'s detail is the heading\'s hover, never a line; the figure\'s ✎ shows at rest, its words its label and hover, the same opened', () => {
     const detailed = view.model!.cards.find((c) => c.detail !== '')!
-    const quiet = render(<ViewCard card={card} />).container
-    expect(quiet.querySelector(`[data-testid="view-figure-glyph-${card.id}"]`)?.className ?? '').not.toContain('opacity-0')
-    expect(quiet.querySelector(`[data-testid="view-figure-words-${card.id}"]`)?.className).toContain(QUIET_WORDS)
-    quiet.remove()
-    const chosen = render(<ViewCard card={card} selected />).container
-    expect(chosen.querySelector(`[data-testid="view-figure-words-${card.id}"]`)?.className).not.toContain('opacity-0')
-    chosen.remove()
+    for (const selected of [false, true]) {
+      const c = render(<ViewCard card={card} selected={selected} />).container
+      expect(c.querySelector(`[data-testid="view-figure-glyph-${card.id}"]`)?.className ?? '').not.toContain('opacity-0')
+      const pen = c.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)!
+      expect([pen.getAttribute('aria-label'), pen.getAttribute('title')]).toEqual(['Change figure', card.figure!.edit!.ask])
+      expect(c.querySelector(`[data-testid="view-figure-words-${card.id}"]`), `selected ${selected}: no words line`).toBeNull()
+      c.remove()
+    }
     // Core's detail is hover text, never a line (DL 4 Nov: it repeated the heading, said the kind word and spelled provenance out).
     const drawn = render(<ViewCard card={detailed} />).container
     expect(drawn.querySelector(`[data-view="${detailed.id}.detail"]`)).toBeNull()
@@ -97,8 +98,8 @@ describe('a premise is whole, its glyph first, core\'s title kept', () => {
 })
 
 describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
-  it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, its ✎ always shown and the words "Give yours" only on hover, focus or selection (no static repeating text); a person\'s figure is neither', async () => {
-    const { QUIET, QUIET_WORDS } = await import('../FigureEdit')
+  it('a figure card core marks ◆: the figure in Olumi\'s colour with core\'s mark on hover, its ✎ always shown with "Give yours" as its label, never a words line (no static repeating text; DL 9 Nov); a person\'s figure is neither', async () => {
+    const { QUIET } = await import('../FigureEdit')
     const est = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi?.glyph === '◆' && c.figure?.edit)!
     const theirs = view.model!.cards.find((c) => c.family === 'quantity' && c.olumi === null && c.figure?.edit)!
     const a = render(<ViewCard card={est} />).container
@@ -113,10 +114,11 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     const glyph = a.querySelector(`[data-testid="view-figure-glyph-${est.id}"]`)!
     expect(glyph.textContent).toBe('✎')
     expect(glyph.className).not.toContain('opacity-0')
-    expect(a.querySelector(`[data-testid="view-figure-words-${est.id}"]`)?.className).toContain(QUIET_WORDS)
+    expect(a.querySelector(`[data-testid="view-figure-words-${est.id}"]`)).toBeNull()
     a.remove()
     const sel = render(<ViewCard card={est} selected />).container
-    expect(sel.querySelector(`[data-testid="view-figure-words-${est.id}"]`)?.className).not.toContain('opacity-0')
+    expect(sel.querySelector(`[data-testid="view-figure-edit-${est.id}"]`)?.getAttribute('aria-label')).toBe('Give yours')
+    expect(sel.querySelector(`[data-testid="view-figure-words-${est.id}"]`)).toBeNull()
     sel.remove()
     const b = render(<ViewCard card={theirs} />).container
     expect(b.querySelector(`[data-view="${theirs.id}.figure.text"]`)?.hasAttribute('data-olumi')).toBe(false)

@@ -78,12 +78,12 @@ describe('the routes stay whole at 1232: what each says once', () => {
     expect(render(<ViewCard card={c} notYet />).container.querySelector('[data-option-face="price_cut"]')).toBeNull()
     expect(render(<ViewCard card={c} />).container.querySelector('[data-option-face="price_cut"]')).not.toBeNull()
   })
-  it('a route’s own quote is on its card when opened, not at rest; a factor’s line is always on its face', () => {
+  it('a route’s own quote is in its opened words beside it, never on its face (DL 9 Nov: the face never changes height); a factor’s line is always on its face', () => {
     const c = route('product_team_beachhead'), rest = render(<ViewCard card={c} />).container.querySelector('[data-view="product_team_beachhead.face.line.text"]')!
-    expect([rest.textContent, rest.className.includes('group-hover:block')]).toEqual(['start inside product teams as a beachhead', true])
-    expect(rest.className).toMatch(/(^| )hidden( |$)/)
+    expect(rest.textContent).toBe('start inside product teams as a beachhead')
+    expect(rest.closest('[data-view-more]')?.hasAttribute('hidden')).toBe(true)
     const open = render(<ViewCard card={c} selected />).container.querySelector('[data-view="product_team_beachhead.face.line.text"]')!
-    expect(open.className).not.toMatch(/(^| )hidden( |$)/)
+    expect(open.closest('[data-view-more]')?.hasAttribute('hidden')).toBe(false)
     const factor = render(<ViewCard card={route('cross_team_adoption')} />).container.querySelector('[data-view="cross_team_adoption.face.line.text"]')!
     expect(factor.className).not.toMatch(/(^| )hidden( |$)/)
   })

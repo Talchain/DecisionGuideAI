@@ -210,6 +210,9 @@ describe('the compact face (Paul 4 Nov: the causal graph reads; every word of co
           // A proposed addition's change words are its sr-only caption on the face; a changed card's open with its other words (ViewCardNode).
           else if (p === `${card.id}.change.title`) expect(hidden, `${p} ${card.change!.kind}`).toBe(card.change!.kind === 'changed')
           else if (MORE.test(p)) expect(hidden, `${p} folded`).toBe(true)
+          // DL ruling 9 Nov (the face never changes height on hover, focus or opening): a person's author, and an option's (a route's) face
+          // line, open with the card beside it; Olumi's author stays on the face at rest (by core's author.by, never its words).
+          else if ((p === `${card.id}.author.text` && card.author!.by !== 'olumi') || (p === `${card.id}.face.line.text` && card.family === 'option')) expect(hidden, `${p} opens with the card`).toBe(true)
           // Core's option face (card-face, 8 Nov): an option with core's headline says that one line on the face; its rows open with it. A
           // headline core marks `shared` (every option the same) is the panel's to say once (J1 step 3): the rows stay on the face.
           else if (card.family === 'option' && card.headline != null && card.headline.text !== '' && card.headline.shared !== true && p === `${card.id}.headline.text`) expect(hidden, `${p} on the face`).toBe(false)

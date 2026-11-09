@@ -32,14 +32,17 @@ describe('the author at rest only on Olumi’s cards (design owner, 8 Nov)', () 
     const visits = render(<ViewCard card={card('visits')} />).container.querySelector('[data-provenance="visits"]')!
     expect(visits.className).not.toMatch(/(^| )hidden( |$)/)
     expect(visits.getAttribute('data-provenance-at-rest')).toBe('true')
-    const tom = render(<ViewCard card={card('price_cut')} />).container.querySelector('[data-provenance="price_cut"]')!
-    expect(tom.className).toMatch(/(^| )hidden( |$)/)
-    expect(tom.className).toContain('group-hover:inline-block')
+    // DL ruling 9 Nov: a person's author is never a line that appears on the face (it moved the cards below on hover); it is the card's
+    // hover title and a line of the opened card's words beside it.
+    const c = render(<ViewCard card={card('price_cut')} />).container, tom = c.querySelector('[data-provenance="price_cut"]')!
+    expect(tom.closest('[data-view-more]')?.hasAttribute('hidden')).toBe(true)
     expect(tom.getAttribute('data-provenance-at-rest')).toBeNull()
+    const a = card('price_cut').author!
+    expect(c.querySelector('[data-view-card]')!.getAttribute('title')).toBe(`${a.text} · ${a.title}`)
   })
-  it('CONTRAST: opened, a person’s card says who it is from', () => {
+  it('CONTRAST: opened, a person’s card says who it is from, beside the card, so its face keeps its height', () => {
     const tom = render(<ViewCard card={card('price_cut')} selected />).container.querySelector('[data-provenance="price_cut"]')!
-    expect(tom.className).not.toMatch(/(^| )hidden( |$)/)
+    expect(tom.closest('[data-view-more]')?.hasAttribute('hidden')).toBe(false)
     expect(tom.textContent).toBe(card('price_cut').author!.text)
   })
 })

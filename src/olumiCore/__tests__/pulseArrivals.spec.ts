@@ -43,18 +43,7 @@ describe('the card an approval adds is pulsed when it arrives', () => {
     expect(v1.model!.cards.some((c) => has(c.id))).toBe(false)
   })
 
-  it('must not change: the cards a first look\'s folds bring are the person\'s model already, so they arrive unpulsed (77cdc6f6)', async () => {
-    const on = (id: string) => useCanvasStore.getState().nodes.some((n) => n.id === id)
-    // The fold read lands, once the first drawing is on the canvas, the View with the card the folds held; it is not an approval.
-    const { setOpened } = useViewStore.getState()
-    useViewStore.setState({ sid: 's_pulse0000005', opened: { open: new Map(), all: false }, setOpened: async () => { await vi.waitFor(() => expect(on(v1.model!.cards[0]!.id)).toBe(true)); useViewStore.setState({ view: v2 }); return true } } as never)
-    renderHook(() => useViewCanvas(true))
-    act(() => { useViewStore.setState({ view: v1, status: 'ready' }) })
-    await vi.waitFor(() => expect(on(added.id)).toBe(true))
-    vi.advanceTimersByTime(PULSE_COALESCE_MS + 20)
-    expect(v2.model!.cards.some((c) => has(c.id))).toBe(false)
-    useViewStore.setState({ setOpened })
-  })
+  // (The row "a first look's folds arrive unpulsed" went with first-look fold opening: DL ruling 9 Nov (ii), foldsStartClosed.spec.ts.)
 
   // One applied version, drawn on a held one: core names what it changed (R2a `version.changed`), or, from a core before R2a, the cards are
   // compared. Either way the edited figure and the approved card pulse; another figure, and a worked-out figure that moved with them, do not.

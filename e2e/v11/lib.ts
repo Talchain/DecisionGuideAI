@@ -13,7 +13,7 @@ export const storeDir = (name: string) => join(DATA, name)
 export const BRIEF = readFileSync(join(process.env.CORE_DIR!, 'src/contract/__tests__/fixtures/paul-extraction.ts'), 'utf8').match(/export const PAUL_BRIEF = "(.*)";/)![1]!
 
 /** Every step the suite must run; globalTeardown fails the run when one did not pass. */
-export const EXPECTED = ['p1.1', 'p1.2', 'p1.3', 'p1.4', 'p1.5', 'p2.6.1', 'p2.6.2', 'p2.6.3', 'p2.6.4', 'p2.6.5', 'audit.walk', 'audit.contrast',
+export const EXPECTED = ['p1.1', 'p1.2', 'p1.3', 'p1.4', 'p1.5', 'p1.5b', 'p2.6.1', 'p2.6.2', 'p2.6.3', 'p2.6.4', 'p2.6.5', 'audit.walk', 'audit.contrast',
   ...(STORES ? ['audit.hiring', 'audit.j1', 'audit.reveal'] : [])]
 /** Marks a step passed, only when the test has no failure, soft ones included. */
 export const passed = (id: string) => { if (test.info().errors.length > 0) return; mkdirSync(join(DATA, 'steps'), { recursive: true }); writeFileSync(join(DATA, 'steps', id), '') }

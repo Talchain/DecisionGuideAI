@@ -8,7 +8,7 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, routeTree, drawnModelOf, firstLookOpen, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, routeTree, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
@@ -173,30 +173,12 @@ export function placeViewCards(model: ViewModel): Promise<boolean> {
 /** The scenario, version and model the canvas last drew: a newer version of the same scenario pulses what it applied (`appliedSince`). */
 let drew: { sid: string | null; n: number | null; model: ViewModel } | null = null
 
-/** Each scenario's first look at its first version opens its cards' folds once (layout.ts firstLookOpen). */
-const looked = new Set<string>()
-/**
- * The scenario whose first-look folds are opening: the cards they bring are already the person's model, so nothing pulses. It holds only
- * for the View the fold read lands (`view`, undefined while that read is on its way): a fold read that brings no card, or fails, never
- * swallows a later approval's pulse (Design QA 9).
- */
-let quiet: { sid: string; view: View | null | undefined } | null = null
-
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
   const model = useMemo(() => (view?.model == null ? null : drawnModelOf(view.model)), [view])
-  useEffect(() => {
-    const { sid, opened, setOpened } = useViewStore.getState()
-    if (!on || sid === null || looked.has(sid)) return
-    const open = firstLookOpen(view, opened)
-    if (view?.model != null) looked.add(sid)
-    if (open.size > 0) {
-      const q = { sid, view: undefined as View | null | undefined }
-      quiet = q
-      void setOpened({ open, all: false }).then((ok) => { if (quiet === q) quiet = ok ? { sid, view: useViewStore.getState().view } : null })
-    }
-  }, [on, view])
+  // Folds start closed (DL ruling 9 Nov (ii): 77cdc6f6's first-look fold opening is retired for this serve; the route is one click away on
+  // the badge's count), so a reopened board draws what the first one did.
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   useEffect(() => {
@@ -214,10 +196,6 @@ export function useViewCanvas(on: boolean): void {
       if (!drawViewCanvas(model, places) || had === null) return
       const arrived: string[] = []
       for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
-      // The cards a first look's folds bring are the person's model already: they arrive without the applied-edit pulse.
-      const folds = quiet !== null && quiet.sid === sid && (quiet.view === undefined || quiet.view === view)
-      if (folds && arrived.length > 0) { quiet = null; return }
-      if (!folds && quiet !== null && quiet.view !== undefined) quiet = null
       // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
       const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
       // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.

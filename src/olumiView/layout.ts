@@ -227,17 +227,6 @@ export function drawnModelOf(model: ViewModel): ViewModel {
   return { ...model, cards: model.cards.filter((c) => !asLinks.has(c.id)), links: model.links.filter((l) => !asLinks.has(l.from) && !asLinks.has(l.to)) }
 }
 /**
- * J1 step 1: on a scenario's first version, each card's fold (core's badge: the records core folded into it, such as Olumi's own reading
- * of what drives a figure) is opened once, so the route Olumi inferred is on the board, not behind a count. The question's own fold (the
- * figures behind a risk, what was left out) stays as core folds it. Empty after the first version, when a fold is already open, or when
- * the person has opened or shut any fold themselves.
- */
-export function firstLookOpen(view: View | null, opened: { readonly open: ReadonlyMap<string, readonly string[]>; readonly all: boolean }): Map<string, readonly string[]> {
-  if (view?.model == null || view.version?.n !== 1 || opened.all || opened.open.size > 0) return new Map()
-  return new Map(view.model.cards.filter((c) => c.badge !== null && !c.badge.open && c.badge.records.length > 0).map((c) => [c.id, c.badge!.records] as const))
-}
-
-/**
  * J1 step 3 (nothing repeated): while no option has a chance yet (every option card's rows are core's "none" kind), each option card leaves
  * that row to the panel, which says what is not yet there once. Keyed by the rows' kind, never their words. False when any option has a
  * chance or a limit row, or there is no option.

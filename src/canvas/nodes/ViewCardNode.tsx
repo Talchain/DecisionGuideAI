@@ -237,13 +237,17 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // Who or what the card is from (core's `author.text`), one pill: on a figure card it shares the figure's line, so the face stays compact
   // (J1 gate: the board whole at 1232 at full size); on any other card it leads the marks band.
   // Design owner, 8 Nov (strategy canvas audit): at rest only Olumi's cards say who they are from ("Olumi’s estimate"); a person's card
-  // keeps its author for hover, focus and the opened card (the board is the team's own unless marked otherwise).
+  // keeps its author for the card's hover title and the opened card (the board is the team's own unless marked otherwise).
+  // DL ruling 9 Nov (rehearsal fbd2 step 5): THE FACE IS THE SAME AT REST, HOVERED, FOCUSED AND OPENED. The canvas lays out at drawn heights,
+  // so a line shown on hover or focus moved every card below it. What a card says only when asked goes in its opened words beside it (`aside`).
   const faceTitle = card.face?.title ?? null, faceLine = card.face?.line ?? null
-  const provenanceAtRest = inferred || selected
-  const provenance = author === null ? null : (
-    <span className={`${typography.viewPanelMeta} ${provenanceAtRest ? 'inline-block' : 'hidden group-hover:inline-block group-focus-within:inline-block'} max-w-full rounded-[11px] border ${inferred ? 'border-info/30' : 'border-border'} px-2 py-0.5 font-medium text-text-body`} data-provenance={id} data-provenance-at-rest={provenanceAtRest || undefined}
+  const provenance = author === null || !inferred ? null : (
+    <span className={`${typography.viewPanelMeta} inline-block max-w-full rounded-[11px] border border-info/30 px-2 py-0.5 font-medium text-text-body`} data-provenance={id} data-provenance-at-rest
       title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
   )
+  const theirs = author !== null && !inferred ? author : null
+  // A route's line (an option's face line), a person's author and an open badge's fold-back: said in the opened card, never on the face.
+  const aside = (faceLine !== null && card.family === 'option') || theirs !== null || (card.badge !== null && card.badge.open)
   // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
   const rowsDrawn = (
     <>
@@ -270,7 +274,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
       // What would change: the ring says this figure is one an option's chance moves most with; its options' driver words on hover. The
       // options themselves carry v10's driver badge (DL 4 Nov: one representation, no chip here).
-      title={driverOf === null ? undefined : driverOf.map((o) => o.driver!.title).join('\n')}
+      title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : theirs === null ? undefined : `${theirs.text} · ${theirs.title}`}
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
@@ -308,11 +312,11 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       {card.family === 'option' ? <Slot name={VIEW_CARD_SLOTS.driverBadge} className="absolute right-1 top-1 empty:hidden" />
         // The original's ⌄ on a card with more to say: a press selects the card, which opens its other words beside it.
         : more ? <ChevronDown aria-hidden="true" data-more-cue="" className="absolute right-1.5 top-2 h-3.5 w-3.5 text-text-light" /> : null}
-      {faceLine === null ? null : (
+      {faceLine === null || card.family === 'option' ? null : (
         // FL1: the face's one short line under the title, core's words whole (never clamped), as the prototype's card sentence.
-        // A route's line is its own quote from the brief: on its card while hovered, focused or opened, so the column of routes stays whole
-        // at 1232 (FL1: these lines are optional). Every other card's line is on its face at rest.
-        <p className={`${typography.viewLabel} text-text-body ${card.family === 'option' && !selected ? 'hidden group-hover:block group-focus-within:block' : ''}`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
+        // A route's line is its own quote from the brief: in its opened words (`aside`), so the column of routes stays whole at 1232 (FL1:
+        // these lines are optional). Every other card's line is on its face at rest.
+        <p className={`${typography.viewLabel} text-text-body`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
       )}
       {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
       {card.bound === null ? null : (
@@ -344,9 +348,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           )}
           <Slot name={VIEW_CARD_SLOTS.figureSide} className="empty:hidden" />
           {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue, on the
-              figure's own line (J1 gate); its words show on hover, focus or selection. Never hidden, so an open editor or its Set button
-              can never be hidden either (R4 witness run 3). */}
-          {card.figure.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} quiet={!selected} /></span>
+              figure's own line (J1 gate); its words are its label and hover (never a line that appears: DL 9 Nov, the face never changes
+              height). Never hidden, so an open editor or its Set button can never be hidden either (R4 witness run 3). */}
+          {card.figure.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
             // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has
             // that the person sets (never an outcome core works out from others, which core never offers to edit).
             : card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
@@ -365,10 +369,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           on hover, focus or selection. */}
       {card.badge === null || card.badge.open || badgeNamed(card.badge) !== null ? null
         : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
-      {/* An open badge takes no line at rest: what it folded is on the board. On hover, focus or selection it takes its own line at the
-          card's foot to fold it back, in flow like the author pill, so it never prints over that pill (V11 pixel pass, 9 Nov). */}
-      {card.badge === null || !card.badge.open ? null
-        : <p className={`text-right ${typography.viewPanelMeta} ${selected ? '' : 'hidden group-hover:block group-focus-within:block'}`} data-at-rest-hidden="" data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
+      {/* An open badge takes no line on the face: what it folded is on the board. Its fold-back is in the opened card's words (`aside`). */}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex flex-wrap items-center gap-1 empty:hidden">
         {/* DL 7 Nov, the strategy session's rule on V11's card: a badge core names in words ("1 open question") is on the face at rest, one
@@ -392,12 +393,15 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         )}
       </span>
       <Slot name={VIEW_CARD_SLOTS.olumiBadge} className="absolute bottom-1 right-1 empty:hidden" />
-      {more ? (
+      {more || aside ? (
         // The card's other words (its status, reason and premises), every one core's, beside the card while it is selected: the
         // face stays compact so the causal graph reads (Paul 4 Nov), and opening them never changes the card's drawn height. A card's
         // Rename is in the dock's "Selected:" row (SelectedRename.tsx), so a card with nothing more opens nothing over its neighbour.
         <div hidden={!selected} data-panel-side={side} className={`absolute ${side === 'left' ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-10 space-y-1 rounded-lg border border-border bg-panel p-3 shadow-sm ${typography.viewLabel}`}
           style={{ width: CARD_WIDTH }} data-view-more={id}>
+          {faceLine === null || card.family !== 'option' ? null : <p className="text-text-body" data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>}
+          {theirs === null ? null : <p className={`${typography.viewPanelMeta} font-medium`} data-provenance={id} title={theirs.title} data-view={`${id}.author.text`}>{theirs.text}</p>}
+          {card.badge === null || !card.badge.open ? null : <p className={`text-right ${typography.viewPanelMeta}`} data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
           {optionFace === null ? null : <div className="space-y-1" data-option-rows={id}>{rowsDrawn}</div>}
           {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
           {changed ? <p className="whitespace-pre-line" data-view={`${id}.change.title`}>{card.change!.title}</p> : null}
