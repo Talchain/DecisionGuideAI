@@ -989,6 +989,75 @@
            "additionalProperties": false
           }
          },
+         "face": {
+          "type": "object",
+          "properties": {
+           "title": {
+            "anyOf": [
+             {
+              "type": "object",
+              "properties": {
+               "text": {
+                "type": "string"
+               },
+               "whole": {
+                "type": "boolean"
+               },
+               "words": {
+                "type": "string",
+                "enum": [
+                 "theirs",
+                 "olumi",
+                 "name"
+                ]
+               }
+              },
+              "required": [
+               "text",
+               "whole",
+               "words"
+              ],
+              "additionalProperties": false
+             },
+             {
+              "type": "null"
+             }
+            ]
+           },
+           "line": {
+            "anyOf": [
+             {
+              "type": "object",
+              "properties": {
+               "text": {
+                "type": "string"
+               },
+               "words": {
+                "type": "string",
+                "enum": [
+                 "theirs",
+                 "olumi"
+                ]
+               }
+              },
+              "required": [
+               "text",
+               "words"
+              ],
+              "additionalProperties": false
+             },
+             {
+              "type": "null"
+             }
+            ]
+           }
+          },
+          "required": [
+           "title",
+           "line"
+          ],
+          "additionalProperties": false
+         },
          "author": {
           "anyOf": [
            {
@@ -1210,6 +1279,7 @@
          "badge",
          "values",
          "rests_on",
+         "face",
          "failed"
         ],
         "additionalProperties": false
@@ -4648,6 +4718,30 @@
            },
            "move": {
             "type": "string"
+           },
+           "choices": {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "label": {
+               "type": "string"
+              },
+              "kind": {
+               "type": "string",
+               "enum": [
+                "answer",
+                "own",
+                "unsure"
+               ]
+              }
+             },
+             "required": [
+              "label",
+              "kind"
+             ],
+             "additionalProperties": false
+            }
            }
           },
           "required": [

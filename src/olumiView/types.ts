@@ -188,6 +188,17 @@ export type View = {
         id: string
         whose: "theirs" | "olumi" | "mixed"
       }>
+      face: {
+        title: {
+          text: string
+          whole: boolean
+          words: "theirs" | "olumi" | "name"
+        } | null
+        line: {
+          text: string
+          words: "theirs" | "olumi"
+        } | null
+      }
       author?: {
         by: "person" | "brief" | "olumi" | "mixed"
         text: string
@@ -850,6 +861,10 @@ export type View = {
         at: string | null
         newest: boolean
         move: string
+        choices?: Array<{
+          label: string
+          kind: "answer" | "own" | "unsure"
+        }>
       }
       stories: Array<{
         text: string
