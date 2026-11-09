@@ -18,6 +18,9 @@
 //                         reply read back later must keep the figures it was written with
 // Failure injection for the error screens: a control file (OLUMI_CONTROL, JSON, read on every call), e.g.
 //   {"fail":"update"}  {"fail":"draft"}  {"fail":"coach"}  {"delay_ms":3000}
+// Split first draft (FL1, 8 Nov; additive): `extract` answers core's own Paul hiring fixture and `size` its fixture sizes, loaded only
+//   when asked, so a core without the split drafter (and without that fixture) runs exactly as before. check.sh sends PAUL_BRIEF then.
+//   The coach then answers about that hiring model's own records (`hiringCoaches`), so core shows its reply (V11 journey step 4).
 import fs from 'node:fs';
 import { buildSync } from 'esbuild';
 import { Store } from '../src/store/store.js';
@@ -38,7 +41,12 @@ const coaches = [
   { answer: 'Here is staff absence as a factor, for you to approve.', why: [], next: { move: 'gather_evidence', about: ['staff_absence'], text: 'Check last quarter’s absence records.' } },
   { answer: 'The model stays as it is. What a specialist adds is the figure that matters most here.', why: ['Everything else follows from it.'], next: { move: 'outside_view', about: ['per_specialist'], text: 'Ask a team that added a specialist what they really gained in the first month.' } },
 ];
-let coachTurn = 0;
+// The coach on Paul's hiring model: words only, about its own records, so core's reply rules (run/coach.ts) pass and the page shows it.
+const hiringCoaches = [
+  { answer: 'In this model, what a Tech lead adds before the launch date is the figure the chances turn on most.', why: ['It is Olumi\'s estimate: the brief does not give it.'], next: { move: 'pre_mortem', about: ['productivity_change_per_tech_lead'], text: 'Imagine it is three months on and productivity did not rise enough. What went wrong?' } },
+  { answer: 'The model stays as it is. If nobody owns the architecture, a Tech lead could matter more than extra developers.', why: ['Reviews and releases wait on someone deciding.'], next: { move: 'gather_evidence', about: ['productivity_change_per_tech_lead'], text: 'Check how long reviews waited last month.' } },
+];
+let coachTurn = 0, hiring = false;
 const control = (): { fail?: string; delay_ms?: number; model?: string; markers?: boolean } => { try { return JSON.parse(fs.readFileSync(process.env['OLUMI_CONTROL'] ?? '/dev/null', 'utf8')); } catch { return {}; } };
 const lastUser = (o: Parameters<typeof callStructured>[0]): string => [...o.input].reverse().find((m) => m.role === 'user')?.content ?? '';
 
@@ -79,7 +87,13 @@ const caller = (async (o: Parameters<typeof callStructured>[0]) => {
   if (c.delay_ms) await new Promise((r) => setTimeout(r, c.delay_ms));
   if (c.fail === kind) throw new Error('scripted AI failure');
   let parsed: unknown;
-  if (kind === 'draft') { coachTurn = 0; parsed = c.model === 'rich' ? rich() : c.model === 'target_interval' ? targetInterval() : c.model === 'olumi_range' ? olumiRange() : capacity(); }
+  if (kind === 'draft') { coachTurn = 0; hiring = false; parsed = c.model === 'rich' ? rich() : c.model === 'target_interval' ? targetInterval() : c.model === 'olumi_range' ? olumiRange() : capacity(); }
+  else if (kind === 'extract' || kind === 'size') {
+    const fx = await import('../src/contract/__tests__/fixtures/paul-extraction.js');
+    if (kind === 'extract') { coachTurn = 0; hiring = true; }
+    parsed = kind === 'extract' ? fx.paulExtraction() : structuredClone(fx.PAUL_SIZES);
+  }
+  else if (kind === 'coach' && hiring) parsed = hiringCoaches[Math.min(coachTurn++, hiringCoaches.length - 1)]!;
   else if (kind === 'coach') {
     const next = coaches[Math.min(coachTurn++, coaches.length - 1)]!;
     parsed = markers() && next === coaches[0] ? { ...next, answer: 'In this model {F3} for adding a specialist. Also: {F5}.' } : next;
