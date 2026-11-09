@@ -78,6 +78,10 @@ describe('core\'s one chip per link, on its line', () => {
     // On the line: at the path's middle, where nothing else is.
     const box = chipOf(c, 0)
     expect([box.x + box.w / 2, box.y + box.h / 2]).toEqual([110, 300])
+    // Its line is drawn in body ink, a little stronger than a resting link, so the chip reads as its own (CONTRAST: links.8, no chip).
+    const lineOf = (i: number) => c.querySelector(`[data-view-link="links.${i}"] path.react-flow__edge-path`) as SVGPathElement
+    expect([lineOf(0).style.stroke, lineOf(0).style.strokeWidth]).toEqual(['var(--text-body)', '1.5'])
+    expect([lineOf(8).style.stroke, lineOf(8).style.strokeWidth]).not.toEqual(['var(--text-body)', '1.5'])
   })
 
   it('HIGH: another link\'s words never sit on a chip: they move along their own line, the chip stays', async () => {
