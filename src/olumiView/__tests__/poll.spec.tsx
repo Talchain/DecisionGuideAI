@@ -14,13 +14,13 @@ const SID = 's_0123456789ab'
 const base = golden as unknown as View
 const at = (n: number): View => ({ ...base, id: SID, evidence: Array.from({ length: n }, (_, i) => ({ ...(base.evidence[0] ?? { id: 0, at: '2026-11-04T09:00:00Z', by: 'Bea', by_id: 'p_2', text: '', source: null, link: null, concerns: [], stance: 'unclear', version: 1 }), id: 100 + i, text: `evidence ${i}` })) } as View)
 
-let served: View, reads = 0, hold: Promise<void> | null = null
+let served: View, reads = 0, others = 0, hold: Promise<void> | null = null
 let vis: DocumentVisibilityState = 'visible'
 beforeEach(() => {
   vi.useFakeTimers()
-  reads = 0; hold = null; served = at(0); vis = 'visible'
+  reads = 0; others = 0; hold = null; served = at(0); vis = 'visible'
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => vis })
-  setTeamFetch((async () => { reads += 1; if (hold) await hold; return new Response(JSON.stringify(served), { status: 200 }) }) as unknown as typeof fetch)
+  setTeamFetch((async (url: unknown) => { if (/\/view(\?|$)/.test(String(url))) reads += 1; else others += 1; if (hold) await hold; return new Response(JSON.stringify(served), { status: 200 }) }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: at(0), status: 'ready', error: null, stale: false, at: null })
 })
 afterEach(() => { vi.useRealTimers(); setTeamFetch(null) })
@@ -46,6 +46,28 @@ describe('another member\'s input reaches this page on its own', () => {
     vis = 'visible'; document.dispatchEvent(new Event('visibilitychange'))
     await tick(10)
     expect(reads).toBe(1)
+  })
+  it('X2 (DL 9 Nov): back to this window, it reads at once, not after the rest of the poll; another member\'s approval is on it', async () => {
+    renderHook(() => useViewPoll(true))
+    await tick(1000)
+    expect(reads).toBe(0)
+    served = { ...at(0), version: { ...(at(0).version ?? { n: 1 }), n: (at(0).version?.n ?? 1) + 1 } } as View // Bea approved
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    await tick(10)
+    expect(reads).toBe(1)
+    expect(useViewStore.getState().view?.version?.n).toBe((at(0).version?.n ?? 1) + 1)
+    // Contrast: the next poll is timed afresh from that read, not stacked on the old one, and never two at once.
+    await tick(POLL_MS - 100)
+    expect(reads).toBe(1)
+    await tick(200)
+    expect(reads).toBe(2)
+  })
+  it('a focus while hidden reads nothing (paused while hidden)', async () => {
+    renderHook(() => useViewPoll(true))
+    vis = 'hidden'; document.dispatchEvent(new Event('visibilitychange'))
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    await tick(POLL_MS * 2)
+    expect(reads).toBe(0)
   })
   it('hidden while a re-read is on its way: once it answers, no further re-read is timed until the page is seen again', async () => {
     renderHook(() => useViewPoll(true))
