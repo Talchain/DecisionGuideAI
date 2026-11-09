@@ -5,7 +5,7 @@ import { call, TeamApiError } from './api'
 import { differencesKey, readDifferences, useDifferences } from './differences'
 import { runWrite } from './writes'
 import { offeredOf } from './ViewDoubts'
-import { useTakeLinkPick } from '../../olumiView/linkPick'
+import { useTakeLinkPick } from './linkPick'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 /**

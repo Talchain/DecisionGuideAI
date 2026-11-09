@@ -3,7 +3,7 @@
  * this link"), core's words whole, each holder's stance in their own words as its hover and name (`title`, `label`). The chip is found by
  * the line's `holds` (the record and part it stands for), never by its two ends: two lines between the same cards are different links.
  * A mark core sets off the line (`line: false`) is drawn on its card instead (RevealMarks), never here.
- * Selecting either chip opens the Team tab with its link picked where the person says where they stand on it (linkPick.ts, Paul's step 6).
+ * Selecting either chip opens the Team tab with its link picked where the person says where they stand on it (olumiCore/team/linkPick.ts, Paul's step 6).
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { EdgeLabelRenderer } from '@xyflow/react'
@@ -12,7 +12,7 @@ import { linkWordsAt } from '../canvas/edges/linkWordsPlace'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../canvas/utils/goalChanceDriverLinks'
 import type { View, ViewLink } from './client'
 import { useViewStore } from './store'
-import { openLinkStance } from './linkPick'
+import { openLinkStance } from '../olumiCore/team/linkPick'
 
 type Box = { readonly id?: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export type LinkMark = NonNullable<View['collab']['link_marks']>[number]

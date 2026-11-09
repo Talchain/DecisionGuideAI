@@ -16,7 +16,7 @@ import { resetWrites } from '../../olumiCore/team/writes'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { LinkMarkCardChip, type LinkMark } from '../LinkMarkChip'
-import { openLinkStance, useLinkPick } from '../linkPick'
+import { openLinkStance, useLinkPick } from '../../olumiCore/team/linkPick'
 
 const DIR = path.resolve('src/olumiView/fixtures/disagree')
 const read = <T,>(n: string): T => JSON.parse(readFileSync(path.join(DIR, n), 'utf8'))

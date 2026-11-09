@@ -9,9 +9,9 @@
  */
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import { useUIStore } from '../stores/uiStore'
-import { useDifferences } from '../olumiCore/team/differences'
-import { useViewStore } from './store'
+import { useUIStore } from '../../stores/uiStore'
+import { useDifferences } from './differences'
+import { useViewStore } from '../../olumiView/store'
 
 type LinkRef = { readonly record: string; readonly part: string | null }
 
