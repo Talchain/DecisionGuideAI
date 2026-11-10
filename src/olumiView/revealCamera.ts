@@ -13,6 +13,7 @@ import type { View } from './client'
 import { viewLaying } from './canvas'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { chipViewIds } from './layout'
+import { useWhatIf } from './whatif'
 
 const TICK = 250, MAX_TICKS = 40
 
@@ -159,4 +160,59 @@ export function useOpenInView(movedAt: MutableRefObject<number>): void {
     }, TICK)
     return () => clearInterval(t)
   }, [key, id, movedAt, getViewport, setViewport, getInternalNode, getNodes, getNodesBounds])
+}
+
+/**
+ * TM-27 (the J5 TryRange comp: the try and every option's chance in one look). Where the card tried and the option cards (`box`, their union,
+ * flow units) are not all in the free canvas, the board is moved so they are: centred, at the person's zoom, lowered only as far as they
+ * need to fit (never below `TRY_MIN_ZOOM`), never raised. null when they are all in view already.
+ */
+export const TRY_MIN_ZOOM = 0.5
+export function tryInViewTarget(a: { box: Box; pane: { w: number; h: number }; inset?: Inset; viewport: Vp }): Vp | null {
+  const { box, pane, viewport: v } = a
+  const i = a.inset ?? { left: 0, top: 0, right: 0, bottom: 0 }, pad = 24
+  const fw = pane.w - i.left - i.right, fh = pane.h - i.top - i.bottom
+  const sx = box.x * v.zoom + v.x, sy = box.y * v.zoom + v.y
+  if (sx >= i.left && sy >= i.top && sx + box.w * v.zoom <= pane.w - i.right && sy + box.h * v.zoom <= pane.h - i.bottom) return null
+  const zoom = Math.max(TRY_MIN_ZOOM, Math.min(v.zoom, (fw - 2 * pad) / box.w, (fh - 2 * pad) / box.h))
+  return { x: i.left + fw / 2 - (box.x + box.w / 2) * zoom, y: i.top + fh / 2 - (box.y + box.h / 2) * zoom, zoom }
+}
+
+/** On each try (core's what-if answer shown for this scenario), once the board has settled: the card tried and the options in view. */
+export function useTryInView(movedAt: MutableRefObject<number>): void {
+  const { getViewport, setViewport, getInternalNode } = useReactFlow()
+  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid), shown = useWhatIf((s) => s.shown)
+  const ids = useMemo(() => {
+    if (shown === null || shown.sid !== sid || view?.model == null || shown.base !== view.model.edit_base) return [] as string[]
+    const out = [shown.quantity]
+    for (const c of view.model.cards) if (c.family === 'option') out.push(c.id)
+    return out
+  }, [shown, sid, view])
+  useEffect(() => {
+    if (ids.length === 0) return
+    const moves = movedAt.current
+    let ticks = 0, last = ''
+    const t = setInterval(() => {
+      ticks += 1
+      if (moves !== movedAt.current || ticks > MAX_TICKS) return clearInterval(t)
+      const pane = document.querySelector('.react-flow')
+      if (pane === null || viewLaying()) return
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      for (const id of ids) {
+        const n = getInternalNode(id)
+        if (n === undefined || !n.measured.width || !n.measured.height) return
+        const at = n.internals.positionAbsolute
+        x0 = Math.min(x0, at.x); y0 = Math.min(y0, at.y); x1 = Math.max(x1, at.x + n.measured.width); y1 = Math.max(y1, at.y + n.measured.height)
+      }
+      const here = `${x0},${y0},${x1},${y1}`
+      if (here !== last) { last = here; return }
+      clearInterval(t)
+      const { size, inset } = freePane(pane)
+      const to = tryInViewTarget({ box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, pane: size, inset, viewport: getViewport() })
+      if (to === null) return
+      const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+      void setViewport(to, { duration: still ? 0 : 300 })
+    }, TICK)
+    return () => clearInterval(t)
+  }, [ids, movedAt, getViewport, setViewport, getInternalNode])
 }

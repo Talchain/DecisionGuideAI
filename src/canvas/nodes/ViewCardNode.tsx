@@ -16,7 +16,8 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem } from '../../olumiView/layout'
+import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
+import { clearWhatIf } from '../../olumiView/whatif'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -24,7 +25,7 @@ import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
 import { useViewFocusCard } from '../../olumiView/canvas'
-import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTriedOn } from '../../olumiView/lens'
+import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../../olumiView/lens'
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
@@ -200,7 +201,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false }: ViewCardData & { reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -358,12 +359,28 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         </div>
       )}
       {card.figure === null ? null : <Slot name={VIEW_CARD_SLOTS.valuesBand} className="block empty:hidden" />}
+      {tryOn?.kind !== 'tried' ? null : (
+        // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
+        // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
+        <div className="nodrag grid gap-1 rounded-lg bg-panel-hover px-2 py-1.5" data-card-try={id}>
+          <p className={`${typography.viewValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+          {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+          <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
+            className={`${typography.viewLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(version)}</button>
+        </div>
+      )}
       {/* Core's honesty line (card.unused, candidate 2a283a4f): a figure Olumi's analysis does not use yet says so, once, under it, in
           core's words. The figure stays editable. */}
       {card.unused == null || card.unused === '' ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-card-unused" data-view={`${id}.unused`}>{card.unused}</p>}
       {optionFace !== null
         ? <p className={`${typography.viewHeadline} tracking-tight text-text-header`} title={optionFace.title} data-option-face={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
         : rowsDrawn}
+      {tryOn?.kind !== 'option' ? null : (
+        // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.
+        <p className={`${typography.viewLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
+          {WHAT_IF_COPY.whatIf}: <span className={`${typography.viewValue} font-semibold text-text-header`} data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
+        </p>
+      )}
       {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
       {/* A badge with no words (glyphs only), or an open one (what it folded is on the board already: J1 step 3, nothing repeated), shows
           on hover, focus or selection. */}
@@ -471,6 +488,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // If it failed: a card Olumi's stories rest on stands in front, the rest recede (core's `failed`; View only).
   const preMortem = usePreMortemOf(id)
   const tried = useTriedOn(id)
+  const tryOn = useTryOn(card)
   // The applied-edit pulse (pulseArrivals.ts, appliedEditPulse.ts): the original card's ring on a card an approval or edit just applied.
   const pulsed = useCanvasStore((st) => st.highlightedNodes.has(id))
   // The card's role in core's model (`drawKindOf`): its shape on the canvas, the same on every version.
@@ -506,7 +524,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>
       {/* J1 gate: the story reads top down (layout.ts routeTree), so a link enters a card at its top and leaves at its bottom. */}
       <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tried} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
+      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       {/* J1 gate: nothing on the board sits below full strength at rest, so the controls are not drawn at rest (they were there at

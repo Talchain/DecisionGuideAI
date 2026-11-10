@@ -125,7 +125,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const tryIt = async () => {
     if (typed.trim() === '' || sending || trying) return
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, id, typed); useUIStore.getState().forceActivateOutputTab(tab) } catch (e) {
+    // TM-27: once tried, the editor closes so the card shows the try in place ("Trying …", the way back) and the board can bring the
+    // options' chances into view; what was typed is kept for a second look.
+    try { await tryWhatIf(sid, base, id, typed); setOpen(false); useUIStore.getState().forceActivateOutputTab(tab) } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
     } finally { setTrying(false) }
   }
