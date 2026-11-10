@@ -174,7 +174,19 @@ export interface OptionCardsProps {
    * no served figure cell the goal row is not drawn.
    */
   goalCellOf?: (optionId: string) => ServedGoalCell | null
+  /**
+   * UI recovery (DL 10 Nov 2026): the olumi-core lane passes `false`. The "top two, then Show all" cut assumes the list is ranked; core
+   * ranks nothing, so the cut would hide an option by its position alone. Default `true`: the previous behaviour, unchanged.
+   */
+  truncate?: boolean
+  /**
+   * The hover hint on a card's name. The olumi-core lane passes `null` (no hint): its canvas has no inspector to open. Default: the
+   * previous sentence, unchanged.
+   */
+  labelHint?: string | null
 }
+
+const DEFAULT_LABEL_HINT = 'Hover highlights on canvas. Click opens inspector.'
 
 /** CEE's served figure (or range) cell for one option, as the card says it: the display string and, when served, the face. */
 export interface ServedGoalCell {
@@ -417,7 +429,9 @@ function StatBar({
         />
       </div>
       <span
-        className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}
+        // UI recovery (DL 10 Nov 2026): a floor, not a fixed width. A served display longer than "23%" ("about 72% chance") stays on one
+        // line beside its bar instead of wrapping word by word inside 36px; a short one sits exactly where it did.
+        className={`${typography.panelMeta} text-text-body tabular-nums min-w-[36px] whitespace-nowrap text-right flex-shrink-0`}
         data-testid={testId}
       >
         {readout}
@@ -461,9 +475,12 @@ function OptionCard({
   isNormalised,
   winSharesWithheld = false,
   goalCell = null,
+  labelHint = DEFAULT_LABEL_HINT,
 }: {
   option: OptionResult
   isWinner: boolean
+  /** See OptionCardsProps.labelHint: `null` draws the name with no hover hint. */
+  labelHint?: string | null
   /**
    * CURRENT-READ-v1 row 9 — the producer withheld the leader, so this card shows no win share: no header figure
    * and no fill bar. From `winShareGate` via `OptionCards`; default `false` renders exactly as before.
@@ -614,15 +631,21 @@ function OptionCard({
             Option {stableNumber}
           </span>
         )}
-        <Tooltip content="Hover highlights on canvas. Click opens inspector.">
-          {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
-              suffix when the Baseline pill below already carries the same
-              signal — prevents runner-up labels from wrapping to three lines
-              on 1280px. Source option.label is untouched everywhere else. */}
+        {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
+            suffix when the Baseline pill below already carries the same
+            signal — prevents runner-up labels from wrapping to three lines
+            on 1280px. Source option.label is untouched everywhere else. */}
+        {labelHint === null ? (
           <span className={`${typography.panelHeader} text-text-header`}>
             {formatOptionLabelForCard(option.label, option.isBaseline === true)}
           </span>
-        </Tooltip>
+        ) : (
+          <Tooltip content={labelHint}>
+            <span className={`${typography.panelHeader} text-text-header`}>
+              {formatOptionLabelForCard(option.label, option.isBaseline === true)}
+            </span>
+          </Tooltip>
+        )}
         {option.isBaseline && (
           <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
             Baseline
@@ -977,6 +1000,8 @@ export function OptionCards({
   outcomeUnitSymbol,
   isNormalised,
   goalCellOf,
+  truncate = true,
+  labelHint = DEFAULT_LABEL_HINT,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -1064,7 +1089,7 @@ export function OptionCards({
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
   const TOP_N = 2
-  const shouldTruncate = sorted.length > TOP_N
+  const shouldTruncate = truncate && sorted.length > TOP_N
   const [showAllOptions, setShowAllOptions] = useState(false)
   const truncated = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
   //
@@ -1324,6 +1349,7 @@ export function OptionCards({
             // bar). CEE serves no wording or Run authority for it. The leader entitlement above is unchanged.
             winSharesWithheld
             goalCell={goalCellOf?.(option.id) ?? null}
+            labelHint={labelHint}
           />
         )
       })}

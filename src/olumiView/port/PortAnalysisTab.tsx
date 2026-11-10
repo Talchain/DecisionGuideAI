@@ -24,6 +24,7 @@ import { DriverTornado } from './DriverTornado'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { TYPE } from './type'
+import { YourOptions } from './YourOptions'
 
 /** The tab's body for one model: the ported components with the alpha's own controls in their slots. */
 export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: readonly ViewTurn[] | null }) {
@@ -53,6 +54,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
           action={(r) => (r.kind === 'wait' && r.item.edit !== null ? <FigureEdit id={r.item.id} edit={r.item.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${r.item.text}`} /> : null)}
         />
       </AnalysisHeroPanel>
+      <YourOptions model={model} />
       <DriverTornado model={model} />
       {run === null || notes.length === 0 ? null : (
         <details className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="port-analysis-notes">
