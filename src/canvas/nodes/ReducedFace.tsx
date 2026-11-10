@@ -4,7 +4,7 @@
  * is always drawn whole on its own line at the foot, and the heading takes the whole lines left above it, ending in "…" when it does not fit.
  * Core's words, verbatim; the clamp is by lines of the box, never by characters.
  */
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
 export const REDUCED_LINE_HEIGHT = 1.15
 /** The face's own vertical padding (py-1.5, top and bottom), px. */
@@ -23,8 +23,9 @@ export function ReducedFace({ px, title, titleAttrs, chance = null, rootAttrs, s
     setLines(box > 0 ? headingLines(box, px, tail.current?.offsetHeight ?? 0) : 0)
   })
   return (
-    <div ref={root} {...rootAttrs} data-reduced-face="" className={`absolute inset-0 !m-0 flex flex-col gap-0.5 overflow-hidden rounded-xl border bg-panel px-2 py-1.5 font-sans ${semibold ? 'font-semibold' : 'font-medium'} text-text-header${selected ? ' ring-1 ring-text-header' : ''}`}
-      style={{ fontSize: px, lineHeight: REDUCED_LINE_HEIGHT, borderColor: 'inherit' }}>
+    <div ref={root} {...rootAttrs} data-reduced-face="" className={`absolute inset-0 !m-0 flex flex-col gap-0.5 overflow-hidden rounded-xl border bg-panel px-2 py-1.5 font-sans text-[length:calc(12px*var(--canvas-label-scale,1))] ${semibold ? 'font-semibold' : 'font-medium'} text-text-header${selected ? ' ring-1 ring-text-header' : ''}`}
+      // The size is the canvas's own counter-scale token: 12 px declared times the scale this face carries, 1 / zoom, so it draws at 12 px.
+      style={{ '--canvas-label-scale': String(px / 12), lineHeight: REDUCED_LINE_HEIGHT, borderColor: 'inherit' } as CSSProperties}>
       <p {...titleAttrs} data-reduced-heading="" className="min-h-0"
         style={lines > 0 ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines, overflow: 'hidden' } : { overflow: 'hidden' }}>{title}</p>
       {chance === null ? null : <div ref={tail} className="flex-none font-semibold" data-reduced-chance="">{chance}</div>}

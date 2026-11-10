@@ -55,10 +55,10 @@ describe('a card zoomed out draws its reduced face', () => {
   })
   const option = model.cards.find((c) => c.id === 'hire_tech_lead')!
   it('an option: its heading and its chance (the headline, else its lead chance), core words, at 24 px declared (12 px drawn at 0.5); the full face is hidden, not removed', () => {
-    const px = reducedFaceSize(0.5)
+    const px = reducedFaceSize(0.5), sizeOf = (e: HTMLElement) => parseFloat(e.style.getPropertyValue('--canvas-label-scale')) * 12
     const box = render(<ViewCard card={option} reducedPx={px} />).container.querySelector<HTMLElement>('[data-view-card]')!
     const face = box.querySelector<HTMLElement>('[data-reduced-face]')!
-    expect(face.style.fontSize).toBe(`${px}px`)
+    expect(sizeOf(face)).toBe(px)
     expect(face.querySelector(`[data-view-reduced-title]`)!.textContent).toBe(option.face?.title?.text ?? option.heading)
     const lead = option.rows.find((r) => r.kind === 'chance') as { approx: string; value: string }
     expect(option.headline?.text ?? null, "precondition: hiring option has no headline; its lead chance is its face").toBeNull()
@@ -86,7 +86,7 @@ describe('a card zoomed out draws its reduced face', () => {
     const c = draw(0.449, true), face = c.querySelector<HTMLElement>('[data-reduced-face]')!
     expect(face, 'reduced while selected').not.toBeNull()
     expect(face.className).toContain('ring-text-header')
-    expect(parseFloat(face.style.fontSize) * 0.449).toBeGreaterThanOrEqual(REDUCED_TEXT_PX)
+    expect(parseFloat(face.style.getPropertyValue('--canvas-label-scale')) * 12 * 0.449).toBeGreaterThanOrEqual(REDUCED_TEXT_PX)
     expect(c.querySelector('[data-view-card]')!.hasAttribute('data-reduced'), 'the CSS rule hides every other child').toBe(true)
     expect(c.querySelector('[data-olumi-controls]')).toBeNull()
     cleanup()
@@ -97,7 +97,7 @@ describe('a card zoomed out draws its reduced face', () => {
     const { container } = render(<ReactFlowProvider><Zoom /><ViewQuestionNode {...({ id: QUESTION, data: { question: model.question, width: 600 } } as unknown as NodeProps)} /></ReactFlowProvider>)
     const p = container.querySelector<HTMLElement>('[data-view-reduced-question]')!
     expect(p.textContent).toBe(model.question.text)
-    expect(parseFloat(container.querySelector<HTMLElement>('[data-reduced-face]')!.style.fontSize) * 0.4).toBeGreaterThanOrEqual(REDUCED_TEXT_PX)
+    expect(parseFloat(container.querySelector<HTMLElement>('[data-reduced-face]')!.style.getPropertyValue('--canvas-label-scale')) * 12 * 0.4).toBeGreaterThanOrEqual(REDUCED_TEXT_PX)
   })
 })
 
