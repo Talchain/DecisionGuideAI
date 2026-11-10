@@ -4,7 +4,9 @@
  * Clicking opens the Team tab. Beside it, the people the brief names whom no member matches (`team_presence.unjoined`), in core's words.
  * Nothing while there is no View, or when the scenario has one member and core names no one else.
  */
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { UserPlus } from 'lucide-react'
+import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
@@ -44,9 +46,40 @@ export function TeamPresence() {
   )
 }
 
+/** How much room each overlapping disc takes (24 px wide, 6 px overlapped), the "+N" chip, and the gap kept between the bar and the dock (px). */
+export const DISC_STEP = 18, CHIP_STEP = 30, DOCK_GAP = 12
+
+/**
+ * How many of `total` discs to draw, given `shown` are drawn now and `free` px are left between the bar's right edge and the dock (negative
+ * when the bar runs under it). The most that fit; the rest become one "+N" chip. Never changes a layout that already fits, so it settles.
+ */
+export function discsThatFit(total: number, shown: number, free: number): number {
+  const chip = (n: number) => (n < total ? CHIP_STEP : 0)
+  for (let n = total; n >= 0; n--) if ((n - shown) * DISC_STEP + chip(n) - chip(shown) <= free) return n
+  return 0
+}
+
 function Discs({ view, others }: { view: View; others: ReturnType<typeof othersOf> }) {
+  // The top bar never reaches the dock (DL 10 Nov, 7 people: an avatar covered the dock's title): when there is no room the discs that do not
+  // fit collapse into one "+N" chip. Measured against the bar's own right edge, again on resize and while the dock opens or closes.
+  const button = useRef<HTMLButtonElement>(null)
+  const [drawn, setDrawn] = useState(others.length), [tick, setTick] = useState(0)
+  useEffect(() => {
+    const again = () => setTick((t) => t + 1)
+    window.addEventListener('resize', again); window.addEventListener('outputs-dock-opened', again)
+    const t = setInterval(again, 500)
+    return () => { clearInterval(t); window.removeEventListener('resize', again); window.removeEventListener('outputs-dock-opened', again) }
+  }, [])
+  const total = others.length, now = Math.min(drawn, total)
+  useLayoutEffect(() => {
+    const bar = button.current?.closest('[role="banner"]') ?? null, inset = measureDockInset()
+    const free = bar === null || inset === 0 ? Infinity : window.innerWidth - inset - DOCK_GAP - bar.getBoundingClientRect().right
+    const next = discsThatFit(total, now, free)
+    if (next !== drawn) setDrawn(next)
+  }, [total, now, drawn, tick])
   return (
     <button
+      ref={button}
       type="button"
       data-testid="team-presence"
       aria-label={view.team_presence.label}
@@ -54,7 +87,7 @@ function Discs({ view, others }: { view: View; others: ReturnType<typeof othersO
       onClick={() => useUIStore.getState().forceActivateOutputTab('team')}
       className="inline-flex min-h-[24px] min-w-[24px] items-center rounded-full pl-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
     >
-      {others.map((m) => (
+      {others.slice(0, now).map((m) => (
         <span
           key={m.id}
           aria-hidden="true"
@@ -64,6 +97,9 @@ function Discs({ view, others }: { view: View; others: ReturnType<typeof othersO
           {m.name.slice(0, 1).toUpperCase()}
         </span>
       ))}
+      {now < total ? (
+        <span aria-hidden="true" data-testid="team-presence-more" className={`-ml-1.5 inline-grid h-6 min-w-6 flex-none place-items-center rounded-full border border-panel-border bg-canvas px-1 ${typography.viewPanelMeta} text-text-header shadow-1`}>+{total - now}</span>
+      ) : null}
     </button>
   )
 }
