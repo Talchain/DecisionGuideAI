@@ -272,3 +272,31 @@ describe('row 7: the model changed while the editor was open', () => {
     expect((posts()[0]!.body as { base: number })).toMatchObject({ base: view.model!.edit_base })
   })
 })
+
+// Pre-screen row 6 (DL 10 Nov): an open card editor stays, with its typing, when Olumi's proposal lands (core then offers no edit).
+describe('row 6: a proposal lands while the card editor is open', () => {
+  const held = (): { v: View; c: typeof card } => {
+    const c = { ...card, figure: { ...card.figure!, edit: null } }
+    return { v: { ...view, model: { ...view.model!, edit_base: null, cards: view.model!.cards.map((x) => (x.id === card.id ? c : x)) } }, c }
+  }
+  it('the editor and what was typed stay; core says why it cannot be saved; Set is not offered as live; nothing is posted', () => {
+    const { rerender } = render(<ViewCard card={card} />)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '150 to 400' } })
+    const { v, c } = held()
+    act(() => { useViewStore.setState({ view: v }) })
+    rerender(<ViewCard card={c} />)
+    expect((screen.getByTestId(`view-figure-typed-${card.id}`) as HTMLInputElement).value).toBe('150 to 400')
+    expect(screen.getByTestId(`view-figure-held-${card.id}`)).toHaveTextContent(view.model_words!.withdrawnHeld)
+    expect(screen.getByTestId(`view-figure-set-${card.id}`)).toBeDisabled()
+    fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
+    expect(posts()).toEqual([])
+  })
+  it('contrast: a card whose editor is not open draws no editor while a proposal is held (as before)', () => {
+    const { v, c } = held()
+    useViewStore.setState({ view: v })
+    render(<ViewCard card={c} />)
+    expect(screen.queryByTestId(`view-figure-typed-${card.id}`)).toBeNull()
+    expect(screen.queryByTestId(`view-figure-held-${card.id}`)).toBeNull()
+  })
+})
