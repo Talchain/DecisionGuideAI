@@ -361,10 +361,15 @@ describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
     render(<ViewLensBar nav />)
     expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'false')
-    // The canvas Model opens the dock's Model tab on the plain model.
+    // Re-pinned (demo rehearsal 0ce8 step 4, DL 10 Nov: choosing a lens never takes Analysis away). From a lens, the canvas Model turns
+    // the lens off and leaves the dock as it was; pressed again on the plain model, it opens the dock's Model outline. Was: the first press
+    // opened the outline, hiding Analysis until ×.
+    fireEvent.click(screen.getByTestId('lens-bar-full'))
+    expect(useViewLens.getState().lens).toBe('full')
+    expect(force).not.toHaveBeenCalledWith('diagnostics')
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     fireEvent.click(screen.getByTestId('lens-bar-full'))
     expect(force).toHaveBeenCalledWith('diagnostics')
-    expect(useViewLens.getState().lens).toBe('full')
     // The dock's Model tab turns a lens off and presses the canvas Model; the dock's Team presses the canvas Team, never both.
     act(() => { useViewLens.setState({ lens: 'tradeoffs' }); useUIStore.getState().setActiveOutputTab('olumi') })
     act(() => { useUIStore.getState().setActiveOutputTab('diagnostics') })
@@ -373,6 +378,17 @@ describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
     act(() => { useUIStore.getState().setActiveOutputTab('team') })
     expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('demo rehearsal step 4 (DL 10 Nov): after Team, Model gives the dock back the tab it had (Analysis), never the Model outline', () => {
+    useViewLens.setState({ lens: 'full' })
+    act(() => { useUIStore.getState().setActiveOutputTab('analysisNew') })
+    render(<ViewLensBar nav />)
+    fireEvent.click(screen.getByTestId('lens-bar-team'))
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+    fireEvent.click(screen.getByTestId('lens-bar-full'))
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
+    expect(useViewLens.getState().lens).toBe('full')
   })
 })
 
