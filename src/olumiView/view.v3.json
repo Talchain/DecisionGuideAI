@@ -3046,6 +3046,18 @@
          },
          "title": {
           "type": "string"
+         },
+         "reading": {
+          "type": "object",
+          "properties": {
+           "id": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "id"
+          ],
+          "additionalProperties": false
          }
         },
         "required": [
@@ -5121,6 +5133,18 @@
         },
         "title": {
          "type": "string"
+        },
+        "reading": {
+         "type": "object",
+         "properties": {
+          "id": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "id"
+         ],
+         "additionalProperties": false
         }
        },
        "required": [
