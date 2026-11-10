@@ -50,6 +50,9 @@ describe('the previous Model tab\'s sections, from the View', () => {
     expect([...sec.querySelectorAll('[data-model-structure="blocked"] li')].map((e) => e.textContent)).toEqual(texts)
     expect(sec.querySelector('[data-view="model.run.waits_on.text"]')?.textContent).toBe(run.waits_on!.text)
     expect([...sec.querySelectorAll('[data-model-waits]')].map((e) => [e.getAttribute('data-model-waits'), e.textContent])).toEqual(run.waits_on!.items.map((i) => [i.id, i.text]))
+    // The same words for two aims are said once.
+    const twice: View = { ...launch, model: { ...launch.model!, run: { ...run, shared_blockers: [...run.shared_blockers!, { ...run.shared_blockers![0]!, aim_id: 'another_aim' }] } } }
+    expect([...draw(twice).querySelectorAll('[data-model-structure="blocked"] li')].map((e) => e.textContent)).toEqual(texts)
     // CONTRAST: a run with no blocker and nothing waited on draws no section at all.
     expect(european.model!.run!.waits_on).toBeNull()
     expect((european.model!.run!.shared_blockers ?? []).length + (european.model!.run!.coverage ?? []).length).toBe(0)
@@ -75,9 +78,13 @@ describe('the previous Model tab\'s sections, from the View', () => {
     expect([...sec.querySelectorAll('[data-model-audit="readings"] li')].map((e) => e.textContent)).toEqual([...new Set(run.readings.map((r) => r.text))])
     expect([...sec.querySelectorAll('[data-model-audit="notes"] li')].map((e) => e.textContent)).toEqual([...new Set(run.notes.map((n) => n.text))])
     // What changed in the version and what was removed, by identity, when core sends them.
-    const v: View = { ...european, version: { ...european.version!, changed: ['A changed line'] }, model: { ...european.model!, removed: [{ id: 'gone', heading: 'Gone card', title: 'Gone card was removed' }] } }
+    const one = european.model!.cards[3]!
+    const v: View = { ...european, version: { ...european.version!, changed: [one.id, 'a_record_no_card_draws'] }, model: { ...european.model!, removed: [{ id: 'gone', heading: 'Gone card', title: 'Gone card was removed' }] } }
     const d = draw(v); open(d, 'view-model-audit')
-    expect(d.querySelector('[data-model-audit-changed="0"]')?.textContent).toBe('A changed line')
+    // A changed record is its card's heading, never an id; a record no card draws is not shown.
+    expect([...d.querySelectorAll('[data-model-audit-changed]')].map((e) => [e.getAttribute('data-model-audit-changed'), e.textContent])).toEqual([[one.id, one.heading]])
+    expect(d.querySelector('[data-testid="view-model-audit"]')!.textContent).not.toContain('a_record_no_card_draws')
+    expect(one.heading).not.toBe(one.id)
     expect(d.querySelector('[data-model-audit-removed="gone"]')?.textContent).toBe('Gone cardGone card was removed')
   })
 
