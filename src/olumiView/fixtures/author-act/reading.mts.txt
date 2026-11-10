@@ -1,0 +1,27 @@
+// A proposal View carrying Olumi's reading of a change to a record of theirs, drawn by core e9cb54fb's own producers: correctionStage (scripted
+// update reply, zero AI calls) makes the their_record_kept finding; viewOf (olumi.view/3) draws it as the proposal's mark. Golden: proposal.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { viewOf, type Full } from '/Users/paulslee/olumi-work/worktrees/core-v11sci/src/view/view.js';
+import { readWire } from '/Users/paulslee/olumi-work/worktrees/core-v11sci/src/words/wire.js';
+import { correctionStage, type Prompts } from '/Users/paulslee/olumi-work/worktrees/core-v11sci/src/run/pipeline.js';
+const G = '/Users/paulslee/olumi-work/worktrees/core-v11sci/src/view/__tests__/golden/';
+const full = readWire(JSON.parse(readFileSync(G + 'proposal.input.json', 'utf8')) as Full) as any;
+const form = structuredClone(full.version.form);
+const mine = form.records.find((r: any) => r.id === 'existing_capacity');
+const said = 'We now resolve 90 tickets a week.';
+const empty = { intent: 'change', records: [], remove: [], question: null, title: null, period: null, coaching_questions: null, decide_by: null, withdraw_decide_by: false };
+const update = { ...empty, records: [{ ...mine, assertion: { kind: 'point', value: 90, approximate: false }, origin: { by: 'person', quote: said, party: null } }] };
+const replies: object[] = [update, empty];
+const caller = (async (o: any) => {
+  const parsed = o.schemaName === 'olumi_update' ? replies.shift() : { answer: 'Reviewed.', why: [], next: { move: 'gather_evidence', about: [], text: 'Check it.' } };
+  if (!parsed) throw new Error('unexpected update request');
+  return { parsed, text: JSON.stringify(parsed), ms: 1, response_id: 'scripted', model: 'scripted', usage: { input_tokens: 1, cached_tokens: 0, output_tokens: 1, reasoning_tokens: 0 } };
+}) as any;
+const P: Prompts = { draft: 'D', update: 'U', coach: 'C', descriptions: {} } as Prompts;
+const s = await correctionStage({ said: { brief: full.brief, later: [] }, periodZero: '2026-11-08', form, flags: [] } as any, said, '2026-11-10', P, caller);
+const kept = s.final.findings.find((f: any) => f.code === 'their_record_kept');
+if (!kept) throw new Error('core made no their_record_kept finding');
+full.pending = { ...full.pending, findings: [...full.pending.findings, kept] };
+const v = viewOf(full, undefined, 3) as any;
+writeFileSync(process.argv[2]!, JSON.stringify(v, null, 1));
+console.log(JSON.stringify(v.proposal.marks), v.proposal.changes.length);
