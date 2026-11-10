@@ -69,7 +69,10 @@ describe('the Analysis tab on the olumi-core lane draws the ported components', 
     expect(slot.querySelector('[data-testid="view-chances"]')).toBeNull()
     // the coach's newest next step, in core's words at its chat path (its move tap is the conversation's own control, in the slot)
     const k = view.chat.findIndex((t: { answer: { next: { newest: boolean } } | null }) => t.answer?.next.newest === true)
-    expect(hero.querySelector(`[data-testid="port-hero-next"] [data-view="chat.${k}.answer.next.label"]`)!.textContent).toBe(view.chat[k].answer.next.label)
+    // Build 2b: the next step is said once, in the restored "Focus now" section (SC-02), no longer in the hero; same path, same words.
+    expect(hero.querySelector(`[data-view="chat.${k}.answer.next.label"]`)).toBeNull()
+    expect(slot.querySelectorAll(`[data-view="chat.${k}.answer.next.label"]`)).toHaveLength(1)
+    expect(slot.querySelector(`[data-testid="port-focus-next"] [data-view="chat.${k}.answer.next.label"]`)!.textContent).toBe(view.chat[k].answer.next.label)
     // The lower sections hold only what no row says (SC-02, 502cb476: say each thing once). On this board each option's driver line is
     // said under its row and core sends no tipping, rests, failure or trade-off lines, so the disclosure has nothing left and is not drawn.
     const said = drawnByRows(view.model)

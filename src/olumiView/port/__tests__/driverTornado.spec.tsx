@@ -122,6 +122,16 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
   })
 
+  // Build 2b (added, the row above is left as it was): with the previous product's sections restored the chart is drawn once, inside its
+  // accordion, after the hero. The row above no longer holds on this tab (DL to rule: re-pin or retire).
+  it('mounts once, inside the what-could-change accordion, after the hero', () => {
+    useViewStore.setState({ view: fixture, status: 'ready', error: null, at: null })
+    const { getByTestId, getAllByTestId } = render(<PortAnalysisTab />)
+    expect(getAllByTestId('port-driver-tornado')).toHaveLength(1)
+    expect(getByTestId('accordion-tornado')).toContainElement(getByTestId('port-driver-tornado'))
+    expect(getByTestId('port-analysis-hero').compareDocumentPosition(getByTestId('accordion-tornado')) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+
   // Build 2b: core's per-aim driver key (`rows[].driver`, core 69dc9442). The aim being shown (core's lead aim) picks the row; bound by aim id.
   describe('per-aim driver key', () => {
     const [a, b] = options
