@@ -390,4 +390,68 @@ describe('joining an organisation by link', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.body).toMatchObject({ attach: true })
   })
+
+  it('PL: while who is signed in is being read, the join button is off and one line says so; nothing is sent', async () => {
+    vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
+    setTeamFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input), method = init?.method ?? 'GET'
+      asked.push({ method, path, body: undefined })
+      if (path === '/api/me') return new Promise<Response>(() => {})
+      if (path === '/api/org/join/tok-1') return new Response(JSON.stringify({ org: { name: 'Northwind' }, by: 'Olu' }))
+      return new Response(JSON.stringify({ error: 'not found' }), { status: 404 })
+    }) as typeof fetch)
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    expect(screen.getByTestId('account-join-checking').textContent).toBe('Checking who is signed in…')
+    expect((screen.getByTestId('account-join-go') as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.submit(screen.getByTestId('account-join-go').closest('form')!)
+    expect(posts()).toHaveLength(0)
+  })
+  it('PL: when who is signed in cannot be read, one plain sentence and Try again; no request is sent, and Try again reads it afresh then joins as the same person', async () => {
+    vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
+    let meCalls = 0
+    setTeamFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input), method = init?.method ?? 'GET'
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      asked.push({ method, path, body })
+      if (path === '/api/me') return ++meCalls === 1 ? new Response(JSON.stringify({ error: 'down' }), { status: 500 }) : new Response(JSON.stringify({ me: ANA, account: null }))
+      if (path === '/api/org/join/tok-1') return new Response(JSON.stringify({ org: { name: 'Northwind' }, by: 'Olu' }))
+      if (method === 'POST' && path === '/api/org/join') return new Response(JSON.stringify({ me: ANA, account: OWNER }), { status: 201 })
+      return new Response(JSON.stringify({ error: 'not found' }), { status: 404 })
+    }) as typeof fetch)
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    const err = await screen.findByTestId('account-join-who-error')
+    expect(err.textContent).toContain('Olumi could not check who is signed in just now, so nothing has been sent. Try again in a moment.')
+    expect((screen.getByTestId('account-join-go') as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.submit(screen.getByTestId('account-join-go').closest('form')!)
+    expect(posts()).toHaveLength(0)
+    fireEvent.click(screen.getByTestId('account-join-who-retry'))
+    await screen.findByTestId('account-join-same-person')
+    await waitFor(() => expect((screen.getByLabelText('Your name') as HTMLInputElement).value).toBe('Ana'))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    fireEvent.click(screen.getByTestId('account-join-go'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.body).toMatchObject({ attach: true })
+  })
+  it('already has an account: joining sends no attach and says nothing about a scenario link', async () => {
+    vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
+    core((m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } }
+      : p === '/api/org/join/tok-1' ? { body: { org: { name: 'Northwind' }, by: 'Olu' } }
+      : m === 'POST' && p === '/api/org/join' ? { status: 201, body: { me: ANA, account: OWNER } } : undefined)
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    await waitFor(() => expect(screen.queryByTestId('account-join-checking')).toBeNull())
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    fireEvent.click(screen.getByTestId('account-join-go'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.body).toEqual({ token: 'tok-1', name: 'Ana', email: 'ana@example.com', password: 'correct horse battery' })
+    expect(screen.queryByTestId('account-join-same-person')).toBeNull()
+  })
 })
