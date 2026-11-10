@@ -33,6 +33,7 @@ import { authorKeyOf } from './model/premises'
 import { groupRow, useModelTab, type Receipt } from './model/state'
 import { focusIsWith, sayReceipt } from './model/editors'
 import { linkRowOf } from './model/targets'
+import { ModelSections } from './model/sections'
 
 /** The previous PoC's outline chrome (legacy `ModelTabV2Panel.tsx`): its title, its filter's words and its expand control's. UI words, not
  *  model words: nothing here says anything about the model. */
@@ -252,6 +253,8 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
           {authorKey.map((k) => <span key={k.id} data-view-key={k.id}><span aria-hidden="true">{k.glyph}</span> <span>{k.text}</span></span>)}
         </p>
       )}
+      {/* The previous tab's sections under its outline (DL brief A4): Limits, structural issues, the model card, the audit, from the View. */}
+      {searching ? null : <ModelSections model={model} version={view?.version ?? null} />}
     </div>
   )
 }
