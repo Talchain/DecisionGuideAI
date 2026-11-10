@@ -2,8 +2,8 @@
  * THE CANVAS'S REGIONS (DL layout pass, 9 Nov 2026; from the V11 comp). The olumi-core lane's window has four named regions, and every
  * layout rule here reads them from this one module:
  *
- *   HEAD  the band along the canvas's top, from the window's top to just below its lowest head control (Model · Explore · Team, Add a
- *         figure), across the free canvas. Drawn opaque (CanvasHeadBand), so a card panned up goes under it.
+ *   HEAD  the band along the canvas's top, from the window's top to just below its lowest head control (Model · Explore · Team),
+ *         across the free canvas. Drawn opaque (CanvasHeadBand), so a card panned up goes under it.
  *   FOOT  the canvas's foot controls: the zoom row and the more-below cue. Reserved where they stand (not a full-width band: the
  *         canvas keeps the columns beside them).
  *   DOCK  the dock's column on the right (measureDockInset).
@@ -12,8 +12,8 @@
  * Z-ORDER RULE: nothing may cover an open card, its form, or the composer. Cards live inside React Flow's transformed layer (its own
  * stacking context), so no z-index can lift a card above a fixed control. The mechanism is the camera: when a card is opened or focus enters
  * it (its editor included), the board moves by just enough that the card clears HEAD, FOOT and DOCK (`clearOf`). The composer is the dock's
- * own (its footer stack, round 5). The z scale, low to high: canvas 0 · HEAD band 4 · FOOT controls and Add a figure 5 · more-below cue
- * 1200 · lens chips 1250 (they sit on the band).
+ * own (its footer stack, round 5). The z scale, low to high: canvas 0 · HEAD band 4 · FOOT controls 5 · left toolbar and its add form
+ * 1100 · more-below cue 1200 · lens chips 1250 (they sit on the band).
  *
  * FIRST-PAINT RULE: the board opens on the question, its aims and the options, and at least the person's first figure row; where that
  * cannot fit at zoom 1 (the 12/14/18 type rule forbids zooming out), the more-below cue says how many cards are below (BelowCue).
@@ -42,7 +42,7 @@ export const FOOT_W = 360
 export const REGION_GAP = 12
 /** Clear space below the lowest head control, px. */
 export const BAND_GAP = 8
-export const HEAD_CONTROLS = [`[data-testid="${LENS_BAR_TESTID}"]`, '[data-testid="view-add-figure"]'] as const
+export const HEAD_CONTROLS = [`[data-testid="${LENS_BAR_TESTID}"]`] as const
 export const FOOT_CONTROLS = ['nav[aria-label="Viewport controls"]', '[data-testid="view-below-cue"] button'] as const
 
 /** HEAD's height: the lowest head control's foot plus the gap; 0 when none is drawn. */

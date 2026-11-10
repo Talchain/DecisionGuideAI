@@ -56,13 +56,15 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
       const strip = pill !== undefined && pill.width >= window.innerWidth - 1
       const next = strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
       setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
+      // UI restore stage 1, row 2: the left toolbar starts under this bar when the bar sits under the pill (it hid the toolbar's "+").
+      document.documentElement.style.setProperty('--view-nav-bottom', pill && next.top >= pill.bottom ? `${next.top + 36}px` : '0px')
     }
     measure()
     window.addEventListener('resize', measure)
     window.addEventListener('outputs-dock-opened', measure)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     for (const el of [bar.current, document.querySelector('[role="banner"]'), document.querySelector('aside[aria-label="Outputs dock"]')]) if (el && ro) ro.observe(el)
-    return () => { window.removeEventListener('resize', measure); window.removeEventListener('outputs-dock-opened', measure); ro?.disconnect() }
+    return () => { window.removeEventListener('resize', measure); window.removeEventListener('outputs-dock-opened', measure); ro?.disconnect(); document.documentElement.style.removeProperty('--view-nav-bottom') }
   }, [])
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return

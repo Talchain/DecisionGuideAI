@@ -284,3 +284,18 @@
   width: 36px;
   height: 36px;
 }
+
+/* The core lane's human tools use neutral hover/focus; legacy tools retain their palette. */
+.neutralTools .iconButton:hover {
+  background: var(--bg-panel-hover);
+}
+
+.neutralTools .iconButton:focus-visible,
+.neutralTools .iconButtonActive:focus-visible {
+  outline-color: var(--text-body);
+}
+
+/* The core lane's tools start under Model · Explore · Team when that row sits under the pill (ViewLensBar publishes its foot). */
+.neutralTools {
+  top: calc(max(var(--topbar-h, 0px), var(--chrome-top-left, 0px), var(--view-nav-bottom, 0px)) + 12px);
+}

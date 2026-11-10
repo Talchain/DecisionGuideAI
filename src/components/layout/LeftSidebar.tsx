@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, type ReactNode } from 'react'
 import {
   Hand,
   Plus,
@@ -13,6 +13,11 @@ import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcu
 export const MENU_EXCLUSIVE_EVENT = 'menu:exclusive'
 
 interface LeftSidebarProps {
+  /** Lane-owned add control; its availability stays with its writer. */
+  className?: string
+  addControl?: ReactNode
+  showUndo?: boolean
+  toolShortcuts?: boolean
   /** Current interaction mode (select vs hand/pan via keyboard) */
   interactionMode?: 'select' | 'hand'
   /** Called when user clicks select button to switch to select mode */
@@ -73,6 +78,10 @@ export const ADD_IN_CHAT_QUESTION = 'What would you like to add?'
 
 export function LeftSidebar({
   interactionMode = 'select',
+  className,
+  addControl,
+  showUndo = true,
+  toolShortcuts = true,
   onSelectClick,
   // Canvas controls
   onUndoClick,
@@ -108,7 +117,7 @@ export function LeftSidebar({
 
   return (
     <nav
-      className={styles.sidebar}
+      className={className ? `${styles.sidebar} ${className}` : styles.sidebar}
       aria-label="Canvas tools"
     >
       {/* ⭐⭐ AUTHORING GROUP — THE ONLY VISIBLE DOOR TO ADDING SOMETHING YOURSELF.
@@ -137,7 +146,7 @@ export function LeftSidebar({
           that list here would be a second derivation of one fact — the
           hand-maintained mirror this estate keeps paying for (trap 12). One
           menu, one authority, two ways in. */}
-      {onAddToModelClick && (
+      {addControl ?? (onAddToModelClick && (
         <div className={styles.group}>
           <Tooltip content={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}>
             <button
@@ -153,7 +162,7 @@ export function LeftSidebar({
             </button>
           </Tooltip>
         </div>
-      )}
+      ))}
 
       {/* Manipulation group: pointer, hand, undo — contract v3.1's tool run
           (+, pointer, hand, undo, layers; DESIGN-GAP #13).
@@ -167,7 +176,7 @@ export function LeftSidebar({
           A click on the active tool therefore never flips you OUT of the mode
           it names. */}
       <div className={styles.group}>
-        <Tooltip content="Select (V)">
+        <Tooltip content={toolShortcuts ? 'Select (V)' : 'Select'}>
           <button
             type="button"
             className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
@@ -180,11 +189,11 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content="Hand (H)">
+        <Tooltip content={toolShortcuts ? 'Hand (H)' : 'Pan'}>
           <button
             type="button"
             className={interactionMode === 'hand' ? styles.iconButtonActive : styles.iconButton}
-            aria-label="Hand mode"
+            aria-label={toolShortcuts ? 'Hand mode' : 'Pan mode'}
             aria-pressed={interactionMode === 'hand'}
             data-testid="canvas-tool-hand"
             onClick={interactionMode === 'hand' ? undefined : onSelectClick}
@@ -234,7 +243,7 @@ export function LeftSidebar({
             the call site's flag folds the other way, this branch stops firing
             on its own and real undo takes over. There is no second place to
             remember to update. */}
-        <Tooltip content="Undo">
+        {showUndo && <Tooltip content="Undo">
           <button
             type="button"
             className={styles.iconButton}
@@ -253,7 +262,7 @@ export function LeftSidebar({
           >
             <Undo2 className={styles.icon} aria-hidden="true" />
           </button>
-        </Tooltip>
+        </Tooltip>}
 
         {/* ⭐ NO REDO BUTTON (contract v3.1, DESIGN-GAP #13). Redo is reached
             from the keyboard: `isUndoRedoGesture` returns true for ⌘Y and ⌘⇧Z

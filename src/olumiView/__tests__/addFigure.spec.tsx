@@ -46,6 +46,10 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: [] } as never)
 })
 const posts = () => calls.filter((c) => c.method === 'POST')
+const openFigure = () => {
+  fireEvent.click(screen.getByTestId('canvas-add-to-model'))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Add a figure' }))
+}
 const fill = (name: string, typed: string, unit = '') => {
   fireEvent.change(screen.getByTestId('view-add-figure-name'), { target: { value: name } })
   fireEvent.change(screen.getByTestId('view-add-figure-typed'), { target: { value: typed } })
@@ -55,7 +59,7 @@ const fill = (name: string, typed: string, unit = '') => {
 describe('add a figure', () => {
   it('catch: posts core\'s contract on the base it opened on, the person\'s words trimmed and no unit when none; says core\'s version', async () => {
     render(<AddFigure />)
-    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    openFigure()
     act(() => { useViewStore.setState({ view: { ...approved, model: { ...approved.model!, edit_base: base + 5 } } as View }) }) // a newer version lands
     fill('  Weekly churn ', ' 10 to 30 ')
     fireEvent.click(screen.getByTestId('view-add-figure-add'))
@@ -71,18 +75,18 @@ describe('add a figure', () => {
     act(() => { useCanvasStore.setState({ nodes: [{ id: 'some_other_card', position: { x: 0, y: 0 }, data: {} }, { id: 'weekly_churn', position: { x: 0, y: 0 }, data: {} }] } as never) })
     expect(focused).toEqual(['weekly_churn'])
   })
-  it('catch (PL 7 Nov): Cancel or Escape hands focus back to "Add a figure", so a keyboard user keeps their place', () => {
+  it('catch (PL 7 Nov): Cancel or Escape hands focus back to the toolbar "+", so a keyboard user keeps their place', () => {
     render(<AddFigure />)
-    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    openFigure()
     fireEvent.click(screen.getByText('Cancel'))
-    expect(document.activeElement).toBe(screen.getByTestId('view-add-figure-open'))
-    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    expect(document.activeElement).toBe(screen.getByTestId('canvas-add-to-model'))
+    openFigure()
     fireEvent.keyDown(screen.getByTestId('view-add-figure-name'), { key: 'Escape' })
-    expect(document.activeElement).toBe(screen.getByTestId('view-add-figure-open'))
+    expect(document.activeElement).toBe(screen.getByTestId('canvas-add-to-model'))
   })
   it('a unit, when given, goes as the person typed it (core reads it)', async () => {
     render(<AddFigure />)
-    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    openFigure()
     fill('Weekly churn', '10 to 30', ' ticket/week ')
     fireEvent.click(screen.getByTestId('view-add-figure-add'))
     await waitFor(() => expect(posts()).toHaveLength(1))
@@ -91,7 +95,7 @@ describe('add a figure', () => {
   it('a refusal is core\'s own words; nothing reads as saved and the person\'s words stay in the form', async () => {
     answer = { status: 400, body: { error: 'For “Weekly churn”, type one number, or a range like 150 to 400.' } }
     render(<AddFigure />)
-    fireEvent.click(screen.getByTestId('view-add-figure-open'))
+    openFigure()
     fill('Weekly churn', 'lots')
     fireEvent.click(screen.getByTestId('view-add-figure-add'))
     await waitFor(() => expect(screen.getByTestId('view-add-figure-error')).toHaveTextContent('For “Weekly churn”, type one number, or a range like 150 to 400.'))
@@ -111,10 +115,10 @@ describe('add a figure', () => {
       () => useMe.setState({ me: { id: 'someone-else', name: 'Someone else' }, status: 'ready' } as never),
     ]) {
       set()
-      expect(render(<AddFigure />).container.querySelector('[data-testid="view-add-figure-open"]')).toBeNull()
+      expect(render(<AddFigure />).container.querySelector('[data-testid="canvas-add-to-model"]')).toBeNull()
       cleanup()
       useViewStore.setState({ view: approved, at: null }); useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
     }
-    expect(render(<AddFigure />).container.querySelector('[data-testid="view-add-figure-open"]')).not.toBeNull() // CONTRAST: offered here
+    expect(render(<AddFigure />).container.querySelector('[data-testid="canvas-add-to-model"]')).not.toBeNull() // CONTRAST: offered here
   })
 })
