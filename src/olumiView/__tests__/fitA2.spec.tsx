@@ -1,6 +1,5 @@
 /**
- * Option a2 (Paul's item 1, 6 Nov: his hiring board opened with 7 of 17 cards off screen at 0.9): (1) the previous PoC's family rows, so a
- * dense board is a few rows tall and its order under the options is kept; (2) the previous PoC's option face: the first aim's chance in
+ * Option a2: the restored layout keeps cards separate and aims last; the option face keeps the first aim's chance in
  * the big line, every other aim small and whole (R25: no cut text), and the outcome band's words in the DOM and on hover rather than a face line.
  */
 import { afterEach, describe, expect, it } from 'vitest'
@@ -9,54 +8,24 @@ import path from 'node:path'
 import { typography } from '../../styles/typography'
 import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { CARD_WIDTH, causalPlaces, drawKindOf, familyTierOf, QUESTION_W, questionPlace, QUESTION } from '../layout'
+import { CARD_WIDTH, causalPlaces, drawKindOf, familyTierOf, questionPlace, QUESTION } from '../layout'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewOptionBand } from '../v10'
 
 afterEach(cleanup)
 const real = (n: string) => (JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8')) as View).model!
-const rowsOf = async (m: NonNullable<View['model']>) => {
-  const p = await causalPlaces(m, new Map(), questionPlace(m).width)
-  return { p, ys: [...new Set([...p.values()].map((x) => Math.round(x.y)))].sort((a, b) => a - b) }
-}
-
-describe('family rows', () => {
-  // A board shaped like Paul's 6 Nov hiring board (3 options, 8 factors and assumptions, worked-out figures, 2 aims and a limit): the real
-  // dense hiring fixture with its last five factor cards (and their links) taken out. Depth rows drew his board 8 rows tall.
-  const paulShaped = () => {
-    const m = structuredClone(real('hiring')), drop = new Set(m.cards.filter((c) => familyTierOf(c, m) === 3).slice(8).map((c) => c.id))
-    return { ...m, cards: m.cards.filter((c) => !drop.has(c.id)), links: m.links.filter((l) => !drop.has(l.from) && !drop.has(l.to)) }
-  }
-  it('catch: a board shaped like Paul\'s is at most six rows tall, each family below the one before', async () => {
-    const m = paulShaped(), { p, ys } = await rowsOf(m)
-    expect(m.cards.filter((c) => familyTierOf(c, m) === 3)).toHaveLength(8)
-    expect(ys.length).toBeLessThanOrEqual(6)
-    // R25: the aims and the limit (row 5) are the head of the board, beside the question; every other family below the one before.
-    const tier = (id: string) => (id === QUESTION ? 0 : familyTierOf(m.cards.find((c) => c.id === id)!, m))
-    const aims = [...p.keys()].filter((id) => tier(id) === 5)
-    expect(aims.length).toBe(2) // its two aims (the limit is a row on its aim card)
-    for (const id of aims) expect(p.get(id)!.y, id).toBeLessThan(p.get(QUESTION)!.y + 300)
-    for (const [a, pa] of p) for (const [b, pb] of p) if (tier(a) < tier(b) && tier(b) < 5) expect(pa.y, `${a} above ${b}`).toBeLessThan(pb.y)
-  })
-  it('must not change: a small board (pricing, no family wider than five, and only the factors that wide) has one row per family present, and nothing overlaps', async () => {
-    const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'pricing.view.json'), 'utf8')) as View).model!, { p, ys } = await rowsOf(m)
-    const tiers = new Set([0, ...m.cards.map((c) => familyTierOf(c, m))])
-    // core a0e144f6: the figure the Run names as what moves the option's chance most, `cups_change`, is its own card, so the factors family (tier 3)
-    // is five wide (measured: margin, margin_raised, cups_now, cups_change, profit_target), the one family that is; every other family is at most four.
-    const width = (t: number) => m.cards.filter((c) => familyTierOf(c, m) === t).map((c) => c.id)
-    expect(width(3)).toEqual(['margin', 'margin_raised', 'cups_now', 'cups_change', 'profit_target'])
-    expect([...tiers].every((t) => t === 0 || t === 3 || width(t).length <= 4)).toBe(true)
-    // R25: the aims share the question's row; one row per family, but the five-wide factors family wraps (a tier wider than four does: WRAP_PER_ROW) into
-    // two rows of four and one, so it is the one family that takes two.
-    expect(ys.length).toBe(tiers.size - (tiers.has(5) ? 1 : 0) + 1)
-    expect([...new Set(width(3).map((id) => Math.round(p.get(id)!.y)))].length).toBe(2)
-    for (const t of [...tiers].filter((x) => x !== 0 && x !== 3 && x !== 5)) expect(new Set(width(t).map((id) => Math.round(p.get(id)!.y))).size, `family ${t}: one row`).toBe(1)
-    const boxes = [...p].map(([id, x]) => ({ id, ...x }))
-    for (const a of boxes) for (const b of boxes) if (a.id < b.id && a.y === b.y) expect(Math.abs(a.x - b.x), `${a.id}/${b.id}`).toBeGreaterThanOrEqual(CARD_WIDTH)
+describe('the restored small board', () => {
+  // UI restore stage 1 (DL ruling 10 Nov): the at-most-six family rows rule retired; restoreLayout.spec.ts pins its replacement.
+  // UI restore stage 1 (DL ruling 10 Nov): family wrapping is retired; keep separation at each card's drawn width and height.
+  it('pricing: no two cards overlap, including the question', async () => {
+    const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'pricing.view.json'), 'utf8')) as View).model!
+    const p = await causalPlaces(m, new Map())
+    const boxes = [{ id: QUESTION, ...p.get(QUESTION)!, w: questionPlace(m).width, h: 85 }, ...m.cards.map((c) => ({ id: c.id, ...p.get(c.id)!, w: CARD_WIDTH, h: c.h }))]
+    for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, `${a.id} overlaps ${b.id}`).toBe(false)
   })
 })
 
-describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own row, the aims in view at 1232)', () => {
+describe('R24 drivers and the restored top-to-bottom layout', () => {
   // The R24 shape (core 0a5f8e69): options set levers (`through`), the levers feed the outcomes, the outcomes are what the aims read.
   const card = (id: string, family: string, h = 120) => ({ id, family, h }) as unknown as ViewModel['cards'][number]
   const link = (from: string, to: string, kind = 'plain') => ({ from, to, kind, label: '', doubt: false, alert: false, proposed: false, title: '', effect: null }) as unknown as ViewModel['links'][number]
@@ -70,26 +39,19 @@ describe('R24 drivers and the head row (R25, Paul 7 Nov: drivers in their own ro
     expect(['lever_a', 'lever_b'].map((id) => [kind(id), tier(id)])).toEqual([['factor', 2], ['factor', 2]])
     expect(['cash', 'deals'].map((id) => [kind(id), tier(id)])).toEqual([['outcome', 4], ['outcome', 4]])
   })
-  it('catch: the aims sit beside the question, one each side, and the rows go options, drivers, outcomes', async () => {
-    const p = await causalPlaces(r24, new Map(), questionPlace(r24).width), q = p.get(QUESTION)!
-    expect(questionPlace(r24).width).toBe(QUESTION_W)
-    expect([p.get('aim_cash')!.y, p.get('aim_deals')!.y]).toEqual([q.y, q.y])
-    expect(p.get('aim_cash')!.x + CARD_WIDTH).toBeLessThanOrEqual(q.x)
-    expect(p.get('aim_deals')!.x).toBeGreaterThanOrEqual(q.x + QUESTION_W)
-    expect(p.get('o1')!.y).toBeLessThan(p.get('lever_a')!.y)
-    expect(p.get('lever_a')!.y).toBeLessThan(p.get('cash')!.y)
-  })
-  it('catch (DL 7 Nov: an aim, then O3 and O4 of a four-option board, ran under the dock at 1232): on every golden and real board the head (the question, the aims beside it and every options row) is at most 760 wide, inside the visible canvas at 1232 at 1.0', async () => {
-    const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!)
-    const hosting = real('hosting')
-    expect(hosting.cards.filter((c) => c.family === 'option')).toHaveLength(4) // precondition: the four-option real board
-    for (const m of [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map(real), hosting, r24]) {
-      const qw = questionPlace(m).width, p = await causalPlaces(m, new Map(), qw)
-      const head = [QUESTION, ...m.cards.filter((c) => { const t = familyTierOf(c, m); return t === 1 || t === 5 }).map((c) => c.id)]
-      const left = Math.min(...head.map((id) => p.get(id)!.x)), right = Math.max(...head.map((id) => p.get(id)!.x + (id === QUESTION ? qw : CARD_WIDTH)))
-      expect(right - left, `${head.length} head cards`).toBeLessThanOrEqual(760)
+  // UI restore stage 1 (DL ruling 10 Nov): aims follow the outcomes; options, drivers and outcomes retain their top-to-bottom order.
+  it('the question heads the options, then drivers, then outcomes, with both aims last', async () => {
+    const p = await causalPlaces(r24, new Map()), y = (id: string) => p.get(id)!.y
+    for (const id of ['o1', 'o2']) expect(y(id), id).toBeGreaterThan(y(QUESTION))
+    for (const driver of ['lever_a', 'lever_b']) {
+      for (const option of ['o1', 'o2']) expect(y(driver), `${driver} below ${option}`).toBeGreaterThan(y(option))
+      for (const outcome of ['cash', 'deals']) expect(y(outcome), `${outcome} below ${driver}`).toBeGreaterThan(y(driver))
+    }
+    for (const aim of ['aim_cash', 'aim_deals']) {
+      for (const c of r24.cards.filter((c) => c.family !== 'goal')) expect(y(aim), `${aim} below ${c.id}`).toBeGreaterThan(y(c.id))
     }
   })
+  // UI restore stage 1 (DL ruling 10 Nov): the 760-wide head with flanking aims rule retired; restoreLayout.spec.ts pins its replacement.
   it('CONTRAST: the drivers on every golden and real fixture are exactly these, pinned by card id', () => {
     const goldens = ['bakery', 'european', 'pricing', 'studio', 's_ce285b3617bb', 'app-launch', 'proposal', 'whatif'].map((n) => [n, (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View).model!] as const)
     const boards = [...goldens, ...['hiring', 'capacity', 'european-22cards', 'bakery-r5', 'together'].map((n) => [n, real(n)] as const)]

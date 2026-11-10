@@ -138,7 +138,9 @@ export const TopBar = ({
   // the canvas tools, the left inspector and the top-centre notices sit below it.
   // J1 gate (UI session 8 Nov, the prototype's header): on the olumi-core lane the bar is a full-width 48 px strip, so `--topbar-h` is
   // its height (the dock starts under it) and the top-left column starts under the strip and the Model / Explore / Team row.
-  const strip = isOlumiCoreLane()
+  // UI restore stage 1, row 1 (DL ruling 10 Nov): the bar is the previous product's floating pill on every lane; the canvas and the dock
+  // run the full height. The strip's branches below are kept for one cycle and never taken.
+  const strip: boolean = false
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement

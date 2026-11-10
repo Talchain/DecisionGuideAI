@@ -1336,6 +1336,20 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "margin",
+    "label": "Margin"
+   },
+   {
+    "id": "margin_raised",
+    "label": "Margin raised"
+   },
+   {
+    "id": "cups_now",
+    "label": "Cups now"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },

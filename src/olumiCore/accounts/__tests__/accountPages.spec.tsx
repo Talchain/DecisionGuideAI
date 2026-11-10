@@ -264,3 +264,69 @@ describe('My scenarios: archive and restore', () => {
     expect(screen.queryByTestId('my-scenarios-archived')).toBeNull() // the earlier archived list is not left showing either
   })
 })
+
+describe('My scenarios: rename (the person\'s own title)', () => {
+  it('Rename opens the title to edit, Save sends exactly it, and the list shows the new title; the words say only they see it', async () => {
+    const own = new Map<string, string>()
+    core((m, p, b) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS.map((s) => own.has(s.id) ? { ...s, title: own.get(s.id)!, label: own.get(s.id)! } : s), archived: [] } }
+      const hit = /^\/api\/account\/scenarios\/(s_[0-9a-f]+)\/title$/.exec(p)
+      if (m === 'POST' && hit) { const t = (b as { title: string }).title.trim(); if (t) own.set(hit[1]!, t); else own.delete(hit[1]!); return { body: { id: hit[1], title: t || 'Office move' } } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-rename-s_a00000000002'))
+    const field = screen.getByLabelText('Your title for this scenario') as HTMLInputElement
+    expect(field.value).toBe('Office move')
+    expect(screen.getByTestId('my-scenario-title-form-s_a00000000002').textContent).toContain('Only you see this title')
+    fireEvent.change(field, { target: { value: 'Move to Leeds' } })
+    fireEvent.click(screen.getByTestId('my-scenario-title-save-s_a00000000002'))
+    await waitFor(() => expect(screen.getByTestId('my-scenario-open-s_a00000000002').textContent).toBe('Move to Leeds'))
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000002/title', body: { title: 'Move to Leeds' } }])
+    expect(screen.queryByTestId('my-scenario-title-form-s_a00000000002')).toBeNull()
+    expect(screen.getByTestId('my-scenario-open-s_a00000000001').textContent).toBe('Hiring plan')
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+
+  it('a save refused because this browser is now someone else\'s clears the list, the archived list and the title being edited', async () => {
+    setPagePerson('7')
+    let switched = false
+    core((m, p) => {
+      if (p === '/api/me') return { body: switched ? { me: BO, account: null } : { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: switched ? { you_id: '9', scenarios: [], archived: [] } : { you_id: '7', scenarios: SCENARIOS.slice(0, 1), archived: SCENARIOS.slice(1) } }
+      if (m === 'POST') return { body: { id: 's_a00000000002', title: 'x' } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios-archived')
+    fireEvent.click(screen.getByTestId('my-scenario-rename-s_a00000000002'))
+    fireEvent.change(screen.getByLabelText('Your title for this scenario'), { target: { value: 'Draft title' } })
+    switched = true
+    fireEvent.click(screen.getByTestId('my-scenario-title-save-s_a00000000002'))
+    await screen.findByRole('alert')
+    await waitFor(() => expect(screen.queryByTestId('my-scenarios')).toBeNull())
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull()
+    expect(screen.queryByLabelText('Your title for this scenario')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/Office move|Hiring plan|Draft title/)
+    expect(posts()).toEqual([])
+  })
+
+  it('a refused title shows core\'s words, keeps what the person typed, and changes nothing on the list', async () => {
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS, archived: [] } }
+      if (m === 'POST') return { status: 400, body: { error: 'a title is at most 200 characters' } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-rename-s_a00000000002'))
+    fireEvent.change(screen.getByLabelText('Your title for this scenario'), { target: { value: 'Too long' } })
+    fireEvent.click(screen.getByTestId('my-scenario-title-save-s_a00000000002'))
+    expect((await screen.findByRole('alert')).textContent).toBe('a title is at most 200 characters')
+    expect((screen.getByLabelText('Your title for this scenario') as HTMLInputElement).value).toBe('Too long')
+    expect(screen.getByTestId('my-scenario-open-s_a00000000002').textContent).toBe('Office move')
+  })
+})

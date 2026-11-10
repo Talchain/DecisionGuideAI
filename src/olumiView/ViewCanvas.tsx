@@ -38,9 +38,9 @@ import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { BelowCue } from './BelowCue'
-import { CanvasHeadBand } from './CanvasHeadBand'
 import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
+import { ViewWelcome } from './ViewWelcome'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
@@ -220,9 +220,10 @@ function ViewFlow() {
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
       {hasModel ? null : <DraftingBoard />}
+      {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
+      {hasModel ? null : <ViewWelcome />}
       {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
       {/* The canvas's head controls sit on an opaque band (DL round 5): a card panned up goes under it. */}
-      {hasModel ? <CanvasHeadBand /> : null}
       {hasModel ? <AddFigure /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue /> : null}

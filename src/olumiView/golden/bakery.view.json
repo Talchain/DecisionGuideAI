@@ -1858,6 +1858,20 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "base_sales",
+    "label": "Base sales"
+   },
+   {
+    "id": "sales_target",
+    "label": "Sales target"
+   },
+   {
+    "id": "extra_sold_per_oven",
+    "label": "Extra sold per oven"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },

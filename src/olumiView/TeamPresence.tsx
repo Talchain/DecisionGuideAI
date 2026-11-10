@@ -4,6 +4,7 @@
  * Clicking opens the Team tab. Beside it, the people the brief names whom no member matches (`team_presence.unjoined`), in core's words.
  * Nothing while there is no View, or when the scenario has one member and core names no one else.
  */
+import { UserPlus } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
@@ -34,8 +35,10 @@ export function TeamPresence() {
         // An action (DL 9 Nov: the person must be able to do something about it): pressing core's sentence opens Team with the invite form
         // holding the first name core lists, ready to make that person's link. The words stay core's; the press is the page's.
         <button type="button" onClick={() => inviteUnjoined(sid ?? view.id, unjoined.names[0] ?? '')} aria-label={`${unjoined.text}. Invite ${unjoined.names[0] ?? ''}`}
-          className={`${typography.viewPanelMeta} mr-2 min-w-0 max-w-[240px] cursor-pointer rounded text-right text-text-body underline decoration-panel-border underline-offset-2 hover:text-text-header hover:decoration-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
-          title={unjoined.text} data-testid="team-presence-unjoined"><span data-view="team_presence.unjoined.text">{unjoined.text}</span></button>
+          // UI restore stage 1, row 1 (DL ruling 10 Nov: no stray header notice): in the pill the sentence is the control's name and hover,
+          // not a line of text beside Share (it widened the pill under the dock at 1232); the press is unchanged.
+          className={`${typography.viewPanelMeta} inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-full border border-dashed border-panel-border text-text-body hover:border-text-header hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
+          title={unjoined.text} data-testid="team-presence-unjoined"><UserPlus size={14} aria-hidden="true" /><span className="sr-only" data-view="team_presence.unjoined.text">{unjoined.text}</span></button>
       )}
     </span>
   )

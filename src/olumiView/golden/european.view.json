@@ -2819,6 +2819,20 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "starting_customers",
+    "label": "Current customer base"
+   },
+   {
+    "id": "customer_target",
+    "label": "Customer target"
+   },
+   {
+    "id": "entry_delay",
+    "label": "Expansion start after now"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },

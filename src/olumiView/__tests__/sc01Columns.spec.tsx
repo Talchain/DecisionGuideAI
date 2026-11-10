@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render } from '@testing-library/react'
 import type { View } from '../client'
-import { causalColumns, COLUMN_GAP_X, drawnModelOf, QUESTION, questionPlace, sharedAimsOf, CARD_WIDTH } from '../layout'
+import { causalColumns, drawnModelOf, QUESTION, questionPlace, sharedAimsOf, CARD_WIDTH } from '../layout'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/sc01/growth16.core-5d8a009b.view3.json'), 'utf8'))
@@ -29,7 +29,7 @@ describe('three columns, cause to aim, left to right (real 16-card View)', () =>
   })
   it('every card is placed once, and no two overlap', () => {
     expect(places.size).toBe(drawn.cards.length + 1)
-    const box = (id: string) => ({ ...places.get(id)!, w: id === QUESTION ? questionPlace(model).width : 220, h: id === QUESTION ? 85 : model.cards.find((c) => c.id === id)!.h })
+    const box = (id: string) => ({ ...places.get(id)!, w: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, h: id === QUESTION ? 85 : model.cards.find((c) => c.id === id)!.h })
     const ids = [...places.keys()]
     for (const a of ids) for (const b of ids) if (a < b) { const p = box(a), q = box(b); expect(p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h, `${a} on ${b}`).toBe(false) }
   })
@@ -38,12 +38,7 @@ describe('three columns, cause to aim, left to right (real 16-card View)', () =>
     expect(y('arr_2027')).toBeLessThan(y('sustainable_enterprise_growth'))
     expect(Math.max(...[...places].filter(([id]) => col(id) === 2).map(([id]) => y(id)))).toBe(y('sustainable_enterprise_growth'))
   })
-  it('the board is three cards wide: it fits across the free canvas at 1232 at the 0.9 floor (915 flow units)', () => {
-    // J1 gate: the card is CARD_WIDTH (200 since the route board); the columns' rule is unchanged.
-    const right = Math.max(...[...places].map(([id, p]) => p.x + (id === QUESTION ? questionPlace(model).width : CARD_WIDTH)))
-    expect(right).toBe(questionPlace(model).width + 2 * CARD_WIDTH + 2 * COLUMN_GAP_X)
-    expect(right * 0.9).toBeLessThanOrEqual(824)
-  })
+  // UI restore stage 1 (DL ruling 10 Nov): three-column width and 1232 fit retired; restoreLayout.spec.ts pins their replacement.
 })
 
 describe('an option card leaves a reason every option shares to the panel (core run.shared_blockers, by aim id and option id)', () => {

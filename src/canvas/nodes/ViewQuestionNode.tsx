@@ -4,6 +4,7 @@
  * Olumi points at (`focus`) or proposes a change to (`proposed`) shows it as a card does. Each drawn string carries `data-view`.
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { useLinkSides } from '../../olumiView/canvas'
 import type { ViewModel } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { Badge } from '../../olumiView/Badge'
@@ -32,10 +33,12 @@ export function ViewQuestion({ question, width }: ViewQuestionData) {
 
 /** The React Flow node: the question, with the handle the links about the question as a whole end at. */
 export function ViewQuestionNode({ data }: NodeProps) {
+  // The question heads the board: a link about it arrives on the side the board runs to (the layout's direction).
+  const side = useLinkSides().out as Position
   return (
     <>
       <ViewQuestion {...(data as ViewQuestionData)} />
-      <Handle type="target" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
+      <Handle type="target" position={side} isConnectable={false} className="!opacity-0" />
     </>
   )
 }

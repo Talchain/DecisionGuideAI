@@ -4359,6 +4359,25 @@
     "view_figures_limit_text": {
      "type": "string"
     },
+    "view_figure_cards": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "id",
+       "label"
+      ],
+      "additionalProperties": false
+     }
+    },
     "private_view_prompt": {
      "type": [
       "string",

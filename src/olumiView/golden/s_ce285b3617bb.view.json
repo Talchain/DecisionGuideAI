@@ -95,8 +95,8 @@
      "text": "£1m to £2m",
      "title": "Hard bounds: £1,000,000 to £2,000,000",
      "edit": {
-      "prompt": "New figure for “Deal size of investment firms being targeted” (GBP): one number, or a range like 150 to 400",
-      "ask": "For “Deal size of investment firms being targeted”, type one number, or a range like 150 to 400."
+      "prompt": "New figure for “Deal size of investment firms being targeted” in £m: one number, or a range like 40 to 50",
+      "ask": "For “Deal size of investment firms being targeted”, type it in £m: one number, or a range like 40 to 50 (or with its scale, as in £40m)."
      }
     },
     "premises": [],
@@ -2339,6 +2339,20 @@
   "suggested_triggers": [],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "horizon",
+    "label": "Funding window"
+   },
+   {
+    "id": "target_firm_deal_size",
+    "label": "Deal size of investment firms being targeted"
+   },
+   {
+    "id": "opening_cash",
+    "label": "Available unrestricted cash"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },
