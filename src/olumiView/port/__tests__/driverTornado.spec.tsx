@@ -124,6 +124,7 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     const section = getByTestId('accordion-tornado')
     expect(section).toContainElement(getByTestId('port-driver-tornado'))
     expect(section.previousElementSibling).toHaveAttribute('data-testid', 'port-your-options')
-    expect(section.previousElementSibling!.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
+    // Row 17: Focus now and Strengthen may sit between the hero and the options; the hero still comes first.
+    expect(getByTestId('port-analysis-hero').compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 })
