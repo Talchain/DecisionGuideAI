@@ -1,0 +1,1943 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000005",
+ "title": "App release: readiness, campaign commitments and the case for delay",
+ "commit": "golden",
+ "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
+ "you": "Paul",
+ "you_id": "p_1",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 1,
+  "n": 1,
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "How can I make a technically defensible case to my boss for delaying the app update, while testing whether a full delay is necessary?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "feared_review_rating",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Feared review rating",
+    "typed": false,
+    "detail": "Feared review rating · quantity · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews” · ⟦F9.value⟧",
+    "col": 1,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F9.value⟧",
+     "title": "⟦F9.value⟧",
+     "edit": {
+      "prompt": "New figure for “Feared review rating” (star): one number, or a range like 150 to 400",
+      "ask": "For “Feared review rating”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "review_prediction_not_observation",
+      "review_rating_numeric_exclusion"
+     ],
+     "text": "1 claim, 1 open question",
+     "title": "claim: One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim, 1 open question",
+     "face": "1 claim, 1 open question",
+     "icon": ""
+    },
+    "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Feared review rating",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
+    },
+    "failed": []
+   },
+   {
+    "id": "negative_reviews",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Broken release prompts one-star reviews",
+    "typed": false,
+    "detail": "Broken release prompts one-star reviews · risk · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”",
+    "col": 0,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "‘Broken release prompts one-star reviews’ acts on an option, not on a figure, so the calculation cannot size it.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "review_prediction_not_observation",
+      "conditional_exposure_reason",
+      "review_rating_numeric_exclusion"
+     ],
+     "text": "2 claims, 1 open question",
+     "title": "claim: One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
+     "label": "Show 3 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 claims, 1 open question",
+     "face": "2 claims, 1 open question",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Broken release prompts one-star reviews",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
+    },
+    "failed": []
+   },
+   {
+    "id": "boss_discussion",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Explain the release decision without unfair team blame",
+    "typed": false,
+    "detail": "Explain the release decision without unfair team blame · goal · Theirs: “make it sound super technical and smart so he doesnt just blame my team”",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?",
+      "id": "schedule_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable."
+      }
+     }
+    ],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "What decision or commitment do you need from your boss, and what evidence would they consider credible?",
+     "title": "What decision or commitment do you need from your boss, and what evidence would they consider credible?",
+     "olumi": null,
+     "measured": false
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "initial_position",
+      "conditional_integrity_reason",
+      "conditional_validation_reason",
+      "boss_brief_structure"
+     ],
+     "text": "4 claims",
+     "title": "claim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "4 claims",
+     "face": "4 claims",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Explain the release decision without unfair team blame",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “make it sound super technical and smart so he doesnt just blame my team”"
+    },
+    "failed": []
+   },
+   {
+    "id": "protect_user_trust",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Avoid damaging users' experience and trust",
+    "typed": false,
+    "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "What user-visible failures would make this release unacceptable: lost changes, stale data, duplicate actions, or something else?",
+     "title": "What user-visible failures would make this release unacceptable: lost changes, stale data, duplicate actions, or something else?",
+     "olumi": null,
+     "measured": false
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "isolation_prerequisite",
+      "isolation_trust_link",
+      "review_rating_numeric_exclusion"
+     ],
+     "text": "1 prerequisite, 1 link, 1 open question",
+     "title": "prerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nLink: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
+     "label": "Show 3 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 prerequisite, 1 link, 1 open question",
+     "face": "1 prerequisite and 2 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Avoid damaging users' experience and trust",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
+    },
+    "failed": []
+   },
+   {
+    "id": "release_offset",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time available before release",
+    "typed": false,
+    "detail": "Time available before release · quantity · Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure. · Plausible range: ⟦F1.value⟧",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F1.value⟧",
+     "title": "Plausible range: ⟦F1.value⟧",
+     "edit": {
+      "prompt": "New figure for “Time available before release” (week): one number, or a range like 150 to 400",
+      "ask": "For “Time available before release”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "current_release_window"
+     ],
+     "text": "1 claim",
+     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim",
+     "face": "1 claim",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "option_scheduled",
+      "text": "⟦F1.value⟧",
+      "p10": 0.5,
+      "p50": null,
+      "p90": 4,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "option_delay",
+      "text": "⟦F4.value⟧",
+      "p10": 4,
+      "p50": null,
+      "p90": 16,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "option_isolate",
+      "text": "⟦F1.value⟧",
+      "p10": 0.5,
+      "p50": null,
+      "p90": 4,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Time available before release",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure."
+    },
+    "failed": []
+   },
+   {
+    "id": "readiness_margin",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Release time minus repair and validation time",
+    "typed": false,
+    "detail": "Release time minus repair and validation time · quantity · Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "",
+     "title": "Worked out from the figures it depends on",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "reported_sync_defect",
+      "repair_duration",
+      "validation_duration",
+      "readiness_duration",
+      "calculate_readiness_duration",
+      "calculate_readiness_margin",
+      "technical_diagnosis",
+      "conditional_integrity_reason",
+      "conditional_validation_reason",
+      "boss_brief_structure"
+     ],
+     "text": "4 claims, 3 figures, 2 calculations, 1 challenge",
+     "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nFigure: Time to implement the sync fix\nFigure: Validation time after implementing the fix\nFigure: Time to complete repair and validation\nHow Time to complete repair and validation is worked out\nHow Release time minus repair and validation time is worked out\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Show 10 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "4 claims, 3 figures, 2 calculations, 1 challenge",
+     "face": "4 claims and 6 more",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Release time minus repair and validation time",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A signed schedule margin: a negative value represents insufficient time under this simplified schedule."
+    },
+    "failed": []
+   },
+   {
+    "id": "allow_readiness_work",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Allow time for repair and validation",
+    "typed": false,
+    "detail": "Allow time for repair and validation · goal · Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety.",
+    "col": 3,
+    "h": 130,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+      "title": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer. · left out · Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable. · No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance. · Which additional release dependencies or acceptance checks must be included?",
+      "id": "schedule_measure_exclusions",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Prevents the numerical schedule proxy from being presented as proof that an option is safe or commercially preferable."
+      }
+     }
+    ],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least ⟦F8.value⟧",
+     "title": "Does allowing time for both repair and validation capture your release-readiness requirement, and what release buffer would your team use?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "zero_schedule_shortfall"
+     ],
+     "text": "1 figure",
+     "title": "Figure: Minimum proposed schedule margin",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Allow time for repair and validation",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: A testable schedule criterion for exploring the concern about releasing a known defect; it does not establish product safety."
+    },
+    "failed": []
+   },
+   {
+    "id": "option_scheduled",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Keep the currently scheduled full release",
+    "typed": false,
+    "detail": "Keep the currently scheduled full release · option · Theirs: “we are supposed to go live with the new app update in like less than a month”",
+    "col": 0,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.",
+      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay.",
+      "id": "technical_diagnosis",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "boss_discussion",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Explain the release decision without unfair team blame"
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Avoid damaging users' experience and trust"
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Allow time for repair and validation"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "current_release_window",
+      "reported_sync_defect",
+      "technical_diagnosis",
+      "conditional_integrity_reason",
+      "disconfirm_full_delay",
+      "boss_brief_structure"
+     ],
+     "text": "4 claims, 2 challenges",
+     "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.\nclaim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Show 6 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "4 claims, 2 challenges",
+     "face": "4 claims, 2 challenges",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep the currently scheduled full release",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “we are supposed to go live with the new app update in like less than a month”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "boss_discussion",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Explain the release decision without unfair team blame",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "option_delay",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Postpone the full update",
+    "typed": false,
+    "detail": "Postpone the full update · option · Theirs: “honestly i think we have to push it back”",
+    "col": 0,
+    "h": 148,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.",
+      "title": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker. · challenge · Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay.",
+      "id": "technical_diagnosis",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The label 'massive database sync bug' does not distinguish stale reads from lost writes, duplication or recoverable delay."
+      }
+     },
+     {
+      "glyph": "!",
+      "text": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.",
+      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible.",
+      "id": "campaign_flexibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "boss_discussion",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Explain the release decision without unfair team blame"
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Avoid damaging users' experience and trust"
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Allow time for repair and validation"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "reported_sync_defect",
+      "campaign_commitment",
+      "expected_marketing_reaction",
+      "initial_position",
+      "delayed_release_offset",
+      "technical_diagnosis",
+      "conditional_integrity_reason",
+      "conditional_validation_reason",
+      "conditional_exposure_reason",
+      "campaign_flexibility",
+      "disconfirm_full_delay",
+      "boss_brief_structure"
+     ],
+     "text": "8 claims, 1 figure, 3 challenges",
+     "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nclaim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nclaim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nFigure: Postponed release time from now\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
+     "label": "Show 12 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "8 claims, 1 figure, 3 challenges",
+     "face": "8 claims and 4 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Postpone the full update",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “honestly i think we have to push it back”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "boss_discussion",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Explain the release decision without unfair team blame",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "schedule_assumptions",
+    "family": "assumption",
+    "glyph": "◇",
+    "heading": "Schedule assumptions",
+    "typed": true,
+    "detail": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison. · assumption · Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them. · Applied in the calculation",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Assumption about Postpone the full update",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: These simplifying premises make the schedule subset calculable. Actual staffing, overlapping tests and estimate scope may invalidate them."
+    },
+    "failed": []
+   },
+   {
+    "id": "option_isolate",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Explore shipping without the affected sync path",
+    "typed": false,
+    "detail": "Explore shipping without the affected sync path · option · Proposed by Olumi: Tests whether release scope and the defective path can be separated, for example by deferring an affected feature. Feasibility is unverified; this option has no numerical schedule effect in the current model.",
+    "col": 0,
+    "h": 148,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Tests whether release scope and the defective path can be separated, for example by deferring an affected feature. Feasibility is unverified; this option has no numerical schedule effect in the current model."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.",
+      "title": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect. · prerequisite · Proposed by Olumi: A different release mechanism is useful only if it changes actual exposure, rather than merely hiding a user interface.",
+      "id": "isolation_prerequisite",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: A different release mechanism is useful only if it changes actual exposure, rather than merely hiding a user interface."
+      }
+     },
+     {
+      "glyph": "!",
+      "text": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.",
+      "title": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses. · challenge · Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible.",
+      "id": "campaign_flexibility",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The ad purchase alone does not establish either that postponement wastes the campaign or that its commercial consequences are negligible."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "boss_discussion",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Explain the release decision without unfair team blame"
+     },
+     {
+      "kind": "none",
+      "aim_id": "protect_user_trust",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Avoid damaging users' experience and trust"
+     },
+     {
+      "kind": "none",
+      "aim_id": "allow_readiness_work",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Allow time for repair and validation"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "campaign_commitment",
+      "expected_marketing_reaction",
+      "isolation_prerequisite",
+      "isolation_trust_link",
+      "conditional_exposure_reason",
+      "campaign_flexibility",
+      "disconfirm_full_delay"
+     ],
+     "text": "3 claims, 1 prerequisite, 1 link, 2 challenges",
+     "title": "claim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nprerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nLink: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.",
+     "label": "Show 7 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "3 claims, 1 prerequisite, 1 link, 2 challenges",
+     "face": "3 claims and 4 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Explore shipping without the affected sync path",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Tests whether release scope and the defective path can be separated, for example by deferring an affected feature. Feasibility is unverified; this option has no numerical schedule effect in the current model."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "boss_discussion",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Explain the release decision without unfair team blame",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "isolation_readiness_link",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "Explore shipping without the affected sync path → Time to complete repair and validation",
+    "typed": true,
+    "detail": "Explore shipping without the affected sync path → Time to complete repair and validation · relation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change.",
+    "col": 0,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Safely excluding the affected sync path could change the repair and validation work required before release. Isolation itself would require verification, so neither a shorter duration nor a numerical schedule benefit is established. The full-fix schedule calculation does not establish this option's chance of meeting the readiness aim.",
+    "badge": {
+     "records": [
+      "isolation_prerequisite"
+     ],
+     "text": "1 prerequisite",
+     "title": "prerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 prerequisite",
+     "face": "1 prerequisite",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change."
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "release_offset",
+    "to": "readiness_margin",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "records": [
+     "calculate_readiness_margin"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "calculate_readiness_margin",
+     "part": "release_offset"
+    }
+   },
+   {
+    "from": "option_isolate",
+    "to": "protect_user_trust",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: depends on conditions, not known; Excluding the defective path could protect users only if isolation is technically valid; no architecture evidence was supplied. · Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility.",
+    "records": [
+     "isolation_trust_link"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "isolation_trust_link",
+     "part": null
+    },
+    "size": {
+     "record": "isolation_trust_link",
+     "text": "stays a claim in words",
+     "title": "‘Explore shipping without the affected sync path’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+     "edit": null
+    }
+   },
+   {
+    "from": "option_isolate",
+    "to": "readiness_margin",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Connects the scoped-release alternative to the readiness work it could change, conditional on the existing isolation prerequisite. No architecture evidence or scoped-release estimate is available to size that change. · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "records": [
+     "isolation_readiness_link",
+     "calculate_readiness_margin"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "negative_reviews",
+    "to": "protect_user_trust",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "readiness_margin",
+    "to": "allow_readiness_work",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "schedule_assumptions",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "schedule_assumptions",
+    "to": "option_delay",
+    "kind": "reason",
+    "label": "◇",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "assumption: For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "option_delay",
+    "to": "release_offset",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Postponed release time from now",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "isolation_readiness_link",
+    "to": "option_isolate",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Explore shipping without the affected sync path → Time to complete repair and validation",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "isolation_readiness_link",
+    "to": "readiness_margin",
+    "kind": "reason",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Time to complete repair and validation · Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration.",
+    "records": [
+     "calculate_readiness_margin"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Explain the release decision without unfair team blame’",
+   "lead": "Chance of ‘Explain the release decision without unfair team blame’, in this model on current information",
+   "all_withheld": true,
+   "shared_blockers": [
+    {
+     "aim_id": "boss_discussion",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "⟦F5.text⟧"
+    },
+    {
+     "aim_id": "protect_user_trust",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "⟦F6.text⟧"
+    },
+    {
+     "aim_id": "allow_readiness_work",
+     "options": [
+      "option_scheduled",
+      "option_delay",
+      "option_isolate"
+     ],
+     "text": "⟦F7.text⟧"
+    }
+   ],
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 4 things",
+    "items": [
+     {
+      "id": "boss_discussion",
+      "text": "‘Explain the release decision without unfair team blame’",
+      "title": "Explain the release decision without unfair team blame",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "protect_user_trust",
+      "text": "‘Avoid damaging users' experience and trust’",
+      "title": "Avoid damaging users' experience and trust",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "schedule_assumptions",
+      "text": "‘For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.’",
+      "title": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "isolation_readiness_link",
+      "text": "‘Explore shipping without the affected sync path → Time to complete repair and validation’",
+      "title": "Explore shipping without the affected sync path → Time to complete repair and validation",
+      "answer": false,
+      "unknown": null,
+      "edit": null,
+      "stays_in_words": "‘Explore shipping without the affected sync path’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words."
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    },
+    {
+     "text": "⟦F2.text⟧",
+     "title": "⟦F2.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2",
+      "range": true
+     }
+    },
+    {
+     "text": "⟦F3.text⟧",
+     "title": "⟦F3.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F3",
+      "range": true
+     }
+    },
+    {
+     "text": "⟦F4.text⟧",
+     "title": "⟦F4.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F4",
+      "range": true
+     }
+    },
+    {
+     "text": "⟦F8.text⟧",
+     "title": "⟦F8.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F8",
+      "range": false
+     }
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "⟦SENSITIVITY_NOTE⟧",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "allow_readiness_work",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Allow time for repair and validation': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Allow time for repair and validation': this version was saved before Olumi kept the reason."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": []
+  },
+  "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "calculate_readiness_margin",
+     "part": "release_offset"
+    },
+    "from": "release_offset",
+    "to": "readiness_margin",
+    "text": "'Time available before release' → 'Release time minus repair and validation time'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "isolation_trust_link",
+     "part": null
+    },
+    "from": "option_isolate",
+    "to": "protect_user_trust",
+    "text": "'Explore shipping without the affected sync path' → 'Avoid damaging users' experience and trust'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": null,
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "One risk captured.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks you have not listed.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "current_release_window",
+    "family": "claim",
+    "label": "The new app update is scheduled to go live in less than a month; the exact release date is not supplied."
+   },
+   {
+    "id": "reported_sync_defect",
+    "family": "claim",
+    "label": "Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied."
+   },
+   {
+    "id": "campaign_commitment",
+    "family": "claim",
+    "label": "Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied."
+   },
+   {
+    "id": "expected_marketing_reaction",
+    "family": "claim",
+    "label": "The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing."
+   },
+   {
+    "id": "feared_review_rating",
+    "family": "quantity",
+    "label": "Feared review rating"
+   },
+   {
+    "id": "negative_reviews",
+    "family": "risk",
+    "label": "Broken release prompts one-star reviews"
+   },
+   {
+    "id": "review_prediction_not_observation",
+    "family": "claim",
+    "label": "One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does."
+   },
+   {
+    "id": "initial_position",
+    "family": "claim",
+    "label": "The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team."
+   },
+   {
+    "id": "boss_discussion",
+    "family": "goal",
+    "label": "Explain the release decision without unfair team blame"
+   },
+   {
+    "id": "protect_user_trust",
+    "family": "goal",
+    "label": "Avoid damaging users' experience and trust"
+   },
+   {
+    "id": "release_offset",
+    "family": "quantity",
+    "label": "Time available before release"
+   },
+   {
+    "id": "repair_duration",
+    "family": "quantity",
+    "label": "Time to implement the sync fix"
+   },
+   {
+    "id": "validation_duration",
+    "family": "quantity",
+    "label": "Validation time after implementing the fix"
+   },
+   {
+    "id": "readiness_duration",
+    "family": "quantity",
+    "label": "Time to complete repair and validation"
+   },
+   {
+    "id": "calculate_readiness_duration",
+    "family": "relation",
+    "label": "how Time to complete repair and validation is worked out"
+   },
+   {
+    "id": "readiness_margin",
+    "family": "quantity",
+    "label": "Release time minus repair and validation time"
+   },
+   {
+    "id": "calculate_readiness_margin",
+    "family": "relation",
+    "label": "how Release time minus repair and validation time is worked out"
+   },
+   {
+    "id": "zero_schedule_shortfall",
+    "family": "quantity",
+    "label": "Minimum proposed schedule margin"
+   },
+   {
+    "id": "allow_readiness_work",
+    "family": "goal",
+    "label": "Allow time for repair and validation"
+   },
+   {
+    "id": "schedule_assumptions",
+    "family": "assumption",
+    "label": "For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison."
+   },
+   {
+    "id": "schedule_measure_exclusions",
+    "family": "left_out",
+    "label": "A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.",
+    "why": "No verified release plan, incident characterization or commercial figures were supplied. The calculation only tests time allowance.",
+    "quote": null
+   },
+   {
+    "id": "option_scheduled",
+    "family": "option",
+    "label": "Keep the currently scheduled full release"
+   },
+   {
+    "id": "delayed_release_offset",
+    "family": "quantity",
+    "label": "Postponed release time from now"
+   },
+   {
+    "id": "option_delay",
+    "family": "option",
+    "label": "Postpone the full update"
+   },
+   {
+    "id": "option_isolate",
+    "family": "option",
+    "label": "Explore shipping without the affected sync path"
+   },
+   {
+    "id": "isolation_prerequisite",
+    "family": "condition",
+    "label": "A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect."
+   },
+   {
+    "id": "isolation_trust_link",
+    "family": "relation",
+    "label": "Explore shipping without the affected sync path → Avoid damaging users' experience and trust"
+   },
+   {
+    "id": "technical_diagnosis",
+    "family": "condition",
+    "label": "Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker."
+   },
+   {
+    "id": "conditional_integrity_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here."
+   },
+   {
+    "id": "conditional_validation_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect."
+   },
+   {
+    "id": "conditional_exposure_reason",
+    "family": "claim",
+    "label": "Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked."
+   },
+   {
+    "id": "campaign_flexibility",
+    "family": "condition",
+    "label": "Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses."
+   },
+   {
+    "id": "disconfirm_full_delay",
+    "family": "condition",
+    "label": "Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users."
+   },
+   {
+    "id": "boss_brief_structure",
+    "family": "claim",
+    "label": "A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault."
+   },
+   {
+    "id": "isolation_readiness_link",
+    "family": "relation",
+    "label": "Explore shipping without the affected sync path → Time to complete repair and validation"
+   },
+   {
+    "id": "review_rating_numeric_exclusion",
+    "family": "left_out",
+    "label": "The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
+    "why": "A possible individual review rating does not establish how many users would be affected, how many would post reviews, or the resulting overall rating. It therefore has no justified numerical bearing on the current aims; its qualitative bearing remains represented by the negative-review risk.",
+    "quote": null
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in this model's samples",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "feared_review_rating",
+    "label": "Feared review rating"
+   },
+   {
+    "id": "release_offset",
+    "label": "Time available before release"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "current_release_window": "Please change “The new app update is scheduled to go live in less than a month; the exact release date is not supplied.”: ",
+   "reported_sync_defect": "Please change “Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.”: ",
+   "campaign_commitment": "Please change “Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.”: ",
+   "expected_marketing_reaction": "Please change “The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.”: ",
+   "feared_review_rating": "Please change “Feared review rating”: ",
+   "negative_reviews": "Please change “Broken release prompts one-star reviews”: ",
+   "review_prediction_not_observation": "Please change “One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.”: ",
+   "initial_position": "Please change “The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.”: ",
+   "boss_discussion": "Please change “Explain the release decision without unfair team blame”: ",
+   "protect_user_trust": "Please change “Avoid damaging users' experience and trust”: ",
+   "release_offset": "Please change “Time available before release”: ",
+   "repair_duration": "Please change “Time to implement the sync fix”: ",
+   "validation_duration": "Please change “Validation time after implementing the fix”: ",
+   "readiness_duration": "Please change “Time to complete repair and validation”: ",
+   "calculate_readiness_duration": "Please change “how Time to complete repair and validation is worked out”: ",
+   "readiness_margin": "Please change “Release time minus repair and validation time”: ",
+   "calculate_readiness_margin": "Please change “how Release time minus repair and validation time is worked out”: ",
+   "zero_schedule_shortfall": "Please change “Minimum proposed schedule margin”: ",
+   "allow_readiness_work": "Please change “Allow time for repair and validation”: ",
+   "schedule_assumptions": "Please change “For this provisional comparison, repair starts now, the stated repair duration excludes validation, and validation follows repair. The durations cover all work needed for this defect. Option timing changes are modeled from the start of the comparison.”: ",
+   "schedule_measure_exclusions": "Please change “A nonnegative schedule margin does not demonstrate correctness or account for app-store approval, deployment dependencies, residual defects, customer impact, campaign losses or a contingency buffer.”: ",
+   "option_scheduled": "Please change “Keep the currently scheduled full release”: ",
+   "delayed_release_offset": "Please change “Postponed release time from now”: ",
+   "option_delay": "Please change “Postpone the full update”: ",
+   "option_isolate": "Please change “Explore shipping without the affected sync path”: ",
+   "isolation_prerequisite": "Please change “A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.”: ",
+   "isolation_trust_link": "Please change “Explore shipping without the affected sync path → Avoid damaging users' experience and trust”: ",
+   "technical_diagnosis": "Please change “Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.”: ",
+   "conditional_integrity_reason": "Please change “Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.”: ",
+   "conditional_validation_reason": "Please change “Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.”: ",
+   "conditional_exposure_reason": "Please change “Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.”: ",
+   "campaign_flexibility": "Please change “Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.”: ",
+   "disconfirm_full_delay": "Please change “Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.”: ",
+   "boss_brief_structure": "Please change “A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.”: ",
+   "isolation_readiness_link": "Please change “Explore shipping without the affected sync path → Time to complete repair and validation”: ",
+   "review_rating_numeric_exclusion": "Please change “The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.”: "
+  }
+ },
+ "brief": "How can I make a technically defensible case to my boss for delaying the app update, while testing whether a full delay is necessary?",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 2 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": {
+   "names": [
+    "Sarah"
+   ],
+   "text": "Named in the brief but not matched to anyone on the team: Sarah"
+  }
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}

@@ -1,0 +1,1995 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000002",
+ "title": "Evening classes or carry on?",
+ "commit": "golden",
+ "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
+ "you": "Paul",
+ "you_id": "p_1",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 1,
+  "n": 1,
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "Should the studio add evening classes?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "class_fee",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Class fee",
+    "typed": false,
+    "detail": "class fee · quantity · Theirs: “£12 a class” · ⟦F10.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F10.value⟧",
+     "title": "⟦F10.value⟧",
+     "edit": {
+      "prompt": "New figure for “class fee” (GBP/class): one number, or a range like 150 to 400",
+      "ask": "For “class fee”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Class fee",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “£12 a class”"
+    },
+    "failed": []
+   },
+   {
+    "id": "classes_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Classes now",
+    "typed": false,
+    "detail": "classes now · quantity · Theirs: “teaches 200 classes a month” · ⟦F11.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F11.value⟧",
+     "title": "⟦F11.value⟧",
+     "edit": {
+      "prompt": "New figure for “classes now” (class/month): one number, or a range like 150 to 400",
+      "ask": "For “classes now”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Classes now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “teaches 200 classes a month”"
+    },
+    "failed": []
+   },
+   {
+    "id": "evening_extra",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Evening extra",
+    "typed": false,
+    "detail": "evening extra · quantity · Theirs: “somewhere between 20 and 40 evening classes a month” · Plausible range: ⟦F12.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F12.value⟧",
+     "title": "Plausible range: ⟦F12.value⟧",
+     "edit": {
+      "prompt": "New figure for “evening extra” (class/month): one number, or a range like 150 to 400",
+      "ask": "For “evening extra”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Evening extra",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “somewhere between 20 and 40 evening classes a month”"
+    },
+    "failed": []
+   },
+   {
+    "id": "takings",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Takings",
+    "typed": false,
+    "detail": "takings · quantity · Proposed by Olumi: Olumi's estimate · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Evening classes: about £2,760/month (£2,640 to £2,880/month) · Weekend workshops: ⟦F5.value⟧ · Carry on as now: ⟦F7.value⟧",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: ⟦F5.value⟧; Carry on as now: ⟦F7.value⟧. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "extra_classes",
+      "classes",
+      "classes_rel",
+      "takings_rel"
+     ],
+     "text": "2 figures, 2 calculations",
+     "title": "Figure: extra classes\nFigure: classes\nHow classes is worked out\nHow takings is worked out",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "face": "2 figures, 2 calculations",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "evening_classes",
+      "text": "about £2,760/month (£2,640 to £2,880/month)",
+      "p10": 2636.536440533496,
+      "p50": 2759.211381632416,
+      "p90": 2876.256859711379,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "weekend_workshops",
+      "text": "⟦F5.value⟧",
+      "p10": 2580,
+      "p50": 2580,
+      "p90": 2580,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "carry_on",
+      "text": "⟦F7.value⟧",
+      "p10": 2400,
+      "p50": 2400,
+      "p90": 2400,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Takings",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "failed": []
+   },
+   {
+    "id": "takings_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Takings target",
+    "typed": false,
+    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · ⟦F13.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F13.value⟧",
+     "title": "⟦F13.value⟧",
+     "edit": {
+      "prompt": "New figure for “takings target” (GBP/month): one number, or a range like 150 to 400",
+      "ask": "For “takings target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Takings target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “take at least £2,640 a month”"
+    },
+    "failed": []
+   },
+   {
+    "id": "members",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Members",
+    "typed": false,
+    "detail": "members · quantity · Theirs: “has ⟦F14.value⟧” · ⟦F14.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F14.value⟧",
+     "title": "⟦F14.value⟧",
+     "edit": {
+      "prompt": "New figure for “members” (member): one number, or a range like 150 to 400",
+      "ask": "For “members”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Members",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “has ⟦F14.value⟧”"
+    },
+    "failed": []
+   },
+   {
+    "id": "members_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Members target",
+    "typed": false,
+    "detail": "members target · quantity · Theirs: “keep at least ⟦F15.value⟧” · ⟦F15.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F15.value⟧",
+     "title": "⟦F15.value⟧",
+     "edit": {
+      "prompt": "New figure for “members target” (member): one number, or a range like 150 to 400",
+      "ask": "For “members target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Members target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “keep at least ⟦F15.value⟧”"
+    },
+    "failed": []
+   },
+   {
+    "id": "member_mood",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "How members feel",
+    "typed": false,
+    "detail": "How members feel · quantity · Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it. · not sized yet · unknown: No one can measure how members feel yet; repeat bookings might show it.",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · unknown: No one can measure how members feel yet; repeat bookings might show it.",
+     "edit": {
+      "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
+      "ask": "For “How members feel”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "How members feel",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it."
+    },
+    "failed": []
+   },
+   {
+    "id": "mood_members",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "How members feel → members",
+    "typed": true,
+    "detail": "How members feel → members · relation · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "col": 1,
+    "h": 140,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "badge": {
+     "records": [
+      "co_owner_view",
+      "if_slots_suit"
+     ],
+     "text": "1 disagreement, 1 challenge",
+     "title": "dissent: my co-owner: Evening classes will crowd the studio and put off daytime members.\nchallenge: It depends on whether evening slots suit the members who work days.",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 disagreement, 1 challenge",
+     "face": "1 disagreement, 1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "How members feel → members",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+    },
+    "failed": []
+   },
+   {
+    "id": "takings_goal",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Take £2,640 a month",
+    "typed": false,
+    "detail": "Take £2,640 a month · goal · Theirs: “take at least £2,640 a month”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least ⟦F13.value⟧",
+     "title": "at least ⟦F13.value⟧",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Take £2,640 a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “take at least £2,640 a month”"
+    },
+    "failed": []
+   },
+   {
+    "id": "keep_members",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Keep at least ⟦F15.value⟧",
+    "typed": false,
+    "detail": "Keep at least ⟦F15.value⟧ · goal · Theirs: “keep at least ⟦F15.value⟧”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at least ⟦F15.value⟧",
+     "title": "at least ⟦F15.value⟧",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep at least ⟦F15.value⟧",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “keep at least ⟦F15.value⟧”"
+    },
+    "failed": []
+   },
+   {
+    "id": "evening_classes",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Evening classes",
+    "typed": false,
+    "detail": "Evening classes · option · Theirs: “add evening classes”",
+    "col": 0,
+    "h": 96,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
+     },
+     {
+      "kind": "chance",
+      "value": "⟦F2.value⟧ chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": null,
+      "likely": {
+       "glyph": "◉",
+       "title": "⟦F8.text⟧"
+      },
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "⟦F2.text⟧",
+      "chance": 0.893,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 2636.536440533496,
+       "median": 2759.211381632416,
+       "high": 2876.256859711379,
+       "unit": "GBP/month",
+       "text": "⟦F3.value⟧",
+       "title": "⟦F3.text⟧"
+      },
+      "text": "⟦F2.text⟧",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "⟦F9.line⟧",
+     "title": "⟦F9.line⟧",
+     "figure": "evening_extra",
+     "low": 0.678967896789679,
+     "high": 1
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Evening classes",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "brief",
+     "text": "Reported in the brief",
+     "title": "Theirs: “add evening classes”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "chance",
+     "text": "⟦F2.value⟧ chance",
+     "title": "⟦F2.text⟧",
+     "range": "⟦F9.value⟧",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "evening_mood",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "Evening classes → How members feel",
+    "typed": true,
+    "detail": "Evening classes → How members feel · relation · Theirs: “Members have asked for evening slots”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Members have asked for evening slots.",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Evening classes → How members feel",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “Members have asked for evening slots”"
+    },
+    "failed": []
+   },
+   {
+    "id": "weekend_workshops",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Weekend workshops",
+    "typed": false,
+    "detail": "Weekend workshops · option · Proposed by Olumi: Olumi's estimate",
+    "col": 0,
+    "h": 126,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
+     },
+     {
+      "kind": "chance",
+      "value": "⟦F4.value⟧",
+      "fixed": true,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "⟦F4.text⟧",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 2580,
+       "median": 2580,
+       "high": 2580,
+       "unit": "GBP/month",
+       "text": "⟦F5.value⟧",
+       "title": "⟦F5.text⟧"
+      },
+      "text": "⟦F4.body⟧",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [
+        "workshop_extra"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's proposed figure for 'workshop extra'.",
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "workshop_extra"
+     ],
+     "text": "1 figure",
+     "title": "Figure: workshop extra",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Weekend workshops",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "fixed",
+     "text": "⟦F4.value⟧",
+     "title": "⟦F4.text⟧",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Carry on as now",
+    "typed": false,
+    "detail": "Carry on as now · option · Theirs: “carry on as now”",
+    "col": 0,
+    "h": 98,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "keep_members",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
+     },
+     {
+      "kind": "chance",
+      "value": "⟦F4.value⟧",
+      "fixed": true,
+      "approx": "",
+      "olumi": null,
+      "likely": null,
+      "aim": "Take £2,640 a month",
+      "aim_id": "takings_goal",
+      "title": "⟦F6.text⟧",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 2400,
+       "median": 2400,
+       "high": 2400,
+       "unit": "GBP/month",
+       "text": "⟦F7.value⟧",
+       "title": "⟦F7.text⟧"
+      },
+      "text": "⟦F6.text⟧",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Carry on as now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “carry on as now”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "takings_goal",
+     "state": "fixed",
+     "text": "⟦F4.value⟧",
+     "title": "⟦F6.text⟧",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   }
+  ],
+  "links": [
+   {
+    "from": "classes_now",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through classes · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "classes_rel",
+     "takings_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "class_fee",
+    "to": "takings",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "multiplies · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "takings_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "evening_classes",
+    "to": "member_mood",
+    "kind": "plain",
+    "label": "+",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: up, likely; Members have asked for evening slots. · Theirs: “Members have asked for evening slots”",
+    "records": [
+     "evening_mood"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "evening_mood",
+     "part": null
+    },
+    "holds": {
+     "record": "evening_mood",
+     "part": null
+    },
+    "size": {
+     "record": "evening_mood",
+     "text": "stays a claim in words",
+     "title": "‘Evening classes’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+     "edit": null
+    }
+   },
+   {
+    "from": "member_mood",
+    "to": "members",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: depends on conditions, unsure; Happier members stay only if the evening slots suit them; see the condition and the dissent on this link. · Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link.",
+    "records": [
+     "mood_members"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "mood_members",
+     "part": null
+    },
+    "size": {
+     "record": "mood_members",
+     "text": "stays a claim in words",
+     "title": "‘How members feel’ is not measured in any unit yet, so no strength per unit can be worked out. The link stays a claim in words.",
+     "edit": null
+    }
+   },
+   {
+    "from": "evening_mood",
+    "to": "evening_classes",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Evening classes → How members feel",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "evening_mood",
+    "to": "member_mood",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Evening classes → How members feel",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "mood_members",
+    "to": "member_mood",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: How members feel → members",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "mood_members",
+    "to": "members",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: How members feel → members",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "takings",
+    "to": "takings_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "takings_target",
+    "to": "takings_goal",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "members",
+    "to": "keep_members",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "members_target",
+    "to": "keep_members",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "evening_classes",
+    "to": "evening_extra",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "evening_extra",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through extra classes, classes · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "classes_rel",
+     "takings_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "weekend_workshops",
+    "to": "takings",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through workshop extra, extra classes, classes · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "classes_rel",
+     "takings_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Take £2,640 a month’",
+   "lead": "Chance of ‘Take £2,640 a month’, in this model on current information",
+   "all_withheld": false,
+   "shared_blockers": [
+    {
+     "aim_id": "keep_members",
+     "options": [
+      "evening_classes",
+      "weekend_workshops",
+      "carry_on"
+     ],
+     "text": "⟦F1.text⟧"
+    }
+   ],
+   "most_likely": {
+    "text": "⟦F8.text⟧",
+    "title": "⟦F8.text⟧",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [],
+     "estimates": [
+      "workshop_extra"
+     ],
+     "approx": []
+    },
+    "if_approved": null,
+    "option": "evening_classes",
+    "aim_id": "takings_goal",
+    "estimate": "workshop_extra"
+   },
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 3 things",
+    "items": [
+     {
+      "id": "member_mood",
+      "text": "‘How members feel’",
+      "title": "No one can measure how members feel yet; repeat bookings might show it.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
+       "ask": "For “How members feel”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "evening_mood",
+      "text": "‘Evening classes → How members feel’",
+      "title": "Evening classes → How members feel",
+      "answer": false,
+      "unknown": null,
+      "edit": null,
+      "stays_in_words": "‘Evening classes’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words."
+     },
+     {
+      "id": "mood_members",
+      "text": "‘How members feel → members’",
+      "title": "How members feel → members",
+      "answer": false,
+      "unknown": null,
+      "edit": null,
+      "stays_in_words": "‘How members feel’ is not measured in any unit yet, so no strength per unit can be worked out. The link stays a claim in words."
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "⟦SENSITIVITY_NOTE⟧",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F16",
+     "kind": "middle",
+     "line": "'Evening classes' · aim 'Take £2,640 a month': ⟦F16.value⟧",
+     "hover": "⟦F16.text⟧",
+     "aim": "takings_goal",
+     "option": "evening_classes",
+     "versus": null,
+     "status": "met",
+     "olumi": null
+    },
+    {
+     "id": "F17",
+     "kind": "middle",
+     "line": "'Weekend workshops' · aim 'Take £2,640 a month': ⟦F17.value⟧",
+     "hover": "⟦F17.text⟧",
+     "aim": "takings_goal",
+     "option": "weekend_workshops",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F18",
+     "kind": "middle",
+     "line": "'Carry on as now' · aim 'Take £2,640 a month': ⟦F18.value⟧",
+     "hover": "⟦F18.text⟧",
+     "aim": "takings_goal",
+     "option": "carry_on",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [
+    {
+     "id": "F19",
+     "kind": "chance",
+     "line": "For 'Evening classes' to meet 'Take £2,640 a month' more often than not, ⟦F19.value⟧.",
+     "hover": "⟦F19.text⟧",
+     "aim": "takings_goal",
+     "option": "evening_classes",
+     "versus": null,
+     "figure": {
+      "id": "evening_extra",
+      "label": "evening extra",
+      "whose": "theirs"
+     },
+     "side": "above",
+     "at": 19.71225358961612,
+     "low": 18.306817242402225,
+     "high": 20.724167759610125,
+     "olumi": null
+    }
+   ],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "takings_goal",
+     "lines": [
+      "F19"
+     ],
+     "silent": []
+    },
+    {
+     "aim": "keep_members",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Keep at least ⟦F15.value⟧': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Keep at least ⟦F15.value⟧': this version was saved before Olumi kept the reason."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Take £2,640 a month’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Take £2,640 a month’ is likely to be (8 times in 10)."
+    }
+   ]
+  },
+  "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "evening_mood",
+     "part": null
+    },
+    "from": "evening_classes",
+    "to": "member_mood",
+    "text": "'Evening classes' → 'How members feel'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "mood_members",
+     "part": null
+    },
+    "from": "member_mood",
+    "to": "members",
+    "text": "'How members feel' → 'members'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "takings",
+   "value": 2640,
+   "unit": "GBP/month",
+   "text": "at least ⟦F13.value⟧",
+   "title": "⟦F13.value⟧",
+   "side": "at_least"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "class_fee",
+    "family": "quantity",
+    "label": "class fee"
+   },
+   {
+    "id": "classes_now",
+    "family": "quantity",
+    "label": "classes now"
+   },
+   {
+    "id": "extra_classes",
+    "family": "quantity",
+    "label": "extra classes"
+   },
+   {
+    "id": "evening_extra",
+    "family": "quantity",
+    "label": "evening extra"
+   },
+   {
+    "id": "workshop_extra",
+    "family": "quantity",
+    "label": "workshop extra"
+   },
+   {
+    "id": "classes",
+    "family": "quantity",
+    "label": "classes"
+   },
+   {
+    "id": "takings",
+    "family": "quantity",
+    "label": "takings"
+   },
+   {
+    "id": "takings_target",
+    "family": "quantity",
+    "label": "takings target"
+   },
+   {
+    "id": "members",
+    "family": "quantity",
+    "label": "members"
+   },
+   {
+    "id": "members_target",
+    "family": "quantity",
+    "label": "members target"
+   },
+   {
+    "id": "member_mood",
+    "family": "quantity",
+    "label": "How members feel"
+   },
+   {
+    "id": "classes_rel",
+    "family": "relation",
+    "label": "how classes is worked out"
+   },
+   {
+    "id": "takings_rel",
+    "family": "relation",
+    "label": "how takings is worked out"
+   },
+   {
+    "id": "evening_mood",
+    "family": "relation",
+    "label": "Evening classes → How members feel"
+   },
+   {
+    "id": "mood_members",
+    "family": "relation",
+    "label": "How members feel → members"
+   },
+   {
+    "id": "takings_goal",
+    "family": "goal",
+    "label": "Take £2,640 a month"
+   },
+   {
+    "id": "keep_members",
+    "family": "goal",
+    "label": "Keep at least ⟦F15.value⟧"
+   },
+   {
+    "id": "evening_classes",
+    "family": "option",
+    "label": "Evening classes"
+   },
+   {
+    "id": "weekend_workshops",
+    "family": "option",
+    "label": "Weekend workshops"
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "label": "Carry on as now"
+   },
+   {
+    "id": "co_owner_view",
+    "family": "dissent",
+    "label": "my co-owner: Evening classes will crowd the studio and put off daytime members."
+   },
+   {
+    "id": "if_slots_suit",
+    "family": "condition",
+    "label": "It depends on whether evening slots suit the members who work days."
+   }
+  ],
+  "dissent": [
+   {
+    "id": "co_owner_view",
+    "holder": "my co-owner",
+    "position": "Evening classes will crowd the studio and put off daytime members.",
+    "holder_id": null,
+    "confirmed": null
+   }
+  ],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in this model's samples",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [
+   {
+    "option": "evening_classes",
+    "aim": "takings_goal",
+    "fact": "F19",
+    "kind": "chance",
+    "text": "Reconsider if 'evening extra' comes in below about 19.7 classes/month (between 18.3 and 20.8 classes/month): in this model, 'Evening classes' then meets 'Take £2,640 a month' less often than not."
+   }
+  ],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "class_fee",
+    "label": "Class fee"
+   },
+   {
+    "id": "classes_now",
+    "label": "Classes now"
+   },
+   {
+    "id": "evening_extra",
+    "label": "Evening extra"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "class_fee": "Please change “class fee”: ",
+   "classes_now": "Please change “classes now”: ",
+   "extra_classes": "Please change “extra classes”: ",
+   "evening_extra": "Please change “evening extra”: ",
+   "workshop_extra": "Please change “workshop extra”: ",
+   "classes": "Please change “classes”: ",
+   "takings": "Please change “takings”: ",
+   "takings_target": "Please change “takings target”: ",
+   "members": "Please change “members”: ",
+   "members_target": "Please change “members target”: ",
+   "member_mood": "Please change “How members feel”: ",
+   "classes_rel": "Please change “how classes is worked out”: ",
+   "takings_rel": "Please change “how takings is worked out”: ",
+   "evening_mood": "Please change “Evening classes → How members feel”: ",
+   "mood_members": "Please change “How members feel → members”: ",
+   "takings_goal": "Please change “Take £2,640 a month”: ",
+   "keep_members": "Please change “Keep at least ⟦F15.value⟧”: ",
+   "evening_classes": "Please change “Evening classes”: ",
+   "weekend_workshops": "Please change “Weekend workshops”: ",
+   "carry_on": "Please change “Carry on as now”: ",
+   "co_owner_view": "Please change “my co-owner: Evening classes will crowd the studio and put off daytime members.”: ",
+   "if_slots_suit": "Please change “It depends on whether evening slots suit the members who work days.”: "
+  }
+ },
+ "brief": "Should the studio add evening classes?",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 2 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}
