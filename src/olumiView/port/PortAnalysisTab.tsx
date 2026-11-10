@@ -20,6 +20,7 @@ import { MoveTap } from '../ViewChat'
 import { ActOnIt } from './ActOnIt'
 import { actRowsOf } from './pick'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
+import { DriverTornado } from './DriverTornado'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { TYPE } from './type'
@@ -52,6 +53,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
           action={(r) => (r.kind === 'wait' && r.item.edit !== null ? <FigureEdit id={r.item.id} edit={r.item.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${r.item.text}`} /> : null)}
         />
       </AnalysisHeroPanel>
+      <DriverTornado model={model} />
       {run === null || notes.length === 0 ? null : (
         <details className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="port-analysis-notes">
           <summary className={`${TYPE.meta} cursor-pointer text-info`}>About these numbers</summary>
