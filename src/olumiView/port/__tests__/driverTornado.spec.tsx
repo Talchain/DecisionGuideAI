@@ -115,10 +115,14 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     expect(row.queryByTestId('port-driver-tornado-chance')).toBeNull()
   })
 
-  it('mounts once immediately after the hero and before the other Analysis sections', () => {
+  // Re-pinned, UI recovery row 15 (DL 10 Nov): "Your options" is restored between the hero and the chart, the previous product's order
+  // (hero, your options, what could change the result). The chart still mounts once, after both.
+  it('mounts once, after the hero and "Your options", before the other Analysis sections', () => {
     useViewStore.setState({ view: fixture, status: 'ready', error: null, at: null })
-    const { getByTestId } = render(<PortAnalysisTab />)
+    const { getByTestId, getAllByTestId } = render(<PortAnalysisTab />)
+    expect(getAllByTestId('port-driver-tornado')).toHaveLength(1)
     const chart = getByTestId('port-driver-tornado')
-    expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
+    expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-your-options')
+    expect(chart.previousElementSibling!.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
   })
 })
