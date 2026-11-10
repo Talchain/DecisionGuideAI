@@ -1,7 +1,7 @@
 {
  "seq": 7,
  "signature": "api.openai.com|POST|/v1/chat/completions|model=gpt-4.1-2025-04-14|stream=false|tools=74234e98afe7498f|format=d1a4a613ef6bdc4d",
- "detail": "5f40b60efe21b6d7",
+ "detail": "9fccc40ae4f0b761",
  "host": "api.openai.com",
  "method": "POST",
  "target": "/v1/chat/completions",
@@ -9,7 +9,7 @@
  "model": "gpt-4.1-2025-04-14",
  "status": 200,
  "content_type": "application/json",
- "recorded_at": "2026-10-08T23:36:49.797Z",
+ "recorded_at": "2026-10-11T21:59:03.288Z",
  "request": {
   "model": "gpt-4.1-2025-04-14",
   "messages": [
@@ -19,7 +19,7 @@
    },
    {
     "role": "user",
-    "content": "Generate factor enrichments for the following decision model:\n\nINPUT:\n{\n  \"goal_label\": \"monthly recurring revenue\",\n  \"outcome_labels\": [\n    \"Starter-tier MRR\"\n  ],\n  \"risk_labels\": [\n    \"Customer churn exceeds forecast\",\n    \"Starter launch arrives too late\",\n    \"Support costs erode tier revenue\"\n  ],\n  \"controllable_factors\": [\n    {\n      \"factor_id\": \"existing_customer_price_change\",\n      \"label\": \"Existing-customer price change\"\n    },\n    {\n      \"factor_id\": \"customers_lost_from_price_rise\",\n      \"label\": \"Customers lost from price rise\"\n    }\n  ],\n  \"factor_sensitivity\": [\n    {\n      \"factor_id\": \"customers_lost_from_price_rise\",\n      \"elasticity\": 1,\n      \"rank\": 1\n    },\n    {\n      \"factor_id\": \"existing_customer_price_change\",\n      \"elasticity\": 0,\n      \"rank\": 2\n    }\n  ]\n}\n\nOutput ONLY valid JSON with the enrichments array."
+    "content": "Generate factor enrichments for the following decision model:\n\nINPUT:\n{\n  \"goal_label\": \"monthly recurring revenue\",\n  \"outcome_labels\": [\n    \"Customers lost from price rise\",\n    \"New starter subscribers\",\n    \"Starter-tier monthly recurring revenue\",\n    \"Starter support cost\"\n  ],\n  \"risk_labels\": [\n    \"Starter support capacity strain\",\n    \"Higher-than-expected customer churn\",\n    \"Starter launch delays revenue\",\n    \"Starter support costs escalate\"\n  ],\n  \"controllable_factors\": [\n    {\n      \"factor_id\": \"price_increase\",\n      \"label\": \"Price increase\"\n    }\n  ],\n  \"factor_sensitivity\": [\n    {\n      \"factor_id\": \"price_increase\",\n      \"elasticity\": 0,\n      \"rank\": 1\n    }\n  ]\n}\n\nOutput ONLY valid JSON with the enrichments array."
    }
   ],
   "max_tokens": 4000,
@@ -28,5 +28,5 @@
    "type": "json_object"
   }
  },
- "body": "{\n  \"id\": \"chatcmpl-EWrxHYaUhHOX9rwAcyOJoCxWPXI5Z\",\n  \"object\": \"chat.completion\",\n  \"created\": 1791502607,\n  \"model\": \"gpt-4.1-2025-04-14\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\n  \\\"enrichments\\\": [\\n    {\\n      \\\"factor_id\\\": \\\"customers_lost_from_price_rise\\\",\\n      \\\"sensitivity_rank\\\": 1,\\n      \\\"observations\\\": [\\n        \\\"Top-ranked driver (elasticity 1) of monthly recurring revenue\\\",\\n        \\\"Revenue projections are highly sensitive to assumptions about customer attrition following a price increase\\\"\\n      ],\\n      \\\"perspectives\\\": [\\n        \\\"Historical churn rates after previous price changes may provide relevant benchmarks\\\",\\n        \\\"Segmented customer feedback could reveal varying tolerance for price adjustments\\\"\\n      ],\\n      \\\"confidence_question\\\": \\\"What evidence would change your estimate of lost customers by more than 20%?\\\"\\n    },\\n    {\\n      \\\"factor_id\\\": \\\"existing_customer_price_change\\\",\\n      \\\"sensitivity_rank\\\": 2,\\n      \\\"observations\\\": [\\n        \\\"Second most influential factor (elasticity 0) affecting monthly recurring revenue\\\",\\n        \\\"The direct impact of price changes on existing customers is assumed to be neutral in this scenario\\\"\\n      ],\\n      \\\"perspectives\\\": [\\n        \\\"Competitor pricing moves may influence the effectiveness of a price change\\\",\\n        \\\"Analysis of willingness-to-pay among current customers could inform the assumed price elasticity\\\"\\n      ],\\n      \\\"confidence_question\\\": \\\"What evidence would change your estimate of price change impact by more than 20%?\\\"\\n    }\\n  ]\\n}\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 1617,\n    \"completion_tokens\": 270,\n    \"total_tokens\": 1887,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_d3fa955e2a\"\n}\n"
+ "body": "{\n  \"id\": \"chatcmpl-EXvrKVujbCOPVpfYliV4qEviTaUqp\",\n  \"object\": \"chat.completion\",\n  \"created\": 1791755942,\n  \"model\": \"gpt-4.1-2025-04-14\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\n  \\\"enrichments\\\": [\\n    {\\n      \\\"factor_id\\\": \\\"price_increase\\\",\\n      \\\"sensitivity_rank\\\": 1,\\n      \\\"observations\\\": [\\n        \\\"Top-ranked driver (elasticity 0) of monthly recurring revenue\\\",\\n        \\\"The impact of price changes is central to revenue projections\\\"\\n      ],\\n      \\\"perspectives\\\": [\\n        \\\"Competitor pricing analysis may reveal market positioning\\\",\\n        \\\"Customer willingness-to-pay research could inform price sensitivity\\\"\\n      ],\\n      \\\"confidence_question\\\": \\\"What evidence would change your estimate by more than 20%?\\\"\\n    }\\n  ]\\n}\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 1577,\n    \"completion_tokens\": 121,\n    \"total_tokens\": 1698,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 1408,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_d3fa955e2a\"\n}\n"
 }
