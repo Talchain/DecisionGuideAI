@@ -20,7 +20,8 @@ import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, o
 import { clearWhatIf } from '../../olumiView/whatif'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
-import { panelSide } from './panelSide'
+import { PANEL_GAP, panelSide, type Span } from './panelSide'
+import { DOCK_SELECTOR } from '../utils/computeFitPadding'
 import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
@@ -479,6 +480,21 @@ function useOpenEditorInView(): React.RefObject<HTMLDivElement> {
 
 const NO_BOXES: CardBox[] = []
 const noBoxes = (): CardBox[] => NO_BOXES
+const NO_TRANSFORM: readonly [number, number, number] = [0, 0, 1]
+const transformOf = (s: { transform: readonly [number, number, number] }) => s.transform
+const noTransform = () => NO_TRANSFORM
+const sameTransform = (a: readonly number[], b: readonly number[]) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+/** The canvas a person can see, in flow units: the pane, less what the outputs dock covers (as ProposalGhostLayer measures it). Null with no pane
+ *  and no dock to measure. */
+function visibleSpan(el: HTMLElement | null, toFlow: (p: { x: number; y: number }) => { x: number; y: number }): Span | null {
+  if (typeof document === 'undefined') return null
+  const pane = el?.closest('.react-flow')?.getBoundingClientRect() ?? null
+  const dock = document.querySelector(DOCK_SELECTOR)?.getBoundingClientRect() ?? null
+  const right = dock !== null && dock.width > 0 ? dock.left : pane !== null && pane.width > 0 ? pane.right : null
+  const left = pane !== null && pane.width > 0 ? pane.left : null
+  if (left === null && right === null) return null
+  return { left: left === null ? -Infinity : toFlow({ x: left + PANEL_GAP, y: 0 }).x, right: right === null ? Infinity : toFlow({ x: right - PANEL_GAP, y: 0 }).x }
+}
 
 export function ViewCardNode({ id, data, selected }: NodeProps) {
   const { card } = data as ViewCardData
@@ -512,13 +528,16 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const attach = useCallback((el: HTMLDivElement | null) => { root.current = el; (inView as React.MutableRefObject<HTMLDivElement | null>).current = el }, [inView])
   // Open, its words go on the side with room (panelSide.ts, DL 7 Nov): every card's box is read only while this one is open.
   const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
+  // And, while open, where the visible canvas ends: a side under the outputs dock or past the pane is never clear (panelSide.ts `visible`).
+  const transform = useStore(open ? transformOf : noTransform, sameTransform)
+  const { screenToFlowPosition } = useReactFlow()
   const [panelH, setPanelH] = useState(0)
   const [near, setNear] = useState(false)
   useLayoutEffect(() => { if (open) setPanelH(root.current?.querySelector<HTMLElement>('[data-view-more]')?.offsetHeight ?? 0) }, [open, card])
   const side = useMemo(() => {
     const me = boxes.find((b) => b.id === id)
-    return me === undefined ? 'right' : panelSide(me, { w: CARD_WIDTH, h: panelH > 0 ? panelH : me.h }, boxes.filter((b) => b.id !== id))
-  }, [boxes, id, panelH])
+    return me === undefined ? 'right' : panelSide(me, { w: CARD_WIDTH, h: panelH > 0 ? panelH : me.h }, boxes.filter((b) => b.id !== id), open ? visibleSpan(root.current, screenToFlowPosition) : null)
+  }, [boxes, id, panelH, open, transform, screenToFlowPosition])
   return (
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}
       onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>

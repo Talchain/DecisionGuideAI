@@ -33,6 +33,22 @@ describe('which side a card\'s open words go', () => {
   })
 })
 
+describe('a side the person cannot see is never the clear one (strategy journey at 1232, served 55c0, 10 Nov)', () => {
+  // Measured: "£50M ARR by 2027" selected after the reveal opened its words right, at x 805-1005, under the dock from 924; cut.
+  it('catch: nothing on the right, but the right lies past the visible canvas: its words open on the left', () => {
+    expect(panelSide(card, size, [], { left: 0, right: card.x + card.w + PANEL_GAP + size.w - 1 })).toBe('left')
+  })
+  it('catch: the left lies off the canvas and the right is visible, though a card is there: right', () => {
+    expect(panelSide(card, size, [right], { left: card.x - PANEL_GAP - size.w + 1, right: 2000 })).toBe('right')
+  })
+  it('must not change: both sides visible, or neither, the area rule decides as before', () => {
+    expect(panelSide(card, size, [right], { left: 0, right: 2000 })).toBe('left')
+    expect(panelSide(card, size, [], { left: 0, right: 2000 })).toBe('right')
+    expect(panelSide(card, size, [right], { left: 299, right: 520 })).toBe('left')
+    expect(panelSide(card, size, [], null)).toBe('right')
+  })
+})
+
 describe('the drawn card reads where its neighbours are now', () => {
   const real = (JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'capacity.view3.json'), 'utf8')) as View).model!
   const withMore = real.cards.find((c) => c.premises.length > 0)!
@@ -47,5 +63,21 @@ describe('the drawn card reads where its neighbours are now', () => {
     expect(side()).toBe('left')
     act(() => { api!.getState().setNodes([box(withMore.id, 300, 100), box('n', 40, 100)]) })
     expect(side()).toBe('right')
+  })
+  it('catch: selected, nothing beside it, the outputs dock over its right: its words open on the left; with no dock, right', () => {
+    const dock = document.createElement('aside'); dock.setAttribute('aria-label', 'Outputs dock')
+    dock.getBoundingClientRect = () => ({ left: 700, right: 1032, top: 0, bottom: 704, width: 332, height: 704, x: 700, y: 0, toJSON: () => ({}) }) as DOMRect
+    document.body.appendChild(dock)
+    try {
+      const c = render(<ReactFlowProvider initialNodes={[box(withMore.id, 300, 100)]}>
+        <ViewCardNode {...({ id: withMore.id, data: { card: withMore, label: withMore.heading }, selected: true, type: VIEW_CARD } as unknown as NodeProps)} />
+      </ReactFlowProvider>).container
+      expect(c.querySelector('[data-view-more]')!.getAttribute('data-panel-side')).toBe('left')
+    } finally { dock.remove() }
+    cleanup()
+    const c = render(<ReactFlowProvider initialNodes={[box(withMore.id, 300, 100)]}>
+      <ViewCardNode {...({ id: withMore.id, data: { card: withMore, label: withMore.heading }, selected: true, type: VIEW_CARD } as unknown as NodeProps)} />
+    </ReactFlowProvider>).container
+    expect(c.querySelector('[data-view-more]')!.getAttribute('data-panel-side')).toBe('right')
   })
 })
