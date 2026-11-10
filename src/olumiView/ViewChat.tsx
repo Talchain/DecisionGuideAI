@@ -37,9 +37,10 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
+import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -954,6 +955,7 @@ export const MORE_WAYS = 'More ways to think about this'
 /** Keep the thread together and methods within reach (UI recovery witness row 11, DL 10 Nov). */
 export function ViewChat() {
   useAnswersAsks()
+  const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at)
   // Core's session block (canon wave step 1): what the team came for, then the menu; a View without it draws neither.
@@ -1002,14 +1004,20 @@ export function ViewChat() {
   }, [])
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
-  useEffect(followNewest, [turns, lastTurn, job, followNewest])
+  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
     const observer = new ResizeObserver(followNewest)
     observer.observe(content.current)
     return () => observer.disconnect()
-  }, [followNewest])
+  }, [followNewest, floating])
+  // Return focus to the pop-out control after docking (A2 stop/float, DL 10 Nov).
+  const wasFloating = useRef(floating)
+  useEffect(() => {
+    if (wasFloating.current && !floating) tab.current?.querySelector<HTMLButtonElement>('[data-testid="view-chat-popout"]')?.focus()
+    wasFloating.current = floating
+  }, [floating])
   // The View moved on while the entry is open (a new version, the offer gone, a goal set): read the entry again while core still offers
   // it, else close it (their figure then stands beside Olumi's, drawn from the View). Read against the signature it was opened with.
   const signature = view?.signature ?? null
@@ -1032,8 +1040,14 @@ export function ViewChat() {
   const methods = view !== null && !held && !takesBrief(sid, view)
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
-  return (
+  const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
+      {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
+        <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE}
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+          <ExternalLink size={14} aria-hidden="true" />
+        </button>
+      </div>}
       <div className="relative flex flex-1 min-h-0 flex-col">
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
@@ -1067,6 +1081,11 @@ export function ViewChat() {
       )}
     </div>
   )
+  // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
+  return <>
+    {floating ? <div className="flex justify-end px-2 pt-1"><ChatDockBack /></div> : null}
+    <ChatFloatHost composer={<ViewComposerBody />}>{chat}</ChatFloatHost>
+  </>
 }
 
 /** The newest line of the conversation about the model's version: the person's own approval saved, or another member's approval arrived. */
@@ -1104,6 +1123,12 @@ export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now 
  * no model for this scenario, else a message. It keeps the footer's run control (`analysisAction`, the dock's canonical runner).
  */
 export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
+  const floating = useChatFloat((s) => s.floating)
+  return floating ? null : <ViewComposerBody analysisAction={analysisAction} />
+}
+
+// The same composer in either surface (A2 stop/float, DL 10 Nov).
+function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
   const drafting = isDrafting(view), answering = isAnswering(view)
