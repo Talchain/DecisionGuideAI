@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
@@ -7,7 +7,7 @@ import { clearAutosave, clearCurrentScenarioId } from '../../canvas/store/scenar
 import { useViewStore } from '../../olumiView/store'
 import { TeamApiError } from '../team/api'
 import { accountsApi, mine, whenOf, type MyScenario } from './api'
-import { BODY, CARD, ERR, LINK, META, SignedInFrame, useWho } from './Frame'
+import { BODY, CARD, ERR, FIELD, LINK, META, SignedInFrame, useWho } from './Frame'
 
 /** Its address on this page: DGAI's scenario route (`/#/scenario/<uuid>`) as a route here; any other address as a plain link. */
 function Open({ s }: { s: MyScenario }): JSX.Element {
@@ -33,7 +33,7 @@ export function startFreshScenario(): void {
  * MY SCENARIOS, the lane's home (core `GET /api/account/scenarios`): every scenario this person can open, most recent first, with the
  * version its model is at, when anything last happened and who is on it. Opening one goes to the scenario as it stands now, where the
  * team left it; "New scenario" starts one from a brief. "Archive" puts one away in this person's list only (everyone else on it still
- * sees it); the archived ones are listed apart, each with "Restore".
+ * sees it); the archived ones are listed apart, each with "Restore". "Rename" gives it this person's own title, which only they see.
  */
 export default function MyScenariosPage(): JSX.Element {
   const who = useWho()
@@ -57,6 +57,16 @@ export default function MyScenariosPage(): JSX.Element {
     void load(() => live)
     return () => { live = false }
   }, [load])
+  /** The scenario whose title is being edited, and what the person has typed. */
+  const [editing, setEditing] = useState<{ id: string; title: string } | null>(null)
+  const saveTitle = async (e: FormEvent) => {
+    e.preventDefault()
+    if (editing === null) return
+    setBusy(editing.id); setError(null)
+    try { await accountsApi.retitle(editing.id, editing.title); setEditing(null); await load(() => true) }
+    catch (err) { setError(err instanceof TeamApiError ? err.message : 'Olumi could not save that just now. Try again in a moment.') }
+    finally { setBusy(null) }
+  }
   const setArchived = async (id: string, archived: boolean) => {
     setBusy(id); setError(null)
     try { await accountsApi.archive(id, archived); await load(() => true) }
@@ -94,9 +104,24 @@ export default function MyScenariosPage(): JSX.Element {
                     {s.your_last && <> · You were last active {whenOf(s.your_last)}</>}
                   </p>
                   <p className={`${typography.bodySmall} text-text-body m-0`}>On it: {s.members.map((m) => m.name).join(', ') || 'no one else yet'}</p>
-                  <div>
-                    <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, true)} data-testid={`my-scenario-archive-${s.id}`}>Archive</button>
-                  </div>
+                  {editing?.id === s.id ? (
+                    <form className="grid gap-2" onSubmit={(e) => void saveTitle(e)} data-testid={`my-scenario-title-form-${s.id}`}>
+                      <label className="grid gap-1">
+                        <span className={META}>Your title for this scenario</span>
+                        <input className={FIELD} value={editing.title} maxLength={200} autoFocus onChange={(e) => setEditing({ id: s.id, title: e.target.value })} />
+                      </label>
+                      <p className={META}>Only you see this title. Everyone else on it keeps theirs. Leave it empty to use the scenario's own.</p>
+                      <div className="flex gap-3">
+                        <Button type="submit" disabled={busy !== null} data-testid={`my-scenario-title-save-${s.id}`}>Save title</Button>
+                        <button type="button" className={LINK} onClick={() => setEditing(null)}>Cancel</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex gap-4">
+                      <button type="button" className={LINK} disabled={busy !== null} onClick={() => setEditing({ id: s.id, title: s.title })} data-testid={`my-scenario-rename-${s.id}`}>Rename</button>
+                      <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, true)} data-testid={`my-scenario-archive-${s.id}`}>Archive</button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

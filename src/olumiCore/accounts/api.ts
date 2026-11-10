@@ -28,6 +28,8 @@ export const accountsApi = {
   join: (b: { token: string; name: string; email: string; password: string; attach?: boolean }) => call<SignedIn>('POST', '/api/org/join', b),
   /** `archived`: the ones this person put away (core 2026-11-10; absent from an older core, read as none). */
   scenarios: () => call<{ you_id?: string; scenarios: MyScenario[]; archived?: MyScenario[] }>('GET', '/api/account/scenarios'),
+  /** This person's own title for a scenario ('' goes back to the scenario's own). Theirs only: nobody else's title changes. */
+  retitle: (id: string, title: string) => call<{ id: string; title: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/title`, { title }),
   /** Put a scenario away in this person's list, or bring it back. Theirs only: everyone else on it still sees it. */
   archive: (id: string, archived: boolean) => call<{ id: string; archived: boolean }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/archive`, { archived }),
   org: () => call<Org>('GET', '/api/org'),
