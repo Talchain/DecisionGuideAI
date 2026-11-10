@@ -1424,8 +1424,8 @@
    {
     "id": "risk_count",
     "lead": "One risk captured.",
-    "emphasis": "A pre-mortem typically surfaces failure modes you have not listed.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks you have not listed.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]

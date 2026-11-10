@@ -997,14 +997,14 @@
     "id": "option_breadth",
     "lead": "You are comparing two options.",
     "emphasis": "A materially different route widens the comparison.",
-    "rationale": "Option generation: comparing only similar routes narrows what the analysis can see. A structurally different option often reveals a better or lower-regret path.",
+    "rationale": "Comparing only similar routes narrows what the analysis can see. A route that works in a different way can show what the others hide.",
     "move": "widen_options"
    },
    {
     "id": "risk_count",
     "lead": "No risks captured yet.",
-    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]
