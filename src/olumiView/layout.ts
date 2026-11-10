@@ -10,7 +10,7 @@ import type { View, ViewCard, ViewModel, ViewReading, ViewRow, ViewRun, ViewTurn
 import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
-import { REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 
@@ -165,8 +165,30 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
 export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
-  const laid = await layoutGraph(nodes, edges, { direction: options.direction ?? 'DOWN', spacing: options.spacing, preserveLocked: false })
-  return new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
+  const direction = options.direction ?? 'DOWN'
+  const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false })
+  const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
+  return direction === 'DOWN' || direction === 'UP' ? packRows(places) : places
+}
+/** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
+export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
+/**
+ * The previous layout plans each row for ITS cards' widths (an option up to about 430 px), and this lane draws every card at one width
+ * (`CARD_WIDTH`), so its rows came out with a card's width of empty canvas between two cards and a three-option board ran under the dock
+ * at 1232 (DL 10 Nov). Each row the layout made (the cards at one height) is closed up: the same cards in the same order, `ROW_GAP_X`
+ * apart, about the centre the layout gave the row. No card changes row and no order changes; the question keeps its place.
+ */
+function packRows(places: Map<string, { x: number; y: number }>): Map<string, { x: number; y: number }> {
+  const rows = new Map<number, string[]>()
+  for (const [id, at] of places) if (id !== QUESTION) rows.set(at.y, [...(rows.get(at.y) ?? []), id])
+  const out = new Map(places)
+  for (const [y, ids] of rows) {
+    ids.sort((a, b) => places.get(a)!.x - places.get(b)!.x)
+    const first = places.get(ids[0]!)!.x, last = places.get(ids[ids.length - 1]!)!.x
+    const width = ids.length * W + (ids.length - 1) * ROW_GAP_X, left = (first + last + W) / 2 - width / 2
+    ids.forEach((id, i) => out.set(id, { x: left + i * (W + ROW_GAP_X), y }))
+  }
+  return out
 }
 
 /**
