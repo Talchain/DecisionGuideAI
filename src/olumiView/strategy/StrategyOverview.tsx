@@ -19,7 +19,7 @@ export function StrategyOverviewSection({ view }: { view: View | null }): JSX.El
   const Chevron = open ? ChevronDown : ChevronRight
   return (
     <section className={CARD} data-testid="strategy-overview" aria-label={s.overview.heading}>
-      <button type="button" aria-expanded={open} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${H} flex w-full cursor-pointer items-center gap-1.5 text-left`}>
+      <button type="button" aria-expanded={open} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${H} flex min-h-[44px] w-full cursor-pointer items-center gap-1.5 text-left`}>
         <Chevron aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         {s.overview.heading}
       </button>
