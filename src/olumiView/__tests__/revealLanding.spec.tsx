@@ -14,7 +14,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { revealOf, useReveal } from '../reveal'
 import { landingChipOf, resetRevealLanding, useRevealLanding } from '../revealLanding'
-import { forgetLanded, returnFromLanded } from '../revealReturn'
+import { composerStepsAside, forgetLanded, returnFromLanded } from '../revealReturn'
 import { openView } from '../RevealMarks'
 import { ViewLensBar } from '../ViewLensBar'
 
@@ -103,5 +103,14 @@ describe('a landed panel hands the dock back (V11 lane 10 Nov: journey 6.3 and t
     expect(useUIStore.getState().activeOutputTab).toBe('team')
     // Where the landed panel would have returned is forgotten: a later close of another panel does not jump tabs.
     expect(returnFromLanded(landingChipOf(revealOf(view))!.key)).toBe(false)
+  })
+})
+
+describe('P1c: the composer steps aside for the reveal panel (the approved Reveal comp; Codex grade 10 Nov)', () => {
+  it('RL12 catch: on the core lane with a reveal panel open in Team, no composer; the panel\'s question and actions are the foot', () => {
+    expect(composerStepsAside(true, true, 'team')).toBe(true)
+  })
+  it('RL13 must not change: with the panel closed, on another tab, or on the legacy lane, the composer stays', () => {
+    expect([composerStepsAside(true, false, 'team'), composerStepsAside(true, true, 'olumi'), composerStepsAside(false, true, 'team')]).toEqual([false, false, false])
   })
 })
