@@ -1650,6 +1650,16 @@
   "suggested_triggers": [],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "feared_review_rating",
+    "label": "Feared review rating"
+   },
+   {
+    "id": "release_offset",
+    "label": "Time available before release"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },

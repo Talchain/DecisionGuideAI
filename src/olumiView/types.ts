@@ -804,6 +804,10 @@ export type View = {
     }>
     max_view_figures: number
     view_figures_limit_text: string
+    view_figure_cards?: Array<{
+      id: string
+      label: string
+    }>
     private_view_prompt: string | null
     next?: {
       text: string

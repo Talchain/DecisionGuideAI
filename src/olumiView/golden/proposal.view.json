@@ -1184,6 +1184,20 @@
   ],
   "max_view_figures": 3,
   "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "existing_capacity",
+    "label": "Existing capacity"
+   },
+   {
+    "id": "per_specialist",
+    "label": "Per specialist"
+   },
+   {
+    "id": "one_specialist",
+    "label": "One specialist"
+   }
+  ],
   "private_view_prompt": null,
   "link_route": "view"
  },
