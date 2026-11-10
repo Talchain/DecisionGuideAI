@@ -30,6 +30,8 @@ export const accountsApi = {
   scenarios: () => call<{ you_id?: string; scenarios: MyScenario[]; archived?: MyScenario[] }>('GET', '/api/account/scenarios'),
   /** This person's own title for a scenario ('' goes back to the scenario's own). Theirs only: nobody else's title changes. */
   retitle: (id: string, title: string) => call<{ id: string; title: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/title`, { title }),
+  /** This person's own new scenario from the latest saved version of one they can open. Each figure keeps the person who wrote it. */
+  duplicate: (id: string) => call<{ id: string; n: number; title: string; open: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/duplicate`, {}),
   /** Put a scenario away in this person's list, or bring it back. Theirs only: everyone else on it still sees it. */
   archive: (id: string, archived: boolean) => call<{ id: string; archived: boolean }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/archive`, { archived }),
   org: () => call<Org>('GET', '/api/org'),

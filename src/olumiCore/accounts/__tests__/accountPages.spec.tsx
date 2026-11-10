@@ -330,3 +330,60 @@ describe('My scenarios: rename (the person\'s own title)', () => {
     expect(screen.getByTestId('my-scenario-open-s_a00000000002').textContent).toBe('Office move')
   })
 })
+
+describe('My scenarios: duplicate (the person\'s own copy)', () => {
+  const COPY = { id: 's_b00000000009', title: 'Copy of Office move', label: 'Copy of Office move', open: '/#/scenario/00000000-0000-4000-8000-b00000000009', version: 3, last_activity: '2026-11-10T10:00:00.000Z', your_last: null, members: [ANA] }
+  it('Duplicate sends exactly that scenario, then the list shows the copy first, saying whose it is and that authors are kept', async () => {
+    let made = false
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: made ? [COPY, ...SCENARIOS] : SCENARIOS, archived: [] } }
+      if (m === 'POST' && p === '/api/account/scenarios/s_a00000000002/duplicate') { made = true; return { status: 201, body: { id: COPY.id, n: 3, title: COPY.title, open: COPY.open } } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    await screen.findByTestId('my-scenario-s_b00000000009')
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000002/duplicate', body: {} }])
+    expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual(['my-scenario-s_b00000000009', 'my-scenario-s_a00000000002', 'my-scenario-s_a00000000001'])
+    const said = screen.getByTestId('my-scenarios-duplicated').textContent ?? ''
+    expect(said).toBe('“Copy of Office move” is your own copy of version 3. Only you are on it, and each figure keeps the person who wrote it.')
+    expect(screen.getByTestId('my-scenario-s_b00000000009').textContent).toContain('On it: Ana')
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+
+  it('a scenario with no saved model has no Duplicate; a refusal shows core\'s words and the list is unchanged', async () => {
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS, archived: [] } }
+      if (m === 'POST') return { status: 404, body: { error: 'not found' } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    expect(screen.queryByTestId('my-scenario-duplicate-s_a00000000001')).toBeNull() // version null: nothing to copy
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    expect((await screen.findByRole('alert')).textContent).toBe('not found')
+    expect(screen.queryByTestId('my-scenarios-duplicated')).toBeNull()
+    expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual(['my-scenario-s_a00000000002', 'my-scenario-s_a00000000001'])
+  })
+
+  it('a duplicate refused because this browser is now someone else\'s clears the page', async () => {
+    setPagePerson('7')
+    let switched = false
+    core((_m, p) => {
+      if (p === '/api/me') return { body: switched ? { me: BO, account: null } : { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: switched ? '9' : '7', scenarios: switched ? [] : SCENARIOS, archived: [] } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    switched = true
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    await screen.findByRole('alert')
+    await waitFor(() => expect(screen.queryByTestId('my-scenarios')).toBeNull())
+    expect(document.body.textContent).not.toMatch(/Office move|Hiring plan/)
+    expect(posts()).toEqual([])
+  })
+})

@@ -34,6 +34,7 @@ export function startFreshScenario(): void {
  * version its model is at, when anything last happened and who is on it. Opening one goes to the scenario as it stands now, where the
  * team left it; "New scenario" starts one from a brief. "Archive" puts one away in this person's list only (everyone else on it still
  * sees it); the archived ones are listed apart, each with "Restore". "Rename" gives it this person's own title, which only they see.
+ * "Duplicate" makes their own copy of its latest saved version: only they are on it, and each figure keeps the person who wrote it.
  */
 export default function MyScenariosPage(): JSX.Element {
   const who = useWho()
@@ -61,7 +62,7 @@ export default function MyScenariosPage(): JSX.Element {
    *  edit; any other refusal keeps the list and what was typed, so the person can correct it. */
   const refused = async (e: unknown) => {
     if (!(e instanceof TeamApiError) || e.status !== 409) return
-    setList(null); setAway([]); setEditing(null)
+    setList(null); setAway([]); setEditing(null); setCopied(null)
   }
   /** The scenario whose title is being edited, and what the person has typed. */
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null)
@@ -71,6 +72,14 @@ export default function MyScenariosPage(): JSX.Element {
     setBusy(editing.id); setError(null)
     try { await accountsApi.retitle(editing.id, editing.title); setEditing(null); await load(() => true) }
     catch (err) { setError(err instanceof TeamApiError ? err.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(err) }
+    finally { setBusy(null) }
+  }
+  /** The copy just made, said once above the list. */
+  const [copied, setCopied] = useState<{ title: string; n: number } | null>(null)
+  const duplicate = async (id: string) => {
+    setBusy(id); setError(null); setCopied(null)
+    try { const r = await accountsApi.duplicate(id); await load(() => true); setCopied({ title: r.title, n: r.n }) }
+    catch (e) { setError(e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(e) }
     finally { setBusy(null) }
   }
   const setArchived = async (id: string, archived: boolean) => {
@@ -89,6 +98,9 @@ export default function MyScenariosPage(): JSX.Element {
             </p>
           )}
           {error && <p role="alert" className={ERR}>{error}</p>}
+          {copied && list !== null && (
+            <p role="status" className={`${CARD} ${BODY}`} data-testid="my-scenarios-duplicated">“{copied.title}” is your own copy of version {copied.n}. Only you are on it, and each figure keeps the person who wrote it.</p>
+          )}
           {list === null && !error && <p className={BODY}>Loading your scenarios…</p>}
           {list !== null && list.length === 0 && away.length > 0 && (
             <p className={`${CARD} ${BODY}`} data-testid="my-scenarios-all-archived">Every scenario you are on is archived. Restore one below to see it here again.</p>
@@ -125,6 +137,7 @@ export default function MyScenariosPage(): JSX.Element {
                   ) : (
                     <div className="flex gap-4">
                       <button type="button" className={LINK} disabled={busy !== null} onClick={() => setEditing({ id: s.id, title: s.title })} data-testid={`my-scenario-rename-${s.id}`}>Rename</button>
+                      {s.version !== null && <button type="button" className={LINK} disabled={busy !== null} onClick={() => void duplicate(s.id)} data-testid={`my-scenario-duplicate-${s.id}`}>Duplicate</button>}
                       <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, true)} data-testid={`my-scenario-archive-${s.id}`}>Archive</button>
                     </div>
                   )}
