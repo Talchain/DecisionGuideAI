@@ -13,6 +13,7 @@ import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { NO_OPTION_YET, NO_OPTION_YET_WORDS } from '../team/CommitmentPanel'
 import { useMe } from '../me'
 
 const SID = 's_0123456789ab'
@@ -73,7 +74,8 @@ describe('a commitment names its option and version, with a review date and the 
     fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'Ten by March' } })
     const select = screen.getByTestId('team-c-option') as HTMLSelectElement
     expect(select.value).toBe('')
-    expect([...select.options].filter((o) => !o.disabled).map((o) => o.textContent)).toEqual(base.model!.cards.filter((c) => c.family === 'option').map((c) => c.heading))
+    // DL 10 Nov: the model's options, then the team's own "no option yet" (gathering evidence); none is preset.
+    expect([...select.options].filter((o) => !o.disabled).map((o) => o.textContent)).toEqual([...base.model!.cards.filter((c) => c.family === 'option').map((c) => c.heading), NO_OPTION_YET_WORDS])
     expect((screen.getByTestId('team-commitment-save') as HTMLButtonElement).disabled).toBe(true)
   })
 
@@ -304,5 +306,72 @@ describe('the holder confirms or rewords their dissent; only the holder (board 1
     fireEvent.click(screen.getByTestId('team-dissent-confirm-d_1'))
     await new Promise((r) => setTimeout(r, 30))
     expect(posts()).toEqual([])
+  })
+})
+
+describe('a next action can gather evidence before any option is chosen (DL 10 Nov, two-person rehearsal on 55c0c03f: never choose for them)', () => {
+  const INVESTIGATE = "Sample next week's interruption log before taking a staffing position"
+  const fill = (expectText: string | null, owner: string | null) => {
+    fireEvent.click(screen.getByTestId('team-commitment-open'))
+    fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: INVESTIGATE } })
+    if (owner !== null) fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: owner } })
+    fireEvent.change(screen.getByTestId('team-c-reconsider'), { target: { value: 'Interruptions under an hour a day' } })
+    fireEvent.change(screen.getByTestId('team-c-option'), { target: { value: NO_OPTION_YET } })
+    if (expectText !== null) fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: expectText } })
+  }
+  const save = () => screen.getByTestId('team-commitment-save') as HTMLButtonElement
+
+  it('"No option yet: gathering evidence" records the action with its owner, expectation and trigger, and sends no option', async () => {
+    serve(teamView('p_1'))
+    render(<TeamTab />)
+    fill('Interruptions logged every day for a week', 'p_2')
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    await waitFor(() => expect(reread()).toBe(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/commitments`, body: { action: INVESTIGATE, owner: 'p_2', expect: 'Interruptions logged every day for a week', reconsider: 'Interruptions under an hour a day', keeps: [], version: 1 } })
+  })
+
+  it('no chosen-option marker anywhere: no band, no option trigger in the form; reopened cold, the saved action names no option', () => {
+    const triggers = [{ option: 'single_country_test', fact: 'F7', text: 'If the pilot misses ten customers by March' }]
+    serve(teamView('p_1', { suggested_triggers: triggers }))
+    const first = render(<TeamTab />)
+    fill('Interruptions logged every day for a week', 'p_2')
+    expect(screen.queryByTestId('team-c-band')).toBeNull()
+    expect(screen.queryByTestId('team-c-triggers')).toBeNull()
+    first.unmount(); resetDrafts()
+    const saved = commitment({ action: INVESTIGATE, option: null, version: 1, review_on: null, expect_band: null, keeps: [] })
+    serve(teamView('p_1', { commitments: [saved] }))
+    render(<TeamTab />)
+    const li = screen.getByTestId(`team-commitment-${saved.id}`)
+    expect(within(li).getByTestId(`team-commitment-action-${saved.id}`).textContent).toBe(INVESTIGATE)
+    expect(within(li).queryByTestId(`team-commitment-option-${saved.id}`)).toBeNull()
+    expect(within(li).queryByTestId(`team-commitment-band-${saved.id}`)).toBeNull()
+    for (const o of base.model!.cards.filter((c) => c.family === 'option')) expect(li.textContent).not.toContain(o.heading)
+  })
+
+  it('CONTRAST: an option picked still shows its band and its suggested trigger, and is sent', async () => {
+    const triggers = [{ option: 'single_country_test', fact: 'F7', text: 'If the pilot misses ten customers by March' }]
+    serve(teamView('p_1', { suggested_triggers: triggers }))
+    render(<TeamTab />)
+    fill('Ten by March', 'p_2')
+    fireEvent.change(screen.getByTestId('team-c-option'), { target: { value: 'single_country_test' } })
+    expect(screen.getByTestId('team-c-band').textContent).toContain(BAND)
+    expect(screen.getByTestId('team-c-trigger-F7')).toBeTruthy()
+    fireEvent.click(save())
+    await waitFor(() => expect(reread()).toBe(1))
+    expect((posts()[0]!.body as { option?: string }).option).toBe('single_country_test')
+  })
+
+  it('must not change: with no option yet, Record stays disabled without an owner or without an expectation', () => {
+    serve(teamView('p_1'))
+    const a = render(<TeamTab />)
+    fill(null, 'p_2')
+    expect(save().disabled, 'no expectation').toBe(true)
+    a.unmount(); resetDrafts()
+    serve(teamView('p_1'))
+    render(<TeamTab />)
+    fill('Interruptions logged every day for a week', null)
+    fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: '' } })
+    expect(save().disabled, 'no owner').toBe(true)
   })
 })
