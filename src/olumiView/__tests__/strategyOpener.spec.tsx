@@ -52,20 +52,29 @@ describe('the Strategy Overview from the header (served View)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(document.activeElement).toBe(opener))
   })
-  it('Esc in the header’s Explore menu closes the menu alone; the Overview stays open (zero-call smoke, 7 Nov)', () => {
+  // Re-pinned (D1, strategy canvas audit 10 Nov, the design owner's call; DGAI 7d79cde3): the Model · Explore · Team bar is a canvas control,
+  // so it is not drawn while the Overview stands in place of the canvas (it sat over the Overview's title). Was (7 Nov): the bar stayed over
+  // the page, and Esc in its Explore menu closed the menu alone. What these rows protect stays: the Overview closes by its own Close and Esc,
+  // and the bar is back once it closes.
+  it('D1: while the Overview is open the header bar is absent; Esc closes the Overview, and the bar is back (zero-call smoke, 7 Nov)', () => {
     useOverview.setState({ open: true })
     render(<><Both /><ViewLensBar nav /></>)
-    fireEvent.click(screen.getByTestId('lens-bar-explore'))
-    const item = screen.getByTestId('lens-bar-explore-menu').querySelector('[role="menuitemradio"]') as HTMLElement
-    item.focus()
-    fireEvent.keyDown(item, { key: 'Escape' })
     expect(screen.getByTestId('strategy-overview-stage')).toBeInTheDocument()
+    expect(screen.queryByTestId('lens-bar')).toBeNull()
+    expect(screen.queryByTestId('lens-bar-explore')).toBeNull()
+    screen.getByRole('button', { name: 'Close' }).focus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('strategy-overview-stage')).toBeNull()
+    expect(screen.getByTestId('lens-bar-explore')).toBeInTheDocument()
   })
-  it('the header’s Model · Explore · Team sits above the Overview’s layer, so it stays in reach over the page', () => {
-    useOverview.setState({ open: true })
+  it('D1: the header bar never sits over the Overview; contrast: with the Overview closed it is drawn, and Close brings it back', () => {
     render(<><Both /><ViewLensBar nav /></>)
-    const z = (el: Element) => Number(/\bz-\[(\d+)\]/.exec(el.className)?.[1] ?? NaN)
-    expect(z(screen.getByTestId('lens-bar'))).toBeGreaterThan(z(screen.getByTestId('strategy-overview-stage')))
+    expect(screen.getByTestId('lens-bar')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('strategy-overview-opener'))
+    expect(screen.getByTestId('strategy-overview-stage')).toBeInTheDocument()
+    expect(screen.queryByTestId('lens-bar')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByTestId('lens-bar')).toBeInTheDocument()
   })
   it('without core’s strategy key there is no opener and no stage, even if the store was left open', () => {
     useViewStore.setState({ view: none }); useOverview.setState({ open: true })
