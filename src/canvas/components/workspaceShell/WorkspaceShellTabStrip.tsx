@@ -546,7 +546,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact || coreLane ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${isCompact ? 'px-1' : coreLane ? 'px-0.5' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
@@ -562,7 +562,7 @@ export function WorkspaceShellTabStrip({
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
                   surface.id === 'results' && resultsStale ? ' text-warning' : ''
-                }${coreLane ? ` h-8 rounded-full px-2 transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
+                }${coreLane ? ` h-8 rounded-full px-1.5 transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
                 data-tab-pill={coreLane ? (isActive ? 'on' : '') : undefined}
               >
                 {/* Only the LABEL truncates. The affordances after it are
