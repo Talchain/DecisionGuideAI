@@ -106,7 +106,7 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
 const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 // J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
 const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
-const segment = (on: boolean) => `${SEGMENT} ${on ? `border-text-header ${SELECTED}` : 'border-[#EEE6D8] bg-transparent text-text-body hover:text-text-header'}`
+const segment = (on: boolean) => `${SEGMENT} ${on ? `border-text-header ${SELECTED}` : 'border-[#EEE6D8] bg-canvas text-text-body hover:text-text-header'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
 type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
