@@ -7,15 +7,22 @@ import type { View } from './client'
 
 export const CORE_LANE_FIT_FLOOR = 0.25
 
+/** The foot of the canvas the whole-board fit keeps clear (px): the zoomed-out notice (ViewZoomNotice), drawn at the foot's middle. */
+export const NOTICE_CLEAR_BOTTOM = 60
+
 /** The floor a product fit uses: the lane's, never above the product's own. */
 export const productFitFloor = (coreLane: boolean, legible: number): number => (coreLane ? Math.min(CORE_LANE_FIT_FLOOR, legible) : legible)
 
-/** The floor a board is fitted whole down to (DL 10 Nov: no card text under 11 px at first fit): the zoom at which this lane's smallest
- *  type (12 px) draws at 11 px. A board too large for that opens at the floor, its top in view, and the person pans for the rest (the
- *  DL's second option; the cards do not counter-scale their type as the previous product's did). Was 1.0 (R25), then 0.75 for two
- *  commits. One constant reverts it. */
+/** The zoom at which this lane's smallest card type (12 px) draws at 11 px (DL 10 Nov: no card text under 11 px). At or above it a card
+ *  draws its full face; below it, its reduced face (heading and headline chance, set at `reducedFaceSize` so it still draws at 11 px).
+ *  Paul, 10 Nov: "Board at first open: the whole model in view, as the previous product did." The first fit is the whole board
+ *  (`wholeAtTopViewport`, never below `CORE_LANE_FIT_FLOOR`), not this zoom. */
 export const MIN_CARD_TEXT_PX = 11
 export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
+
+/** The font size (declared px, in half pixels, rounded up) at which a reduced face draws at `MIN_CARD_TEXT_PX` at `zoom`; 0 when the
+ *  zoom is at or above `READABLE_WHOLE_ZOOM` (the full face is drawn) or not a usable number. */
+export const reducedFaceSize = (zoom: number): number => (Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil((MIN_CARD_TEXT_PX / zoom) * 2) / 2 : 0)
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */
@@ -49,9 +56,10 @@ export function readableFirstViewport(bounds: Rect, pane: { width: number; heigh
  * canvas's top (the question first, where the prototype puts it, never floated to the middle with room above it) and centred across the
  * free canvas left of the dock. The canvas's own controls hang at the bottom left, so a board read from the top keeps clear of them.
  */
-export function wholeAtTopViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, maxZoom = 1): { x: number; y: number; zoom: number } {
+export function wholeAtTopViewport(bounds: Rect, pane: { width: number; height: number }, insets: Insets, maxZoom = 1, floor = 0): { x: number; y: number; zoom: number } {
   const freeW = Math.max(1, pane.width - insets.left - insets.right), freeH = Math.max(1, pane.height - insets.top - insets.bottom)
-  const zoom = Math.min(maxZoom, freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height))
+  // The whole board, at the largest zoom that fits it; a board too large for `floor` opens at the floor, its top in view.
+  const zoom = Math.max(floor, Math.min(maxZoom, freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height)))
   return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
 }
 

@@ -18,6 +18,7 @@ import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/cli
 import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
 import { clearWhatIf } from '../../olumiView/whatif'
+import { reducedFaceSize } from '../../olumiView/camera'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -201,7 +202,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { reducedPx?: number; tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -237,6 +238,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // More than one aim (an option's chance rows, one per aim): its lead chance names its aim on the face too (Paul: "can't tell which aim a
   // chance is for"; DL/PL 7 Nov). With one aim it stays for readers and on hover (fitA2).
   const aims = card.rows.filter((r) => r.kind === 'chance').length
+  const leadRow = lead >= 0 && card.rows[lead]?.kind === 'chance' ? card.rows[lead] as Extract<ViewRow, { kind: 'chance' }> : null
   // Who or what the card is from (core's `author.text`), one pill: on a figure card it shares the figure's line, so the face stays compact
   // (J1 gate: the board whole at 1232 at full size); on any other card it leads the marks band.
   // Design owner, 8 Nov (strategy canvas audit): at rest only Olumi's cards say who they are from ("Olumi’s estimate"); a person's card
@@ -272,6 +274,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
     // Hover (DL round 6, the re-score's #4): one neutral lift on every card, never a ring (the ink ring is selection, the blue one Olumi's).
     <div
       style={{ width: CARD_WIDTH }}
+      data-reduced={reducedPx > 0 || undefined}
       className={`group relative text-[length:calc(14px*var(--canvas-label-scale,1))] leading-[18px] font-sans text-text-body rounded-xl border ${ghost || inferred ? 'bg-panel' : 'bg-panel shadow-[0_2px_4px_rgba(37,37,32,0.02)]'} px-3 py-2.5 space-y-1.5 ${card.doubt || inferred ? 'border-dashed' : ''} ${card.challenged || card.family === 'risk' ? 'border-[var(--olumi-mark-orange)]' : ghost || changed || inferred ? 'border-info' : card.family === 'goal' ? 'border-goal' : 'border-factor'} ${card.focus ? 'shadow-[0_0_0_3px_rgba(39,122,157,0.14)]' : pulsed ? 'ring-4 ring-info/60 ai-highlight-pulse' : driverOf !== null ? 'ring-[3px] ring-text-header' : ''} ${selected && !pulsed && driverOf === null ? SELECTED_RING : ''} ${card.focus || pulsed || driverOf !== null ? '' : 'transition-shadow duration-fast hover:shadow-2'}`}
       data-view-card={id} data-proposed-card={ghost || undefined} data-changed-card={changed || undefined} data-pulsed={pulsed || undefined} data-focus={card.focus || undefined} data-challenged={card.challenged || undefined} data-doubt={card.doubt || undefined} data-inferred={inferred || undefined}
       data-slot-outline="next-step" data-driver-of={driverOf === null ? undefined : driverOf.map((o) => o.id).join(' ')}
@@ -431,6 +434,17 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           ))}
         </div>
       ) : null}
+      {reducedPx === 0 ? null : (
+        // Zoomed out below READABLE_WHOLE_ZOOM (Paul, 10 Nov: the whole model in view, the previous product's way): the card keeps its full
+        // face's box (so no card moves; a long heading grows the drawn box down into the gap, never the layout) and draws only its heading, and an option its headline chance, at a size that draws at 11 px. The
+        // full face stays in place, hidden, and is drawn again from READABLE_WHOLE_ZOOM or when the card is opened. Core's words, verbatim.
+        <div data-reduced-face={id} className="absolute -left-px -top-px !m-0 min-h-[calc(100%+2px)] w-[calc(100%+2px)] rounded-xl border bg-panel px-2 py-1.5 font-sans font-medium text-text-header" style={{ fontSize: reducedPx, lineHeight: 1.15, borderColor: 'inherit' }}>
+          <p data-view-reduced-title={id} data-view={faceTitle === null ? `${id}.heading` : `${id}.face.title.text`}>{faceTitle === null ? card.heading : faceTitle.text}</p>
+          {optionFace !== null ? <p className="font-semibold" data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
+            // An option without core's headline: its lead chance, core's own words as the full face draws them (qualifier, then value).
+            : leadRow === null ? null : <p className="font-semibold" data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{leadRow.value}</span></p>}
+        </div>
+      )}
     </div>
   )
 }
@@ -509,6 +523,9 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const here = typeof document === 'undefined' ? null : document.activeElement
   const focused = named && here !== null && root.current !== null && (root.current.contains(here) || root.current.closest('.react-flow__node') === here)
   const open = selected === true || focused
+  // Zoomed out, a card that is not open draws its reduced face (ViewCard `reducedPx`); an open one is always the full face.
+  const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]))
+  const reducedPx = open ? 0 : zoomedOut
   const attach = useCallback((el: HTMLDivElement | null) => { root.current = el; (inView as React.MutableRefObject<HTMLDivElement | null>).current = el }, [inView])
   // Open, its words go on the side with room (panelSide.ts, DL 7 Nov): every card's box is read only while this one is open.
   const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
@@ -525,12 +542,12 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>
       {/* UI restore stage 1: a link enters a card on the side its causes are on and leaves on the other, for the layout's direction. */}
       <Handle type="target" position={sides.into as Position} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
-      <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
+      <ViewCard card={card} reducedPx={reducedPx} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
+      {reducedPx > 0 ? null : <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>}
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       {/* J1 gate: nothing on the board sits below full strength at rest, so the controls are not drawn at rest (they were there at
           opacity 0); pointer over the card, focus inside it, selection or Olumi's note about it draws them. */}
-      {selected === true || noted || near ? (
+      {selected === true || noted || (near && reducedPx === 0) ? (
         <div data-olumi-controls="">
           <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible menu={false} />
         </div>

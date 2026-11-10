@@ -4,8 +4,8 @@
  * run here, so nothing re-lays out, re-spreads or inspects core's cards (the three faults of 4 Nov were each legacy machinery acting on
  * them). Cards are placed as DGAI's causal graph (`causalPlaces`, via the dock's `useViewCanvas`); the person may pan, zoom and move a card.
  *
- * The camera: each version of core's model is framed once its cards are drawn and settled, readable first and whole when it fits
- * (`readableFirstViewport`) once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
+ * The camera: each version of core's model is framed once its cards are drawn and settled, the whole board (`wholeAtTopViewport`)
+ * once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -30,8 +30,8 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
-import { boardKeyOf, readableFirstViewport, wholeAtTopViewport } from './camera'
-import { drawnHeightsKey, headOf, measuredOf, QUESTION, viewDrawnNodes } from './layout'
+import { boardKeyOf, CORE_LANE_FIT_FLOOR, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
+import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { useV10Lane, ViewCardV10 } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
@@ -40,6 +40,7 @@ import { AddFigure } from './AddFigure'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
+import { ViewZoomNotice } from './ViewZoomNotice'
 import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
@@ -66,20 +67,18 @@ const DURATION = 400, MAX_FITS = 3
 const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
 
 /**
- * The one camera rule for a board, in the free canvas (left of the dock, under the top bar): the board's width, top-aligned, when it
- * fits whole only below a readable zoom; else the whole board, top-aligned and centred across, never past 1 (J1 step 2).
+ * The one camera rule for a board, in the free canvas (left of the dock, under the top bar): the WHOLE board, top-aligned and centred
+ * across, never past 1 and never below the lane's floor (Paul, 10 Nov: the whole model in view at first open, as the previous product's).
+ * Zoomed out, each card draws its reduced face (ViewCardNode), so the whole board stays readable.
  */
-function frameFor(nodes: readonly Node[], pane: { width: number; height: number }): Viewport | null {
+export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
-  const bounds = getNodesBounds(nodes as Node[]), padding = computeFitPadding()
-  // The top of the causal graph, which the camera centres on when the board is too large to read whole: the question and the options.
-  const model = useViewStore.getState().view?.model
-  const head = model ? measuredOf(nodes, headOf(model)) : []
+  const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
-  const raw = paddingToInsets(padding), insets = { ...raw, top: frameTop(raw.top) }
-  // Too large to read whole: its top at the readable floor. Else whole, its top under the free canvas's top (J1 step 2, camera.ts).
-  return readableFirstViewport(bounds, pane, insets, head.length > 0 ? getNodesBounds(head as Node[]) : bounds)
-    ?? wholeAtTopViewport(bounds, pane, insets, 1)
+  const insets = { ...raw, top: frameTop(raw.top) }
+  const whole = wholeAtTopViewport(bounds, pane, insets, 1, CORE_LANE_FIT_FLOOR)
+  // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
+  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, 1, CORE_LANE_FIT_FLOOR)
 }
 
 /**
@@ -230,6 +229,8 @@ function ViewFlow() {
         showUndo={false} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue /> : null}
+      {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
+      {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true }} /> : null}
       {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}
       {hasModel ? <ViewLensBar nav /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}

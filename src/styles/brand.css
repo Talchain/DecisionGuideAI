@@ -551,3 +551,7 @@
     --duration-slow: 0.01ms;
   }
 }
+
+/* Zoomed out on the olumi-core lane (Paul, 10 Nov): a card or the question draws only its reduced face (`data-reduced-face`); the full face
+   keeps its place, so no card changes size, and is hidden. */
+[data-reduced] > *:not([data-reduced-face]) { visibility: hidden; }
