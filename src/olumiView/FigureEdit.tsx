@@ -145,7 +145,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     )
   }
   return (
-    <form className="nodrag nopan grid gap-1" data-testid={`${place}-form-${id}`}
+    // D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
+    // flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place.
+    <form className={`nodrag nopan grid gap-1 ${place === 'view-figure' ? 'absolute inset-x-2 top-full z-30 mt-1 rounded-xl border border-panel-border bg-panel p-2 shadow-2' : ''}`} data-figure-edit-panel={place === 'view-figure' ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}
@@ -154,13 +156,15 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
         className={`${typography.viewLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
-      <div className="flex gap-2">
+      {/* Try is the person's act, in ink, never Olumi's blue (blue audit, 10 Nov). */}
+      {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''} onClick={primary === 'set' ? undefined : () => void save()}
-          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
+          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={`${typography.viewLabel} cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-info/30 text-info'}`}>Try without saving</button>
+          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-panel-border text-text-body hover:text-text-header'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
-          className={`${typography.viewLabel} cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
+          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </form>
   )
