@@ -24,7 +24,9 @@ export function LensTabs({ lenses, active, onSelect, panelId }: { lenses: readon
     moveTo(to)
   }
   return (
-    <div role="tablist" className="flex gap-0.5 rounded-full border border-panel-border p-0.5" data-testid="port-lens-tabs">
+    // Demo rehearsal on served 55c0c03f (10 Nov): at 1232 the 282 px dock cut the second lens ("Likely outcom"). Each lens takes an equal
+    // share and its words wrap inside it, whole, never cut (core's words, whatever their length).
+    <div role="tablist" className="grid auto-cols-fr grid-flow-col gap-0.5 rounded-[18px] border border-panel-border p-0.5" data-testid="port-lens-tabs">
       {lenses.map((lens, index) => {
         const selected = lens.id === active
         return (
@@ -42,7 +44,7 @@ export function LensTabs({ lenses, active, onSelect, panelId }: { lenses: readon
             onKeyDown={(e) => onKeyDown(e, index)}
             data-testid={`port-lens-tab-${lens.id}`}
             data-view={`run.lenses.${lens.i}.label`}
-            className={`${TYPE.meta} flex-1 whitespace-nowrap rounded-full px-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${TYPE.meta} min-h-[32px] min-w-0 rounded-[16px] px-2 py-1 text-center leading-tight [overflow-wrap:anywhere] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               selected ? 'bg-primary text-text-on-color' : 'bg-transparent text-text-light hover:bg-panel-hover hover:text-text-body'
             }`}
           >
