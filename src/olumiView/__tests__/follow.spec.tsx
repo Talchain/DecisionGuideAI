@@ -1,5 +1,5 @@
 /** When the View is read: for the scenario on screen, and again when the scenario changes; off the lane, never. */
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
@@ -29,4 +29,31 @@ it('off the core lane it reads nothing', async () => {
   renderHook(() => useViewFollows(false, UUID))
   await new Promise((r) => setTimeout(r, 20))
   expect(paths).toEqual([])
+})
+
+// Pre-screen row 10 (DL 10 Nov): a scenario reopened with its last View still held is read at once, and on the latest version.
+import { renderHook as mountHook } from '@testing-library/react'
+import { useViewStore as store10 } from '../store'
+import { useViewFollows as follows10 } from '../follow'
+describe('row 10: a reopened scenario is read at once', () => {
+  const keep = { refresh: store10.getState().refresh, look: store10.getState().look, use: store10.getState().use }
+  afterEach(() => { store10.setState({ ...keep, uuid: null, sid: null, view: null, at: null, status: 'none' } as never) })
+  const hold = (at: number | null) => {
+    const calls: string[] = []
+    store10.setState({ uuid: 'u1', sid: 's_1', view: { id: 's_1' }, at, status: 'ready',
+      refresh: async () => { calls.push('refresh'); return true }, look: async (n: number | null) => { calls.push(`look:${n}`); return null }, use: async () => { calls.push('use') } } as never)
+    return calls
+  }
+  it('the same scenario, its View held: read again at once (not left to the next poll)', () => {
+    const calls = hold(null); mountHook(() => follows10(true, 'u1'))
+    expect(calls).toEqual(['refresh'])
+  })
+  it('a past version was left open: back on the latest', () => {
+    const calls = hold(3); mountHook(() => follows10(true, 'u1'))
+    expect(calls).toEqual(['look:null'])
+  })
+  it('contrast: another scenario, or off the lane, goes through use / reads nothing', () => {
+    const a = hold(null); mountHook(() => follows10(true, 'u2')); expect(a).toEqual(['use'])
+    const b = hold(null); mountHook(() => follows10(false, 'u1')); expect(b).toEqual([])
+  })
 })
