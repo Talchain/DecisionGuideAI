@@ -1,0 +1,1837 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000013",
+ "title": "Second oven or longer hours?",
+ "commit": "golden",
+ "signature": "[1,null,[],[],[],[],[\"p_1\"]]",
+ "you": "Paul",
+ "you_id": "p_1",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 1,
+  "n": 1,
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "Should the bakery buy a second oven or open longer?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "base_sales",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Base sales",
+    "typed": false,
+    "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · ⟦F4.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F4.value⟧",
+     "title": "⟦F4.value⟧",
+     "edit": {
+      "prompt": "New figure for “base sales” (loaf/week): one number, or a range like 150 to 400",
+      "ask": "For “base sales”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Base sales",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “We bake and sell 300 loaves a week”"
+    },
+    "failed": []
+   },
+   {
+    "id": "sales_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Sales target",
+    "typed": false,
+    "detail": "sales target · quantity · Theirs: “want to sell at least 360” · not given yet · How many loaves a week do you need to sell?",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not given yet · How many loaves a week do you need to sell?",
+     "edit": {
+      "prompt": "New figure for “sales target” (loaf/week): one number, or a range like 150 to 400",
+      "ask": "For “sales target”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Sales target",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “want to sell at least 360”"
+    },
+    "failed": []
+   },
+   {
+    "id": "extra_hours_sold",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Extra hours sold",
+    "typed": false,
+    "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: ⟦F5.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F5.value⟧",
+     "title": "Plausible range: ⟦F5.value⟧",
+     "edit": {
+      "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
+      "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Extra hours sold",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “somewhere around 40 to 80 extra loaves a week”"
+    },
+    "failed": []
+   },
+   {
+    "id": "sales",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Sales",
+    "typed": false,
+    "detail": "sales · quantity · Proposed by Olumi: Olumi's estimate · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "A second oven: about 370 loaves/week (337 to 387 loaves/week) · Open two hours longer: about 360 loaves/week (339 to 380 loaves/week) · Carry on as now: ⟦F4.value⟧",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: ⟦F4.value⟧. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "ovens_added",
+      "extra_sold_per_oven",
+      "hours_on",
+      "sales_rel"
+     ],
+     "text": "3 figures, 1 calculation",
+     "title": "Figure: ovens added\nFigure: extra sold per oven\nFigure: hours on\nHow sales is worked out",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "3 figures, 1 calculation",
+     "face": "3 figures, 1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "second_oven",
+      "text": "about 370 loaves/week (337 to 387 loaves/week)",
+      "p10": 336.6150549257873,
+      "p50": 369.96239436039934,
+      "p90": 387.0940544324368,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "longer_hours",
+      "text": "about 360 loaves/week (339 to 380 loaves/week)",
+      "p10": 339.4744945801455,
+      "p50": 359.9971077421209,
+      "p90": 379.7323179658307,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "carry_on",
+      "text": "⟦F4.value⟧",
+      "p10": 300,
+      "p50": 300,
+      "p90": 300,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Sales",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "failed": []
+   },
+   {
+    "id": "repair_chance",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Repair chance",
+    "typed": false,
+    "detail": "repair chance · quantity · Theirs: “1 in 5 new ovens need a repair in the first months” (our oven supplier) · 0.2",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.2",
+     "title": "0.2",
+     "edit": {
+      "prompt": "New figure for “repair chance”: one number, or a range like 150 to 400",
+      "ask": "For “repair chance”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Repair chance",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "our oven supplier’s figure",
+     "title": "Theirs: “1 in 5 new ovens need a repair in the first months” (our oven supplier)"
+    },
+    "failed": []
+   },
+   {
+    "id": "half_capacity",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Half capacity",
+    "typed": false,
+    "detail": "half capacity · quantity · Theirs: “then it runs at half capacity” · 0.5",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.5",
+     "title": "0.5",
+     "edit": {
+      "prompt": "New figure for “half capacity”: one number, or a range like 150 to 400",
+      "ask": "For “half capacity”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Half capacity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “then it runs at half capacity”"
+    },
+    "failed": []
+   },
+   {
+    "id": "budget",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Budget",
+    "typed": false,
+    "detail": "budget · quantity · Theirs: “We have ⟦F8.value⟧ to spend” · ⟦F8.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F8.value⟧",
+     "title": "⟦F8.value⟧",
+     "edit": {
+      "prompt": "New figure for “budget” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “budget”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Budget",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “We have ⟦F8.value⟧ to spend”"
+    },
+    "failed": []
+   },
+   {
+    "id": "oven_price",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Oven price",
+    "typed": false,
+    "detail": "oven price · quantity · Theirs: “” · not given yet · What would the second oven cost?",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not given yet · What would the second oven cost?",
+     "edit": {
+      "prompt": "New figure for “oven price” (GBP/oven): one number, or a range like 150 to 400",
+      "ask": "For “oven price”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Oven price",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “”"
+    },
+    "failed": []
+   },
+   {
+    "id": "fitting",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Fitting",
+    "typed": false,
+    "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · ⟦F9.value⟧",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "⟦F9.value⟧",
+     "title": "⟦F9.value⟧",
+     "edit": {
+      "prompt": "New figure for “fitting” (GBP/oven): one number, or a range like 150 to 400",
+      "ask": "For “fitting”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Fitting",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “fitting an oven costs £400”"
+    },
+    "failed": []
+   },
+   {
+    "id": "spend",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Spend",
+    "typed": false,
+    "detail": "spend · quantity · Proposed by Olumi: Olumi's estimate · Worked out from other figures, but not yet: it waits on oven price",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "waits on: oven price",
+     "title": "Worked out from other figures, but not yet: it waits on oven price",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "ovens_added",
+      "oven_cost",
+      "oven_cost_rel",
+      "spend_rel"
+     ],
+     "text": "2 figures, 2 calculations",
+     "title": "Figure: ovens added\nFigure: oven cost\nHow oven cost is worked out\nHow spend is worked out",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures, 2 calculations",
+     "face": "2 figures, 2 calculations",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Spend",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Olumi's estimate"
+    },
+    "failed": []
+   },
+   {
+    "id": "sell_360",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Sell at least 360 loaves a week",
+    "typed": false,
+    "detail": "Sell at least 360 loaves a week · goal · Theirs: “want to sell at least 360”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "How many loaves a week do you need to sell?",
+     "title": "How many loaves a week do you need to sell?",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Sell at least 360 loaves a week",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “want to sell at least 360”"
+    },
+    "failed": []
+   },
+   {
+    "id": "within_budget",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Within the ⟦F8.value⟧",
+    "typed": false,
+    "detail": "Within the ⟦F8.value⟧ · limit · Theirs: “We have ⟦F8.value⟧ to spend”",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most ⟦F8.value⟧",
+     "title": "at most ⟦F8.value⟧",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Within the ⟦F8.value⟧",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “We have ⟦F8.value⟧ to spend”"
+    },
+    "failed": []
+   },
+   {
+    "id": "second_oven",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "A second oven",
+    "typed": false,
+    "detail": "A second oven · option · Theirs: “A second oven”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "sell_360",
+      "text": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+      "title": "⟦F2.text⟧"
+     },
+     {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "text": "Can't yet say if 'Within the ⟦F8.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F3.text⟧"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "one_oven"
+     ],
+     "text": "1 figure",
+     "title": "Figure: one oven",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "A second oven",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “A second oven”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "⟦F2.text⟧",
+     "range": null,
+     "why": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+     "add": "Add ‘sales target’ to see its chance.",
+     "shared": false
+    }
+   },
+   {
+    "id": "longer_hours",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Open two hours longer",
+    "typed": false,
+    "detail": "Open two hours longer · option · Theirs: “open two hours longer each day”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "sell_360",
+      "text": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+      "title": "⟦F2.text⟧"
+     },
+     {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "text": "Can't yet say if 'Within the ⟦F8.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F3.text⟧"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "hours_switched_on"
+     ],
+     "text": "1 figure",
+     "title": "Figure: hours switched on",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Open two hours longer",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “open two hours longer each day”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "⟦F2.text⟧",
+     "range": null,
+     "why": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+     "add": "Add ‘sales target’ to see its chance.",
+     "shared": false
+    }
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Carry on as now",
+    "typed": false,
+    "detail": "Carry on as now · option · Theirs: “carry on as now”",
+    "col": 0,
+    "h": 84,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "sell_360",
+      "text": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+      "title": "⟦F2.text⟧"
+     },
+     {
+      "kind": "none",
+      "aim_id": "within_budget",
+      "text": "Can't yet say if 'Within the ⟦F8.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F3.text⟧"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Carry on as now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “carry on as now”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "sell_360",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "⟦F2.text⟧",
+     "range": null,
+     "why": "Can't yet say if this reaches 'Sell at least 360 loaves a week': 'sales target' is missing.",
+     "add": "Add ‘sales target’ to see its chance.",
+     "shared": false
+    }
+   },
+   {
+    "id": "oven_repair",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "The new oven needs a repair",
+    "typed": false,
+    "detail": "The new oven needs a repair · risk · Theirs: “1 in 5 new ovens need a repair in the first months”",
+    "col": 0,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The new oven needs a repair",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “1 in 5 new ovens need a repair in the first months”"
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "base_sales",
+    "to": "sales",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "extra_hours_sold",
+    "to": "sales",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "sales_rel",
+     "part": "hours_on"
+    }
+   },
+   {
+    "from": "oven_price",
+    "to": "spend",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "oven_cost_rel",
+     "spend_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "fitting",
+    "to": "spend",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through oven cost · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "oven_cost_rel",
+     "spend_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "sales",
+    "to": "sell_360",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "sales_target",
+    "to": "sell_360",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "spend",
+    "to": "within_budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "budget",
+    "to": "within_budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "second_oven",
+    "to": "sales",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through one oven, ovens added · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
+    "effect": {
+     "text": "⟦F1.value⟧",
+     "title": "Extra sold per oven · Plausible range: ⟦F1.value⟧ · worked out through one oven, ovens added",
+     "figure": "extra_sold_per_oven"
+    },
+    "remove": null,
+    "holds": {
+     "record": "sales_rel",
+     "part": "ovens_added"
+    }
+   },
+   {
+    "from": "second_oven",
+    "to": "spend",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through one oven, ovens added · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "spend_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "longer_hours",
+    "to": "sales",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through hours switched on, hours on · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
+    "effect": {
+     "text": "⟦F5.value⟧",
+     "title": "Extra hours sold · Plausible range: ⟦F5.value⟧ · worked out through hours switched on, hours on",
+     "figure": "extra_hours_sold"
+    },
+    "remove": null,
+    "holds": {
+     "record": "sales_rel",
+     "part": "hours_on"
+    }
+   },
+   {
+    "from": "oven_repair",
+    "to": "sales",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through extra sold per oven · Proposed by Olumi: Olumi's estimate",
+    "records": [
+     "sales_rel"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Sell at least 360 loaves a week’",
+   "lead": "Chance of ‘Sell at least 360 loaves a week’, in this model on current information",
+   "all_withheld": false,
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 2 figures",
+    "items": [
+     {
+      "id": "sales_target",
+      "text": "‘sales target’",
+      "title": "How many loaves a week do you need to sell?",
+      "answer": true,
+      "unknown": null,
+      "edit": {
+       "prompt": "New figure for “sales target” (loaf/week): one number, or a range like 150 to 400",
+       "ask": "For “sales target”, type one number, or a range like 150 to 400."
+      }
+     },
+     {
+      "id": "oven_price",
+      "text": "‘oven price’",
+      "title": "What would the second oven cost?",
+      "answer": true,
+      "unknown": null,
+      "edit": {
+       "prompt": "New figure for “oven price” (GBP/oven): one number, or a range like 150 to 400",
+       "ask": "For “oven price”, type one number, or a range like 150 to 400."
+      }
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "⟦SENSITIVITY_NOTE⟧",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F10",
+     "kind": "better",
+     "line": "'A second oven': ⟦F10.value⟧",
+     "hover": "⟦F10.text⟧",
+     "aim": "sell_360",
+     "option": "second_oven",
+     "versus": "carry_on",
+     "status": null,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F11",
+     "kind": "better",
+     "line": "'Open two hours longer': ⟦F11.value⟧",
+     "hover": "⟦F11.text⟧",
+     "aim": "sell_360",
+     "option": "longer_hours",
+     "versus": "carry_on",
+     "status": null,
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "sell_360",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Sell at least 360 loaves a week': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Sell at least 360 loaves a week': this version was saved before Olumi kept the reason."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "lenses": []
+  },
+  "edit_base": 1,
+  "holdable": [
+   {
+    "link": {
+     "record": "sales_rel",
+     "part": "hours_on"
+    },
+    "from": "extra_hours_sold",
+    "to": "sales",
+    "text": "'hours on' → 'sales'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "sales_rel",
+     "part": "ovens_added"
+    },
+    "from": "second_oven",
+    "to": "sales",
+    "text": "'ovens added' → 'sales'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": null,
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "One risk captured.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks you have not listed.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "base_sales",
+    "family": "quantity",
+    "label": "base sales"
+   },
+   {
+    "id": "sales_target",
+    "family": "quantity",
+    "label": "sales target"
+   },
+   {
+    "id": "ovens_added",
+    "family": "quantity",
+    "label": "ovens added"
+   },
+   {
+    "id": "one_oven",
+    "family": "quantity",
+    "label": "one oven"
+   },
+   {
+    "id": "extra_sold_per_oven",
+    "family": "quantity",
+    "label": "extra sold per oven"
+   },
+   {
+    "id": "hours_on",
+    "family": "quantity",
+    "label": "hours on"
+   },
+   {
+    "id": "hours_switched_on",
+    "family": "quantity",
+    "label": "hours switched on"
+   },
+   {
+    "id": "extra_hours_sold",
+    "family": "quantity",
+    "label": "extra hours sold"
+   },
+   {
+    "id": "sales",
+    "family": "quantity",
+    "label": "sales"
+   },
+   {
+    "id": "repair_chance",
+    "family": "quantity",
+    "label": "repair chance"
+   },
+   {
+    "id": "half_capacity",
+    "family": "quantity",
+    "label": "half capacity"
+   },
+   {
+    "id": "budget",
+    "family": "quantity",
+    "label": "budget"
+   },
+   {
+    "id": "oven_price",
+    "family": "quantity",
+    "label": "oven price"
+   },
+   {
+    "id": "fitting",
+    "family": "quantity",
+    "label": "fitting"
+   },
+   {
+    "id": "oven_cost",
+    "family": "quantity",
+    "label": "oven cost"
+   },
+   {
+    "id": "spend",
+    "family": "quantity",
+    "label": "spend"
+   },
+   {
+    "id": "sales_rel",
+    "family": "relation",
+    "label": "how sales is worked out"
+   },
+   {
+    "id": "oven_cost_rel",
+    "family": "relation",
+    "label": "how oven cost is worked out"
+   },
+   {
+    "id": "spend_rel",
+    "family": "relation",
+    "label": "how spend is worked out"
+   },
+   {
+    "id": "sell_360",
+    "family": "goal",
+    "label": "Sell at least 360 loaves a week"
+   },
+   {
+    "id": "within_budget",
+    "family": "limit",
+    "label": "Within the ⟦F8.value⟧"
+   },
+   {
+    "id": "second_oven",
+    "family": "option",
+    "label": "A second oven"
+   },
+   {
+    "id": "longer_hours",
+    "family": "option",
+    "label": "Open two hours longer"
+   },
+   {
+    "id": "carry_on",
+    "family": "option",
+    "label": "Carry on as now"
+   },
+   {
+    "id": "oven_repair",
+    "family": "risk",
+    "label": "The new oven needs a repair"
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "The same chances in this model's samples",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "base_sales",
+    "label": "Base sales"
+   },
+   {
+    "id": "extra_hours_sold",
+    "label": "Extra hours sold"
+   },
+   {
+    "id": "repair_chance",
+    "label": "Repair chance"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "base_sales": "Please change “base sales”: ",
+   "sales_target": "Please change “sales target”: ",
+   "ovens_added": "Please change “ovens added”: ",
+   "one_oven": "Please change “one oven”: ",
+   "extra_sold_per_oven": "Please change “extra sold per oven”: ",
+   "hours_on": "Please change “hours on”: ",
+   "hours_switched_on": "Please change “hours switched on”: ",
+   "extra_hours_sold": "Please change “extra hours sold”: ",
+   "sales": "Please change “sales”: ",
+   "repair_chance": "Please change “repair chance”: ",
+   "half_capacity": "Please change “half capacity”: ",
+   "budget": "Please change “budget”: ",
+   "oven_price": "Please change “oven price”: ",
+   "fitting": "Please change “fitting”: ",
+   "oven_cost": "Please change “oven cost”: ",
+   "spend": "Please change “spend”: ",
+   "sales_rel": "Please change “how sales is worked out”: ",
+   "oven_cost_rel": "Please change “how oven cost is worked out”: ",
+   "spend_rel": "Please change “how spend is worked out”: ",
+   "sell_360": "Please change “Sell at least 360 loaves a week”: ",
+   "within_budget": "Please change “Within the ⟦F8.value⟧”: ",
+   "second_oven": "Please change “A second oven”: ",
+   "longer_hours": "Please change “Open two hours longer”: ",
+   "carry_on": "Please change “Carry on as now”: ",
+   "oven_repair": "Please change “The new oven needs a repair”: "
+  }
+ },
+ "brief": "Should the bakery buy a second oven or open longer?",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": {
+   "names": [
+    "our oven supplier"
+   ],
+   "text": "Named in the brief but not matched to anyone on the team: our oven supplier"
+  }
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}
