@@ -45,6 +45,7 @@ import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView } from './revealCamera'
+import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
 import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
@@ -138,6 +139,8 @@ function ViewFlow() {
   const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
+  // P1 (DL 10 Nov): the dock lands on the contested card's panel, once per reveal (./revealLanding.ts).
+  useRevealLanding()
   useOpenInView(movedAt)
   // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
   useCardClearOfRegions()
