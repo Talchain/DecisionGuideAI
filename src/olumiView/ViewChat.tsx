@@ -236,9 +236,21 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
   )
 }
 
+/** Said once above the readings Olumi offers: what the choice is, and that nothing is saved before Approve (a reload returns every choice to the original). */
+export const READINGS_NOTE = 'Olumi read each of these from someone’s words, shown beneath it. Choose for each one. Nothing is saved until you press Approve, and a choice you have not approved is not kept if the page is reloaded.'
+export const READING_KEEP = 'Keep the original'
+export const READING_USE = 'Use Olumi’s reading'
+/** An approval with readings that did not go through may still have been saved: a different selection is never sent in its place. */
+export const READINGS_CHANGED = 'Your choices changed after an approval that did not go through, so nothing was sent. That approval may have been saved: reload the page to see what the model holds, or put the choices back as they were and press Approve again.'
+
 /**
  * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
+ *
+ * A reading of Olumi's (a mark with core's `reading.id`) carries a two-way choice, "Keep the original" by default. Core saves one thing: on
+ * approval the readings named in `only_readings` are confirmed, and any other offered reading is not applied. So an approval with a chosen
+ * reading sends those ids WITH the proposal's own lines (every line for Approve, the ticked lines for Approve ticked): core reads a missing
+ * `only` / `only_top` as empty once `only_readings` is present. With no reading chosen the approval is exactly as before.
  */
 export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
@@ -262,6 +274,28 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
   const verdict = verdictOf(p)
+  // The readings Olumi offers, by core's own id for each (`marks[].reading.id`). A core that serves no change list offers no choice: the
+  // proposal's own lines could not be named beside the readings, and core would then drop them. Nor does a proposal core does not support:
+  // it has no Approve, so there is nothing a choice could be sent with.
+  const readingIds = p.changes === undefined || verdict?.supported === false ? [] : [...new Set(p.marks.flatMap((m) => (m.reading ? [m.reading.id] : [])))]
+  const [used, setUsed] = useState<ReadonlySet<string>>(new Set())
+  const onlyReadings = readingIds.flatMap((id) => (used.has(id) ? [id] : []))
+  const you = useViewStore((s) => s.view?.you ?? null)
+  // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
+  // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
+  // choices and approve again.
+  const unsure = useRef<string | null>(null)
+  const [refused, setRefused] = useState(false)
+  const approve = (lines?: { only: string[]; only_top: string[] }) => {
+    const every = { only: changes.flatMap((c) => (c.top ? [] : [c.id])), only_top: changes.flatMap((c) => (c.top ? [c.id] : [])) }
+    const withReadings = onlyReadings.length > 0
+    const body = withReadings ? { ...(lines ?? every), only_readings: onlyReadings } : lines
+    const sent = JSON.stringify(body ?? null)
+    if (unsure.current !== null && unsure.current !== sent && (unsure.current.includes('"only_readings"') || withReadings)) { setRefused(true); return }
+    setRefused(false)
+    // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
+    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setUsed(new Set()); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
+  }
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span> <span data-view="proposal.on">{p.on}</span>
@@ -273,7 +307,26 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         </div>
       )}
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
-      {p.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></p>)}
+      {readingIds.length === 0 ? null : <p className="text-text-light" data-testid="view-readings-note">{READINGS_NOTE}</p>}
+      {p.marks.map((m, j) => {
+        const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
+        const id = m.reading?.id
+        if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
+        const choose = (on: boolean) => { setRefused(false); setUsed((u) => { const n = new Set(u); if (on) n.add(id); else n.delete(id); return n }) }
+        const option = (on: boolean) => (
+          <label className="inline-flex min-h-[24px] cursor-pointer items-center gap-1">
+            <input type="radio" name={`view-reading-${p.id}-${j}`} checked={used.has(id) === on} disabled={busy} onChange={() => choose(on)} data-testid={`view-reading-${j}-${on ? 'use' : 'keep'}`} />
+            {on ? READING_USE : READING_KEEP}
+          </label>
+        )
+        return (
+          <fieldset key={j} className="m-0 grid min-w-0 gap-1 border-0 p-0" data-testid={`view-reading-${j}`}>
+            <legend className="p-0">{words}</legend>
+            {m.title === '' ? null : <p className="m-0 text-text-light" data-view={`proposal.marks.${j}.title`}>{m.title}</p>}
+            <div className="flex flex-wrap gap-x-4 gap-y-1">{option(false)}{option(true)}</div>
+          </fieldset>
+        )
+      })}
       {changes.length === 0 ? null : groups === null
         ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{changes.map((_, i) => line(i))}</ul>
         : (
@@ -306,11 +359,18 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
           {verdict.asks === null ? null : <p className="text-text-light" data-testid="view-proposal-verdict-asks">{verdict.asks}</p>}
         </div>
       )}
+      {readingIds.length === 0 || verdict?.supported === false ? null : (
+        <p className="text-text-light" data-testid="view-readings-approve-says">
+          {onlyReadings.length === 0 ? 'Approve keeps the original for every reading.' : `Approve uses Olumi’s reading for ${onlyReadings.length} of ${readingIds.length} and keeps the original for the rest.`}
+          {' '}Approving records {you === null || you === '' ? 'you' : you} as the person who approved; the words Olumi read stay their writer’s.
+        </p>
+      )}
+      {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
       <div className="flex flex-wrap gap-2">
-        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => void act(() => writes.approve(p.id, p.base).then(noteSaved), true)}>Approve</button>}
+        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>Approve</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.approve(p.id, p.base, pick).then(noteSaved), true)}>Approve ticked · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
         <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>

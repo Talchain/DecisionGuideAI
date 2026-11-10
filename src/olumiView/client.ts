@@ -103,8 +103,10 @@ export const writes = {
    * recorded as core's label for the move (`chat[].said`, with `choice: { move, label }`), and a move no longer the newest is `409`.
    */
   move: (sid: string, move: string, at: string | null, op: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/messages`, { move, at, op }),
-  /** The whole proposal, or (API v1.4/v1.8 "confirm selected") exactly the ticked lines: record ids in `only`, top-level fields in `only_top`. */
-  approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[] }) =>
+  /** The whole proposal, or (API v1.4/v1.8 "confirm selected") exactly the ticked lines: record ids in `only`, top-level fields in `only_top`.
+   *  `only_readings`: the readings of Olumi's the person chose to use (the proposal's `marks[].reading.id`). Core reads a missing `only` or
+   *  `only_top` as empty once `only_readings` is present, so a caller that sends readings always sends both lists with them (the type holds it). */
+  approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[]; only_readings?: string[] }) =>
     call<unknown>('POST', `/api/proposals/${proposal}/approve`, pick === undefined ? { base } : { base, ...pick }),
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
   /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */

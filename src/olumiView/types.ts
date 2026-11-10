@@ -556,6 +556,9 @@ export type View = {
       what: string
       status: string
       title: string
+      reading?: {
+        id: string
+      }
     }>
     changes: Array<{
       id: string
@@ -936,6 +939,9 @@ export type View = {
       what: string
       status: string
       title: string
+      reading?: {
+        id: string
+      }
     }>
     by_id: string | null
     choice: {
