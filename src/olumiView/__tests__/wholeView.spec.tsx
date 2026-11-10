@@ -88,7 +88,7 @@ describe('a card zoomed out draws its reduced face', () => {
   })
   // DL 10 Nov (seen on Build 1b): selecting a card at the overview swapped it to its full face, drawn at about 5 px. A selected card keeps its
   // reduced face, with the selection outline; no Olumi control (small) is drawn; its details are in the dock.
-  it('at zoom 0.449 a selected card keeps its reduced face (at the previous product's label scale, outlined): the full face stays hidden, no controls', () => {
+  it('at zoom 0.449 a selected card keeps its reduced face (at the previous product label scale, outlined): the full face stays hidden, no controls', () => {
     const c = draw(0.449, true), face = c.querySelector<HTMLElement>('[data-reduced-face]')!
     expect(face, 'reduced while selected').not.toBeNull()
     expect(face.className).toContain('ring-text-header')
