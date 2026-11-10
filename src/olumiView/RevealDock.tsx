@@ -20,8 +20,12 @@ import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
 import { useViewStore } from './store'
+import { returnFromLanded } from './revealReturn'
 import { otherViewsOn, withEffects } from './layout'
-import { StrategyViewLines } from './strategy/StrategyViewLines'
+import { StrategyHerePill, StrategyViewLines } from './strategy/StrategyViewLines'
+import { viewLinesOf } from './strategy/strategy'
+import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
+import { drawKindOf } from './layout'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
@@ -87,13 +91,17 @@ export function revealDockShown(view: View | null, selected: number | null): boo
 function Person({ v, card = null }: { v: Shared; card?: string | null }): JSX.Element {
   const view = useViewStore((s) => s.view) // the View the dock reads, for the strategy lane's lines under this person
   const stance = stanceOf(v)
+  const here = card !== null && view !== null && viewLinesOf(view, v.id).some((l) => l.about.id === card)
   return (
     <article className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5" data-testid={`reveal-dock-view-${v.id}`}>
       <span aria-hidden="true" className={AVATAR}>{initial(v.by)}</span>
-      <div className="grid min-w-0 gap-1.5">
+      <div className="grid min-w-0 gap-1">
         <p className={`${BODY} flex flex-wrap items-center gap-2 font-medium text-text-header`}>
           {v.by}
-          {stance === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5 font-normal text-text-body`} data-testid={`reveal-dock-stance-${v.id}`}>{stance}</span>}
+          {/* P1 (the comp): opened on a card, their pill for THIS card ("Observed, two rollouts") is the one beside their name; else the view's
+              own stance word. */}
+          {here ? <StrategyHerePill view={view} v={v} card={card} />
+            : stance === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5 font-normal text-text-body`} data-testid={`reveal-dock-stance-${v.id}`}>{stance}</span>}
         </p>
         <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="reveal-dock-words">{v.text}</p>
         <Figures v={v} />
@@ -163,18 +171,25 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const r = revealOf(view)
   const v = r?.views.find((x) => x.id === selected) ?? null
   if (r === null || v === null) return null
-  const close = () => returning(() => select(null))
+  // A panel that landed by itself hands the dock back as it was (revealReturn); one the person opened closes back to Team.
+  const close = () => returning(() => { const c = open.chip; select(null); returnFromLanded(c) })
   const chip = openChipOf(r, open)
   const lead = chip === null ? [v] : chip.views.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   // Others whose view also sits on this card, after Olumi's reading.
   const here = chip === null ? [] : otherViewsOn(r.marks, chip.card, chip.views)
   const others = here.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
-  const heading = chip === null ? view.collab.heading : view.model?.cards.find((c) => c.id === chip.card)?.heading ?? view.collab.heading
+  const model = view.model
+  const shown = chip === null ? undefined : model?.cards.find((c) => c.id === chip.card)
+  const heading = chip === null ? view.collab.heading : shown?.heading ?? view.collab.heading
   return (
-    <section data-testid="reveal-dock" aria-label={heading} className="grid min-h-full content-start gap-5">
+    <section data-testid="reveal-dock" aria-label={heading} className="grid min-h-full content-start gap-4">
       <div className="flex items-start justify-between gap-2">
         <div className="grid gap-0.5">
-          <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="reveal-dock-heading">{heading}</h2>
+          <h2 ref={head} tabIndex={-1} className={`${H} flex items-center gap-2 outline-none`} data-testid="reveal-dock-heading">
+            {/* The comp's panel: the card's own shape before its name, so the panel reads as that card's. */}
+            {shown === undefined || model == null ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} size={12} /></span>}
+            {heading}
+          </h2>
           <p className={`${META} flex items-center gap-1.5`}><Eye aria-hidden="true" className="h-3 w-3" />{view.reveal_words.revealedTogether}</p>
         </div>
         <button type="button" aria-label={view.reveal_words.close} data-testid="reveal-dock-close" onClick={close}
@@ -183,22 +198,23 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </button>
       </div>
 
-      <div className="grid gap-5">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
+      <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
 
       <Reading view={view} chip={chip} lead={lead} />
 
-      {others.length === 0 ? null : <div className="grid gap-5" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
+      {others.length === 0 ? null : <div className="grid gap-4" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
 
       {/* Olumi's one question for what matters next, with one primary action and a quiet way to leave the difference open. It stays at the
           dock's foot while the views above it scroll, so the action is always in reach (1232 x 704: the views alone fill the dock). It reaches
           down over the dock body's own padding, so nothing scrolls past beneath it. */}
       <div className="sticky -bottom-3 mt-auto bg-panel pb-3 pt-2">
-        <div className="grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
+        <div className="grid gap-2 rounded-2xl bg-panel-hover p-3" data-testid="reveal-dock-foot">
           <Next view={view} chip={chip} />
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
+          {/* One row, as the comp: the primary action and the quiet one side by side. */}
+          <div className="flex flex-nowrap items-center gap-2">
+            <Button size="sm" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
             <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
-              className={`${BODY} cursor-pointer rounded-full px-2 py-1 text-text-light hover:text-text-header`}>{view.reveal_words.keepOpen}</button>
+              className={`${BODY} inline-flex min-h-[44px] cursor-pointer items-center rounded-full px-3 text-text-body hover:text-text-header`}>{view.reveal_words.keepOpen}</button>
           </div>
         </div>
       </div>

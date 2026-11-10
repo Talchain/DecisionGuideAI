@@ -13,7 +13,7 @@ import { useViewStore } from '../store'
 import { useReveal } from '../reveal'
 import { strategyMarkOn, strategyOf, viewLinesOf } from '../strategy/strategy'
 import { StrategyChips } from '../strategy/StrategyChips'
-import { StrategyViewLines } from '../strategy/StrategyViewLines'
+import { StrategyViewLines, StrategyHerePill } from '../strategy/StrategyViewLines'
 import { StrategyOverviewSection } from '../strategy/StrategyOverview'
 import { CardViewChips } from '../RevealMarks'
 
@@ -126,19 +126,31 @@ describe('the reveal dock opened on a card: each person’s words on THIS card f
   const served: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8'))
   const P = served.collab.shared.find((v) => v.by === 'Priya')!
   const CARD = 'cross_team_adoption'
-  it('Priya’s line on the opened card shows; her lines on other cards are one step away, in core’s order', () => {
+  // P1 (the approved Reveal comp, 10 Nov): on the opened card her pill sits beside her name (StrategyHerePill, in RevealDock's name row) and
+  // her line there is not repeated when its words are her view's words; her lines on other cards stay one step away, in core's order.
+  // Re-pinned from the 8 Nov row, which drew the opened card's line (pill, card name, words) in this list.
+  it('Priya’s pill for the opened card is beside her name; her same words are not repeated; her other cards are one step away, in core’s order', () => {
     const mine = viewLinesOf(served, P.id)
     expect(mine.length).toBeGreaterThan(1)
-    expect(mine.some((l) => l.about.id === CARD)).toBe(true)
-    render(<StrategyViewLines view={served} v={P} card={CARD} />)
+    const here = mine.find((l) => l.about.id === CARD)!
+    expect(here.text).toBe(P.text)
+    render(<><StrategyHerePill view={served} v={P} card={CARD} /><StrategyViewLines view={served} v={P} card={CARD} /></>)
+    expect(screen.getByTestId(`strategy-pill-${P.id}-${CARD}`).textContent).toBe(here.pill)
     const shown = () => [...screen.getByTestId(`strategy-view-lines-${P.id}`).querySelectorAll('[data-strategy-about]')].map((e) => e.getAttribute('data-strategy-about'))
-    expect(shown()).toEqual([CARD])
+    expect(shown()).toEqual([])
     const more = screen.getByTestId(`strategy-view-more-${P.id}`)
     expect(more.textContent).toBe(`${mine.length - 1} more from Priya`)
     expect(more).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(more)
-    expect(shown()).toEqual([CARD, ...mine.filter((l) => l.about.id !== CARD).map((l) => l.about.id)])
+    expect(shown()).toEqual(mine.filter((l) => l.about.id !== CARD).map((l) => l.about.id))
     expect(more).toHaveAttribute('aria-expanded', 'true')
+  })
+  it('CONTRAST: where her words on the opened card differ from her view\'s, that line still shows, without repeating the card\'s name', () => {
+    const other: View = { ...served, collab: { ...served.collab, shared: served.collab.shared.map((v) => (v.id === P.id ? { ...v, text: 'Something else she said.' } : v)) } }
+    const P2 = other.collab.shared.find((v) => v.id === P.id)!
+    render(<StrategyViewLines view={other} v={P2} card={CARD} />)
+    const li = screen.getByTestId(`strategy-view-lines-${P.id}`).querySelector(`[data-strategy-about="${CARD}"]`)!
+    expect(li.textContent).toBe(viewLinesOf(other, P.id).find((l) => l.about.id === CARD)!.text)
   })
   it('CONTRAST: opened without a card (initials), every line shows and there is nothing one step away', () => {
     render(<StrategyViewLines view={served} v={P} />)

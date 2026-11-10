@@ -49,6 +49,10 @@ export const wholeOnBoard = (p: Page) => p.evaluate(() => {
 export async function openTab(p: Page, tab: string): Promise<void> {
   const allTabs = p.getByTestId('brief-panel-all-tabs')
   if (await allTabs.count()) { await allTabs.click(); await p.waitForTimeout(800) }
+  // P1 (DL 10 Nov): a reveal on the board lands the dock on the contested card's panel, which steps the tab strip aside, as the brief's
+  // account does; its close hands the dock back to the tab it landed over (olumiView/revealReturn.ts). Team, below, needs no close.
+  const landed = p.getByTestId('reveal-dock-close')
+  if (tab !== 'team' && tab !== 'diagnostics' && await landed.count()) { await landed.click(); await p.waitForTimeout(800) }
   // DL ruling 9 Nov: Model and Team are opened from the canvas's Model · Explore · Team controls, as a named panel, not a dock tab.
   if (tab === 'diagnostics' || tab === 'team') {
     await p.getByTestId(tab === 'team' ? 'lens-bar-team' : 'lens-bar-full').click(); await p.waitForTimeout(1000)

@@ -149,7 +149,8 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
           className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 text-left ${i === 0 ? 'flex-1 pr-2.5' : 'flex-none pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
           <People people={chip.people} />
           {i === 0
-            ? <span className="min-w-0" data-reveal-chip-text="">{chip.text}</span>
+            // P1: core's words wrap in balanced lines, never one word alone on the last line ("…observed / it").
+            ? <span className="min-w-0 [text-wrap:balance]" data-reveal-chip-text="">{chip.text}</span>
             : <>{chip.kind === 'evidence' ? <FileText aria-hidden="true" className="h-3 w-3 text-text-body" /> : chip.kind === 'disagreement' ? <GitFork aria-hidden="true" className="h-3 w-3 text-text-body" /> : <Users aria-hidden="true" className="h-3 w-3 text-text-body" />}
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>

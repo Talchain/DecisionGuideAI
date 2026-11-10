@@ -114,14 +114,6 @@ export function lensesOf(run: ViewRun | null): (Lens & { i: number })[] {
   return out
 }
 
-export type Reading = ViewRun['readings'][number]
-/** Core's reading of one aim (`run.readings`, how Olumi reads the aim's words), at its View path. */
-export function readingsFor(run: ViewRun | null, aim: string | null): { reading: Reading; i: number }[] {
-  const out: { reading: Reading; i: number }[] = []
-  ;(run?.readings ?? []).forEach((reading, i) => { if (reading.aim_id === aim && reading.text !== '') out.push({ reading, i }) })
-  return out
-}
-
 export type ViewLinkT = ViewModel['links'][number]
 /**
  * Each compared option with the links core sizes on its own path (`links[].effect`), at their View paths (`links.<i>`), in the View's link
