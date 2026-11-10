@@ -30,7 +30,7 @@ import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { Badge } from '../../olumiView/Badge'
-import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
+import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 import { StatedFigure } from '../../olumiView/StatedFigure'
 
@@ -208,6 +208,8 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
   // K5 (R3): Olumi's failure stories resting on this card, and an option's story most within the team's control (./k5.ts, ahead of core).
   const failed = failedOf(card), reason = failedReasonOf(card)
   const estimate = card.family === 'quantity' && card.olumi !== null && card.figure !== null
+  // Pre-screen row 6: this card's editor, if it is open, with the edit core offered when it opened (kept while a proposal is held).
+  const keptEdit = useOpenFigureEdits((o) => o.open.get(card.id) ?? null)
   // J1 step 3: who or what this card is from, core's words on its face (author.text: "Olumi's estimate", "Stated by Tom"), its source on
   // hover; a card Olumi inferred is drawn dashed in Olumi's colour. Olumi's own mark beside the heading says the same, so it is for readers.
   const author = card.author ?? null, inferred = author?.by === 'olumi'
@@ -353,7 +355,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue, on the
               figure's own line (J1 gate); its words are its label and hover (never a line that appears: DL 9 Nov, the face never changes
               height). Never hidden, so an open editor or its Set button can never be hidden either (R4 witness run 3). */}
-          {card.figure.edit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+          {card.figure.edit ?? keptEdit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit ?? keptEdit ?? null} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
             // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has
             // that the person sets (never an outcome core works out from others, which core never offers to edit).
             : card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
