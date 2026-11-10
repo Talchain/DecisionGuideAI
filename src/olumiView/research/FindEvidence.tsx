@@ -180,7 +180,8 @@ export function FindEvidence({ s }: { s: { id: string; kind: 'node' | 'edge' } }
   // The panel opens over the board, just left of the dock that holds this button, so it never sits under the dock or covers its row.
   const [right, setRight] = useState(16)
   const target = recordOf(view, s)
-  if (sid === null || view === null || at !== null || target === null || !isForThisPage(view, me)) return null
+  // Offered only once the page knows whose it is (PL-37): research is read for that person and drawn for no one else.
+  if (sid === null || view === null || at !== null || target === null || me === null || !isForThisPage(view, me)) return null
   return (
     <>
       <Button size="sm" variant="ghost" data-research-find={target.record}
