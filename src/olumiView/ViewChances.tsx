@@ -159,7 +159,7 @@ export function SharedBlockers({ run }: { run: ViewRun | null }) {
 type Driver = NonNullable<ViewCard['driver']>
 
 /** Where core's two driver chances (`driver.low` / `driver.high`, 0–1) sit on a 0–100% track; null unless both are numbers. */
-export function driverRange(d: Driver): { lowPct: number; highPct: number } | null {
+export function driverRange(d: Pick<Driver, 'low' | 'high'>): { lowPct: number; highPct: number } | null {
   if (d.low === null || d.high === null || !Number.isFinite(d.low) || !Number.isFinite(d.high)) return null
   const at = (x: number) => Math.min(100, Math.max(0, x * 100))
   return { lowPct: at(d.low), highPct: at(d.high) }

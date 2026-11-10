@@ -121,4 +121,51 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     const chart = getByTestId('port-driver-tornado')
     expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
   })
+
+  // Build 2b: core's per-aim driver key (`rows[].driver`, core 69dc9442). The aim being shown (core's lead aim) picks the row; bound by aim id.
+  describe('per-aim driver key', () => {
+    const [a, b] = options
+    const keyed = (shown: string) => {
+      const model = structuredClone(fixture.model!)
+      for (const card of model.cards) {
+        card.headline = { aim_id: shown } as never
+        for (const r of card.rows) if (r.kind === 'chance') {
+          r.driver = r.aim_id === 'boost_productivity' ? { figure: a!.id, low: 0.1, high: 0.2 } : { figure: b!.id, low: 0.7, high: 0.9 }
+        }
+      }
+      return model
+    }
+    const barOf = (container: HTMLElement, id: string) => within(container.querySelector<HTMLElement>(`[data-tornado-row="${id}"]`)!).getByTestId('port-driver-tornado-bar')
+
+    it('DT-A1: each shown aim draws its own row\'s driver, not the other aim\'s, and its own chance tick', () => {
+      for (const [shown, low, high, figure] of [['boost_productivity', 10, 20, a!.id], ['meet_launch_deadline', 70, 90, b!.id]] as const) {
+        const model = keyed(shown)
+        const { container } = draw(model)
+        for (const card of options) {
+          expect(barOf(container, card.id)).toHaveStyle({ left: `${low}%`, width: `${high - low}%` })
+          const row = container.querySelector(`[data-tornado-row="${card.id}"]`)!
+          expect(row.querySelector('[data-testid="port-driver-tornado-figure"]')!.getAttribute('data-view')).toBe(`${figure}.heading`)
+          const own = model.cards.find((c) => c.id === card.id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === shown)!
+          if (own.kind === 'chance') expect(within(row as HTMLElement).getByTestId('port-driver-tornado-chance')).toHaveStyle({ left: `${trackPct(own.chance!)}%` })
+        }
+        cleanup()
+      }
+    })
+
+    it('DT-A2: an option whose row for the shown aim has a null driver is not drawn (it is never given another aim\'s driver)', () => {
+      const model = keyed('meet_launch_deadline')
+      const dropped = options[0]!.id
+      for (const r of model.cards.find((c) => c.id === dropped)!.rows) if (r.kind === 'chance' && r.aim_id === 'meet_launch_deadline') r.driver = null
+      const { container } = draw(model)
+      expect(container.querySelector(`[data-tornado-row="${dropped}"]`)).toBeNull()
+      expect(container.querySelectorAll('[data-tornado-row]')).toHaveLength(options.length - 1)
+    })
+
+    it('DT-A3: a scenario saved before the key (no row carries it) still draws every card\'s one driver, as before', () => {
+      const model = structuredClone(fixture.model!)
+      for (const card of model.cards) { card.headline = { aim_id: 'meet_launch_deadline' } as never; for (const r of card.rows) if (r.kind === 'chance') delete (r as { driver?: unknown }).driver }
+      const { container } = draw(model)
+      expect([...container.querySelectorAll('[data-tornado-row]')].map((r) => r.getAttribute('data-tornado-row'))).toEqual(options.map((c) => c.id))
+    })
+  })
 })
