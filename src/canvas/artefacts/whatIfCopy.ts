@@ -21,3 +21,6 @@ export const WHAT_IF_COPY = {
   unusable: 'The what-if could not run right now. Nothing was saved.',
   noFactors: 'This model has no factor with a value to try a different one for.',
 } as const
+
+export const WHATIF_LEGEND_SAVED = 'Saved'
+export const WHATIF_LEGEND_TRIED = 'What-if'

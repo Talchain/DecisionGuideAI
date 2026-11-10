@@ -18,6 +18,7 @@ import { clearWhatIf, useWhatIf } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
 import { mostLikelyBasisOf } from './standin'
+import { WhatIfAxis, WhatIfBars } from './port/WhatIfBars'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <span data-view={`${at}.glyph`} title={mark.title} aria-label={mark.title}>{mark.glyph}</span>
@@ -102,10 +103,12 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
                 return card === undefined ? null : (
                   <div key={o.option_id} data-whatif-card={o.option_id}>
                     <div className={typography.panelHeader}>{card.heading}</div>
+                    <WhatIfBars card={card} rows={o.rows} facts={v.facts} />
                     {o.rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${o.option_id}` }} row={row} i={i} />)}
                   </div>
                 )
               })}
+              <WhatIfAxis model={model} rows={v.rows} facts={v.facts} />
               {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
             </>
           )}
