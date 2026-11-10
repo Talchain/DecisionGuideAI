@@ -115,16 +115,11 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     expect(row.queryByTestId('port-driver-tornado-chance')).toBeNull()
   })
 
-  // Re-pinned, UI recovery rows 15 and 16 (DL 10 Nov): the previous product's order is back. "Your options" sits between the hero and
-  // the chart, and the chart is drawn inside the restored "what could change" accordion. It still mounts once, after both.
-  it('mounts once, inside the what-could-change accordion, after the hero and "Your options"', () => {
+  it('mounts once immediately after the hero and before the other Analysis sections', () => {
     useViewStore.setState({ view: fixture, status: 'ready', error: null, at: null })
-    const { getByTestId, getAllByTestId } = render(<PortAnalysisTab />)
-    expect(getAllByTestId('port-driver-tornado')).toHaveLength(1)
-    const section = getByTestId('accordion-tornado')
-    expect(section).toContainElement(getByTestId('port-driver-tornado'))
-    expect(section.previousElementSibling).toHaveAttribute('data-testid', 'port-your-options')
-    expect(section.previousElementSibling!.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
+    const { getByTestId } = render(<PortAnalysisTab />)
+    const chart = getByTestId('port-driver-tornado')
+    expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
   })
 
   // Build 2b: core's per-aim driver key (`rows[].driver`, core 69dc9442). The aim being shown (core's lead aim) picks the row; bound by aim id.
