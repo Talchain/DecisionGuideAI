@@ -147,7 +147,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   return (
     // D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
     // flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place.
-    <form className={`nodrag nopan grid gap-1 ${place === 'view-figure' ? 'absolute inset-x-2 top-full z-30 mt-1 rounded-xl border border-panel-border bg-panel p-2 shadow-2' : ''}`} data-figure-edit-panel={place === 'view-figure' ? id : undefined} data-testid={`${place}-form-${id}`}
+    <form className={`nodrag nopan grid gap-1 ${place === 'view-figure' ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-xl border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={place === 'view-figure' ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}
