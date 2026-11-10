@@ -90,10 +90,13 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
    * Analysis wall) a finding's `rests_on` (record ids, the Rests on lens's marks) or its `rests_on_text` (the finding's hover, not words
    * on screen: viewFindings.spec binds both). Nor (R5 look defect 2, 5 Nov) a chance row's `text`, the chance's definition: it is the
    * opening of the row's hover, core's `title`, asserted below for every line (viewChanceHover.spec binds it), never body text.
+   * Nor (Build 2, core 69dc9442) a chance row's `driver`: `{ figure, low, high }` is a record id and two chances (0 to 1), no words (core's
+   * src/view/schema.ts ChanceRowV3). The Analysis chart draws them as marks and the figure's own card heading: driverTornado.spec DT-A1
+   * binds them by aim id.
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
     typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
-    : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
+    : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' && k !== 'driver' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
       const model = golden(n).model!
