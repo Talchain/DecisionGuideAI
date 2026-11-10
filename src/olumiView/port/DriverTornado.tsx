@@ -5,16 +5,13 @@ import { driverRange } from '../ViewChances'
 import { driverRowOf, leadAimOf, trackPct } from './pick'
 import { TYPE } from './type'
 
-/** A common chance axis makes core's driver ranges comparable without ranking the options. A thin span between two endpoints (ring: the
- *  figure low; dot: the figure high), so the ends read as marks and not as a lump on the bar. */
-export function DriverTornado({ model }: { model: ViewModel }) {
-  const heading = useViewStore((s) => s.view?.lens_words?.label.what_changes ?? null)
-  const headingId = useId()
+/** The chart's rows: each option whose driver carries both chances as numbers, in the View's card order. Fewer than two draw no chart.
+ *  Core's per-aim driver (`rows[].driver`, olumi.view/3 at core 69dc9442): the row for the aim being shown, never another aim's. A card
+ *  none of whose chance rows carries the key (a scenario saved before it) falls back to the card's one driver and its first chance row. */
+export function tornadoRowsOf(model: ViewModel) {
   const aim = leadAimOf(model)
-  const rows = model.cards.flatMap((card) => {
+  return model.cards.flatMap((card) => {
     if (card.family !== 'option') return []
-    // Core's per-aim driver (`rows[].driver`, olumi.view/3 at core 69dc9442): the row for the aim being shown, never another aim's. A card
-    // none of whose chance rows carries the key (a scenario saved before it) falls back to the card's one driver and its first chance row.
     const keyed = card.rows.some((r) => r.kind === 'chance' && r.driver !== undefined)
     if (keyed && aim !== null) {
       const own = card.rows.find((r) => r.kind === 'chance' && r.aim_id === aim)
@@ -27,14 +24,35 @@ export function DriverTornado({ model }: { model: ViewModel }) {
     const row = card.rows[driverRowOf(card)]
     return range === null ? [] : [{ card, figureId: card.driver.figure, label: card.driver.text as string | null, title: card.driver.title as string | null, chance: row?.kind === 'chance' ? row.chance : null, range }]
   })
+}
+
+/** The chart's key: its three marks, drawn as the rows draw them, each beside one word. These three words are the chart's own (core
+ *  sends no key for the marks yet: listed for the engine in BUILD-LEDGER, A3 10 Nov); what low and high mean is core's line beside it. */
+function TornadoKey() {
+  return (
+    <div className={`${TYPE.meta} flex flex-wrap items-center gap-x-3 gap-y-1 text-text-body`} data-testid="port-driver-tornado-key">
+      <span className="inline-flex items-center gap-1"><span aria-hidden="true" className="h-3 w-3 rounded-full border-2 border-option bg-panel" />low</span>
+      <span className="inline-flex items-center gap-1"><span aria-hidden="true" className="h-3 w-3 rounded-full bg-option" />high</span>
+      <span className="inline-flex items-center gap-1"><span aria-hidden="true" className="h-4 w-0.5 rounded-full" style={{ background: 'var(--text-header)' }} />now</span>
+    </div>
+  )
+}
+
+/** A common chance axis makes core's driver ranges comparable without ranking the options. A thin span between two endpoints (ring: the
+ *  figure low; dot: the figure high), so the ends read as marks and not as a lump on the bar.
+ *  `framed` (default) is the chart as its own card under core's heading; unframed, the section that mounts it carries both. */
+export function DriverTornado({ model, framed = true }: { model: ViewModel; framed?: boolean }) {
+  const heading = useViewStore((s) => s.view?.lens_words?.label.what_changes ?? null)
+  const headingId = useId()
+  const rows = tornadoRowsOf(model)
   if (rows.length < 2) return null
 
   return (
     <div role="group" data-testid="port-driver-tornado"
-      aria-labelledby={heading ? headingId : undefined}
-      aria-label={heading ? undefined : rows[0]!.title ?? rows[0]!.card.heading}
-      className="space-y-3 rounded-lg border border-panel-border bg-panel p-3 text-text-body">
-      {heading ? <h3 id={headingId} className={`${TYPE.body} font-medium text-text-header`} data-view="lens_words.label.what_changes">{heading}</h3> : null}
+      aria-labelledby={framed && heading ? headingId : undefined}
+      aria-label={framed && heading ? undefined : heading ?? rows[0]!.title ?? rows[0]!.card.heading}
+      className={framed ? 'space-y-3 rounded-lg border border-panel-border bg-panel p-3 text-text-body' : 'space-y-3 bg-panel text-text-body'}>
+      {framed && heading ? <h3 id={headingId} className={`${TYPE.body} font-medium text-text-header`} data-view="lens_words.label.what_changes">{heading}</h3> : null}
       <div className="relative">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <span className="absolute inset-y-0 left-0 w-px bg-panel-border" />
@@ -69,6 +87,7 @@ export function DriverTornado({ model }: { model: ViewModel }) {
         <span className="absolute left-1/2 -translate-x-1/2">50%</span>
         <span className="absolute right-0">100%</span>
       </div>
+      <TornadoKey />
     </div>
   )
 }
