@@ -85,6 +85,9 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   )
 }
 
+/** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
+export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
+
 export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try' }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
@@ -156,6 +159,14 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
         className={`${typography.viewLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
+      {/* Pre-screen row 7 (DL 10 Nov): the model moved on while this editor was open, so core refuses its base every time and only Cancel
+          and reopen got out. One press moves this edit onto the latest version and keeps what was typed; it is the person's press, never
+          done for them (PL 7 Nov: a re-read never moves their draft by itself). */}
+      {opened !== null && opened !== live ? (
+        <p className={`${typography.viewLabel} text-text-body`} data-testid={`${place}-moved-${id}`}>{MOVED_ON}{' '}
+          <button type="button" disabled={sending} data-testid={`${place}-rebase-${id}`} className="nodrag inline-flex min-h-[24px] items-center underline underline-offset-2 hover:text-text-header"
+            onClick={() => { setOpened(live); setError(null) }}>{USE_LATEST}</button></p>
+      ) : null}
       {/* Try is the person's act, in ink, never Olumi's blue (blue audit, 10 Nov). */}
       {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
