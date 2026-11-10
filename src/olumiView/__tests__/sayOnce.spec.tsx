@@ -25,6 +25,7 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const drawn = (path: string) => document.querySelectorAll(`[data-view="${path}"]`).length
+const waitRows = (id: string) => document.querySelectorAll(`[data-testid="focus-card"][data-row-id="wait:${id}"]`).length
 const closed = () => [...document.querySelectorAll<HTMLElement>('button[aria-expanded="false"]')]
 
 describe('SC-02: each tab says each thing once', () => {
@@ -53,11 +54,14 @@ describe('SC-02: each tab says each thing once', () => {
       const view = real(n), w = view.model!.run!.waits_on!
       ready(view)
       render(<PortAnalysisTab />)
-      for (const b of closed()) if (b.closest('[data-testid="port-act-on-it"], [data-testid^="port-act"]')) fireEvent.click(b)
+      // Re-pinned, UI recovery row 17 (DL 10 Nov): the figures are rows of the restored Focus now (the previous product's focus rows,
+      // which carry the item's id, not a View path), all shown once "Show all" is pressed. Still one row per figure, by its id.
+      for (const b of document.querySelectorAll<HTMLElement>('[data-testid="focus-reveal"]')) fireEvent.click(b)
       for (const d of document.querySelectorAll('details:not([open])')) (d as HTMLDetailsElement).open = true
-      const items = w.items.flatMap((it, i) => (it.text === '' ? [] : [`run.waits_on.items.${i}.text`]))
+      const items = w.items.flatMap((it) => (it.text === '' ? [] : [it.id]))
       expect(items.length).toBeGreaterThan(0)
-      expect(items.map((p) => [p, drawn(p)])).toEqual(items.map((p) => [p, 1]))
+      expect(items.map((id) => [id, waitRows(id)])).toEqual(items.map((id) => [id, 1]))
+      expect(document.querySelectorAll('[data-view^="run.waits_on.items."]')).toHaveLength(0)
       // Contrast: the head keeps core's own words for it where every chance waits (the headline), with no list of its own.
       if (view.model!.run!.all_withheld) expect(screen.getByTestId('port-hero-waits-headline').querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(w.text)
       expect(document.querySelector('[data-testid="port-hero-waits-on"]')).toBeNull()
@@ -74,8 +78,9 @@ describe('SC-02: each tab says each thing once', () => {
     const head = screen.getByTestId('port-hero-waits-headline')
     expect(head.querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(w.text)
     expect(head.querySelectorAll('[data-view^="run.waits_on.items."]')).toHaveLength(0)
-    for (const b of closed()) if (b.closest('[data-testid="port-act-on-it"], [data-testid^="port-act"]')) fireEvent.click(b)
-    for (const i of unknown) expect([i, drawn(`run.waits_on.items.${i}.text`)]).toEqual([i, 1])
+    // Re-pinned, UI recovery row 17 (DL 10 Nov): each figure is one row of the restored Focus now, by its id.
+    for (const b of document.querySelectorAll<HTMLElement>('[data-testid="focus-reveal"]')) fireEvent.click(b)
+    for (const i of unknown) expect([i, waitRows(w.items[i]!.id)]).toEqual([i, 1])
     // Contrast: the clause is core's, said at most once per figure on the tab, never as a run in the head.
     const tab = document.querySelector('[data-testid="port-analysis-tab"]')!.textContent!
     expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(unknown.length)
