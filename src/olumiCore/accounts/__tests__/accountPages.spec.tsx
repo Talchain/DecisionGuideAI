@@ -216,3 +216,51 @@ describe('a read for someone else after a cookie switch', () => {
     expect(screen.queryByTestId('org-invite-41')).toBeNull()
   })
 })
+
+describe('My scenarios: archive and restore', () => {
+  it('Archive sends exactly that scenario, then lists it apart under Archived with Restore; Restore brings it back; the words say it is theirs only', async () => {
+    let away = new Set<string>()
+    core((m, p, b) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS.filter((s) => !away.has(s.id)), archived: SCENARIOS.filter((s) => away.has(s.id)) } }
+      const hit = /^\/api\/account\/scenarios\/(s_[0-9a-f]+)\/archive$/.exec(p)
+      if (m === 'POST' && hit) { const on = (b as { archived: boolean }).archived; away = new Set(on ? [...away, hit[1]!] : [...away].filter((x) => x !== hit[1])); return { body: { id: hit[1], archived: on } } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull()
+    fireEvent.click(screen.getByTestId('my-scenario-archive-s_a00000000002'))
+    await screen.findByTestId('my-archived-s_a00000000002')
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000002/archive', body: { archived: true } }])
+    expect(screen.queryByTestId('my-scenario-s_a00000000002')).toBeNull()
+    expect(screen.getByTestId('my-scenario-s_a00000000001')).toBeTruthy()
+    const box = screen.getByTestId('my-scenarios-archived')
+    expect(box.textContent).toContain('Archived (1)')
+    expect(box.textContent).toContain('hidden from your list only. Everyone else on them still sees them')
+    expect(document.body.textContent).not.toMatch(NEVER)
+    fireEvent.click(screen.getByTestId('my-scenario-restore-s_a00000000002'))
+    await screen.findByTestId('my-scenario-s_a00000000002')
+    expect(posts().at(-1)).toEqual({ method: 'POST', path: '/api/account/scenarios/s_a00000000002/archive', body: { archived: false } })
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull()
+  })
+
+  it('a list after archiving that names another person is dropped, never shown, and nothing of the earlier list stays on screen', async () => {
+    const BOS = [{ ...SCENARIOS[0]!, id: 's_f00000000001', title: 'Bo pricing', label: 'Bo pricing', open: '/#/scenario/00000000-0000-4000-8000-f00000000001', members: [BO] },
+      { ...SCENARIOS[1]!, id: 's_f00000000002', title: 'Bo hiring', label: 'Bo hiring', open: '/#/scenario/00000000-0000-4000-8000-f00000000002', members: [BO] }]
+    let n = 0
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return n++ === 0 ? { body: { you_id: '7', scenarios: SCENARIOS.slice(1), archived: SCENARIOS.slice(0, 1) } } : { body: { you_id: '9', scenarios: BOS.slice(0, 1), archived: BOS.slice(1) } }
+      if (m === 'POST') return { body: { id: 's_a00000000001', archived: true } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios-archived')
+    fireEvent.click(screen.getByTestId('my-scenario-archive-s_a00000000001'))
+    expect((await screen.findByRole('alert')).textContent).toMatch(/signed in as someone else/)
+    expect(document.body.textContent).not.toMatch(/Bo pricing|Bo hiring/)
+    expect(screen.queryByTestId('my-scenarios')).toBeNull()
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull() // the earlier archived list is not left showing either
+  })
+})

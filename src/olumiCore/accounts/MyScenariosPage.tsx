@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
@@ -32,26 +32,37 @@ export function startFreshScenario(): void {
 /**
  * MY SCENARIOS, the lane's home (core `GET /api/account/scenarios`): every scenario this person can open, most recent first, with the
  * version its model is at, when anything last happened and who is on it. Opening one goes to the scenario as it stands now, where the
- * team left it; "New scenario" starts one from a brief.
+ * team left it; "New scenario" starts one from a brief. "Archive" puts one away in this person's list only (everyone else on it still
+ * sees it); the archived ones are listed apart, each with "Restore".
  */
 export default function MyScenariosPage(): JSX.Element {
   const who = useWho()
   const navigate = useNavigate()
   const [list, setList] = useState<readonly MyScenario[] | null>(null)
+  const [away, setAway] = useState<readonly MyScenario[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
   const page = who.status === 'in' ? who.me.id : null
-  useEffect(() => {
+  /** Reads the list for this page's person; `live` says whether the answer may still be shown. */
+  const load = useCallback(async (live: () => boolean) => {
     if (page === null) return
-    let live = true
-    void (async () => {
-      try {
-        const r = await accountsApi.scenarios()
-        mine(r, r?.you_id, page)
-        if (live) setList(Array.isArray(r?.scenarios) ? r.scenarios : [])
-      } catch (e) { if (live) { setList(null); setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') } }
-    })()
-    return () => { live = false }
+    try {
+      const r = await accountsApi.scenarios()
+      mine(r, r?.you_id, page)
+      if (live()) { setList(Array.isArray(r?.scenarios) ? r.scenarios : []); setAway(Array.isArray(r?.archived) ? r.archived : []) }
+    } catch (e) { if (live()) { setList(null); setAway([]); setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') } }
   }, [page])
+  useEffect(() => {
+    let live = true
+    void load(() => live)
+    return () => { live = false }
+  }, [load])
+  const setArchived = async (id: string, archived: boolean) => {
+    setBusy(id); setError(null)
+    try { await accountsApi.archive(id, archived); await load(() => true) }
+    catch (e) { setError(e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.') }
+    finally { setBusy(null) }
+  }
   return (
     <SignedInFrame who={who} title="My scenarios" testid="account-home" action={<Button onClick={() => { startFreshScenario(); navigate('/canvas') }} data-testid="my-scenarios-new">New scenario</Button>}>
       {(w) => (
@@ -63,7 +74,10 @@ export default function MyScenariosPage(): JSX.Element {
           )}
           {error && <p role="alert" className={ERR}>{error}</p>}
           {list === null && !error && <p className={BODY}>Loading your scenarios…</p>}
-          {list !== null && list.length === 0 && (
+          {list !== null && list.length === 0 && away.length > 0 && (
+            <p className={`${CARD} ${BODY}`} data-testid="my-scenarios-all-archived">Every scenario you are on is archived. Restore one below to see it here again.</p>
+          )}
+          {list !== null && list.length === 0 && away.length === 0 && (
             <div className={`${CARD} grid gap-2`} data-testid="my-scenarios-empty">
               <p className={`${typography.h5} text-text-header m-0`}>No scenarios yet</p>
               <p className={BODY}>Start one by writing a brief: the question you are working on, in your own words. Olumi builds a model from it for you to shape.</p>
@@ -80,9 +94,26 @@ export default function MyScenariosPage(): JSX.Element {
                     {s.your_last && <> · You were last active {whenOf(s.your_last)}</>}
                   </p>
                   <p className={`${typography.bodySmall} text-text-body m-0`}>On it: {s.members.map((m) => m.name).join(', ') || 'no one else yet'}</p>
+                  <div>
+                    <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, true)} data-testid={`my-scenario-archive-${s.id}`}>Archive</button>
+                  </div>
                 </li>
               ))}
             </ul>
+          )}
+          {away.length > 0 && (
+            <details className={`${CARD} grid gap-2`} data-testid="my-scenarios-archived">
+              <summary className={`${typography.label} text-text-header cursor-pointer`}>Archived ({away.length})</summary>
+              <p className={META}>Archived scenarios are hidden from your list only. Everyone else on them still sees them, and nothing in them changes.</p>
+              <ul className="m-0 grid list-none gap-2 p-0">
+                {away.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-baseline gap-3" data-testid={`my-archived-${s.id}`}>
+                    <Open s={s} />
+                    <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, false)} data-testid={`my-scenario-restore-${s.id}`}>Restore</button>
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </>
       )}

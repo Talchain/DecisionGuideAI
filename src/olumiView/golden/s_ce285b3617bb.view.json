@@ -109,14 +109,15 @@
      "records": [
       "funding_adequacy"
      ],
-     "text": "○ +1",
+     "text": "1 open question",
      "title": "left out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 open question",
-     "icon": "○"
+     "face": "1 open question",
+     "icon": ""
     },
     "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
@@ -168,14 +169,15 @@
      "records": [
       "cash_urgency"
      ],
-     "text": "❝ +1",
+     "text": "1 claim",
      "title": "claim: Cash is expected to run out soon. Cash on hand and approximate monthly spending have now been supplied; the exact cash-out date remains unresolved.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim",
-     "icon": "❝"
+     "face": "1 claim",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -272,14 +274,15 @@
      "records": [
       "cash_urgency"
      ],
-     "text": "❝ +1",
+     "text": "1 claim",
      "title": "claim: Cash is expected to run out soon. Cash on hand and approximate monthly spending have now been supplied; the exact cash-out date remains unresolved.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim",
-     "icon": "❝"
+     "face": "1 claim",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -348,14 +351,15 @@
       "funding_adequacy",
       "bridge_overhead_gap"
      ],
-     "text": "● = ❝ +18",
+     "text": "10 figures, 3 calculations, 2 claims, 1 challenge, 2 open questions",
      "title": "Figure: Qualified institutional opportunities worked during the funding window\nFigure: Institutional opportunity share reaching cash receipt within the window\nFigure: Net cash per funded institutional opportunity\nFigure: Institutional fundraising capacity retained\nFigure: Qualified angel opportunities worked during the funding window\nFigure: Angel opportunity share reaching cash receipt within the window\nFigure: Gross cash per funded angel opportunity\nFigure: Angel proceeds retained after transaction cash costs\nFigure: Institutional net funding received during the window\nHow Institutional net funding received during the window is worked out\nFigure: Angel net funding received during the window\nHow Angel net funding received during the window is worked out\nHow Total net funding received during the window is worked out\nclaim: Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements.\nclaim: The value of an angel bridge depends on whether the extra operating time justifies its overhead.\nchallenge: Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.\nleft out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer.\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
      "label": "Show 18 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "10 figures, 3 calculations, 2 claims, 1 challenge, 2 open questions",
-     "icon": "● = ❝"
+     "face": "10 figures and 8 more",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -452,14 +456,15 @@
       "calculate_operating_spend",
       "calculate_end_cash_margin"
      ],
-     "text": "● = +4",
+     "text": "2 figures, 2 calculations",
      "title": "Figure: Operating burn retained\nFigure: Net operating cash consumed during the window\nHow Net operating cash consumed during the window is worked out\nHow Cash surplus or shortfall at the funding window's end is worked out",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 calculations",
-     "icon": "● ="
+     "face": "2 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -556,14 +561,15 @@
       "funding_adequacy",
       "probability_gap"
      ],
-     "text": "● ○ +3",
+     "text": "1 figure, 2 open questions",
      "title": "Figure: Cash break-even boundary\nleft out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer.\nleft out: Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal.",
      "label": "Show 3 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure, 2 open questions",
-     "icon": "● ○"
+     "face": "1 figure, 2 open questions",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -610,14 +616,15 @@
      "records": [
       "probability_gap"
      ],
-     "text": "○ +1",
+     "text": "1 open question",
      "title": "left out: Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 open question",
-     "icon": "○"
+     "face": "1 open question",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -726,14 +733,15 @@
       "bridge_overhead_gap",
       "probability_gap"
      ],
-     "text": "❝ ● ○ +5",
+     "text": "2 claims, 1 figure, 2 open questions",
      "title": "claim: Cash is expected to run out soon. Cash on hand and approximate monthly spending have now been supplied; the exact cash-out date remains unresolved.\nFigure: Cash break-even boundary\nclaim: The value of an angel bridge depends on whether the extra operating time justifies its overhead.\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.\nleft out: Scenario outputs are not calibrated chances of securing funding or surviving. Either route could produce no completed deal.",
      "label": "Show 5 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 claims, 1 figure, 2 open questions",
-     "icon": "❝ ● ○"
+     "face": "2 claims and 3 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -836,14 +844,15 @@
      "records": [
       "current_focus"
      ],
-     "text": "❝ +1",
+     "text": "1 claim",
      "title": "claim: The current search focuses mainly on UK investment firms. Cold email and attempts to find warm connections will continue.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim",
-     "icon": "❝"
+     "face": "1 claim",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -1001,14 +1010,15 @@
       "test_speed_bottleneck",
       "bridge_overhead_gap"
      ],
-     "text": "● ❝ ! +6",
+     "text": "2 figures, 2 claims, 1 challenge, 1 open question",
      "title": "Figure: Institutional fundraising capacity retained while pursuing angels\nFigure: Qualified angel opportunities under the bridge route\nclaim: Angels may provide smaller funding sooner than the investment firms currently being pursued. This remains a hypothesis to test against investor readiness and completion requirements.\nclaim: The value of an angel bridge depends on whether the extra operating time justifies its overhead.\nchallenge: Test whether the bottleneck is investor access, investment readiness, diligence, terms or completion. A new investor category may not accelerate funding if it encounters the same bottleneck.\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
      "label": "Show 6 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 claims, 1 challenge, 1 open question",
-     "icon": "● ❝ !"
+     "face": "2 figures and 4 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -1213,14 +1223,15 @@
       "deferred_spend_burn_retained",
       "bridge_overhead_gap"
      ],
-     "text": "● ○ +4",
+     "text": "3 figures, 1 open question",
      "title": "Figure: Institutional fundraising capacity retained while pursuing angels\nFigure: Qualified angel opportunities under the bridge route\nFigure: Operating burn retained after temporary spend deferral\nleft out: The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "3 figures, 1 open question",
-     "icon": "● ○"
+     "face": "3 figures, 1 open question",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -1990,11 +2001,6 @@
     "text": "worked out"
    },
    {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
-   },
-   {
     "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
@@ -2053,8 +2059,8 @@
    {
     "id": "risk_count",
     "lead": "No risks captured yet.",
-    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]
