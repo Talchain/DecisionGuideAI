@@ -6,6 +6,7 @@ import { BODY, CARD, ERR, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { CompareWithScenario } from './scenarioCompare'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
+import { CompareSections } from './compareSections'
 
 /**
  * TWO APPROVED VERSIONS, AS CORE COMPARES THEM (olumi-core API.md v1.7, "Comparing two versions"): core's read-only
@@ -49,6 +50,9 @@ export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Eleme
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
 export function ComparedLists({ c, id = 'team-compare', who = true, boxed = false }: { c: Compared; id?: string; who?: boolean; boxed?: boolean }): JSX.Element {
+  // The dock's Compare tab (`boxed`): the previous product's Compare layout over core's comparison (A4, compareSections.tsx). The Team tab's and the
+  // version history's inline lists below are unchanged.
+  if (boxed) return <CompareSections c={c} />
   // The two marks are core's `before` and `after`, which core always reads from the lower version to the higher whatever order it was asked
   // in (core service.ts compare: [lo, hi]; pinned by its service.test 'compare(…, 3, 1) equals compare(…, 1, 3)'). Its `versions` list runs
   // from the one to the other in that same order, so the key is named from that list's ends, in core's order, never sorted here.
