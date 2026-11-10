@@ -369,11 +369,12 @@ describe('joining an organisation by link', () => {
   it('PL: a slow identity read cannot create a second person while the organisation invitation is ready', async () => {
     vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
     let deliverWho!: (response: Response) => void
+    let whoReads = 0
     setTeamFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input), method = init?.method ?? 'GET'
       const body = init?.body ? JSON.parse(String(init.body)) : undefined
       asked.push({ method, path, body })
-      if (path === '/api/me') return new Promise<Response>((resolve) => { deliverWho = resolve })
+      if (path === '/api/me') return ++whoReads === 1 ? new Promise<Response>((resolve) => { deliverWho = resolve }) : new Response(JSON.stringify({ me: ANA, account: null }))
       if (path === '/api/org/join/tok-1') return new Response(JSON.stringify({ org: { name: 'Northwind' }, by: 'Olu' }))
       if (method === 'POST' && path === '/api/org/join') return new Response(JSON.stringify({ me: ANA, account: OWNER }), { status: 201 })
       return new Response(JSON.stringify({ error: 'not found' }), { status: 404 })
@@ -383,9 +384,10 @@ describe('joining an organisation by link', () => {
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
-    fireEvent.click(screen.getByTestId('account-join-go'))
+    await act(async () => { fireEvent.click(screen.getByTestId('account-join-go')) })
     expect(posts(), 'identity is still unknown, so joining must wait').toHaveLength(0)
     await act(async () => { deliverWho(new Response(JSON.stringify({ me: ANA, account: null }))) })
+    await waitFor(() => expect((screen.getByTestId('account-join-go') as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByTestId('account-join-go'))
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.body).toMatchObject({ attach: true })
