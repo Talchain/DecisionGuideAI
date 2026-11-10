@@ -34,6 +34,10 @@ export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
  * core's saved version. An edit that then fails leaves the set-aside said and the failure in core's words; nothing reads as saved.
  */
 export const useAsideEdit = create<{ readonly id: string | null }>()(() => ({ id: null }))
+/** Pre-screen row 6 (DL 10 Nov): the card editors that are open, each with the edit core offered when it opened. While a proposal is held
+ *  core offers no edit (`figure.edit` null), and the card dropped its editor with the person's typing; an open one is kept until they close it. */
+export const useOpenFigureEdits = create<{ readonly open: ReadonlyMap<string, { prompt: string; ask: string }> }>()(() => ({ open: new Map() }))
+const keepOpen = (id: string, edit: { prompt: string; ask: string } | null) => useOpenFigureEdits.setState((s) => { const open = new Map(s.open); if (edit) open.set(id, edit); else open.delete(id); return { open } })
 export const ASIDE_WORDS = {
   offer: 'Set aside the pending change and edit',
   first: 'To change this figure, Olumi\'s pending change is set aside first. Nothing in it is applied.',
@@ -105,12 +109,17 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const [trying, setTrying] = useState(false)
   const key = `${sid}:edit:${id}`
   const sending = useWriteSending(key)
-  if (!edit || sid === null || live === null || view === null || !isForThisPage(view, me)) return null
-  const base = open && opened !== null ? opened : live
+  // Row 6: an open card editor is on record while it is open, so its card keeps it when core stops offering the edit.
+  useEffect(() => { if (place !== 'view-figure') return; keepOpen(id, open ? edit : null); return () => { if (!open) keepOpen(id, null) } }, [place, id, open, edit])
+  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return null
+  // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
+  if (live === null && !open) return null
+  const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
+  const base = (open && opened !== null ? opened : live) ?? 0
   const openNow = () => { setOpened(live); setOpen(true) }
 
   const save = async () => {
-    if (typed.trim() === '' || sending) return
+    if (typed.trim() === '' || sending || live === null) return
     setError(null)
     try {
       const saved = await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
@@ -126,7 +135,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
 
   /** The same figure on a copy, nothing saved (core's what-if); its answer is drawn over the chances (`tab`, opened for it: Results, or Reasoning when tried there) until the View moves on. */
   const tryIt = async () => {
-    if (typed.trim() === '' || sending || trying) return
+    if (typed.trim() === '' || sending || trying || live === null) return
     setError(null); setTrying(true)
     // TM-27: once tried, the editor closes so the card shows the try in place ("Trying …", the way back) and the board can bring the
     // options' chances into view; what was typed is kept for a second look.
@@ -162,7 +171,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       {/* Pre-screen row 7 (DL 10 Nov): the model moved on while this editor was open, so core refuses its base every time and only Cancel
           and reopen got out. One press moves this edit onto the latest version and keeps what was typed; it is the person's press, never
           done for them (PL 7 Nov: a re-read never moves their draft by itself). */}
-      {opened !== null && opened !== live ? (
+      {heldNote === null ? null : <p role="status" className={`${typography.viewLabel} text-text-body`} data-testid={`${place}-held-${id}`} data-view="model_words.withdrawnHeld">{heldNote}</p>}
+      {live !== null && opened !== null && opened !== live ? (
         <p className={`${typography.viewLabel} text-text-body`} data-testid={`${place}-moved-${id}`}>{MOVED_ON}{' '}
           <button type="button" disabled={sending} data-testid={`${place}-rebase-${id}`} className="nodrag inline-flex min-h-[24px] items-center underline underline-offset-2 hover:text-text-header"
             onClick={() => { setOpened(live); setError(null) }}>{USE_LATEST}</button></p>
@@ -170,9 +180,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       {/* Try is the person's act, in ink, never Olumi's blue (blue audit, 10 Nov). */}
       {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === ''} onClick={primary === 'set' ? undefined : () => void save()}
+        <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === '' || live === null} onClick={primary === 'set' ? undefined : () => void save()}
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-border text-text-body'}`}>Set figure</button>
-        <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === ''} onClick={primary === 'try' ? undefined : () => void tryIt()}
+        <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === '' || live === null} onClick={primary === 'try' ? undefined : () => void tryIt()}
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded px-2 py-0.5 disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-panel-border text-text-body hover:text-text-header'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
