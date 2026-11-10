@@ -36,7 +36,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
-  for (const k of ['offsetWidth', 'clientWidth'] as const) { if (saved[k]) Object.defineProperty(HTMLElement.prototype, k, saved[k]!); else delete (HTMLElement.prototype as Record<string, unknown>)[k] }
+  for (const k of ['offsetWidth', 'clientWidth'] as const) { if (saved[k]) Object.defineProperty(HTMLElement.prototype, k, saved[k]!); else delete (HTMLElement.prototype as unknown as Record<string, unknown>)[k] }
 })
 const face = (c: Parameters<typeof ViewCard>[0]['card']) => render(<ViewCard card={c} reducedPx={px} />).container.querySelector<HTMLElement>('[data-view-card] [data-reduced-face]')!
 

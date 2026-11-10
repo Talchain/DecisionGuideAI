@@ -450,9 +450,9 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
           // The same words without their trailing "chance", for a card too narrow to hold them on one line (ReducedFace); null when the words
           // do not end that way: nothing is reformatted.
           chanceShort={optionFace !== null
-            ? (withoutChanceWord(optionFace.text) === null ? null : <span data-reduced-short="" data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{withoutChanceWord(optionFace.text)}</span>)
+            ? (withoutChanceWord(optionFace.text) === null ? null : <span data-reduced-short="" data-view-reduced-headline={id}>{withoutChanceWord(optionFace.text)}</span>)
             : leadRow === null || withoutChanceWord(leadRow.value) === null ? null
-              : <span data-reduced-short="" data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{withoutChanceWord(leadRow.value)}</span></span>} />
+              : <span data-reduced-short="" data-view-reduced-headline={id}><span>{leadRow.approx}</span><span data-reduced-short-value="">{withoutChanceWord(leadRow.value)}</span></span>} />
       )}
     </div>
   )
