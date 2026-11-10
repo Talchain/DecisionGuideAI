@@ -60,11 +60,15 @@ export interface AnalysisHeroPanelProps {
   rowAction?: (entry: AimRow) => ReactNode
   /** The lower sections, under the rows (the evidence disclosure, act on it). */
   children?: ReactNode
-  /** The caller draws each figure the chances wait on as its own row below (ActOnIt), so the head names none of them (SC-02, once). */
+  /** The caller draws each figure the chances wait on as its own row below (Focus now), so the head names none of them (SC-02, once). */
   waitsBelow?: boolean
+  /** The caller draws the coach's next step in its own section below (Focus now), so the panel does not say it again. */
+  nextBelow?: boolean
+  /** The caller draws every "what would have to be true" line in its own section below (Stress test), so no row's detail repeats one. */
+  tippingBelow?: boolean
 }
 
-export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children, waitsBelow = false }: AnalysisHeroPanelProps) {
+export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children, waitsBelow = false, nextBelow = false, tippingBelow = false }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const run = model.run ?? null
   const lenses = lensesOf(run)
@@ -131,7 +135,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                       isOpen={open === key}
                       onToggle={() => setOpen((o) => (o === key ? null : key))}
                       domain={domain}
-                      tipping={tippingFor(run, entry.card.id, g.aimId)}
+                      tipping={tippingBelow ? [] : tippingFor(run, entry.card.id, g.aimId)}
                       figure={figureOf(entry.card)}
                     >
                       {rowAction?.(entry)}
@@ -163,7 +167,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
         <p data-testid="port-hero-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
       )}
       {children}
-      {next === null ? null : (
+      {next === null || nextBelow ? null : (
         <div className="flex items-start gap-2" data-testid="port-hero-next">
           <p className="min-w-0 flex-1"><span className="font-medium text-text-header" data-view={`chat.${next.k}.answer.next.label`}>{next.next.label}</span> <Words parts={next.next.text} at={`chat.${next.k}.answer.next.text`} first={next.first} /></p>
           {nextAction}
