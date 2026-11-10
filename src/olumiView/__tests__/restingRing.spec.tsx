@@ -54,7 +54,8 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
 
   it('pointing at an earlier reply\'s next step lights exactly its cards; leaving restores the newest reply\'s, by hover and by keyboard', () => {
     const { container } = render(<ViewConversation chat={chatWith(null, [OTHER])} />)
-    const earlier = container.querySelector<HTMLElement>('[data-testid="view-chat-earlier"] [data-testid="view-chat-next"]')!
+    // Re-pinned (UI recovery witness row 11, DL 10 Nov): the chat is a thread again. Was: the earlier reply lived inside view-chat-earlier.
+    const earlier = container.querySelector<HTMLElement>('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')!
     fireEvent.mouseEnter(earlier)
     expect(lit()).toEqual([OTHER])
     fireEvent.mouseLeave(earlier)
