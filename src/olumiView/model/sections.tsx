@@ -7,7 +7,7 @@
  * - Structural issues: what stops a chance being worked out (`run.shared_blockers`, `run.coverage`) and what it waits on (`run.waits_on`).
  * - Model card: what would strengthen the model (`model.sharpen`).
  * - Audit trail: the version shown and what changed in it (`view.version`), what was removed (`model.removed`), how core read each aim
- *   (`run.readings`) and Olumi's own assumptions in the run (`run.notes`).
+ *   (`run.readings`) and Olumi's own assumptions in the run (`run.notes`). A changed record is shown as its card's heading, never its id.
  * A section core sends nothing for is not drawn (absence is drawn as absence). What the previous sections showed that core has no field
  * for is listed for the engine in BUILD-LEDGER (A4 gaps), never made up here. No model word is composed, rounded or formatted.
  */
@@ -17,9 +17,10 @@ import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces
 import { Accordion } from '../../components/results/Accordion'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import type { View, ViewModel } from '../client'
+import { cardsOfRecords } from '../layout'
 
 /** The previous tab's section headings (`GoalConstraintsSection` "Limits", `ModelHealthSection` "Model card"). UI words, not model words. */
-export const MODEL_SECTION_LABELS = { limits: 'Limits', structure: 'Structural issues', card: 'Model card', audit: 'Audit trail' } as const
+export const MODEL_SECTION_LABELS = { limits: 'Limits', structure: 'Structural issues', card: 'Model card', audit: 'Audit trail', changed: 'Changed in this version', removed: 'Removed' } as const
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)]
 const HEAD = `${typography.panelHeader} m-0 mb-1 text-text-header`
@@ -107,6 +108,8 @@ function Audit({ model, version }: { model: ViewModel; version: View['version'] 
   const readings = uniq((model.run?.readings ?? []).map((r) => r.text))
   const notes = uniq((model.run?.notes ?? []).map((n) => n.text))
   const removed = model.removed ?? []
+  // Core names the records a version changed by id (`version.changed`); a reader is shown each one's card, by its heading, never an id.
+  const changed = version == null ? [] : cardsOfRecords(model, version.changed).map((id) => model.cards.find((c) => c.id === id)!)
   if (version == null && readings.length + notes.length + removed.length === 0) return null
   return (
     <Accordion title={MODEL_SECTION_LABELS.audit} testId="view-model-audit">
@@ -114,13 +117,17 @@ function Audit({ model, version }: { model: ViewModel; version: View['version'] 
         {version == null ? null : (
           <div data-model-audit="version">
             <p className={LINE}><span data-view="version.label">{version.label}</span>{version.at_text ? <span className="text-text-light"> · <span data-view="version.at_text">{version.at_text}</span></span> : null}</p>
-            {version.changed.length === 0 ? null : (
-              <ul className="m-0 list-none p-0">{version.changed.map((t, k) => <li key={k} className={QUIET} data-model-audit-changed={k}>{t}</li>)}</ul>
+            {changed.length === 0 ? null : (
+              <div className="pt-1" data-model-audit="changed">
+                <p className={QUIET}>{MODEL_SECTION_LABELS.changed}</p>
+                <ul className="m-0 list-none p-0">{changed.map((c) => <li key={c.id} data-model-audit-changed={c.id}><CardLink id={c.id}>{c.heading}</CardLink></li>)}</ul>
+              </div>
             )}
           </div>
         )}
         {removed.length === 0 ? null : (
           <ul className="m-0 list-none p-0" data-model-audit="removed">
+            <li className={QUIET}>{MODEL_SECTION_LABELS.removed}</li>
             {removed.map((r) => <li key={r.id} className={LINE} data-model-audit-removed={r.id}>{r.heading}{r.title !== r.heading ? <span className={`${QUIET} block`}>{r.title}</span> : null}</li>)}
           </ul>
         )}
