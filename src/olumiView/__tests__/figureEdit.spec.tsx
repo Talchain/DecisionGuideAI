@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
@@ -243,5 +243,32 @@ describe('the most likely line that rests on Olumi\'s estimate: its ✎ is that 
     const c = render(<ViewChances model={hidden} />).container
     expect(c.querySelector('[data-testid^="likely-"]')).toBeNull()
     expect(c.querySelector('[data-view="run.most_likely.text"]')?.textContent).toBe(ml.text)
+  })
+})
+
+// Pre-screen row 7 (DL 10 Nov): an open editor whose model moved on offers one press onto the latest version, keeping the typing.
+describe('row 7: the model changed while the editor was open', () => {
+  const moved = (): View => ({ ...view, model: { ...view.model!, edit_base: (view.model!.edit_base ?? 0) + 1 } })
+  it('says so and offers "Use the latest version"; pressed, Set goes against the latest base with the same typing', async () => {
+    render(<ViewCard card={card} />)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '150' } })
+    expect(screen.queryByTestId(`view-figure-rebase-${card.id}`)).toBeNull() // contrast: nothing moved, no offer
+    act(() => { useViewStore.setState({ view: moved() }) })
+    fireEvent.click(screen.getByTestId(`view-figure-rebase-${card.id}`))
+    expect(screen.queryByTestId(`view-figure-rebase-${card.id}`)).toBeNull()
+    expect((screen.getByTestId(`view-figure-typed-${card.id}`) as HTMLInputElement).value).toBe('150')
+    fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect((posts()[0]!.body as { base: number; typed: string })).toMatchObject({ base: moved().model!.edit_base, typed: '150' })
+  })
+  it('must not change (PL 7 Nov): without the press the edit stays on the base it opened on', async () => {
+    render(<ViewCard card={card} />)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '150' } })
+    act(() => { useViewStore.setState({ view: moved() }) })
+    fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
+    await waitFor(() => expect(posts().length).toBe(1))
+    expect((posts()[0]!.body as { base: number })).toMatchObject({ base: view.model!.edit_base })
   })
 })
