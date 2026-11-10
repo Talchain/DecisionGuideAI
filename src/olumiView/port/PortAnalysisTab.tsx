@@ -1,15 +1,20 @@
 /**
- * The Analysis tab on the olumi-core lane, drawn with the crafted components ported onto olumi.view/3 (in place of `ViewChancesBlock`).
- * This is the one wiring module: it reads the View store and passes the store-reading controls (the ✎ figure edit, the coach's move tap)
- * into the components' slots. Every word is still core's, drawn by the ported components at their View paths.
+ * The Analysis tab on the olumi-core lane. This is the one wiring module: it reads the View store and passes the store-reading controls
+ * (the ✎ figure edit, the coach's move tap) into the sections' slots. Every word a section draws is core's.
  *
- * Order, as the crafted hero (answer first): core's proposal heading while one is held; a what-if shown; the hero (lead, most likely line,
- * each aim's options, waits-on, next step) with, under the rows, the range lines, the evidence disclosure ("Why and what could change
- * it": drivers, what would have to be true, D8, D5, trade-offs, worth checking first) and "What to act on next"; then core's notes behind
- * "About these numbers".
+ * UI recovery (DL 10 Nov 2026): the previous product's Analysis sections are back, in its order, each fed by core's View:
+ *   1. the hero (core's lead, the lens switch, each aim's options, the most likely line, timing, what the chances wait on);
+ *   2. Focus now (the coach's next step, and each figure the chances wait on);
+ *   3. Strengthen your model (what is worth finding out, and core's prompts about the model's shape);
+ *   4. Your options (the previous option cards: each option's chance of meeting the aim);
+ *   5. What could change the result (the driver chart);
+ *   6. Stress test (what would have to be true, what could go wrong, how much rests on Olumi's guesses);
+ *   then core's notes behind "About these numbers".
+ * Each thing is said once (SC-02): what a section below draws is taken out of the hero (its next step, its rows' "would have to be
+ * true" lines, and every view of its disclosure but the trade-offs).
  *
- * The crafted key-question card and factor insights are not ported (removed 7 Nov, UI's checker): core's first prompt is already a row of
- * "What to act on next", and the Reasoning tab already draws every premise once, under "Assumptions and evidence".
+ * Not drawn, because core sends nothing for them (listed in BUILD-LEDGER, A3 10 Nov): a factor ranking, per-factor tornado rows, the
+ * previous stress test's own sentences, the risk-appetite filter and the advanced block.
  */
 import type { ViewModel, ViewTurn } from '../client'
 import { FigureEdit } from '../FigureEdit'
@@ -17,16 +22,17 @@ import { newestNextOf, notesBesideTiming } from '../layout'
 import { shownModel, useViewStore } from '../store'
 import { HeldProposalLine, WhatIfShown } from '../ViewChances'
 import { MoveTap } from '../ViewChat'
-import { ActOnIt } from './ActOnIt'
-import { actRowsOf } from './pick'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
+import { FocusNow } from './FocusNow'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
+import { Strengthen } from './Strengthen'
+import { StressTest } from './StressTest'
 import { TYPE } from './type'
 import { WhatWouldChange } from './WhatWouldChange'
 import { YourOptions } from './YourOptions'
 
-/** The tab's body for one model: the ported components with the alpha's own controls in their slots. */
+/** The tab's body for one model: the sections with the alpha's own controls in their slots. */
 export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: readonly ViewTurn[] | null }) {
   const run = model.run ?? null
   const ml = run?.most_likely ?? null
@@ -40,23 +46,28 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
       <AnalysisHeroPanel
         model={model}
         chat={chat}
-        waitsBelow={actRowsOf(model).some((r) => r.kind === 'wait')}
+        waitsBelow={(run?.waits_on?.items ?? []).some((it) => it.text !== '')}
+        nextBelow
+        tippingBelow
         mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${mlCard.heading}`} />}
-        nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
       >
         <GoalChanceRangeLines model={model} />
-        <HeroEvidenceDisclosure
-          model={model}
-          omit={['drivers']}
-          giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
-        />
-        <ActOnIt
-          model={model}
-          action={(r) => (r.kind === 'wait' && r.item.edit !== null ? <FigureEdit id={r.item.id} edit={r.item.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${r.item.text}`} /> : null)}
-        />
+        {/* The disclosure keeps only what no section below draws: the trade-offs (`run.compared`). */}
+        <HeroEvidenceDisclosure model={model} omit={['drivers', 'tipping', 'rests', 'failure', 'worth']} />
       </AnalysisHeroPanel>
+      <FocusNow
+        model={model}
+        chat={chat}
+        nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
+        waitAction={(it) => (it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${it.text}`} />)}
+      />
+      <Strengthen
+        model={model}
+        giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
+      />
       <YourOptions model={model} />
       <WhatWouldChange model={model} />
+      <StressTest model={model} />
       {run === null || notes.length === 0 ? null : (
         <details className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="port-analysis-notes">
           <summary className={`${TYPE.meta} cursor-pointer text-info`}>About these numbers</summary>

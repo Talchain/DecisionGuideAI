@@ -35,6 +35,7 @@ export function FocusNowPanel({
   showFreshnessBanner = true,
   className = '',
   bare = false,
+  rowExtra,
 }: FocusNowProps & { bare?: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
@@ -99,6 +100,7 @@ export function FocusNowPanel({
                   onToggle={() => setOpenId((prev) => (prev === row.id ? null : row.id))}
                   onTryAction={handleTry}
                   bare={bare}
+                  extra={rowExtra?.(row)}
                 />
               </li>
             ))}

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 /**
  * Focus Now — typed row-ownership model.
  *
@@ -126,4 +127,9 @@ export interface FocusNowProps {
    */
   showFreshnessBanner?: boolean
   className?: string
+  /**
+   * UI recovery (DL 10 Nov 2026): the olumi-core lane mounts its own control for a row (the figure's edit, the coach's move) in the open
+   * row's body. The previous lane passes nothing and draws exactly as before.
+   */
+  rowExtra?: (row: FocusRow) => ReactNode
 }
