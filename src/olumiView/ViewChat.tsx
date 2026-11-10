@@ -10,7 +10,7 @@
  * closing the dock loses neither (review 00052).
  */
 import { create } from 'zustand'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
@@ -37,7 +37,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 
@@ -102,8 +102,8 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 
 const NO_CARDS: readonly string[] = []
 
-/** One turn of the conversation as the View holds it. `answerFirst`: Olumi's reply above the words it answers (the newest turn, lane C). */
-function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: string; answerFirst?: boolean; moves?: boolean }) {
+/** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
+function Turn({ t, at, latest = false, moves = false }: { t: ViewTurn; at: string; latest?: boolean; moves?: boolean }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const lit = useRef(false)
@@ -112,18 +112,15 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
   // Coaching on its card (track 4 step 2): the newest reply's next step keeps the cards it names lit at rest (ring.ts). The card Olumi's
   // note is open on steps out, as a selected card does in ring.ts: one focus per screen. Keyed by value, so an equal reply rewrites nothing.
   const noted = useCanvasStore((st) => st.olumiAttention?.nodeIds?.[0] ?? null)
-  const restKey = answerFirst ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
+  const restKey = latest ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
   // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
   const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
   useEffect(() => {
-    if (!answerFirst) return undefined
+    if (!latest) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
     return () => restRing(NO_CARDS)
-  }, [answerFirst, restKey])
-  const said = answerFirst
-    // One line under the reply, the whole of what was said on hover: a brief quoted in full repeated the person's own words (4 Nov drive).
-    ? <p className={`${typography.viewPanelMeta} text-text-light`} title={t.said} data-testid="view-chat-in-reply">In reply to: <span data-view={`${at}.said`}>{t.said}</span></p>
-    : <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
+  }, [latest, restKey])
+  const said = <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
   // Each block's first cite number, in the reply's order: its answer, each Why line, its next step.
   const whyFirst: number[] = []
   let nextFirst = 1
@@ -155,8 +152,8 @@ function Turn({ t, at, answerFirst = false, moves = false }: { t: ViewTurn; at: 
     </div>
   )
   return (
-    <li data-view-turn={at} className="space-y-2">
-      {answerFirst ? <>{answer}{stamp}{said}</> : <>{said}{answer}{stamp}</>}
+    <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
+      {said}{answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
@@ -173,23 +170,14 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
   )
 }
 
-/**
- * The newest turn first, Olumi's reply above the words it answers, and the earlier turns folded under it (lane C, Paul 3 Nov: a
- * first-time person reads Olumi's reply first). Every turn keeps its path in the View (`chat.<i>`).
- */
+/** Preserve the conversation's sequence and paths (UI recovery witness row 11, DL 10 Nov). */
 export function ViewConversation({ chat, moves = false }: { chat: View['chat']; moves?: boolean }) {
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
-    <div className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
-      <ol className="space-y-4" data-testid="view-chat-latest"><Turn t={chat[last]!} at={`chat.${last}`} answerFirst moves={moves} /></ol>
-      {last === 0 ? null : (
-        <details data-testid="view-chat-earlier">
-          <summary className={typography.viewPanelMeta}>Earlier in this conversation ({last})</summary>
-          <ol className="mt-2 space-y-4">{chat.slice(0, last).map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}</ol>
-        </details>
-      )}
-    </div>
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
+      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} />)}
+    </ol>
   )
 }
 
@@ -211,6 +199,7 @@ export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me
         {turn.said === null ? null : <div className={styles.messageBubbleUser}><p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
         <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
+          {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
           {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
         </p>
         {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
@@ -960,7 +949,7 @@ function MethodChips() {
 /** The disclosure holding what the team came for and every method (R25: depth one click away, never above Olumi's reply). */
 export const MORE_WAYS = 'More ways to think about this'
 
-/** The tab on the core lane: Olumi's latest reply, the next step, then more ways to think, from the View (the composer is the dock's footer). */
+/** Keep the thread together and methods within reach (UI recovery witness row 11, DL 10 Nov). */
 export function ViewChat() {
   useAnswersAsks()
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
@@ -975,6 +964,26 @@ export function ViewChat() {
   const ffOpen = useFigureFirst((s) => s.entry !== null || s.said !== null || s.reading)
   const ffShown = useFigureFirst((s) => s.shown !== null)
   const tab = useRef<HTMLDivElement>(null)
+  const scroll = useRef<HTMLDivElement>(null)
+  const follows = useRef(true)
+  const [away, setAway] = useState(false)
+  const readScroll = useCallback(() => {
+    const el = scroll.current
+    if (el === null) return
+    const gap = el.scrollHeight - el.clientHeight - el.scrollTop
+    follows.current = gap <= 80
+    setAway(gap > 80)
+  }, [])
+  const toLatest = useCallback(() => {
+    const el = scroll.current
+    if (el === null) return
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
+    follows.current = true
+    setAway(false)
+  }, [])
+  // Keep the reading position when someone looks back (UI recovery witness row 11, DL 10 Nov).
+  const turns = view?.chat.length ?? 0, job = view?.turn?.job ?? null
+  useEffect(() => { if (follows.current) toLatest(); else readScroll() }, [turns, job, readScroll, toLatest])
   // The View moved on while the entry is open (a new version, the offer gone, a goal set): read the entry again while core still offers
   // it, else close it (their figure then stands beside Olumi's, drawn from the View). Read against the signature it was opened with.
   const signature = view?.signature ?? null
@@ -999,31 +1008,34 @@ export function ViewChat() {
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   return (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-        {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
-        {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-        {/* R25 (Paul 7 Nov, plan v3 item 4: reasoning first): Olumi's latest reply above the fold, then the one next move (and any change
-            waiting, its group lines and problems in view), then every method behind one disclosure, ranked by nobody here. */}
-        <ModelNoticeLine />
-        {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
-            behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
-        {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
-        {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} />}
-        {view === null ? null : <NextStepCard view={view} busy={busy} />}
-        {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
-        <div {...{ [VIEW_NOTE_SLOT]: '' }} />
-        {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
-        {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
-        {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
-        {session === null && tucked === null && !methods ? null : (
-          <details className="space-y-4" data-testid="view-more-ways">
-            <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-info`}>{MORE_WAYS}</summary>
+      <div className="relative flex flex-1 min-h-0 flex-col">
+        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
+          {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
+          <ModelNoticeLine />
+          {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
+              behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
+          {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} />}
+          {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+          {view === null ? null : <NextStepCard view={view} busy={busy} />}
+          {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
+          <div {...{ [VIEW_NOTE_SLOT]: '' }} />
+          {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
+          {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
+          {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
+        </div>
+        {away ? <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} absolute bottom-2 right-4 inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button> : null}
+      </div>
+      {session === null && tucked === null && !methods ? null : (
+        <details className="shrink-0 px-4" data-testid="view-more-ways">
+          <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>
+          <div className="max-h-[45vh] overflow-y-auto space-y-4 pb-4">
             {tucked === null ? null : <div data-testid="view-more-ways-move"><MoveTap turn={tucked.id} next={tucked.answer!.next} /></div>}
             {methods ? <MethodChips /> : null}
             {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
-          </details>
-        )}
-      </div>
+          </div>
+        </details>
+      )}
     </div>
   )
 }

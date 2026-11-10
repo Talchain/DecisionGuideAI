@@ -1,6 +1,6 @@
 /**
  * Lane C (Paul 3 Nov: a first-time person knows what they are looking at and what to do next within a minute). The one next step,
- * highlighted at the top of the Olumi tab, chosen from what the View already states; and Olumi's newest reply first. Core's goldens.
+ * chosen from what the View already states. Keep the thread's context (UI recovery witness row 11, DL 10 Nov). Core's goldens.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -104,25 +104,25 @@ describe('the next step', () => {
   })
 })
 
-describe('Olumi\'s newest reply first', () => {
-  it('the newest turn shows Olumi\'s reply above the words it answers; earlier turns are folded under it, each at its own path', () => {
+describe('Olumi\'s chronological conversation', () => {
+  it('each turn shows the person\'s words before Olumi\'s reply, oldest to newest, each at its own path', () => {
+    // Re-pinned (UI recovery witness row 11, DL 10 Nov): the chat is a thread again. Was: newest reply first, user words below, earlier turns folded.
     const view = golden('s_ce285b3617bb'), last = view.chat.length - 1
     expect(last).toBeGreaterThan(0)
     const c = show(view)
-    const latest = c.querySelector(`[data-testid="view-chat-latest"] [data-view-turn="chat.${last}"]`)!
+    const latest = c.querySelector(`[data-testid="view-chat-latest"][data-view-turn="chat.${last}"]`)!
     const answer = latest.querySelector(`[data-view="chat.${last}.answer.answer.0.text"]`)!, said = latest.querySelector(`[data-view="chat.${last}.said"]`)!
-    expect(answer.compareDocumentPosition(said) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // What it answers is whole (R25, Paul's finish line: no cut text; was one line cut short), also on hover; core's text, untouched.
-    const reply = latest.querySelector<HTMLElement>('[data-testid="view-chat-in-reply"]')!
+    expect(said.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const reply = latest.querySelector<HTMLElement>('[data-testid="view-chat-said-bubble"]')!
     expect(reply.className).not.toMatch(/line-clamp|truncate/)
-    expect(reply.getAttribute('title')).toBe(view.chat[last]!.said)
     expect(said.textContent).toBe(view.chat[last]!.said)
-    const earlier = c.querySelector('[data-testid="view-chat-earlier"]')!
-    // Earlier turns keep what was said in full, unclamped.
-    expect(earlier.querySelector('[data-view-turn="chat.0"] [data-view="chat.0.said"]')?.closest('.line-clamp-1')).toBeNull()
-    expect(earlier.tagName).toBe('DETAILS')
-    expect(earlier.querySelectorAll('[data-view-turn]')).toHaveLength(last)
-    expect(earlier.querySelector('[data-view-turn="chat.0"] [data-view="chat.0.said"]')?.textContent).toBe(view.chat[0]!.said)
+    expect(c.querySelector('[data-testid="view-chat-in-reply"]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-chat-earlier"]')).toBeNull()
+    const thread = c.querySelector('[data-testid="view-chat-turns"]')!
+    expect(thread.tagName).toBe('OL')
+    expect([...thread.children].map((turn) => turn.getAttribute('data-view-turn'))).toEqual(view.chat.map((_, i) => `chat.${i}`))
+    expect(thread.querySelector('[data-view="chat.0.said"]')?.closest('.line-clamp-1')).toBeNull()
+    expect(thread.querySelector('[data-view="chat.0.said"]')?.textContent).toBe(view.chat[0]!.said)
   })
 })
 
