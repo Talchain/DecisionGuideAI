@@ -34,7 +34,9 @@ export function ReducedFace({ scale, title, titleAttrs, line = null, rootAttrs, 
   const [lines, setLines] = useState(0)
   useLayoutEffect(() => {
     const box = root.current?.parentElement?.clientHeight ?? 0
-    setLines(box > 0 ? headingLines(box, REDUCED_NAME_PX * scale, tail.current?.offsetHeight ?? 0) : 0)
+    // Asked for only when the count changes: this effect runs after every render (the same rule as the top bar's fit, DL 10 Nov).
+    const next = box > 0 ? headingLines(box, REDUCED_NAME_PX * scale, tail.current?.offsetHeight ?? 0) : 0
+    if (next !== lines) setLines(next)
   })
   // The room the question really needs is reserved in its own box (DL 10 Nov, Codex at 900 x 704: the grown face ended 5.5 px inside the
   // options below it). The box's measured height then carries it. Measured at the face's content height, never its previous size.

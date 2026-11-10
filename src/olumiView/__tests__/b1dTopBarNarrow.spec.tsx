@@ -8,8 +8,8 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { useRef } from 'react'
-import { cleanup, render, screen } from '@testing-library/react'
+import { useRef, useState } from 'react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { TeamPresence } from '../TeamPresence'
@@ -64,5 +64,32 @@ describe('the top bar never overlaps the dock (eight people)', () => {
     expect(screen.queryByTestId('team-presence-more')).toBeNull()
     expect(bar.dataset['tight']).toBeUndefined()
     expect(bar.getBoundingClientRect().right).toBeLessThanOrEqual(924 - 12)
+  })
+})
+
+/**
+ * DL 10 Nov, 21:16Z live run and four zero-call replays: on Builds 1e to 2a the board crashed mid-draft ("Maximum update depth", React 185).
+ * The hook scheduled a state update from its layout effect on EVERY render, even when the measurement changed nothing; on a bar that was
+ * rendering for its own reasons that never ended. The spec: a measurement that changes nothing schedules nothing.
+ */
+describe('a measurement that changes nothing schedules no update', () => {
+  it('the bar re-renders once for its own update, never a second time for an unchanged measurement', () => {
+    window.innerWidth = 1232; openDock(924)
+    let renders = 0, bump: () => void = () => {}
+    function Counted() {
+      const ref = useRef<HTMLDivElement | null>(null)
+      const [n, setN] = useState(0); bump = () => setN((x) => x + 1)
+      renders++
+      const level = useTopBarFit(ref, 'hiring')
+      return <div role="banner" data-n={n} data-tight={level > 0 ? level : undefined} ref={ref} />
+    }
+    render(<Counted />)
+    for (let i = 0; i < 3; i++) {
+      const before = renders
+      act(() => bump())
+      expect(renders - before, `own update ${i + 1}: one render, and the unchanged measurement asks for no other`).toBe(1)
+    }
+    expect(screen.getByRole('banner').dataset['n']).toBe('3')
+    expect(screen.getByRole('banner').dataset['tight'], 'CONTRAST: nothing gave way, the bar fits').toBeUndefined()
   })
 })
