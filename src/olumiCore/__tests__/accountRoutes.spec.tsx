@@ -19,7 +19,6 @@ vi.mock('../../routes/CanvasMVP', () => stub('route-canvas'))
 vi.mock('../../pages/ScenarioListPage', () => stub('route-scenarios'))
 vi.mock('../../pages/ProfileSettingsPage', () => stub('route-profile'))
 vi.mock('../../components/auth/LoginPage', () => stub('route-login'))
-vi.mock('../../pages/ScenarioComparePage', () => stub('route-compare'))
 vi.mock('../../pages/PanelSetupPage', () => stub('route-panel-setup'))
 vi.mock('../accounts/MyScenariosPage', () => stub('route-my-scenarios'))
 vi.mock('../accounts/SignInPage', () => stub('route-signin'))
@@ -32,7 +31,7 @@ import AppPoC from '../../poc/AppPoC'
 
 const ACCOUNT_PAGES = [
   ['/profile', 'route-profile'], ['/login', 'route-login'], ['/scenarios', 'route-scenarios'],
-  ['/scenario/00000000-0000-4000-8000-437f3c107bdd/compare', 'route-compare'], ['/scenario/00000000-0000-4000-8000-437f3c107bdd/panel', 'route-panel-setup'],
+  ['/scenario/00000000-0000-4000-8000-437f3c107bdd/panel', 'route-panel-setup'],
 ] as const
 
 const renderAt = (hash: string) => { window.location.hash = hash; return render(createElement(AppPoC)) }
@@ -54,6 +53,14 @@ describe('account pages on the olumi-core lane', () => {
     renderAt(`#${path}`)
     await waitFor(() => expect(screen.getByTestId(testid)).toBeInTheDocument())
     expect(screen.queryByTestId('route-canvas')).not.toBeInTheDocument()
+  })
+
+  // The retired two-scenario page (audit RIP OUT, 10 Nov): its address opens the scenario on its Compare tab, on the lane and off it.
+  it.each([['1'], ['']])('VITE_OLUMI_CORE=%j: /scenario/:id/compare opens /scenario/:id?tab=compare on the canvas', async (lane) => {
+    vi.stubEnv('VITE_OLUMI_CORE', lane)
+    renderAt('#/scenario/00000000-0000-4000-8000-437f3c107bdd/compare')
+    await waitFor(() => expect(screen.getByTestId('route-canvas')).toBeInTheDocument())
+    expect(window.location.hash).toBe('#/scenario/00000000-0000-4000-8000-437f3c107bdd?tab=compare')
   })
 
   // PoC accounts (src/olumiCore/accounts/): on the lane home is My scenarios; off it, home is the scenario list it was.

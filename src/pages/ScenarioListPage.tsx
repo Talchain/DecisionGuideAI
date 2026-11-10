@@ -758,7 +758,7 @@ export default function ScenarioListPage() {
                     )}
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/scenario/${scenario.id}/compare`) }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/scenario/${scenario.id}?tab=compare`) }}
                       className="mt-3 rounded-lg border border-border-default px-3 py-1.5 text-sm text-text-body hover:bg-canvas"
                       data-testid="compare-scenario"
                     >

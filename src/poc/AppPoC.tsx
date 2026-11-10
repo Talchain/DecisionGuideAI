@@ -3,7 +3,7 @@
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import type React from 'react'
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import { isCanvasRouteHash } from './canvasRouteHash'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
@@ -100,7 +100,6 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
-const ScenarioComparePage = lazyWithStallBound(() => import('../pages/ScenarioComparePage'), 'Scenario comparison')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
 const ReasoningPrototype = lazyWithStallBound(() => import('../routes/ReasoningPrototype'), 'The reasoning prototype')
@@ -167,6 +166,13 @@ const queryClient: any = (QueryClient && typeof QueryClient === 'function')
 
 
 /** The olumi-core lane's one redirect: a page that needs accounts, CEE or the v10 design lands on the canvas there; elsewhere, the page. */
+/** `/scenario/:id/compare` (a saved link to the retired page): the scenario itself, on the dock's Compare tab (`?tab=compare`, OutputsDock), where "Compare with
+ *  another scenario" lives. */
+function CompareOnTheTab(): JSX.Element {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/scenario/${encodeURIComponent(id ?? '')}?tab=compare`} replace />
+}
+
 function NotOnTheLane(): JSX.Element {
   return coreLaneHasAccounts() ? <Outlet /> : <Navigate to="/canvas" replace />
 }
@@ -999,13 +1005,14 @@ export default function AppPoC() {
                 {/* Auth-guarded routes */}
                 <Route element={<AuthGuard />}>
                   <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  {/* The old two-scenario page is gone (audit RIP OUT, 10 Nov): its address opens the scenario on its Compare tab, which compares it with another. */}
+                  <Route path="/scenario/:id/compare" element={<CompareOnTheTab />} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   {/* The rest need accounts, CEE or the v10 design: not on the olumi-core lane (`NotOnTheLane`). */}
                   {/* Home: My scenarios on the olumi-core lane (src/olumiCore/accounts/), the scenario list off it. */}
                   <Route path="/" element={<LaneHome otherwise={<ScenarioListPage />} />} />
                   <Route element={<NotOnTheLane />}>
                   <Route path="/scenarios" element={<ScenarioListPage />} />
-                  <Route path="/scenario/:id/compare" element={<RouteContent><ScenarioComparePage /></RouteContent>} />
                   {/* COLLAB — the owner's side. INSIDE AuthGuard: minting a
                       round pins a version of the owner's model and names real
                       people, so it requires a verified session. */}
