@@ -766,7 +766,12 @@
       },
       "rests_on_text": "Rests on Olumi's what-if for 'extra sold per oven'.",
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "extra_sold_per_oven",
+       "low": 0.5346534653465347,
+       "high": 0.8067806780678067
+      }
      }
     ],
     "driver": {
@@ -877,7 +882,12 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "extra_hours_sold",
+       "low": 0,
+       "high": 1
+      }
      }
     ],
     "driver": {
@@ -988,7 +998,8 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,

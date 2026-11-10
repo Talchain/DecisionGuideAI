@@ -299,7 +299,8 @@
               "text": "80 tickets/week",
               "title": "Under 'Keep current staffing', 'total capacity' is this in at least 8 draws in 10. It leaves out: How the team feels about a new hire."
             },
-            "estimate": null
+            "estimate": null,
+            "driver": null
           }
         ],
         "driver": null,
@@ -350,7 +351,12 @@
               "text": "between 89.7 and 110 tickets/week (middle 99.9)",
               "title": "Under 'Add one specialist', 'total capacity' is likely to be in this range (8 draws in 10). It leaves out: How the team feels about a new hire."
             },
-            "estimate": null
+            "estimate": null,
+            "driver": {
+              "figure": "per_specialist",
+              "low": 0,
+              "high": 1
+            }
           }
         ],
         "driver": {

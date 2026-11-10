@@ -267,7 +267,8 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "The chance that 'Keep current staffing' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,
@@ -303,7 +304,8 @@
       "aim": "At least 100 a week",
       "aim_id": "capacity_goal",
       "title": "The chance that 'Add one specialist' meets 'At least 100 a week', in this model on current information. It leaves out: How the team feels about a new hire.",
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,

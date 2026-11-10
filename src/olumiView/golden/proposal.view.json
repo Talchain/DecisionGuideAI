@@ -406,7 +406,8 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,
@@ -498,7 +499,12 @@
        "glyph": "↻",
        "title": "if approved; now about 50% chance"
       },
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "per_specialist",
+       "low": 0.21692169216921692,
+       "high": 1
+      }
      }
     ],
     "driver": {

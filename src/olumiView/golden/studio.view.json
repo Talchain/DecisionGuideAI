@@ -658,7 +658,12 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "evening_extra",
+       "low": 0.678967896789679,
+       "high": 1
+      }
      }
     ],
     "driver": {
@@ -804,7 +809,8 @@
       },
       "rests_on_text": "Rests on Olumi's proposed figure for 'workshop extra'.",
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,
@@ -909,7 +915,8 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": null
      }
     ],
     "driver": null,

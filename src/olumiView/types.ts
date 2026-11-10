@@ -122,6 +122,11 @@ export type View = {
           text: string
           title: string
         } | null
+        driver: {
+          figure: string
+          low: number
+          high: number
+        } | null
         text?: string
         rests_on?: {
           reading: boolean

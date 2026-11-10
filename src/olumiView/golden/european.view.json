@@ -965,7 +965,12 @@
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure; 4 assumptions and 1 condition.",
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "existing_market_acquisitions",
+       "low": 0.0429042904290429,
+       "high": 0.9738973897389739
+      }
      },
      {
       "kind": "limit",
@@ -1262,7 +1267,12 @@
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 3 what-ifs and 1 proposed figure; 4 assumptions and 1 condition.",
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "existing_market_acquisitions",
+       "low": 0,
+       "high": 0.9531953195319532
+      }
      },
      {
       "kind": "limit",
@@ -1440,7 +1450,12 @@
       },
       "rests_on_text": "Rests on Olumi's reading of the aim, 1 what-if and 1 proposed figure; 4 assumptions.",
       "if_approved": null,
-      "estimate": null
+      "estimate": null,
+      "driver": {
+       "figure": "existing_market_acquisitions",
+       "low": 0,
+       "high": 0.9936993699369937
+      }
      },
      {
       "kind": "limit",
