@@ -36,6 +36,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
+import { profileForBrief, ViewProfile } from './ViewProfile'
 import { ArrowRight, ArrowUp, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
@@ -385,7 +386,7 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
   // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
   // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
   keepPending(brief, op)
-  const made = await writes.create(brief, op)
+  const made = await writes.create(brief, op, profileForBrief())
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
   dropPending(op)
@@ -1113,6 +1114,8 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
           </button>
         </div>
       </div>
+      {/* Which AI answers this scenario's steps: Olumi, Claude or ChatGPT, every word core's (ViewProfile.tsx). */}
+      <ViewProfile sid={sid} held={busy || past !== null || drafting} />
     </div>
   )
 }

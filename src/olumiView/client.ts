@@ -73,8 +73,19 @@ export type DraftAccepted = { scenario: string; job: DraftJob | null; proposal: 
 /** A turn (core API v1.28: a message, a move, a challenge, a method question): accepted at once (`202`) and answered in core; the View's
  *  `turn` says where it stands, and the answer arrives as the conversation's newest turn. `200` when the same op replays an answered one. */
 export type TurnAccepted = { scenario: string; job: { id: number; kind: 'turn'; status: 'running' | 'done' | 'failed' | 'lost'; words: string | null } | null; proposal: number | null; discussion: boolean | null; status_url: string | null }
+/** Which AI answers a scenario's steps (core profiles, 10 Nov): the profile in force, core's heading and the three choices, each drawn
+ *  verbatim (ViewProfile.tsx). */
+export type ProfileView = { profile: string; heading: string; choices: { id: string; label: string }[] }
+export const profiles = {
+  /** Before a brief is sent: the host's profile and the choices (`GET /api/profiles`). */
+  host: () => call<ProfileView>('GET', '/api/profiles'),
+  read: (sid: string) => call<ProfileView>('GET', `${scenarioPath(sid)}/profile`),
+  /** Saved at once; applies to the scenario's next AI step (`POST …/profile`). No AI call. */
+  set: (sid: string, profile: string, op: string) => call<ProfileView>('POST', `${scenarioPath(sid)}/profile`, { profile, op }),
+}
 export const writes = {
-  create: (brief: string, op: string) => call<DraftAccepted>('POST', '/api/scenarios', { brief, op }),
+  /** `profile`: the AI profile chosen before the brief (ViewProfile.tsx); absent, core uses the host's. */
+  create: (brief: string, op: string, profile: string | null = null) => call<DraftAccepted>('POST', '/api/scenarios', profile === null ? { brief, op } : { brief, op, profile }),
   /** Try again (core API v1.26 `POST …/draft`): a new attempt on the scenario's saved brief, under a NEW op, after its draft failed or was lost. */
   redraft: (sid: string, op: string) => call<DraftAccepted>('POST', `${scenarioPath(sid)}/draft`, { op }),
   message: (sid: string, text: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/messages`, { text, op }),
