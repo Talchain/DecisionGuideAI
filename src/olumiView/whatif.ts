@@ -17,6 +17,9 @@ export type WhatIfVariant = {
   why_not: string | null
   rows: { option_id: string; rows: ViewRow[] }[]
   most_likely: { text: string; title: string } | null
+  /** Core's numbered facts for this copy. A chance fact carries the number behind an option row's words, bound by option and aim ids
+   *  (core 55c0c03f sends the what-if rows without `chance`; measured 10 Nov). Read only to place a mark, never to write a figure. */
+  facts?: { id: string; about?: { kind: string; option?: string; goal?: string; chance?: number } }[]
 }
 export type WhatIfAnswer = { scenario: string; version: { id: number; n: number }; hypothetical: true; saved: false; variants: WhatIfVariant[] }
 
