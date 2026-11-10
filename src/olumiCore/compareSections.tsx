@@ -18,7 +18,7 @@ export const COMPARE_SECTIONS_TESTID = 'core-compare-sections'
 const headOf = (s: NonNullable<Move['before']>) => (typeof s.headline === 'string' && s.headline.trim() !== '' ? s.headline : s.value)
 /** A side's mark: core's own number (0 to 1) placed on the track, with core's words; none where core gives no number (never a mark at 0%). */
 const sideOf = (s: Move['before']): PairChanceSide | null =>
-  s && typeof s.chance === 'number' && Number.isFinite(s.chance) && s.chance >= 0 && s.chance <= 1 ? { kind: 'point', words: headOf(s), scaleAt: s.chance * 100 } : null
+  s && typeof s.chance === 'number' && Number.isFinite(s.chance) && s.chance >= 0 && s.chance <= 1 ? { kind: 'point', words: `${headOf(s)}${s.olumi ? ` ${s.olumi.glyph}` : ''}`, scaleAt: s.chance * 100 } : null
 
 /** Each chance result as a slope row, by core's own label for it ("‘Add one specialist’ on ‘At least 100 a week’"); a result with no number on
  *  either side is a row with core's words as its note. No claim: which option is ahead is core's to say (its most-likely line), never this module's. */
