@@ -32,7 +32,7 @@ export function ViewQuestion({ question, width, reducedPx = 0 }: ViewQuestionDat
       {q.badge === null ? null : <p><Badge cardId={QUESTION} badge={q.badge} at="question" /></p>}
       {reducedPx === 0 ? null : (
         // Zoomed out (Paul, 10 Nov): the question alone, inside the full face's box (ReducedFace). Core's words.
-        <ReducedFace px={reducedPx} semibold grow title={q.text} titleAttrs={{ 'data-view-reduced-question': '', 'data-view': 'question.text' }} />
+        <ReducedFace scale={reducedPx} semibold grow title={q.text} titleAttrs={{ 'data-view-reduced-question': '', 'data-view': 'question.text' }} />
       )}
     </div>
   )

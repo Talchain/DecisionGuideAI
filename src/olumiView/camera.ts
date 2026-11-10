@@ -4,6 +4,7 @@
  * whole of core's model is in view on first open and after each new version; the person zooms in from there.
  */
 import type { View } from './client'
+import { labelCounterScale, LABEL_SCALE_QUANTUM } from '../canvas/utils/zoomLegibility'
 
 export const CORE_LANE_FIT_FLOOR = 0.25
 
@@ -19,12 +20,11 @@ export const productFitFloor = (coreLane: boolean, legible: number): number => (
  *  (`wholeAtTopViewport`, never below `CORE_LANE_FIT_FLOOR`), not this zoom. */
 export const MIN_CARD_TEXT_PX = 11
 export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
-/** A reduced face draws at 12 px as drawn (DL 10 Nov: the look rule allows 12, 14 or 18 at the effective zoom). */
-export const REDUCED_TEXT_PX = 12
-
-/** The font size (declared px, in half pixels, rounded up) at which a reduced face draws at `REDUCED_TEXT_PX` at `zoom`; 0 when the
- *  zoom is at or above `READABLE_WHOLE_ZOOM` (the full face is drawn) or not a usable number. */
-export const reducedFaceSize = (zoom: number): number => (Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil((REDUCED_TEXT_PX / zoom) * 2) / 2 : 0)
+/** The label counter-scale a reduced face draws at (DL 10 Nov evening, reversing the 12 px rule: "as the previous product did"): the previous
+ *  product's own rule, `labelCounterScale` (capped at LABEL_COUNTER_SCALE_CAP, 1.64), rounded UP to the sync's 0.01 grid exactly as
+ *  CanvasLabelScaleSync writes it. 0 when the zoom is at or above `READABLE_WHOLE_ZOOM` (the full face is drawn) or not a usable number. */
+export const reducedFaceSize = (zoom: number): number =>
+  Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil(labelCounterScale(zoom) * LABEL_SCALE_QUANTUM) / LABEL_SCALE_QUANTUM : 0
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */

@@ -555,3 +555,5 @@
 /* Zoomed out on the olumi-core lane (Paul, 10 Nov): a card or the question draws only its reduced face (`data-reduced-face`); the full face
    keeps its place, so no card changes size, and is hidden. */
 [data-reduced] > *:not([data-reduced-face]) { visibility: hidden; }
+/* A tall card's reduced face is its content's height; the rest of the card's box (which keeps its height, so nothing moves) is not drawn. */
+[data-reduced-clip] { clip-path: inset(-4px -4px var(--reduced-clip-bottom, 0px) -4px round 12px); }
