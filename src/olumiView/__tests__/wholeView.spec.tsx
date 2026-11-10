@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi, type Node, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { causalPlaces, CARD_WIDTH, QUESTION, questionPlace } from '../layout'
