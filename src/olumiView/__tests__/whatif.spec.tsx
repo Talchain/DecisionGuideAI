@@ -50,7 +50,7 @@ const typeAndTry = (typed: string) => {
 }
 
 describe('what-if: the figure tried on a copy, nothing saved', () => {
-  it('one POST to core\'s what-if with the figure as typed on the version shown, never the edit route; the answer drawn over the chances in core\'s words and rows, marked not saved; the editor stays open', async () => {
+  it('one POST to core\'s what-if with the figure as typed on the version shown, never the edit route; the answer drawn over the chances in core\'s words and rows, marked not saved; the editor closes, keeping what was typed', async () => {
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry(' 5 ')
     const block = await screen.findByTestId('view-whatif')
@@ -64,7 +64,12 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
       expect(block.querySelector(`[data-view="whatif.${o.option_id}.rows.${i}.value"]`)?.textContent, o.option_id).toBe(r.value)
       expect(block.querySelector(`[data-view="whatif.${o.option_id}.rows.${i}.aim"]`)?.textContent, o.option_id).toBe(r.aim)
     })
-    expect(screen.getByTestId(`view-figure-form-${card.id}`)).toBeInTheDocument()
+    // Re-pinned (TM-27, DL 10 Nov approved design; the J5 TryRange comp): once tried, the editor closes so the card shows the try in place
+    // and the board brings every option's chance into view (it stayed open, covering the card and scrolling the options away). What was
+    // typed is kept: ✎ opens it again as typed. Was: the form stayed open.
+    await waitFor(() => expect(screen.queryByTestId(`view-figure-form-${card.id}`)).toBeNull())
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
+    expect((screen.getByTestId(`view-figure-typed-${card.id}`) as HTMLInputElement).value).toBe(' 5 ')
     fireEvent.click(screen.getByTestId('view-whatif-clear'))
     expect(screen.queryByTestId('view-whatif')).toBeNull()
   })
@@ -87,6 +92,9 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry('5')
     await screen.findByTestId('view-whatif')
+    // TM-27: the editor closed on the try; ✎ opens it again, as typed, and Set figure saves that.
+    await waitFor(() => expect(screen.queryByTestId(`view-figure-form-${card.id}`)).toBeNull())
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))
     fireEvent.click(screen.getByTestId(`view-figure-set-${card.id}`))
     await waitFor(() => expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/whatif`, `/api/scenarios/${SID}/edit`]))
     cleanup()

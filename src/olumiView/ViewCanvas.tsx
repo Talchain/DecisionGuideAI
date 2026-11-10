@@ -44,7 +44,7 @@ import { DraftingBoard } from './DraftingBoard'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
-import { useOpenInView, useRevealInView } from './revealCamera'
+import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
 import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
@@ -142,6 +142,7 @@ function ViewFlow() {
   // P1 (DL 10 Nov): the dock lands on the contested card's panel, once per reveal (./revealLanding.ts).
   useRevealLanding()
   useOpenInView(movedAt)
+  useTryInView(movedAt)
   // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
   useCardClearOfRegions()
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the

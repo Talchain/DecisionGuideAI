@@ -13,6 +13,7 @@ import { layoutGraph } from '../canvas/utils/layout'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
 import { basisIdsOf } from './standin'
 import { orderUnderParents } from '../canvas/utils/orderUnderParents'
+import type { WhatIfVariant } from './whatif'
 
 /** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
 export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
@@ -1088,4 +1089,23 @@ export function cardLinkMarksOf(view: View | null, card: string): LinkMarkOf[] {
 export function unmarkedDiffers<D extends { readonly record: string }>(view: View | null, differs: readonly D[]): D[] {
   const marked = new Set((view?.collab.link_marks ?? []).map((m) => m.link.record))
   return differs.filter((d) => !marked.has(d.record))
+}
+
+/**
+ * TM-27, TRY A FIGURE IN PLACE (the approved J5 TryRange comp; DL 10 Nov: "a person changes one number and watches the chance move"). What a
+ * try on a copy (core's what-if, whatif.ts: nothing saved, no AI call) draws on one card's face: on the card tried, the figure as the person
+ * typed it, core's words for the edit and core's own refusal when it could not run; on each option, the copy's lead chance row in core's row
+ * shape, beside its saved headline. Every word is core's or the person's. Null where the try says nothing on this card.
+ */
+export type TryOnCard =
+  | { kind: 'option'; row: ChanceRow; words: string }
+  | { kind: 'tried'; typed: string; words: string; said: string | null }
+type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
+export function tryOnCardOf(variant: WhatIfVariant, quantity: string, typed: string, card: ViewCard): TryOnCard | null {
+  const words = variant.edits.map((e) => e.words).join(' ')
+  if (card.id === quantity) return { kind: 'tried', typed, words, said: variant.blocked ?? variant.stopped ?? null }
+  if (card.family !== 'option' || variant.blocked !== null || variant.stopped !== null) return null
+  const rows = variant.rows.find((o) => o.option_id === card.id)?.rows ?? []
+  const row = rows.find((r): r is ChanceRow => r.kind === 'chance')
+  return row === undefined ? null : { kind: 'option', row, words }
 }
