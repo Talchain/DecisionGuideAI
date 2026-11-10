@@ -606,6 +606,33 @@
                 }
                ]
               },
+              "driver": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "figure": {
+                   "type": "string"
+                  },
+                  "low": {
+                   "type": "number"
+                  },
+                  "high": {
+                   "type": "number"
+                  }
+                 },
+                 "required": [
+                  "figure",
+                  "low",
+                  "high"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
               "text": {
                "type": "string"
               },
@@ -695,6 +722,7 @@
               "timing",
               "timing_title",
               "outcome",
+              "driver",
               "if_approved",
               "estimate"
              ],
