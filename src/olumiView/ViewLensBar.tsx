@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type RefObject } from 'react'
 import { Compass } from 'lucide-react'
-import { useUIStore } from '../stores/uiStore'
+import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { HIT_44 } from '../styles/hitArea'
 import { SELECTED } from '../styles/selected'
@@ -131,13 +131,24 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   // DL round 5 (rehearsal item 4): one control is always pressed. Model is what the canvas shows unless a lens is on (Explore) or the Team
   // panel is open, so it carries the selected ring at rest too, not only while its panel is open.
   const modelOn = !exploring && dockTab !== 'team'
+  // Demo rehearsal 0ce8 step 4 (DL 10 Nov): choosing a lens never takes Analysis away. The dock's last tab of its own (Olumi, Analysis,
+  // Reasoning, Compare) is kept, so leaving Team or a lens for Model gives the dock back as it was; the Model outline opens only when Model
+  // is pressed while the canvas already shows it.
+  const lastTab = useRef<OutputTab>('olumi')
+  useEffect(() => { if (dockTab !== 'team' && dockTab !== 'diagnostics') lastTab.current = dockTab }, [dockTab])
+  const pressModel = () => {
+    const wasOn = modelOn
+    useViewLens.setState({ lens: 'full' }); setOpen(false)
+    if (dockTab === 'team') { useUIStore.getState().forceActivateOutputTab(lastTab.current); return }
+    if (wasOn) useUIStore.getState().forceActivateOutputTab('diagnostics')
+  }
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
     <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
       className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
       style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
       <button type="button" aria-pressed={modelOn} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
-        onClick={() => { useViewLens.setState({ lens: 'full' }); setOpen(false); useUIStore.getState().forceActivateOutputTab('diagnostics') }} className={segment(modelOn)}>
+        onClick={pressModel} className={segment(modelOn)}>
 <span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
       </button>
       <div className="relative h-full">
