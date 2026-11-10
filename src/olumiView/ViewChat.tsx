@@ -103,7 +103,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 const NO_CARDS: readonly string[] = []
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
-function Turn({ t, at, latest = false, moves = false }: { t: ViewTurn; at: string; latest?: boolean; moves?: boolean }) {
+function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: string; latest?: boolean; moves?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const lit = useRef(false)
@@ -153,6 +153,8 @@ function Turn({ t, at, latest = false, moves = false }: { t: ViewTurn; at: strin
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
+      {/* Name another person's words before their bubble (pre-screen 4b92d394 row 23). */}
+      {me !== undefined && t.by_id !== null && t.by_id !== me ? <p className={`${typography.viewPanelMeta} text-text-body`} data-view={`${at}.by`}>{t.by}</p> : null}
       {said}{answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
@@ -171,12 +173,12 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
 }
 
 /** Preserve the conversation's sequence and paths (UI recovery witness row 11, DL 10 Nov). */
-export function ViewConversation({ chat, moves = false }: { chat: View['chat']; moves?: boolean }) {
+export function ViewConversation({ chat, moves = false, me }: { chat: View['chat']; moves?: boolean; me?: string | null }) {
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
-      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} />)}
+      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} me={me} />)}
     </ol>
   )
 }
@@ -965,11 +967,17 @@ export function ViewChat() {
   const ffShown = useFigureFirst((s) => s.shown !== null)
   const tab = useRef<HTMLDivElement>(null)
   const scroll = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
   const follows = useRef(true)
+  const followedTop = useRef<number | null>(null)
   const [away, setAway] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const readScroll = useCallback(() => {
     const el = scroll.current
     if (el === null) return
+    // An automatic scroll to a long reply's start still follows it (pre-screen 4b92d394 row 14).
+    if (follows.current && el.scrollTop === followedTop.current) return
+    followedTop.current = null
     const gap = el.scrollHeight - el.clientHeight - el.scrollTop
     follows.current = gap <= 80
     setAway(gap > 80)
@@ -978,12 +986,30 @@ export function ViewChat() {
     const el = scroll.current
     if (el === null) return
     el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
+    followedTop.current = el.scrollTop
     follows.current = true
     setAway(false)
   }, [])
-  // Keep the reading position when someone looks back (UI recovery witness row 11, DL 10 Nov).
-  const turns = view?.chat.length ?? 0, job = view?.turn?.job ?? null
-  useEffect(() => { if (follows.current) toLatest(); else readScroll() }, [turns, job, readScroll, toLatest])
+  const followNewest = useCallback(() => {
+    const el = scroll.current
+    if (el === null) return
+    if (!follows.current) { setAway(true); return }
+    const newest = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+    el.scrollTop = newest === null ? maxScroll : Math.max(0, Math.min(maxScroll, newest.offsetTop - 16))
+    followedTop.current = el.scrollTop
+    setAway(false)
+  }, [])
+  // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
+  const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
+  useEffect(followNewest, [turns, lastTurn, job, followNewest])
+  // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined' || content.current === null) return
+    const observer = new ResizeObserver(followNewest)
+    observer.observe(content.current)
+    return () => observer.disconnect()
+  }, [followNewest])
   // The View moved on while the entry is open (a new version, the offer gone, a goal set): read the entry again while core still offers
   // it, else close it (their figure then stands beside Olumi's, drawn from the View). Read against the signature it was opened with.
   const signature = view?.signature ?? null
@@ -1009,27 +1035,30 @@ export function ViewChat() {
   return (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       <div className="relative flex flex-1 min-h-0 flex-col">
-        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-          {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
-          {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-          <ModelNoticeLine />
-          {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
-              behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
-          {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} />}
-          {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
-          {view === null ? null : <NextStepCard view={view} busy={busy} />}
-          {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
-          <div {...{ [VIEW_NOTE_SLOT]: '' }} />
-          {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
-          {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
-          {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
+        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
+          <div ref={content} className="space-y-4">
+            {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
+            {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
+            <ModelNoticeLine />
+            {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
+                behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
+            {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
+            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+            {view === null ? null : <NextStepCard view={view} busy={busy} />}
+            {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
+            <div {...{ [VIEW_NOTE_SLOT]: '' }} />
+            {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
+            {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
+            {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
+          </div>
         </div>
         {away ? <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} absolute bottom-2 right-4 inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button> : null}
       </div>
       {session === null && tucked === null && !methods ? null : (
-        <details className="shrink-0 px-4" data-testid="view-more-ways">
+        <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>
-          <div className="max-h-[45vh] overflow-y-auto space-y-4 pb-4">
+          {/* Keep room for the thread after choosing a method (pre-screen 4b92d394 row 16). */}
+          <div className="max-h-[25vh] overflow-y-auto space-y-4 pb-4" onClick={(e) => { if ((e.target as Element).closest('button')) setMoreOpen(false) }}>
             {tucked === null ? null : <div data-testid="view-more-ways-move"><MoveTap turn={tucked.id} next={tucked.answer!.next} /></div>}
             {methods ? <MethodChips /> : null}
             {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
@@ -1082,6 +1111,16 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   const unknown = sid !== null && view === null
   const held = busy || past !== null || drafting || unknown
   const box = useRef<HTMLTextAreaElement>(null)
+  // Fit up to six lines, including restored text; clearing returns to one (pre-screen 4b92d394 row 13).
+  useEffect(() => {
+    const el = box.current
+    if (el === null) return
+    el.style.height = 'auto'
+    const css = getComputedStyle(el)
+    const cap = (parseFloat(css.lineHeight) || 24) * 6 + (parseFloat(css.paddingTop) || 0) + (parseFloat(css.paddingBottom) || 0)
+    el.style.height = text === '' ? '' : `${Math.min(el.scrollHeight, cap)}px`
+    el.style.overflowY = el.scrollHeight > cap && text !== '' ? 'auto' : 'hidden'
+  }, [text, unknown])
   const brief = takesBrief(sid, view)
   // A brief whose answer was lost before a reload is back in the box, with its op (restorePendingBrief); nothing is sent until Send.
   const me = useMe((m) => m.me)
@@ -1095,6 +1134,8 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
   useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
+  const sendHeld = held || answering || text.trim() === ''
+  const submit = () => { if (!sendHeld) void send() }
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
   // is the latest; a proposal not yet approved is not one.
@@ -1117,11 +1158,12 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
       <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
-      {/* J1 gate (the prototype's ask box): one line with the send arrow inside it; the brief keeps its tall box. */}
+      {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className={`relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light ${brief ? '' : 'flex items-center gap-2 py-1.5 pl-3 pr-1.5'}`}>
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${brief ? 'pt-2 pb-1 px-3' : 'flex-1 py-1'}`}
-          rows={brief ? 6 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
-          onChange={(e) => useViewChat.setState({ text: e.target.value })} />
+          rows={1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
+          onChange={(e) => useViewChat.setState({ text: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
         <div className={`flex items-center justify-end gap-1 ${brief ? 'px-2 pb-1' : 'flex-none'}`} data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
@@ -1129,7 +1171,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
               <RefreshCw className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
             </button>
           )}
-          <button type="button" disabled={held || answering || text.trim() === ''} aria-label="Send" data-testid="view-composer-send" onClick={() => void send()}
+          <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-header text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default">
             <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
           </button>
