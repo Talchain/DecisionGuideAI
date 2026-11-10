@@ -23,7 +23,7 @@ import { Words } from '../ViewChat'
 import { mostLikelyBasisOf } from '../standin'
 import { HeroHeadlineAlone, HeroOptionRow, type HeroLensId } from './HeroOptionRow'
 import { LensTabs, lensTabId } from './LensTabs'
-import { aimGroupsOf, headlinesAloneOf, lensAimOf, lensesOf, outcomeDomainOf, readingsFor, tippingFor, type AimRow } from './pick'
+import { aimGroupsOf, headlinesAloneOf, lensAimOf, lensesOf, outcomeDomainOf, tippingFor, type AimRow } from './pick'
 import { TYPE } from './type'
 
 /** The crafted panel's surface: the panel colour and a full border, never a single side. */
@@ -113,7 +113,8 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
                 {/* The aim core's lead already names is said once, there (craft pass, 8 Nov: the grade found it said twice); its group keeps
                     the aim as its accessible name. Any other aim keeps its heading. */}
                 {g.aim === null || leadNamesIt(g.aimId) ? null : <p className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-heading" data-view={g.aim.at}>{g.aim.text}</p>}
-                {readingsFor(run, g.aimId).map(({ reading, i }) => <p key={i} className={`${TYPE.meta} px-2 text-text-light`} data-view={`run.readings.${i}.text`}>{reading.text}</p>)}
+                {/* P1 (DL 10 Nov): core's reading of an aim (`run.readings`) is said once, on that aim's own card (ViewCardNode readingOf); the
+                    panel no longer repeats it. */}
                 {/* SC-02 (core run.shared_rests): what every option's chance for this aim rests on, when it is one line for all of them, said once
                     here; core takes it off each row. */}
                 {(run.shared_rests ?? []).map((r, i) => (r.aim_id !== g.aimId ? null : <p key={`rests${i}`} className={`${TYPE.meta} px-2 text-text-light`} data-testid="port-aim-rests" data-view={`run.shared_rests.${i}.text`}>{r.text}</p>))}

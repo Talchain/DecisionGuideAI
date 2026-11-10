@@ -94,7 +94,7 @@ function Person({ v, card = null }: { v: Shared; card?: string | null }): JSX.El
   return (
     <article className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2.5" data-testid={`reveal-dock-view-${v.id}`}>
       <span aria-hidden="true" className={AVATAR}>{initial(v.by)}</span>
-      <div className="grid min-w-0 gap-1.5">
+      <div className="grid min-w-0 gap-1">
         <p className={`${BODY} flex flex-wrap items-center gap-2 font-medium text-text-header`}>
           {v.by}
           {/* P1 (the comp): opened on a card, their pill for THIS card ("Observed, two rollouts") is the one beside their name; else the view's
@@ -180,7 +180,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const shown = chip === null ? undefined : model?.cards.find((c) => c.id === chip.card)
   const heading = chip === null ? view.collab.heading : shown?.heading ?? view.collab.heading
   return (
-    <section data-testid="reveal-dock" aria-label={heading} className="grid min-h-full content-start gap-5">
+    <section data-testid="reveal-dock" aria-label={heading} className="grid min-h-full content-start gap-4">
       <div className="flex items-start justify-between gap-2">
         <div className="grid gap-0.5">
           <h2 ref={head} tabIndex={-1} className={`${H} flex items-center gap-2 outline-none`} data-testid="reveal-dock-heading">
@@ -196,20 +196,21 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </button>
       </div>
 
-      <div className="grid gap-5">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
+      <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
 
       <Reading view={view} chip={chip} lead={lead} />
 
-      {others.length === 0 ? null : <div className="grid gap-5" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
+      {others.length === 0 ? null : <div className="grid gap-4" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
 
       {/* Olumi's one question for what matters next, with one primary action and a quiet way to leave the difference open. It stays at the
           dock's foot while the views above it scroll, so the action is always in reach (1232 x 704: the views alone fill the dock). It reaches
           down over the dock body's own padding, so nothing scrolls past beneath it. */}
       <div className="sticky -bottom-3 mt-auto bg-panel pb-3 pt-2">
-        <div className="grid gap-3 rounded-2xl bg-panel-hover p-4" data-testid="reveal-dock-foot">
+        <div className="grid gap-2 rounded-2xl bg-panel-hover p-3" data-testid="reveal-dock-foot">
           <Next view={view} chip={chip} />
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="md" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
+          {/* One row, as the comp: the primary action and the quiet one side by side. */}
+          <div className="flex flex-nowrap items-center gap-2">
+            <Button size="sm" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
             <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
               className={`${BODY} inline-flex min-h-[44px] cursor-pointer items-center rounded-full px-3 text-text-body hover:text-text-header`}>{view.reveal_words.keepOpen}</button>
           </div>

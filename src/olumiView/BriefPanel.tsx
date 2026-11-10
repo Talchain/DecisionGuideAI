@@ -64,14 +64,20 @@ export function BriefPanel(): JSX.Element | null {
         </dl>
         <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-notes-missing">{a.leftOut.some((x) => x.why !== null) ? 'Olumi’s own notes on why it used or inferred each part are not available yet.' : 'Olumi’s own notes on why it used, inferred or left out each part are not available yet.'}</p>
       </div>
-      {a.question === null ? null : (
-        <div className="mt-auto space-y-2 bg-[#FEF9F3] px-3.5 pb-1 pt-3" data-testid="brief-panel-question">
-          <p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OlumiAiIcon size={16} aria-hidden="true" className="mt-0.5 flex-none" /><span>{a.question.text}</span></p>
+      {/* P1 (the comp, DL 10 Nov): Olumi's question, and a reply in flight, stay in the warm band at the panel's foot while the brief's
+          account scrolls above them, so the one question is never cut under the composer. */}
+      {a.question === null && view.turn == null ? null : (
+        <div className="sticky bottom-0 mt-auto bg-[#FEF9F3]" data-testid="brief-panel-foot">
+          {a.question === null ? null : (
+            <div className="space-y-2 px-3.5 pb-1 pt-3" data-testid="brief-panel-question">
+              <p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OlumiAiIcon size={16} aria-hidden="true" className="mt-0.5 flex-none" /><span>{a.question.text}</span></p>
+            </div>
+          )}
+          {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain
+              reason with Try again when it ends unanswered, here where it was sent (the same turn the Olumi tab draws, ViewChat TurnInFlight). */}
+          {view.turn == null ? null : <div ref={turnAt} className="px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
         </div>
       )}
-      {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain
-          reason with Try again when it ends unanswered, here where it was sent (the same turn the Olumi tab draws, ViewChat TurnInFlight). */}
-      {view.turn == null ? null : <div ref={turnAt} className="bg-[#FEF9F3] px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
     </section>
   )
 }
