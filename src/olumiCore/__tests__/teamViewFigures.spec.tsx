@@ -16,8 +16,10 @@ import { ViewsPanel } from '../team/ViewsPanel'
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
 const view: View = { ...base, id: SID, you: 'Ada', you_id: 'p_1', members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Bea' }], gated: true,
-  collab: { ...base.collab, alone: false, shared: [], mine: [] } }
-const givable = view.model!.cards.filter((c) => c.figure?.edit)
+  // D3 (re-pinned, strategy canvas audit 10 Nov): the boxes are core's `collab.view_figure_cards`, in its order. This list is core's own for
+  // this golden at olumi-core wip/d3-view-figures 43eeafea (src/view/__tests__/golden/european.view3.json). Was: every card with an edit.
+  collab: { ...base.collab, alone: false, shared: [], mine: [], view_figure_cards: [{ id: 'starting_customers', label: 'Current customer base' }, { id: 'customer_target', label: 'Customer target' }, { id: 'entry_delay', label: 'Expansion start after now' }] } as View['collab'] }
+const givable = ['starting_customers', 'customer_target', 'entry_delay'].map((id) => view.model!.cards.find((c) => c.id === id)!)
 let posts: unknown[] = []
 let answer: { status: number; json: unknown } = { status: 201, json: { contribution: 1 } }
 beforeEach(() => {
@@ -58,16 +60,16 @@ describe('a view carries the member\'s own figures, as typed', () => {
   it('CATCH: a view given with a figure posts its words, the figure as typed and the approved version\'s number', async () => {
     show()
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'Churn will bite harder abroad.' } })
-    fireEvent.change(field('churn_danger_threshold'), { target: { value: '10 to 50%' } })
+    fireEvent.change(field('customer_target'), { target: { value: '900 to 1200' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBe(1))
-    expect(posts[0]).toEqual({ text: 'Churn will bite harder abroad.', figures: [{ quantity: 'churn_danger_threshold', typed: '10 to 50%' }], version: view.version!.n, op: expect.any(String) })
+    expect(posts[0]).toEqual({ text: 'Churn will bite harder abroad.', figures: [{ quantity: 'customer_target', typed: '900 to 1200' }], version: view.version!.n, op: expect.any(String) })
   })
 
   it('INVARIANCE: a view in words only posts exactly its words, as before', async () => {
     show()
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: '  wait a quarter ' } })
-    fireEvent.change(field('churn_danger_threshold'), { target: { value: '   ' } })
+    fireEvent.change(field('customer_target'), { target: { value: '   ' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBe(1))
     // Words only, as before, with core's operation id for a view (API v1.24, olumi-core API.md:1044-1050).
@@ -78,10 +80,10 @@ describe('a view carries the member\'s own figures, as typed', () => {
     answer = { status: 400, json: { error: 'For “Churn danger threshold”, type one number, or a range like 150 to 400.' } }
     show()
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'x' } })
-    fireEvent.change(field('churn_danger_threshold'), { target: { value: 'lots' } })
+    fireEvent.change(field('customer_target'), { target: { value: 'lots' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(screen.getByTestId('team-views-error').textContent).toBe('For “Churn danger threshold”, type one number, or a range like 150 to 400.'))
-    expect((field('churn_danger_threshold') as HTMLInputElement).value).toBe('lots')
+    expect((field('customer_target') as HTMLInputElement).value).toBe('lots')
   })
 
   it('CONTRAST: no field before an approved version, nor while a pending proposal is shown (core takes figures of the approved version only)', () => {
@@ -104,14 +106,15 @@ describe('a view carries the member\'s own figures, as typed', () => {
     }
   })
 
-  it('CATCH: a fourth figure cannot be entered; the three stay editable, clearing one frees a field, and the post never carries four', async () => {
-    expect(givable.length).toBeGreaterThan(3)
-    showOpen()
-    const [a, b, c, d] = givable
-    for (const [i, card] of [a!, b!, c!].entries()) fireEvent.change(field(card.id), { target: { value: String(10 + i) } })
+  // Re-pinned (D3): core now lists at most its own cap of cards, so the cap is exercised with core's limit below its list (2 of 3).
+  it('CATCH: past core\'s limit no figure can be entered; those given stay editable, clearing one frees a field, and the post never carries more', async () => {
+    const capped = { ...view, collab: { ...view.collab, max_view_figures: 2 } } as View
+    showOpen(capped)
+    const [a, b, d] = givable
+    for (const [i, card] of [a!, b!].entries()) fireEvent.change(field(card.id), { target: { value: String(10 + i) } })
     expect((field(d!.id) as HTMLInputElement).disabled).toBe(true)
     expect(screen.getByTestId('team-view-figures-cap')).toBeTruthy()
-    for (const card of [a!, b!, c!]) expect((field(card.id) as HTMLInputElement).disabled).toBe(false)
+    for (const card of [a!, b!]) expect((field(card.id) as HTMLInputElement).disabled).toBe(false)
     fireEvent.change(field(a!.id), { target: { value: '' } })
     expect((field(d!.id) as HTMLInputElement).disabled).toBe(false)
     expect(screen.queryByTestId('team-view-figures-cap')).toBeNull()
@@ -119,6 +122,21 @@ describe('a view carries the member\'s own figures, as typed', () => {
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'x' } })
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBe(1))
-    expect((posts[0] as { figures: unknown[] }).figures.length).toBe(3)
+    expect((posts[0] as { figures: unknown[] }).figures.length).toBe(2)
+  })
+
+  it('D3 catch: no list from core, no figure box; each box says its own card\'s words for what to type', () => {
+    const none = { ...view, collab: { ...view.collab, view_figure_cards: undefined } } as unknown as View
+    show(none)
+    // With nothing to add the form offers no "Add figures to your view"; writing opens the rest, and still no figure box is drawn.
+    expect(screen.queryByTestId('team-view-more')).toBeNull()
+    fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'x' } })
+    expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(0)
+    cleanup(); resetDrafts()
+    showOpen()
+    for (const c of givable) expect(screen.getByTestId(`team-view-figprompt-${c.id}`).textContent).toBe(c.figure!.edit!.prompt)
+    // A card core does not list (churn has an edit in this golden) never gets a box.
+    expect(view.model!.cards.find((c) => c.id === 'churn_rate')?.figure?.edit).toBeTruthy()
+    expect(screen.queryByTestId('team-view-figure-churn_rate')).toBeNull()
   })
 })

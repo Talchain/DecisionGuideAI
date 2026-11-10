@@ -29,7 +29,8 @@ const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in you
 const VOCAB = { kinds: [{ id: 'claim', text: 'Claim' }], form: FORM, stances: [{ id: 'know', text: 'What I know', word: 'Observed' }, { id: 'suspect', text: 'What I suspect', word: 'Expects' }, { id: 'unsure', text: 'Unsure', word: 'Unsure' }, { id: 'would_try', text: 'What I would try', word: 'Would try' }, { id: 'others_may_miss', text: 'What others may miss', word: 'Others may miss' }], limits: { text: 400, source: 200, concerns: 8, items: 8 } }
 const remove = { record: 'total_def', part: 'existing_capacity' }
 const link = { from: 'existing_capacity', to: 'total_capacity', kind: 'plain', label: '', doubt: false, alert: false, proposed: false, title: 't', effect: null, remove }
-const view = (): View => ({ ...fx, proposal: null, model: { ...fx.model!, links: [link, { ...link, from: 'total_capacity', to: 'capacity_goal', remove: null }] } } as unknown as View)
+// D3 (re-pinned): core's `collab.view_figure_cards` names the figure boxes (at most three); these three of the fixture's figure cards.
+const view = (): View => ({ ...fx, proposal: null, collab: { ...fx.collab, view_figure_cards: ['existing_capacity', 'per_specialist', 'one_specialist'].map((id) => ({ id, label: id })) }, model: { ...fx.model!, links: [link, { ...link, from: 'total_capacity', to: 'capacity_goal', remove: null }] } } as unknown as View)
 type Sent = { method: string; url: string; body: unknown }
 function serve(status: number, body: unknown): Sent[] {
   const sent: Sent[] = []
@@ -134,7 +135,6 @@ describe('a private view\'s links and factor', () => {
       'team-view-figure-existing_capacity': '10 to 20',
       'team-view-figure-per_specialist': '20 to 30',
       'team-view-figure-one_specialist': '1 to 2',
-      'team-view-figure-capacity_target': '40 to 50',
     }
     expect([...screen.getByTestId('team-views').querySelectorAll('textarea, input[type="text"]')].map((field) => field.getAttribute('data-testid')).sort())
       .toEqual(Object.keys(privateTeamText).sort())

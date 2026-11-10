@@ -10,6 +10,7 @@ import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
+import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
 /** A view's figure as both a revealed and a private view carry it (a revealed one also carries its mark words, N3). */
@@ -91,7 +92,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   // D7 from the screen (R5): a figure of the member's own for each card core offers a figure edit for, given with the view. Core takes
   // figures of the approved version only, so none are offered before one, or while a pending proposal is the model shown.
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
-  const givable = view.version === null || shownIsProposal ? [] : (view.model?.cards ?? []).filter((card) => card.figure?.edit)
+  // D3: only the cards core lists for a view's figures (`collab.view_figure_cards`), in its order; none when core sends no list.
+  const givable = view.version === null || shownIsProposal ? [] : viewFigureCardsOf(view).map((x) => x.card)
   const [typed, setTyped] = useState<Record<string, string>>({})
   const figures = givable.flatMap((card) => ((typed[card.id] ?? '').trim() === '' ? [] : [{ quantity: card.id, typed: typed[card.id]! }]))
   // Core's own limit (`collab.max_view_figures`) and its words for it (`view_figures_limit_text`); a core that sends none sets no cap here.
@@ -230,9 +232,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               return (
               <label key={card.id} className={`${META} grid gap-0.5`} title={card.figure!.edit!.prompt}>
                 <span className="text-text-header">{card.heading}</span>
+                {/* D3: this card's own words for what to type (core's `figure.edit.prompt`: its unit and a range in its own scale), whole on
+                    a line of its own: as a placeholder in the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov). */}
+                <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.figure!.edit!.prompt}</span>
                 <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
-                  // Core's own neutral words for the entry (what to type, never a figure) are the label's hover, whole: as a placeholder in
-                  // the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov), and the label above already names the figure.
                   value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
                   onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
               </label>
