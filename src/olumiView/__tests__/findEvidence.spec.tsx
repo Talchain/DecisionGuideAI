@@ -15,7 +15,7 @@ import { SelectionPill } from '../../canvas/components/SelectionPill'
 import { useCanvasStore } from '../../canvas/store'
 import { selectedRename } from '../SelectedRename'
 import { FindEvidence } from '../research/FindEvidence'
-import { setTeamFetch } from '../../olumiCore/team/api'
+import { NOT_FOR_THIS_PAGE, setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
 import type { ResearchItem, ResearchProposal } from '../research/api'
@@ -35,13 +35,24 @@ const item = (over: Partial<ResearchItem> = {}): ResearchItem => ({ id: 41, reco
 
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let list: ResearchItem[] = []
+/** Whose private link the browser holds now, as core's GET /api/me answers; another person's after a second link was opened here. */
+let meNow: string | undefined
+/** Called when a research list is asked for, before it is answered (to move the page meanwhile). */
+let onList: (() => void) | null = null
+/** Whose list core answered with, when it differs from whose link the browser holds by the time anything else is asked. */
+let listReader: string | undefined
 beforeEach(() => {
-  calls = []; list = [item()]
+  calls = []; list = [item()]; meNow = approved.you_id ?? undefined; onList = null; listReader = undefined
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', p = String(u)
     calls.push({ method, path: p, body: init?.body ? JSON.parse(String(init.body)) : undefined })
-    if (method === 'GET' && p === '/api/me') return new Response(JSON.stringify({ me: { id: approved.you_id, name: approved.you } }), { status: 200 })
-    if (method === 'GET' && p.endsWith('/research')) return new Response(JSON.stringify({ research: list }), { status: 200 })
+    if (method === 'GET' && p === '/api/me') return new Response(JSON.stringify({ me: { id: meNow, name: approved.you } }), { status: 200 })
+    if (method === 'GET' && p.endsWith('/research')) {
+      onList?.(); onList = null
+      // Another scenario's list never answers here, so only the first scenario's answer could ever be drawn.
+      // core names the list's reader: whoever's private link the browser held when it answered
+      return p.includes(SID) ? new Response(JSON.stringify({ you_id: listReader ?? meNow, research: list }), { status: 200 }) : new Promise<Response>(() => {})
+    }
     if (method === 'GET') return new Response(JSON.stringify(approved), { status: 200 })
     return new Response(JSON.stringify({ choice: 'accept', evidence: 7, version: null }), { status: 201 })
   }) as unknown as typeof fetch)
@@ -105,6 +116,45 @@ describe('Find evidence', () => {
     expect(panel()).toHaveTextContent('Your own ticket logs')
     expect(panel()!.querySelector('[data-research-proposal]')).toBeNull()
     expect(panel()!.querySelector('[data-research-start]')).toHaveTextContent('Search again')
+  })
+  it("draws research only for the page's own person and scenario (PL-37): a list answered after another private link was opened, or after the page moved, is not drawn", async () => {
+    selectedRow(figure.id, figure.heading)
+    fireEvent.click(screen.getByText('Find evidence'))
+    await waitFor(() => expect(panel()?.querySelectorAll('[data-research-proposal]')).toHaveLength(2)) // contrast: this page's person sees them
+    // Another private link is opened in this browser; the panel is opened again, and its list read is answered for whoever holds it now.
+    fireEvent.click(screen.getByLabelText('Close'))
+    expect(panel()).toBeNull()
+    meNow = 'u_someone_else'
+    const before = posts().length
+    fireEvent.click(screen.getByText('Find evidence'))
+    await waitFor(() => expect(panel()).toHaveTextContent(NOT_FOR_THIS_PAGE))
+    expect(posts()).toHaveLength(before) // a read only: nothing was sent
+    expect(panel()!.querySelector('[data-research-proposal]')).toBeNull()
+    expect(panel()!.textContent).not.toContain('core passage')
+    cleanup(); resetWrites()
+    // Another person's link answered the list, and this page's person's link was reopened before anything else was asked: core named the
+    // list's reader, so it is still refused (Codex PL-37 review: a later "who is this?" read would have passed it).
+    meNow = approved.you_id ?? undefined; listReader = 'u_someone_else'
+    selectedRow(figure.id, figure.heading)
+    fireEvent.click(screen.getByText('Find evidence'))
+    await waitFor(() => expect(panel()).toHaveTextContent(NOT_FOR_THIS_PAGE))
+    expect(panel()!.querySelector('[data-research-proposal]')).toBeNull()
+    cleanup(); resetWrites(); listReader = undefined
+    // Until the page knows whose it is, Find evidence is not offered and nothing is read.
+    useMe.setState({ me: null, status: 'loading' })
+    const lists = calls.filter((c) => c.path.endsWith('/research')).length
+    selectedRow(figure.id, figure.heading)
+    expect(document.querySelector('[data-research-find]')).toBeNull()
+    expect(calls.filter((c) => c.path.endsWith('/research'))).toHaveLength(lists)
+    cleanup(); useMe.setState({ me: { id: approved.you_id!, name: approved.you! }, status: 'ready' })
+    // The page moves to another scenario while the list is in flight: the answer is dropped, never drawn on the new page.
+    meNow = approved.you_id ?? undefined
+    onList = () => { useViewStore.setState({ sid: 's_ffffffffffff' }) }
+    selectedRow(figure.id, figure.heading)
+    fireEvent.click(screen.getByText('Find evidence'))
+    await waitFor(() => expect(calls.filter((c) => c.path.endsWith('/research')).length).toBeGreaterThan(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(document.querySelector('[data-research-proposal]')).toBeNull()
   })
   it('N1 does not offer Find evidence in the Selected row: web research returns in N2', () => {
     selectedRow(figure.id, figure.heading) // contrast: with the panel mounted, a figure card offers it

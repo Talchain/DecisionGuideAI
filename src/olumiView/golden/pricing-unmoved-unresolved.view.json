@@ -228,14 +228,15 @@
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +5",
+     "text": "3 figures, 2 calculations",
      "title": "Figure: rise on\nFigure: cups change\nFigure: cups\nHow cups is worked out\nHow profit is worked out",
      "label": "Show 5 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "3 figures, 2 calculations",
-     "icon": "● ="
+     "face": "3 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -400,14 +401,15 @@
      "records": [
       "rise_switched_on"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: rise switched on",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -1134,11 +1136,6 @@
     "text": "worked out"
    },
    {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
-   },
-   {
     "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
@@ -1198,14 +1195,14 @@
     "id": "option_breadth",
     "lead": "You are comparing two options.",
     "emphasis": "A materially different route widens the comparison.",
-    "rationale": "Option generation: comparing only similar routes narrows what the analysis can see. A structurally different option often reveals a better or lower-regret path.",
+    "rationale": "Comparing only similar routes narrows what the analysis can see. A route that works in a different way can show what the others hide.",
     "move": "widen_options"
    },
    {
     "id": "risk_count",
     "lead": "No risks captured yet.",
-    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]
