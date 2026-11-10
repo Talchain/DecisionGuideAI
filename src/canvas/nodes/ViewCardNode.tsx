@@ -29,7 +29,7 @@ import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTried
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
-import { Badge } from '../../olumiView/Badge'
+import { Badge, badgeParts } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 import { StatedFigure } from '../../olumiView/StatedFigure'
@@ -391,7 +391,8 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
             or text. A badge drawn only on hover held an invisible 24px line at rest (UI lane's measure, 10 Nov), and the face never changes
             height on hover or focus (DL 9 Nov), so there is none. An open badge's fold-back is in the opened card's words (`aside`). */}
         {card.badge === null || card.badge.open ? null
-          : <span className={`${typography.viewPanelMeta} whitespace-nowrap`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
+          // DL 10 Nov (Paul: no truncation): core's parts are laid out whole and may wrap between parts, so the band does not force one line.
+          : <span className={`${typography.viewPanelMeta} ${badgeParts(card.badge) === null ? 'whitespace-nowrap' : ''}`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
         {card.figure === null ? provenance : null}
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
         {/* K5 "If it failed" (R3): one badge per pre-mortem story resting on this card, core's number with Olumi's mark, the story in

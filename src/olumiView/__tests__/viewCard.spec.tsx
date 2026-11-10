@@ -223,6 +223,22 @@ describe('a badge opens what core folded into it (review 00002 ledger): a new re
   })
 })
 
+describe('core\'s badge parts (DL 10 Nov, RIP OUT of the 28-character fold; Paul: no truncation)', () => {
+  it('a badge with parts draws every part whole, each unbroken, wrapping only between parts; nothing is cut or counted away; its hover is core\'s title', () => {
+    const card = golden('proposal').model!.cards.find((c) => c.badge !== null && !c.badge.open)!
+    const parts = ['1 challenge', '2 things left out']
+    const badge = { ...card.badge!, words: parts.join(', '), face: parts.join(', '), parts, icon: '' }
+    const c = render(<ViewCard card={{ ...card, badge } as never} selected={false} />).container
+    const face = c.querySelector<HTMLElement>(`[data-view="${card.id}.badge.face"]`)!
+    expect(face.textContent).toBe('1 challenge, 2 things left out')
+    expect([...face.querySelectorAll('[data-badge-part]')].map((e) => [e.textContent, e.className.includes('whitespace-nowrap')])).toEqual([['1 challenge', true], ['2 things left out', true]])
+    // Nothing above the parts forces one line, so the face wraps between parts at the card's measured width, never inside one.
+    for (let e = face as HTMLElement | null; e !== null && !e.hasAttribute('data-view-card'); e = e.parentElement) expect(e.className.includes('whitespace-nowrap'), `${e.tagName} ${e.className}`).toBe(false)
+    expect(face.textContent).not.toMatch(/ and \d+ more$|…/)
+    expect(face.closest('button')!.getAttribute('title')).toBe(badge.title)
+  })
+})
+
 describe('the compact face (Paul 4 Nov: the causal graph reads; every word of core\'s still reachable)', () => {
   const ON_FACE = /^[^.]+\.(glyph|heading|olumi(\.glyph)?|change(\.glyph)?|figure\..*|values\.\d+\.(text|if_approved\.glyph)|rows\..*|badge.*|bound\..*|author\.text|unused|face\.(title|line)\.text|headline\.text)$/ // values: the figure's per-option rows (R3 pristine) and core's R5 mark beside each
   // `bound.*` is on the face since DL 6 Nov (an aim's target is never hidden behind a selection); The rest opens on selection.
