@@ -28,11 +28,11 @@ const base = golden as unknown as View
 const withVersion = (n: number): View => ({ ...base, id: SID, version: { ...base.version!, id: 40 + n, n, label: `version ${n}` } })
 // Core's answers, word for word as API.md v1.7 gives their shapes.
 const COMPARED = {
-  versions: [{ n: 2, at: '2026-11-04T09:00:00Z', proposedBy: 'Bea', briefBy: null, approvedBy: 'Ada' }],
+  versions: [{ n: 1, at: '2026-11-04T08:00:00Z', proposedBy: 'Olumi', briefBy: 'Ada', approvedBy: 'Ada' }, { n: 2, at: '2026-11-04T09:00:00Z', proposedBy: 'Bea', briefBy: null, approvedBy: 'Ada' }],
   changes: [{ text: '+ figure: staff absence', detail: '2 to 10 ticket/week', mark: { glyph: '◆', title: 'Proposed by Olumi: typical absence' } },
     { text: '↻ figure: per specialist', detail: 'from 20 to 15', mark: null }],
   results: [{ kind: 'chance', option: 'hire', optionLabel: 'Add one specialist', aim: 'At least 100 a week', condition: null,
-    before: { value: 'about 50% chance', title: 't1', olumi: null }, after: { value: 'about 40% chance', title: 't2', olumi: { glyph: '◆', title: 'Rests on Olumi’s proposals' } }, move: 'down' }],
+    before: { value: 'about 50% chance', title: 't1', olumi: null, chance: 0.5 }, after: { value: 'about 40% chance', title: 't2', olumi: { glyph: '◆', title: 'Rests on Olumi’s proposals' }, chance: 0.4 }, move: 'down' }],
 }
 const VERSIONS = { versions: [
   { id: 41, n: 1, at: '2026-11-04T08:00:00Z', by: 'Ada', proposal: 1, base: null, changes: { added: [], changed: [], removed: [], top: [] }, facts: [], form: {} },
@@ -141,7 +141,7 @@ describe('Version history on the lane', () => {
     expect(paths.filter((p) => p.includes('/compare'))).toEqual([`/api/scenarios/${SID}/compare?from=1&to=3`])
   })
   it('the first version opens on who proposed it and its saved results, the earlier side of core\'s comparison with the next', async () => {
-    const first = { ...COMPARED, versions: [{ n: 1, at: '2026-11-04T08:00:00Z', proposedBy: 'Olumi', briefBy: 'Ada', approvedBy: 'Ada' }, COMPARED.versions[0]] }
+    const first = { ...COMPARED, versions: [{ n: 1, at: '2026-11-04T08:00:00Z', proposedBy: 'Olumi', briefBy: 'Ada', approvedBy: 'Ada' }, COMPARED.versions[1]] }
     setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? first : VERSIONS), { status: 200 }) }) as unknown as typeof fetch)
     render(<CoreVersions />)
     fireEvent.click(await screen.findByTestId('core-version-open-1'))
