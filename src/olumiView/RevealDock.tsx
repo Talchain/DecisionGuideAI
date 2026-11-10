@@ -20,6 +20,7 @@ import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
 import { useViewStore } from './store'
+import { returnFromLanded } from './revealReturn'
 import { otherViewsOn, withEffects } from './layout'
 import { StrategyHerePill, StrategyViewLines } from './strategy/StrategyViewLines'
 import { viewLinesOf } from './strategy/strategy'
@@ -170,7 +171,8 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const r = revealOf(view)
   const v = r?.views.find((x) => x.id === selected) ?? null
   if (r === null || v === null) return null
-  const close = () => returning(() => select(null))
+  // A panel that landed by itself hands the dock back as it was (revealReturn); one the person opened closes back to Team.
+  const close = () => returning(() => { const c = open.chip; select(null); returnFromLanded(c) })
   const chip = openChipOf(r, open)
   const lead = chip === null ? [v] : chip.views.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   // Others whose view also sits on this card, after Olumi's reading.

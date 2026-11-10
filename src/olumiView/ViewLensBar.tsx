@@ -21,6 +21,8 @@ import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar
 import { LENS_BAR_TESTID, lensBarFitsBesidePill, placeLensBar } from '../canvas/artefacts/LensBar'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { useViewStore } from './store'
+import { useReveal } from './reveal'
+import { forgetLanded } from './revealReturn'
 import { allBut } from './layout'
 import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from './lens'
 
@@ -161,7 +163,11 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
           </div>
         )}
       </div>
-      <button type="button" aria-pressed={dockTab === 'team'} data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => { setOpen(false); useUIStore.getState().forceActivateOutputTab('team') }} className={segment(dockTab === 'team')}>
+      <button type="button" aria-pressed={dockTab === 'team'} data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => {
+        // Team pressed while a reveal panel or evidence is open (the landing opens one by itself): the person asked for Team, so the
+        // panel steps aside and Team's own titled panel shows (V11 lane 10 Nov, journey step 6.3).
+        setOpen(false); forgetLanded(); useReveal.getState().select(null); useUIStore.getState().forceActivateOutputTab('team')
+      }} className={segment(dockTab === 'team')}>
 <span className={compact ? 'sr-only' : undefined}>{W.team}</span>
       </button>
     </div>

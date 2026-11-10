@@ -13,6 +13,8 @@ import { useViewStore } from './store'
 import { revealOf, useReveal, type CardChip, type Reveal } from './reveal'
 import { chipViewIds } from './layout'
 import { openView } from './RevealMarks'
+import { noteLanded } from './revealReturn'
+import { useUIStore } from '../stores/uiStore'
 
 /** The chip the dock lands on, or null when the reveal has no chip with views. */
 export function landingChipOf(r: Reveal | null): CardChip | null {
@@ -48,6 +50,7 @@ export function useRevealLanding(): void {
     if (o.selected !== null || o.evidence !== null) return
     const chip = landingChipOf(revealOf(useViewStore.getState().view))
     if (chip === null) return
+    noteLanded(chip.key, useUIStore.getState().activeOutputTab)
     openView(chip.views[0]!, chip.card, chip.key)
   }, [key, at])
 }

@@ -8,12 +8,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { revealOf, useReveal } from '../reveal'
 import { landingChipOf, resetRevealLanding, useRevealLanding } from '../revealLanding'
+import { forgetLanded, returnFromLanded } from '../revealReturn'
+import { openView } from '../RevealMarks'
+import { ViewLensBar } from '../ViewLensBar'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1', 'strategy-reveal-split.core-261df1d4.view3.json'), 'utf8')) as View
 const marks = view.collab.marks!
@@ -25,7 +28,7 @@ const land = (v: View, at: number | null = null) => {
   return render(<Host />)
 }
 const closed = () => useReveal.setState({ selected: null, evidence: null, card: null, chip: null })
-afterEach(() => { cleanup(); closed(); resetRevealLanding(); useViewStore.setState(useViewStore.getInitialState(), true); useUIStore.setState({ activeOutputTab: 'olumi' } as never) })
+afterEach(() => { cleanup(); closed(); resetRevealLanding(); forgetLanded(); useViewStore.setState(useViewStore.getInitialState(), true); useUIStore.setState({ activeOutputTab: 'olumi' } as never) })
 
 describe('which card the dock lands on', () => {
   it('RL1 precondition: core\'s marks are as the comp\'s case', () => {
@@ -73,5 +76,32 @@ describe('the dock lands once, on the latest version, only while nothing is open
     useReveal.setState({ selected: null, evidence: 22, card: 'cross_team_adoption', chip: 'cross_team_adoption:evidence' })
     act(() => { render(<Host />) })
     expect([useReveal.getState().selected, useReveal.getState().evidence]).toEqual([null, 22])
+  })
+})
+
+describe('a landed panel hands the dock back (V11 lane 10 Nov: journey 6.3 and the Reveal audit could reach neither Team nor the tabs)', () => {
+  it('RL9 catch: closing the landed panel fronts the tab it landed over (Olumi), not Team', () => {
+    act(() => { land(view) })
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+    const chip = useReveal.getState().chip
+    act(() => { useReveal.getState().select(null); expect(returnFromLanded(chip)).toBe(true) })
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+  it('RL10 must not change: a panel the person opened from a chip closes back to Team, as before', () => {
+    useViewStore.setState({ view, sid: view.id, at: null })
+    const c = landingChipOf(revealOf(view))!
+    act(() => { openView(c.views[0]!, c.card, c.key) })
+    act(() => { useReveal.getState().select(null); expect(returnFromLanded(c.key)).toBe(false) })
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+  })
+  it('RL11 catch: pressing Team on the canvas while the landed panel is open shows Team itself: the panel steps aside', () => {
+    act(() => { land(view) })
+    expect(useReveal.getState().selected).not.toBeNull()
+    render(<ViewLensBar nav />)
+    act(() => { fireEvent.click(screen.getByTestId('lens-bar-team')) })
+    expect([useReveal.getState().selected, useReveal.getState().evidence]).toEqual([null, null])
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+    // Where the landed panel would have returned is forgotten: a later close of another panel does not jump tabs.
+    expect(returnFromLanded(landingChipOf(revealOf(view))!.key)).toBe(false)
   })
 })
