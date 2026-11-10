@@ -1247,7 +1247,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       <div className={`relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light ${brief ? '' : 'flex items-center gap-2 py-1.5 pl-3 pr-1.5'}`}>
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${brief ? 'pt-2 pb-1 px-3' : 'flex-1 py-1'}`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
-          rows={brief && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
+          rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
         <div className={`flex items-center justify-end gap-1 ${brief ? 'px-2 pb-1' : 'flex-none'}`} data-testid="view-composer-actions">

@@ -200,7 +200,9 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     height = 1000
     await act(async () => { fireEvent.click(getByTestId('view-composer-send')) })
     expect(box.value).toBe('')
-    expect(box.rows).toBe(1)
+    // The mocked Send leaves a scenario that still takes its brief, and an empty brief box is three rows so its example shows whole
+    // (DL 10 Nov, b1dBriefExample.spec). The grown height is cleared either way; a thread's box stays one row (the first assertion above).
+    expect(box.rows).toBe(3)
     expect(box.style.height).toBe('')
     expect(box.style.overflowY).toBe('hidden')
     act(() => useViewStore.setState({ sid: null, view: null }))
