@@ -11,6 +11,7 @@ import { nav } from '../api'
 import { useCanvasStore } from '../../../canvas/store'
 import SignInPage from '../SignInPage'
 import SignUpPage from '../SignUpPage'
+import JoinPage from '../JoinPage'
 import MyScenariosPage from '../MyScenariosPage'
 import OrganisationPage from '../OrganisationPage'
 import AccountPage from '../AccountPage'
@@ -328,5 +329,40 @@ describe('My scenarios: rename (the person\'s own title)', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('a title is at most 200 characters')
     expect((screen.getByLabelText('Your title for this scenario') as HTMLInputElement).value).toBe('Too long')
     expect(screen.getByTestId('my-scenario-open-s_a00000000002').textContent).toBe('Office move')
+  })
+})
+
+describe('joining an organisation by link', () => {
+  const joinCore = (me: unknown) => core((m, p) => {
+    if (p === '/api/me') return { body: { me, account: null } }
+    if (p === '/api/org/join/tok-1') return { body: { org: { name: 'Northwind' }, by: 'Olu', expires: '2026-11-24T00:00:00.000Z' } }
+    if (m === 'POST' && p === '/api/org/join') return { status: 201, body: { me: ANA, account: { email: 'ana@example.com', org: { id: 'o_1', name: 'Northwind', role: 'member' } } } }
+    return undefined
+  })
+  it('someone signed in by a scenario\'s private link joins as that SAME person (attach), keeping their scenarios, and is told so', async () => {
+    vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
+    joinCore(ANA)
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    expect((await screen.findByTestId('account-join-same-person')).textContent).toBe('You are signed in as Ana. Joining adds an email and password to you, and you keep your scenarios.')
+    await waitFor(() => expect((screen.getByLabelText('Your name') as HTMLInputElement).value).toBe('Ana'))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    fireEvent.click(screen.getByTestId('account-join-go'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]).toEqual({ method: 'POST', path: '/api/org/join', body: { token: 'tok-1', name: 'Ana', email: 'ana@example.com', password: 'correct horse battery', attach: true } })
+  })
+  it('CONTROL: signed out, joining makes a new person (no attach) and says nothing about being signed in', async () => {
+    vi.spyOn(nav, 'landSignedIn').mockImplementation(() => {})
+    joinCore(null)
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Bo' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bo@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    fireEvent.click(screen.getByTestId('account-join-go'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.body).toEqual({ token: 'tok-1', name: 'Bo', email: 'bo@example.com', password: 'correct horse battery' })
+    expect(screen.queryByTestId('account-join-same-person')).toBeNull()
   })
 })
