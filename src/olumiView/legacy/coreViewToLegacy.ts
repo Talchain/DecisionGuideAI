@@ -42,15 +42,17 @@ export function matrixOf(model: ViewModel, version: View['version'] | null): Dec
     // The modelled outcome is the lead aim's: core's own range sentence, its explanation on hover.
     const hit = lead?.rows.find((r) => r.card === card)
     const outcome = hit !== undefined && hit.row.kind === 'chance' ? hit.row.outcome ?? null : null
+    const outcomeAt = outcome === null ? undefined : `${card.id}.rows.${hit!.i}.outcome.text`
     return {
       id: card.id, label: card.heading, labelAt: `${card.id}.heading`,
       cells: groups.map((g) => cellOf(g, card)),
-      outcome: null, centreReadout: outcome?.text ?? null, outcomeTitle: outcome?.title,
+      outcome: null, centreReadout: outcome?.text ?? null, outcomeTitle: outcome?.title, outcomeAt,
     }
   })
   const shared = model.run?.shared_blockers ?? []
   return {
-    stamp: version == null ? null : { text: version.at_text ? `From ${version.label}, ${version.at_text}` : `From ${version.label}`, computedAt: version.at },
+    // The version's own label (core's word for which saved model these come from); the previous "From the Run at …" sentence is not composed here.
+    stamp: version == null ? null : { text: version.label, at: 'version.label', computedAt: version.at },
     columns: groups.map((g) => ({ id: g.aimId, label: g.aim?.text ?? null, at: g.aim?.at })),
     rows,
     withheld: shared.map((b, i) => ({ text: b.text, at: `run.shared_blockers.${i}.text` })),

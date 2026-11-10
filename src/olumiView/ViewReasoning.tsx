@@ -41,6 +41,8 @@ import { Rack } from './reasoning/Rack'
 import { People } from './reasoning/People'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { typography } from '../styles/typography'
+import { DecisionMatrixTable } from '../components/results/analysisNew/sections/DecisionMatrix'
+import { matrixOf } from './legacy/coreViewToLegacy'
 
 /** The tab's own labels (the crafted Reasoning tab's), the only words not core's. */
 export const REASONING_LABELS = {
@@ -86,6 +88,9 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
   const notes = premises.length + reasoning.length
   // What would change your mind holds core's worth lines and its compared lines, as Worth and Compared draw them (a group core gives no
   // heading for is drawn as nothing, so it is not counted).
+  // The previous tab's "Options side by side" (A4): each option's line per aim. Its version stamp is drawn only on the saved model, never on a
+  // proposal or a what-if (the strip above says those).
+  const matrix = matrixOf(model, view?.model === model ? view.version ?? null : null)
   const change = (run?.science == null ? 0 : worthLinesOf(run.science).length) + comparedGroupsOf(run).flatMap((g) => g.lines).length
   return (
     <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
@@ -115,6 +120,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
           )}
         </section>
       )}
+      {matrix === null ? null : <DecisionMatrixTable {...matrix} />}
       {change === 0 ? null : (
         <SectionRow title={REASONING_LABELS.change} Icon={Activity} count={change} testId="change">
           <Worth run={run} tab="analysisNew" />

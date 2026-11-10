@@ -35,10 +35,12 @@ export function DecisionMatrix(props: DecisionMatrixProps) {
  */
 export interface MatrixColumn { id: string | null; label: string | null; at?: string }
 export interface MatrixCell { text: string | null; why: string | null; at?: string }
-export interface MatrixRow { id: string; label: string; cells: MatrixCell[]; outcome: string | null; centreReadout: string | null; outcomeTitle?: string; labelAt?: string }
+export interface MatrixRow { id: string; label: string; cells: MatrixCell[]; outcome: string | null; centreReadout: string | null; outcomeTitle?: string; outcomeAt?: string; labelAt?: string }
+/** The table's own labels: the only words in it that are not the producer's. */
+export const MATRIX_LABELS = { title: 'Options side by side', why: 'Why?', hideWhy: 'Hide why', outcomes: 'Modelled outcomes', noOutcome: 'No modelled outcome for this option.', range: 'Modelled outcome range: ', sep: ': ' } as const
 export interface DecisionMatrixRows {
   /** Which run or version the cells come from; null when the producer names none. */
-  stamp: { text: string; graphHash?: string; computedAt?: string; runId?: string } | null
+  stamp: { text: string; at?: string; graphHash?: string; computedAt?: string; runId?: string } | null
   /** One per aim. A single column draws no header row, as the previous product did. */
   columns: MatrixColumn[]
   rows: MatrixRow[]
@@ -104,12 +106,12 @@ export function DecisionMatrixTable({ stamp, columns, rows, withheld, readingLin
   return (
     <SectionShell title="Options side by side" count={null} variant="disclose" testId="decision-matrix">
       {stamp !== null && <p className={`${typography.panelMeta} text-text-light`} data-testid="decision-matrix-stamp"
-        data-graph-hash={stamp.graphHash} data-computed-at={stamp.computedAt} data-run-id={stamp.runId}>
+        data-graph-hash={stamp.graphHash} data-computed-at={stamp.computedAt} data-run-id={stamp.runId} data-view={stamp.at}>
         {stamp.text}
       </p>}
       <div className="max-w-full overflow-auto">
         <table className={`${typography.panelBody} text-text-body my-2 w-full border-collapse tabular-nums`}>
-          <caption className="sr-only">Options side by side</caption>
+          <caption className="sr-only">{MATRIX_LABELS.title}</caption>
           {header && <thead><tr>
             <td className={cell} />
             {columns.map((c, i) => <th key={c.id ?? `none-${i}`} scope="col" className={`${cell} ${typography.panelMeta} [font-weight:inherit] text-left text-text-light`}
@@ -131,8 +133,8 @@ export function DecisionMatrixTable({ stamp, columns, rows, withheld, readingLin
       {rows.some((r) => r.cells.some((c) => c.text !== null)) && readingLine}
       {hasOutcome && <SectionShell title="Modelled outcomes" count={null} variant="disclose" testId="decision-matrix-outcomes">
         {rows.map((row) => <div key={row.id} className={`${typography.panelBody} text-text-body py-2`}>
-          <p data-testid={`decision-matrix-outcome-${row.id}`} title={row.outcomeTitle}>{row.label}: {row.centreReadout ?? 'No modelled outcome for this option.'}</p>
-          {row.outcome !== null && <p>Modelled outcome range: {row.outcome}</p>}
+          <p data-testid={`decision-matrix-outcome-${row.id}`} title={row.outcomeTitle}><span data-view={row.labelAt}>{row.label}</span>{MATRIX_LABELS.sep}<span data-view={row.outcomeAt}>{row.centreReadout ?? MATRIX_LABELS.noOutcome}</span></p>
+          {row.outcome !== null && <p>{MATRIX_LABELS.range}{row.outcome}</p>}
         </div>)}
       </SectionShell>}
     </SectionShell>

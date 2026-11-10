@@ -2,6 +2,7 @@
  * The Reasoning tab on the olumi-core lane (src/olumiView/ViewReasoning.tsx), drawn from golden Views: core's lines verbatim and in core's
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
+import { MATRIX_LABELS } from '../../components/results/analysisNew/sections/DecisionMatrix'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -51,7 +52,7 @@ function at(view: View, path: string): unknown {
   return x
 }
 // The tab's own words: its labels, and the rack's one link to Analysis (DL ruling 9 Nov).
-const OWN = [...Object.values(REASONING_LABELS), SEE_CHANCES] as string[]
+const OWN = [...Object.values(REASONING_LABELS), ...Object.values(MATRIX_LABELS), SEE_CHANCES] as string[]
 /** Opens every closed door and section row in the tab (the crafted rest state keeps depth closed), so every row can be read. */
 const openAll = (root: HTMLElement) => { for (const b of root.querySelectorAll<HTMLElement>('[data-testid^="view-reasoning-"][data-testid$="-toggle"][aria-expanded="false"]')) fireEvent.click(b) }
 
