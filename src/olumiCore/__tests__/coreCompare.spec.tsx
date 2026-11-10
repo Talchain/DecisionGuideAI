@@ -59,12 +59,13 @@ describe('the catch row: Compare is on the lane and shows a two-version scenario
     expect(getOutputTabsForParity().map((t) => t.id)).toContain('compare') // red if lane.ts hides 'compare' again
     vi.doUnmock('../../flags')
     render(<CoreCompareTab />)
-    await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
+    await waitFor(() => expect(screen.getByTestId('core-compare-sections')).toBeTruthy())
     expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=2`)
-    const lines = [...screen.getByTestId('core-compare-changes').querySelectorAll('li')].map((l) => l.textContent)
+    const lines = [...screen.getByTestId('compare-changes').querySelectorAll('li')].map((l) => l.textContent)
     expect(lines).toEqual(['+ figure: staff absence 2 to 10 ticket/week ◆', '↻ figure: per specialist from 20 to 15'])
     expect(screen.getByLabelText('Proposed by Olumi: typical absence').textContent).toBe('◆') // Olumi's mark, its hover core's
-    expect(screen.getByTestId('core-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
+    // A4: the chance on the previous slope, by core's label, earlier → now in core's words, Olumi's mark kept.
+    expect(screen.getByTestId('compare-pair-chance-slope').querySelector('.sr-only')?.textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: earlier run about 50% chance, this run about 40% chance ◆')
   }, 120_000)
 })
 
@@ -90,24 +91,21 @@ describe('the Compare tab', () => {
 
 // The panel's design language (Paul, 6 Nov side-by-side: native full-width selects and bare text lines): on the dock's Compare tab each list
 // sits in the panel's card under a panel heading and the version pickers are compact; inside the Team tab's own section it stays inline.
-describe('the Compare tab reads in the panel\'s design language', () => {
-  it('catch: three cards with panel headings, compact pickers; the words unchanged; inline (no cards) where another section holds it', async () => {
+describe('the Compare tab reads in the previous product\'s Compare layout (A4)', () => {
+  it('catch: the two ends, one headline, the chance slope, then ruled sections for what changed and who; compact pickers; inline (no sections) where another section holds it', async () => {
     render(<CoreCompareTab />)
-    await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
-    const parts = [...screen.getByTestId('core-compare-out').querySelectorAll('[data-compare-part]')]
-    expect(parts.map((p) => p.getAttribute('data-compare-part'))).toEqual(['versions', 'changes', 'results'])
-    for (const p of parts) {
-      expect(p.className, p.getAttribute('data-compare-part')!).toMatch(/\bborder\b.*\bbg-panel\b|\bbg-panel\b.*\bborder\b/)
-      expect(p.querySelector('h4')?.className).toContain('text-sm')
-    }
-    expect(parts.map((p) => p.querySelector('h4')?.textContent)).toEqual(['Who proposed and approved', 'What changed', 'How the results moved'])
+    await waitFor(() => expect(screen.getByTestId('core-compare-sections')).toBeTruthy())
+    const sections = [...screen.getByTestId('core-compare-sections').querySelectorAll('[data-compare-section]')]
+    expect(sections.map((p) => p.getAttribute('data-compare-section'))).toEqual(['headline', 'inputs', 'who'])
+    expect(screen.getByTestId('compare-run-times').textContent).toMatch(/^Version 1.*Version 2/)
+    expect(sections.slice(1).map((p) => p.querySelector('h4')?.textContent)).toEqual(['Changed between the two versions', 'Who proposed and approved'])
+    expect(screen.getByTestId('compare-pair-chance-slope')).toBeTruthy()
     for (const t of ['core-compare-from', 'core-compare-to']) expect(screen.getByTestId(t).className, t).not.toContain('w-full')
-    // The words are core's and unchanged: the result's line reads as before.
-    expect(screen.getByTestId('core-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
     cleanup()
-    // CONTRAST: the Team tab's compare, inside its own section, stays inline.
+    // CONTRAST: the Team tab's compare, inside its own section, stays inline (its lists, no sections).
     render(<CoreCompare sid={SID} latest={2} id="team-compare" auto />)
     await waitFor(() => expect(screen.getByTestId('team-compare-out')).toBeTruthy())
+    expect(screen.queryByTestId('core-compare-sections')).toBeNull()
     expect(screen.getByTestId('team-compare-out').querySelectorAll('[data-compare-part]').length).toBe(0)
   })
 })
