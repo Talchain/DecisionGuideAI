@@ -345,7 +345,7 @@ describe('My scenarios: duplicate (the person\'s own copy)', () => {
     await screen.findByTestId('my-scenarios')
     fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
     await screen.findByTestId('my-scenario-s_b00000000009')
-    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000002/duplicate', body: {} }])
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000002/duplicate', body: { op: expect.stringMatching(/^[A-Za-z0-9_-]{8,64}$/) } }])
     expect(screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual(['my-scenario-s_b00000000009', 'my-scenario-s_a00000000002', 'my-scenario-s_a00000000001'])
     const said = screen.getByTestId('my-scenarios-duplicated').textContent ?? ''
     expect(said).toBe('“Copy of Office move” is your own copy of version 3. Only you are on it, and each figure keeps the person who wrote it.')
@@ -385,5 +385,77 @@ describe('My scenarios: duplicate (the person\'s own copy)', () => {
     await waitFor(() => expect(screen.queryByTestId('my-scenarios')).toBeNull())
     expect(document.body.textContent).not.toMatch(/Office move|Hiring plan/)
     expect(posts()).toEqual([])
+  })
+})
+
+describe('My scenarios: a lost answer to Duplicate, and Delete', () => {
+  it('Duplicate whose answer is lost: the list is read again, and trying again sends the SAME operation id, so core makes one copy', async () => {
+    let n = 0
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS, archived: [] } }
+      if (m === 'POST') return n++ === 0 ? { status: 502, body: { error: 'bad gateway' } } : { status: 201, body: { id: 's_b00000000009', n: 3, title: 'Copy of Office move', open: '/#/scenario/00000000-0000-4000-8000-b00000000009' } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    await screen.findByRole('alert')
+    const reads = () => asked.filter((a) => a.path === '/api/account/scenarios').length
+    await waitFor(() => expect(reads()).toBe(2)) // read again after the failure: a copy that did land would show
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    await screen.findByTestId('my-scenarios-duplicated')
+    const ops = posts().map((x) => (x.body as { op: string }).op)
+    expect(ops).toHaveLength(2)
+    expect(ops[0]).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
+    expect(ops[1]).toBe(ops[0])
+    // a later, separate Duplicate is a new act with a new id
+    fireEvent.click(screen.getByTestId('my-scenario-duplicate-s_a00000000002'))
+    await waitFor(() => expect(posts()).toHaveLength(3))
+    expect((posts()[2]!.body as { op: string }).op).not.toBe(ops[0])
+  })
+
+  it('Delete asks for the title, says it cannot be undone, stays off until the title is typed exactly, then sends it and the scenario leaves the list', async () => {
+    let gone = false
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: gone ? SCENARIOS.slice(0, 1) : SCENARIOS, archived: [] } }
+      if (m === 'POST' && p === '/api/account/scenarios/s_a00000000001/delete') { gone = true; return { body: { deleted: 's_a00000000001' } } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-delete-s_a00000000001'))
+    const form = screen.getByTestId('my-scenario-delete-form-s_a00000000001')
+    expect(form.textContent).toContain('This deletes “Hiring plan” and everything in it. It cannot be undone.')
+    const go = screen.getByTestId('my-scenario-delete-go-s_a00000000001') as HTMLButtonElement
+    expect(go.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('Type the title to delete it'), { target: { value: 'Hiring' } })
+    expect(go.disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText('Type the title to delete it'), { target: { value: 'Hiring plan' } })
+    expect(go.disabled).toBe(false)
+    fireEvent.click(go)
+    await waitFor(() => expect(screen.queryByTestId('my-scenario-s_a00000000001')).toBeNull())
+    expect(posts()).toEqual([{ method: 'POST', path: '/api/account/scenarios/s_a00000000001/delete', body: { confirm: 'Hiring plan' } }])
+    expect(screen.getByTestId('my-scenario-s_a00000000002')).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(NEVER)
+  })
+
+  it('Delete refused because others are on it shows core\'s words (archive it instead) and removes nothing from the list', async () => {
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: { you_id: '7', scenarios: SCENARIOS, archived: [] } }
+      if (m === 'POST') return { status: 409, body: { error: 'Other people are on this scenario, so it cannot be deleted. Archive it to take it off your list.' } }
+      return undefined
+    })
+    setPagePerson('7')
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios')
+    fireEvent.click(screen.getByTestId('my-scenario-delete-s_a00000000002'))
+    fireEvent.change(screen.getByLabelText('Type the title to delete it'), { target: { value: 'Office move' } })
+    fireEvent.click(screen.getByTestId('my-scenario-delete-go-s_a00000000002'))
+    expect((await screen.findByRole('alert')).textContent).toBe('Other people are on this scenario, so it cannot be deleted. Archive it to take it off your list.')
+    expect(screen.getByTestId('my-scenario-s_a00000000002')).toBeTruthy()
+    expect(screen.getByTestId('my-scenario-s_a00000000001')).toBeTruthy()
   })
 })

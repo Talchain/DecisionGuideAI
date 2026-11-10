@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
 import { clearAutosave, clearCurrentScenarioId } from '../../canvas/store/scenarios'
 import { useViewStore } from '../../olumiView/store'
-import { TeamApiError } from '../team/api'
-import { accountsApi, mine, whenOf, type MyScenario } from './api'
+import { NOT_FOR_THIS_PAGE, TeamApiError } from '../team/api'
+import { accountsApi, mine, SWITCHED, whenOf, type MyScenario } from './api'
 import { BODY, CARD, ERR, FIELD, LINK, META, SignedInFrame, useWho } from './Frame'
 
 /** Its address on this page: DGAI's scenario route (`/#/scenario/<uuid>`) as a route here; any other address as a plain link. */
@@ -34,6 +34,7 @@ export function startFreshScenario(): void {
  * version its model is at, when anything last happened and who is on it. Opening one goes to the scenario as it stands now, where the
  * team left it; "New scenario" starts one from a brief. "Archive" puts one away in this person's list only (everyone else on it still
  * sees it); the archived ones are listed apart, each with "Restore". "Rename" gives it this person's own title, which only they see.
+ * "Delete" removes for good a scenario only they are on, once they type its title; with anyone else on it core refuses and says to archive it.
  * "Duplicate" makes their own copy of its latest saved version: only they are on it, and each figure keeps the person who wrote it.
  */
 export default function MyScenariosPage(): JSX.Element {
@@ -61,8 +62,8 @@ export default function MyScenariosPage(): JSX.Element {
   /** After a refused save: a refusal because this browser is now someone else's (409) clears everything of this page's person, and the
    *  edit; any other refusal keeps the list and what was typed, so the person can correct it. */
   const refused = async (e: unknown) => {
-    if (!(e instanceof TeamApiError) || e.status !== 409) return
-    setList(null); setAway([]); setEditing(null); setCopied(null)
+    if (!(e instanceof TeamApiError) || (e.message !== NOT_FOR_THIS_PAGE && e.message !== SWITCHED)) return
+    setList(null); setAway([]); setEditing(null); setCopied(null); setDeleting(null)
   }
   /** The scenario whose title is being edited, and what the person has typed. */
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null)
@@ -76,10 +77,31 @@ export default function MyScenariosPage(): JSX.Element {
   }
   /** The copy just made, said once above the list. */
   const [copied, setCopied] = useState<{ title: string; n: number } | null>(null)
+  /** One operation id per Duplicate a person starts, kept until core answers it: a try after a lost answer sends the same id, so core
+   *  answers with the copy it already made. After any failure the list is read again, so a copy that did land is on screen. */
+  const ops = useRef(new Map<string, string>())
   const duplicate = async (id: string) => {
     setBusy(id); setError(null); setCopied(null)
-    try { const r = await accountsApi.duplicate(id); await load(() => true); setCopied({ title: r.title, n: r.n }) }
-    catch (e) { setError(e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(e) }
+    const op = ops.current.get(id) ?? crypto.randomUUID()
+    ops.current.set(id, op)
+    try { const r = await accountsApi.duplicate(id, op); ops.current.delete(id); await load(() => true); setCopied({ title: r.title, n: r.n }) }
+    catch (e) {
+      const said = e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.'
+      if (e instanceof TeamApiError && !e.uncertain && e.status < 500) ops.current.delete(id) // core refused it: nothing was made
+      await refused(e)
+      if (!(e instanceof TeamApiError) || (e.message !== NOT_FOR_THIS_PAGE && e.message !== SWITCHED)) await load(() => true)
+      setError(said)
+    }
+    finally { setBusy(null) }
+  }
+  /** The scenario being deleted, and the title typed so far to confirm it. */
+  const [deleting, setDeleting] = useState<{ id: string; typed: string } | null>(null)
+  const deleteIt = async (e: FormEvent, s: MyScenario) => {
+    e.preventDefault()
+    if (deleting === null || deleting.typed.trim() !== s.title.trim()) return
+    setBusy(s.id); setError(null); setCopied(null)
+    try { await accountsApi.deleteScenario(s.id, deleting.typed.trim()); setDeleting(null); await load(() => true) }
+    catch (err) { setError(err instanceof TeamApiError ? err.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(err) }
     finally { setBusy(null) }
   }
   const setArchived = async (id: string, archived: boolean) => {
@@ -134,11 +156,24 @@ export default function MyScenariosPage(): JSX.Element {
                         <button type="button" className={LINK} onClick={() => setEditing(null)}>Cancel</button>
                       </div>
                     </form>
+                  ) : deleting?.id === s.id ? (
+                    <form className="grid gap-2" onSubmit={(e) => void deleteIt(e, s)} data-testid={`my-scenario-delete-form-${s.id}`}>
+                      <p className={BODY}>This deletes “{s.title}” and everything in it. It cannot be undone.</p>
+                      <label className="grid gap-1">
+                        <span className={META}>Type the title to delete it</span>
+                        <input className={FIELD} value={deleting.typed} autoFocus onChange={(e) => setDeleting({ id: s.id, typed: e.target.value })} />
+                      </label>
+                      <div className="flex gap-3">
+                        <Button type="submit" disabled={busy !== null || deleting.typed.trim() !== s.title.trim()} data-testid={`my-scenario-delete-go-${s.id}`}>Delete this scenario</Button>
+                        <button type="button" className={LINK} onClick={() => setDeleting(null)}>Cancel</button>
+                      </div>
+                    </form>
                   ) : (
                     <div className="flex gap-4">
                       <button type="button" className={LINK} disabled={busy !== null} onClick={() => setEditing({ id: s.id, title: s.title })} data-testid={`my-scenario-rename-${s.id}`}>Rename</button>
                       {s.version !== null && <button type="button" className={LINK} disabled={busy !== null} onClick={() => void duplicate(s.id)} data-testid={`my-scenario-duplicate-${s.id}`}>Duplicate</button>}
                       <button type="button" className={LINK} disabled={busy !== null} onClick={() => void setArchived(s.id, true)} data-testid={`my-scenario-archive-${s.id}`}>Archive</button>
+                      <button type="button" className={LINK} disabled={busy !== null} onClick={() => setDeleting({ id: s.id, typed: '' })} data-testid={`my-scenario-delete-${s.id}`}>Delete</button>
                     </div>
                   )}
                 </li>

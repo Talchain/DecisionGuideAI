@@ -31,7 +31,10 @@ export const accountsApi = {
   /** This person's own title for a scenario ('' goes back to the scenario's own). Theirs only: nobody else's title changes. */
   retitle: (id: string, title: string) => call<{ id: string; title: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/title`, { title }),
   /** This person's own new scenario from the latest saved version of one they can open. Each figure keeps the person who wrote it. */
-  duplicate: (id: string) => call<{ id: string; n: number; title: string; open: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/duplicate`, {}),
+  /** `op`: this page's id for the one act; sent again on a retry, core answers with the copy it already made, never a second one. */
+  duplicate: (id: string, op: string) => call<{ id: string; n: number; title: string; open: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/duplicate`, { op }),
+  /** Delete a scenario only this person is on, for good: `confirm` is its title as they see it. Refused (409) with anyone else on it. */
+  deleteScenario: (id: string, confirm: string) => call<{ deleted: string }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/delete`, { confirm }),
   /** Put a scenario away in this person's list, or bring it back. Theirs only: everyone else on it still sees it. */
   archive: (id: string, archived: boolean) => call<{ id: string; archived: boolean }>('POST', `/api/account/scenarios/${encodeURIComponent(id)}/archive`, { archived }),
   org: () => call<Org>('GET', '/api/org'),
