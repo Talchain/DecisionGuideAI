@@ -21,8 +21,8 @@ import { ViewQuestionNode } from '../../canvas/nodes/ViewQuestionNode'
 import { withoutChanceWord } from '../../canvas/nodes/ReducedFace'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', n), 'utf8'))
-/** The board of the screen the DL looked at ("Hiring for productivity before launch"), and the earlier real hiring board. */
-const screen = fixture('hiring-unchecked-first.view3.json'), earlier = fixture('hiring.view3.json')
+/** The board of the screen the DL looked at ("Hiring for productivity before launch"). */
+const screen = fixture('hiring-unchecked-first.view3.json')
 const card = (id: string) => screen.model!.cards.find((c) => c.id === id)!
 const px = 27 // zoom 0.449: 12 px as drawn
 
