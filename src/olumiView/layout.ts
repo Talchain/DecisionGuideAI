@@ -11,9 +11,7 @@ import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
 import { REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
-import { wrapTiers } from '../canvas/utils/wrapTiers'
 import { basisIdsOf } from './standin'
-import { orderUnderParents } from '../canvas/utils/orderUnderParents'
 import type { WhatIfVariant } from './whatif'
 
 /** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
@@ -514,7 +512,6 @@ export function flankHead(places: ReadonlyMap<string, { x: number; y: number }>,
 export const HEAD_ROW_MAX = 760 // R25 (DL 7 Nov, 4-option hosting board at 1232): the visible canvas at the 1.0 floor, as the head row; was 900 at 0.9
 /** The room between two family rows, and inside a wrapped row (option a2: tight enough that Paul's hiring board opens whole at 0.8). */
 export const FAMILY_ROW_GAP = 32
-const WRAP_PER_ROW = 4, WRAP_GAP_X = 32, WRAP_GAP_Y = 24
 /** The family row a card is drawn in: 0 question, 1 options, 2 the options' drivers (R24), 3 factors and assumptions, 4 outcomes and risks,
  *  5 aims and limits (drawn beside the question instead, `flankHead`). */
 export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
