@@ -22,7 +22,8 @@ import { driverRange, figureCard, Sensitivity, sensitivityShown } from '../ViewC
 import { driverCardsOf, drawnByRows } from './pick'
 import { TYPE } from './type'
 
-type ViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
+export type EvidenceViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
+type ViewKey = EvidenceViewKey
 type Science = NonNullable<ViewRun['science']>[number]
 
 /** The crafted 6px track (prototype .evidence-bar) carrying v10's low→high marker: positions only, never drawn as numbers. */
@@ -43,9 +44,12 @@ export interface HeroEvidenceDisclosureProps {
   defaultOpen?: boolean
   /** Mounted under one worth line (e.g. its figure's give words and ✎, `science[].figure.give`). */
   giveAction?: (line: Science, i: number) => ReactNode
+  /** Views another section of the tab already draws (UI recovery, 10 Nov: the previous product's own sections are back), left out here so
+   *  each thing is still said once (SC-02). */
+  omit?: readonly EvidenceViewKey[]
 }
 
-export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction }: HeroEvidenceDisclosureProps) {
+export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction, omit = [] }: HeroEvidenceDisclosureProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [picked, setView] = useState<ViewKey | null>(null)
   const run = model.run ?? null
@@ -67,7 +71,7 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
     { key: 'failure', label: failure?.heading ?? '', view: 'run.failure_heading', present: failure !== null },
     { key: 'compared', label: 'Trade-offs', view: undefined, present: compared.length > 0 },
     { key: 'worth', label: 'Worth checking first', view: undefined, present: worth.length > 0 },
-  ] as const).flatMap((v) => (v.present ? [v] : []))
+  ] as const).flatMap((v) => (v.present && !omit.includes(v.key) ? [v] : []))
   if (views.length === 0) return null
   const active: ViewKey = views.some((v) => v.key === picked) ? picked! : views[0]!.key
 
