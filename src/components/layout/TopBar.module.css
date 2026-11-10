@@ -480,3 +480,15 @@
   height: 44px;
   transform: translate(-50%, -50%);
 }
+
+/* Never past the dock (useTopBarFit): step 1 shortens the scenario name, step 3 keeps Share's icon alone. Step 2 drops the version pill (TopBar.tsx). */
+.topBar[data-tight] :global([data-testid="scenario-name-text"]),
+.topBar[data-tight] :global([data-testid="scenario-name-button"]) {
+  max-width: 110px;
+}
+.topBar[data-tight="3"] .coreShare {
+  padding: 0 10px;
+}
+.topBar[data-tight="3"] .coreShare span {
+  display: none;
+}

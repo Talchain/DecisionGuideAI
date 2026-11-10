@@ -19,6 +19,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useViewStore } from '../../olumiView/store'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
 import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
+import { useTopBarFit } from './useTopBarFit'
 import { OlumiAiIcon } from '../results/analysisNew/OlumiAiIcon'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
@@ -127,6 +128,9 @@ export const TopBar = ({
   }, [setOverlaySurface])
 
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const barRef = useRef<HTMLDivElement | null>(null)
+  // Never past the dock: the other controls give way, step by step, once the avatars have all collapsed (useTopBarFit).
+  const tight = useTopBarFit(barRef, `${scenarioTitle}|${coreVersion ?? ''}|${coreVersionAt ?? ''}`)
 
   // ⭐ ONE SAVE INDICATOR (Paul 7 Oct: "Saved 49m ago" while editing; and no repeated copy). For a persisted model
   // this right-hand indicator owns the LIVE states (saving / failed / unsaved). The pill beside the model name
@@ -254,6 +258,8 @@ export const TopBar = ({
     <div
       className={strip ? `${styles.topBar} ${styles.coreStrip}` : styles.topBar}
       role="banner"
+      ref={barRef}
+      data-tight={tight > 0 ? tight : undefined}
       {...(showMenu && overlayOrigin ? { 'data-overlay-origin': overlayOrigin } : {})}
     >
       {/* Left section - logo and title */}
@@ -311,7 +317,7 @@ export const TopBar = ({
         )}
 
         {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
-        {isOlumiCoreLane() && coreVersion !== null ? (
+        {isOlumiCoreLane() && coreVersion !== null && tight < 2 ? (
           <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill"><span data-view="version.label">{coreVersion}</span>{coreVersionAt === null ? null : <> · <span data-view="version.at_text">{coreVersionAt}</span></>}</span>
         ) : null}
         {/* J1 gate: on the strip, history sits beside the version it lists. */}
@@ -518,7 +524,7 @@ export const TopBar = ({
         {/* J1 step 5: Share on the olumi-core lane is inviting someone into this scenario, which the Team tab does ("Invite a colleague"): it
             opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
         {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
-          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
+          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" aria-label="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
             <Share2 size={14} aria-hidden="true" />
             <span>Share</span>
           </button>

@@ -91,6 +91,7 @@ function Discs({ view, others }: { view: View; others: ReturnType<typeof othersO
         <span
           key={m.id}
           aria-hidden="true"
+          data-presence-disc=""
           data-testid={`team-presence-${m.id}`}
           className={`-ml-1.5 inline-grid h-6 w-6 flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.viewPanelMeta} text-text-header shadow-1`}
         >
