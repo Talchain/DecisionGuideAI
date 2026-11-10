@@ -79,8 +79,10 @@ describe('the view form uses core\'s limit and words', () => {
     expect(screen.queryByTestId('team-view-private-prompt')).toBeNull()
   })
   it('max_view_figures and view_figures_limit_text replace the hard-coded three and its sentence', () => {
-    const v = { ...form({ max_view_figures: 1, view_figures_limit_text: 'LIMIT words from core' } as never), version: { n: 1 } } as unknown as View
-    const givable = (v.model?.cards ?? []).filter((c) => c.figure?.edit)
+    // D3 (re-pinned): the boxes are core's `collab.view_figure_cards`; this fixture's two figure cards are given as core's list.
+    const two = (fx.model?.cards ?? []).filter((c) => c.figure?.edit).slice(0, 2).map((c) => ({ id: c.id, label: c.heading }))
+    const v = { ...form({ max_view_figures: 1, view_figures_limit_text: 'LIMIT words from core', view_figure_cards: two } as never), version: { n: 1 } } as unknown as View
+    const givable = two.map((x) => v.model!.cards.find((c) => c.id === x.id)!)
     expect(givable.length, 'fixture has two figure cards').toBeGreaterThan(1)
     show(v)
     fireEvent.click(screen.getByTestId('team-view-more')) // DL ruling 9 Nov: the figure fields are behind "Add figures to your view"

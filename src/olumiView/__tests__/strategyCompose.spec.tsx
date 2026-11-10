@@ -98,7 +98,9 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect([...stance.options].map((o) => [o.value, o.textContent])).toEqual([['', ''], ...VOCAB.stances.map((s) => [s.id, s.text])])
     cleanup()
     vocab = { ...VOCAB, stances: [] }
-    render(<TeamTab />); await openForm()
+    // Re-pinned (D3, 10 Nov): this real View carries no `view_figure_cards`, so no figure box; with no stances either there is nothing behind
+    // "Add figures to your view", and the form opens by writing. Was: the button opened it, offered for every card with an edit.
+    render(<TeamTab />); fireEvent.change(await screen.findByTestId('team-view-text'), { target: { value: 'x' } })
     await screen.findByTestId('team-view-give')
     await new Promise((r) => setTimeout(r, 20))
     expect(screen.queryByTestId('team-view-stance')).toBeNull()
