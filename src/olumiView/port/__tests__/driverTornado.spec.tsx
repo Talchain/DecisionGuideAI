@@ -115,21 +115,20 @@ describe('driver tornado, on fixtures/real/hiring.view3.json', () => {
     expect(row.queryByTestId('port-driver-tornado-chance')).toBeNull()
   })
 
-  it('mounts once immediately after the hero and before the other Analysis sections', () => {
-    useViewStore.setState({ view: fixture, status: 'ready', error: null, at: null })
-    const { getByTestId } = render(<PortAnalysisTab />)
-    const chart = getByTestId('port-driver-tornado')
-    expect(chart.previousElementSibling).toHaveAttribute('data-testid', 'port-analysis-hero')
-  })
-
-  // Build 2b (added, the row above is left as it was): with the previous product's sections restored the chart is drawn once, inside its
-  // accordion, after the hero. The row above no longer holds on this tab (DL to rule: re-pin or retire).
-  it('mounts once, inside the what-could-change accordion, after the hero', () => {
+  // Layout re-pin ruled by the DL (10 Nov): was "immediately after the hero" (chart.previousElementSibling is the hero); now the chart sits in
+  // the accordion that follows "Your options" (an option's chance is the headline; the chart is supporting detail). Invariant kept: once.
+  it('mounts exactly once, inside the accordion that follows "Your options", never in or directly after the hero', () => {
     useViewStore.setState({ view: fixture, status: 'ready', error: null, at: null })
     const { getByTestId, getAllByTestId } = render(<PortAnalysisTab />)
     expect(getAllByTestId('port-driver-tornado')).toHaveLength(1)
-    expect(getByTestId('accordion-tornado')).toContainElement(getByTestId('port-driver-tornado'))
-    expect(getByTestId('port-analysis-hero').compareDocumentPosition(getByTestId('accordion-tornado')) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    const chart = getByTestId('port-driver-tornado')
+    const section = getByTestId('accordion-tornado')
+    expect(section).toContainElement(chart)
+    expect(section.previousElementSibling).toHaveAttribute('data-testid', 'port-your-options')
+    const hero = getByTestId('port-analysis-hero')
+    expect(hero).not.toContainElement(chart)
+    expect(section.previousElementSibling).not.toBe(hero)
+    expect(hero.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
   // Build 2b: core's per-aim driver key (`rows[].driver`, core 69dc9442). The aim being shown (core's lead aim) picks the row; bound by aim id.
