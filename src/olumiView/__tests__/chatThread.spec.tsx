@@ -200,13 +200,13 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     height = 1000
     await act(async () => { fireEvent.click(getByTestId('view-composer-send')) })
     expect(box.value).toBe('')
-    // The mocked Send leaves a scenario that still takes its brief, and an empty brief box is three rows so its example shows whole
-    // (DL 10 Nov, b1dBriefExample.spec). The grown height is cleared either way; a thread's box stays one row (the first assertion above).
-    expect(box.rows).toBe(3)
+    expect(box.rows).toBe(1)
     expect(box.style.height).toBe('')
     expect(box.style.overflowY).toBe('hidden')
     act(() => useViewStore.setState({ sid: null, view: null }))
-    expect(box.rows).toBe(1)
+    // No scenario yet: this is the brief box, and an empty brief box is three rows so its example shows whole
+    // (DL 10 Nov, b1dBriefExample.spec). A thread's box, and a box that is busy or drafting, stay one row (asserted above).
+    expect(box.rows).toBe(3)
   })
 
   // Geometry distinguishes the start of a long turn from the end (pre-screen 4b92d394 row 14).
