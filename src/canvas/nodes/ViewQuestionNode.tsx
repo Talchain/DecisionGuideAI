@@ -5,6 +5,7 @@
  */
 import { Handle, Position, useStore, type NodeProps } from '@xyflow/react'
 import { reducedFaceSize } from '../../olumiView/camera'
+import { ReducedFace } from './ReducedFace'
 import { useLinkSides } from '../../olumiView/canvas'
 import type { ViewModel } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
@@ -30,8 +31,8 @@ export function ViewQuestion({ question, width, reducedPx = 0 }: ViewQuestionDat
       )}
       {q.badge === null ? null : <p><Badge cardId={QUESTION} badge={q.badge} at="question" /></p>}
       {reducedPx === 0 ? null : (
-        // Zoomed out (Paul, 10 Nov): the question alone, at a size that draws at 11 px at least, in the full face's box. Core's words.
-        <p data-reduced-face="" data-view-reduced-question="" data-view="question.text" className="absolute -left-px -top-px !m-0 min-h-[calc(100%+2px)] w-[calc(100%+2px)] rounded-xl border bg-panel px-2 py-1.5 font-sans font-semibold text-text-header" style={{ fontSize: Math.max(18, reducedPx), lineHeight: 1.2, borderColor: 'inherit' }}>{q.text}</p>
+        // Zoomed out (Paul, 10 Nov): the question alone, inside the full face's box (ReducedFace). Core's words.
+        <ReducedFace px={reducedPx} semibold title={q.text} titleAttrs={{ 'data-view-reduced-question': '', 'data-view': 'question.text' }} />
       )}
     </div>
   )

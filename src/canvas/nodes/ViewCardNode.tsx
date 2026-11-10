@@ -19,6 +19,7 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
 import { clearWhatIf } from '../../olumiView/whatif'
 import { reducedFaceSize } from '../../olumiView/camera'
+import { ReducedFace } from './ReducedFace'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -436,14 +437,15 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
       ) : null}
       {reducedPx === 0 ? null : (
         // Zoomed out below READABLE_WHOLE_ZOOM (Paul, 10 Nov: the whole model in view, the previous product's way): the card keeps its full
-        // face's box (so no card moves; a long heading grows the drawn box down into the gap, never the layout) and draws only its heading, and an option its headline chance, at a size that draws at 11 px. The
-        // full face stays in place, hidden, and is drawn again from READABLE_WHOLE_ZOOM or when the card is opened. Core's words, verbatim.
-        <div data-reduced-face={id} className="absolute -left-px -top-px !m-0 min-h-[calc(100%+2px)] w-[calc(100%+2px)] rounded-xl border bg-panel px-2 py-1.5 font-sans font-medium text-text-header" style={{ fontSize: reducedPx, lineHeight: 1.15, borderColor: 'inherit' }}>
-          <p data-view-reduced-title={id} data-view={faceTitle === null ? `${id}.heading` : `${id}.face.title.text`}>{faceTitle === null ? card.heading : faceTitle.text}</p>
-          {optionFace !== null ? <p className="font-semibold" data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
+        // face's box (so no card moves) and draws only its heading, and an option its chance, inside that box (ReducedFace: whole lines, "…" when
+        // cut, the chance whole at the foot). The full face stays in place, hidden, and is drawn again from READABLE_WHOLE_ZOOM or when the
+        // card is opened. Core's words, verbatim.
+        <ReducedFace px={reducedPx} selected={selected} rootAttrs={{ 'data-view-reduced': id }}
+          title={faceTitle === null ? card.heading : faceTitle.text}
+          titleAttrs={{ 'data-view-reduced-title': id, 'data-view': faceTitle === null ? `${id}.heading` : `${id}.face.title.text` }}
+          chance={optionFace !== null ? <span data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{optionFace.text}</span>
             // An option without core's headline: its lead chance, core's own words as the full face draws them (qualifier, then value).
-            : leadRow === null ? null : <p className="font-semibold" data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{leadRow.value}</span></p>}
-        </div>
+            : leadRow === null ? null : <span data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{leadRow.value}</span></span>} />
       )}
     </div>
   )
@@ -523,9 +525,19 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const here = typeof document === 'undefined' ? null : document.activeElement
   const focused = named && here !== null && root.current !== null && (root.current.contains(here) || root.current.closest('.react-flow__node') === here)
   const open = selected === true || focused
-  // Zoomed out, a card that is not open draws its reduced face (ViewCard `reducedPx`); an open one is always the full face.
+  // Zoomed out, a card draws its reduced face (ViewCard `reducedPx`), selected or not.
   const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]))
-  const reducedPx = open ? 0 : zoomedOut
+  // A selected card at the overview keeps its reduced face (its details are in the dock). Opening a card's editor first brings that card to
+  // full size (the camera, once), and the full face is drawn as the zoom reaches the readable one (DL 10 Nov).
+  const reducedPx = zoomedOut
+  const { setCenter: centreOn, getInternalNode: nodeOf } = useReactFlow()
+  const editing = useOpenFigureEdits((o) => o.open.has(id))
+  useEffect(() => {
+    const n = editing && zoomedOut > 0 ? nodeOf(id) : undefined
+    if (n === undefined) return
+    void centreOn(n.internals.positionAbsolute.x + (n.measured.width ?? 0) / 2, n.internals.positionAbsolute.y + (n.measured.height ?? 0) / 2, { zoom: 1, duration: 300 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening of this card's editor
+  }, [editing])
   const attach = useCallback((el: HTMLDivElement | null) => { root.current = el; (inView as React.MutableRefObject<HTMLDivElement | null>).current = el }, [inView])
   // Open, its words go on the side with room (panelSide.ts, DL 7 Nov): every card's box is read only while this one is open.
   const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
@@ -547,7 +559,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       {/* J1 gate: nothing on the board sits below full strength at rest, so the controls are not drawn at rest (they were there at
           opacity 0); pointer over the card, focus inside it, selection or Olumi's note about it draws them. */}
-      {selected === true || noted || (near && reducedPx === 0) ? (
+      {reducedPx === 0 && (selected === true || noted || near) ? (
         <div data-olumi-controls="">
           <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible menu={false} />
         </div>

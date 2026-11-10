@@ -19,10 +19,12 @@ export const productFitFloor = (coreLane: boolean, legible: number): number => (
  *  (`wholeAtTopViewport`, never below `CORE_LANE_FIT_FLOOR`), not this zoom. */
 export const MIN_CARD_TEXT_PX = 11
 export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
+/** A reduced face draws at 12 px as drawn (DL 10 Nov: the look rule allows 12, 14 or 18 at the effective zoom). */
+export const REDUCED_TEXT_PX = 12
 
-/** The font size (declared px, in half pixels, rounded up) at which a reduced face draws at `MIN_CARD_TEXT_PX` at `zoom`; 0 when the
+/** The font size (declared px, in half pixels, rounded up) at which a reduced face draws at `REDUCED_TEXT_PX` at `zoom`; 0 when the
  *  zoom is at or above `READABLE_WHOLE_ZOOM` (the full face is drawn) or not a usable number. */
-export const reducedFaceSize = (zoom: number): number => (Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil((MIN_CARD_TEXT_PX / zoom) * 2) / 2 : 0)
+export const reducedFaceSize = (zoom: number): number => (Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil((REDUCED_TEXT_PX / zoom) * 2) / 2 : 0)
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */

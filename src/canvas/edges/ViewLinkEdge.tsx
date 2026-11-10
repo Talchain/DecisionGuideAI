@@ -6,6 +6,7 @@
  * or an assumption) is drawn only while one of its cards is hovered or selected (`linkDrawn`); the causal links always are.
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { reducedFaceSize } from '../../olumiView/camera'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
@@ -97,7 +98,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const near = selected || focused || driver || active.has(source) || active.has(target)
   const effect = near ? link.effect ?? null : null
   const { x, y } = placed
-  const words = link.label !== '' || effect !== null
+  // Zoomed out (below the readable zoom, camera.ts) the cards draw less and so do the links: their words would draw under 12 px (DL 10 Nov).
+  const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]) > 0)
+  const words = (link.label !== '' || effect !== null) && !zoomedOut
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
   const hidden = placed.far === true && !near
