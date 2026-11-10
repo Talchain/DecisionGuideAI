@@ -11,7 +11,7 @@ import type { Edge, Node } from '@xyflow/react'
 import type { View } from '../client'
 import { layoutGraph } from '../../canvas/utils/layout'
 import { REPEATED_CARD_W } from '../../canvas/utils/nodeLayoutConstants'
-import { aimsOf, cardLinks, CARD_WIDTH, causalPlaces, drawKindOf, QUESTION, questionPlace } from '../layout'
+import { aimsOf, cardLinks, CARD_WIDTH, causalPlaces, drawKindOf, QUESTION, questionPlace, ROW_GAP_X } from '../layout'
 
 const load = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const BOARDS = ['european', 'pricing', 's_ce285b3617bb'] as const
@@ -27,10 +27,20 @@ describe("the board is the previous product's layout", () => {
       return new Map((await layoutGraph(nodes, edges, { direction, preserveLocked: false })).nodes.map((n) => [n.id, n.position]))
     }
 
-    it(`${name}: every card and the question stand exactly where the previous layout puts them (by id), top to bottom by default`, async () => {
+    it(`${name}: every card is in the row the previous layout gives it, in its order across, the row closed up about its own centre (by id)`, async () => {
       const places = await causalPlaces(model, size), own = await engine('DOWN')
       expect(places.size).toBe(model.cards.length + 1)
-      for (const [id, at] of own) expect(places.get(id), id).toEqual({ x: at.x, y: at.y })
+      expect(places.get(QUESTION)).toEqual({ x: own.get(QUESTION)!.x, y: own.get(QUESTION)!.y })
+      const rows = new Map<number, string[]>()
+      for (const [id, at] of own) if (id !== QUESTION) rows.set(at.y, [...(rows.get(at.y) ?? []), id])
+      for (const [y, ids] of rows) {
+        ids.sort((a, b) => own.get(a)!.x - own.get(b)!.x)
+        for (const id of ids) expect(places.get(id)!.y, id).toBe(y)
+        expect([...ids].sort((a, b) => places.get(a)!.x - places.get(b)!.x), `row ${y}`).toEqual(ids)
+        ids.slice(1).forEach((id, i) => expect(places.get(id)!.x - places.get(ids[i]!)!.x, id).toBeCloseTo(CARD_WIDTH + ROW_GAP_X))
+        const mid = (m: Map<string, { x: number; y: number }>) => (m.get(ids[0]!)!.x + m.get(ids[ids.length - 1]!)!.x + CARD_WIDTH) / 2
+        expect(mid(places), `row ${y} centre`).toBeCloseTo(mid(own))
+      }
     })
 
     it(`${name}: the aims close the board under every option (never beside the question), and the question heads it`, async () => {

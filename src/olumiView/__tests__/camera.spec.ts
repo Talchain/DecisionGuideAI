@@ -57,16 +57,16 @@ describe('readable first, whole when it fits at the current floor', () => {
     expect((r.x + r.width / 2) * v.zoom + v.x).toBeCloseTo(insets.left + freeW / 2)
     expect(r.y * v.zoom + v.y).toBeCloseTo(insets.top)
   })
-  // UI restore stage 1 (DL ruling 10 Nov): a board too wide for the floor is drawn across its whole width (no card cut by the edge or under
-  // the dock), never below the previous product's legibility floor; its top under the canvas top.
-  it('a board wider than the visible rect at the readable floor is drawn across its whole width, top-aligned, never under the legibility floor', () => {
+  // DL 10 Nov (no card text under 11 px at first fit): a board too wide for the floor opens AT the floor, its top under the canvas top and
+  // its head centred across the free canvas; the person pans for the rest.
+  it('a board wider than the visible rect at the readable floor opens at the floor, top-aligned, its head centred across the free canvas', () => {
     const r = rect(boxes), freeW = pane.width - insets.left - insets.right
+    const optionIds = new Set(model.cards.filter((c) => c.family === 'option').map((c) => c.id))
+    const head = rect(one.filter((b) => b.id === QUESTION || optionIds.has(b.id)))
     expect(r.width * READABLE_WHOLE_ZOOM, 'precondition: wider than the visible rect at the floor').toBeGreaterThan(freeW)
-    const v = readableFirstViewport(r, pane, insets)!
-    expect(v.zoom).toBe(Math.max(LABEL_LEGIBLE_ZOOM, Math.min(READABLE_WHOLE_ZOOM, freeW / r.width)))
-    expect(v.zoom, 'precondition: this board fits across above the legibility floor').toBeGreaterThan(LABEL_LEGIBLE_ZOOM)
-    expect(r.x * v.zoom + v.x).toBeGreaterThanOrEqual(insets.left - 0.01)
-    expect((r.x + r.width) * v.zoom + v.x).toBeLessThanOrEqual(insets.left + freeW + 0.01)
+    const v = readableFirstViewport(r, pane, insets, head)!
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
+    expect((head.x + head.width / 2) * v.zoom + v.x).toBeCloseTo(insets.left + freeW / 2)
     expect(places.get(QUESTION)!.y * v.zoom + v.y, QUESTION).toBeCloseTo(insets.top)
   })
   it('a board that fits across at the readable floor but is too tall: every card across the visible rect (none under the dock), the head as near the centre as that allows', () => {
@@ -77,7 +77,7 @@ describe('readable first, whole when it fits at the current floor', () => {
     expect([r.x * v.zoom + v.x >= insets.left - 0.01, (r.x + r.width) * v.zoom + v.x <= pane.width - insets.right + 0.01]).toEqual([true, true])
   })
   // UI restore stage 1 (DL ruling 10 Nov): four-card wrapping is retired; keep separation and a readable, top-aligned landing.
-  it('four options stay below the question without overlaps; an oversized board is drawn across its width, between the two floors', async () => {
+  it('four options stay below the question without overlaps; an oversized board opens at the readable floor', async () => {
     const opts = model.cards.filter((c) => c.family === 'option'), src = opts[0]!
     const extra = { ...src, id: 'fourth_option', heading: 'A fourth option' }
     const links = model.links.flatMap((l) => (l.from === src.id ? [l, { ...l, from: extra.id }] : l.to === src.id ? [l, { ...l, to: extra.id }] : [l]))
@@ -90,7 +90,7 @@ describe('readable first, whole when it fits at the current floor', () => {
     const bounds = rect(bs), freeW = pane.width - insets.left - insets.right, freeH = pane.height - insets.top - insets.bottom
     expect(Math.min(freeW / bounds.width, freeH / bounds.height)).toBeLessThan(READABLE_WHOLE_ZOOM)
     const v = readableFirstViewport(bounds, pane, insets, head)!
-    expect(v.zoom).toBe(Math.max(LABEL_LEGIBLE_ZOOM, Math.min(READABLE_WHOLE_ZOOM, freeW / bounds.width)))
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
     expect(at.get(QUESTION)!.y * v.zoom + v.y, QUESTION).toBeCloseTo(insets.top)
     for (const id of ids) expect(at.get(id)!.y, id).toBeGreaterThanOrEqual(at.get(QUESTION)!.y + 85)
     for (const a of bs) for (const b of bs) if (a.id < b.id) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, `${a.id} overlaps ${b.id}`).toBe(false)
@@ -100,15 +100,14 @@ describe('readable first, whole when it fits at the current floor', () => {
     expect(new Set(ids.map((id) => places.get(id)!.y)).size).toBe(1)
   })
   // UI restore stage 1 (DL ruling 10 Nov): use the current floor; whole at the boundary, top-aligned at the floor below it.
-  it('a board fitting at or above the readable floor uses the whole fit; just below it is drawn across its width, top-aligned', () => {
+  it('a board fitting at or above the readable floor uses the whole fit; just below it opens top-aligned at the floor', () => {
     const freeW = pane.width - insets.left - insets.right, freeH = pane.height - insets.top - insets.bottom
     const at = (z: number) => ({ x: 40, y: -10, width: freeW / z, height: freeH / z })
     expect(WHOLE_FIT_ZOOM).toBe(READABLE_WHOLE_ZOOM)
     expect(readableFirstViewport(at(READABLE_WHOLE_ZOOM + 0.05), pane, insets)).toBeNull()
     expect(readableFirstViewport(at(READABLE_WHOLE_ZOOM), pane, insets)).toBeNull()
-    // Just below: too wide and too tall for the floor, so it is drawn across its whole width (its own width fit), top-aligned.
     const bounds = at(READABLE_WHOLE_ZOOM - 0.05), v = readableFirstViewport(bounds, pane, insets)!
-    expect(v.zoom).toBeCloseTo(READABLE_WHOLE_ZOOM - 0.05)
+    expect(v.zoom).toBe(READABLE_WHOLE_ZOOM)
     expect(bounds.y * v.zoom + v.y).toBeCloseTo(insets.top)
   })
   it('must not change: a board that fits whole at the readable floor or more is the product\'s own whole fit (null here)', () => {
