@@ -5,6 +5,10 @@ import { BODY, CARD, ERR, FIELD, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { shownModel, useViewStore } from '../olumiView/store'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
+import { PANEL_RULE } from '../components/results/analysisNew/panelSurfaces'
+
+/** A4: the previous Compare tab's ruled sections and panel headings (canvas/compare-tab/ComparePairSections), not cards. */
+const SECTION = PANEL_RULE, SECTION_H = `${typography.panelHeader} text-text-header m-0`
 
 /**
  * ANY TWO THINGS, SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts):
@@ -89,8 +93,8 @@ function Aim({ aim, names }: { aim: AimRow; names: { first: string; second: stri
   const paired = aim.status === 'comparable' || targets
   const lead = aim.most_likely
   return (
-    <section className={CARD} data-compare-aim={aim.status} aria-label={aim.label}>
-      <h4 className={H}>{aim.label}</h4>
+    <section className={`${SECTION} grid gap-2`} data-compare-aim={aim.status} aria-label={aim.label}>
+      <h4 className={SECTION_H}>{aim.label}</h4>
       {words(aim.only_in_text) ? <p className={META} data-compare-only-in="">{aim.only_in_text}</p> : null}
       <div className="grid grid-cols-2 gap-3">
         <AimSideWords s={aim.a} target={targets} />
@@ -150,7 +154,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   const showFigures = figures.some((f) => f.status !== 'same')
   const names = { first: c.a?.name ?? '', second: c.b?.name ?? '' }
   return (
-    <div className="grid gap-2" data-testid="scenario-compare-out">
+    <div className="grid gap-2 px-4" data-testid="scenario-compare-out">
       <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-panel py-1" data-testid="scenario-compare-heads">
         {[c.a, c.b].map((s, i) => (
           <div key={i} className="grid content-start gap-0.5 break-words" data-compare-side={i === 0 ? 'a' : 'b'} data-compare-kind={s?.kind ?? 'scenario'}>
@@ -165,15 +169,15 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       {aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
         ? <TrackKey first={names.first} second={names.second} /> : null}
       {options.length === 0 && !showFigures ? null : (
-        <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
-          <h4 className={H}>Differences</h4>
+        <section className={`${SECTION} grid gap-2`} data-testid="scenario-compare-differences" aria-label="Differences">
+          <h4 className={SECTION_H}>Differences</h4>
           {options.map((o, i) => <p key={`${o.label}-${i}`} className={`${BODY} break-words`} data-compare-diff-option={o.status}><span className="text-text-header">{o.label}</span>{words(o.only_in_text) ? <span className={META}>{`  ${o.only_in_text}`}</span> : null}</p>)}
           <Figures rows={figures} />
         </section>
       )}
       {notes.length === 0 ? null : (
-        <section className={CARD} data-testid="scenario-compare-notes" aria-label="Notes">
-          <h4 className={H}>Notes</h4>
+        <section className={`${SECTION} grid gap-2`} data-testid="scenario-compare-notes" aria-label="Notes">
+          <h4 className={SECTION_H}>Notes</h4>
           <ul className="m-0 grid list-none gap-1 p-0">{notes.map((l, i) => <li key={i} className={`${BODY} break-words`}>{l}</li>)}</ul>
         </section>
       )}
