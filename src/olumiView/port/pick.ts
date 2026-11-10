@@ -142,18 +142,6 @@ export function driverCardsOf(model: ViewModel): ViewCard[] {
   return out
 }
 
-/** One act-on-it row from core: a figure the chances wait on (`run.waits_on.items`), or a prompt about the model's shape (`model.sharpen`). */
-export type ActRow =
-  | { kind: 'wait'; key: string; i: number; item: NonNullable<ViewRun['waits_on']>['items'][number] }
-  | { kind: 'sharpen'; key: string; i: number; item: ViewModel['sharpen'][number] }
-/** Core's act-on-it rows in core's own order within each source: what the chances wait on first, then the prompts. Nothing ranked. */
-export function actRowsOf(model: ViewModel): ActRow[] {
-  const out: ActRow[] = []
-  ;(model.run?.waits_on?.items ?? []).forEach((item, i) => { if (item.text !== '') out.push({ kind: 'wait', key: `wait:${item.id}`, i, item }) })
-  ;(model.sharpen ?? []).forEach((item, i) => { if (item.lead !== '' || item.emphasis !== '') out.push({ kind: 'sharpen', key: `sharpen:${item.id}`, i, item }) })
-  return out
-}
-
 /** The aim core's lenses are about: the aim its most likely line names (`run.most_likely.aim_id`, wip/core-port-fields); null without one. */
 export function lensAimOf(run: ViewRun | null): string | null {
   const id = (run?.most_likely as { aim_id?: unknown } | null | undefined)?.aim_id

@@ -22,7 +22,8 @@ import { driverRange, figureCard, Sensitivity, sensitivityShown } from '../ViewC
 import { driverCardsOf, drawnByRows } from './pick'
 import { TYPE } from './type'
 
-type ViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
+export type EvidenceViewKey = 'drivers' | 'tipping' | 'rests' | 'failure' | 'compared' | 'worth'
+type ViewKey = EvidenceViewKey
 type Science = NonNullable<ViewRun['science']>[number]
 
 /** The crafted 6px track (prototype .evidence-bar) carrying v10's low→high marker: positions only, never drawn as numbers. */
@@ -43,9 +44,12 @@ export interface HeroEvidenceDisclosureProps {
   defaultOpen?: boolean
   /** Mounted under one worth line (e.g. its figure's give words and ✎, `science[].figure.give`). */
   giveAction?: (line: Science, i: number) => ReactNode
+  /** Views another section of the tab already draws (UI recovery, 10 Nov: the previous product's own sections are back), left out here so
+   *  each thing is still said once (SC-02). */
+  omit?: readonly EvidenceViewKey[]
 }
 
-export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction }: HeroEvidenceDisclosureProps) {
+export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction, omit = [] }: HeroEvidenceDisclosureProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [picked, setView] = useState<ViewKey | null>(null)
   const run = model.run ?? null
@@ -67,7 +71,7 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
     { key: 'failure', label: failure?.heading ?? '', view: 'run.failure_heading', present: failure !== null },
     { key: 'compared', label: 'Trade-offs', view: undefined, present: compared.length > 0 },
     { key: 'worth', label: 'Worth checking first', view: undefined, present: worth.length > 0 },
-  ] as const).flatMap((v) => (v.present ? [v] : []))
+  ] as const).flatMap((v) => (v.present && !omit.includes(v.key) ? [v] : []))
   if (views.length === 0) return null
   const active: ViewKey = views.some((v) => v.key === picked) ? picked! : views[0]!.key
 
@@ -75,7 +79,8 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction 
     <div className="pt-1" data-testid="port-evidence-disclosure">
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="port-evidence-toggle"
         className="flex w-full items-center gap-2 rounded px-1 py-1.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
-        <span className={`${TYPE.body} min-w-0 flex-1 font-medium text-text-header`}>Why and what could change it</span>
+        {/* One view left (the tab's own sections draw the rest): the toggle says that view's own name, never a wider promise. */}
+        <span className={`${TYPE.body} min-w-0 flex-1 font-medium text-text-header`} data-view={views.length === 1 ? views[0]!.view : undefined}>{views.length === 1 ? views[0]!.label : 'Why and what could change it'}</span>
         <ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 flex-none text-text-light transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
       </button>
 

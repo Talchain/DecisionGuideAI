@@ -20,7 +20,7 @@
  * `onTryAction` is injected (e.g. the container cannot reach the chat because
  * aiPanelV2 is off) — never a dead button.
  */
-import { useId, type CSSProperties } from 'react'
+import { useId, type CSSProperties, type ReactNode } from 'react'
 import {
   ChevronRight,
   ChevronDown,
@@ -56,6 +56,8 @@ interface FocusRowCardProps {
   onTryAction?: (row: FocusRow) => void
   /** Reasoning V2: rows sit on the panel (no inset), 16px icons, the Olumi AI glyph. */
   bare?: boolean
+  /** See FocusNowProps.rowExtra: the caller's own control for this row, drawn at the end of the open body. */
+  extra?: ReactNode
 }
 
 function RowMarker({ row, bare = false }: { row: FocusRow; bare?: boolean }) {
@@ -71,7 +73,7 @@ function RowMarker({ row, bare = false }: { row: FocusRow; bare?: boolean }) {
   return <EntityTarget />
 }
 
-export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false }: FocusRowCardProps) {
+export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false, extra }: FocusRowCardProps) {
   const regionId = useId()
   const labelId = useId()
   const Chevron = isOpen ? ChevronDown : ChevronRight
@@ -169,6 +171,7 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false 
               </Tooltip>
             </div>
           )}
+          {extra == null ? null : <div className="mt-1" data-testid="focus-extra">{extra}</div>}
         </div>
       )}
     </div>
