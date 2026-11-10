@@ -245,17 +245,22 @@ describe('My scenarios: archive and restore', () => {
     expect(screen.queryByTestId('my-scenarios-archived')).toBeNull()
   })
 
-  it('a list after archiving that names another person is dropped, never shown', async () => {
+  it('a list after archiving that names another person is dropped, never shown, and nothing of the earlier list stays on screen', async () => {
+    const BOS = [{ ...SCENARIOS[0]!, id: 's_f00000000001', title: 'Bo pricing', label: 'Bo pricing', open: '/#/scenario/00000000-0000-4000-8000-f00000000001', members: [BO] },
+      { ...SCENARIOS[1]!, id: 's_f00000000002', title: 'Bo hiring', label: 'Bo hiring', open: '/#/scenario/00000000-0000-4000-8000-f00000000002', members: [BO] }]
     let n = 0
     core((m, p) => {
       if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
-      if (p === '/api/account/scenarios') return { body: { you_id: n++ === 0 ? '7' : '9', scenarios: SCENARIOS.slice(1), archived: SCENARIOS.slice(0, 1) } }
+      if (p === '/api/account/scenarios') return n++ === 0 ? { body: { you_id: '7', scenarios: SCENARIOS.slice(1), archived: SCENARIOS.slice(0, 1) } } : { body: { you_id: '9', scenarios: BOS.slice(0, 1), archived: BOS.slice(1) } }
       if (m === 'POST') return { body: { id: 's_a00000000001', archived: true } }
       return undefined
     })
     at('/', <MyScenariosPage />)
-    await screen.findByTestId('my-scenarios')
+    await screen.findByTestId('my-scenarios-archived')
     fireEvent.click(screen.getByTestId('my-scenario-archive-s_a00000000001'))
     expect((await screen.findByRole('alert')).textContent).toMatch(/signed in as someone else/)
+    expect(document.body.textContent).not.toMatch(/Bo pricing|Bo hiring/)
+    expect(screen.queryByTestId('my-scenarios')).toBeNull()
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull() // the earlier archived list is not left showing either
   })
 })

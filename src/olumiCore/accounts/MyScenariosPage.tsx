@@ -50,7 +50,7 @@ export default function MyScenariosPage(): JSX.Element {
       const r = await accountsApi.scenarios()
       mine(r, r?.you_id, page)
       if (live()) { setList(Array.isArray(r?.scenarios) ? r.scenarios : []); setAway(Array.isArray(r?.archived) ? r.archived : []) }
-    } catch (e) { if (live()) { setList(null); setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') } }
+    } catch (e) { if (live()) { setList(null); setAway([]); setError(e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.') } }
   }, [page])
   useEffect(() => {
     let live = true
