@@ -27,8 +27,12 @@ describe('#1 the question', () => {
     expect(c.querySelector('[data-view="question.decide_by.text"]')?.getAttribute('title')).toBe('You set this date')
     expect(q.badge).not.toBeNull()
     // Core names what the badge folds (`icon` and `words`, cd99ab32): the badge draws those; with neither, its `text` (Badge.tsx badgeNamed).
-    const b = q.badge as typeof q.badge & { icon?: string; words?: string }
-    if (b.icon && b.words) {
+    const b = q.badge as typeof q.badge & { icon?: string; words?: string; face?: string }
+    // Since core 91fdf8a9 (DL 10 Nov): the badge's face on the card, its words whole on hover.
+    if (b.face) {
+      expect(c.querySelector('[data-view="question.badge.face"]')?.textContent).toBe(b.face)
+      expect(c.querySelector('[data-view="question.badge.face"]')!.closest('button')!.getAttribute('title')!.split('\n')[0]).toBe(b.words)
+    } else if (b.icon && b.words) {
       expect(c.querySelector('[data-view="question.badge.icon"]')?.textContent).toBe(b.icon)
       expect(c.querySelector('[data-view="question.badge.words"]')?.textContent).toBe(b.words)
     } else expect(c.querySelector('[data-view="question.badge.text"]')?.textContent).toBe(b.text)

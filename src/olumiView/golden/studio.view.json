@@ -206,14 +206,15 @@
       "classes_rel",
       "takings_rel"
      ],
-     "text": "● = +4",
+     "text": "2 figures, 2 calculations",
      "title": "Figure: extra classes\nFigure: classes\nHow classes is worked out\nHow takings is worked out",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 calculations",
-     "icon": "● ="
+     "face": "2 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -411,7 +412,7 @@
     "glyph": "●",
     "heading": "How members feel",
     "typed": false,
-    "detail": "How members feel · quantity · Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it. · unknown: No one can measure how members feel yet; repeat bookings might show it.",
+    "detail": "How members feel · quantity · Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it. · not sized yet · unknown: No one can measure how members feel yet; repeat bookings might show it.",
     "col": 1,
     "h": 88,
     "olumi": {
@@ -423,8 +424,8 @@
     "challenged": false,
     "doubt": true,
     "figure": {
-     "text": "?",
-     "title": "unknown: No one can measure how members feel yet; repeat bookings might show it.",
+     "text": "",
+     "title": "not sized yet · unknown: No one can measure how members feel yet; repeat bookings might show it.",
      "edit": {
       "prompt": "New figure for “How members feel”: one number, or a range like 150 to 400",
       "ask": "For “How members feel”, type one number, or a range like 150 to 400."
@@ -484,14 +485,15 @@
       "co_owner_view",
       "if_slots_suit"
      ],
-     "text": "⚑ ! +2",
+     "text": "1 disagreement, 1 challenge",
      "title": "dissent: my co-owner: Evening classes will crowd the studio and put off daytime members.\nchallenge: It depends on whether evening slots suit the members who work days.",
      "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 disagreement, 1 challenge",
-     "icon": "⚑ !"
+     "face": "1 disagreement, 1 challenge",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -813,14 +815,15 @@
      "records": [
       "workshop_extra"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: workshop extra",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -1486,11 +1489,6 @@
     "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
-   },
-   {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
    },
    {
     "id": "cannot_work_out",

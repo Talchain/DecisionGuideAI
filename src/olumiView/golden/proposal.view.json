@@ -33,14 +33,15 @@
      "lead_doubt",
      "morale_left_out"
     ],
-    "text": "● ↝ ⚑ +4",
+    "text": "1 figure, 1 link, 1 disagreement, 1 open question",
     "title": "Figure: team morale\nLink: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.\nleft out: How the team feels about a new hire",
     "label": "Show 4 notes behind this",
     "open": false,
     "proposed": false,
     "change": "",
     "words": "1 figure, 1 link, 1 disagreement, 1 open question",
-    "icon": "● ↝ ⚑"
+    "face": "1 figure, 1 link and 2 more",
+    "icon": ""
    }
   },
   "whole": false,
@@ -216,14 +217,15 @@
       "added_def",
       "total_def"
      ],
-     "text": "● = +4",
+     "text": "2 figures, 2 calculations",
      "title": "Figure: specialists\nFigure: added capacity\nHow added capacity is worked out\nHow total capacity is worked out",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 calculations",
-     "icon": "● ="
+     "face": "2 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -514,14 +516,15 @@
       "morale_link",
       "lead_doubt"
      ],
-     "text": "↝ ⚑ +2",
+     "text": "1 link, 1 disagreement",
      "title": "Link: Add one specialist → team morale\ndissent: our team lead: A new hire may unsettle the team.",
      "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 link, 1 disagreement",
-     "icon": "↝ ⚑"
+     "face": "1 link, 1 disagreement",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -938,11 +941,6 @@
     "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
-   },
-   {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
    },
    {
     "id": "cannot_work_out",

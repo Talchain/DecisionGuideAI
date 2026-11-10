@@ -277,14 +277,15 @@
       "cups_rel",
       "profit_rel"
      ],
-     "text": "● = +4",
+     "text": "2 figures, 2 calculations",
      "title": "Figure: rise on\nFigure: cups\nHow cups is worked out\nHow profit is worked out",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 calculations",
-     "icon": "● ="
+     "face": "2 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -493,14 +494,15 @@
      "records": [
       "rise_switched_on"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: rise switched on",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -991,11 +993,6 @@
     "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
-   },
-   {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
    },
    {
     "id": "cannot_work_out",

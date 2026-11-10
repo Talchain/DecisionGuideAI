@@ -255,14 +255,15 @@
       "hours_on",
       "sales_rel"
      ],
-     "text": "● = +3",
+     "text": "2 figures, 1 calculation",
      "title": "Figure: ovens added\nFigure: hours on\nHow sales is worked out",
      "label": "Show 3 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 1 calculation",
-     "icon": "● ="
+     "face": "2 figures, 1 calculation",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -460,7 +461,7 @@
     "glyph": "●",
     "heading": "Oven price",
     "typed": false,
-    "detail": "oven price · quantity · Theirs: “” · What would the second oven cost?",
+    "detail": "oven price · quantity · Theirs: “” · not given yet · What would the second oven cost?",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -469,8 +470,8 @@
     "challenged": false,
     "doubt": true,
     "figure": {
-     "text": "?",
-     "title": "What would the second oven cost?",
+     "text": "",
+     "title": "not given yet · What would the second oven cost?",
      "edit": {
       "prompt": "New figure for “oven price” (GBP/oven): one number, or a range like 150 to 400",
       "ask": "For “oven price”, type one number, or a range like 150 to 400."
@@ -583,14 +584,15 @@
       "oven_cost_rel",
       "spend_rel"
      ],
-     "text": "● = +4",
+     "text": "2 figures, 2 calculations",
      "title": "Figure: ovens added\nFigure: oven cost\nHow oven cost is worked out\nHow spend is worked out",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 figures, 2 calculations",
-     "icon": "● ="
+     "face": "2 figures, 2 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -781,14 +783,15 @@
      "records": [
       "one_oven"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: one oven",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -891,14 +894,15 @@
      "records": [
       "hours_switched_on"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: hours switched on",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -1612,11 +1616,6 @@
     "id": "worked_out",
     "glyph": "=",
     "text": "worked out"
-   },
-   {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
    },
    {
     "id": "cannot_work_out",
