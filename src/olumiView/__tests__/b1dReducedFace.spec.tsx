@@ -97,20 +97,40 @@ describe('2. the question is never clamped, and grows only into free space', () 
     expect(f.className).not.toContain('overflow-hidden')
     expect(parseFloat(f.style.getPropertyValue('--canvas-label-scale')) * 12 * 0.449).toBeGreaterThanOrEqual(12)
   })
-  it.each([['the screen board', screen], ['the earlier board', earlier]])('%s: the whole question at 12 px as drawn ends above the first row of options (hiring, 1232 x 704, dock open)', async (_n, v) => {
-    const model = v.model!, places = await causalPlaces(model, new Map()), q = questionPlace(model)
-    const pane = { width: 1232, height: 704 }, free = { top: 104, right: 363, bottom: 26, left: 45 }
-    const boxes = [{ id: QUESTION, ...places.get(QUESTION)!, w: q.width, h: 85 }, ...model.cards.map((c) => ({ id: c.id, ...places.get(c.id)!, w: CARD_WIDTH, h: c.h }))]
+  // DL 10 Nov, Codex at 900 x 704: the grown question face ended 5.5 px inside the option faces below it, since the layout knew only the full
+  // face's 85 px. The face now reserves the height it really needs in its card's box, the canvas lays the next row out from that, and the
+  // row below starts under it at every width from 900 to 1232. jsdom has no layout: the face's content height is the character-width estimate
+  // (a deliberately wide 0.6 em a character, semibold) given as the face's offsetHeight; what is asserted is that the reservation and the layout
+  // carry it. At 900 the question needs more than its 85 px box, so reserving nothing (b733) leaves the options inside it.
+  it.each([900, 1000, 1100, 1232])('hiring at %i x 704, dock open: the question\'s whole face is reserved, and the options row starts below it', async (width) => {
+    const model = screen.model!, places0 = await causalPlaces(model, new Map()), q = questionPlace(model)
+    const pane = { width, height: 704 }, free = { top: 104, right: width - (width - 308), bottom: 26, left: 45 }
+    const boxes = [{ id: QUESTION, ...places0.get(QUESTION)!, w: q.width, h: 85 }, ...model.cards.map((c) => ({ id: c.id, ...places0.get(c.id)!, w: CARD_WIDTH, h: c.h }))]
     const zoom = frameFor(boxes.map((b): Node => ({ id: b.id, position: { x: b.x, y: b.y }, data: {}, measured: { width: b.w, height: b.h } })), pane, free)!.zoom
     const declared = reducedFaceSize(zoom)
     expect(declared, 'precondition: the first fit is zoomed out').toBeGreaterThan(0)
-    // The text's lines, estimated at a deliberately wide 0.6 em a character (semibold), plus the face's padding and border.
     const lines = Math.ceil((model.question.text.length * 0.6 * declared) / (q.width - 18))
-    const needs = Math.max(85, lines * declared * 1.15 + 12 + 2)
-    const options = boxes.filter((b) => model.cards.find((c) => c.id === b.id)?.family === 'option')
-    expect(options.length, 'precondition: options on the board').toBeGreaterThanOrEqual(2)
-    const top = boxes[0]!.y, firstRow = Math.min(...options.map((b) => b.y))
-    expect(top + needs, `question needs ${needs} (${lines} lines of ${declared}px) from ${top}; options start at ${firstRow}`).toBeLessThanOrEqual(firstRow)
+    const need = lines * declared * 1.15 + 12 + 2
+    if (width === 900) expect(need, 'precondition: at 900 the whole question needs more than the 85 px it was given').toBeGreaterThan(85)
+    // 1. the face reserves its own height in the question's box.
+    const heightOf = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get(this: HTMLElement) { return this.hasAttribute('data-reduced-face') ? need : 0 } })
+    try {
+      const Zoom2 = () => { const api = useStoreApi(); api.setState({ transform: [0, 0, zoom] }); return null }
+      const { container } = render(<ReactFlowProvider><Zoom2 /><ViewQuestionNode {...({ id: QUESTION, data: { question: model.question, width: q.width } } as unknown as NodeProps)} /></ReactFlowProvider>)
+      expect(container.querySelector<HTMLElement>('[data-view-question]')!.style.minHeight).toBe(`${need}px`)
+      cleanup()
+      expect(container.querySelector('[data-view-question]'), 'unmounted: its reservation is not left behind').toBeNull()
+    } finally { if (heightOf) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', heightOf); else delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight }
+    // 2. the layout, given the question's real height, puts every option row below it; with only the 85 px it was given (b733) it does not at 900.
+    const optionIds = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+    const rowTop = (p: Map<string, { x: number; y: number }>) => Math.min(...optionIds.map((id) => p.get(id)!.y))
+    const reserved = await causalPlaces(model, new Map([[QUESTION, { width: q.width, height: Math.max(85, need) }]]))
+    expect(rowTop(reserved), `options start at ${rowTop(reserved)}; the question needs ${Math.max(85, need)} from ${reserved.get(QUESTION)!.y}`).toBeGreaterThanOrEqual(reserved.get(QUESTION)!.y + Math.max(85, need))
+    if (width === 900) {
+      const unreserved = await causalPlaces(model, new Map())
+      expect(rowTop(unreserved), 'CONTRAST: unreserved, the options row starts inside the grown question').toBeLessThan(unreserved.get(QUESTION)!.y + need)
+    }
   })
 })
 

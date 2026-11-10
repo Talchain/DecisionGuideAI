@@ -45,6 +45,19 @@ export function ReducedFace({ px, title, titleAttrs, chance = null, chanceWords,
     const need = measure.current?.offsetWidth ?? 0, have = tail.current?.clientWidth ?? 0
     setShort(chanceShort !== null && need > 0 && have > 0 && need > have)
   })
+  // The room this face really needs is reserved in its card's own box (DL 10 Nov, Codex at 900 x 704: the grown question face ended 5.5 px
+  // inside the option faces below it, because the layout only knew the full face's height). The card's measured height then carries it, and
+  // the canvas lays the row below out again from it. Measured at the face's content height, never its own previous size, so it can shrink.
+  const reserves = grow || twoLines
+  useLayoutEffect(() => {
+    const face = root.current, parent = face?.parentElement ?? null
+    if (!reserves || face === null || parent === null) return
+    face.style.minHeight = '0px'; parent.style.minHeight = ''
+    const need = face.offsetHeight
+    face.style.minHeight = ''
+    if (need > 0) parent.style.minHeight = `${need}px`
+  })
+  useLayoutEffect(() => { const parent = root.current?.parentElement ?? null; return () => { if (parent !== null) parent.style.minHeight = '' } }, [])
   const clamp = twoLines ? 1 : grow ? 0 : lines
   const whole = typeof title === 'string' ? title : undefined
   return (
