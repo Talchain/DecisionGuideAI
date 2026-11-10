@@ -29,7 +29,7 @@ import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTried
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
-import { Badge, badgeNamed } from '../../olumiView/Badge'
+import { Badge } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 import { StatedFigure } from '../../olumiView/StatedFigure'
@@ -331,7 +331,9 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         // proposal the person can change); one their words state, or one that contradicts them, is quiet. Whole on the face (R25: no cut text).
         <p className={`${typography.viewLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>
       )}
-      {card.figure === null ? null : (
+      {/* A figure with no value (asked, unsized, unsupported: core's `figure.text` '', its words in `figure.title` and `detail`, DL 10 Nov)
+          and nothing else to hold (no ✎, no Olumi pill, no held proposal to set aside) takes no row, not an empty one. */}
+      {card.figure === null || (card.figure.text === '' && !perOption && !card.figure.edit && provenance === null && ifApproved === null) ? null : (
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
           {perOption ? (
             // One row per option, core's own line for it (`values[].text`), after the option's number as the canvas numbers it: the face stays
@@ -381,18 +383,14 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
           {WHAT_IF_COPY.whatIf}: <span className={`${typography.viewValue} font-semibold text-text-header`} data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
         </p>
       )}
-      {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
-      {/* A badge with no words (glyphs only), or an open one (what it folded is on the board already: J1 step 3, nothing repeated), shows
-          on hover, focus or selection. */}
-      {card.badge === null || card.badge.open || badgeNamed(card.badge) !== null ? null
-        : <p className={selected ? '' : 'invisible group-hover:visible focus-within:visible'} data-at-rest-hidden=""><Badge cardId={id} badge={card.badge} at={id} /></p>}
       {/* An open badge takes no line on the face: what it folded is on the board. Its fold-back is in the opened card's words (`aside`). */}
       {/* An option the team committed to (olumi.view/3 `committed`, the newest commitment naming it): who, in the marks row; when, on hover. */}
       <span data-slot={VIEW_CARD_SLOTS.marks} className="flex flex-wrap items-center gap-1 empty:hidden">
-        {/* DL 7 Nov, the strategy session's rule on V11's card: a badge core names in words ("1 open question") is on the face at rest, one
-            compact 12px line in the marks band, core's glyphs as its icon and core's words beside them, first of the card's status signals.
-            It outranks a source mark where a card already has two signals; this card face draws no source mark today. */}
-        {card.badge === null || badgeNamed(card.badge) === null || card.badge.open ? null
+        {/* DL 7 Nov, the strategy session's rule on V11's card: a badge is on the face at rest, one compact 12px line in the marks band, first
+            of the card's status signals: core's face (DL 10 Nov: whole words within the card, its words whole on hover), else core's words
+            or text. A badge drawn only on hover held an invisible 24px line at rest (UI lane's measure, 10 Nov), and the face never changes
+            height on hover or focus (DL 9 Nov), so there is none. An open badge's fold-back is in the opened card's words (`aside`). */}
+        {card.badge === null || card.badge.open ? null
           : <span className={`${typography.viewPanelMeta} whitespace-nowrap`} data-badge-at-rest={id}><Badge cardId={id} badge={card.badge} at={id} /></span>}
         {card.figure === null ? provenance : null}
         {card.committed == null ? null : <span className="text-text-light" title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}

@@ -159,6 +159,9 @@
             "words": {
              "type": "string"
             },
+            "face": {
+             "type": "string"
+            },
             "icon": {
              "type": "string"
             }
@@ -172,6 +175,7 @@
             "proposed",
             "change",
             "words",
+            "face",
             "icon"
            ],
            "additionalProperties": false
@@ -932,6 +936,9 @@
              "words": {
               "type": "string"
              },
+             "face": {
+              "type": "string"
+             },
              "icon": {
               "type": "string"
              }
@@ -945,6 +952,7 @@
              "proposed",
              "change",
              "words",
+             "face",
              "icon"
             ],
             "additionalProperties": false

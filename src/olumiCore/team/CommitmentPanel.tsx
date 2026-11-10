@@ -12,6 +12,11 @@ import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
+/** DL 10 Nov (two-person rehearsal on 55c0c03f, bounded-trial blocker): a next action can be gathering evidence before any option is
+ *  chosen. The team says so explicitly, as an answer of their own; Olumi never picks an option for them, and Record never waits on one.
+ *  Not a core option id (core ids are snake_case words), so it never collides; it is never sent: core's commit takes no option. */
+export const NO_OPTION_YET = '-'
+export const NO_OPTION_YET_WORDS = 'No option yet: gathering evidence'
 const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
 
 /**
@@ -35,6 +40,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   const pending = view.proposal !== null
   const options = (approved?.cards ?? []).filter((x) => x.family === 'option' && x.status === null)
   const chosen = options.find((x) => x.id === option) ?? null
+  const noOptionYet = option === NO_OPTION_YET
   // Only dissent the approved model still records: a kept id core no longer holds is dropped, never sent.
   const keeps = (d.keeps ?? []).filter((id) => c.dissent.some((x) => x.id === id))
   const labelOf = (id: string) => view.collab.records.find((r) => r.id === id)?.label ?? null
@@ -49,7 +55,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   const [error, setError] = useState<string | null>(null)
   // A commitment has no operation id in core: one whose answer was lost may have been saved, so it is locked, not sent again (`writes.ts`).
   const locked = useWriteLocked(`${sid}:commitment`)
-  const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && approved !== null && (options.length === 0 || chosen !== null)
+  const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && approved !== null && (options.length === 0 || chosen !== null || noOptionYet)
 
   const save = async () => {
     if (!ready || locked) return
@@ -114,6 +120,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
             <select id="team-c-option" data-testid="team-c-option" className={FIELD} value={option} disabled={busy} onChange={(e) => put({ option: e.target.value })}>
               <option value="" disabled>Choose…</option>
               {options.map((x) => <option key={x.id} value={x.id}>{x.heading}</option>)}
+              <option value={NO_OPTION_YET}>{NO_OPTION_YET_WORDS}</option>
             </select>
           </>)}
           <label htmlFor="team-c-expect" className={LABEL}>What we expect to see</label>

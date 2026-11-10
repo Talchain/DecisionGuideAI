@@ -34,14 +34,15 @@
      "churn_profit_influence",
      "profit_gap"
     ],
-    "text": "● ❝ ↝ +5",
+    "text": "2 figures, 1 claim, 1 link, 1 open question",
     "title": "Figure: Proposed comparison horizon\nFigure: Profitability\nclaim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nLink: Monthly customer churn → Profitability\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
     "label": "Show 5 notes behind this",
     "open": false,
     "proposed": false,
     "change": "",
     "words": "2 figures, 1 claim, 1 link, 1 open question",
-    "icon": "● ❝ ↝"
+    "face": "2 figures and 3 more",
+    "icon": ""
    }
   },
   "whole": false,
@@ -193,14 +194,15 @@
      "records": [
       "regulatory_complexity"
      ],
-     "text": "❝ +1",
+     "text": "1 claim",
      "title": "claim: Multiple complex country regulations are a consideration.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim",
-     "icon": "❝"
+     "face": "1 claim",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -255,14 +257,15 @@
       "test_geographic_explanation",
       "profit_gap"
      ],
-     "text": "❝ ↝ ! +4",
+     "text": "1 claim, 1 link, 1 challenge, 1 open question",
      "title": "claim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nLink: Monthly customer churn → Profitability\nchallenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim, 1 link, 1 challenge, 1 open question",
-     "icon": "❝ ↝ !"
+     "face": "1 claim, 1 link and 2 more",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -346,14 +349,15 @@
       "churn_profit_warning",
       "profit_gap"
      ],
-     "text": "❝ ○ +2",
+     "text": "1 claim, 1 open question",
      "title": "claim: Monthly churn beyond 12% creates a danger of losing money; this does not establish that churn at or below 12% guarantees profitability.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
      "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim, 1 open question",
-     "icon": "❝ ○"
+     "face": "1 claim, 1 open question",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -506,14 +510,15 @@
       "customer_stock",
       "monthly_churn_frequency"
      ],
-     "text": "● = +10",
+     "text": "6 figures, 4 calculations",
      "title": "Figure: Percentage to fraction\nFigure: Monthly churn fraction\nFigure: Incremental European customer acquisitions\nFigure: Total monthly new customers\nFigure: Monthly customers lost\nHow Monthly churn fraction is worked out\nHow Total monthly new customers is worked out\nHow Monthly customers lost is worked out\nHow Customer base is worked out\nFigure: Monthly churn application frequency",
      "label": "Show 10 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "6 figures, 4 calculations",
-     "icon": "● ="
+     "face": "6 figures, 4 calculations",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -666,14 +671,15 @@
       "test_geographic_explanation",
       "profit_gap"
      ],
-     "text": "! ○ +2",
+     "text": "1 challenge, 1 open question",
      "title": "challenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
      "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 challenge, 1 open question",
-     "icon": "! ○"
+     "face": "1 challenge, 1 open question",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -766,14 +772,15 @@
       "regulatory_complexity",
       "profit_gap"
      ],
-     "text": "● ❝ ○ +3",
+     "text": "1 figure, 1 claim, 1 open question",
      "title": "Figure: Total investment committed to expansion\nclaim: Multiple complex country regulations are a consideration.\nleft out: Customer growth and budget compliance do not establish profitability or adequate cash runway. The stated 12% warning is retained, but no probability of making or losing money is calculated.",
      "label": "Show 3 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure, 1 claim, 1 open question",
-     "icon": "● ❝ ○"
+     "face": "1 figure, 1 claim and 1 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -1005,14 +1012,15 @@
       "test_geographic_explanation",
       "validate_acquisition_cost_pairings"
      ],
-     "text": "● ❝ ! +7",
+     "text": "3 figures, 2 claims, 2 challenges",
      "title": "Figure: Broader-entry acquisition what-if\nFigure: Post-entry churn what-if\nFigure: Broader-entry investment what-if\nclaim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nclaim: Multiple complex country regulations are a consideration.\nchallenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.\nchallenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
      "label": "Show 7 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "3 figures, 2 claims, 2 challenges",
-     "icon": "● ❝ !"
+     "face": "3 figures and 4 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -1300,14 +1308,15 @@
       "regulatory_complexity",
       "validate_acquisition_cost_pairings"
      ],
-     "text": "● ❝ ! +6",
+     "text": "3 figures, 2 claims, 1 challenge",
      "title": "Figure: Single-country test acquisition what-if\nFigure: Post-entry churn what-if\nFigure: Single-country test investment what-if\nclaim: Competition intensity varies; countries should not be treated as interchangeable demand environments.\nclaim: Multiple complex country regulations are a consideration.\nchallenge: Replace the independent acquisition and investment what-ifs with internally consistent country-and-channel plans; higher spending is not currently linked to higher acquisition in this model.",
      "label": "Show 6 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "3 figures, 2 claims, 1 challenge",
-     "icon": "● ❝ !"
+     "face": "3 figures and 3 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -1469,14 +1478,15 @@
      "records": [
       "test_geographic_explanation"
      ],
-     "text": "! +1",
+     "text": "1 challenge",
      "title": "challenge: Test whether the main barrier to reaching 800 is insufficient market access or retention and acquisition economics in the existing market. Expansion could add customers without resolving the underlying growth constraint.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 challenge",
-     "icon": "!"
+     "face": "1 challenge",
+     "icon": ""
     },
     "values": null,
     "rests_on": [
@@ -2472,11 +2482,6 @@
     "text": "worked out"
    },
    {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
-   },
-   {
     "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
@@ -2535,8 +2540,8 @@
    {
     "id": "risk_count",
     "lead": "No risks captured yet.",
-    "emphasis": "A pre-mortem typically surfaces failure modes before they arrive.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]

@@ -63,14 +63,15 @@
       "review_prediction_not_observation",
       "review_rating_numeric_exclusion"
      ],
-     "text": "❝ ○ +2",
+     "text": "1 claim, 1 open question",
      "title": "claim: One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
      "label": "Show 2 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim, 1 open question",
-     "icon": "❝ ○"
+     "face": "1 claim, 1 open question",
+     "icon": ""
     },
     "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
     "values": null,
@@ -121,14 +122,15 @@
       "conditional_exposure_reason",
       "review_rating_numeric_exclusion"
      ],
-     "text": "❝ ○ +3",
+     "text": "2 claims, 1 open question",
      "title": "claim: One-star reviews are a feared consequence, not observed feedback or a quantified forecast. Their likelihood depends on whether users encounter the defect and what it does.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
      "label": "Show 3 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "2 claims, 1 open question",
-     "icon": "❝ ○"
+     "face": "2 claims, 1 open question",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -191,14 +193,15 @@
       "conditional_validation_reason",
       "boss_brief_structure"
      ],
-     "text": "❝ +4",
+     "text": "4 claims",
      "title": "claim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
      "label": "Show 4 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "4 claims",
-     "icon": "❝"
+     "face": "4 claims",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -249,14 +252,15 @@
       "isolation_trust_link",
       "review_rating_numeric_exclusion"
      ],
-     "text": "⊢ ↝ ○ +3",
+     "text": "1 prerequisite, 1 link, 1 open question",
      "title": "prerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nLink: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nleft out: The supplied one-star rating is retained as the feared type of review associated with the negative-review risk. It is not used as a numerical measure of user trust or as a release threshold.",
      "label": "Show 3 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 prerequisite, 1 link, 1 open question",
-     "icon": "⊢ ↝ ○"
+     "face": "1 prerequisite and 2 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -310,14 +314,15 @@
      "records": [
       "current_release_window"
      ],
-     "text": "❝ +1",
+     "text": "1 claim",
      "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 claim",
-     "icon": "❝"
+     "face": "1 claim",
+     "icon": ""
     },
     "unused": null,
     "values": [
@@ -409,14 +414,15 @@
       "conditional_validation_reason",
       "boss_brief_structure"
      ],
-     "text": "❝ ● = +10",
+     "text": "4 claims, 3 figures, 2 calculations, 1 challenge",
      "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nFigure: Time to implement the sync fix\nFigure: Validation time after implementing the fix\nFigure: Time to complete repair and validation\nHow Time to complete repair and validation is worked out\nHow Release time minus repair and validation time is worked out\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
      "label": "Show 10 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "4 claims, 3 figures, 2 calculations, 1 challenge",
-     "icon": "❝ ● ="
+     "face": "4 claims and 6 more",
+     "icon": ""
     },
     "unused": null,
     "values": null,
@@ -483,14 +489,15 @@
      "records": [
       "zero_schedule_shortfall"
      ],
-     "text": "● +1",
+     "text": "1 figure",
      "title": "Figure: Minimum proposed schedule margin",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 figure",
-     "icon": "●"
+     "face": "1 figure",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -569,14 +576,15 @@
       "disconfirm_full_delay",
       "boss_brief_structure"
      ],
-     "text": "❝ ! +6",
+     "text": "4 claims, 2 challenges",
      "title": "claim: The new app update is scheduled to go live in less than a month; the exact release date is not supplied.\nclaim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
      "label": "Show 6 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "4 claims, 2 challenges",
-     "icon": "❝ !"
+     "face": "4 claims, 2 challenges",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -683,14 +691,15 @@
       "disconfirm_full_delay",
       "boss_brief_structure"
      ],
-     "text": "❝ ● ! +12",
+     "text": "8 claims, 1 figure, 3 challenges",
      "title": "claim: Sarah reports a major database synchronization defect and describes the fix duration as 'weeks'. Its failure modes, affected users and estimate basis have not been supplied.\nclaim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nclaim: The user currently favors postponement and wants a technical explanation that avoids unfairly blaming the development team.\nFigure: Postponed release time from now\nchallenge: Establish a reproducible failure, affected operations and users, data-integrity consequences, recovery behavior and the estimate's assumptions before describing the defect as a release blocker.\nclaim: Potential reason for delay: if synchronization can lose, duplicate or incorrectly reconcile user changes, restoring service may not restore correct data. That would make integrity checks and recovery validation relevant release requirements. These failure modes have not been established here.\nclaim: Potential reason for delay: implementing a patch and demonstrating release readiness are different milestones. Verification may need to cover the reproduced failure, retries, concurrent updates, interrupted connections and supported client versions, depending on the actual defect.\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.\nclaim: A defensible boss-facing explanation separates confirmed facts, possible customer consequences, repair and verification estimates, commercial commitments, alternatives and the decision requested. Technical vocabulary cannot substitute for evidence or establish who is at fault.",
      "label": "Show 12 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "8 claims, 1 figure, 3 challenges",
-     "icon": "❝ ● !"
+     "face": "8 claims and 4 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -837,14 +846,15 @@
       "campaign_flexibility",
       "disconfirm_full_delay"
      ],
-     "text": "❝ ⊢ ↝ +7",
+     "text": "3 claims, 1 prerequisite, 1 link, 2 challenges",
      "title": "claim: Marketing has already bought ads for Q4. The amount, campaign dates and ability to redirect or reschedule them are not supplied.\nclaim: The user expects strong opposition from marketing if the release is delayed; this is not a reported position from marketing.\nprerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.\nLink: Explore shipping without the affected sync path → Avoid damaging users' experience and trust\nclaim: Potential reason for delay: if the campaign sends more users into an unresolved defective flow, paid acquisition may amplify exposure to the problem rather than deliver its intended benefit. The campaign destination and affected flow must be checked.\nchallenge: Check which advertising commitments are genuinely lost if the update moves, versus transferable to the existing app, another message or another date. Distinguish already-spent money from additional avoidable losses.\nchallenge: Test the strongest countercase to postponement: the defect may be limited, recoverable or safely isolated. Conversely, delaying the date without fixing and verifying the underlying problem would not itself protect users.",
      "label": "Show 7 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "3 claims, 1 prerequisite, 1 link, 2 challenges",
-     "icon": "❝ ⊢ ↝"
+     "face": "3 claims and 4 more",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -903,14 +913,15 @@
      "records": [
       "isolation_prerequisite"
      ],
-     "text": "⊢ +1",
+     "text": "1 prerequisite",
      "title": "prerequisite: A scoped release requires proof that disabling or excluding the affected path prevents exposure, including compatibility with existing clients and stored data. A feature flag is not sufficient if a shared backend or migration still triggers the defect.",
      "label": "Show 1 notes behind this",
      "open": false,
      "proposed": false,
      "change": "",
      "words": "1 prerequisite",
-     "icon": "⊢"
+     "face": "1 prerequisite",
+     "icon": ""
     },
     "values": null,
     "rests_on": [],
@@ -1362,11 +1373,6 @@
     "text": "worked out"
    },
    {
-    "id": "unsized",
-    "glyph": "?",
-    "text": "unsized"
-   },
-   {
     "id": "cannot_work_out",
     "glyph": "⊘",
     "text": "cannot be worked out"
@@ -1418,8 +1424,8 @@
    {
     "id": "risk_count",
     "lead": "One risk captured.",
-    "emphasis": "A pre-mortem typically surfaces failure modes you have not listed.",
-    "rationale": "Pre-mortem (Klein): imagine the choice failed, then ask what went wrong. It typically surfaces risks that planning misses.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks you have not listed.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
   ]

@@ -55,10 +55,11 @@ describe('an open figure editor stays visible, whether or not its card is hovere
   it('the badge (a focusable button) stays visible while it holds focus', () => {
     // A badge core names in words is on the face at rest (f687bf91, DL 7 Nov), so it is never hidden; a glyphs-only badge (core sends no
     // `icon`/`words`) is the one that waits for hover, and it must stay visible while it holds focus.
-    const { icon: _i, words: _w, ...plain } = badged.badge as NonNullable<typeof badged.badge> & { icon?: string; words?: string }
+    // DL 9 Nov (the face never changes height on hover or focus): a glyphs-only badge is at rest too, so it is visible whether or not it holds focus.
+    const { icon: _i, words: _w, face: _f, ...plain } = badged.badge as NonNullable<typeof badged.badge> & { icon?: string; words?: string; face?: string }
     const { unmount } = render(<ViewCard card={{ ...badged, badge: plain } as typeof badged} selected={false} />)
-    const wrap = document.querySelector<HTMLElement>(`[data-view="${badged.id}.badge.text"]`)!.closest<HTMLElement>('[data-at-rest-hidden]')!
-    expect(wrap.classList.contains('focus-within:visible')).toBe(true)
+    const text = document.querySelector<HTMLElement>(`[data-view="${badged.id}.badge.text"]`)!
+    expect([text.closest(`[data-badge-at-rest="${badged.id}"]`) !== null, text.closest('.invisible'), text.closest('[data-at-rest-hidden]')]).toEqual([true, null, null])
     unmount()
     render(<ViewCard card={badged} selected={false} />)
     const named = document.querySelector<HTMLElement>(`[data-badge-at-rest="${badged.id}"]`)

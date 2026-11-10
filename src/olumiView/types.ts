@@ -38,6 +38,7 @@ export type View = {
         proposed: boolean
         change: string
         words: string
+        face: string
         icon: string
       } | null
     }
@@ -181,6 +182,7 @@ export type View = {
         proposed: boolean
         change: string
         words: string
+        face: string
         icon: string
       } | null
       unused?: string | null
