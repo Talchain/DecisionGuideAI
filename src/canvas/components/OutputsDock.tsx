@@ -213,6 +213,7 @@ import { useIsViewer } from '../../lib/viewerMode'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { BriefPanel, leaveBriefPanel, useBriefPanelShown } from '../../olumiView/BriefPanel'
+import { awaitsBriefOf } from '../../olumiView/ViewWelcome'
 import { CoreCompareTab } from '../../olumiCore/compare'
 import { shownModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
@@ -922,8 +923,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // narrowing) is WITHDRAWN as of 17 Aug: it bought no legibility at any dock
   // width and cost 35% of the panel's content budget. This VISIBILITY rule is
   // untouched by that. See the predicate's own header for the full record.
-  // The olumi-core lane mounts no first-use composer (its one chat is this dock's Olumi tab, canvas A S6 D6): no first-use rail.
-  const isFirstUse = !isOlumiCoreLane() && shouldRenderFirstUseRail({
+  // UI restore stage 1, rows 3 and 4 (DL ruling 10 Nov): on the olumi-core lane a scenario waiting for its brief opens on the rail, as
+  // the previous product's first use did; the brief is typed in the welcome composer on the canvas (olumiView/ViewWelcome.tsx). A
+  // member core holds for their own view first is not writing a brief, and a rail the person opened stays open.
+  const viewUuid = useViewStore((s) => s.uuid)
+  // Only once the View store is the scenario on screen's: before that (a cold reload, its scenario not yet named) it decides nothing (00067).
+  const onScreen = currentScenarioIdForRun ?? null
+  const awaitsBrief = useViewStore((s) => awaitsBriefOf(s, onScreen))
+  const isFirstUse = isOlumiCoreLane()
+    ? awaitsBrief && !ownViewFirst && !userExplicitlyOpenedRailRef.current
+    : shouldRenderFirstUseRail({
     aiPanelV2On,
     hasModelContent: hasGraphContent,
     analysisActive,
@@ -938,17 +947,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the rail). Defined once here and reused by the docked-Olumi close-effect
   // below, the --dock-right-offset effect, and render.
   const effectiveIsOpen = isFirstUse ? false : state.isOpen
-  // On the lane a scenario waiting for its brief (core holds no scenario for it, or holds no draft yet) opens on the Olumi tab, where
-  // the brief is typed, so the empty canvas never looks dead (D6). Decided by the View, never by the canvas being empty for a moment
-  // while a paired scenario's View loads (lane audit 1.1); each scenario decides once, when it is the one on screen.
-  const viewUuid = useViewStore((s) => s.uuid)
-  // Only once the View store is the scenario on screen's: before that (a cold reload, its scenario not yet named) it decides nothing (00067).
-  const onScreen = currentScenarioIdForRun ?? null
-  const awaitsBrief = useViewStore((s) => s.uuid !== null && s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null)))
+  // On the lane a scenario waiting for its brief has the Olumi tab ready behind the rail, so opening the rail lands on the conversation.
+  // Decided by the View, never by the canvas being empty for a moment while a paired scenario's View loads (lane audit 1.1).
   useEffect(() => {
     // A member core holds for their own view lands on it instead (above): the brief is not theirs to write.
     if (!isOlumiCoreLane() || !awaitsBrief || ownViewFirst) return
-    setState((prev) => ({ ...prev, isOpen: true, activeTab: 'olumi' }))
+    setState((prev) => ({ ...prev, activeTab: 'olumi' }))
     useUIStore.getState().setActiveOutputTab('olumi' as OutputTab)
   }, [awaitsBrief, viewUuid]) // eslint-disable-line react-hooks/exhaustive-deps -- setState is stable
   // ACCOUNTS viewer mode (PANEL 5947736451): a viewer keeps the results and loses the

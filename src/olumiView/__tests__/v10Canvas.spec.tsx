@@ -11,8 +11,9 @@ import type { View } from '../client'
 import { currentModel } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { drawViewCanvas, useViewFocusCard, useViewFocusLink } from '../canvas'
-import { causalPlaces, questionPlace } from '../layout'
+import { causalPlaces } from '../layout'
 import { ViewCanvas } from '../ViewCanvas'
+import { useViewStore } from '../store'
 
 vi.mock('../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
 vi.mock('../../canvas/components/OlumiAttentionCard', () => ({ OlumiAttentionCard: () => null }))
@@ -27,7 +28,7 @@ afterEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }) })
 describe('the mounted core-lane canvas', () => {
   it('draws every View card through v10\'s wrapper, with the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
     const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
-    const places = await causalPlaces(model, new Map(), questionPlace(model).width)
+    const places = await causalPlaces(model, new Map())
     act(() => { drawViewCanvas(model, places) })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
@@ -44,8 +45,9 @@ describe('the mounted core-lane canvas', () => {
   })
   it('catch (DL 7 Nov: words on focus alone): focus landing on a link\'s edge in the mounted canvas names that link; leaving it names none', async () => {
     const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
-    const places = await causalPlaces(model, new Map(), questionPlace(model).width)
-    act(() => { drawViewCanvas(model, places) })
+    const places = await causalPlaces(model, new Map())
+    // The scenario core holds (UI restore stage 1, row 4: a scenario with no brief yet shows the welcome composer, which takes focus).
+    act(() => { useViewStore.setState({ uuid: 'u', sid: golden('bakery').id, view: golden('bakery'), status: 'ready' } as never); drawViewCanvas(model, places) })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     // React Flow's focusable edge wrapper as it draws one (jsdom measures no card, so it draws no edge of its own here).
