@@ -151,14 +151,19 @@ describe('a reduced face stays inside its own card (hiring, 1232 x 704, dock ope
     if (heightOf) Object.defineProperty(HTMLElement.prototype, 'clientHeight', heightOf); else delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight
     if (tailOf) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', tailOf); else delete (HTMLElement.prototype as { offsetHeight?: number }).offsetHeight
   })
-  it('every card: the face fills only its box (no growth), and its whole heading lines plus its chance line fit the box height', () => {
+  it('every card: a card with no chance fills only its box (no growth), and its whole heading lines plus its chance line fit the box height', () => {
     stub(new Map(model.cards.map((c) => [c.id, c.h])))
     for (const c of model.cards) {
       const box = render(<ViewCard card={c} reducedPx={px} />).container.querySelector<HTMLElement>('[data-view-card]')!
       const face = box.querySelector<HTMLElement>('[data-reduced-face]')!, heading = face.querySelector<HTMLElement>('[data-reduced-heading]')!
-      expect(face.className, c.id).toContain('inset-0')
-      expect(face.className, c.id).toContain('overflow-hidden')
-      expect(face.className, c.id).not.toMatch(/min-h/)
+      // DL 10 Nov (second look): a card with no chance fills only its box; an option's face (name line, chance line) grows downward past the box
+      // rather than clip either (b1dReducedFace.spec.tsx), so its heading is one line.
+      const twoLines = face.querySelector('[data-reduced-chance]') !== null
+      if (twoLines) { expect(face.className, c.id).toContain('min-h-full'); expect(heading.style.webkitLineClamp, c.id).toBe('1') } else {
+        expect(face.className, c.id).toContain('inset-0')
+        expect(face.className, c.id).toContain('overflow-hidden')
+        expect(face.className, c.id).not.toMatch(/min-h/)
+      }
       const lines = Number(heading.style.webkitLineClamp), chance = face.querySelector('[data-reduced-chance]') === null ? 0 : 2 * px * 1.15
       expect(lines, c.id).toBeGreaterThanOrEqual(1)
       expect(lines * px * 1.15 + chance + 12 <= c.h || lines === 1, `${c.id}: ${lines} lines of ${px}px + chance ${chance} in ${c.h}`).toBe(true)

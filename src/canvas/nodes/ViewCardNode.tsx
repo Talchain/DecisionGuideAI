@@ -19,7 +19,7 @@ import { typography } from '../../styles/typography'
 import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
 import { clearWhatIf } from '../../olumiView/whatif'
 import { reducedFaceSize } from '../../olumiView/camera'
-import { ReducedFace } from './ReducedFace'
+import { ReducedFace, withoutChanceWord } from './ReducedFace'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { panelSide } from './panelSide'
@@ -445,7 +445,14 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
           titleAttrs={{ 'data-view-reduced-title': id, 'data-view': faceTitle === null ? `${id}.heading` : `${id}.face.title.text` }}
           chance={optionFace !== null ? <span data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{optionFace.text}</span>
             // An option without core's headline: its lead chance, core's own words as the full face draws them (qualifier, then value).
-            : leadRow === null ? null : <span data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{leadRow.value}</span></span>} />
+            : leadRow === null ? null : <span data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{leadRow.value}</span></span>}
+          chanceWords={optionFace !== null ? optionFace.text : leadRow === null ? undefined : `${leadRow.approx}${leadRow.value}`}
+          // The same words without their trailing "chance", for a card too narrow to hold them on one line (ReducedFace); null when the words
+          // do not end that way: nothing is reformatted.
+          chanceShort={optionFace !== null
+            ? (withoutChanceWord(optionFace.text) === null ? null : <span data-reduced-short="" data-view-reduced-headline={id} data-view={`${id}.headline.text`}>{withoutChanceWord(optionFace.text)}</span>)
+            : leadRow === null || withoutChanceWord(leadRow.value) === null ? null
+              : <span data-reduced-short="" data-view-reduced-headline={id}><span data-view={`${id}.rows.${lead}.approx`}>{leadRow.approx}</span><span data-view={`${id}.rows.${lead}.value`}>{withoutChanceWord(leadRow.value)}</span></span>} />
       )}
     </div>
   )
