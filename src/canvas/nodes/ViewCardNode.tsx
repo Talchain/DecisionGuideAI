@@ -363,7 +363,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
         // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
         // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
         <div className="nodrag grid gap-1 rounded-lg bg-panel-hover px-2 py-1.5" data-card-try={id}>
-          <p className={`${typography.viewLabel} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+          <p className={`${typography.viewValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
           {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
           <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
             className={`${typography.viewLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(version)}</button>
@@ -378,7 +378,7 @@ export function ViewCard({ card, selected = false, side = 'right', restsOn = nul
       {tryOn?.kind !== 'option' ? null : (
         // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.
         <p className={`${typography.viewLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
-          {WHAT_IF_COPY.whatIf}: <span className="font-semibold text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
+          {WHAT_IF_COPY.whatIf}: <span className={`${typography.viewValue} font-semibold text-text-header`} data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
         </p>
       )}
       {/* A badge with no words (glyphs only) shows on hover, focus or selection. */}
