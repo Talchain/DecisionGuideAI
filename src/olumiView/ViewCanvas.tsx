@@ -8,7 +8,7 @@
  * (`readableFirstViewport`) once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
@@ -37,6 +37,8 @@ import { useV10Lane, ViewCardV10 } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
+import { LeftSidebar } from '../components/layout/LeftSidebar'
+import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
 import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
@@ -55,6 +57,7 @@ const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode 
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
+const SELECT_PAN_BUTTONS = [1]
 const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
 const DURATION = 400, MAX_FITS = 3
@@ -125,6 +128,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
 }
 
 function ViewFlow() {
+  const [tool, setTool] = useState<'select' | 'hand'>('hand')
   const stored = useCanvasStore((s) => s.nodes)
   // V11: the card whose chip is open is marked `v11-open` on its node, so the coaching ring (ring.ts) steps out of it: one focus per screen.
   const openCard = useReveal((s) => s.card)
@@ -205,7 +209,7 @@ function ViewFlow() {
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
         onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
-        onMoveStart={mine} panOnDrag={PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
+        onMoveStart={mine} selectionOnDrag={tool === 'select'} panOnDrag={tool === 'select' ? SELECT_PAN_BUTTONS : PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
@@ -222,9 +226,8 @@ function ViewFlow() {
       {hasModel ? null : <DraftingBoard />}
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
       {hasModel ? null : <ViewWelcome />}
-      {/* R25 slice 2: the board's own control to add a figure card in the person's words (core's …/figures), above the zoom controls. */}
-      {/* The canvas's head controls sit on an opaque band (DL round 5): a card panned up goes under it. */}
-      {hasModel ? <AddFigure /> : null}
+      {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
+        showUndo={false} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue /> : null}
       {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}

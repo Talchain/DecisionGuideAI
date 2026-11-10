@@ -2,14 +2,15 @@
  * ADD A FIGURE (R25 slice 2, plan v3 phase 3 "adding elements"; Paul's 6 Nov test: "the ability to manually edit seems to have
  * disappeared"). Core's contract (API.md, R25 7 Nov): `POST …/figures { base, label, typed, unit?, op }` → 201 `{ version, n, receipt,
  * record }`, a figure card in the person's own words, saved at once as their version with no AI call and drawn on the board as theirs.
- * Offered on an approved board the person owns, on the live version (as Rename is). The board's own control, beside the canvas's zoom
- * controls; the new card is put in front once it is drawn. Every refusal is core's own words; the saved version is core's receipt; the
+ * Offered on an approved board the person owns, on the live version (as Rename is). The left toolbar's add menu opens the form;
+ * the new card is put in front once drawn. Every refusal is core's own words; the saved version is core's receipt; the
  * UI reads, rounds and formats nothing (core reads the figure as typed, and its unit).
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { autoUpdate, flip, FloatingFocusManager, offset, shift, useClick, useDismiss, useFloating, useInteractions, useMergeRefs, useRole } from '@floating-ui/react'
 import { Plus } from 'lucide-react'
 import { typography } from '../styles/typography'
-import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
+import styles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
@@ -37,70 +38,38 @@ export function focusWhenDrawn(record: string, waitMs = 5000): void {
   waiting = done
 }
 
-/** Where the control sits: just above the canvas's zoom controls (the board's other tools), measured, so the two never overlap. */
-const GAP = 8
-function useAboveViewportControls(): number | null {
-  const [bottom, setBottom] = useState<number | null>(null)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const bar = document.querySelector('nav[aria-label="Viewport controls"]')
-      const r = bar?.getBoundingClientRect()
-      setBottom(r && r.height > 0 ? window.innerHeight - r.top + GAP : null) // pixels only; no model value is touched here
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    const nav = document.querySelector('nav[aria-label="Viewport controls"]')
-    const ro = nav && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    if (nav && ro) ro.observe(nav)
-    return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
-  }, [])
-  return bottom
-}
-
-/** The Model / Explore / Team row's top under the core lane's 48 px header strip (TopBar.tsx STRIP_H_PX + 12). */
-const STRIP_TOP = 60
-/** J1 gate: under the core lane's header strip the control sits on the Model / Explore / Team row, at the free canvas's right edge (the
- *  dock's left less 16 px), clear of the board's left column; measured, as the dock moves. */
-function useBesideDock(): number | null {
-  const [right, setRight] = useState<number | null>(null)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const dock = document.querySelector('aside[aria-label="Outputs dock"]')?.getBoundingClientRect()
-      setRight(dock && dock.width > 0 ? Math.floor(window.innerWidth - dock.left + 16) : null)
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    const dock = document.querySelector('aside[aria-label="Outputs dock"]')
-    const ro = dock && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
-    if (dock && ro) ro.observe(dock)
-    return () => { window.removeEventListener('resize', measure); ro?.disconnect() }
-  }, [])
-  return right
-}
-
 export function AddFigure(): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
-  const bottom = useAboveViewportControls(), right = useBesideDock()
-  const [open, setOpen] = useState(false)
+  const [panel, setPanel] = useState<'menu' | 'form' | null>(null)
+  const open = panel === 'form', menu = panel === 'menu'
   const [label, setLabel] = useState('')
   const [typed, setTyped] = useState('')
   const [unit, setUnit] = useState('')
   const [base, setBase] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const opener = useRef<HTMLButtonElement>(null)
+  const opener = useRef<HTMLButtonElement | null>(null)
   const figureBox = useRef<HTMLInputElement>(null)
-  // Closing hands focus back to "Add a figure" once it is drawn again (PL 7 Nov: it is not mounted while the form is open).
+  // Form and menu dismissal return focus to the toolbar add control.
   const [returning, setReturning] = useState(false)
   useEffect(() => { if (!open && returning) { opener.current?.focus(); setReturning(false) } }, [open, returning])
+  const { refs, floatingStyles, context } = useFloating({
+    open: menu, onOpenChange: (next) => { setPanel(next ? 'menu' : null); if (!next) setReturning(true) },
+    placement: 'right-start', strategy: 'fixed', whileElementsMounted: autoUpdate,
+    middleware: [offset(12), flip(), shift({ padding: 8 })],
+  })
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    useClick(context), useDismiss(context, { outsidePressEvent: 'click' }), useRole(context, { role: 'menu' }),
+  ])
+  const reference = useMergeRefs([opener, refs.setReference])
   const key = `${sid}:add-figure`
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
   if (sid === null || view === null || at !== null || (!open && live === null) || !isForThisPage(view, me)) return null
 
-  const close = () => { setOpen(false); setError(null); setReturning(true) }
+  const close = () => { setPanel(null); setError(null); setReturning(true) }
   const add = async () => {
     const name = label.trim(), figure = typed.trim(), u = unit.trim()
     if (name === '' || figure === '' || sending || base === null) return
@@ -119,10 +88,20 @@ export function AddFigure(): JSX.Element | null {
   }
   const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded border border-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
-    // Fixed, as the zoom controls it sits above are, so the window-measured place is the place it is drawn (checker, slice 2a).
-    <div className={`fixed z-[5] ${right === null ? 'left-3' : 'flex flex-col items-end'}`} style={right === null ? { bottom: bottom ?? 196 } : { top: STRIP_TOP, right }} data-testid="view-add-figure">
+    <div className="relative nodrag nopan">
+      {live === null ? null : <button ref={reference} type="button"
+        className={styles.iconButton} aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
+        <Plus className={styles.icon} aria-hidden="true" />
+      </button>}
+      {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
+        <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
+          className={`rounded-lg border border-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`} aria-label="Add to model">
+          <button type="button" role="menuitem" className="min-h-[32px] cursor-pointer rounded px-3 text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2"
+            onClick={() => { setBase(live); setError(null); setPanel('form') }}>{ADD_FIGURE_WORDS.open}</button>
+        </div>
+      </FloatingFocusManager> : null}
       {open ? (
-        <form className={`nodrag nopan w-[260px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
+        <form className={`absolute left-full top-0 ml-3 nodrag nopan w-[260px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
           onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) close() }}>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.name}</span>
             <input autoFocus autoComplete="off" value={label} disabled={sending} data-testid="view-add-figure-name"
@@ -140,12 +119,7 @@ export function AddFigure(): JSX.Element | null {
             <button type="button" disabled={sending} onClick={close} className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>{ADD_FIGURE_WORDS.cancel}</button>
           </div>
         </form>
-      ) : (
-        <button ref={opener} type="button" data-testid="view-add-figure-open" className={`${VIEW_CHIP_CLASS} inline-flex items-center gap-1.5 bg-panel shadow-2`}
-          onClick={() => { setBase(live); setError(null); setOpen(true) }}>
-          <Plus aria-hidden="true" className="h-4 w-4" />{ADD_FIGURE_WORDS.open}
-        </button>
-      )}
+      ) : null}
     </div>
   )
 }
