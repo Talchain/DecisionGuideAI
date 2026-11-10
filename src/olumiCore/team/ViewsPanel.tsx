@@ -199,6 +199,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               {itemLines(v)}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
+              {/* Pre-screen row 8 (DL 10 Nov): core's sentence on a view written before the newest person joined (olumi.view/3
+                  `collab.mine[].out_of_round`), drawn as sent; absent from a core before it and once they have a view in this round. */}
+              {typeof (v as { out_of_round?: unknown }).out_of_round === 'string' ? <p className={`${META} text-text-header`} data-testid={`team-mine-out-of-round-${v.id}`}>{(v as { out_of_round?: string }).out_of_round}</p> : null}
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
                 <div>

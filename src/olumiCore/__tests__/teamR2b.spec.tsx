@@ -77,6 +77,13 @@ describe('a commitment names its option and version, with a review date and the 
     // DL 10 Nov: the model's options, then the team's own "no option yet" (gathering evidence); none is preset.
     expect([...select.options].filter((o) => !o.disabled).map((o) => o.textContent)).toEqual([...base.model!.cards.filter((c) => c.family === 'option').map((c) => c.heading), NO_OPTION_YET_WORDS])
     expect((screen.getByTestId('team-commitment-save') as HTMLButtonElement).disabled).toBe(true)
+    // Pre-screen row 11 (DL 10 Nov): the dead button says why, naming the first thing still missing by its own label.
+    expect(screen.getByTestId('team-commitment-missing').textContent).toBe('Still needed before you can record it: Which option this commits to.')
+    fireEvent.change(select, { target: { value: NO_OPTION_YET } })
+    expect(screen.queryByTestId('team-commitment-missing')).toBeNull()
+    expect((screen.getByTestId('team-commitment-save') as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: ' ' } })
+    expect(screen.getByTestId('team-commitment-missing').textContent).toBe('Still needed before you can record it: The next action.')
   })
 
   it('an option the model no longer holds live is not offered (core refuses a commitment to it)', () => {

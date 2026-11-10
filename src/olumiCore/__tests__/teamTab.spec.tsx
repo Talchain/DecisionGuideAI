@@ -65,6 +65,13 @@ const posts = () => calls.filter((c) => c.method === 'POST')
 const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
 
 describe('what the tab shows is the View, word for word', () => {
+  it('pre-screen row 8: core\'s sentence on a view written before the colleague joined is drawn on that view, as sent', () => {
+    const SAID = 'FIXTURE: written before the newest person joined.'
+    served = twoPeople(); served = { ...served, collab: { ...served.collab, mine: served.collab.mine.map((m) => ({ ...m, out_of_round: SAID })) } } as View
+    useViewStore.setState({ view: served })
+    render(<TeamTab />)
+    expect(screen.getByTestId(`team-mine-out-of-round-${served.collab.mine[0]!.id}`).textContent).toBe(SAID)
+  })
   it('the round: heading, members, the revealed views, your private one, whom the reveal waits for', () => {
     render(<TeamTab />)
     expect(screen.getByTestId('team-views-heading').textContent).toBe('Team views · 2')
@@ -72,6 +79,7 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.getByTestId('team-member-p_2').textContent).not.toContain('(you)')
     expect(screen.getByTestId('team-revealed-3').textContent).toContain('Hold until the pilot reports.')
     expect(screen.getByTestId('team-mine-4').textContent).toContain('Enter one country first.')
+    expect(screen.queryByTestId('team-mine-out-of-round-4')).toBeNull() // absent unless core sends it
     expect(screen.getByTestId('team-waiting').textContent).toBe('waiting for Bea')
     expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe('Your own view, private until revealed')
   })

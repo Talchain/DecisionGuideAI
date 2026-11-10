@@ -56,6 +56,15 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   // A commitment has no operation id in core: one whose answer was lost may have been saved, so it is locked, not sent again (`writes.ts`).
   const locked = useWriteLocked(`${sid}:commitment`)
   const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && approved !== null && (options.length === 0 || chosen !== null || noOptionYet)
+  // Pre-screen row 11 (DL 10 Nov): while Record it cannot be pressed, one line names the first thing still missing, by its own label, in
+  // the form's order, so the button is never dead without a reason.
+  const missing = ready ? null
+    : action.trim() === '' ? 'The next action'
+    : !c.owners.some((o) => o.id === owner) ? 'Who owns it'
+    : options.length > 0 && chosen === null && !noOptionYet ? 'Which option this commits to'
+    : expect.trim() === '' ? 'What we expect to see'
+    : reconsider.trim() === '' ? 'What would make us reconsider'
+    : null
 
   const save = async () => {
     if (!ready || locked) return
@@ -166,6 +175,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
             </fieldset>
           )}
           {locked ? <p role="alert" data-testid="team-commitment-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-commitment-error" className={ERR}>{error}</p>}
+          {missing === null || busy || locked ? null : <p className={META} data-testid="team-commitment-missing">Still needed before you can record it: {missing}.</p>}
           <div className="flex gap-2">
             <Button size="sm" data-testid="team-commitment-save" disabled={!ready || busy || locked} onClick={() => void save()}>Record it</Button>
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => put({ open: false })}>Cancel</Button>
