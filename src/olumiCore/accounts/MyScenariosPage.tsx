@@ -57,6 +57,12 @@ export default function MyScenariosPage(): JSX.Element {
     void load(() => live)
     return () => { live = false }
   }, [load])
+  /** After a refused save: a refusal because this browser is now someone else's (409) clears everything of this page's person, and the
+   *  edit; any other refusal keeps the list and what was typed, so the person can correct it. */
+  const refused = async (e: unknown) => {
+    if (!(e instanceof TeamApiError) || e.status !== 409) return
+    setList(null); setAway([]); setEditing(null)
+  }
   /** The scenario whose title is being edited, and what the person has typed. */
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null)
   const saveTitle = async (e: FormEvent) => {
@@ -64,13 +70,13 @@ export default function MyScenariosPage(): JSX.Element {
     if (editing === null) return
     setBusy(editing.id); setError(null)
     try { await accountsApi.retitle(editing.id, editing.title); setEditing(null); await load(() => true) }
-    catch (err) { setError(err instanceof TeamApiError ? err.message : 'Olumi could not save that just now. Try again in a moment.') }
+    catch (err) { setError(err instanceof TeamApiError ? err.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(err) }
     finally { setBusy(null) }
   }
   const setArchived = async (id: string, archived: boolean) => {
     setBusy(id); setError(null)
     try { await accountsApi.archive(id, archived); await load(() => true) }
-    catch (e) { setError(e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.') }
+    catch (e) { setError(e instanceof TeamApiError ? e.message : 'Olumi could not save that just now. Try again in a moment.'); await refused(e) }
     finally { setBusy(null) }
   }
   return (

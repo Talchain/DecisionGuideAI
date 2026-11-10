@@ -290,6 +290,29 @@ describe('My scenarios: rename (the person\'s own title)', () => {
     expect(document.body.textContent).not.toMatch(NEVER)
   })
 
+  it('a save refused because this browser is now someone else\'s clears the list, the archived list and the title being edited', async () => {
+    setPagePerson('7')
+    let switched = false
+    core((m, p) => {
+      if (p === '/api/me') return { body: switched ? { me: BO, account: null } : { me: ANA, account: OWNER } }
+      if (p === '/api/account/scenarios') return { body: switched ? { you_id: '9', scenarios: [], archived: [] } : { you_id: '7', scenarios: SCENARIOS.slice(0, 1), archived: SCENARIOS.slice(1) } }
+      if (m === 'POST') return { body: { id: 's_a00000000002', title: 'x' } }
+      return undefined
+    })
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios-archived')
+    fireEvent.click(screen.getByTestId('my-scenario-rename-s_a00000000002'))
+    fireEvent.change(screen.getByLabelText('Your title for this scenario'), { target: { value: 'Draft title' } })
+    switched = true
+    fireEvent.click(screen.getByTestId('my-scenario-title-save-s_a00000000002'))
+    await screen.findByRole('alert')
+    await waitFor(() => expect(screen.queryByTestId('my-scenarios')).toBeNull())
+    expect(screen.queryByTestId('my-scenarios-archived')).toBeNull()
+    expect(screen.queryByLabelText('Your title for this scenario')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/Office move|Hiring plan|Draft title/)
+    expect(posts()).toEqual([])
+  })
+
   it('a refused title shows core\'s words, keeps what the person typed, and changes nothing on the list', async () => {
     core((m, p) => {
       if (p === '/api/me') return { body: { me: ANA, account: OWNER } }
