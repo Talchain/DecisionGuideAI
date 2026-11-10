@@ -64,7 +64,8 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
     : options.length > 0 && chosen === null && !noOptionYet ? 'Which option this commits to'
     : expect.trim() === '' ? 'What we expect to see'
     : reconsider.trim() === '' ? 'What would make us reconsider'
-    : null
+    // Every field is filled and the approved model is not on screen yet (it is still loading, or a proposal's model is shown in its place).
+    : 'The approved model on screen'
 
   const save = async () => {
     if (!ready || locked) return
