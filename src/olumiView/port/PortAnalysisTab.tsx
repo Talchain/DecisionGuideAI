@@ -20,10 +20,10 @@ import { MoveTap } from '../ViewChat'
 import { ActOnIt } from './ActOnIt'
 import { actRowsOf } from './pick'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
-import { DriverTornado } from './DriverTornado'
 import { GoalChanceRangeLines } from './GoalChanceRangeLines'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { TYPE } from './type'
+import { WhatWouldChange } from './WhatWouldChange'
 import { YourOptions } from './YourOptions'
 
 /** The tab's body for one model: the ported components with the alpha's own controls in their slots. */
@@ -47,6 +47,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
         <GoalChanceRangeLines model={model} />
         <HeroEvidenceDisclosure
           model={model}
+          omit={['drivers']}
           giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
         />
         <ActOnIt
@@ -55,7 +56,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
         />
       </AnalysisHeroPanel>
       <YourOptions model={model} />
-      <DriverTornado model={model} />
+      <WhatWouldChange model={model} />
       {run === null || notes.length === 0 ? null : (
         <details className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="port-analysis-notes">
           <summary className={`${TYPE.meta} cursor-pointer text-info`}>About these numbers</summary>
