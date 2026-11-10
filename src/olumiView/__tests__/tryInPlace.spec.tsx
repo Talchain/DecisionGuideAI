@@ -15,6 +15,7 @@ import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
 import { tryOnCardOf } from '../layout'
 import { useTryOn } from '../lens'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
+import { WhatIfShown } from '../ViewChances'
 import { TRY_MIN_ZOOM, tryInViewTarget } from '../revealCamera'
 
 const DIR = path.resolve('src/olumiView/fixtures/v11')
@@ -96,5 +97,17 @@ describe('the board brings the try into one look (the J5 comp: the try and every
     expect(tryInViewTarget({ box: { x: 0, y: 0, w: 700, h: 300 }, pane, inset, viewport: { x: 100, y: 100, zoom: 1 } })).toBeNull()
     expect(tryInViewTarget({ box: { x: 0, y: 0, w: 1704, h: 300 }, pane, inset, viewport: { x: 0, y: 0, zoom: 1 } })!.zoom).toBeCloseTo(0.5, 5)
     expect(tryInViewTarget({ box: { x: 0, y: 0, w: 9000, h: 300 }, pane, inset, viewport: { x: 0, y: 0, zoom: 1 } })!.zoom).toBe(TRY_MIN_ZOOM)
+  })
+})
+
+describe('the dock\'s what-if block (outside grade 10 Nov: its chances sat below the fold at 1232, cut by the dock\'s foot)', () => {
+  it('TR11 catch: each option\'s chance comes before core\'s longer sentence; the box is ink, never Olumi\'s blue', () => {
+    useViewStore.setState({ view, sid: view.id }); act(() => { show() })
+    render(<WhatIfShown model={view.model!} />)
+    const box = screen.getByTestId('view-whatif')
+    const first = box.querySelector('[data-whatif-card]')!, ml = box.querySelector('[data-view="whatif.most_likely.text"]')!
+    expect(first.compareDocumentPosition(ml) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(box.className).not.toMatch(/info/)
+    expect(screen.getByTestId('view-whatif-clear').className).not.toMatch(/text-info/)
   })
 })

@@ -107,7 +107,10 @@ export function useCardClearOfRegions(): void {
       let last = '', ticks = 0
       t = setInterval(() => {
         ticks += 1
-        const b = card.getBoundingClientRect(), here = `${b.top},${b.height}`
+        // D2: a card's figure editor opens under the card, out of its flow (FigureEdit); the box kept clear is the card with that panel.
+        const c = card.getBoundingClientRect(), p = node.querySelector('[data-figure-edit-panel]')?.getBoundingClientRect()
+        const b = p === undefined ? c : new DOMRect(Math.min(c.left, p.left), Math.min(c.top, p.top), Math.max(c.right, p.right) - Math.min(c.left, p.left), Math.max(c.bottom, p.bottom) - Math.min(c.top, p.top))
+        const here = `${b.top},${b.height}`
         if (!card.isConnected || ticks > 40) { clearInterval(t!); t = null; return }
         if (here !== last) { last = here; return }
         clearInterval(t!); t = null

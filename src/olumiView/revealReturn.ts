@@ -22,3 +22,11 @@ export function returnFromLanded(chip: string | null): boolean {
 
 /** The person asked for something else (Team from the canvas): the landed panel is gone, and so is where it would return. */
 export function forgetLanded(): void { landed = null }
+
+/**
+ * P1c (the approved Reveal comp; Codex grade 10 Nov): while a reveal panel or evidence is open in Team on the olumi-core lane, the composer
+ * steps aside and the panel's own question and actions are the dock's foot. OutputsDock reads this one rule.
+ */
+export function composerStepsAside(coreLane: boolean, revealOpen: boolean, tab: OutputTab): boolean {
+  return coreLane && revealOpen && tab === 'team'
+}

@@ -21,6 +21,7 @@ import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar
 import { LENS_BAR_TESTID, lensBarFitsBesidePill, placeLensBar } from '../canvas/artefacts/LensBar'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { useViewStore } from './store'
+import { useOverview } from './strategy/overview/useOverview'
 import { useReveal } from './reveal'
 import { forgetLanded } from './revealReturn'
 import { allBut } from './layout'
@@ -28,6 +29,7 @@ import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from 
 
 export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
+  const overviewOpen = useOverview((s) => s.open)
   // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
   const W = useViewStore((s) => s.view?.lens_words ?? null)
   const { olumi } = useRestsOn()
@@ -71,7 +73,9 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
     useViewLens.setState({ lens: next })
     buttons.current.get(next)?.focus()
   }
-  if (W === null) return null
+  // D1 (strategy canvas audit, 10 Nov; the design owner's call): the bar is a canvas control, so while the Strategy Overview stands in
+  // place of the canvas it is not drawn (it sat over the overview's title); the overview has its own Close, and Escape closes it.
+  if (W === null || overviewOpen) return null
   if (nav) return <NavBar barRef={bar} place={place} compact={compact} W={W} />
   return (
     <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}

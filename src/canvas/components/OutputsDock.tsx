@@ -87,6 +87,7 @@ import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
 import { useReveal } from '../../olumiView/reveal'
+import { composerStepsAside } from '../../olumiView/revealReturn'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
@@ -4609,6 +4610,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
                 one dock, and its rerun bypassed the canonical runner. The
                 freshness strip owns stale + Rerun. */}
+            {/* P1c (the approved Reveal comp; Codex grade 10 Nov: the composer competed with "Bring evidence"): while the reveal panel is
+                open the composer steps aside and the panel's own question and actions are the dock's foot; closing the panel, or Team
+                pressed on the canvas, brings it back. */}
+            {composerStepsAside(isOlumiCoreLane(), revealOpen, effectiveActiveTab) ? null : (
             <PersistentInputStrip
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
@@ -4652,6 +4657,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   : undefined
               }
             />
+            )}
           </div>
         ) : null}
 

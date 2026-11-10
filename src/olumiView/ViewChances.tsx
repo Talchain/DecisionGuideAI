@@ -82,11 +82,13 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
   if (shown === null) return null
   const v = shown.variant, heading = new Map(optionCards(model).map((c) => [c.id, c]))
   return (
-    <div className="space-y-2 rounded-lg border border-info/30 p-2" data-testid="view-whatif" aria-label="What-if, not saved">
+    // TM-27 polish (outside grade 10 Nov: the what-if's chances sat below the fold, cut by the dock's foot at 1232): each option's chance
+    // comes first, core's longer sentence after it; the box and its Clear are ink, since a what-if is the person's act (blue is only Olumi's).
+    <div className="space-y-2 rounded-lg border border-panel-border p-2" data-testid="view-whatif" aria-label="What-if, not saved">
       {!labelled ? null : (
         <div className="flex items-baseline justify-between gap-2">
           <p className={typography.panelHeader}>What-if, not saved</p>
-          <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} cursor-pointer text-info underline underline-offset-2`}>Clear</button>
+          <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>Clear</button>
         </div>
       )}
       {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
@@ -95,7 +97,6 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
           : (
             <>
               {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
-              {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
               {v.rows.map((o) => {
                 const card = heading.get(o.option_id)
                 return card === undefined ? null : (
@@ -105,6 +106,7 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
                   </div>
                 )
               })}
+              {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
             </>
           )}
     </div>

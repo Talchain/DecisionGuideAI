@@ -182,7 +182,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const shown = chip === null ? undefined : model?.cards.find((c) => c.id === chip.card)
   const heading = chip === null ? view.collab.heading : shown?.heading ?? view.collab.heading
   return (
-    <section data-testid="reveal-dock" aria-label={heading} className="grid min-h-full content-start gap-4">
+    <section data-testid="reveal-dock" aria-label={heading} className="flex min-h-full flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
         <div className="grid gap-0.5">
           <h2 ref={head} tabIndex={-1} className={`${H} flex items-center gap-2 outline-none`} data-testid="reveal-dock-heading">
