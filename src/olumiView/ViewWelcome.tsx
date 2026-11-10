@@ -5,6 +5,7 @@
  * the moment the brief is sent (the board then says the draft is running, DraftingBoard) or a model or proposal exists.
  */
 import { useLayoutEffect, useState } from 'react'
+import { create } from 'zustand'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { useViewStore } from './store'
 import { typography } from '../styles/typography'
@@ -22,9 +23,24 @@ export const awaitsBriefOf = (s: { uuid: string | null; sid: string | null; view
 /** The canvas's words while a scenario's model is being read, and when a failed read gave no reason of its own. */
 export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Olumi could not open this scenario just now.'
 
+/** Whether the welcome (and so its composer) is wanted for the scenario on screen. */
+function useWelcomeWanted(): boolean {
+  const onScreen = useCanvasStore((s) => s.currentScenarioId ?? null)
+  return useViewStore((s) => s.at === null && awaitsBriefOf(s, onScreen) && takesBrief(s.sid, s.view) && boardDraftOf(s.view) === null)
+}
+/** True while a welcome is MOUNTED and showing its composer (set by it, so a dock drawn without a welcome keeps its own composer). */
+const useWelcomeUp = create<{ up: boolean }>(() => ({ up: false }))
+
+/** The dock's composer, drawn only while the welcome's is on the canvas: a blank scenario's rail showed a second brief box that filled the
+ *  first (pre-screen row 22, DL 10 Nov: one brief box on screen). */
+export function DockComposer(): JSX.Element | null {
+  return useWelcomeUp((s) => s.up) ? null : <ViewComposer />
+}
+
 export function ViewWelcome(): JSX.Element | null {
   const onScreen = useCanvasStore((s) => s.currentScenarioId ?? null)
-  const show = useViewStore((s) => s.at === null && awaitsBriefOf(s, onScreen) && takesBrief(s.sid, s.view) && boardDraftOf(s.view) === null)
+  const show = useWelcomeWanted()
+  useLayoutEffect(() => { useWelcomeUp.setState({ up: show }); return () => useWelcomeUp.setState({ up: false }) }, [show])
   const [right, setRight] = useState(0)
   useLayoutEffect(() => {
     const measure = () => setRight(measureDockInset())

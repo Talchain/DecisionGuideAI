@@ -224,7 +224,8 @@ import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
 import { PortAnalysisTab } from '../../olumiView/port/PortAnalysisTab'
 import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
-import { useAnswersAsks, ViewChat, ViewComposer } from '../../olumiView/ViewChat'
+import { useAnswersAsks, ViewChat } from '../../olumiView/ViewChat'
+import { DockComposer } from '../../olumiView/ViewWelcome'
 import { selectedRename } from '../../olumiView/SelectedRename'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -4624,7 +4625,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
               onFocusFloating={focusFloating}
               /* The olumi-core lane writes to core from its own composer, with no Run control: core runs the analysis on every save, so
                  a Run press there is a dead control (DL ruling 3 Nov, lane audit 12; reverses review 00052 #3's keep). */
-              composer={isOlumiCoreLane() ? () => <ViewComposer /> : undefined}
+              composer={isOlumiCoreLane() ? () => <DockComposer /> : undefined}
               /* ⭐ THE AI TAB'S RUN CONTROL, AND THE GAP IT CLOSES.
                  `AnalysisReadinessBar` — the bar this surface declares in
                  `shellContract.ts` — returns null the moment the pre-run window
