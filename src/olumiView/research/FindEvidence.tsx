@@ -112,7 +112,14 @@ function Panel({ sid, view, record, about, right, onClose }: { sid: string; view
   const key = `${sid}:research:${record}`
   const sending = useWriteSending(key)
   const read = useCallback(async () => {
-    try { const r = await research.list(sid); const mine: ResearchItem[] = []; for (const x of r.research) if (x.record === record) mine.push(x); setItems(mine) } catch (e) { setError(failed(e)) }
+    // Drawn only for the page and person it was asked for (PL-37): `list` refuses a reply for another person, and a reply that lands after
+    // the page moved to another scenario is dropped. A refused read leaves nothing of an earlier read on screen.
+    try {
+      const r = await research.list(sid)
+      if (useViewStore.getState().sid !== sid) return
+      const mine: ResearchItem[] = []; for (const x of r.research) if (x.record === record) mine.push(x)
+      setItems(mine)
+    } catch (e) { setItems(null); setError(failed(e)) }
   }, [sid, record])
   useEffect(() => { void read() }, [read])
   const searching = items !== null && items.some((x) => x.status === 'searching')

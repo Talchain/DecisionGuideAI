@@ -7,7 +7,8 @@
  * Accept attaches the proposal as the team's evidence on that record (core's own evidence row, so it is in View.evidence and can be
  * considered by the existing "Ask Olumi to consider" route); set_range also sets the figure as the member's own edit.
  */
-import { call } from '../../olumiCore/team/api'
+import { call, NOT_FOR_THIS_PAGE, TeamApiError } from '../../olumiCore/team/api'
+import { useMe } from '../../olumiCore/me'
 
 export type ResearchChoice = 'accept' | 'reject' | 'set_range'
 export type ResearchProposal = {
@@ -29,7 +30,19 @@ export type ResearchItem = {
 const path = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}/research`
 export const research = {
   start: (sid: string, record: string, op: string) => call<{ research: number; status: 'searching' }>('POST', path(sid), { record, op }),
-  list: (sid: string) => call<{ research: ResearchItem[] }>('GET', path(sid)),
+  /**
+   * The list is bound to the person the page was opened for (`person`, taken when the read is asked for), as `summary.ts` binds a Summary:
+   * a research list carries no reader, so once it is answered core is asked whose private link this browser holds now, and a list
+   * answered after another link was opened here is refused in the person's words (NOT_FOR_THIS_PAGE), never drawn (PL-37).
+   */
+  list: async (sid: string, person: string | null = useMe.getState().me?.id ?? null) => {
+    const r = await call<{ research: ResearchItem[] }>('GET', path(sid))
+    if (person !== null) {
+      const now = await call<{ me?: { id?: unknown } | null }>('GET', '/api/me')
+      if ((typeof now?.me?.id === 'string' ? now.me.id : null) !== person) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
+    }
+    return r
+  },
   choose: (sid: string, id: number, proposal: number, choice: ResearchChoice, base: number | null, op: string) =>
     call<{ choice: ResearchChoice; evidence: number | null; version: number | null }>('POST', `${path(sid)}/${id}/choice`, { proposal, choice, base, op }),
 }
