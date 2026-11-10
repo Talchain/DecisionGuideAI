@@ -4,16 +4,19 @@
  * whole of core's model is in view on first open and after each new version; the person zooms in from there.
  */
 import type { View } from './client'
+import { LABEL_LEGIBLE_ZOOM, LANDING_BODY_FLOOR_PX } from '../canvas/utils/zoomLegibility'
 
 export const CORE_LANE_FIT_FLOOR = 0.25
 
 /** The floor a product fit uses: the lane's, never above the product's own. */
 export const productFitFloor = (coreLane: boolean, legible: number): number => (coreLane ? Math.min(CORE_LANE_FIT_FLOOR, legible) : legible)
 
-/** The readable floor: a board that does not fit whole opens at this zoom. R25 (Paul 7 Nov, three sizes by role, 12/14/18): 1.0, so the
- *  sizes on screen are the sizes authored and none is under 12px; was 0.9 (DL 4 Nov), which drew 12px as 10.75. Paul chooses 1.0 or 0.9
- *  from shots of his board; this one constant reverts it. */
-export const READABLE_WHOLE_ZOOM = 1
+/** The floor a board is fitted whole down to. UI restore stage 1 (DL ruling 10 Nov, the previous product's graph): a board opens whole, as
+ *  it did there, down to the zoom at which this lane's smallest type (12 px) still draws at the previous product's landing floor
+ *  (`LANDING_BODY_FLOOR_PX`, 9 px): 0.75. A board too large for that opens at the floor, its top in view. Was 1.0 (R25, 7 Nov), which opened
+ *  an 11-card board with 8 cards off screen at 1232; the previous product's own 0.5 drew this lane's cards at 6 px (they do not counter-scale
+ *  their type as its cards did). One constant reverts it. */
+export const READABLE_WHOLE_ZOOM = LANDING_BODY_FLOOR_PX / 12
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */
@@ -31,7 +34,9 @@ export function readableFirstViewport(bounds: Rect, pane: { width: number; heigh
   const freeW = Math.max(1, pane.width - insets.left - insets.right), freeH = Math.max(1, pane.height - insets.top - insets.bottom)
   const whole = Math.min(freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height))
   if (whole >= WHOLE_FIT_ZOOM) return null
-  const zoom = READABLE_WHOLE_ZOOM
+  // UI restore stage 1: a board too tall to show whole at the floor is drawn across its whole width (no card cut by the canvas's edge or
+  // under the dock), never above the floor and never below the previous product's own legibility floor; the person scrolls down for the rest.
+  const zoom = Math.max(LABEL_LEGIBLE_ZOOM, Math.min(READABLE_WHOLE_ZOOM, freeW / Math.max(1, bounds.width)))
   const centred = insets.left + freeW / 2 - (top.x + top.width / 2) * zoom
   // A board that fits across at 0.9 (only too tall) is held wholly across the visible rect, so no card is under the dock: the question
   // and options as near the centre as that allows. A wider one keeps them centred and the rest is reached by panning.

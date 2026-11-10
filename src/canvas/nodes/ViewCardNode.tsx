@@ -24,7 +24,7 @@ import { panelSide } from './panelSide'
 import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
 import { useViewStore } from '../../olumiView/store'
-import { useViewFocusCard } from '../../olumiView/canvas'
+import { useLinkSides, useViewFocusCard } from '../../olumiView/canvas'
 import { useDriverOf, useOptionHeading, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../../olumiView/lens'
 import { WHAT_IF_COPY } from '../artefacts/whatIfCopy'
 import { NodeQuickActions } from './shared/NodeQuickActions'
@@ -512,6 +512,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   const boxes = useStore(open ? cardBoxesOf : noBoxes, sameBoxes)
   const [panelH, setPanelH] = useState(0)
   const [near, setNear] = useState(false)
+  const sides = useLinkSides()
   useLayoutEffect(() => { if (open) setPanelH(root.current?.querySelector<HTMLElement>('[data-view-more]')?.offsetHeight ?? 0) }, [open, card])
   const side = useMemo(() => {
     const me = boxes.find((b) => b.id === id)
@@ -520,8 +521,8 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   return (
     <div ref={attach} className={`group/vcard relative${preMortem === 'other' ? ' opacity-40' : ''}`} data-premortem={preMortem ?? undefined}
       onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>
-      {/* J1 gate: the story reads top down (layout.ts routeTree), so a link enters a card at its top and leaves at its bottom. */}
-      <Handle type="target" position={Position.Top} isConnectable={false} className="!opacity-0" />
+      {/* UI restore stage 1: a link enters a card on the side its causes are on and leaves on the other, for the layout's direction. */}
+      <Handle type="target" position={sides.into as Position} isConnectable={false} className="!opacity-0" />
       <ViewCard card={card} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
       <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
@@ -533,7 +534,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
         </div>
       ) : null}
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />
-      <Handle type="source" position={Position.Bottom} isConnectable={false} className="!opacity-0" />
+      <Handle type="source" position={sides.out as Position} isConnectable={false} className="!opacity-0" />
     </div>
   )
 }

@@ -9,7 +9,8 @@ import { FOOT_CLEAR, FOOT_W, STORY_ROOM_Y } from './regions'
 import type { View, ViewCard, ViewModel, ViewReading, ViewRow, ViewRun, ViewTurn } from './client'
 import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
-import { layoutGraph } from '../canvas/utils/layout'
+import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
+import { REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
 import { wrapTiers } from '../canvas/utils/wrapTiers'
 import { basisIdsOf } from './standin'
 import { orderUnderParents } from '../canvas/utils/orderUnderParents'
@@ -92,7 +93,7 @@ export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boo
 }
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
-const W = 200, GAP_X = 48 // J1 gate: the prototype's 200 px card, so three sit in a row beside the routes at 1232
+const W = REPEATED_CARD_W, GAP_X = 48 // UI restore stage 1: the previous product's card, the width its layout places (nodeLayoutConstants)
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
 
@@ -118,13 +119,8 @@ export const QUESTION = 'page:question'
  *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
  *  layout places it, at the top. */
 export function questionPlace(model: ViewModel): { width: number } {
-  // R25 (Paul 7 Nov: the aims in view at 1232): with an aim beside it the question is narrower, so the head row (two aims: 2 × 220 +
-  // 2 × 16 + 272 = 744; one aim: the options' 756) fits the visible canvas at 1232 at the 1.0 floor (about 770 px between the canvas
-  // controls and the dock; DL 7 Nov, fresh-brief board: one aim beside a full-width question ran under the dock).
-  // J1 step 1: the board is three columns (causalColumns), so the question heads the left one at the narrower width, aim or none.
-  // J1 gate: the question heads the routes' column (routeTree), a card wide.
-  void model
-  return { width: QUESTION_W }
+  // UI restore stage 1: the question is the previous product's decision card, at the width its layout places it (solveLayoutCardWidths).
+  return { width: solveLayoutCardWidths(engineNodes(model, (_id, w, h) => ({ width: w, height: h })), { preserveLocked: false }).decision ?? QUESTION_W }
 }
 /** The question's width on the prototype's board (J1 gate). */
 export const QUESTION_W = W
@@ -155,45 +151,24 @@ export const measuredOf = <T extends { id: string; measured?: { width?: number; 
   nodes.filter((n) => ids.has(n.id) && !!n.measured?.width && !!n.measured?.height)
 
 type Size = { width: number; height: number }
+/** The View's cards and question as the previous product's layout reads them: each by its kind (the question as the decision). */
+const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) => Size): Node[] => [
+  { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, W, 85) },
+  ...model.cards.map((c): Node => { const kind = drawKindOf(c, model); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
+]
 /**
- * DGAI'S CAUSAL GRAPH FOR CORE'S MODEL (Paul, 4 Nov: "the causal graph, not … the horizontal temporary UI"). Each View card as its DGAI
- * kind (`askKindOf`; the question as the decision) and each View link as an edge, placed by DGAI's own pure layout (`layoutGraph`: ELK
- * and the semantic tiers, top to bottom: decision, options, factors and risks, goal; a tier wider than four cards wraps). `size` is each
- * card as the canvas measured it
- * (else core's width and height). Positions only: no word of core's is read or written here.
+ * THE PREVIOUS PRODUCT'S GRAPH FOR CORE'S MODEL (UI restore stage 1, rows 5 and 6; DL ruling 10 Nov on Paul's test: "so much worse than it
+ * used to be"). Each View card as its kind and each View link as an edge, placed by the previous product's own layout (`layoutGraph`,
+ * canvas/utils/layout.ts) and by nothing else: one layered layout, top to bottom by default, its direction and spacing the ones the
+ * layout store holds. No family rows, no four-card wrap, no left column of routes, no aims beside the question laid over it (the
+ * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
+ * core's is read or written here.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number): Promise<Map<string, { x: number; y: number }>> {
-  const at = (id: string, w: number, h: number): Size => size.get(id) ?? { width: w, height: h }
-  // R25 (Paul 7 Nov: "aims in view" at 1232): the aims and limits are the head of the board, beside the question (`flankHead`), so the
-  // rows below are the options, their drivers, the factors, then the outcomes and risks; the links into an aim run round the board.
-  const aims = new Set(aimsOf(model))
-  const nodes: Node[] = [
-    { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, questionWidth, 85) },
-    ...model.cards.filter((c) => !aims.has(c.id)).map((c): Node => { const kind = askKindOf(c.family); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
-  ]
-  const edges: Edge[] = cardLinks(model).filter(({ link }) => !aims.has(link.from) && !aims.has(link.to)).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
-  const elk = await layoutGraph(nodes, edges, { direction: 'DOWN' })
-  const sized = new Map(nodes.map((n) => [n.id, n.measured as Size]))
-  // The previous PoC's family rows (Paul's item 1, option a2, 6 Nov: his hiring board opened with 7 of 17 cards off screen at 0.9): each
-  // card's row is its family's, not its dependency depth: question / options / factors and assumptions / outcomes and risks / aims and
-  // limits. ELK keeps the x order.
-  const tierOf = new Map<string, number>([[QUESTION, 0], ...model.cards.filter((c) => !aims.has(c.id)).map((c): [string, number] => [c.id, familyTierOf(c, model)])])
-  const tierY: number[] = []
-  for (let t = 0, y = 0; t <= 4; t++) {
-    tierY.push(y)
-    const hs = [...tierOf].filter(([, k]) => k === t).map(([id]) => sized.get(id)?.height ?? 0)
-    if (hs.length) y += Math.max(...hs) + FAMILY_ROW_GAP
-  }
-  const laid = { ...elk, nodes: elk.nodes.map((n) => ({ ...n, position: { x: n.position.x, y: tierY[tierOf.get(n.id) ?? 2]! } })) }
-  const options = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
-  // The options packed under the question first (wrapped when too wide for the visible rect at 0.9); then every row below ordered under
-  // what it hangs from, so the links drop row to row (DL 4 Nov, R3: the subtrees stayed where the layout spread them); then a tier wider
-  // than four cards wraps (DL 4 Nov), so the board reads at fit as the original canvas does.
-  const head = packHead(new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }])), options, sized)
-  const boxes = [...head].map(([id, p]) => ({ id, ...p, ...sized.get(id)! }))
-  const under = orderUnderParents(boxes, edges.map((e) => [e.source, e.target] as const), new Set([QUESTION, ...options]))
-  const aimSizes = new Map([...aims].map((id) => [id, at(id, W, model.cards.find((c) => c.id === id)!.h)] as const))
-  return flankHead(wrapTiers(under, WRAP_PER_ROW, WRAP_GAP_X, WRAP_GAP_Y, true), [...aims], new Map([...sized, ...aimSizes]))
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
+  const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
+  const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
+  const laid = await layoutGraph(nodes, edges, { direction: options.direction ?? 'DOWN', spacing: options.spacing, preserveLocked: false })
+  return new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
 }
 
 /**

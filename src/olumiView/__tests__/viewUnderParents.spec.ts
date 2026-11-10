@@ -7,18 +7,17 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
-import { causalPlaces, cardLinks, CARD_WIDTH, questionPlace } from '../layout'
+import { causalPlaces, cardLinks, CARD_WIDTH } from '../layout'
 
 const GOLDEN = ['app-launch', 'bakery', 'european', 'pricing', 'proposal', 's_ce285b3617bb', 'studio'] as const
-// And the real dense boards from the R2 witness store (DL 4 Nov: dense-board defects caught in our own gates).
-const REAL = ['capacity', 'hiring'] as const
-const fileOf = (g: string) => ((REAL as readonly string[]).includes(g) ? path.resolve('src/olumiView/fixtures/real', `${g}.view3.json`) : path.resolve('src/olumiView/golden', `${g}.view.json`))
+// UI restore stage 1 (DL ruling 10 Nov): capacity/hiring parent-order rows retired; restoreLayout.spec.ts pins their replacement.
+const fileOf = (g: string) => path.resolve('src/olumiView/golden', `${g}.view.json`)
 
 describe('each card under the option it hangs from', () => {
-  for (const g of [...GOLDEN, ...REAL]) {
+  for (const g of GOLDEN) {
     it(`${g}: a card of one option is, left to right, in its option's order`, async () => {
       const m = (JSON.parse(readFileSync(fileOf(g), 'utf8')) as View).model!
-      const p = await causalPlaces(m, new Map(), questionPlace(m).width)
+      const p = await causalPlaces(m, new Map())
       const options = new Set(m.cards.flatMap((c) => (c.family === 'option' ? [c.id] : [])))
       // A card whose only neighbour above (a link either way to a card placed higher) is one option hangs from that option alone.
       const above = new Map<string, Set<string>>()

@@ -8,8 +8,9 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, routeTree, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
+import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { revealOf } from './reveal'
@@ -54,8 +55,8 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, room: { h: number; w: number }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to]), drawnHeightsKey(nodes), [...railed], room.h, room.w])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing])
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
   if (typeof window === 'undefined') return { h: 0, w: 0 }
@@ -67,21 +68,29 @@ export const roomOf = (): { h: number; w: number } => {
   const r = pane?.getBoundingClientRect()
   return { h: Math.max(0, Math.floor((r?.height ?? window.innerHeight) - Math.max(inset.top, column + 8) - inset.bottom)), w: Math.max(0, Math.floor((r?.width ?? window.innerWidth) - inset.left - inset.right)) }
 }
+/** Where a link enters and leaves a card for the layout's direction (the layout store's, top to bottom by default): it enters on the side
+ *  the causes are on and leaves on the side the effects are on, so every link runs the way the board reads. */
+export const linkSidesOf = (direction: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'): { into: 'top' | 'left' | 'bottom' | 'right'; out: 'top' | 'left' | 'bottom' | 'right' } =>
+  direction === 'RIGHT' ? { into: 'left', out: 'right' } : direction === 'LEFT' ? { into: 'right', out: 'left' } : direction === 'UP' ? { into: 'bottom', out: 'top' } : { into: 'top', out: 'bottom' }
+/** The sides for the layout in force. */
+export const useLinkSides = () => linkSidesOf(useLayoutStore((s) => s.direction))
 /** The cards that carry a chip rail below them (the team's revealed marks): the layout leaves them room. */
 // A card carries a chip rail under it for core's marks on it, and for a link mark core keeps off its line on it (LinkMarkChip).
 export const railedOf = (view: View | null): ReadonlySet<string> =>
   new Set([...(revealOf(view)?.cardChips.keys() ?? []), ...(view?.collab.link_marks ?? []).flatMap((m) => (!m.line && m.card !== null ? [m.card] : []))])
 const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().view)
 
-/** DGAI's causal places for the model, at the cards' drawn heights (else core's), worked out once per model and set of heights. */
+/** The previous product's places for the model (layout.ts causalPlaces), at the cards' drawn heights (else core's), worked out once per
+ *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
-  const nodes = useCanvasStore.getState().nodes, railed = railedCards(), room = roomOf(), key = causalKey(model, nodes, railed, room)
+  const nodes = useCanvasStore.getState().nodes, railed = railedCards()
+  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing })
   if (causal?.key === key) return causal.places
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height }]))
+  // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
+  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
   laying += 1
   try {
-    // J1 gate: the prototype's board, the routes on the left and the story top down beside them (layout.ts routeTree).
-    const places = await Promise.resolve(routeTree(model, size, questionPlace(model).width, railed, room.h, room.w))
+    const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing })
     causal = { key, places }
     return places
   } finally {
@@ -181,6 +190,8 @@ export function useViewCanvas(on: boolean): void {
   // the badge's count), so a reopened board draws what the first one did.
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
+  // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
+  const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}`)
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
@@ -203,5 +214,5 @@ export function useViewCanvas(on: boolean): void {
       pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, changed), ...addedSince(last.model, model)])] : arrived)
     })
     return () => { live = false }
-  }, [on, view, model, heights])
+  }, [on, view, model, heights, laidAs])
 }

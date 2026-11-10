@@ -8,13 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
-import { CARD_WIDTH, drawnModelOf, QUESTION, questionPlace, routeTree, TREE_GAP_Y } from '../layout'
+import { causalPlaces, drawnModelOf, QUESTION, questionPlace, routeTree, TREE_GAP_Y } from '../layout'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(f), 'utf8'))
 const growth = drawnModelOf(load('src/olumiView/fixtures/sc01/growth16.core-5d8a009b.view3.json').model!)
 const bookshop = drawnModelOf(load('src/olumiView/fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json').model!)
-// The free canvas at 1232 x 704 beside the inset dock (dock left 924, less 16; canvas tools 45 on the left): 863 px wide.
-const FREE_W = 924 - 16 - 45
 
 describe('the route board (real 16-card growth View)', () => {
   const places = routeTree(growth, new Map(), questionPlace(growth).width)
@@ -37,10 +35,11 @@ describe('the route board (real 16-card growth View)', () => {
     expect(at('sustainable_enterprise_growth').y).toBe(lowest)
     expect([at('speed_to_value').y, at('cross_team_adoption').y, at('implementation_effort').y]).toEqual([0, 0, 0])
   })
-  it('whole across the free canvas at full size: three cards a row beside the routes', () => {
-    const right = Math.max(...[...places].map(([id, p]) => p.x + (id === QUESTION ? questionPlace(growth).width : CARD_WIDTH)))
-    expect(right).toBeLessThanOrEqual(FREE_W)
-    for (const id of ['i_speed_pilot', 'i_adoption_pilot', 'i_effort_pilot', 'i_pilot_arr']) expect(places.has(id), `${id} is drawn as its link`).toBe(false)
+  // UI restore stage 1 (DL ruling 10 Nov): the route-width limit is retired; keep every drawn card and leave relation cards as links.
+  it('the restored growth board places each drawn card once, and relation cards stay links', async () => {
+    const restored = await causalPlaces(growth, new Map())
+    expect([...restored.keys()].sort()).toEqual([QUESTION, ...growth.cards.map((c) => c.id)].sort())
+    for (const id of ['i_speed_pilot', 'i_adoption_pilot', 'i_effort_pilot', 'i_pilot_arr']) expect(restored.has(id), `${id} is drawn as its link`).toBe(false)
   })
   it('the rows share the room they are given, never closer than TREE_GAP_Y', () => {
     const tight = routeTree(growth, new Map(), questionPlace(growth).width, new Set(), 0)
