@@ -2899,6 +2899,149 @@
           "rests_figures_heading": {
            "type": "string"
           },
+          "since": {
+           "type": "object",
+           "properties": {
+            "heading": {
+             "type": "string"
+            },
+            "from": {
+             "type": "object",
+             "properties": {
+              "n": {
+               "type": "number"
+              },
+              "label": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "n",
+              "label"
+             ],
+             "additionalProperties": false
+            },
+            "to": {
+             "type": "object",
+             "properties": {
+              "n": {
+               "type": "number"
+              },
+              "label": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "n",
+              "label"
+             ],
+             "additionalProperties": false
+            },
+            "changed": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "id": {
+                "type": "string"
+               },
+               "label": {
+                "type": "string"
+               },
+               "whose": {
+                "anyOf": [
+                 {
+                  "type": "string",
+                  "enum": [
+                   "theirs",
+                   "olumi"
+                  ]
+                 },
+                 {
+                  "type": "null"
+                 }
+                ]
+               },
+               "was": {
+                "anyOf": [
+                 {
+                  "type": "string",
+                  "enum": [
+                   "theirs",
+                   "olumi"
+                  ]
+                 },
+                 {
+                  "type": "null"
+                 }
+                ]
+               }
+              },
+              "required": [
+               "id",
+               "label",
+               "whose",
+               "was"
+              ],
+              "additionalProperties": false
+             }
+            },
+            "sole": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "lines": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "option": {
+                "type": "string"
+               },
+               "aim": {
+                "type": "string"
+               },
+               "from": {
+                "type": "number"
+               },
+               "to": {
+                "type": "number"
+               },
+               "from_text": {
+                "type": "string"
+               },
+               "to_text": {
+                "type": "string"
+               },
+               "line": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "option",
+               "aim",
+               "from",
+               "to",
+               "from_text",
+               "to_text",
+               "line"
+              ],
+              "additionalProperties": false
+             }
+            }
+           },
+           "required": [
+            "heading",
+            "from",
+            "to",
+            "changed",
+            "sole",
+            "lines"
+           ],
+           "additionalProperties": false
+          },
           "lenses": {
            "type": "array",
            "items": {
@@ -3787,6 +3930,15 @@
              }
             },
             "chip": {
+             "type": "string"
+            },
+            "not_compared": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "scope_text": {
              "type": "string"
             }
            },

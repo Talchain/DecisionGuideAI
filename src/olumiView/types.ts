@@ -532,6 +532,33 @@ export type View = {
       }>
       rests_heading: string
       rests_figures_heading?: string
+      since?: {
+        heading: string
+        from: {
+          n: number
+          label: string
+        }
+        to: {
+          n: number
+          label: string
+        }
+        changed: Array<{
+          id: string
+          label: string
+          whose: "theirs" | "olumi" | null
+          was: "theirs" | "olumi" | null
+        }>
+        sole: string | null
+        lines: Array<{
+          option: string
+          aim: string
+          from: number
+          to: number
+          from_text: string
+          to_text: string
+          line: string
+        }>
+      }
       lenses: Array<{
         id: "goal" | "outcome"
         label: string
@@ -700,6 +727,8 @@ export type View = {
           differ: number
         }>
         chip?: string
+        not_compared?: Array<string>
+        scope_text?: string
       } | {
         quantity: string
         refused: "no_such_figure" | "worked_out" | "structure" | "no_figure" | "no_unit" | "other_unit" | "not_a_figure" | "outside" | "option_left_out" | "cannot_run" | "runs_differently" | "too_large" | "other_draws" | "model_moved_on" | "limit"
