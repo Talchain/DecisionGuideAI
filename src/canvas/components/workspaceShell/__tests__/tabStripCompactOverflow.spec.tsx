@@ -190,10 +190,14 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
 
 describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never cut', () => {
   afterEach(() => { lane.core = false })
-  it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; one row of 44 px tabs', () => {
+  it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; 44 px tabs that wrap, never cut (T3)', () => {
     lane.core = true
     draw(300)
-    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-nowrap\b/)
+    // T3 (DL 11 Nov): below the compact width the lane's tabs still wrap, so a label takes a second row rather than "Anal…"; where the labels
+    // fit (the 1232 dock) flex-wrap leaves them on one row (seen on the served crops, which jsdom cannot measure).
+    expect(SHELL_TABSTRIP_COMPACT_BELOW_PX).toBeGreaterThan(300)
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-wrap\b/)
+    expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bflex-nowrap\b/)
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
     for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     cleanup(); lane.core = false

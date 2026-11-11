@@ -335,7 +335,9 @@ export function WorkspaceShellTabStrip({
   // UI restore, 11 Nov: the canvas no longer has Model · Explore · Team buttons (Paul withdrew them), so Model and Team are tabs again on
   // the olumi-core lane, as shellContract.ts defines them: every surface is a tab, one entry point each.
   const shown = surfaces
-  const wrapTabs = !isCompact
+  // On the olumi-core lane a label is never cut, at any width: the tabs wrap to a second row (T3, DL 11 Nov: at 900 px the compact rule had
+  // switched wrapping off on the lane too, cutting every label to "Anal…", "Reaso…").
+  const wrapTabs = coreLane || !isCompact
   // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
   // four tabs, never floating over its end; elsewhere they stay in the row.
   const wrapHead = (c: JSX.Element) => coreLane
