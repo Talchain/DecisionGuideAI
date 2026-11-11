@@ -43,12 +43,13 @@ describe('size beside chance, on the six-to-seven developers replay (core\'s rou
   it('SZ1: the dock\'s what-if box draws every line, verbatim, under its own option\'s chance rows', () => {
     show(); render(<WhatIfShown model={view.model!} />)
     const box = document.querySelector<HTMLElement>('[data-testid="view-whatif"]')!
-    // Grouped by option in the box's own option order, each under its option's block, in core's order within it.
-    const drawn = lines(box)
-    expect(drawn.slice().sort()).toEqual(want.slice().sort())
-    for (const s of size) {
-      const el = box.querySelector<HTMLElement>(`[data-whatif-size="${s.option}:${s.goal}"]`)!
-      expect(el.closest('[data-whatif-card]')!.getAttribute('data-whatif-card')).toBe(s.option)
+    // Grouped by option, each under its option's block, in core's order within it (never re-ranked here).
+    expect(lines(box).slice().sort()).toEqual(want.slice().sort())
+    const cards = [...box.querySelectorAll<HTMLElement>('[data-whatif-card]')]
+    expect(cards.length).toBeGreaterThan(0)
+    for (const card of cards) {
+      const option = card.getAttribute('data-whatif-card')!
+      expect(lines(card), option).toEqual(want.filter((_, k) => size[k]!.option === option))
     }
   })
 
