@@ -18,7 +18,7 @@ import { SELECTED } from '../styles/selected'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar'
-import { LENS_BAR_TESTID, lensBarFitsBesidePill, placeLensBar } from '../canvas/artefacts/LensBar'
+import { LENS_BAR_TESTID, lensBarFitsBesidePill, lensBarFitsCanvas, placeLensBar } from '../canvas/artefacts/LensBar'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { useViewStore } from './store'
 import { useOverview } from './strategy/overview/useOverview'
@@ -51,7 +51,10 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
       // J1 step 5 (the prototype's labelled Model / Explore / Team bar): when the labelled bar does not fit beside the pill, it takes its own
       // row on the canvas, at the pill's left under it, and keeps its labels; it is never drawn icon-only.
       const beside = lensBarFitsBesidePill({ ...at, barWidth: labelledWidth.current })
-      if (compactNow.current) { compactNow.current = false; setCompact(false); return } // measured again once drawn
+      // PL-155: a bar wider than the canvas column, on a row of its own, ran under the dock at 900 px. Then it is icon-only (each label on hover and
+      // for a reader), as the previous product's bar was at narrow widths. The labelled width is remembered, so the labels return when room does.
+      const fitsCanvas = lensBarFitsCanvas({ viewportWidth: at.viewportWidth, dockInset: at.dockInset, barWidth: labelledWidth.current })
+      if (compactNow.current === fitsCanvas) { compactNow.current = !fitsCanvas; setCompact(!fitsCanvas); return } // measured again once drawn
       // J1 gate: under the core lane's full-width header strip the bar sits on the canvas's top-left, as the prototype's does.
       const strip = pill !== undefined && pill.width >= window.innerWidth - 1
       const next = previousPlace ? placeLensBar({ ...at, barWidth: width }) : strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }

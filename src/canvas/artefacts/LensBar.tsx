@@ -43,6 +43,15 @@ export function lensBarFitsBesidePill(input: { readonly viewportWidth: number; r
   return input.viewportWidth - input.dockInset - GAP_PX - (input.pillRight + GAP_PX) >= input.barWidth
 }
 
+/**
+ * Whether the bar, at `barWidth`, fits the canvas column at all: its own row, from the band's left edge to the dock's (the one place it can
+ * stand when it does not fit beside the pill). A bar wider than this runs under the dock, so the lane's bar then draws icon-only, each
+ * label on hover (UI restore 11 Nov, PL-155: at 900 px the labelled bar overlapped the dock's top).
+ */
+export function lensBarFitsCanvas(input: { readonly viewportWidth: number; readonly dockInset: number; readonly barWidth: number }): boolean {
+  return input.viewportWidth - input.dockInset - GAP_PX - OVERLAY_BAND_LEFT_PAD >= input.barWidth
+}
+
 export function placeLensBar(input: {
   readonly viewportWidth: number
   readonly pillRight: number

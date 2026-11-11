@@ -82,6 +82,24 @@ describe('the lens bar beside the pill when it fits; else labelled, on the row u
     done()
   })
 
+  it('PL-155 (900 px): the labelled bar cannot fit the canvas column beside the 352 px dock (900 − 352 − 12 − 70 = 466 < 640), so it is icon-only, every label on hover and for a reader; at 1232 it is labelled', async () => {
+    const dock = document.createElement('aside'); dock.setAttribute('aria-label', 'Outputs dock'); document.body.appendChild(dock)
+    const asDock = (left: number) => ({ left, right: left + 352, width: 352, top: 8, bottom: 696, height: 688, x: left, y: 8, toJSON: () => ({}) }) as DOMRect
+    let width = 900
+    const done = draw(640, 200)
+    vi.spyOn(window, 'innerWidth', 'get').mockImplementation(() => width)
+    const base = vi.mocked(Element.prototype.getBoundingClientRect).getMockImplementation()!
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) { return this === dock ? asDock(width - 352) : base.call(this) })
+    await act(async () => { window.dispatchEvent(new Event('resize')) })
+    const bar = screen.getByTestId('lens-bar')
+    expect(bar.hasAttribute('data-compact'), 'icon-only at 900').toBe(true)
+    for (const b of screen.getAllByRole('radio')) { expect(b.querySelector('[data-lens-label]')!.className).toContain('sr-only'); expect(b.getAttribute('aria-label')).toBeTruthy() }
+    width = 1232
+    await act(async () => { window.dispatchEvent(new Event('resize')) })
+    expect(screen.getByTestId('lens-bar').hasAttribute('data-compact'), 'labelled again at 1232').toBe(false)
+    dock.remove(); done()
+  })
+
   it('room for the labels: the bar is labelled as before', async () => {
     const done = draw(300, 160)
     await act(async () => { window.dispatchEvent(new Event('resize')) })
