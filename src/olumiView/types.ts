@@ -367,6 +367,9 @@ export type View = {
             }>
           } | null
           stays_in_words?: string
+          reference?: {
+            option: string
+          }
         }>
       } | null
       notes: Array<{

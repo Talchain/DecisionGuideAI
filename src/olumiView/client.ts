@@ -111,6 +111,13 @@ export const writes = {
   discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
   /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */
   edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),
+  /**
+   * PLACEHOLDER (INT-6 not posted yet): a person's "Yes" to a no-change reference wait row (`run.waits_on.items[].reference`): this option
+   * uses the existing trends in this comparison. The route and body below are a guess at core's existing keyed-write shape (`base`,
+   * the option's id, an `op`); the integrator's `### INT-6` names the real ones. ONLY THIS FUNCTION changes when it does. Until then the
+   * route is unserved and the person is told in core's error words (nothing is saved).
+   */
+  confirmReference: (sid: string, base: number, option: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/reference`, { base, option, op }),
   /** R25: their own name for a card (DL contract 02:14Z): saved at once as a person-authored version, only the name changes. */
   rename: (sid: string, base: number, record: string, label: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/rename`, { base, record, label, op }),
   /** R25: one link taken off (core API, R25 7 Nov): the relation record core names on the line (`links[].remove.record`), saved at once. */

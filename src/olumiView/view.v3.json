@@ -1994,6 +1994,18 @@
                  },
                  "stays_in_words": {
                   "type": "string"
+                 },
+                 "reference": {
+                  "type": "object",
+                  "properties": {
+                   "option": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "option"
+                  ],
+                  "additionalProperties": false
                  }
                 },
                 "required": [

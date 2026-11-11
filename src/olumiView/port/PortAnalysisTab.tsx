@@ -18,6 +18,7 @@
  */
 import type { ViewModel, ViewTurn } from '../client'
 import { FigureEdit } from '../FigureEdit'
+import { ReferenceYes } from '../ReferenceYes'
 import { newestNextOf, notesBesideTiming } from '../layout'
 import { shownModel, useViewStore } from '../store'
 import { HeldProposalLine, WhatIfShown } from '../ViewChances'
@@ -59,7 +60,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
         model={model}
         chat={chat}
         nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
-        waitAction={(it) => (it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${it.text}`} />)}
+        waitAction={(it) => (it.reference !== undefined ? <ReferenceYes option={it.reference.option} /> : it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${it.text}`} />)}
       />
       <Strengthen
         model={model}
