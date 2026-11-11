@@ -44,7 +44,17 @@ const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {
+  if (previousCanvasSpike() && surfaceId === 'lenses') return true
   return isOlumiCoreLane() ? !CEE_ONLY_SURFACES.has(surfaceId) : !LANE_ONLY_SURFACES.has(surfaceId)
+}
+
+/**
+ * SPIKE (UI restore, 11 Nov 2026; never served): on this lane, `?previous-canvas` in the address mounts the PREVIOUS product's canvas
+ * (ReactFlowGraph with its own toolbar, lens bar, zoom controls and menus), fed read-only from core's View by the one adapter
+ * (src/olumiView/coreViewToLegacy.ts), in place of the lane's own canvas. A look, not a feature: no write is offered through it.
+ */
+export function previousCanvasSpike(): boolean {
+  return isOlumiCoreLane() && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('previous-canvas')
 }
 
 /**

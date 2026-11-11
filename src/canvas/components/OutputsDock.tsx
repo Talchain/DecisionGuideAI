@@ -210,7 +210,8 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
-import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
+import { coreLaneShowsSurface, isOlumiCoreLane, previousCanvasSpike } from '../../olumiCore/lane'
+import { usePreviousCanvas } from '../../olumiView/coreViewToLegacy'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { BriefPanel, leaveBriefPanel, useBriefPanelShown } from '../../olumiView/BriefPanel'
 import { awaitsBriefOf } from '../../olumiView/ViewWelcome'
@@ -820,7 +821,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(shownModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
-  useViewCanvas(isOlumiCoreLane())
+  useViewCanvas(isOlumiCoreLane() && !previousCanvasSpike())
+  usePreviousCanvas(previousCanvasSpike())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
   const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
   // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the tab strip

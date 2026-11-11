@@ -109,7 +109,7 @@ import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
 import { ViewLinkEdge } from './edges/ViewLinkEdge'
-import { isOlumiCoreLane } from '../olumiCore/lane'
+import { isOlumiCoreLane, previousCanvasSpike } from '../olumiCore/lane'
 import { useViewStore } from '../olumiView/store'
 import { isViewNode, placeViewCards } from '../olumiView/canvas'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
@@ -1771,7 +1771,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const handleAutoArrange = useCallback(() => {
     // The olumi-core lane's cards are placed as the View's causal graph: Auto-arrange puts them back there (canvas A S6, B5).
-    const viewModel = isOlumiCoreLane() ? useViewStore.getState().view?.model ?? null : null
+    const viewModel = isOlumiCoreLane() && !previousCanvasSpike() ? useViewStore.getState().view?.model ?? null : null
     if (viewModel) {
       void placeViewCards(viewModel)
       return

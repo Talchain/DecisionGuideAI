@@ -14,7 +14,7 @@ import { releaseUserCameraClaim, userOwnsCamera, userOwnsCameraFor } from '../ut
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { currentModelKey } from '../utils/currentModelKey'
 import { drawnOnlyKey, subscribeDrawnOnly } from '../domain/livingKinds'
-import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { isOlumiCoreLane, previousCanvasSpike } from '../../olumiCore/lane'
 import { productFitFloor, readableFirstViewport } from '../../olumiView/camera'
 import { useViewStore } from '../../olumiView/store'
 import { drawnHeightsKey, QUESTION } from '../../olumiView/layout'
@@ -184,7 +184,7 @@ export function useFitViewOnLayoutVersion(): void {
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
     // The olumi-core lane fits the whole of core's model (olumiView/camera.ts); every other lane keeps the legibility floor.
-    const floor = productFitFloor(isOlumiCoreLane(), LABEL_LEGIBLE_ZOOM)
+    const floor = productFitFloor(isOlumiCoreLane() && !previousCanvasSpike(), LABEL_LEGIBLE_ZOOM)
 
     // ⭐⭐ WHEN THE FIT WOULD CLAMP, ANCHOR THE VIEW TO THE MODEL'S TOP.
     //
@@ -209,7 +209,7 @@ export function useFitViewOnLayoutVersion(): void {
     const cam = readFocusCamera(getViewportRef.current)
     if (nodes.length > 0 && cam) {
       // The olumi-core lane: a board that fits whole only below a readable zoom is framed by its width, top-aligned (olumiView/camera.ts).
-      const readable = isOlumiCoreLane()
+      const readable = isOlumiCoreLane() && !previousCanvasSpike()
         ? readableFirstViewport(getNodesBounds(nodes), { width: cam.paneWidth, height: cam.paneHeight }, paddingToInsets(padding))
         : null
       if (readable) {
