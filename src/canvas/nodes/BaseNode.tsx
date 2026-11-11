@@ -977,7 +977,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // does not rename on the card (as the inspector's does not, #3008). Until the saved read answers, nothing is offered.
   const titleRenames = livingOnly === null && programState === 'not_program'
 
-  const isIncomplete = (() => {
+  // A core card (olumiView/coreViewToLegacy.ts): what is missing is said by core, in the card's body, never by this frame's own rule.
+  const isIncomplete = (data as { core?: boolean } | undefined)?.core === true ? false : (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
 

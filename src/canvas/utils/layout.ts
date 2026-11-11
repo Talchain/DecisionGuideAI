@@ -122,6 +122,9 @@ type LayoutDirection = NonNullable<LayoutOptions['direction']>
  *  `layoutGraph` and `solveLayoutNodeWidth` (CLAUDE.md trap 12: derive, never
  *  mirror — two copies of this mapping is how the two would drift apart). */
 function tierOf(node: Node): number {
+  // A node may state its row (the olumi-core lane's limit: olumiView/coreViewToLegacy.ts LIMIT_TIER). No previous-product node carries one.
+  const stated = (node.data as Record<string, unknown> | undefined)?.layoutTier
+  if (typeof stated === 'number') return stated
   const kind = (node.type ?? (node.data as Record<string, unknown> | undefined)?.kind) as string | undefined
   return kind !== undefined && TIER_BY_KIND[kind] !== undefined ? TIER_BY_KIND[kind] : 2
 }
@@ -339,6 +342,11 @@ export function solveLayoutCardWidths(
   const widths: Record<string, number> = {}
   for (const kind of Object.keys(TIER_BY_KIND)) {
     widths[kind] = cardWidthFromPlan(plans, TIER_BY_KIND[kind])
+  }
+  // A kind whose nodes state their own row (`tierOf`) draws at that row's width, or its cards overlap in the row they are placed in.
+  for (const n of unlocked) {
+    const stated = (n.data as Record<string, unknown> | undefined)?.layoutTier, kind = kindOfNode(n)
+    if (typeof stated === 'number' && kind !== undefined) widths[kind] = cardWidthFromPlan(plans, stated)
   }
   return widths
 }
@@ -1066,6 +1074,11 @@ async function layoutModel(
   const layoutCardWidths: Record<string, number> = {}
   for (const kind of Object.keys(TIER_BY_KIND)) {
     layoutCardWidths[kind] = cardWOf(TIER_BY_KIND[kind])
+  }
+  // A kind whose nodes state their own row (`tierOf`) draws at that row's width, as in `solveLayoutCardWidths`.
+  for (const n of nodes) {
+    const stated = (n.data as Record<string, unknown> | undefined)?.layoutTier, kind = kindOfNode(n)
+    if (typeof stated === 'number' && kind !== undefined) layoutCardWidths[kind] = cardWOf(stated)
   }
 
   return { nodes: updatedNodes, edges, layoutNodeWidth: cardWOf(UNKNOWN_KIND_TIER), layoutCardWidths }
