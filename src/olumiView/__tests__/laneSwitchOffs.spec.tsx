@@ -131,3 +131,15 @@ describe('lane audit 7.5 and 2.8: Versions are core\'s own on the lane, and undo
     expect(said).toEqual([CORE_LANE_USE_THE_CHAT, CORE_LANE_USE_THE_CHAT])
   })
 })
+
+describe('UI restore 11 Nov: the lane\'s legend lists only live keys', () => {
+  it('on the lane the legend has no Documents drawer, Run analysis or node inspector; the legend still opens', async () => {
+    const { KeyboardLegend } = await import('../../canvas/help/KeyboardLegend')
+    const { render: draw, cleanup: clean } = await import('@testing-library/react')
+    draw(<KeyboardLegend isOpen onClose={() => undefined} />)
+    const lane = document.body.textContent ?? ''
+    expect(lane).toMatch(/Toggle keyboard legend/)
+    for (const dead of ['Documents drawer', 'Run analysis', 'Inspect details']) expect(lane, dead).not.toMatch(new RegExp(dead))
+    clean()
+  })
+})

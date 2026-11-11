@@ -14,6 +14,11 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../canvas/store'
+import { CanvasContextMenu } from '../canvas/contextMenu/CanvasContextMenu'
+import type { ContextTarget } from '../canvas/contextMenu/types'
+import type { NodeType } from '../canvas/domain/nodes'
+import { isStructuralEdge } from '../canvas/domain/edgeUtils'
+import { KeyboardLegend, useKeyboardLegend } from '../canvas/help/KeyboardLegend'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
 import { registerFocusHelpers } from '../canvas/utils/focusHelpers'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
@@ -29,6 +34,7 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { drawKindOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
@@ -140,6 +146,11 @@ function ViewFlow() {
   const nodes = useMemo(() => withOpenCard(withChipsAbove(stored, chipCards), openCard), [stored, chipCards, openCard])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
+  // The previous product's right-click menu on the lane's canvas: its own items, those that reach core (ask Olumi in the chat, the card's
+  // figure), the rest left out (useMenuItems.ts, lane.ts). Nothing is written here: every item asks Olumi in the chat.
+  const [menu, setMenu] = useState<ContextTarget | null>(null)
+  const legend = useKeyboardLegend()
+  const { screenToFlowPosition } = useReactFlow()
   const userMoved = useRef(false)
   // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
   const movedAt = useRef(0)
@@ -209,6 +220,19 @@ function ViewFlow() {
     <>
       <ReactFlow
         nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
+        onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
+        onNodeContextMenu={(e, n) => {
+          e.preventDefault()
+          const m = useViewStore.getState().view?.model, card = m?.cards.find((c) => c.id === n.id)
+          const nodeType = (n.id === QUESTION || card === undefined || m === undefined ? 'decision' : drawKindOf(card, m)) as NodeType
+          useCanvasStore.getState().selectNodeWithoutHistory(n.id)
+          setMenu({ kind: 'node', nodeId: n.id, nodeType, node: n, screenPos: { x: e.clientX, y: e.clientY } })
+        }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault()
+          const kindOf = (id: string) => (useCanvasStore.getState().nodes.find((x) => x.id === id)?.data as { kind?: string } | undefined)?.kind
+          setMenu({ kind: 'edge', edgeId: edge.id, edge: edge as never, isStructural: isStructuralEdge(edge as never, kindOf as never), screenPos: { x: e.clientX, y: e.clientY } })
+        }}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
         onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
@@ -242,6 +266,8 @@ function ViewFlow() {
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}
+      {menu === null ? null : <CanvasContextMenu target={menu} onClose={() => setMenu(null)} screenToFlowPosition={screenToFlowPosition} interactionMode={tool} onSetInteractionMode={setTool} />}
+      <KeyboardLegend isOpen={legend.isOpen} onClose={legend.close} />
       <OlumiAttentionCard />
       <OutputsDock />
     </>

@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import {
   Sparkles, HelpCircle, Waypoints, Route, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
@@ -659,6 +660,8 @@ function buildPaneMenu(
       action: () => {},
     },
     DIV,
+    // On the olumi-core lane core has no undo route (version history is the way back), so the two rows are not offered, never dead.
+    ...(isOlumiCoreLane() ? [] : [
     {
       id: 'undo',
       label: 'Undo',
@@ -680,6 +683,7 @@ function buildPaneMenu(
       action: wrap(() => void runCanvasUndo('redo')),
     },
     DIV,
+    ]),
     {
       id: 'auto-arrange',
       label: 'Auto-arrange',
@@ -696,7 +700,8 @@ function buildPaneMenu(
         })
       }),
     },
-    {
+    // Detailed has no body for a core card yet (IMPROVEMENTS D3): not offered on the lane.
+    ...(isOlumiCoreLane() ? [] : [{
       id: 'toggle-view-mode',
       label: store.viewMode === 'expert' ? 'Switch to Standard' : 'Switch to Detailed',
       icon: Eye,
@@ -706,7 +711,7 @@ function buildPaneMenu(
         const s = useCanvasStore.getState()
         s.setViewMode(s.viewMode === 'expert' ? 'standard' : 'expert')
       }),
-    },
+    }]),
   ]
 }
 
@@ -734,7 +739,8 @@ function buildNodeMenu(
 
   // The quick-action row has three slots. Details stays keyboard-reachable
   // through More as well as the existing node-click inspector route.
-  items.push({
+  // The inspector reads the previous data model, which a core card does not carry: not offered on the lane.
+  if (!isOlumiCoreLane()) items.push({
     id: 'open-details',
     label: 'Open details',
     icon: PanelRight,

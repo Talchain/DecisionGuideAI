@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 const STORAGE_KEY = 'olumi_keys_seen'
 const STORAGE_VERSION = 'v1'
@@ -145,6 +146,13 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
   },
 ]
 
+/** The olumi-core lane's legend (UI restore 11 Nov): only keys that do something there. No node inspector, no Documents drawer, no analysis
+ *  run: core runs its own, and says so in the chat. */
+const LANE_SHORTCUT_SECTIONS: ShortcutSection[] = [
+  { title: 'Navigate', items: [{ keys: ['Esc'], description: 'Close active prompts or panels' }] },
+  { title: 'Help', items: [{ keys: ['?'], description: 'Toggle keyboard legend' }, { keys: ['Esc'], description: 'Close this panel' }] },
+]
+
 export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -153,7 +161,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
     panelRef.current?.focus()
   }, [isOpen])
 
-  const sections = useMemo(() => SHORTCUT_SECTIONS, [])
+  const sections = useMemo(() => (isOlumiCoreLane() ? LANE_SHORTCUT_SECTIONS : SHORTCUT_SECTIONS), [])
 
   if (!isOpen) return null
 
