@@ -75,21 +75,29 @@ describe('the uncertainty shares, figure by figure', () => {
 })
 
 describe('SCI-10: whose each share is, by name, from the option\'s own card', () => {
-  it('RF4: a figure the option card names in rests_on carries core\'s author words beside its share (A7 through core fd672840)', () => {
+  it('RF4: every figure the option card names (rests_on, else sets) carries core\'s author words beside its share, by path; others none (A7 through core fd672840)', () => {
     const v: View = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/a7-sci10.view3.json'), 'utf8'))
     ready(v)
-    const hire = v.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!
-    const r = v.model!.run!.rests.find((x) => x.option === hire.id && (x.figures ?? []).length > 0)!
-    let named = 0
-    for (const f of r.figures!) {
-      const row = screen.getByTestId(`port-rests-figures-${r.id}`).querySelector<HTMLElement>(`[data-rests-figure="${f.id}"]`)!
-      const k = hire.rests_on.findIndex((x) => x.id === f.id)
-      const w = row.querySelector('[data-testid="port-rests-figure-whose"]')
-      if (k < 0 || (hire.rests_on[k]!.author ?? '') === '') { expect(w, f.id).toBeNull(); continue }
-      expect(w).toHaveAttribute('data-view', `${hire.id}.rests_on.${k}.author`)
-      expect(w!.textContent).toBe(hire.rests_on[k]!.author); named++
+    let named = 0, bySets = 0
+    for (const r of v.model!.run!.rests) {
+      const o = v.model!.cards.find((c) => c.id === r.option)!
+      for (const f of r.figures ?? []) {
+        const row = screen.getByTestId(`port-rests-figures-${r.id}`).querySelector<HTMLElement>(`[data-rests-figure="${f.id}"]`)!
+        const w = row.querySelector('[data-testid="port-rests-figure-whose"]')
+        const k = o.rests_on.findIndex((x) => x.id === f.id), j = (o.sets ?? []).findIndex((x) => x.id === f.id)
+        const want = k >= 0 && (o.rests_on[k]!.author ?? '') !== '' ? { at: `${o.id}.rests_on.${k}.author`, a: o.rests_on[k]!.author }
+          : j >= 0 && (o.sets![j]!.author ?? '') !== '' ? { at: `${o.id}.sets.${j}.author`, a: o.sets![j]!.author } : null
+        if (want === null) { expect(w, f.id).toBeNull(); continue }
+        expect(w, f.id).toHaveAttribute('data-view', want.at)
+        expect(w!.textContent).toBe(want.a); named++; if (want.at.includes('.sets.')) bySets++
+      }
     }
-    expect(named).toBeGreaterThan(0)
+    expect(named).toBeGreaterThan(2)
+    expect(bySets).toBeGreaterThan(0)
+    // Tomasz's figure: Hire's spend setting, named from its `sets` entry.
+    const hire = v.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!, sj = hire.sets!.findIndex((x) => x.author === 'Tomasz’s figure, Olumi’s range')
+    expect(sj).toBeGreaterThanOrEqual(0)
+    expect(document.querySelector(`[data-testid="port-rests-figure-whose"][data-view="hire_a_part_time_mechanic.sets.${sj}.author"]`)?.textContent).toBe('Tomasz’s figure, Olumi’s range')
     expect(expectAllBound(v, screen.getByTestId('port-stress-rests'), expect)).toBeGreaterThan(3)
   })
 })

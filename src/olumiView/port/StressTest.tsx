@@ -6,8 +6,8 @@
  * - what could go wrong (`run.failure`, `failure_heading`; core fills it only for an option someone committed to);
  * - how much rests on Olumi's guesses (`run.rests`, `rests_heading`); under each line, where core sends them, its figures one by one
  *   (`rests[].figures`, under `rests_figures_heading`): core's line for each, verbatim, whose it is by core's mark, a bar whose length is
- *   core's `share` (a position only, never drawn as a number), whose it is by name where the option's card says so (`rests_on[].author`,
- *   same id), and the figure's own edit where core offers one (`give`). These are shares of
+ *   core's `share` (a position only, never drawn as a number), whose it is by name where the option's card says so (`rests_on[].author`, else
+ *   `sets[].author`, same id), and the figure's own edit where core offers one (`give`). These are shares of
  *   the UNCERTAINTY in this model, counting each figure on its own, never shares of the chance; they do not add up to the whole, so the
  *   parent line, which says what is not attributed to any one figure, is always drawn above them (Codex PL-218).
  * The previous section's own sentences (sensitive assumptions, thinking patterns, fragile factors) are not drawn: they were composed
@@ -28,9 +28,15 @@ type RestsLine = NonNullable<NonNullable<ViewModel['run']>['rests']>[number]
 function RestsFigures({ line, i, heading, model }: { line: RestsLine; i: number; heading: string | undefined; model: ViewModel }) {
   const figures = line.figures ?? []
   if (figures.length === 0) return null
-  // Whose each figure is, by name, where core says so on the option's own card (`cards[].rests_on[k].author`, the same id; SCI-10).
+  // Whose each figure is, by name, where core says so on the option's own card, by the same id (SCI-10): what it rests on
+  // (`cards[].rests_on[k].author`), else one of its own settings (`cards[].sets[k].author`).
   const option = model.cards.find((c) => c.id === line.option)
-  const whose = (id: string) => { const k = (option?.rests_on ?? []).findIndex((r) => r.id === id); const a = k < 0 ? null : option!.rests_on[k]!.author; return a == null || a === '' ? null : { k, a } }
+  const whose = (id: string): { at: string; a: string } | null => {
+    const k = (option?.rests_on ?? []).findIndex((r) => r.id === id), r = k < 0 ? null : option!.rests_on[k]!.author
+    if (r != null && r !== '') return { at: `${option!.id}.rests_on.${k}.author`, a: r }
+    const j = (option?.sets ?? []).findIndex((x) => x.id === id), t = j < 0 ? null : option!.sets![j]!.author
+    return t != null && t !== '' ? { at: `${option!.id}.sets.${j}.author`, a: t } : null
+  }
   return (
     <div className="space-y-1.5 pl-2" data-testid={`port-rests-figures-${line.id}`}>
       {heading == null || heading === '' ? null : <p className={`${typography.panelBody} font-medium text-text-header`} data-view="run.rests_figures_heading">{heading}</p>}
@@ -40,7 +46,7 @@ function RestsFigures({ line, i, heading, model }: { line: RestsLine; i: number;
             {f.mark === null ? null : <><span className={f.whose === 'olumi' ? 'text-info' : 'text-text-body'} title={f.mark.title} aria-label={f.mark.title} data-testid="port-rests-figure-mark">{f.mark.glyph}</span> </>}
             <span data-view={`run.rests.${i}.figures.${j}.line`}>{f.line}</span>
           </p>
-          {(() => { const w = whose(f.id); return w === null ? null : <p className={`${TYPE.meta} text-text-light`} data-testid="port-rests-figure-whose" data-view={`${option!.id}.rests_on.${w.k}.author`}>{w.a}</p> })()}
+          {(() => { const w = whose(f.id); return w === null ? null : <p className={`${TYPE.meta} text-text-light`} data-testid="port-rests-figure-whose" data-view={w.at}>{w.a}</p> })()}
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/5" aria-hidden="true">
             <div className={`h-full rounded-full ${f.whose === 'olumi' ? 'bg-info' : 'bg-text-light'}`} style={{ width: `${Math.max(0, Math.min(1, f.share)) * 100}%` }} data-testid="port-rests-figure-bar" />
           </div>
