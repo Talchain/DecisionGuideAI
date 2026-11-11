@@ -17,6 +17,7 @@ import { typography } from '../../styles/typography'
 import type { ViewModel } from '../client'
 import { failureOf, restsOf, tippingOf } from '../layout'
 import { FigureEdit } from '../FigureEdit'
+import { TYPE } from './type'
 
 const CARD = 'rounded-lg border border-panel-border px-3 py-2'
 type Mark = { glyph: string; title: string } | null | undefined
@@ -38,7 +39,11 @@ function RestsFigures({ line, i, heading }: { line: RestsLine; i: number; headin
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/5" aria-hidden="true">
             <div className={`h-full rounded-full ${f.whose === 'olumi' ? 'bg-info' : 'bg-text-light'}`} style={{ width: `${Math.max(0, Math.min(1, f.share)) * 100}%` }} data-testid="port-rests-figure-bar" />
           </div>
-          {f.give === null ? null : <FigureEdit id={f.id} edit={f.give.edit} place="rests" glyph="✎" words={false} lead={f.give.text} label={`${f.give.text}: ${f.label}`} />}
+          {f.give === null ? null : (
+            <div className={`${TYPE.meta} text-text-light`} data-testid="port-rests-figure-give">
+              <FigureEdit id={f.id} edit={f.give.edit} place="rests" glyph="✎" words={false} lead={f.give.text} label={`${f.give.text}: ${f.label}`} />
+            </div>
+          )}
         </div>
       ))}
     </div>
