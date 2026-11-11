@@ -27,7 +27,7 @@ import { forgetLanded } from './revealReturn'
 import { allBut } from './layout'
 import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from './lens'
 
-export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element | null {
+export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: boolean; /** Spike: placed exactly as the previous product's bar is (`placeLensBar`), on the previous canvas. */ previousPlace?: boolean } = {}): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
   const overviewOpen = useOverview((s) => s.open)
   // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
@@ -54,7 +54,7 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
       if (compactNow.current) { compactNow.current = false; setCompact(false); return } // measured again once drawn
       // J1 gate: under the core lane's full-width header strip the bar sits on the canvas's top-left, as the prototype's does.
       const strip = pill !== undefined && pill.width >= window.innerWidth - 1
-      const next = strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
+      const next = previousPlace ? placeLensBar({ ...at, barWidth: width }) : strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
       setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
       // UI restore stage 1, row 2: the left toolbar starts under this bar when the bar sits under the pill (it hid the toolbar's "+").
       document.documentElement.style.setProperty('--view-nav-bottom', pill && next.top >= pill.bottom ? `${next.top + 36}px` : '0px')

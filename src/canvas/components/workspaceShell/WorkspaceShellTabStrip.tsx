@@ -36,7 +36,7 @@ import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
-import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { isOlumiCoreLane, previousCanvasSpike } from '../../../olumiCore/lane'
 import { HIT_44 } from '../../../styles/hitArea'
 import { SELECTED } from '../../../styles/selected'
 import {
@@ -336,7 +336,8 @@ export function WorkspaceShellTabStrip({
   const coreLane = isOlumiCoreLane()
   // DL ruling 9 Nov (one entry point each): on the olumi-core lane Model and Team are opened by the canvas's Model · Explore · Team
   // controls, never by a tab; the dock's tabs are Olumi, Analysis, Reasoning and Compare, one row (their labels need about 210 px).
-  const shown = coreLane ? surfaces.filter(s => !PANEL_ONLY.has(s.id)) : surfaces
+  // Spike, RULING 8: the previous canvas has no Model · Explore · Team buttons, so Model and Team are tabs again (Team: the DL's default).
+  const shown = coreLane && !previousCanvasSpike() ? surfaces.filter(s => !PANEL_ONLY.has(s.id)) : surfaces
   const wrapTabs = !isCompact
   // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
   // four tabs, never floating over its end; elsewhere they stay in the row.

@@ -3169,7 +3169,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the 12px gap plus (416 − 319) px automatically.
   // J1 gate (UI session 8 Nov, the prototype's dock): on the olumi-core lane the open dock is an inset card, 300 px, 8 px off the
   // window's edges and the header strip, rounded, with the prototype's edge and shadow.
-  const insetDock = effectiveIsOpen && isOlumiCoreLane()
+  // Spike, RULING 8: on the previous canvas the dock is the previous product's (flush right, full height, its own width; collapsed, its icon rail).
+  const insetDock = effectiveIsOpen && isOlumiCoreLane() && !previousCanvasSpike()
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: insetDock ? 300 : effectiveIsOpen

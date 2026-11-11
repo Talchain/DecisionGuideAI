@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react'
+import { previousCanvasSpike } from '../../olumiCore/lane'
 import {
   Sparkles, HelpCircle, Waypoints, Route, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
@@ -659,6 +660,8 @@ function buildPaneMenu(
       action: () => {},
     },
     DIV,
+    // Spike (UI restore, 11 Nov 2026): core has no undo route, so on the previous canvas over core's model the two rows are left out, never dead.
+    ...(previousCanvasSpike() ? [] : [
     {
       id: 'undo',
       label: 'Undo',
@@ -680,6 +683,7 @@ function buildPaneMenu(
       action: wrap(() => void runCanvasUndo('redo')),
     },
     DIV,
+    ]),
     {
       id: 'auto-arrange',
       label: 'Auto-arrange',

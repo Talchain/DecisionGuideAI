@@ -44,7 +44,6 @@ const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
 const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
 export function coreLaneShowsSurface(surfaceId: string): boolean {
-  if (previousCanvasSpike() && surfaceId === 'lenses') return true
   return isOlumiCoreLane() ? !CEE_ONLY_SURFACES.has(surfaceId) : !LANE_ONLY_SURFACES.has(surfaceId)
 }
 
