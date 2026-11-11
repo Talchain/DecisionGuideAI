@@ -335,8 +335,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
               const all = g.lines.length > 0 && g.lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
               return (
                 <li key={gi}>
-                  {/* Open from the start (PL 7 Nov: never approve with changes hidden): every line is seen before Approve; the person may fold a group. */}
-                  <details open data-testid={`view-change-group-box-${gi}`}>
+                  {/* Closed at rest, a group opens on press (DL 11 Nov, replacing PL 7 Nov's open groups: 36 lines filled the panel). The heading
+                      is core's, with its count and whose they are; Approve still approves every line, ticked or not, and a group's tick chooses it whole. */}
+                  <details data-testid={`view-change-group-box-${gi}`}>
                     <summary className="cursor-pointer">
                       <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for={`view-change-group-${gi}`}>
                         <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}

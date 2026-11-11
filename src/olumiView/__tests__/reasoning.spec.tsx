@@ -5,6 +5,7 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { useViewLens } from '../lens'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../client'
@@ -46,7 +47,7 @@ function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
   // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
-  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : m.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : id === 'lens_words' ? view.lens_words : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -722,16 +723,16 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
     expect(screen.queryByTestId('view-reasoning-challenge')).toBeNull()
   })
 
-  it('a long brief is held to two lines with the crafted More, whole in the page and on hover; a short brief is drawn whole with no act', () => {
+  it('a long brief is held to ONE line with the crafted More (UI restore 11 Nov: the previous strip), whole in the page and on hover; a short brief is drawn whole with no act', () => {
     const long = read('s_ce285b3617bb.view.json')
     ready(long)
     const { unmount } = render(<ViewReasoning model={long.model!} brief={long.brief} />)
     const held = screen.getByTestId('view-reasoning-brief')
     expect([held.dataset['disclosure'], held.querySelector('[data-view="brief"]')?.textContent]).toEqual(['closed', long.brief])
-    expect(held.querySelector('.line-clamp-2')).not.toBeNull()
+    expect(held.querySelector('.line-clamp-1')).not.toBeNull()
     fireEvent.click(screen.getByTestId('view-reasoning-brief-more'))
     expect([held.dataset['disclosure'], screen.getByTestId('view-reasoning-brief-more').textContent]).toEqual(['open', REASONING_LABELS.less])
-    expect(held.querySelector('.line-clamp-2')).toBeNull()
+    expect(held.querySelector('.line-clamp-1')).toBeNull()
     unmount()
     const short = read('pricing.view.json')
     ready(short)
@@ -933,5 +934,38 @@ describe('the people strip: the views core shares, read-only, each played in cor
     ready(view)
     render(<ViewReasoningBlock />)
     expect(strip()).toBeNull()
+  })
+})
+
+// UI restore 11 Nov (DL: the previous tab's top was a compact strip): marks are small shapes with their name on hover and focus, and the
+// strip says what core holds or asks, and maps two of the previous method chips to the lenses core has.
+describe('the compact strip and its review row', () => {
+  it('a mark draws its shape only (its name is the hover and the reader\'s label); "N to review" counts the cards core points at, challenges or proposes to change', () => {
+    const v = read('proposal.view.json')
+    ready(v)
+    const { container, unmount } = render(<ViewReasoning model={v.model!} brief={v.brief} />)
+    const marks = [...container.querySelectorAll<HTMLElement>('[data-glance-card]')]
+    expect(marks.length).toBeGreaterThan(3)
+    for (const m of marks) { expect(m.className).toMatch(/\bw-5\b/); expect(m.querySelector('[data-view$=".heading"]')!.className).toMatch(/sr-only/); expect(m.getAttribute('title')).toBe(m.getAttribute('aria-label')) }
+    const flagged = v.model!.cards.filter((c) => c.focus || c.challenged || c.change != null).length
+    expect(flagged, 'precondition: the proposal golden has cards to review').toBeGreaterThan(0)
+    expect(screen.getByTestId('view-reasoning-to-review').textContent).toBe(`${flagged} ${REASONING_LABELS.review}`)
+    unmount()
+    const plain = read('capacity-v3.view.json')
+    ready(plain)
+    render(<ViewReasoning model={plain.model!} brief={plain.brief} />)
+    const none = plain.model!.cards.filter((c) => c.focus || c.challenged || c.change != null).length
+    expect(screen.queryByTestId('view-reasoning-to-review') === null).toBe(none === 0)
+  })
+  it('the two method chips are core\'s own lens words and set their lens; pressing again returns to the model', () => {
+    const v = read('european.view.json')
+    ready(v)
+    render(<ViewReasoning model={v.model!} brief={v.brief} />)
+    const pre = screen.getByTestId('view-reasoning-method-premortem')
+    expect(pre.textContent).toBe(v.lens_words.label.premortem)
+    fireEvent.click(pre)
+    expect(useViewLens.getState().lens).toBe('premortem')
+    fireEvent.click(pre)
+    expect(useViewLens.getState().lens).toBe('full')
   })
 })

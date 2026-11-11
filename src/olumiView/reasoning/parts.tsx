@@ -78,13 +78,13 @@ export function Door({ label, count, testId, children }: { label: string; count:
  * 30 Sep cut-back). Short lines are drawn whole with no act. The clamp is disclosure, never a cut: the region says so (`data-disclosure`),
  * and the whole line is one press away and on hover. `long` is the caller's measure of the line (a length, never a value).
  */
-export function Clamped({ long, labels, children, testId }: { long: boolean; labels: { more: string; less: string }; children: ReactNode; testId: string }) {
+export function Clamped({ long, labels, children, testId, lines = 2 }: { long: boolean; labels: { more: string; less: string }; children: ReactNode; testId: string; lines?: 1 | 2 }) {
   const [open, setOpen] = useState(false)
   if (!long) return <>{children}</>
   return (
     <span className="block min-w-0" data-disclosure={open ? 'open' : 'closed'} data-testid={testId}>
       {/* `line-clamp-2` brings its own display (-webkit-box); a `block` beside it would win and undo the clamp. */}
-      <span className={open ? 'block' : 'line-clamp-2'}>{children}</span>
+      <span className={open ? 'block' : lines === 1 ? 'line-clamp-1' : 'line-clamp-2'}>{children}</span>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} ${action('text')}`} data-testid={`${testId}-more`}>
         {open ? labels.less : labels.more}
       </button>

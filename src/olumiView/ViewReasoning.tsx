@@ -37,6 +37,7 @@ import { shownModel, useViewStore } from './store'
 import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
 import { Spine } from './reasoning/Spine'
+import { ReviewStrip } from './reasoning/ReviewStrip'
 import { Rack } from './reasoning/Rack'
 import { People } from './reasoning/People'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
@@ -46,7 +47,7 @@ import { typography } from '../styles/typography'
 export const REASONING_LABELS = {
   brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
   challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
-  more: 'More', less: 'Less', glance: 'The model at a glance',
+  more: 'More', less: 'Less', glance: 'The model at a glance', review: 'to review',
 } as const
 
 /**
@@ -91,6 +92,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
     <div className={`${typography.viewPanelBody} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-6 px-4 py-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} labelled={!stated} />
       <Spine model={model} brief={brief} labels={REASONING_LABELS} />
+      <ReviewStrip model={model} review={REASONING_LABELS.review} />
       <Rack model={model} />
       <People view={view} />
       {challenges.length + notes === 0 ? null : (

@@ -25,8 +25,8 @@ import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 
 type Labels = typeof REASONING_LABELS
-/** A brief longer than this is held to two lines at rest (about 50 characters a line at 14px in the dock's narrowest column). */
-const BRIEF_CLAMP_CHARS = 100
+/** A brief longer than this is held to ONE line at rest, with More (the previous product's strip: a brief up to about 40 characters is shown whole, at most two short lines). */
+const BRIEF_CLAMP_CHARS = 40
 const TEST_ID: Record<GlanceKind, string> = { option: 'options', factor: 'factors', risk: 'risks', outcome: 'outcomes' }
 const LABEL = `${typography.viewPanelMeta} flex w-20 shrink-0 items-center gap-1.5 text-text-light`
 /** Where N steps to: a card core points the person at, challenges, marks as Olumi's, or proposes to add or change. */
@@ -98,15 +98,15 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
   return (
     <div data-testid="view-reasoning-glance" className="space-y-1.5" role="group" aria-label={labels.glance} onKeyDown={onKey}>
       {brief === null ? null : (
-        <div className="flex items-baseline gap-2"><span className={LABEL}><NodeShapeIndicator nodeKind="decision" size={10} />{labels.brief}</span><span className="min-w-0" title={brief}><Clamped long={brief.length > BRIEF_CLAMP_CHARS} labels={labels} testId="view-reasoning-brief"><span data-view="brief">{brief}</span></Clamped></span></div>
+        <div className="flex items-baseline gap-2"><span className={LABEL}><NodeShapeIndicator nodeKind="decision" size={10} />{labels.brief}</span><span className="min-w-0" title={brief}><Clamped long={brief.length > BRIEF_CLAMP_CHARS} lines={1} labels={labels} testId="view-reasoning-brief"><span data-view="brief">{brief}</span></Clamped></span></div>
       )}
       {goals.map((g) => {
         const { ring, ...p } = pointer(g)
         return (
           <div key={g.id} className="flex items-baseline gap-2">
             <span className={LABEL}><NodeShapeIndicator nodeKind="goal" size={10} />{labels.goal}</span>
-            <button {...p} title={g.detail} data-glance-goal={g.id} className={`-mx-1 min-h-[24px] min-w-0 rounded px-1 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
-              <span data-view={`${g.id}.heading`}>{g.heading}</span>
+            <button {...p} title={g.detail} data-glance-goal={g.id} className={`-mx-1 min-h-[24px] min-w-0 max-w-full rounded px-1 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
+              <span className="block truncate" data-view={`${g.id}.heading`}>{g.heading}</span>
             </button>
           </div>
         )
@@ -119,17 +119,18 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
             className={`${LABEL} min-h-[24px] rounded text-left hover:text-text-body ${ACTION_FOCUS} ${family === kind ? 'text-text-header' : ''}`}>
             <NodeShapeIndicator nodeKind={kind} size={10} />{label[kind]}
           </button>
-          {/* 4 px between marks (V11 pixel pass, 9 Nov): a ringed mark's ring no longer runs into its neighbour. */}
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+          {/* UI restore 11 Nov (DL: "the previous tab's top was a compact strip"): one small mark per card on one line, its name on hover and focus
+              (title, and the reader's label), the count at the right. Reverses the 9 Nov named capsules, which filled the panel. */}
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5">
             {cards.map((c) => {
               const { ring, ...p } = pointer(c)
               return (
                 // Named (DL 9 Nov, alpha comprehension: unlabelled marks could not be told apart): each mark carries its card's heading, core's
                 // words, whole and wrapping; its shape stays before it.
                 <button key={c.id} {...p} title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}
-                  className={`${typography.viewPanelMeta} inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
-                  <NodeShapeIndicator nodeKind={kind} size={10} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
-                  <span className="min-w-0 break-words" data-view={`${c.id}.heading`}>{c.heading}</span>
+                  className={`inline-grid h-6 w-5 place-items-center rounded-full text-text-body hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
+                  <NodeShapeIndicator nodeKind={kind} size={12} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
+                  <span className="sr-only" data-view={`${c.id}.heading`}>{c.heading}</span>
                 </button>
               )
             })}

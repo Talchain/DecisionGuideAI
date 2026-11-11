@@ -60,10 +60,14 @@ describe('partial approval', () => {
     expect(posts[0]!.body).toEqual({ base: p.base, only: [changes[0]!.id], only_top: [changes[0]!.id] })
   })
 
-  it('catch (PL 7 Nov: never approve with changes hidden): a grouped proposal opens with every group open, each of core\'s lines in view before Approve', () => {
+  it('DL 11 Nov (replacing PL 7 Nov\'s open groups): a grouped proposal rests with every group closed, its heading and tick in view; a group opens on press and shows each of core\'s lines', () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
     show({ ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } })
-    expect((screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement).open).toBe(true)
+    const box = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
+    expect(box.open).toBe(false)
+    expect(screen.getByText('Everything')).toBeVisible()
+    expect(screen.getByTestId('view-change-group-0'), 'the group\'s own tick is in the resting view').toBeVisible()
+    box.open = true
     expect(screen.getByTestId('view-change-tick-0')).toBeVisible()
     expect(screen.getByTestId('view-change-tick-1')).toBeVisible()
   })
