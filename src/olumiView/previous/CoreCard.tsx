@@ -22,6 +22,7 @@ import { useDriverOf, useRestsOnItem } from '../lens'
 import { optionBands, ViewDriverBadge, ViewOptionBand, ViewValuesBand } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { StrategyChips } from '../strategy/StrategyChips'
+import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
 export function leadLineOf(card: ViewCard): string | null {
@@ -76,6 +77,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The lenses mark the cards they are about (RULING 5): the Rests on number, in Olumi's blue where core marks the figure Olumi's; the
   // ring of What would change. Both are core's (lens.ts); null off those lenses.
   const restsOn = useRestsOnItem(id), driverOf = useDriverOf(id)
+  // The figure's own edit (R25, as the lane's card): wherever core offers one, the ✎ is on the figure's line, and core takes the figure
+  // through its own route as the person's. While a proposal is held core offers none; the ✎ then offers to set the proposal aside first.
+  const keptEdit = useOpenFigureEdits((o) => o.open.get(id) ?? null)
+  const estimate = card?.family === 'quantity' && card.olumi !== null && card.figure !== null
+  const edit = card === null || card.figure === null ? null : card.figure.edit ?? keptEdit
   // An option's outcome band, every option on one axis: cards and aim from the ONE model read above (inventory G21b: never two stores).
   const band = useMemo(() => (card?.family === 'option' && model !== null ? optionBands(model.cards, model.aim ?? null).get(id) ?? null : null), [card, model, id])
   return (
@@ -94,6 +100,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden"><CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
+          {card.figure === null ? null : edit !== null
+            ? <span className="nodrag self-start" data-figure-edit-wrap=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+            : card.change?.kind !== 'added' && kind !== 'outcome'
+              ? <span className="nodrag self-start" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
           {olumi ? <p className={`${typography.nodeLabel} text-info`} title={card.author!.title} data-core-author={id}>{card.author!.text}</p> : null}
         </div>
       )}
