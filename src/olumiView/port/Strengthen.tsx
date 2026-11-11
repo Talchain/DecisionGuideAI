@@ -92,7 +92,7 @@ export function Strengthen({ model, giveAction, findOutGive }: StrengthenProps) 
         </div>
       )}
       {rows.length === 0 ? null : (
-        <FocusNowPanel bare summary={null} rows={rows} banner={{ kind: 'none' }} showFreshnessBanner={false}
+        <FocusNowPanel bare whole summary={null} rows={rows} banner={{ kind: 'none' }} showFreshnessBanner={false}
           rowExtra={giveAction === undefined ? undefined : (row) => { const w = byRow.get(row.id); return w === undefined ? null : giveAction(w.line, w.i) }} />
       )}
     </section>

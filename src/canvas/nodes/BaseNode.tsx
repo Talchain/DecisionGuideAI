@@ -238,6 +238,12 @@ interface BaseNodeProps extends NodeProps {
    */
   lodMetric?: string | null
   /**
+   * A caller's mark drawn beside the far line, only while the body is reduced (the olumi-core lane's Rests on number, G3 11 Nov: the
+   * lens marks its cards at the whole-board first open, where the body that carries the mark at full zoom is blanked). `flex-none`, in its
+   * own element before the text, so the line's ellipsis never eats it (the estimate mark's own rule below).
+   */
+  lodMark?: ReactNode
+  /**
    * ⭐ THE CARD RAIL'S RESTING DATA ICONS (locked Canvas design, 23 Sep 2026).
    * A caller adds only icons its own data says apply; the grounded evidence and
    * behaviour icons are added HERE for every kind, from the same plan the
@@ -403,7 +409,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
   const anchorBandHasMarks = useBottomBandHasMarks()
@@ -3088,6 +3094,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
+              {lodMark}
               {lodBodyLine !== null && (
               <span
                 data-testid="node-lod-line-text"

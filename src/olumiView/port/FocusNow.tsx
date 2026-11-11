@@ -52,7 +52,7 @@ export function FocusNow({ model, chat = null, nextAction, waitAction }: FocusNo
       {rows.length === 0 ? null : (
         <div data-testid="port-focus-waits">
           <p className={`${TYPE.meta} text-text-light`} data-view="run.waits_on.label">{waits!.label}</p>
-          <FocusNowPanel bare summary={null} rows={rows} banner={{ kind: 'none' }} showFreshnessBanner={false}
+          <FocusNowPanel bare whole summary={null} rows={rows} banner={{ kind: 'none' }} showFreshnessBanner={false}
             rowExtra={waitAction === undefined ? undefined : (row) => { const it = byRow.get(row.id); return it === undefined ? null : waitAction(it) }} />
         </div>
       )}

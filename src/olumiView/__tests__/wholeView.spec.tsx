@@ -189,21 +189,36 @@ describe('a reduced face stays inside its own card (hiring, 1232 x 704, dock ope
   })
 })
 
-// DL 10 Nov (seen on Build 1b): link labels ("-16 to 46%") were drawn at about 4 px at the overview. Below the readable zoom they are not
-// drawn; at full size they are unchanged.
+// DL 10 Nov (seen on Build 1b): link labels ("-16 to 46%") were drawn at about 4 px at the overview, so below the readable zoom a link at
+// rest draws no words (its sign is its colour). B1 (Paul's "do now", 11 Nov): the first open is that overview on every real model, so a link
+// near what the person points at (here: selected) says its words there too, at the cards' reduced-face scale (never the bare zoom's size).
 describe('link words at the overview', () => {
   const bakery = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
-  const i = bakery.links.findIndex((l) => l.effect != null)
+  const studio = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/studio.view.json'), 'utf8')) as View).model!
+  // No golden link carries both a sign and core's strength words: the sign is read on a studio link (a plain '+'), the strength on a bakery one.
+  const i = bakery.links.findIndex((l) => l.effect != null), s = studio.links.findIndex((l) => l.label === '+' && l.kind !== 'reason')
   const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
-  const draw = (zoom: number) => {
+  const draw = (zoom: number, selected: boolean, m = bakery, k = i) => {
     const Zoom = () => { const api = useStoreApi(); api.setState({ transform: [0, 0, zoom] }); return null }
-    return render(<ReactFlowProvider><Zoom /><EdgeLabelLayer><svg><Edge id={`l${i}`} source={bakery.links[i]!.from} target={bakery.links[i]!.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
-      sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: bakery.links[i]!, i }} selected /></svg></EdgeLabelLayer></ReactFlowProvider>).container
+    return render(<ReactFlowProvider><Zoom /><EdgeLabelLayer><svg><Edge id={`l${k}`} source={m.links[k]!.from} target={m.links[k]!.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
+      sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: m.links[k]!, i: k }} selected={selected} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
   }
-  it('zoom 0.449: no link words are drawn; CONTRAST: zoom 1 draws them as before', () => {
-    expect(i, 'precondition: a link with core\'s effect words').toBeGreaterThanOrEqual(0)
-    expect(draw(0.449).querySelector(`[data-view="links.${i}.effect.text"]`)).toBeNull()
+  it('zoom 0.449 at rest: no words (not its sign either); CONTRAST: zoom 1 at rest draws its sign as before', () => {
+    expect([i, s], 'precondition: a link with core\'s effect words, and a link with a sign').toEqual([expect.any(Number), expect.any(Number)])
+    expect(Math.min(i, s)).toBeGreaterThanOrEqual(0)
+    expect(draw(0.449, false, studio, s).querySelector(`[data-view-link-words="links.${s}"]`)).toBeNull()
     cleanup()
-    expect(draw(1).querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(bakery.links[i]!.effect!.text)
+    expect(draw(1, false, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
+  })
+  it('B1: zoom 0.449, the link selected: its sign, and core\'s strength words, are drawn at the reduced face\'s scale; at zoom 1 at no extra scale', () => {
+    expect(draw(0.449, true, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
+    cleanup()
+    const far = draw(0.449, true)
+    expect(far.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(bakery.links[i]!.effect!.text)
+    const words = far.querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!
+    expect(parseFloat(words.style.getPropertyValue('--canvas-label-scale'))).toBe(reducedFaceSize(0.449))
+    cleanup()
+    const near = draw(1, true).querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!
+    expect([near.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent, near.style.getPropertyValue('--canvas-label-scale')]).toEqual([bakery.links[i]!.effect!.text, ''])
   })
 })

@@ -58,6 +58,9 @@ interface FocusRowCardProps {
   bare?: boolean
   /** See FocusNowProps.rowExtra: the caller's own control for this row, drawn at the end of the open body. */
   extra?: ReactNode
+  /** The olumi-core lane (X1, Paul's "do now", 11 Nov): the title is drawn whole at rest, never cut to one line. Its words are core's,
+   *  and a closed row that ends "…how many E-…" says less than core said. */
+  whole?: boolean
 }
 
 function RowMarker({ row, bare = false }: { row: FocusRow; bare?: boolean }) {
@@ -73,14 +76,14 @@ function RowMarker({ row, bare = false }: { row: FocusRow; bare?: boolean }) {
   return <EntityTarget />
 }
 
-export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false, extra }: FocusRowCardProps) {
+export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false, extra, whole = false }: FocusRowCardProps) {
   const regionId = useId()
   const labelId = useId()
   const Chevron = isOpen ? ChevronDown : ChevronRight
   const primary = row.primary ?? ''
   const hasPrimary = primary.trim().length > 0
 
-  const clampStyle: CSSProperties | undefined = isOpen
+  const clampStyle: CSSProperties | undefined = isOpen || whole
     ? undefined
     : {
         display: '-webkit-box',

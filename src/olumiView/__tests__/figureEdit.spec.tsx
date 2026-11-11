@@ -189,7 +189,7 @@ describe('worth checking first: the line\'s figure given with its ✎, as core\'
   it('a figure core gives: core\'s words, then the ✎ named for the figure, then the card\'s own edit, by the figure\'s id', async () => {
     const c = render(<ViewChances model={view.model!} />).container
     const give = c.querySelector<HTMLElement>(`[data-testid="worth-give-${fig.id}"]`)!
-    expect(give.textContent).toBe(`${fig.give!.text} ✎.`)
+    expect(give.textContent).toBe(`${fig.give!.text} ✎`) // S1 (Paul 11 Nov): no stop of the UI's after the ✎
     const btn = screen.getByTestId(`worth-edit-${fig.id}`)
     expect(btn.getAttribute('aria-label')).toBe(`Change ${fig.label}`)
     expect(btn.getAttribute('title')).toBe(fig.give!.edit.ask)

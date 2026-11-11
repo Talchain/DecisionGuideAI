@@ -98,9 +98,14 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const near = selected || focused || driver || active.has(source) || active.has(target)
   const effect = near ? link.effect ?? null : null
   const { x, y } = placed
-  // Zoomed out (below the readable zoom, camera.ts) the cards draw less and so do the links: their words would draw under 12 px (DL 10 Nov).
-  const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]) > 0)
-  const words = (link.label !== '' || effect !== null) && !zoomedOut
+  // Zoomed out (below the readable zoom, camera.ts) the cards draw less and so do the links: at rest a link says its sign by its colour
+  // only, so the overview stays quiet (Paul 10 Nov, 68be1258). B1 (Paul's "do now", 11 Nov): the first open is the whole board, below that
+  // zoom on every real model, so a link near what the person points at (a card hovered or selected, the link selected or focused, a driver
+  // link) says its sign and its strength there too, at the size the cards' reduced face draws at: the reduced face's own label
+  // counter-scale (camera.ts reducedFaceSize), set on the words as on the face, so they never draw at the bare zoom's ~5 px (DL 10 Nov).
+  const faceScale = useStore((st) => reducedFaceSize(st.transform[2]))
+  const zoomedOut = faceScale > 0
+  const words = (link.label !== '' || effect !== null) && (!zoomedOut || near)
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
   const hidden = placed.far === true && !near
@@ -152,7 +157,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
-            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
+            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}), ...(zoomedOut ? { ['--canvas-label-scale' as string]: String(faceScale) } : {}) }}>
             {link.label === '' ? null : <span data-view={`links.${i}.label`}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
             {effect === null ? null : <span title={effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{effect.text}</span>}

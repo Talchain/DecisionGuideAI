@@ -84,12 +84,18 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const edit = card === null || card.figure === null ? null : card.figure.edit ?? keptEdit
   // An option's outcome band, every option on one axis: cards and aim from the ONE model read above (inventory G21b: never two stores).
   const band = useMemo(() => (card?.family === 'option' && model !== null ? optionBands(model.cards, model.aim ?? null).get(id) ?? null : null), [card, model, id])
+  const restsInk = restsOn === null ? '' : restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'
+  // G3 (Paul's "do now", 11 Nov): zoomed out the body is blanked and only the far line shows, so the Rests on number is also drawn beside the
+  // far line (BaseNode `lodMark`), at the line's own counter-scaled size; the lens then marks its cards on the whole-board first open too.
+  const restsFar = restsOn === null ? null
+    : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.nodeLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   return (
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : undefined}
+      lodMark={restsFar}
       borderClassOverride={dashed ? `border-dashed ${proposed ? 'border-info' : ''}` : undefined}>
       {card === null ? null : (
         <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : !olumi && card.author != null && card.author.title !== '' ? `${card.detail}\n${card.author.title}` : card.detail} data-driver-of={driverOf === null ? undefined : ''}>
-          {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'}`} data-rests-on={restsOn.n}>{restsOn.n}</span>}
+          {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {lead === null ? null : <p className={`${typography.nodeValue} ${olumi && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id} title={card === null ? undefined : leadTitleOf(card) ?? undefined}>{lead}</p>}
           {(card.values?.length ?? 0) > 1 ? card.values!.map((v) => (
             <p key={v.option} className={`${typography.nodeLabel} text-text-body`} data-core-value={`${id}.${v.option}`}>

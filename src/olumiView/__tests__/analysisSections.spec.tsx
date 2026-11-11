@@ -80,7 +80,7 @@ describe('Analysis in the previous PoC\'s sections', () => {
     // R25 scale A (Paul 7 Nov): the lane's metadata role, 12px (was the shared 11px panelMeta).
     expect([line.parentElement!.contains(give), block !== null, block.className.includes(typography.viewPanelMeta)]).toEqual([false, true, true])
     expect(block.previousElementSibling).toBe(line.parentElement)
-    expect(block.textContent).toBe(`${worth.figure!.give!.text} ✎.`) // FigureEdit's own sentence close
+    expect(block.textContent).toBe(`${worth.figure!.give!.text} ✎`) // S1 (Paul 11 Nov): core's words end on the ✎, no stop of the UI's after it
   })
   it('two worth lines or fewer: no "+N more"', () => {
     const c = render(<ViewChances model={base} />).container

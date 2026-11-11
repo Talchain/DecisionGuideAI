@@ -153,7 +153,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-body hover:text-text-header`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
-        </button>{lead === undefined ? null : '.'}</span>
+        {/* S1 (Paul's "do now", 11 Nov): core's lead ends on the control ("Give your figure with ✎"); no stop of the UI's after it. */}
+        </button></span>
     )
   }
   return (
