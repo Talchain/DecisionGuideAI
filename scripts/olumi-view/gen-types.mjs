@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url'
 const KEYWORDS = new Set(['$schema', 'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'oneOf', 'const', 'enum', 'propertyNames'])
 
 export function typeOf(s, pad = '') {
+  // An empty schema (`{}`, core's `accepted[].prior` and `.value`: any JSON) accepts anything: `unknown`, never a guess at its shape.
+  if (Object.keys(s).length === 0) return 'unknown'
   for (const k of Object.keys(s)) if (!KEYWORDS.has(k)) throw new Error(`unsupported schema keyword: ${k}`)
   if ('const' in s) return JSON.stringify(s.const)
   if (s.enum) return s.enum.map((x) => JSON.stringify(x)).join(' | ')

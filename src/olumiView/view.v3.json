@@ -531,6 +531,30 @@
               "title": {
                "type": "string"
               },
+              "state": {
+               "type": "string",
+               "enum": [
+                "shown",
+                "withheld",
+                "not_computable"
+               ]
+              },
+              "question": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "revision": {
+               "type": [
+                "number",
+                "null"
+               ]
+              },
+              "unaffected": {
+               "type": "boolean",
+               "const": true
+              },
               "chance": {
                "type": [
                 "number",
@@ -812,6 +836,33 @@
               },
               "timing_title": {
                "type": "string"
+              },
+              "state": {
+               "type": "string",
+               "enum": [
+                "shown",
+                "withheld",
+                "not_computable"
+               ]
+              },
+              "question": {
+               "type": [
+                "string",
+                "null"
+               ]
+              },
+              "revision": {
+               "type": [
+                "number",
+                "null"
+               ]
+              },
+              "unaffected": {
+               "type": "boolean",
+               "const": true
+              },
+              "chance": {
+               "type": "null"
               }
              },
              "required": [
@@ -3164,6 +3215,71 @@
             "type": "null"
            }
           ]
+         },
+         "accepted": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "record_id": {
+             "type": "string"
+            },
+            "field": {
+             "type": "string"
+            },
+            "prior": {},
+            "value": {},
+            "source_turn": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "quote": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "quoted_party": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "original_contributor": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "current_source": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "approver": {
+             "type": [
+              "string",
+              "null"
+             ]
+            }
+           },
+           "required": [
+            "record_id",
+            "field",
+            "prior",
+            "value",
+            "source_turn",
+            "quote",
+            "quoted_party",
+            "original_contributor",
+            "current_source",
+            "approver"
+           ],
+           "additionalProperties": false
+          }
          }
         },
         "required": [

@@ -109,6 +109,10 @@ export type View = {
         aim: string
         aim_id: string
         title: string
+        state?: "shown" | "withheld" | "not_computable"
+        question?: string | null
+        revision?: number | null
+        unaffected?: true
         chance: number | null
         companion: string | null
         companion_title: string | null
@@ -159,6 +163,11 @@ export type View = {
         title: string
         timing?: string
         timing_title?: string
+        state?: "shown" | "withheld" | "not_computable"
+        question?: string | null
+        revision?: number | null
+        unaffected?: true
+        chance?: null
       }>
       driver: {
         text: string
@@ -579,6 +588,18 @@ export type View = {
         ids: Array<string>
         why: string
       } | null
+      accepted?: Array<{
+        record_id: string
+        field: string
+        prior: unknown
+        value: unknown
+        source_turn: string | null
+        quote: string | null
+        quoted_party: string | null
+        original_contributor: string | null
+        current_source: string | null
+        approver: string | null
+      }>
     }>
     groups: Array<{
       heading: string

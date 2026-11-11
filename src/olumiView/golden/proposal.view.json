@@ -1169,7 +1169,7 @@
   "effect_headings": {
    "changes": "Changes which option is most likely",
    "moves": "Moves the chances only",
-   "same": "The same chances in this model's samples",
+   "same": "Each option's chance unchanged from the model's own figures",
    "refused": "Not run",
    "leader": "Most likely with theirs",
    "model_leader": "With the model's",
