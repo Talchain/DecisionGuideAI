@@ -266,6 +266,12 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {chance?.rests_on_text == null || chance.rests_on_text === '' ? null : (
         <p className={`${TYPE.meta} px-2 pb-1 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>
       )}
+      {/* SCI-12b (JOIN-10, DL 11 Nov): a chance worked out beside a recorded dissent says so, under that chance, at rest: core's sentence
+          (`cards[].disputed[].line`: whose version the number uses, what is disputed and whose view that is, and that it is not in this
+          number), verbatim, on the row for each aim it names (`aims`, by id). Core sends it only where the chance has a number. */}
+      {lens !== 'goal' || chance === null ? null : (card.disputed ?? []).map((d, k) => (!d.aims.includes(chance.aim_id) || d.line === '' ? null : (
+        <p key={d.id} className={`${TYPE.meta} px-2 pb-1 text-text-body`} data-row-disputed={d.id} data-view={`${card.id}.disputed.${k}.line`}>{d.line}</p>
+      )))}
       {expandable && isOpen && (
         <div id={regionId} role="region" aria-labelledby={labelId} data-testid="port-option-detail" className="space-y-1 px-2 pb-2 pt-0.5">
           {otherReadout}

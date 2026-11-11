@@ -230,6 +230,18 @@ export type View = {
         whose: "theirs" | "olumi" | "mixed"
         author: string | null
       }>
+      disputed?: Array<{
+        id: string
+        label: string
+        author: string | null
+        aims: Array<string>
+        on: Array<{
+          id: string
+          label: string
+          author?: string
+        }>
+        line: string
+      }>
       face: {
         title: {
           text: string

@@ -1209,6 +1209,66 @@
            "additionalProperties": false
           }
          },
+         "disputed": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "label": {
+             "type": "string"
+            },
+            "author": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "aims": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "on": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "id": {
+                "type": "string"
+               },
+               "label": {
+                "type": "string"
+               },
+               "author": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "id",
+               "label"
+              ],
+              "additionalProperties": false
+             }
+            },
+            "line": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "id",
+            "label",
+            "author",
+            "aims",
+            "on",
+            "line"
+           ],
+           "additionalProperties": false
+          }
+         },
          "face": {
           "type": "object",
           "properties": {

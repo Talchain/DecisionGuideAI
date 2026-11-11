@@ -190,6 +190,14 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
               <span className={`${typography.panelHeader} block text-text-header`} data-view={`${o.id}.heading`}>{o.heading}</span>
               {o.author == null ? null : <span className={`${TYPE.meta} block ${o.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-view={`${o.id}.author.text`}>{o.author.text}</span>}
             </Press>
+            {/* SCI-12b (JOIN-10, DL 11 Nov): where this option's chance is worked out beside a recorded dissent, core's sentence for it, verbatim
+                (whose version the number uses, what is disputed, whose view, and that it is not in the number). Core sends it only where the
+                chance has a number; nothing is computed here. */}
+            {(o.disputed ?? []).every((d) => d.line === '') ? null : (
+              <div data-rack-section="disputed" className="space-y-1">
+                {(o.disputed ?? []).map((d, k) => (d.line === '' ? null : <p key={d.id} className={`${TYPE.body} m-0 text-text-body`} data-rack-disputed={d.id} data-view={`${o.id}.disputed.${k}.line`}>{d.line}</p>))}
+              </div>
+            )}
             {through.length === 0 ? null : (
               <div data-rack-section="through"><Head>{RACK_LABELS.through}</Head>
                 <ul className="m-0 list-none space-y-1 p-0">{through.map((t) => <Through key={throughId(t)} t={t} ring={setHover} option={o.id} />)}</ul></div>
