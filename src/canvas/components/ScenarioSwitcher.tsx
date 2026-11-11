@@ -25,7 +25,7 @@ import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
-import { coreLaneAllows } from '../../olumiCore/lane'
+import { coreLaneAllows, lanePreviousControl } from '../../olumiCore/lane'
 import { HIT_44 } from '../../styles/hitArea'
 
 /** Matches the character budget the removed TopBar title input enforced. */
@@ -144,6 +144,8 @@ export function ScenarioSwitcher({
 
   // On the olumi-core lane a new name would show and be lost: core has no route for it, so no rename control is offered.
   const canRename = coreLaneAllows('structure')
+  // G24: on the lane the local records (Save, Duplicate, Delete, Load, Import, Export) are not drawn: lane.ts declares it once.
+  const records = lanePreviousControl('records') && lanePreviousControl('file')
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
 
@@ -481,7 +483,7 @@ export function ScenarioSwitcher({
             data-testid="scenario-switcher-menu"
           >
             {/* Current scenario actions */}
-            <div className="p-2">
+            {records ? (<div className="p-2">
               <div className="flex flex-col gap-1">
                 {/* Save row */}
                 <div className="flex items-center gap-1">
@@ -554,7 +556,7 @@ export function ScenarioSwitcher({
                   Import scenario...
                 </button>
               </div>
-            </div>
+            </div>) : null}
 
             {/* Hidden file input */}
             <input
@@ -569,7 +571,7 @@ export function ScenarioSwitcher({
                 for a persisted session (see `isPersisted`). Replaced there by a
                 pointer to the surface that does own decisions, so the control
                 disappearing does not read as something broken. */}
-            {isPersisted ? (
+            {isPersisted || !records ? (
               <div
                 className={`px-4 py-3 ${typography.body} text-gray-500`}
                 data-testid="scenario-switcher-persisted-notice"

@@ -36,7 +36,7 @@ import { SnapshotManager } from '../../canvas/components/SnapshotManager'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
-import { coreLaneAllows } from '../../olumiCore/lane'
+import { coreLaneAllows, lanePreviousControl } from '../../olumiCore/lane'
 
 interface KebabMenuProps {
   isOpen: boolean
@@ -144,6 +144,7 @@ export function KebabMenu({
                 <span>Rename</span>
               </button>
             )}
+            {lanePreviousControl('file') && (
             <button
               type="button"
               role="menuitem"
@@ -154,9 +155,10 @@ export function KebabMenu({
               <Download size={14} aria-hidden="true" />
               <span>Export</span>
             </button>
+            )}
             {/* Import and Snapshots replace the canvas here, which core never sees: on the olumi-core lane the model is changed in the
                 chat, as a proposal (review 00003 ledger). */}
-            {coreLaneAllows('structure') && (
+            {coreLaneAllows('structure') && lanePreviousControl('file') && (
               <>
             <button
               type="button"
@@ -195,6 +197,7 @@ export function KebabMenu({
                 one they use carefully. A rename that dropped the disclosure
                 would be the worse trade, so both halves are pinned together in
                 `KebabMenu.startNewModel.spec.tsx`. */}
+            {lanePreviousControl('startNew') && (
             <button
               type="button"
               role="menuitem"
@@ -205,6 +208,7 @@ export function KebabMenu({
               <FilePlus size={14} aria-hidden="true" />
               <span>Start new scenario</span>
             </button>
+            )}
 
             <hr className={styles.dropdownMenuDivider} />
 

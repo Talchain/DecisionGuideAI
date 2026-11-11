@@ -1,5 +1,6 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
+import { lanePreviousControl } from '../olumiCore/lane'
 import type { EvidenceAssessment } from '../v5/evidenceAssessment'
 import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { statedTargetNumber } from './domain/goalTarget'
@@ -7024,6 +7025,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   duplicateCurrentScenario: (newName?: string) => {
+    // G25a: on the lane the route names the scenario, core holds its model; a local copy under another id would move the board (lane.ts).
+    if (!lanePreviousControl('records')) return null
     const { currentScenarioId } = get()
     if (!currentScenarioId) {
       console.warn('[Canvas] No current scenario to duplicate')
@@ -7049,6 +7052,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   deleteScenario: (id: string) => {
+    // G25a: as duplicateCurrentScenario: no local record is deleted, and the current id is never cleared, on the lane.
+    if (!lanePreviousControl('records')) return
     const { currentScenarioId } = get()
 
     scenarios.deleteScenario(id)

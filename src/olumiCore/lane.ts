@@ -26,6 +26,21 @@ export function coreLaneAllows(write: CoreLaneWrite): boolean {
   return !isOlumiCoreLane() || HONOURED.has(write)
 }
 
+/**
+ * THE PREVIOUS PRODUCT'S LOCAL-RECORD SURFACE, DECLARED ONCE (inventory G24, G25a, G25b, G32a; DL 11 Nov: "a control that can empty or move a
+ * board must not exist on the lane"). The route names the scenario shown; core holds its model. These controls act on a local copy under an
+ * id core does not know, so on the lane they are not drawn:
+ *   - 'records': Save, Duplicate, Delete, the local scenario list and its Load (the lane's one switcher is My scenarios);
+ *   - 'file': Export and Import of a local file (an imported file's nodes sit under an id core does not know);
+ *   - 'startNew': "Start new scenario" (clears the canvas while core keeps the model and the address still names it).
+ * Nothing is on the lane yet. Every control asks this one function; a new previous-product control is either honoured here or absent.
+ */
+export type PreviousControl = 'records' | 'file' | 'startNew'
+const PREVIOUS_ON_LANE: ReadonlySet<PreviousControl> = new Set<PreviousControl>()
+export function lanePreviousControl(control: PreviousControl): boolean {
+  return !isOlumiCoreLane() || PREVIOUS_ON_LANE.has(control)
+}
+
 /** The words for a control that is on the page but cannot act on this lane. */
 export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it will propose it for you to confirm.'
 
