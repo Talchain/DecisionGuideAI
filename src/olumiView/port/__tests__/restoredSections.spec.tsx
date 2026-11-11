@@ -78,17 +78,16 @@ describe('Focus now', () => {
 
 describe('Strengthen your model', () => {
   it('ST1: each figure worth finding out, then each prompt about the model\'s shape, in core\'s order; opened, each says its own words', () => {
-    const view = viewOf('golden/bakery'), m = view.model!
+    // A served View with a worth line and a prompt and no `find_out` (core before SCI-8), so every row below is drawn and checked; the
+    // bakery golden's only worth line is said under "Worth finding out" instead (UI-9, findOut.spec FO2), which would leave no worth row here.
+    const view = viewOf('real/hiring-unchecked-first'), m = view.model!
     ready(view)
     const section = screen.getByTestId('port-strengthen')
     expect(within(section).getByRole('heading', { name: 'Strengthen your model' })).toBeInTheDocument()
     const ids = [...section.querySelectorAll('[data-testid="focus-card"]')].map((e) => e.getAttribute('data-row-id'))
-    // UI-9: a worth line whose figure core also lists under "Worth finding out" (`find_out[].figures[].fact`) is said there, once (findOut.spec).
-    const below = new Set((m.run!.find_out ?? []).flatMap((a) => a.figures.map((f) => f.fact)))
-    const rows = m.run!.science.filter((l) => !below.has(l.id))
-    expect(ids).toEqual([...rows.map((l) => `worth:${l.id}`), ...m.sharpen.map((s) => `sharpen:${s.id}`)])
-    expect(m.run!.science.length * m.sharpen.length).toBeGreaterThan(0)
-    for (const l of m.run!.science.filter((x) => below.has(x.id))) expect(section.querySelectorAll(`[data-view-fact="${l.id}"]`)).toHaveLength(1)
+    expect(m.run!.find_out ?? null, 'precondition: no figures worth finding out on this View').toBeNull()
+    expect(ids).toEqual(['worth:F26', 'sharpen:risk_count'])
+    const rows = m.run!.science
     for (const l of rows) {
       expect(row(`worth:${l.id}`)).toHaveTextContent(l.figure!.label)
       open(`worth:${l.id}`)

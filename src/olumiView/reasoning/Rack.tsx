@@ -11,9 +11,9 @@
  *     and core's words for the link (`links[].title`, with `effect.text` where core sizes it); then each card core says the option rests on
  *     (`cards[].rests_on`, by id; where no card draws one, core's `label` and `author`, not pressable), then each its chance rows name
  *     (`rows[].rests_on`), not already listed. Every row with a card presses it;
- *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark); they are said here and
- *     not again in the tab's "Assumptions and evidence" door; one in the same words as a challenged card's reason is that challenge, said in
- *     the tab's challenge zone, so not here;
+ *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark; not pressable, being on
+ *     the option's card, which its heading presses); they are said here and not again in the tab's "Assumptions and evidence" door; one in
+ *     the same words as a challenged card's reason is that challenge, said in the tab's challenge zone, so not here;
  *   - What matters next: only where core ties it to this option by id: the coach's next step whose `about` names the option, a card listed
  *     above or one of its premises (`chat[].answer.next`); a figure the chances wait on that is listed above (`run.waits_on.items`); and core's
  *     line on how much of this option's chance rests on Olumi's guesses (`run.rests[]` for this option).
@@ -21,7 +21,7 @@
  */
 import { useEffect, useState } from 'react'
 import type { ViewCard, ViewModel, View } from '../client'
-import { newestNextOf, optionCards } from '../layout'
+import { challengedReasons, newestNextOf, optionCards } from '../layout'
 import { useUIStore } from '../../stores/uiStore'
 import { pressCard, ringFrom } from './tabRing'
 import { useCanvasStore } from '../../canvas/store'
@@ -71,8 +71,8 @@ export function throughOf(model: ViewModel, option: ViewCard): OptionThrough[] {
     else if (rest.label != null && rest.label !== '') { seen.add(rest.id); out.push({ kind: 'rest', rest, k }) }
   })
   for (const r of option.rows ?? []) {
-    const ro = (r as { rests_on?: { what_ifs?: string[]; estimates?: string[]; approx?: string[] } | null }).rests_on
-    for (const id of [...(ro?.what_ifs ?? []), ...(ro?.estimates ?? []), ...(ro?.approx ?? [])]) {
+    if (r.kind !== 'chance' || r.rests_on === undefined) continue
+    for (const id of [...r.rests_on.what_ifs, ...r.rests_on.estimates, ...r.rests_on.approx]) {
       const card = byId.get(id)
       if (card !== undefined && !seen.has(id)) { seen.add(id); out.push({ kind: 'card', card, link: null }) }
     }
@@ -93,10 +93,12 @@ export function nextOf(view: View, model: ViewModel, option: ViewCard, through: 
   return { step, waits, rests }
 }
 
-function Press({ id, children, label, ring }: { id: string; children: React.ReactNode; label: string; ring: (id: string | null) => void }) {
+/** A row that presses its card (the canvas selects and centres it; hover rings it). Its name is its own words: core's heading, figure, whose
+ *  and link words, so a screen reader hears what a sighted person reads. */
+function Press({ id, children, ring }: { id: string; children: React.ReactNode; ring: (id: string | null) => void }) {
   const selected = useCanvasStore((s) => s.selection.nodeIds.has(id))
   return (
-    <button type="button" data-rack-press={id} aria-pressed={selected} aria-label={label} onClick={() => pressCard(id)}
+    <button type="button" data-rack-press={id} aria-pressed={selected} onClick={() => pressCard(id)}
       onMouseEnter={() => ring(id)} onMouseLeave={() => ring(null)} onFocus={() => ring(id)} onBlur={() => ring(null)}
       className={`-mx-1 block w-[calc(100%+0.5rem)] min-h-[24px] rounded px-1 py-0.5 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${selected ? 'ring-2 ring-text-header' : ''}`}>
       {children}
@@ -111,17 +113,21 @@ const WHOSE_BY = { olumi: 'olumi', mixed: 'mixed', theirs: 'person' } as const
 
 function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | null) => void; option: string }) {
   if (t.kind === 'set') {
-    // One of the option's own settings, in core's words (`sets[k]`): its name, its figure (core's gap words where it has none), whose.
+    // One of the option's own settings, in core's words (`sets[k]`): its name, its figure (where it has none, core's words for the gap,
+    // drawn as a card's are), whose.
     const s = t.set, at = `${option}.sets.${t.k}`
     const body = (
       <>
         <span className={`${TYPE.body} block text-text-header`} title={s.figure.title}>
-          <span data-view={`${at}.label`}>{s.label}</span> <span className="font-medium" data-view={`${at}.figure.text`}>{s.figure.text}</span>
+          <span data-view={`${at}.label`}>{s.label}</span>{' '}
+          {s.figure.text === ''
+            ? <span className="text-text-light" data-rack-gap="" data-view={`${at}.figure.title`}>{s.figure.title}</span>
+            : <span className="font-medium" data-view={`${at}.figure.text`}>{s.figure.text}</span>}
         </span>
         {s.author == null || s.author === '' ? null : <Whose by={WHOSE_BY[s.whose]} at={`${at}.author`} text={s.author} />}
       </>
     )
-    return <li data-rack-through={s.id} data-rack-set={t.k}>{t.card === undefined ? <div className="px-0 py-0.5">{body}</div> : <Press id={s.id} label={s.label} ring={ring}>{body}</Press>}</li>
+    return <li data-rack-through={s.id} data-rack-set={t.k}>{t.card === undefined ? <div className="px-0 py-0.5">{body}</div> : <Press id={s.id} ring={ring}>{body}</Press>}</li>
   }
   if (t.kind === 'rest') {
     // What the option rests on that no card draws: core's name for it and whose it is; nothing to press.
@@ -145,7 +151,7 @@ function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | nu
   const gap = f != null && f.text === ''
   return (
     <li data-rack-through={c.id}>
-      <Press id={c.id} label={c.heading} ring={ring}>
+      <Press id={c.id} ring={ring}>
         <span className={`${TYPE.body} block text-text-header`}>
           <span data-view={`${c.id}.heading`}>{c.heading}</span>
           {f == null ? null : gap
@@ -155,7 +161,8 @@ function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | nu
         </span>
         {c.author == null ? null : <Whose by={c.author.by} at={`${c.id}.author.text`} text={c.author.text} />}
         {t.link === null || t.link.l.title === '' ? null : (
-          <span className={`${TYPE.meta} block text-text-light`} data-rack-link={t.link.i}>
+          // Set a hair below whose it is, so the two grey lines (whose; how the option reaches it) read as two.
+          <span className={`${TYPE.meta} mt-0.5 block text-text-light`} data-rack-link={t.link.i}>
             <span data-view={`links.${t.link.i}.title`}>{t.link.l.title}</span>
             {t.link.l.effect == null ? null : <> · <span data-view={`links.${t.link.i}.effect.text`}>{t.link.l.effect.text}</span></>}
           </span>
@@ -174,19 +181,19 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
   useEffect(() => { ringFrom('rack', hover !== null && present.has(hover) ? [hover] : []) }, [hover]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => ringFrom('rack', []), [])
   if (options.length === 0) return null
+  // A premise in the same words as a challenged card's reason is that challenge, drawn in the tab's challenge zone (SC-02): not again here.
+  const challenged = challengedReasons(model)
   return (
     <section data-testid="view-reasoning-rack" aria-label={RACK_LABEL} className="space-y-2">
       <button type="button" data-testid="view-reasoning-see-chances" onClick={() => useUIStore.getState().forceActivateOutputTab('results')}
         className={`${TYPE.meta} inline-flex min-h-[24px] cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header ${ACTION_FOCUS}`}>{SEE_CHANCES}</button>
       {options.map((o) => {
-        // A premise in the same words as a challenged card's reason is that challenge, drawn in the tab's challenge zone (SC-02): not again here.
-        const challenged = new Set(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
         const through = throughOf(model, o), premises = (o.premises ?? []).flatMap((p, j) => (challenged.has(p.text) ? [] : [{ p, j }]))
         const nx = view === null ? { step: null, waits: [], rests: [] } : nextOf(view, model, o, through)
         const hasNext = nx.step !== null || nx.waits.length + nx.rests.length > 0
         return (
           <div key={o.id} className="space-y-2 rounded-xl border border-panel-border p-2" data-rack-option={o.id}>
-            <Press id={o.id} label={o.heading} ring={setHover}>
+            <Press id={o.id} ring={setHover}>
               <span className={`${typography.panelHeader} block text-text-header`} data-view={`${o.id}.heading`}>{o.heading}</span>
               {o.author == null ? null : <span className={`${TYPE.meta} block ${o.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-view={`${o.id}.author.text`}>{o.author.text}</span>}
             </Press>
@@ -204,15 +211,15 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
             )}
             {premises.length === 0 ? null : (
               <div data-rack-section="premises"><Head>{RACK_LABELS.premises}</Head>
+                {/* Keyed by its place (core may send a premise with no id). Not a press of its own: it is on the option's card, which the
+                    heading above presses; Olumi's mark follows its words, as in the tab's door. */}
                 <ul className="m-0 list-none space-y-1 p-0">{premises.map(({ p, j }) => (
-                  <li key={p.id} data-rack-premise={p.id}>
-                    <Press id={o.id} label={p.text} ring={setHover}>
-                      <span className={`${TYPE.body} flex gap-1.5 text-text-body`} title={p.title}>
-                        <span aria-hidden="true" className="text-text-light" data-view={`${o.id}.premises.${j}.glyph`}>{p.glyph}</span>
-                        <span data-view={`${o.id}.premises.${j}.text`}>{p.text}</span>
-                        {p.olumi == null ? null : <span className="text-info" title={p.olumi.title} aria-label={p.olumi.title} data-view={`${o.id}.premises.${j}.olumi.glyph`}>{p.olumi.glyph}</span>}
-                      </span>
-                    </Press>
+                  <li key={j} data-rack-premise={p.id ?? undefined} className={`${TYPE.body} flex gap-1.5 py-0.5 text-text-body`} title={p.title}>
+                    <span aria-hidden="true" className="text-text-light" data-view={`${o.id}.premises.${j}.glyph`}>{p.glyph}</span>
+                    <span>
+                      <span data-view={`${o.id}.premises.${j}.text`}>{p.text}</span>
+                      {p.olumi == null ? null : <>{' '}<span className="text-info" title={p.olumi.title} aria-label={p.olumi.title} data-view={`${o.id}.premises.${j}.olumi.glyph`}>{p.olumi.glyph}</span></>}
+                    </span>
                   </li>
                 ))}</ul></div>
             )}
@@ -227,7 +234,7 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
                     <span className="text-text-light" data-view="run.waits_on.label">{model.run!.waits_on!.label}</span>{' '}<span data-view={`run.waits_on.items.${i}.text`}>{it.text}</span>
                   </p>
                 ))}
-                {nx.rests.map(({ r, i }) => <p key={r.id} className={`${TYPE.meta} m-0 text-text-body`} title={r.hover} data-rack-next="rests" data-view={`run.rests.${i}.line`}>{r.line}</p>)}
+                {nx.rests.map(({ r, i }) => <p key={r.id} className={`${TYPE.body} m-0 text-text-body`} title={r.hover} data-rack-next="rests" data-view={`run.rests.${i}.line`}>{r.line}</p>)}
               </div>
             )}
           </div>

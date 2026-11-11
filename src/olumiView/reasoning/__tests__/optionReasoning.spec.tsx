@@ -7,7 +7,7 @@
  * Bound by IDENTITY: each option and each row by its card id, each word by its View path (`expectAllBound`).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -183,5 +183,73 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
     expect(words.length).toBeGreaterThan(0)
     // Each said once in the whole tab: in its option's row, or (one in a challenged card's words) in the challenge zone.
     for (const w of words) expect(screen.getAllByText(w), w).toHaveLength(1)
+  })
+})
+
+// The critical review of 11 Nov (Paul: "high-performance, bug-free … pixel-perfect"): each row below failed on the code it replaced.
+describe('review fixes, 11 Nov', () => {
+  const openDoors = () => { for (const b of document.querySelectorAll<HTMLElement>('[data-testid^="view-reasoning-"][data-testid$="-toggle"][aria-expanded="false"]')) fireEvent.click(b) }
+
+  it('RV1: a row\'s press is named by its own words (heading, figure, whose, core\'s link words), so a screen reader hears what is drawn', () => {
+    ready(A7S)
+    const rows = [...rack().querySelectorAll<HTMLElement>('[data-rack-through]')].filter((li) => li.querySelector('[data-rack-press] [data-rack-link]') !== null)
+    expect(rows.length).toBeGreaterThan(0)
+    for (const li of rows) {
+      const words = [...li.querySelectorAll<HTMLElement>('[data-view]')].map((e) => e.textContent!).filter((t) => t !== '')
+      const press = within(li).getByRole('button', { name: (name) => words.every((w) => name.includes(w)) })
+      expect(press).not.toHaveAttribute('aria-label')
+    }
+  })
+
+  it('RV2: premises core sends with no id (AN-01 European, 12 of them, the key absent) are drawn once each at their View path, with no duplicate React key', () => {
+    const view = JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', 'an01-european-otheraims.view3.json'), 'utf8')) as View
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      ready(view)
+      expect(err.mock.calls.map((c) => String(c[0])).filter((t) => /key/i.test(t))).toEqual([])
+    } finally { err.mockRestore() }
+    const options = view.model!.cards.filter((c) => c.family === 'option' && c.status === null)
+    // Core's earlier View sends them with no `id` key at all (the type says `string | null`): either way, nothing to key by.
+    expect(options.flatMap((o) => o.premises ?? []).filter((p) => p.id == null).length).toBe(12)
+    for (const o of options) (o.premises ?? []).forEach((p, j) => {
+      expect([...option(o.id).querySelectorAll(`[data-view="${o.id}.premises.${j}.text"]`)].map((e) => e.textContent), `${o.id}.${j}`).toEqual([p.text])
+    })
+  })
+
+  it('RV3: a premise is not a second press of its option (one pressed state per card), and Olumi\'s mark follows its words as in the door', () => {
+    ready(A7S)
+    const o = A7S.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!, j = o.premises.findIndex((p) => p.olumi != null)
+    expect(j).toBeGreaterThanOrEqual(0)
+    const li = option(o.id).querySelector<HTMLElement>(`[data-rack-premise="${o.premises[j]!.id}"]`)!
+    expect(li.querySelector('[data-rack-press]')).toBeNull()
+    const text = li.querySelector(`[data-view="${o.id}.premises.${j}.text"]`)!, mark = li.querySelector(`[data-view="${o.id}.premises.${j}.olumi.glyph"]`)!
+    expect(mark.parentElement).toBe(text.parentElement)
+    // CONTRAST: the option's heading presses its card, once.
+    expect(option(o.id).querySelectorAll(`[data-rack-press="${o.id}"]`)).toHaveLength(1)
+  })
+
+  it('RV4 (derived; no served View yet sends a setting with no figure): a setting with no figure says core\'s words for the gap, as a card does', () => {
+    const view = structuredClone(A7S), o = view.model!.cards.find((c) => c.id === 'stop_taking_e_bike_jobs')!
+    o.sets![0]!.figure = { text: '', title: 'not given yet: give it with ✎' }
+    ready(view)
+    const li = option(o.id).querySelector<HTMLElement>(`[data-rack-set="0"]`)!
+    expect(li.querySelector('[data-view="stop_taking_e_bike_jobs.sets.0.figure.title"]')?.textContent).toBe('not given yet: give it with ✎')
+    expect(li.querySelector('[data-view="stop_taking_e_bike_jobs.sets.0.figure.text"]')).toBeNull()
+    cleanup()
+    ready(A7S)
+    expect(option(o.id).querySelector('[data-view="stop_taking_e_bike_jobs.sets.0.figure.text"]')?.textContent).toBe(A7S.model!.cards.find((c) => c.id === o.id)!.sets![0]!.figure.text)
+  })
+
+  it('RV5 (derived; no served View yet has a ruled-out option with a premise): the rack does not draw it, so the tab\'s door says it', () => {
+    const view = structuredClone(A7S), o = view.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!
+    const w = o.premises[0]!.text
+    ready(A7S, true); openDoors()
+    expect(document.querySelector('[data-testid="view-reasoning-rack"]')!.textContent, 'CONTRAST: live, it is said in its row').toContain(w)
+    cleanup()
+    o.status = 'ruled out'
+    ready(view, true); openDoors()
+    expect(document.querySelector('[data-testid="view-reasoning-rack"]')!.textContent).not.toContain(w)
+    expect(screen.getAllByText(w)).toHaveLength(1)
+    expect(screen.getByText(w).closest('[data-reasoning-premise]')).not.toBeNull()
   })
 })

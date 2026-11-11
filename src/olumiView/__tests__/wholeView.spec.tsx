@@ -9,7 +9,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Profiler } from 'react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { CanvasLabelScaleSync } from '../../canvas/components/CanvasLabelScaleSync'
 import { Position, ReactFlowProvider, useStoreApi, type Node, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { causalPlaces, CARD_WIDTH, QUESTION, questionPlace } from '../layout'
@@ -210,15 +212,30 @@ describe('link words at the overview', () => {
     cleanup()
     expect(draw(1, false, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
   })
-  it('B1: zoom 0.449, the link selected: its sign, and core\'s strength words, are drawn at the reduced face\'s scale; at zoom 1 at no extra scale', () => {
+  it('B1: zoom 0.449, the link selected: its sign, and core\'s strength words, are drawn at the reduced face\'s scale, the one the canvas root carries', () => {
     expect(draw(0.449, true, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
     cleanup()
-    const far = draw(0.449, true)
-    expect(far.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(bakery.links[i]!.effect!.text)
-    const words = far.querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!
-    expect(parseFloat(words.style.getPropertyValue('--canvas-label-scale'))).toBe(reducedFaceSize(0.449))
-    cleanup()
-    const near = draw(1, true).querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!
-    expect([near.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent, near.style.getPropertyValue('--canvas-label-scale')]).toEqual([bakery.links[i]!.effect!.text, ''])
+    // Mounted as the canvas mounts it: CanvasLabelScaleSync writes the counter-scale on the .react-flow root, and the words' token reads it.
+    const Zoom = () => { const api = useStoreApi(); api.setState({ transform: [0, 0, 0.449] }); return null }
+    const root = render(<div className="react-flow"><ReactFlowProvider><Zoom /><CanvasLabelScaleSync /><EdgeLabelLayer><svg><Edge id={`l${i}`} source={bakery.links[i]!.from} target={bakery.links[i]!.to}
+      sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: bakery.links[i]!, i }} selected /></svg></EdgeLabelLayer></ReactFlowProvider></div>)
+      .container.querySelector<HTMLElement>('.react-flow')!
+    const words = root.querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!
+    expect(words.querySelector(`[data-view="links.${i}.effect.text"]`)?.textContent).toBe(bakery.links[i]!.effect!.text)
+    expect(parseFloat(root.style.getPropertyValue('--canvas-label-scale'))).toBe(reducedFaceSize(0.449))
+    expect([words.style.getPropertyValue('--canvas-label-scale'), words.className.includes('var(--canvas-label-scale,1)')], 'no override of its own; the token reads the root').toEqual(['', true])
+  })
+  it('B1 cost: zooming within the overview re-renders no link (it selects the zoomed-out flag, never the scale); CONTRAST: crossing the readable zoom does', () => {
+    let renders = 0, api: ReturnType<typeof useStoreApi> | null = null
+    const Grab = () => { api = useStoreApi(); return null }
+    render(<ReactFlowProvider><Grab /><EdgeLabelLayer><svg><Profiler id="edge" onRender={() => { renders++ }}><Edge id={`l${i}`} source={bakery.links[i]!.from} target={bakery.links[i]!.to}
+      sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link: bakery.links[i]!, i }} selected={false} /></Profiler></svg></EdgeLabelLayer></ReactFlowProvider>)
+    act(() => { api!.setState({ transform: [0, 0, 0.4] }) })
+    const at = renders
+    for (let k = 41; k < 90; k++) act(() => { api!.setState({ transform: [0, 0, k / 100] }) })
+    expect(reducedFaceSize(0.41), 'precondition: the scale itself moves across the sweep').not.toBe(reducedFaceSize(0.89))
+    expect(renders - at).toBe(0)
+    act(() => { api!.setState({ transform: [0, 0, 1] }) })
+    expect(renders - at).toBeGreaterThan(0)
   })
 })

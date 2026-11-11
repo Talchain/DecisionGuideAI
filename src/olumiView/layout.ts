@@ -789,14 +789,17 @@ export const familyCards = (model: ViewModel, families: readonly string[]): View
 /** The cards core marks `challenged` (a challenge, a disagreement, evidence that challenges), in the View's order. */
 export const challengedCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.challenged === true)
 const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'left_out']
+/** The reasons of the cards core marks challenged: each is drawn as its challenge (ViewReasoning's Challenge rows), so a premise in the same
+ *  words is that same thing (core sends it at both paths, SC-02) and is not said again as a premise, in the door or the rack. */
+export const challengedReasons = (model: ViewModel): Set<string> =>
+  new Set(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
 /** Every premise core put on any card, each once by its words (the first card it is on), then each reasoning card core draws whose words
  *  are not already among them and that is not a challenge. */
 export function premisesOnce(model: ViewModel, optionsSaidElsewhere = false): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
-  // A challenged card's reason is drawn as its challenge (ViewReasoning's Challenge rows): a premise in the same words is that same thing
-  // (core sends it at both paths), so the door does not say it again (SC-02). `optionsSaidElsewhere`: each option's own premises are drawn in
-  // its row of the rack, so neither they nor the same words on another card are said again here.
-  const seen = new Set<string>(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
-  if (optionsSaidElsewhere) for (const c of model.cards) if (c.family === 'option') for (const p of c.premises ?? []) seen.add(p.text)
+  // `optionsSaidElsewhere`: each live option's own premises are drawn in its row of the rack (the options it draws, `optionCards`), so
+  // neither they nor the same words on another card are said again here; a ruled-out option's are still said here, the rack not drawing it.
+  const seen = challengedReasons(model)
+  if (optionsSaidElsewhere) for (const c of optionCards(model)) for (const p of c.premises ?? []) seen.add(p.text)
   const premises = model.cards.flatMap((c) => (c.premises ?? []).map((p, j) => ({ card: c, p, j }))).filter(({ p }) => (seen.has(p.text) ? false : (seen.add(p.text), true)))
   const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.challenged !== true && c.reason !== null && !seen.has(c.reason))
   return { premises, cards }
