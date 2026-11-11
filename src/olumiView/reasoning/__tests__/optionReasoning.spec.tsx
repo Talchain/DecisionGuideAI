@@ -1,7 +1,9 @@
 /**
  * Each option's reasoning in the Reasoning tab (Paul 11 Nov, PL-252), on two REAL models copied unedited:
  *   a7-reveal: the A7 workshop journey after two people revealed (run 20261111-journey-ec692296, PL-reveal-view.json, version 3);
- *   european-loop9: the European brief's first model, held proposal (first-model loop 9, e33447b1 r1, european/view3.json).
+ *   european-loop9: the European brief's first model, held proposal (first-model loop 9, e33447b1 r1, european/view3.json);
+ *   a7-sci10: the same A7 store (a .backup copy) read through core SCI-10 FINAL wip/science-join fd672840 (zero calls; 4d0c3634 read it byte for byte but the commit stamp), which adds the
+ *   option cards' `sets` and labelled `rests_on`.
  * Bound by IDENTITY: each option and each row by its card id, each word by its View path (`expectAllBound`).
  */
 import '@testing-library/jest-dom/vitest'
@@ -14,12 +16,12 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { useCanvasStore } from '../../../canvas/store'
 import { registerFocusHelpers } from '../../../canvas/utils/focusHelpers'
-import { Rack, throughOf } from '../Rack'
+import { Rack, throughId, throughOf } from '../Rack'
 import { ViewReasoning } from '../../ViewReasoning'
 import { expectAllBound } from '../../port/__tests__/viewAt'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
-const A7 = read('a7-reveal'), EU = read('european-loop9')
+const A7 = read('a7-reveal'), EU = read('european-loop9'), A7S = read('a7-sci10')
 const ready = (view: View, tab = false) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
@@ -30,21 +32,22 @@ const option = (id: string) => rack().querySelector<HTMLElement>(`[data-rack-opt
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }); useCanvasStore.getState().clearSelection() })
 
 describe('each option\'s reasoning, from the real model, every word core\'s', () => {
-  for (const [name, view] of [['a7-reveal', A7], ['european-loop9', EU]] as const) {
+  for (const [name, view] of [['a7-reveal', A7], ['european-loop9', EU], ['a7-sci10', A7S]] as const) {
     it(`${name}: options in core's order; each row its card by id, in core's order; every drawn string is the View's string at its path`, () => {
       ready(view)
       const m = view.model!, options = m.cards.filter((c) => c.family === 'option')
       expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(options.map((o) => o.id))
       for (const o of options) {
-        // Independently: every card linked to or from the option but by a reason link, in link order; then what core says it rests on
-        // (`rests_on`); then each card its chance rows name.
+        // Independently: the option's own settings (`sets`); every card linked to or from it but by a reason link, in link order; what core
+        // says it rests on (`rests_on`, a card or a labelled entry); then each card its chance rows name.
         const want: string[] = []
+        for (const st of o.sets ?? []) if (!want.includes(st.id)) want.push(st.id)
         m.links.forEach((l) => { if (l.kind === 'reason') return; const x = l.from === o.id ? l.to : l.to === o.id ? l.from : null; if (x !== null && m.cards.some((c) => c.id === x) && !want.includes(x)) want.push(x) })
-        for (const r of o.rests_on ?? []) if (m.cards.some((c) => c.id === r.id) && !want.includes(r.id)) want.push(r.id)
+        for (const r of o.rests_on ?? []) if ((m.cards.some((c) => c.id === r.id) || (r.label ?? '') !== '') && !want.includes(r.id)) want.push(r.id)
         for (const r of o.rows) for (const id of [...((r as { rests_on?: { what_ifs?: string[]; estimates?: string[]; approx?: string[] } | null }).rests_on?.what_ifs ?? []), ...((r as { rests_on?: { estimates?: string[] } | null }).rests_on?.estimates ?? []), ...((r as { rests_on?: { approx?: string[] } | null }).rests_on?.approx ?? [])])
           if (m.cards.some((c) => c.id === id) && !want.includes(id)) want.push(id)
         expect([...option(o.id).querySelectorAll<HTMLElement>('[data-rack-through]')].map((e) => e.dataset['rackThrough']), o.id).toEqual(want)
-        expect(throughOf(m, o).map((t) => t.card.id)).toEqual(want)
+        expect(throughOf(m, o).map(throughId)).toEqual(want)
         // Each own premise, except one in a challenged card's words (drawn as that challenge in the tab's challenge zone).
         const challenged = new Set(m.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
         expect([...option(o.id).querySelectorAll<HTMLElement>('[data-rack-premise]')].map((e) => e.dataset['rackPremise'])).toEqual((o.premises ?? []).flatMap((p) => (challenged.has(p.text) ? [] : [p.id])))
@@ -119,6 +122,39 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
     expect(rows).toContain('current_average_wait_for_a_repair')
     // An id no card draws has no heading to name it by here (that needs core's `label`, SCI-10): not drawn.
     expect(rows).not.toContain('average_wait_for_a_repair_per_hours_week')
+  })
+
+  it('SCI-10: an option\'s own settings are drawn from core\'s `sets`, whose by core\'s words; one no card draws is not pressable (A7 Open on Sundays)', () => {
+    ready(A7S)
+    const o = A7S.model!.cards.find((c) => c.id === 'open_on_sundays')!, sets = o.sets!
+    expect(sets.length).toBeGreaterThan(0)
+    sets.forEach((st, k) => {
+      const row = option('open_on_sundays').querySelector<HTMLElement>(`[data-rack-set="${k}"]`)!
+      expect(row.dataset['rackThrough']).toBe(st.id)
+      expect(row.querySelector(`[data-view="open_on_sundays.sets.${k}.figure.text"]`)!.textContent).toBe(st.figure.text)
+      expect(row.querySelector(`[data-view="open_on_sundays.sets.${k}.author"]`)!.textContent).toBe(st.author)
+      expect(row.querySelector('[data-rack-press]') !== null, st.id).toBe(A7S.model!.cards.some((c) => c.id === st.id))
+    })
+  })
+
+  it('SCI-10: a setting with no value says core\'s gap words, never filled (A7 Stop taking e-bike jobs: "not given yet")', () => {
+    ready(A7S)
+    const st = A7S.model!.cards.find((c) => c.id === 'stop_taking_e_bike_jobs')!.sets![0]!
+    expect(st.figure.text).toBe('not given yet')
+    expect(option('stop_taking_e_bike_jobs').querySelector('[data-view="stop_taking_e_bike_jobs.sets.0.figure.text"]')!.textContent).toBe('not given yet')
+  })
+
+  it('SCI-10: what Hire rests on that no card draws (Olumi\'s per-hour effect) is named by core\'s label and whose, and is not pressable', () => {
+    ready(A7S)
+    const hire = A7S.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!
+    const k = hire.rests_on.findIndex((r) => r.id === 'average_wait_for_a_repair_per_hours_week'), r = hire.rests_on[k]!
+    expect(A7S.model!.cards.some((c) => c.id === r.id)).toBe(false)
+    const row = option('hire_a_part_time_mechanic').querySelector<HTMLElement>(`[data-rack-through="${r.id}"]`)!
+    expect(row).toHaveAttribute('data-rack-rest-only')
+    expect(row.querySelector(`[data-view="hire_a_part_time_mechanic.rests_on.${k}.label"]`)!.textContent).toBe(r.label)
+    expect(row.querySelector('[data-rack-whose]')).toHaveAttribute('data-rack-whose', 'olumi')
+    expect(row.querySelector('[data-rack-whose]')!.textContent).toBe(r.author)
+    expect(row.querySelector('button')).toBeNull()
   })
 
   it('what matters next is drawn only under the option core ties it to by id (A7: the coach\'s step about Jo\'s dissent, under Open on Sundays)', () => {

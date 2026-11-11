@@ -1138,11 +1138,73 @@
               "olumi",
               "mixed"
              ]
+            },
+            "label": {
+             "type": "string"
+            },
+            "author": {
+             "type": "string"
             }
            },
            "required": [
             "id",
             "whose"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "sets": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "lever": {
+             "type": "string"
+            },
+            "label": {
+             "type": "string"
+            },
+            "figure": {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              },
+              "title": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "text",
+              "title"
+             ],
+             "additionalProperties": false
+            },
+            "whose": {
+             "type": "string",
+             "enum": [
+              "theirs",
+              "olumi",
+              "mixed"
+             ]
+            },
+            "author": {
+             "type": [
+              "string",
+              "null"
+             ]
+            }
+           },
+           "required": [
+            "id",
+            "lever",
+            "label",
+            "figure",
+            "whose",
+            "author"
            ],
            "additionalProperties": false
           }
@@ -2643,6 +2705,98 @@
                 },
                 "line": {
                  "type": "string"
+                },
+                "option": {
+                 "type": "string"
+                },
+                "tested": {
+                 "type": "array",
+                 "items": {
+                  "type": "object",
+                  "properties": {
+                   "id": {
+                    "type": "string"
+                   },
+                   "label": {
+                    "type": "string"
+                   },
+                   "whose": {
+                    "type": "string",
+                    "enum": [
+                     "theirs",
+                     "olumi",
+                     "mixed"
+                    ]
+                   }
+                  },
+                  "required": [
+                   "id",
+                   "label",
+                   "whose"
+                  ],
+                  "additionalProperties": false
+                 }
+                },
+                "best_group": {
+                 "type": "object",
+                 "properties": {
+                  "figure": {
+                   "type": "object",
+                   "properties": {
+                    "id": {
+                     "type": "string"
+                    },
+                    "label": {
+                     "type": "string"
+                    },
+                    "whose": {
+                     "type": "string",
+                     "enum": [
+                      "theirs",
+                      "olumi",
+                      "mixed"
+                     ]
+                    }
+                   },
+                   "required": [
+                    "id",
+                    "label",
+                    "whose"
+                   ],
+                   "additionalProperties": false
+                  },
+                  "share": {
+                   "type": "number"
+                  },
+                  "text": {
+                   "type": "string"
+                  },
+                  "end": {
+                   "anyOf": [
+                    {
+                     "type": "string",
+                     "enum": [
+                      "lowest",
+                      "highest"
+                     ]
+                    },
+                    {
+                     "type": "null"
+                    }
+                   ]
+                  },
+                  "line": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "figure",
+                  "share",
+                  "text",
+                  "end",
+                  "line"
+                 ],
+                 "additionalProperties": false
                 }
                },
                "required": [
@@ -2897,6 +3051,214 @@
            "type": "string"
           },
           "rests_figures_heading": {
+           "type": "string"
+          },
+          "find_out": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "properties": {
+             "aim": {
+              "type": "string"
+             },
+             "line": {
+              "type": "string"
+             },
+             "compared": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "id",
+                "label"
+               ],
+               "additionalProperties": false
+              }
+             },
+             "not_compared": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "id",
+                "label"
+               ],
+               "additionalProperties": false
+              }
+             },
+             "within": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "id",
+                "label"
+               ],
+               "additionalProperties": false
+              }
+             },
+             "figures": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "fact": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                },
+                "whose": {
+                 "type": "string",
+                 "enum": [
+                  "theirs",
+                  "olumi",
+                  "mixed"
+                 ]
+                },
+                "set_by": {
+                 "type": "array",
+                 "items": {
+                  "type": "object",
+                  "properties": {
+                   "id": {
+                    "type": "string"
+                   },
+                   "label": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "id",
+                   "label"
+                  ],
+                  "additionalProperties": false
+                 }
+                },
+                "points": {
+                 "type": "number"
+                },
+                "estimate_text": {
+                 "type": "string"
+                },
+                "line": {
+                 "type": "string"
+                },
+                "mark": {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "glyph": {
+                     "type": "string"
+                    },
+                    "title": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "glyph",
+                    "title"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                },
+                "give": {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "text": {
+                     "type": "string"
+                    },
+                    "edit": {
+                     "type": "object",
+                     "properties": {
+                      "prompt": {
+                       "type": "string"
+                      },
+                      "ask": {
+                       "type": "string"
+                      }
+                     },
+                     "required": [
+                      "prompt",
+                      "ask"
+                     ],
+                     "additionalProperties": false
+                    }
+                   },
+                   "required": [
+                    "text",
+                    "edit"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                }
+               },
+               "required": [
+                "id",
+                "fact",
+                "label",
+                "whose",
+                "set_by",
+                "points",
+                "estimate_text",
+                "line",
+                "mark",
+                "give"
+               ],
+               "additionalProperties": false
+              }
+             }
+            },
+            "required": [
+             "aim",
+             "line",
+             "compared",
+             "not_compared",
+             "within",
+             "figures"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "find_out_heading": {
            "type": "string"
           },
           "since": {

@@ -613,7 +613,8 @@
      "why": null,
      "add": null,
      "shared": true
-    }
+    },
+    "sets": []
    },
    {
     "id": "option_delay",
@@ -728,7 +729,20 @@
      "why": null,
      "add": null,
      "shared": true
-    }
+    },
+    "sets": [
+     {
+      "id": "delayed_release_offset",
+      "lever": "release_offset",
+      "label": "Postponed release time from now",
+      "figure": {
+       "text": "⟦F4.value⟧",
+       "title": "Plausible range: ⟦F4.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "schedule_assumptions",
@@ -883,7 +897,8 @@
      "why": null,
      "add": null,
      "shared": true
-    }
+    },
+    "sets": []
    },
    {
     "id": "isolation_readiness_link",

@@ -1031,23 +1031,52 @@
     "rests_on": [
      {
       "id": "target_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "customer_flow_assumptions",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "entry_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "shared_churn_stress",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "country_readiness",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "existing_market_acquisitions",
+      "whose": "olumi",
+      "label": "New customers from existing markets",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "broad_entry_acquisitions",
+      "whose": "olumi",
+      "label": "Broader-entry acquisition what-if",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "expansion_churn",
+      "whose": "olumi",
+      "label": "Post-entry churn what-if",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "horizon",
+      "whose": "olumi",
+      "label": "Proposed comparison horizon",
+      "author": "Olumi’s estimate"
      }
     ],
     "face": {
@@ -1075,7 +1104,42 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "broad_entry_acquisitions",
+      "lever": "europe_acquisitions",
+      "label": "Broader-entry acquisition what-if",
+      "figure": {
+       "text": "⟦F1.value⟧",
+       "title": "Plausible range: ⟦F1.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "expansion_churn",
+      "lever": "churn_rate",
+      "label": "Post-entry churn what-if",
+      "figure": {
+       "text": "⟦F4.value⟧",
+       "title": "Plausible range: ⟦F4.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "broad_entry_investment",
+      "lever": "expansion_investment",
+      "label": "Broader-entry investment what-if",
+      "figure": {
+       "text": "⟦F5.value⟧",
+       "title": "Plausible range: ⟦F5.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "country_readiness",
@@ -1332,23 +1396,52 @@
     "rests_on": [
      {
       "id": "target_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "customer_flow_assumptions",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "entry_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "shared_churn_stress",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "country_readiness",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "existing_market_acquisitions",
+      "whose": "olumi",
+      "label": "New customers from existing markets",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "pilot_acquisitions",
+      "whose": "olumi",
+      "label": "Single-country test acquisition what-if",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "expansion_churn",
+      "whose": "olumi",
+      "label": "Post-entry churn what-if",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "horizon",
+      "whose": "olumi",
+      "label": "Proposed comparison horizon",
+      "author": "Olumi’s estimate"
      }
     ],
     "face": {
@@ -1376,7 +1469,42 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "pilot_acquisitions",
+      "lever": "europe_acquisitions",
+      "label": "Single-country test acquisition what-if",
+      "figure": {
+       "text": "⟦F3.value⟧",
+       "title": "Plausible range: ⟦F3.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "expansion_churn",
+      "lever": "churn_rate",
+      "label": "Post-entry churn what-if",
+      "figure": {
+       "text": "⟦F4.value⟧",
+       "title": "Plausible range: ⟦F4.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "pilot_investment",
+      "lever": "expansion_investment",
+      "label": "Single-country test investment what-if",
+      "figure": {
+       "text": "⟦F6.value⟧",
+       "title": "Plausible range: ⟦F6.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "no_new_european_entry",
@@ -1507,19 +1635,35 @@
     "rests_on": [
      {
       "id": "target_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "customer_flow_assumptions",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "entry_interpretation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "shared_churn_stress",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "existing_market_acquisitions",
+      "whose": "olumi",
+      "label": "New customers from existing markets",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "horizon",
+      "whose": "olumi",
+      "label": "Proposed comparison horizon",
+      "author": "Olumi’s estimate"
      }
     ],
     "face": {
@@ -1547,7 +1691,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    }
   ],
   "links": [
@@ -2394,7 +2539,92 @@
      "label": "Likely outcome",
      "title": "In this model, on current information, what each option’s outcome for ‘Reach 800 customers’ is likely to be (8 times in 10)."
     }
-   ]
+   ],
+   "find_out": [
+    {
+     "aim": "reach_customer_target",
+     "line": "In this model's samples, which of the options compared is most likely to meet 'Reach ⟦F28.value⟧' while staying within 'Stay within £500k investment budget', 'Proposed guardrail: churn no higher than 12%' differs with the value of each of these figures. They are in the order of the model's estimate of what knowing each is worth, largest first; the order is approximate.",
+     "compared": [
+      {
+       "id": "broader_entry",
+       "label": "Enter multiple European countries"
+      },
+      {
+       "id": "single_country_test",
+       "label": "Test one country before broader commitment"
+      },
+      {
+       "id": "no_new_european_entry",
+       "label": "No new European entry during this window"
+      }
+     ],
+     "not_compared": [],
+     "within": [
+      {
+       "id": "investment_limit",
+       "label": "Stay within £500k investment budget"
+      },
+      {
+       "id": "proposed_churn_guardrail",
+       "label": "Proposed guardrail: churn no higher than 12%"
+      }
+     ],
+     "figures": [
+      {
+       "id": "existing_market_acquisitions",
+       "fact": "F33",
+       "label": "New customers from existing markets",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 4.8,
+       "estimate_text": "about 5 points, an estimate",
+       "line": "'New customers from existing markets' (Olumi's estimate) · ⟦F33.value⟧",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “New customers from existing markets” (customer/month): one number, or a range like 150 to 400",
+         "ask": "For “New customers from existing markets”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "expansion_churn",
+       "fact": "F34",
+       "label": "Post-entry churn what-if",
+       "whose": "olumi",
+       "set_by": [
+        {
+         "id": "broader_entry",
+         "label": "Enter multiple European countries"
+        },
+        {
+         "id": "single_country_test",
+         "label": "Test one country before broader commitment"
+        }
+       ],
+       "points": 1.16,
+       "estimate_text": "about 1 point, an estimate",
+       "line": "'Post-entry churn what-if' (Olumi's estimate) · set by 'Enter multiple European countries', 'Test one country before broader commitment': give the amount you intend, or find it out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Post-entry churn what-if” in %: one number, or a range like 40 to 70",
+         "ask": "For “Post-entry churn what-if”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "find_out_heading": "Worth finding out"
   },
   "edit_base": 1,
   "holdable": [

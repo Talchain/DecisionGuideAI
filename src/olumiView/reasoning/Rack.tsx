@@ -1,14 +1,16 @@
 /**
  * Each option's reasoning (Paul, 11 Nov, PL-252: a credible Reasoning tab is required; Codex's narrow design: rows from core's View only,
- * no invented cells). It replaces the redesign's Z3 rack of marks, whose source (`cards[].rests_on`) the rebuilt path leaves empty on
- * real boards. The chances stay in Analysis (DL ruling 9 Nov): one link there, and no chance is drawn here. Per option, in core's order:
+ * no invented cells). It replaces the redesign's Z3 rack of marks, whose source (`cards[].rests_on`) the rebuilt path left empty on
+ * real boards until core SCI-10 (PL-274, fd672840) filled it. The chances stay in Analysis (DL ruling 9 Nov): one link there, and no chance is drawn here. Per option, in core's order:
  *   - its heading (press: the canvas selects and centres its card; hover rings it) and whose idea it is (`author.text`);
- *   - What it works through: every link core draws to or from the option except a reason link (a dissent: its home is the challenge
+ *   - What it works through: first the option's own settings (`cards[].sets`, core SCI-10: core's label, its figure and whose, by core's
+ *     words `author`; pressable only where a card draws it); then every link core draws to or from the option except a reason link (a dissent: its home is the challenge
  *     zone; Codex PL-273), in core's order (`model.links`), each row the other card's
  *     heading, its figure (`figure.text`; where core has none, core's own words for the gap, `figure.title`; for an outcome the option works
  *     through to that core has worked out per option, only this option's own value, `values[k].text`), whose it is (`author.text`)
  *     and core's words for the link (`links[].title`, with `effect.text` where core sizes it); then each card core says the option rests on
- *     (`cards[].rests_on`, by id), then each its chance rows name (`rows[].rests_on`), not already listed. Every row presses its card;
+ *     (`cards[].rests_on`, by id; where no card draws one, core's `label` and `author`, not pressable), then each its chance rows name
+ *     (`rows[].rests_on`), not already listed. Every row with a card presses it;
  *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark); they are said here and
  *     not again in the tab's "Assumptions and evidence" door; one in the same words as a challenged card's reason is that challenge, said in
  *     the tab's challenge zone, so not here;
@@ -33,30 +35,46 @@ export const SEE_CHANCES = 'See chances in Analysis'
 export const RACK_LABELS = { through: 'Works through', premises: 'Assumptions and evidence', next: 'What matters next' } as const
 
 type Link = ViewModel['links'][number]
-export type OptionThrough = { readonly card: ViewCard; readonly link: { readonly l: Link; readonly i: number } | null }
+type Setting = NonNullable<ViewCard['sets']>[number]
+type Rest = ViewCard['rests_on'][number]
+/** One row of what an option works through: a card (by a link, by what core says it rests on, or by its chance rows); one of the option's
+ *  own settings (`cards[].sets`, a card where it has one, else drawn from core's words for it); or what it rests on with no card, by core's
+ *  `label` and `author`. */
+export type OptionThrough =
+  | { readonly kind: 'card'; readonly card: ViewCard; readonly link: { readonly l: Link; readonly i: number } | null }
+  | { readonly kind: 'set'; readonly set: Setting; readonly k: number; readonly card: ViewCard | undefined }
+  | { readonly kind: 'rest'; readonly rest: Rest; readonly k: number }
+export const throughId = (t: OptionThrough): string => (t.kind === 'card' ? t.card.id : t.kind === 'set' ? t.set.id : t.rest.id)
 
-/** What an option works through, in core's order: each link to or from it (the other card, by id), then each card its chance rows rest on. */
+/**
+ * What an option works through, in core's order: its own settings (`cards[].sets`), then each link to or from it (the other card, by id),
+ * then what core says it rests on (`cards[].rests_on`: a card, or core's label and whose where no card draws it), then each card its chance
+ * rows name. Each id once.
+ */
 export function throughOf(model: ViewModel, option: ViewCard): OptionThrough[] {
   const byId = new Map(model.cards.map((c) => [c.id, c]))
   const out: OptionThrough[] = [], seen = new Set<string>()
+  ;(option.sets ?? []).forEach((set, k) => { if (!seen.has(set.id)) { seen.add(set.id); out.push({ kind: 'set', set, k, card: byId.get(set.id) }) } })
   model.links.forEach((l, i) => {
     // A reason link (a dissent, a claim against the option) is a reasoning edge, not a cause it works through: it has its own home in the
     // challenge zone (Codex PL-273).
     if (l.kind === 'reason') return
     const other = l.from === option.id ? l.to : l.to === option.id ? l.from : null
     const card = other === null ? undefined : byId.get(other)
-    if (card !== undefined && !seen.has(card.id)) { seen.add(card.id); out.push({ card, link: { l, i } }) }
+    if (card !== undefined && !seen.has(card.id)) { seen.add(card.id); out.push({ kind: 'card', card, link: { l, i } }) }
   })
   // What core says the option rests on (`cards[].rests_on`, by id: a person's own range among them), then what its chance rows name.
-  for (const r of option.rests_on ?? []) {
-    const card = byId.get(r.id)
-    if (card !== undefined && !seen.has(r.id)) { seen.add(r.id); out.push({ card, link: null }) }
-  }
+  ;(option.rests_on ?? []).forEach((rest, k) => {
+    if (seen.has(rest.id)) return
+    const card = byId.get(rest.id)
+    if (card !== undefined) { seen.add(rest.id); out.push({ kind: 'card', card, link: null }) }
+    else if (rest.label != null && rest.label !== '') { seen.add(rest.id); out.push({ kind: 'rest', rest, k }) }
+  })
   for (const r of option.rows ?? []) {
     const ro = (r as { rests_on?: { what_ifs?: string[]; estimates?: string[]; approx?: string[] } | null }).rests_on
     for (const id of [...(ro?.what_ifs ?? []), ...(ro?.estimates ?? []), ...(ro?.approx ?? [])]) {
       const card = byId.get(id)
-      if (card !== undefined && !seen.has(id)) { seen.add(id); out.push({ card, link: null }) }
+      if (card !== undefined && !seen.has(id)) { seen.add(id); out.push({ kind: 'card', card, link: null }) }
     }
   }
   return out
@@ -67,7 +85,7 @@ export function nextOf(view: View, model: ViewModel, option: ViewCard, through: 
   // Tied by id: the option, what it works through, its premises, and the other end of a reason link to it (a dissent is not a cause it
   // works through, but a step about that dissent is about this option).
   const reasons = model.links.flatMap((l) => (l.kind !== 'reason' ? [] : l.to === option.id ? [l.from] : l.from === option.id ? [l.to] : []))
-  const ids = new Set<string>([option.id, ...through.map((t) => t.card.id), ...reasons, ...(option.premises ?? []).flatMap((p) => (p.id == null ? [] : [p.id]))])
+  const ids = new Set<string>([option.id, ...through.map(throughId), ...reasons, ...(option.premises ?? []).flatMap((p) => (p.id == null ? [] : [p.id]))])
   const next = newestNextOf(view.chat)
   const step = next !== null && (next.next.about ?? []).some((a) => ids.has(a)) ? next : null
   const waits = (model.run?.waits_on?.items ?? []).flatMap((it, i) => (ids.has(it.id) && it.text !== '' ? [{ it, i }] : []))
@@ -86,7 +104,37 @@ function Press({ id, children, label, ring }: { id: string; children: React.Reac
   )
 }
 
+function Whose({ by, at, text }: { by: string; at: string; text: string }) {
+  return <span className={`${TYPE.meta} block ${by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-rack-whose={by} data-view={at}>{text}</span>
+}
+const WHOSE_BY = { olumi: 'olumi', mixed: 'mixed', theirs: 'person' } as const
+
 function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | null) => void; option: string }) {
+  if (t.kind === 'set') {
+    // One of the option's own settings, in core's words (`sets[k]`): its name, its figure (core's gap words where it has none), whose.
+    const s = t.set, at = `${option}.sets.${t.k}`
+    const body = (
+      <>
+        <span className={`${TYPE.body} block text-text-header`} title={s.figure.title}>
+          <span data-view={`${at}.label`}>{s.label}</span> <span className="font-medium" data-view={`${at}.figure.text`}>{s.figure.text}</span>
+        </span>
+        {s.author == null || s.author === '' ? null : <Whose by={WHOSE_BY[s.whose]} at={`${at}.author`} text={s.author} />}
+      </>
+    )
+    return <li data-rack-through={s.id} data-rack-set={t.k}>{t.card === undefined ? <div className="px-0 py-0.5">{body}</div> : <Press id={s.id} label={s.label} ring={ring}>{body}</Press>}</li>
+  }
+  if (t.kind === 'rest') {
+    // What the option rests on that no card draws: core's name for it and whose it is; nothing to press.
+    const r = t.rest, at = `${option}.rests_on.${t.k}`
+    return (
+      <li data-rack-through={r.id} data-rack-rest-only="">
+        <div className="px-0 py-0.5">
+          <span className={`${TYPE.body} block text-text-header`} data-view={`${at}.label`}>{r.label}</span>
+          {r.author == null || r.author === '' ? null : <Whose by={WHOSE_BY[r.whose]} at={`${at}.author`} text={r.author} />}
+        </div>
+      </li>
+    )
+  }
   // An outcome the option works through to (a `through` link from it): its figure is every option's worked-out value, Analysis's to show
   // (ruling 9 Nov); here its name, whose it is and core's words for how the option reaches it.
   // Where core has worked it out per option (`values`), only this option's own value is drawn (`values[k].text`); where it has not, core's
@@ -105,7 +153,7 @@ function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | nu
             : <> <span className="font-medium" data-view={`${c.id}.figure.text`}>{f.text}</span></>}
           {mine < 0 ? null : <> <span className="font-medium" data-rack-own-value="" data-view={`${c.id}.values.${mine}.text`}>{c.values![mine]!.text}</span></>}
         </span>
-        {c.author == null ? null : <span className={`${TYPE.meta} block ${c.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-rack-whose={c.author.by} data-view={`${c.id}.author.text`}>{c.author.text}</span>}
+        {c.author == null ? null : <Whose by={c.author.by} at={`${c.id}.author.text`} text={c.author.text} />}
         {t.link === null || t.link.l.title === '' ? null : (
           <span className={`${TYPE.meta} block text-text-light`} data-rack-link={t.link.i}>
             <span data-view={`links.${t.link.i}.title`}>{t.link.l.title}</span>
@@ -144,7 +192,7 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
             </Press>
             {through.length === 0 ? null : (
               <div data-rack-section="through"><Head>{RACK_LABELS.through}</Head>
-                <ul className="m-0 list-none space-y-1 p-0">{through.map((t) => <Through key={t.card.id} t={t} ring={setHover} option={o.id} />)}</ul></div>
+                <ul className="m-0 list-none space-y-1 p-0">{through.map((t) => <Through key={throughId(t)} t={t} ring={setHover} option={o.id} />)}</ul></div>
             )}
             {premises.length === 0 ? null : (
               <div data-rack-section="premises"><Head>{RACK_LABELS.premises}</Head>

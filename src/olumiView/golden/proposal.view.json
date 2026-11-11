@@ -442,7 +442,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    },
    {
     "id": "add_one",
@@ -559,7 +560,20 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "one_specialist",
+      "lever": "specialists",
+      "label": "one specialist",
+      "figure": {
+       "text": "⟦F9.value⟧",
+       "title": "⟦F9.value⟧"
+      },
+      "whose": "theirs",
+      "author": "Reported in the brief"
+     }
+    ]
    },
    {
     "id": "deadline",

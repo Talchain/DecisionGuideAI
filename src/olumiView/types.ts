@@ -216,6 +216,19 @@ export type View = {
       rests_on: Array<{
         id: string
         whose: "theirs" | "olumi" | "mixed"
+        label?: string
+        author?: string
+      }>
+      sets?: Array<{
+        id: string
+        lever: string
+        label: string
+        figure: {
+          text: string
+          title: string
+        }
+        whose: "theirs" | "olumi" | "mixed"
+        author: string | null
       }>
       face: {
         title: {
@@ -484,6 +497,23 @@ export type View = {
           reason: "not_worked_out" | "not_separated" | "no_figure" | "holds" | "never_above" | "unclear" | "capped" | "not_recorded"
           text: string
           line: string
+          option?: string
+          tested?: Array<{
+            id: string
+            label: string
+            whose: "theirs" | "olumi" | "mixed"
+          }>
+          best_group?: {
+            figure: {
+              id: string
+              label: string
+              whose: "theirs" | "olumi" | "mixed"
+            }
+            share: number
+            text: string
+            end: "lowest" | "highest" | null
+            line: string
+          }
         }>
       }>
       failure: Array<{
@@ -532,6 +562,47 @@ export type View = {
       }>
       rests_heading: string
       rests_figures_heading?: string
+      find_out?: Array<{
+        aim: string
+        line: string
+        compared: Array<{
+          id: string
+          label: string
+        }>
+        not_compared: Array<{
+          id: string
+          label: string
+        }>
+        within: Array<{
+          id: string
+          label: string
+        }>
+        figures: Array<{
+          id: string
+          fact: string
+          label: string
+          whose: "theirs" | "olumi" | "mixed"
+          set_by: Array<{
+            id: string
+            label: string
+          }>
+          points: number
+          estimate_text: string
+          line: string
+          mark: {
+            glyph: string
+            title: string
+          } | null
+          give: {
+            text: string
+            edit: {
+              prompt: string
+              ask: string
+            }
+          } | null
+        }>
+      }>
+      find_out_heading?: string
       since?: {
         heading: string
         from: {

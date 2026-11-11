@@ -721,7 +721,9 @@
       "kind": "none",
       "aim_id": "within_budget",
       "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "state": "withheld",
+      "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
@@ -799,7 +801,14 @@
      "icon": ""
     },
     "values": null,
-    "rests_on": [],
+    "rests_on": [
+     {
+      "id": "extra_sold_per_oven",
+      "whose": "olumi",
+      "label": "extra sold per oven",
+      "author": "Olumi’s estimate"
+     }
+    ],
     "face": {
      "title": {
       "text": "A second oven",
@@ -825,7 +834,20 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "one_oven",
+      "lever": "ovens_added",
+      "label": "one oven",
+      "figure": {
+       "text": "1 oven",
+       "title": "1 oven"
+      },
+      "whose": "theirs",
+      "author": null
+     }
+    ]
    },
    {
     "id": "longer_hours",
@@ -848,7 +870,9 @@
       "kind": "none",
       "aim_id": "within_budget",
       "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "state": "withheld",
+      "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
@@ -941,7 +965,20 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "hours_switched_on",
+      "lever": "hours_on",
+      "label": "hours switched on",
+      "figure": {
+       "text": "1",
+       "title": "1"
+      },
+      "whose": "theirs",
+      "author": null
+     }
+    ]
    },
    {
     "id": "carry_on",
@@ -964,7 +1001,9 @@
       "kind": "none",
       "aim_id": "within_budget",
       "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'."
+      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "state": "withheld",
+      "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
@@ -1034,7 +1073,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    },
    {
     "id": "oven_repair",
@@ -1515,7 +1555,71 @@
      "label": "Likely outcome",
      "title": "In this model, on current information, what each option’s outcome for ‘Sell at least 360 loaves a week’ is likely to be (8 times in 10)."
     }
-   ]
+   ],
+   "find_out": [
+    {
+     "aim": "sell_360",
+     "line": "In this model's samples, which of the options compared is most likely to meet 'Sell at least 360 loaves a week' differs with the value of each of these figures. They are in the order of the model's estimate of what knowing each is worth, largest first; the order is approximate. Limits not covered: 'Within the ⟦F17.value⟧'.",
+     "compared": [
+      {
+       "id": "second_oven",
+       "label": "A second oven"
+      },
+      {
+       "id": "longer_hours",
+       "label": "Open two hours longer"
+      },
+      {
+       "id": "carry_on",
+       "label": "Carry on as now"
+      }
+     ],
+     "not_compared": [],
+     "within": [],
+     "figures": [
+      {
+       "id": "extra_hours_sold",
+       "fact": "F20",
+       "label": "extra hours sold",
+       "whose": "theirs",
+       "set_by": [],
+       "points": 14.180000000000001,
+       "estimate_text": "about 14 points, an estimate",
+       "line": "'extra hours sold' (a person's range) · ⟦F19.value⟧",
+       "mark": null,
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
+         "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "extra_sold_per_oven",
+       "fact": "F19",
+       "label": "extra sold per oven",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 4.99,
+       "estimate_text": "about 5 points, an estimate",
+       "line": "'extra sold per oven' (Olumi's estimate) · ⟦F19.value⟧",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “extra sold per oven” (loaf/week/oven): one number, or a range like 150 to 400",
+         "ask": "For “extra sold per oven”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "find_out_heading": "Worth finding out"
   },
   "edit_base": 1,
   "holdable": [

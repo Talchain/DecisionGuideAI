@@ -13,7 +13,7 @@ import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { PortAnalysisTab } from '../PortAnalysisTab'
-import { at } from './viewAt'
+import { at, expectAllBound } from './viewAt'
 
 const A6: View = JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures/a6-rests-figures.view3.json'), 'utf8'))
 const ready = (view: View) => {
@@ -71,5 +71,25 @@ describe('the uncertainty shares, figure by figure', () => {
     expect(within(group).getByText(run.rests[0]!.line)).toBeInTheDocument()
     expect(document.querySelector('[data-rests-figure]')).toBeNull()
     expect(screen.queryByText(run.rests_figures_heading!)).toBeNull()
+  })
+})
+
+describe('SCI-10: whose each share is, by name, from the option\'s own card', () => {
+  it('RF4: a figure the option card names in rests_on carries core\'s author words beside its share (A7 through core fd672840)', () => {
+    const v: View = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/a7-sci10.view3.json'), 'utf8'))
+    ready(v)
+    const hire = v.model!.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!
+    const r = v.model!.run!.rests.find((x) => x.option === hire.id && (x.figures ?? []).length > 0)!
+    let named = 0
+    for (const f of r.figures!) {
+      const row = screen.getByTestId(`port-rests-figures-${r.id}`).querySelector<HTMLElement>(`[data-rests-figure="${f.id}"]`)!
+      const k = hire.rests_on.findIndex((x) => x.id === f.id)
+      const w = row.querySelector('[data-testid="port-rests-figure-whose"]')
+      if (k < 0 || (hire.rests_on[k]!.author ?? '') === '') { expect(w, f.id).toBeNull(); continue }
+      expect(w).toHaveAttribute('data-view', `${hire.id}.rests_on.${k}.author`)
+      expect(w!.textContent).toBe(hire.rests_on[k]!.author); named++
+    }
+    expect(named).toBeGreaterThan(0)
+    expect(expectAllBound(v, screen.getByTestId('port-stress-rests'), expect)).toBeGreaterThan(3)
   })
 })

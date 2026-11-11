@@ -704,7 +704,20 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "evening_extra",
+      "lever": "extra_classes",
+      "label": "evening extra",
+      "figure": {
+       "text": "⟦F12.value⟧",
+       "title": "Plausible range: ⟦F12.value⟧"
+      },
+      "whose": "theirs",
+      "author": "The team’s figure"
+     }
+    ]
    },
    {
     "id": "evening_mood",
@@ -832,7 +845,14 @@
      "icon": ""
     },
     "values": null,
-    "rests_on": [],
+    "rests_on": [
+     {
+      "id": "workshop_extra",
+      "whose": "olumi",
+      "label": "workshop extra",
+      "author": "Olumi’s estimate"
+     }
+    ],
     "face": {
      "title": {
       "text": "Weekend workshops",
@@ -858,7 +878,20 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "workshop_extra",
+      "lever": "extra_classes",
+      "label": "workshop extra",
+      "figure": {
+       "text": "15 classes/month",
+       "title": "15 classes/month"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "carry_on",
@@ -951,7 +984,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    }
   ],
   "links": [

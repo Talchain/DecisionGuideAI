@@ -510,7 +510,14 @@
      "icon": ""
     },
     "values": null,
-    "rests_on": [],
+    "rests_on": [
+     {
+      "id": "cups_change",
+      "whose": "olumi",
+      "label": "cups change",
+      "author": "Olumi’s estimate"
+     }
+    ],
     "face": {
      "title": {
       "text": "Raise the price by 45p",
@@ -536,7 +543,31 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "margin_raised",
+      "lever": "margin",
+      "label": "margin raised",
+      "figure": {
+       "text": "⟦F9.value⟧",
+       "title": "⟦F9.value⟧"
+      },
+      "whose": "theirs",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "rise_switched_on",
+      "lever": "rise_on",
+      "label": "rise switched on",
+      "figure": {
+       "text": "1",
+       "title": "1"
+      },
+      "whose": "theirs",
+      "author": null
+     }
+    ]
    },
    {
     "id": "carry_on",
@@ -623,7 +654,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    }
   ],
   "links": [

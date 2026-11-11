@@ -860,19 +860,23 @@
     "rests_on": [
      {
       "id": "pipeline_approximation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "window_accounting",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "deferral_feasibility",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "reported_cash_and_spend_basis",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      }
     ],
     "face": {
@@ -900,7 +904,8 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": []
    },
    {
     "id": "add_angel_bridge",
@@ -1028,23 +1033,28 @@
     "rests_on": [
      {
       "id": "pipeline_approximation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "window_accounting",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "bridge_terms_compatibility",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "deferral_feasibility",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "reported_cash_and_spend_basis",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      }
     ],
     "face": {
@@ -1072,7 +1082,31 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "bridge_angel_opportunities",
+      "lever": "angel_opportunities",
+      "label": "Qualified angel opportunities under the bridge route",
+      "figure": {
+       "text": "1 to 16 opportunities",
+       "title": "Plausible range: 1 to 16 opportunities, most likely 4 opportunities"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "bridge_capacity_retained",
+      "lever": "institutional_capacity",
+      "label": "Institutional fundraising capacity retained while pursuing angels",
+      "figure": {
+       "text": "25% to 100%",
+       "title": "Plausible range: 25% to 100%, most likely 50%"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "bridge_terms_compatibility",
@@ -1243,23 +1277,28 @@
     "rests_on": [
      {
       "id": "pipeline_approximation",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "window_accounting",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "bridge_terms_compatibility",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "deferral_feasibility",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      },
      {
       "id": "reported_cash_and_spend_basis",
-      "whose": "olumi"
+      "whose": "olumi",
+      "author": "Olumi inferred"
      }
     ],
     "face": {
@@ -1287,7 +1326,42 @@
      "why": null,
      "add": null,
      "shared": false
-    }
+    },
+    "sets": [
+     {
+      "id": "bridge_angel_opportunities",
+      "lever": "angel_opportunities",
+      "label": "Qualified angel opportunities under the bridge route",
+      "figure": {
+       "text": "1 to 16 opportunities",
+       "title": "Plausible range: 1 to 16 opportunities, most likely 4 opportunities"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "bridge_capacity_retained",
+      "lever": "institutional_capacity",
+      "label": "Institutional fundraising capacity retained while pursuing angels",
+      "figure": {
+       "text": "25% to 100%",
+       "title": "Plausible range: 25% to 100%, most likely 50%"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "deferred_spend_burn_retained",
+      "lever": "burn_retained",
+      "label": "Operating burn retained after temporary spend deferral",
+      "figure": {
+       "text": "50% to 96.88%",
+       "title": "Plausible range: 50% to 96.875%, most likely 87.5%"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ]
    },
    {
     "id": "deferral_feasibility",

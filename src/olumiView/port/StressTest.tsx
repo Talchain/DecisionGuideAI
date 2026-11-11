@@ -6,7 +6,8 @@
  * - what could go wrong (`run.failure`, `failure_heading`; core fills it only for an option someone committed to);
  * - how much rests on Olumi's guesses (`run.rests`, `rests_heading`); under each line, where core sends them, its figures one by one
  *   (`rests[].figures`, under `rests_figures_heading`): core's line for each, verbatim, whose it is by core's mark, a bar whose length is
- *   core's `share` (a position only, never drawn as a number), and the figure's own edit where core offers one (`give`). These are shares of
+ *   core's `share` (a position only, never drawn as a number), whose it is by name where the option's card says so (`rests_on[].author`,
+ *   same id), and the figure's own edit where core offers one (`give`). These are shares of
  *   the UNCERTAINTY in this model, counting each figure on its own, never shares of the chance; they do not add up to the whole, so the
  *   parent line, which says what is not attributed to any one figure, is always drawn above them (Codex PL-218).
  * The previous section's own sentences (sensitive assumptions, thinking patterns, fragile factors) are not drawn: they were composed
@@ -24,9 +25,12 @@ type Mark = { glyph: string; title: string } | null | undefined
 type RestsLine = NonNullable<NonNullable<ViewModel['run']>['rests']>[number]
 
 /** One figure's share of the uncertainty: core's line, its mark, a bar from `share` (position only), and the card's own edit if core offers it. */
-function RestsFigures({ line, i, heading }: { line: RestsLine; i: number; heading: string | undefined }) {
+function RestsFigures({ line, i, heading, model }: { line: RestsLine; i: number; heading: string | undefined; model: ViewModel }) {
   const figures = line.figures ?? []
   if (figures.length === 0) return null
+  // Whose each figure is, by name, where core says so on the option's own card (`cards[].rests_on[k].author`, the same id; SCI-10).
+  const option = model.cards.find((c) => c.id === line.option)
+  const whose = (id: string) => { const k = (option?.rests_on ?? []).findIndex((r) => r.id === id); const a = k < 0 ? null : option!.rests_on[k]!.author; return a == null || a === '' ? null : { k, a } }
   return (
     <div className="space-y-1.5 pl-2" data-testid={`port-rests-figures-${line.id}`}>
       {heading == null || heading === '' ? null : <p className={`${typography.panelBody} font-medium text-text-header`} data-view="run.rests_figures_heading">{heading}</p>}
@@ -36,6 +40,7 @@ function RestsFigures({ line, i, heading }: { line: RestsLine; i: number; headin
             {f.mark === null ? null : <><span className={f.whose === 'olumi' ? 'text-info' : 'text-text-body'} title={f.mark.title} aria-label={f.mark.title} data-testid="port-rests-figure-mark">{f.mark.glyph}</span> </>}
             <span data-view={`run.rests.${i}.figures.${j}.line`}>{f.line}</span>
           </p>
+          {(() => { const w = whose(f.id); return w === null ? null : <p className={`${TYPE.meta} text-text-light`} data-testid="port-rests-figure-whose" data-view={`${option!.id}.rests_on.${w.k}.author`}>{w.a}</p> })()}
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/5" aria-hidden="true">
             <div className={`h-full rounded-full ${f.whose === 'olumi' ? 'bg-info' : 'bg-text-light'}`} style={{ width: `${Math.max(0, Math.min(1, f.share)) * 100}%` }} data-testid="port-rests-figure-bar" />
           </div>
@@ -80,7 +85,7 @@ export function StressTest({ model }: { model: ViewModel }) {
             {facts.lines.map(({ line: l, i }) => (
               <div key={l.id} className="space-y-1.5">
                 <Line id={l.id} at={`${path}.${i}.line`} text={l.line} hover={l.hover} />
-                {key === 'rests' ? <RestsFigures line={l as RestsLine} i={i} heading={run?.rests_figures_heading} /> : null}
+                {key === 'rests' ? <RestsFigures line={l as RestsLine} i={i} heading={run?.rests_figures_heading} model={model} /> : null}
               </div>
             ))}
           </div>

@@ -93,9 +93,12 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
    * Nor (Build 2, core 69dc9442) a chance row's `driver`: `{ figure, low, high }` is a record id and two chances (0 to 1), no words (core's
    * src/view/schema.ts ChanceRowV3). The Analysis chart draws them as marks and the figure's own card heading: driverTornado.spec DT-A1
    * binds them by aim id.
+   * Nor a row's `state` (`shown` | `withheld` | `not_computable`, in the schema before SCI-10 and sent on none rows since core SCI-10 (4d0c3634, fd672840)):
+   * a machine key like `kind`, no words; the row's own `text` says it. Nor a withheld row's `question` (the ask for the figure it waits on):
+   * it is said once, by `run.waits_on` (the Analysis tab's waits-on list) and the figure's own card, never again on each option's line.
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'state' && k !== 'question' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' && k !== 'driver' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
