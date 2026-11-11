@@ -49,6 +49,24 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }, nodes: [], edges: [] } as never); setTeamFetch(null); resetWrites(); useModelNotice.setState({ notice: null }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const posts = () => calls.filter((c) => c.method === 'POST')
 
+describe('whose card it is, in the Selected row (UI restore 11 Nov, R12)', () => {
+  it('a person\'s card says so in core\'s words, neutral; an Olumi card in Olumi\'s blue; its source is the hover; a card with no author says nothing', () => {
+    // The 22-card fixture carries no authors (an older View); core's european golden does.
+    const euro = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'european.view.json'), 'utf8')), id: SID } as View
+    useViewStore.setState({ view: euro })
+    const person = euro.model!.cards.find((c) => c.author?.by === 'person')!, olumi = euro.model!.cards.find((c) => c.author?.by === 'olumi')!
+    expect(person.author!.text, 'precondition: core sends the words').not.toBe('')
+    let row = selectedRow(person.id)
+    const p = row.querySelector('[data-testid="selected-author"]')!
+    expect(p.textContent).toBe(person.author!.text); expect(p.getAttribute('title')).toBe(person.author!.title); expect(p.className).not.toMatch(/text-info/)
+    cleanup(); row = selectedRow(olumi.id)
+    const o = row.querySelector('[data-testid="selected-author"]')!
+    expect(o.textContent).toBe(olumi.author!.text); expect(o.className).toMatch(/text-info/)
+    cleanup(); useViewStore.setState({ view: { ...euro, model: { ...euro.model!, cards: euro.model!.cards.map((c) => (c.id === person.id ? { ...c, author: null } : c)) } } as View })
+    expect(selectedRow(person.id).querySelector('[data-testid="selected-author"]')).toBeNull()
+  })
+})
+
 describe('rename a card', () => {
   it('catch: in the dock\'s "Selected:" row, prefilled with its name; posts core\'s contract on the opening base; says core\'s version', async () => {
     const row = selectedRow(card.id)

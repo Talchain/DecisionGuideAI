@@ -8,12 +8,21 @@
 import type { ReactNode } from 'react'
 import { Rename } from './Rename'
 import { useViewStore } from './store'
+import { typography } from '../styles/typography'
 
 function SelectedRename({ id }: { id: string }): JSX.Element | null {
   const heading = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
+  const author = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.author ?? null)
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
-  return <Rename key={id} id={id} heading={heading} shown />
+  // UI restore 11 Nov (R12, DL PL-100): whose figure it is, core's words verbatim, once the card is selected: the person's neutral, Olumi's
+  // in Olumi's blue (blue is Olumi's alone); its source on hover. Nothing is said for a card core gives no author.
+  return (
+    <>
+      <Rename key={id} id={id} heading={heading} shown />
+      {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
+    </>
+  )
 }
 
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
