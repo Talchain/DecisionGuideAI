@@ -224,7 +224,7 @@ function ViewFlow() {
         onNodeContextMenu={(e, n) => {
           e.preventDefault()
           const m = useViewStore.getState().view?.model, card = m?.cards.find((c) => c.id === n.id)
-          const nodeType = (n.id === QUESTION || card === undefined || m === undefined ? 'decision' : drawKindOf(card, m)) as NodeType
+          const nodeType = (n.id === QUESTION || card === undefined || m === undefined ? 'decision' : drawKindOf(card, m as Parameters<typeof drawKindOf>[1])) as NodeType
           useCanvasStore.getState().selectNodeWithoutHistory(n.id)
           setMenu({ kind: 'node', nodeId: n.id, nodeType, node: n, screenPos: { x: e.clientX, y: e.clientY } })
         }}
