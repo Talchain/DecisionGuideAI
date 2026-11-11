@@ -6,7 +6,7 @@ import { typography } from '../styles/typography'
 import { WHAT_IF_COPY } from '../canvas/artefacts/whatIfCopy'
 import type { ViewModel } from './client'
 import { optionCards } from './layout'
-import { Row } from './ViewChances'
+import { Row, WhatIfSizeLines } from './ViewChances'
 import type { useWhatIf } from './whatif'
 
 /** Each option's saved lines beside the copy's, under the option's heading from this View; core's words for why it did or did not move. */
@@ -26,6 +26,8 @@ export function Compare({ model, shown }: { model: ViewModel; shown: NonNullable
             <p className={`${typography.panelHeader} text-text-header`}>{card.heading}</p>
             <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.saved}: </span><div>{card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}</div></div>
             <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.whatIf}: </span><div>{rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${card.id}` }} row={row} i={i} />)}</div></div>
+            {/* SCI-13: core's size line for each aim beside the what-if's chance rows, verbatim (ViewChances WhatIfSizeLines). */}
+            <WhatIfSizeLines variant={v} option={card.id} />
           </div>
         )
       })}

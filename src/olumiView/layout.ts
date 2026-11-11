@@ -1089,3 +1089,8 @@ export function tryOnCardOf(variant: WhatIfVariant, quantity: string, typed: str
   const row = rows.find((r): r is ChanceRow => r.kind === 'chance')
   return row === undefined ? null : { kind: 'option', row, words }
 }
+
+/** SCI-13: core's size lines (`variants[].size`) for one option, each with its place in `size` (its View path), in core's order; none with
+ *  no words. Picking by the option's id only: the lines are drawn verbatim, nothing in them is read. */
+export const sizeLinesOf = <T extends { option: string; line: string }>(size: readonly T[] | undefined, option: string): { s: T; k: number }[] =>
+  (size ?? []).map((s, k) => ({ s, k })).filter(({ s }) => s.option === option && s.line !== '')

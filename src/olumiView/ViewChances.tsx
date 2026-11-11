@@ -10,11 +10,11 @@
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, worthLinesOf, type SharpenRow } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, sizeLinesOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { shownModel, useViewStore } from './store'
-import { clearWhatIf, useWhatIf } from './whatif'
+import { clearWhatIf, useWhatIf, type WhatIfVariant } from './whatif'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
 import { mostLikelyBasisOf } from './standin'
@@ -76,6 +76,20 @@ export function useWhatIfOn(model: ViewModel | null) {
 }
 
 /**
+ * SCI-13 (DL 11 Nov): beside an option's what-if chance rows, core's sentence for what happens beside each chance over the same draws
+ * (`variants[].size[].line`: the chance before and after, and how far the middle of the aim's outcome moves), verbatim, one per aim, in
+ * core's order. Its numbers are never drawn by the UI; nothing is computed here. Nothing where core sends none (an older core).
+ */
+export function WhatIfSizeLines({ variant, option }: { variant: WhatIfVariant; option: string }) {
+  const lines = sizeLinesOf(variant.size, option)
+  return lines.length === 0 ? null : (
+    <div className="space-y-1 pt-0.5" data-whatif-size-of={option}>
+      {lines.map(({ s, k }) => <p key={`${s.option}:${s.goal}`} className={`${typography.viewPanelMeta} text-text-body`} data-whatif-size={`${s.option}:${s.goal}`} data-view={`whatif.size.${k}.line`}>{s.line}</p>)}
+    </div>
+  )
+}
+
+/**
  * The what-if shown (core's `POST …/whatif`): marked not saved, core's words for the figure tried, then what the copy's Run gives, each
  * option's rows drawn by `Row` from core's own row shape, under the option's heading from this View. Only for the version it was asked on.
  * `labelled={false}` where the tab says the state itself (the Reasoning tab's state strip draws the label and Clear), so it is said once.
@@ -107,6 +121,7 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
                     <div className={typography.panelHeader}>{card.heading}</div>
                     <WhatIfBars card={card} rows={o.rows} facts={v.facts} />
                     {o.rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${o.option_id}` }} row={row} i={i} />)}
+                    <WhatIfSizeLines variant={v} option={o.option_id} />
                   </div>
                 )
               })}

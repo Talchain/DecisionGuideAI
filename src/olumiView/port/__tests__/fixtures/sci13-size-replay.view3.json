@@ -1,0 +1,4987 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_49f3315269fd",
+ "title": "Tech lead or two developers",
+ "commit": "c0ffee",
+ "signature": "[9,null,[[7,\"approved\"]],[],[\"Paul\"],[],[\"1\"]][\"figure_first\",\"productivity_change_per_tech_lead\",null,null,null]",
+ "you": "Paul",
+ "you_id": "1",
+ "members": [
+  {
+   "id": "1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 9,
+  "n": 1,
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-11T21:44:52.939Z",
+  "at_text": "11 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "Should I hire a Tech lead or two developers to increase productivity by at least 10%, while maintaining code quality?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "test_whether_leadership_is_what_holds_delivery_back_now_rather_t",
+     "whether_the_launch_itself_lands_on_time"
+    ],
+    "text": "1 challenge, 1 thing left out",
+    "title": "challenge: Test whether leadership is what holds delivery back now, rather than unclear scope or slow reviews: neither hire helps if the bottleneck is elsewhere.\nleft out: Whether the launch itself lands on time",
+    "label": "Show 2 notes behind this",
+    "open": false,
+    "proposed": false,
+    "change": "",
+    "words": "1 challenge, 1 thing left out",
+    "face": "1 challenge and 1 more",
+    "icon": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers",
+    "typed": false,
+    "detail": "Developers · quantity · Theirs: “We currently have six mid-weight developers” · 6 developers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "6 developers",
+     "title": "6 developers",
+     "edit": {
+      "prompt": "New figure for “Developers” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Developers”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “We currently have six mid-weight developers”"
+    },
+    "failed": []
+   },
+   {
+    "id": "tech_leads_added",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Tech leads added",
+    "typed": false,
+    "detail": "Tech leads added · quantity · Structure: None added without an option. · 0 tech leads",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0 tech leads",
+     "title": "0 tech leads",
+     "edit": {
+      "prompt": "New figure for “Tech leads added” (tech lead): one number, or a range like 150 to 400",
+      "ask": "For “Tech leads added”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "1 tech lead",
+      "p10": 1,
+      "p50": 1,
+      "p90": 1,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "0 tech leads",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "1 tech lead",
+      "p10": 1,
+      "p50": 1,
+      "p90": 1,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Tech leads added",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": null,
+    "failed": []
+   },
+   {
+    "id": "tech_leads_added_hire_a_tech_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Hire a Tech lead: how many Tech leads",
+    "typed": false,
+    "detail": "Hire a Tech lead: how many Tech leads · quantity · Theirs: “a Tech lead” · 1 tech lead",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 tech lead",
+     "title": "1 tech lead",
+     "edit": {
+      "prompt": "New figure for “Hire a Tech lead: how many Tech leads” (tech lead): one number, or a range like 150 to 400",
+      "ask": "For “Hire a Tech lead: how many Tech leads”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Hire a Tech lead: how many Tech leads",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "brief",
+     "text": "Reported in the brief",
+     "title": "Theirs: “a Tech lead”"
+    },
+    "failed": []
+   },
+   {
+    "id": "developers_added",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers added",
+    "typed": false,
+    "detail": "Developers added · quantity · Structure: None added without an option. · 0 developers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0 developers",
+     "title": "0 developers",
+     "edit": {
+      "prompt": "New figure for “Developers added” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Developers added”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "0 developers",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "2 developers",
+      "p10": 2,
+      "p50": 2,
+      "p90": 2,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "1 developer",
+      "p10": 1,
+      "p50": 1,
+      "p90": 1,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Developers added",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": null,
+    "failed": []
+   },
+   {
+    "id": "developers_added_hire_two_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Hire two developers: how many Developers",
+    "typed": false,
+    "detail": "Hire two developers: how many Developers · quantity · Theirs: “two developers” · 2 developers",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "2 developers",
+     "title": "2 developers",
+     "edit": {
+      "prompt": "New figure for “Hire two developers: how many Developers” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Hire two developers: how many Developers”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Hire two developers: how many Developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "brief",
+     "text": "Reported in the brief",
+     "title": "Theirs: “two developers”"
+    },
+    "failed": []
+   },
+   {
+    "id": "developers_added_hire_a_tech_lead_and_one_developer",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Hire a Tech lead and one developer: how many Developers",
+    "typed": false,
+    "detail": "Hire a Tech lead and one developer: how many Developers · quantity · Proposed by Olumi: One developer rather than two, to stay nearer the budget. · 1 developer",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: One developer rather than two, to stay nearer the budget."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "1 developer",
+     "title": "1 developer",
+     "edit": {
+      "prompt": "New figure for “Hire a Tech lead and one developer: how many Developers” (developer): one number, or a range like 150 to 400",
+      "ask": "For “Hire a Tech lead and one developer: how many Developers”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Hire a Tech lead and one developer: how many Developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: One developer rather than two, to stay nearer the budget."
+    },
+    "failed": []
+   },
+   {
+    "id": "hire_a_tech_lead",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a Tech lead",
+    "typed": false,
+    "detail": "Hire a Tech lead · option · Theirs: “hire a Tech lead”",
+    "col": 0,
+    "h": 178,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 18% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "The chance that 'Hire a Tech lead' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 26%. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', not yet confirmed by them.",
+      "chance": 0.1774,
+      "companion": "about 26% without Olumi's suggested risk",
+      "companion_title": "about 26% without Olumi's suggested risk assumption 'A new hire adds little before the launch'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "productivity_change_per_tech_lead",
+       "low": 0,
+       "high": 0.5322532253225323
+      },
+      "text": "The chance that 'Hire a Tech lead' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 26%.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "productivity_change_per_tech_lead",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "estimates": [
+        "productivity_change_per_tech_lead",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's 3 what-ifs.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 74% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": {
+       "glyph": "◉",
+       "title": "Among the options compared, 'Hire a Tech lead' is more likely to achieve 'Maintain code quality' in this model (about 74%, against about 58% for 'Hire a Tech lead and one developer'); it rests on Olumi's estimate of 'Effect on defects found after release if Developers grew by as many again as there are now' — give yours with ✎. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. Olumi has not modelled: Maintainability, design and test coverage."
+      },
+      "aim": "Maintain code quality",
+      "aim_id": "maintain_code_quality",
+      "title": "The chance that 'Hire a Tech lead' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead). Olumi has not modelled: Maintainability, design and test coverage.",
+      "chance": 0.7376,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "defects_found_after_release_change_per_tech_lead",
+       "low": 1,
+       "high": 0.21272127212721273
+      },
+      "text": "The chance that 'Hire a Tech lead' meets 'Maintain code quality', in this model on current information.",
+      "rests_on": {
+       "reading": true,
+       "target": true,
+       "what_ifs": [
+        "defects_found_after_release_change_per_tech_lead"
+       ],
+       "estimates": [
+        "maintain_code_quality_target",
+        "defects_found_after_release_change_per_tech_lead"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and 1 what-if.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "over 99%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "Stay within the budget",
+      "aim_id": "stay_within_the_budget",
+      "title": "The chance that 'Hire a Tech lead' stays within 'Stay within the budget', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Effect of each extra tech lead on productivity' is low, about 53% if it is high: Under 'Hire a Tech lead', the chance of meeting 'Increase productivity' moves most with 'Effect of each extra tech lead on productivity': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "under 1% if 'Effect of each extra tech lead on productivity' is low, about 53% if it is high: Under 'Hire a Tech lead', the chance of meeting 'Increase productivity' moves most with 'Effect of each extra tech lead on productivity': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "figure": "productivity_change_per_tech_lead",
+     "low": 0,
+     "high": 0.5322532253225323
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "writer_we_re_lacking_leadership"
+     ],
+     "text": "1 claim",
+     "title": "claim: we're lacking leadership",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim",
+     "face": "1 claim",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "tech_leads_added_hire_a_tech_lead",
+      "whose": "theirs",
+      "label": "Hire a Tech lead: how many Tech leads",
+      "author": "Reported in the brief"
+     },
+     {
+      "id": "increase_productivity_target",
+      "whose": "theirs",
+      "label": "The target for 'Increase productivity'",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "time_to_the_launch_date",
+      "whose": "theirs",
+      "label": "Time to the launch date",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "productivity_change_per_tech_lead",
+      "whose": "olumi",
+      "label": "Effect of each extra tech lead on productivity",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_chance",
+      "whose": "olumi",
+      "label": "How likely it is that A new hire adds little before the launch",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_factor",
+      "whose": "olumi",
+      "label": "How much of the change in productivity remains if it happens",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch",
+      "whose": "olumi",
+      "label": "A new hire adds little before the launch",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "maintain_code_quality_target",
+      "whose": "olumi",
+      "label": "Olumi's estimate of the target for 'Maintain code quality'",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "defects_found_after_release_change_per_tech_lead",
+      "whose": "olumi",
+      "label": "Effect of each extra tech lead on defects found after release",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "sets": [
+     {
+      "id": "tech_leads_added_hire_a_tech_lead",
+      "lever": "tech_leads_added",
+      "label": "Hire a Tech lead: how many Tech leads",
+      "figure": {
+       "text": "1 tech lead",
+       "title": "1 tech lead"
+      },
+      "whose": "theirs",
+      "author": "Reported in the brief"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Hire a Tech lead",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “hire a Tech lead”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 18% chance",
+     "title": "The chance that 'Hire a Tech lead' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 26%. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', not yet confirmed by them. about 26% without Olumi's suggested risk assumption 'A new hire adds little before the launch'.",
+     "range": "under 1% if 'Effect of each extra tech lead on productivity' is low, about 53% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire two developers",
+    "typed": false,
+    "detail": "Hire two developers · option · Theirs: “two developers”",
+    "col": 0,
+    "h": 150,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 29% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "The chance that 'Hire two developers' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 42%. It rests on Olumi's what-if ranges for 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', not yet confirmed by them.",
+      "chance": 0.2907,
+      "companion": "about 42% without Olumi's suggested risk",
+      "companion_title": "about 42% without Olumi's suggested risk assumption 'A new hire adds little before the launch'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "productivity_change_per_share_of_developers",
+       "low": 0,
+       "high": 0.699069906990699
+      },
+      "text": "The chance that 'Hire two developers' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 42%.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "productivity_change_per_share_of_developers",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "estimates": [
+        "productivity_change_per_share_of_developers",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's 3 what-ifs.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 22% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Maintain code quality",
+      "aim_id": "maintain_code_quality",
+      "title": "The chance that 'Hire two developers' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). Olumi has not modelled: Maintainability, design and test coverage.",
+      "chance": 0.2165,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "defects_found_after_release_change_per_share_of_developers",
+       "low": 0.6495649564956496,
+       "high": 0
+      },
+      "text": "The chance that 'Hire two developers' meets 'Maintain code quality', in this model on current information.",
+      "rests_on": {
+       "reading": true,
+       "target": true,
+       "what_ifs": [
+        "defects_found_after_release_change_per_share_of_developers"
+       ],
+       "estimates": [
+        "maintain_code_quality_target",
+        "defects_found_after_release_change_per_share_of_developers"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and 1 what-if.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "about 99%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "Stay within the budget",
+      "aim_id": "stay_within_the_budget",
+      "title": "The chance that 'Hire two developers' stays within 'Stay within the budget', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Effect on productivity if Developers grew by as many again as there are now' is low, about 70% if it is high: Under 'Hire two developers', the chance of meeting 'Increase productivity' moves most with 'Effect on productivity if Developers grew by as many again as there are now': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "under 1% if 'Effect on productivity if Developers grew by as many again as there are now' is low, about 70% if it is high: Under 'Hire two developers', the chance of meeting 'Increase productivity' moves most with 'Effect on productivity if Developers grew by as many again as there are now': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "figure": "productivity_change_per_share_of_developers",
+     "low": 0,
+     "high": 0.699069906990699
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [
+     {
+      "id": "developers",
+      "whose": "theirs",
+      "label": "Developers",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "developers_added_hire_two_developers",
+      "whose": "theirs",
+      "label": "Hire two developers: how many Developers",
+      "author": "Reported in the brief"
+     },
+     {
+      "id": "increase_productivity_target",
+      "whose": "theirs",
+      "label": "The target for 'Increase productivity'",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "time_to_the_launch_date",
+      "whose": "theirs",
+      "label": "Time to the launch date",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "productivity_change_per_share_of_developers",
+      "whose": "olumi",
+      "label": "Effect on productivity if Developers grew by as many again as there are now",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_chance",
+      "whose": "olumi",
+      "label": "How likely it is that A new hire adds little before the launch",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_factor",
+      "whose": "olumi",
+      "label": "How much of the change in productivity remains if it happens",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch",
+      "whose": "olumi",
+      "label": "A new hire adds little before the launch",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "maintain_code_quality_target",
+      "whose": "olumi",
+      "label": "Olumi's estimate of the target for 'Maintain code quality'",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "defects_found_after_release_change_per_share_of_developers",
+      "whose": "olumi",
+      "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "sets": [
+     {
+      "id": "developers_added_hire_two_developers",
+      "lever": "developers_added",
+      "label": "Hire two developers: how many Developers",
+      "figure": {
+       "text": "2 developers",
+       "title": "2 developers"
+      },
+      "whose": "theirs",
+      "author": "Reported in the brief"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Hire two developers",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "brief",
+     "text": "Reported in the brief",
+     "title": "Theirs: “two developers”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 29% chance",
+     "title": "The chance that 'Hire two developers' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 42%. It rests on Olumi's what-if ranges for 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', not yet confirmed by them. about 42% without Olumi's suggested risk assumption 'A new hire adds little before the launch'.",
+     "range": "under 1% if 'Effect on productivity if Developers grew by as many again as there are now' is low, about 70% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "hire_a_tech_lead_and_one_developer",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a Tech lead and one developer",
+    "typed": false,
+    "detail": "Hire a Tech lead and one developer · option · Proposed by Olumi: A combination of the two options they named: some leadership and some extra delivery, if the budget stretches to both.",
+    "col": 0,
+    "h": 150,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A combination of the two options they named: some leadership and some extra delivery, if the budget stretches to both."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 34% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Increase productivity",
+      "aim_id": "increase_productivity",
+      "title": "The chance that 'Hire a Tech lead and one developer' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 49%. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead), 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them.",
+      "chance": 0.3365,
+      "companion": "about 49% without Olumi's suggested risk",
+      "companion_title": "about 49% without Olumi's suggested risk assumption 'A new hire adds little before the launch'",
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "productivity_change_per_tech_lead",
+       "low": 0.034203420342034205,
+       "high": 0.6753675367536753
+      },
+      "text": "The chance that 'Hire a Tech lead and one developer' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 49%.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "productivity_change_per_tech_lead",
+        "productivity_change_per_share_of_developers",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "estimates": [
+        "developers_added_hire_a_tech_lead_and_one_developer",
+        "productivity_change_per_tech_lead",
+        "productivity_change_per_share_of_developers",
+        "a_new_hire_adds_little_before_the_launch_chance",
+        "a_new_hire_adds_little_before_the_launch_factor"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's 4 what-ifs and proposed figure for 'Hire a Tech lead and one developer: how many Developers'.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "chance",
+      "value": "about 58% chance",
+      "fixed": false,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Maintain code quality",
+      "aim_id": "maintain_code_quality",
+      "title": "The chance that 'Hire a Tech lead and one developer' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead), 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. Olumi has not modelled: Maintainability, design and test coverage.",
+      "chance": 0.578,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": null,
+      "driver": {
+       "figure": "defects_found_after_release_change_per_tech_lead",
+       "low": 0.9741974197419742,
+       "high": 0.11551155115511551
+      },
+      "text": "The chance that 'Hire a Tech lead and one developer' meets 'Maintain code quality', in this model on current information.",
+      "rests_on": {
+       "reading": true,
+       "target": true,
+       "what_ifs": [
+        "defects_found_after_release_change_per_tech_lead",
+        "defects_found_after_release_change_per_share_of_developers"
+       ],
+       "estimates": [
+        "developers_added_hire_a_tech_lead_and_one_developer",
+        "maintain_code_quality_target",
+        "defects_found_after_release_change_per_tech_lead",
+        "defects_found_after_release_change_per_share_of_developers"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim, proposed target, 2 what-ifs and 1 proposed figure.",
+      "if_approved": null,
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "about 77%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "Stay within the budget",
+      "aim_id": "stay_within_the_budget",
+      "title": "The chance that 'Hire a Tech lead and one developer' stays within 'Stay within the budget', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "about 3% if 'Effect of each extra tech lead on productivity' is low, about 68% if it is high: Under 'Hire a Tech lead and one developer', the chance of meeting 'Increase productivity' moves most with 'Effect of each extra tech lead on productivity': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "about 3% if 'Effect of each extra tech lead on productivity' is low, about 68% if it is high: Under 'Hire a Tech lead and one developer', the chance of meeting 'Increase productivity' moves most with 'Effect of each extra tech lead on productivity': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "figure": "productivity_change_per_tech_lead",
+     "low": 0.034203420342034205,
+     "high": 0.6753675367536753
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [
+     {
+      "id": "developers",
+      "whose": "theirs",
+      "label": "Developers",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "tech_leads_added_hire_a_tech_lead",
+      "whose": "theirs",
+      "label": "Hire a Tech lead: how many Tech leads",
+      "author": "Reported in the brief"
+     },
+     {
+      "id": "developers_added_hire_a_tech_lead_and_one_developer",
+      "whose": "olumi",
+      "label": "Hire a Tech lead and one developer: how many Developers",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "increase_productivity_target",
+      "whose": "theirs",
+      "label": "The target for 'Increase productivity'",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "time_to_the_launch_date",
+      "whose": "theirs",
+      "label": "Time to the launch date",
+      "author": "The team’s figure"
+     },
+     {
+      "id": "productivity_change_per_tech_lead",
+      "whose": "olumi",
+      "label": "Effect of each extra tech lead on productivity",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "productivity_change_per_share_of_developers",
+      "whose": "olumi",
+      "label": "Effect on productivity if Developers grew by as many again as there are now",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_chance",
+      "whose": "olumi",
+      "label": "How likely it is that A new hire adds little before the launch",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch_factor",
+      "whose": "olumi",
+      "label": "How much of the change in productivity remains if it happens",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "a_new_hire_adds_little_before_the_launch",
+      "whose": "olumi",
+      "label": "A new hire adds little before the launch",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "maintain_code_quality_target",
+      "whose": "olumi",
+      "label": "Olumi's estimate of the target for 'Maintain code quality'",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "defects_found_after_release_change_per_tech_lead",
+      "whose": "olumi",
+      "label": "Effect of each extra tech lead on defects found after release",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "defects_found_after_release_change_per_share_of_developers",
+      "whose": "olumi",
+      "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "sets": [
+     {
+      "id": "tech_leads_added_hire_a_tech_lead",
+      "lever": "tech_leads_added",
+      "label": "Hire a Tech lead: how many Tech leads",
+      "figure": {
+       "text": "1 tech lead",
+       "title": "1 tech lead"
+      },
+      "whose": "theirs",
+      "author": "Reported in the brief"
+     },
+     {
+      "id": "developers_added_hire_a_tech_lead_and_one_developer",
+      "lever": "developers_added",
+      "label": "Hire a Tech lead and one developer: how many Developers",
+      "figure": {
+       "text": "1 developer",
+       "title": "1 developer"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Hire a Tech lead and one developer",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: A combination of the two options they named: some leadership and some extra delivery, if the budget stretches to both."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "increase_productivity",
+     "state": "chance",
+     "text": "about 34% chance",
+     "title": "The chance that 'Hire a Tech lead and one developer' meets 'Increase productivity', in this model on current information. Without Olumi's suggested risk assumption 'A new hire adds little before the launch', which is Olumi's own hypothesis and a different model from this one, the chance is about 49%. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead), 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. about 49% without Olumi's suggested risk assumption 'A new hire adds little before the launch'.",
+     "range": "about 3% if 'Effect of each extra tech lead on productivity' is low, about 68% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "developers_with_the_option",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers with the option",
+    "typed": false,
+    "detail": "Developers with the option · quantity · Proposed by Olumi: Their figure now, plus what an option adds, less what it removes. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Their figure now, plus what an option adds, less what it removes."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: 6 developers · Hire two developers: 8 developers · Hire a Tech lead and one developer: 7 developers",
+     "title": "Middle 80% of this model's calculated values at the end of month 3, using the ranges shown; not a forecast; rounded to three figures. Under Hire a Tech lead and one developer it rests on figures Olumi proposed. Hire a Tech lead: 6 developers; Hire two developers: 8 developers; Hire a Tech lead and one developer: 7 developers. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "developers_with_the_option_sum"
+     ],
+     "text": "1 calculation",
+     "title": "How Developers with the option is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "6 developers",
+      "p10": 6,
+      "p50": 6,
+      "p90": 6,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "8 developers",
+      "p10": 8,
+      "p50": 8,
+      "p90": 8,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "7 developers",
+      "p10": 7,
+      "p50": 7,
+      "p90": 7,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Developers with the option",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Their figure now, plus what an option adds, less what it removes."
+    },
+    "failed": []
+   },
+   {
+    "id": "productivity_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Productivity, change compared with now (in %)",
+    "typed": false,
+    "detail": "productivity, change compared with now (in %) · quantity · Theirs: “increase productivity by at least 10%” · Worked out from the figures it depends on",
+    "col": 3,
+    "h": 116,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about 2.62% (−3.5 to 13.1%) · Hire two developers: about 5.23% (0.0231 to 17.6%) · Hire a Tech lead and one developer: about 5.67% (−0.766 to 18.7%)",
+     "title": "Middle 80% of this model's calculated values at the end of month 3, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about 2.62% (−3.5 to 13.1%); Hire two developers: about 5.23% (0.0231 to 17.6%); Hire a Tech lead and one developer: about 5.67% (−0.766 to 18.7%). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "productivity_change_from_the_options"
+     ],
+     "text": "1 calculation",
+     "title": "How productivity, change compared with now (in %) is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about 2.62% (−3.5 to 13.1%)",
+      "p10": -3.5000437625447063,
+      "p50": 2.615997106028857,
+      "p90": 13.072947555813174,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about 5.23% (0.0231 to 17.6%)",
+      "p10": 0.02312827292455214,
+      "p50": 5.22971362674141,
+      "p90": 17.630858014940696,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "about 5.67% (−0.766 to 18.7%)",
+      "p10": -0.7655014824526516,
+      "p50": 5.66869934207411,
+      "p90": 18.744500828061014,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Productivity, change compared with now (in %)",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “increase productivity by at least 10%”"
+    },
+    "failed": []
+   },
+   {
+    "id": "increase_productivity_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The target for 'Increase productivity'",
+    "typed": false,
+    "detail": "The target for 'Increase productivity' · quantity · Theirs: “by at least 10%” · 10%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "10%",
+     "title": "10%",
+     "edit": {
+      "prompt": "New figure for “The target for 'Increase productivity'” in %: one number, or a range like 40 to 70",
+      "ask": "For “The target for 'Increase productivity'”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The target for 'Increase productivity'",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “by at least 10%”"
+    },
+    "failed": []
+   },
+   {
+    "id": "time_to_the_launch_date",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time to the launch date",
+    "typed": false,
+    "detail": "Time to the launch date · quantity · Theirs: “an urgent launch date in the next three months” · 3 months",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "3 months",
+     "title": "3 months",
+     "edit": {
+      "prompt": "New figure for “Time to the launch date” (month): one number, or a range like 150 to 400",
+      "ask": "For “Time to the launch date”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Time to the launch date",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “an urgent launch date in the next three months”"
+    },
+    "failed": []
+   },
+   {
+    "id": "increase_productivity",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Increase productivity",
+    "typed": false,
+    "detail": "Increase productivity · goal · Theirs: “increase productivity by at least 10%”",
+    "col": 4,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "a rise of at least 10%",
+     "title": "How do you measure productivity today, for example features shipped or cycle time?",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Increase productivity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “increase productivity by at least 10%”"
+    },
+    "failed": []
+   },
+   {
+    "id": "defects_found_after_release_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Defects found after release, change compared with now (in %)",
+    "typed": false,
+    "detail": "defects found after release, change compared with now (in %) · quantity · Proposed by Olumi: The brief gives no measure of code quality; defects that reach users after a release are a direct, commonly tracked reading of it. · Worked out from the figures it depends on",
+    "col": 3,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The brief gives no measure of code quality; defects that reach users after a release are a direct, commonly tracked reading of it."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about −4.84% (−19.9 to 5.02%) · Hire two developers: about 6.01% (−3.79 to 20%) · Hire a Tech lead and one developer: about −2.05% (−17.3 to 10.5%)",
+     "title": "Middle 80% of this model's calculated values at the end of month 3, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about −4.84% (−19.9 to 5.02%); Hire two developers: about 6.01% (−3.79 to 20%); Hire a Tech lead and one developer: about −2.05% (−17.3 to 10.5%). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "defects_found_after_release_change_from_the_options"
+     ],
+     "text": "1 calculation",
+     "title": "How defects found after release, change compared with now (in %) is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about −4.84% (−19.9 to 5.02%)",
+      "p10": -19.907781819417867,
+      "p50": -4.840016330974544,
+      "p90": 5.021257064188833,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about 6.01% (−3.79 to 20%)",
+      "p10": -3.7859595392979846,
+      "p50": 6.01479448200121,
+      "p90": 19.987778472435732,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "about −2.05% (−17.3 to 10.5%)",
+      "p10": -17.28705275316018,
+      "p50": -2.0507917579457797,
+      "p90": 10.52642123040744,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Defects found after release, change compared with now (in %)",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: The brief gives no measure of code quality; defects that reach users after a release are a direct, commonly tracked reading of it."
+    },
+    "failed": []
+   },
+   {
+    "id": "maintain_code_quality_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Olumi's estimate of the target for 'Maintain code quality'",
+    "typed": false,
+    "detail": "Olumi's estimate of the target for 'Maintain code quality' · quantity · Proposed by Olumi: Maintaining reads as no worse than now: no rise in defects found after release. · 0%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Maintaining reads as no worse than now: no rise in defects found after release."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0%",
+     "title": "0%",
+     "edit": {
+      "prompt": "New figure for “Olumi's estimate of the target for 'Maintain code quality'” in %: one number, or a range like 40 to 70",
+      "ask": "For “Olumi's estimate of the target for 'Maintain code quality'”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Olumi's estimate of the target for 'Maintain code quality'",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Maintaining reads as no worse than now: no rise in defects found after release."
+    },
+    "failed": []
+   },
+   {
+    "id": "maintain_code_quality",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Maintain code quality",
+    "typed": false,
+    "detail": "Maintain code quality · goal · Theirs: “while maintaining code quality”",
+    "col": 4,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "○",
+      "text": "Maintainability, design and test coverage",
+      "title": "Maintainability, design and test coverage · left out · Proposed by Olumi: Defects found after release can hold steady while these get worse. · Defects found after release can hold steady while these get worse.",
+      "id": "maintainability_design_and_test_coverage",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Defects found after release can hold steady while these get worse."
+      }
+     }
+    ],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most 0%",
+     "title": "Which sign of code quality do you already track, such as defects found after release?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Maintain code quality",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “while maintaining code quality”"
+    },
+    "failed": []
+   },
+   {
+    "id": "spending_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in spending",
+    "typed": false,
+    "detail": "Change in spending · quantity · Proposed by Olumi: The budget is read as the extra spending each option brings; the brief does not say over what period. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The budget is read as the extra spending each option brings; the brief does not say over what period."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: about £112,000 (£90,100 to £140,000) · Hire two developers: about £137,000 (£110,000 to £171,000) · Hire a Tech lead and one developer: about £183,000 (£155,000 to £213,000)",
+     "title": "Middle 80% of this model's calculated values at the end of month 3, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. It rests on figures Olumi proposed. Hire a Tech lead: about £112,000 (£90,100 to £140,000); Hire two developers: about £137,000 (£110,000 to £171,000); Hire a Tech lead and one developer: about £183,000 (£155,000 to £213,000). Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "spending_change_from_the_options",
+      "lower_spending"
+     ],
+     "text": "1 calculation, 1 preference",
+     "title": "How Change in spending is worked out\npreference: Change in spending: lower",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation, 1 preference",
+     "face": "1 calculation, 1 preference",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "about £112,000 (£90,100 to £140,000)",
+      "p10": 90051.79171227003,
+      "p50": 112311.96428540822,
+      "p90": 139661.9470669782,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "about £137,000 (£110,000 to £171,000)",
+      "p10": 109847.63172981731,
+      "p50": 137085.14911675866,
+      "p90": 171487.12523328097,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "about £183,000 (£155,000 to £213,000)",
+      "p10": 154906.34925392785,
+      "p50": 182512.9345418268,
+      "p90": 213328.1720603989,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in spending",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: The budget is read as the extra spending each option brings; the brief does not say over what period."
+    },
+    "failed": []
+   },
+   {
+    "id": "stay_within_the_budget_bound",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The limit for 'Stay within the budget'",
+    "typed": false,
+    "detail": "The limit for 'Stay within the budget' · quantity · Theirs: “Our budget is £200,000” · £200,000",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£200,000",
+     "title": "£200,000",
+     "edit": {
+      "prompt": "New figure for “The limit for 'Stay within the budget'” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “The limit for 'Stay within the budget'”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The limit for 'Stay within the budget'",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "The team’s figure",
+     "title": "Theirs: “Our budget is £200,000”"
+    },
+    "failed": []
+   },
+   {
+    "id": "stay_within_the_budget",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Stay within the budget",
+    "typed": false,
+    "detail": "Stay within the budget · limit · Theirs: “Our budget is £200,000”",
+    "col": 4,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most £200,000",
+     "title": "Does the budget cover a year of salaries, or only what is spent before the launch?",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Stay within the budget",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “Our budget is £200,000”"
+    },
+    "failed": []
+   },
+   {
+    "id": "productivity_change_per_tech_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra tech lead on productivity",
+    "typed": false,
+    "detail": "Effect of each extra tech lead on productivity · quantity · Proposed by Olumi: A lead's first months go on hiring, reviews and decisions, so the team's output may dip a little or rise by the launch date. · Plausible range: −5 to 15 %/tech lead, most likely 5 %/tech lead",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A lead's first months go on hiring, reviews and decisions, so the team's output may dip a little or rise by the launch date."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−5 to 15 %/tech lead",
+     "title": "Plausible range: −5 to 15 %/tech lead, most likely 5 %/tech lead",
+     "edit": {
+      "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+      "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Effect of each extra tech lead on productivity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A lead's first months go on hiring, reviews and decisions, so the team's output may dip a little or rise by the launch date."
+    },
+    "failed": []
+   },
+   {
+    "id": "productivity_change_per_share_of_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect on productivity if Developers grew by as many again as there are now",
+    "typed": false,
+    "detail": "Effect on productivity if Developers grew by as many again as there are now · quantity · Proposed by Olumi: A team that doubled would add at most its own output again, much less while new people settle in before the launch date. · Plausible range: 0 to 60%, most likely 24%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A team that doubled would add at most its own output again, much less while new people settle in before the launch date."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0 to 60%",
+     "title": "Plausible range: 0 to 60%, most likely 24%",
+     "edit": {
+      "prompt": "New figure for “Effect on productivity if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+      "ask": "For “Effect on productivity if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A team that doubled would add at most its own output again, much less while new people settle in before the launch date."
+    },
+    "failed": []
+   },
+   {
+    "id": "developers_added_as_a_share_of_developers_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Developers added as a share of Developers now",
+    "typed": false,
+    "detail": "Developers added as a share of Developers now · quantity · Proposed by Olumi: What the options add, divided by their figure for Developers now. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: What the options add, divided by their figure for Developers now."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a Tech lead: 0 · Hire two developers: 0.333 · Hire a Tech lead and one developer: 0.167",
+     "title": "Middle 80% of this model's calculated values at the end of month 3, using the ranges shown; not a forecast; rounded to three figures. Under Hire a Tech lead and one developer it rests on figures Olumi proposed. Hire a Tech lead: 0; Hire two developers: 0.333; Hire a Tech lead and one developer: 0.167. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "developers_added_as_a_share_of_developers_now_def"
+     ],
+     "text": "1 calculation",
+     "title": "How Developers added as a share of Developers now is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_tech_lead",
+      "text": "0",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_two_developers",
+      "text": "0.333",
+      "p10": 0.3333333333333333,
+      "p50": 0.3333333333333333,
+      "p90": 0.3333333333333333,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     },
+     {
+      "option": "hire_a_tech_lead_and_one_developer",
+      "text": "0.167",
+      "p10": 0.16666666666666666,
+      "p50": 0.16666666666666666,
+      "p90": 0.16666666666666666,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Developers added as a share of Developers now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: What the options add, divided by their figure for Developers now."
+    },
+    "failed": []
+   },
+   {
+    "id": "no_change_percent",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "No change (%)",
+    "typed": false,
+    "detail": "No change (%) · quantity · Structure: A change is zero when nothing changes. · 0%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0%",
+     "title": "0%",
+     "edit": {
+      "prompt": "New figure for “No change (%)” in %: one number, or a range like 40 to 70",
+      "ask": "For “No change (%)”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "No change (%)",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": null,
+    "failed": []
+   },
+   {
+    "id": "defects_found_after_release_change_per_tech_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra tech lead on defects found after release",
+    "typed": false,
+    "detail": "Effect of each extra tech lead on defects found after release · quantity · Proposed by Olumi: Closer review and clearer technical decisions usually cut defects; a new lead may also unsettle habits at first. · Plausible range: −20 to 5 %/tech lead, most likely −5 %/tech lead",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Closer review and clearer technical decisions usually cut defects; a new lead may also unsettle habits at first."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−20 to 5 %/tech lead",
+     "title": "Plausible range: −20 to 5 %/tech lead, most likely −5 %/tech lead",
+     "edit": {
+      "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+      "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Closer review and clearer technical decisions usually cut defects; a new lead may also unsettle habits at first."
+    },
+    "failed": []
+   },
+   {
+    "id": "defects_found_after_release_change_per_share_of_developers",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect on defects found after release if Developers grew by as many again as there are now",
+    "typed": false,
+    "detail": "Effect on defects found after release if Developers grew by as many again as there are now · quantity · Proposed by Olumi: New developers on an unfamiliar codebase tend to add defects at first, more under a launch deadline, and more the larger their share of the team. · Plausible range: −12 to 60%, most likely 18%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: New developers on an unfamiliar codebase tend to add defects at first, more under a launch deadline, and more the larger their share of the team."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−12 to 60%",
+     "title": "Plausible range: −12 to 60%, most likely 18%",
+     "edit": {
+      "prompt": "New figure for “Effect on defects found after release if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+      "ask": "For “Effect on defects found after release if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: New developers on an unfamiliar codebase tend to add defects at first, more under a launch deadline, and more the larger their share of the team."
+    },
+    "failed": []
+   },
+   {
+    "id": "spending_change_per_tech_lead",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra tech lead on spending",
+    "typed": false,
+    "detail": "Effect of each extra tech lead on spending · quantity · Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK Tech lead. · Plausible range: £90,000 to £140,000/tech lead",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK Tech lead."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£90,000 to £140,000/tech lead",
+     "title": "Plausible range: £90,000 to £140,000/tech lead",
+     "edit": {
+      "prompt": "New figure for “Effect of each extra tech lead on spending” (GBP/tech lead): one number, or a range like 150 to 400",
+      "ask": "For “Effect of each extra tech lead on spending”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Effect of each extra tech lead on spending",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK Tech lead."
+    },
+    "failed": []
+   },
+   {
+    "id": "spending_change_per_developer",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra developer on spending",
+    "typed": false,
+    "detail": "Effect of each extra developer on spending · quantity · Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK mid-weight developer. · Plausible range: £55,000 to £85,000/developer",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK mid-weight developer."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£55,000 to £85,000/developer",
+     "title": "Plausible range: £55,000 to £85,000/developer",
+     "edit": {
+      "prompt": "New figure for “Effect of each extra developer on spending” (GBP/developer): one number, or a range like 150 to 400",
+      "ask": "For “Effect of each extra developer on spending”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Effect of each extra developer on spending",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: A typical year's employment cost and recruitment fee for a UK mid-weight developer."
+    },
+    "failed": []
+   },
+   {
+    "id": "no_change_gbp",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "No change (GBP)",
+    "typed": false,
+    "detail": "No change (GBP) · quantity · Structure: A change is zero when nothing changes. · £0",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£0",
+     "title": "£0",
+     "edit": {
+      "prompt": "New figure for “No change (GBP)” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “No change (GBP)”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "No change (GBP)",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": null,
+    "failed": []
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch_chance",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "How likely it is that A new hire adds little before the launch",
+    "typed": false,
+    "detail": "How likely it is that A new hire adds little before the launch · quantity · Proposed by Olumi: Hiring and settling in within three months is often missed in a tight market. · Plausible range: 20% to 50%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Hiring and settling in within three months is often missed in a tight market."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "20% to 50%",
+     "title": "Plausible range: 20% to 50%",
+     "edit": {
+      "prompt": "New figure for “How likely it is that A new hire adds little before the launch” in %: one number, or a range like 40 to 70",
+      "ask": "For “How likely it is that A new hire adds little before the launch”, type it in %: one number, or a range like 40 to 70."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Hiring and settling in within three months is often missed in a tight market."
+    },
+    "failed": []
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch_factor",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "How much of the change in productivity remains if it happens",
+    "typed": false,
+    "detail": "How much of the change in productivity remains if it happens · quantity · Proposed by Olumi: If the hire lands late, only part of their effect arrives before the launch date. · Plausible range: 0.1 to 0.6",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: If the hire lands late, only part of their effect arrives before the launch date."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0.1 to 0.6",
+     "title": "Plausible range: 0.1 to 0.6",
+     "edit": {
+      "prompt": "New figure for “How much of the change in productivity remains if it happens”: one number, or a range like 150 to 400",
+      "ask": "For “How much of the change in productivity remains if it happens”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "How much of the change in productivity remains if it happens",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: If the hire lands late, only part of their effect arrives before the launch date."
+    },
+    "failed": []
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "A new hire adds little before the launch",
+    "typed": false,
+    "detail": "A new hire adds little before the launch · risk · Proposed by Olumi: Recruiting and settling in often take much of a quarter, so a hire may contribute little before the launch date.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Recruiting and settling in often take much of a quarter, so a hire may contribute little before the launch date."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "A new hire adds little before the launch",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Recruiting and settling in often take much of a quarter, so a hire may contribute little before the launch date."
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "developers",
+    "to": "developers_with_the_option",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: Their figure now, plus what an option adds, less what it removes.",
+    "records": [
+     "developers_with_the_option_sum"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers"
+    },
+    "holds": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers"
+    }
+   },
+   {
+    "from": "developers_added",
+    "to": "developers_with_the_option",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: Their figure now, plus what an option adds, less what it removes.",
+    "records": [
+     "developers_with_the_option_sum"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers_added"
+    },
+    "holds": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers_added"
+    }
+   },
+   {
+    "from": "developers_added",
+    "to": "developers_added_as_a_share_of_developers_now",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "multiplies · Proposed by Olumi: What the options add, divided by their figure for Developers now.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers",
+    "to": "developers_added_as_a_share_of_developers_now",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "divides · Proposed by Olumi: What the options add, divided by their figure for Developers now.",
+    "records": [
+     "developers_added_as_a_share_of_developers_now_def"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "no_change_percent",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "productivity_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect of each extra tech lead on productivity · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "productivity_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−5 to 15 %/tech lead",
+     "title": "Effect of each extra tech lead on productivity · Plausible range: −5 to 15 %/tech lead, most likely 5 %/tech lead",
+     "figure": "productivity_change_per_tech_lead"
+    },
+    "remove": null,
+    "holds": {
+     "record": "productivity_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "productivity_change_per_tech_lead",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "productivity_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "productivity_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "developers_added_as_a_share_of_developers_now",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect on productivity if Developers grew by as many again as there are now · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "productivity_change_from_the_options"
+    ],
+    "effect": {
+     "text": "0 to 60%",
+     "title": "Effect on productivity if Developers grew by as many again as there are now · Plausible range: 0 to 60%, most likely 24%",
+     "figure": "productivity_change_per_share_of_developers"
+    },
+    "remove": null,
+    "holds": {
+     "record": "productivity_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    }
+   },
+   {
+    "from": "productivity_change_per_share_of_developers",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "productivity_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "productivity_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    }
+   },
+   {
+    "from": "no_change_percent",
+    "to": "defects_found_after_release_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "defects_found_after_release_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added",
+    "to": "defects_found_after_release_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect of each extra tech lead on defects found after release · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "defects_found_after_release_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−20 to 5 %/tech lead",
+     "title": "Effect of each extra tech lead on defects found after release · Plausible range: −20 to 5 %/tech lead, most likely −5 %/tech lead",
+     "figure": "defects_found_after_release_change_per_tech_lead"
+    },
+    "remove": null,
+    "holds": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "defects_found_after_release_change_per_tech_lead",
+    "to": "defects_found_after_release_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "defects_found_after_release_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "developers_added_as_a_share_of_developers_now",
+    "to": "defects_found_after_release_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect on defects found after release if Developers grew by as many again as there are now · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "defects_found_after_release_change_from_the_options"
+    ],
+    "effect": {
+     "text": "−12 to 60%",
+     "title": "Effect on defects found after release if Developers grew by as many again as there are now · Plausible range: −12 to 60%, most likely 18%",
+     "figure": "defects_found_after_release_change_per_share_of_developers"
+    },
+    "remove": null,
+    "holds": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    }
+   },
+   {
+    "from": "defects_found_after_release_change_per_share_of_developers",
+    "to": "defects_found_after_release_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "defects_found_after_release_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    }
+   },
+   {
+    "from": "no_change_gbp",
+    "to": "spending_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "spending_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added",
+    "to": "spending_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect of each extra tech lead on spending · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "spending_change_from_the_options"
+    ],
+    "effect": {
+     "text": "£90,000 to £140,000/tech lead",
+     "title": "Effect of each extra tech lead on spending · Plausible range: £90,000 to £140,000/tech lead",
+     "figure": "spending_change_per_tech_lead"
+    },
+    "remove": null,
+    "holds": {
+     "record": "spending_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "spending_change_per_tech_lead",
+    "to": "spending_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "spending_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "spending_change_from_the_options",
+     "part": "tech_leads_added"
+    }
+   },
+   {
+    "from": "developers_added",
+    "to": "spending_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "sized by Effect of each extra developer on spending · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "spending_change_from_the_options"
+    ],
+    "effect": {
+     "text": "£55,000 to £85,000/developer",
+     "title": "Effect of each extra developer on spending · Plausible range: £55,000 to £85,000/developer",
+     "figure": "spending_change_per_developer"
+    },
+    "remove": null,
+    "holds": {
+     "record": "spending_change_from_the_options",
+     "part": "developers_added"
+    }
+   },
+   {
+    "from": "spending_change_per_developer",
+    "to": "spending_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "spending_change_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "spending_change_from_the_options",
+     "part": "developers_added"
+    }
+   },
+   {
+    "from": "hire_a_tech_lead",
+    "to": "tech_leads_added_hire_a_tech_lead",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "tech_leads_added_hire_a_tech_lead",
+    "to": "tech_leads_added",
+    "kind": "replaces",
+    "label": "replaces",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "replaces Tech leads added",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_two_developers",
+    "to": "developers_added_hire_two_developers",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers_added_hire_two_developers",
+    "to": "developers_added",
+    "kind": "replaces",
+    "label": "replaces",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "replaces Developers added",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_a_tech_lead_and_one_developer",
+    "to": "tech_leads_added_hire_a_tech_lead",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_a_tech_lead_and_one_developer",
+    "to": "developers_added_hire_a_tech_lead_and_one_developer",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "developers_added_hire_a_tech_lead_and_one_developer",
+    "to": "developers_added",
+    "kind": "replaces",
+    "label": "replaces",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "replaces Developers added",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "productivity_change",
+    "to": "increase_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "increase_productivity_target",
+    "to": "increase_productivity",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "defects_found_after_release_change",
+    "to": "maintain_code_quality",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "maintain_code_quality_target",
+    "to": "maintain_code_quality",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "spending_change",
+    "to": "stay_within_the_budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "stay_within_the_budget_bound",
+    "to": "stay_within_the_budget",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "a_new_hire_adds_little_before_the_launch",
+    "to": "productivity_change",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Increase productivity’",
+   "lead": "Chance of ‘Increase productivity’, in this model on current information",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "Which option leads depends on Olumi's estimate of 'Effect of each extra tech lead on productivity': 'Hire two developers' leads when it is low, 'Hire a Tech lead and one developer' when it is high. Give yours with ✎.",
+    "title": "Which option leads depends on Olumi's estimate of 'Effect of each extra tech lead on productivity': 'Hire two developers' leads when it is low, 'Hire a Tech lead and one developer' when it is high. Give yours with ✎. It rests on Olumi's what-if ranges for 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%), 'How likely it is that A new hire adds little before the launch' (20% to 50%), 'How much of the change in productivity remains if it happens' (0.1 to 0.6). It rests on Olumi's proposed figures for 'A new hire adds little before the launch', 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [
+      "productivity_change_per_tech_lead",
+      "productivity_change_per_share_of_developers",
+      "a_new_hire_adds_little_before_the_launch_chance",
+      "a_new_hire_adds_little_before_the_launch_factor"
+     ],
+     "estimates": [
+      "developers_added_hire_a_tech_lead_and_one_developer",
+      "productivity_change_per_tech_lead",
+      "productivity_change_per_share_of_developers",
+      "a_new_hire_adds_little_before_the_launch_chance",
+      "a_new_hire_adds_little_before_the_launch_factor"
+     ],
+     "approx": []
+    },
+    "rests_on_text": "Rests on Olumi's 3 what-ifs and proposed figure for 'Hire a Tech lead and one developer: how many Developers'.",
+    "if_approved": null,
+    "option": null,
+    "aim_id": "increase_productivity",
+    "estimate": "productivity_change_per_tech_lead"
+   },
+   "waits_on": null,
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    },
+    {
+     "text": "about 74%: The chance that 'Hire a Tech lead' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead). Olumi has not modelled: Maintainability, design and test coverage.",
+     "title": "about 74%: The chance that 'Hire a Tech lead' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead). Olumi has not modelled: Maintainability, design and test coverage.",
+     "about": {
+      "kind": "chance",
+      "olumi": true,
+      "fact": "F11",
+      "range": false
+     }
+    },
+    {
+     "text": "about 22%: The chance that 'Hire two developers' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). Olumi has not modelled: Maintainability, design and test coverage.",
+     "title": "about 22%: The chance that 'Hire two developers' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). Olumi has not modelled: Maintainability, design and test coverage.",
+     "about": {
+      "kind": "chance",
+      "olumi": true,
+      "fact": "F12",
+      "range": false
+     }
+    },
+    {
+     "text": "about 58%: The chance that 'Hire a Tech lead and one developer' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead), 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. Olumi has not modelled: Maintainability, design and test coverage.",
+     "title": "about 58%: The chance that 'Hire a Tech lead and one developer' meets 'Maintain code quality', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead), 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. Olumi has not modelled: Maintainability, design and test coverage.",
+     "about": {
+      "kind": "chance",
+      "olumi": true,
+      "fact": "F13",
+      "range": false
+     }
+    },
+    {
+     "text": "over 99%: The chance that 'Hire a Tech lead' stays within 'Stay within the budget', in this model.",
+     "title": "over 99%: The chance that 'Hire a Tech lead' stays within 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F15",
+      "range": false
+     }
+    },
+    {
+     "text": "under 1%: The chance that 'Hire a Tech lead' goes outside 'Stay within the budget', in this model.",
+     "title": "under 1%: The chance that 'Hire a Tech lead' goes outside 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F16",
+      "range": false
+     }
+    },
+    {
+     "text": "about 99%: The chance that 'Hire two developers' stays within 'Stay within the budget', in this model.",
+     "title": "about 99%: The chance that 'Hire two developers' stays within 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F17",
+      "range": false
+     }
+    },
+    {
+     "text": "about 1%: The chance that 'Hire two developers' goes outside 'Stay within the budget', in this model.",
+     "title": "about 1%: The chance that 'Hire two developers' goes outside 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F18",
+      "range": false
+     }
+    },
+    {
+     "text": "about 77%: The chance that 'Hire a Tech lead and one developer' stays within 'Stay within the budget', in this model.",
+     "title": "about 77%: The chance that 'Hire a Tech lead and one developer' stays within 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F19",
+      "range": false
+     }
+    },
+    {
+     "text": "about 23%: The chance that 'Hire a Tech lead and one developer' goes outside 'Stay within the budget', in this model.",
+     "title": "about 23%: The chance that 'Hire a Tech lead and one developer' goes outside 'Stay within the budget', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F20",
+      "range": false
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect of each extra tech lead on productivity', not their figure: −5 to 15 %/tech lead. Basis: A lead's first months go on hiring, reviews and decisions, so the team's output may dip a little or rise by the launch date.",
+     "title": "Olumi's what-if for 'Effect of each extra tech lead on productivity', not their figure: −5 to 15 %/tech lead. Basis: A lead's first months go on hiring, reviews and decisions, so the team's output may dip a little or rise by the launch date.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect on productivity if Developers grew by as many again as there are now', not their figure: 0 to 60%. Basis: A team that doubled would add at most its own output again, much less while new people settle in before the launch date.",
+     "title": "Olumi's what-if for 'Effect on productivity if Developers grew by as many again as there are now', not their figure: 0 to 60%. Basis: A team that doubled would add at most its own output again, much less while new people settle in before the launch date.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect of each extra tech lead on defects found after release', not their figure: −20 to 5 %/tech lead. Basis: Closer review and clearer technical decisions usually cut defects; a new lead may also unsettle habits at first.",
+     "title": "Olumi's what-if for 'Effect of each extra tech lead on defects found after release', not their figure: −20 to 5 %/tech lead. Basis: Closer review and clearer technical decisions usually cut defects; a new lead may also unsettle habits at first.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F3",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect on defects found after release if Developers grew by as many again as there are now', not their figure: −12 to 60%. Basis: New developers on an unfamiliar codebase tend to add defects at first, more under a launch deadline, and more the larger their share of the team.",
+     "title": "Olumi's what-if for 'Effect on defects found after release if Developers grew by as many again as there are now', not their figure: −12 to 60%. Basis: New developers on an unfamiliar codebase tend to add defects at first, more under a launch deadline, and more the larger their share of the team.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F4",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'How likely it is that A new hire adds little before the launch', not their figure: 20% to 50%. Basis: Hiring and settling in within three months is often missed in a tight market.",
+     "title": "Olumi's what-if for 'How likely it is that A new hire adds little before the launch', not their figure: 20% to 50%. Basis: Hiring and settling in within three months is often missed in a tight market.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F5",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'How much of the change in productivity remains if it happens', not their figure: 0.1 to 0.6. Basis: If the hire lands late, only part of their effect arrives before the launch date.",
+     "title": "Olumi's what-if for 'How much of the change in productivity remains if it happens', not their figure: 0.1 to 0.6. Basis: If the hire lands late, only part of their effect arrives before the launch date.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F6",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's estimate of the target for 'Maintain code quality': 0%.",
+     "title": "Olumi's estimate of the target for 'Maintain code quality': 0%.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F32",
+      "range": false
+     }
+    }
+   ],
+   "readings": [
+    {
+     "aim_id": "maintain_code_quality",
+     "kind": "goal",
+     "source": "proposal",
+     "aggregation": "end",
+     "text": "Olumi reads this at the end of 3 months; change it if you meant over the period or on average."
+    }
+   ],
+   "timing": [],
+   "science": [
+    {
+     "id": "F34",
+     "kind": "worth",
+     "line": "'Effect of each extra tech lead on productivity' (Olumi's estimate) · aim 'Increase productivity' · worth finding out",
+     "hover": "In this model: 'Effect of each extra tech lead on productivity' (Olumi's estimate); 'Increase productivity'; within: Stay within the budget; worth finding out.\nabout 12 points, an estimate",
+     "aim": "increase_productivity",
+     "limits": [
+      "stay_within_the_budget"
+     ],
+     "figure": {
+      "label": "Effect of each extra tech lead on productivity",
+      "whose": "olumi",
+      "id": "productivity_change_per_tech_lead",
+      "mark": null,
+      "give": {
+       "text": "Give your figure with",
+       "edit": {
+        "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+        "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+       }
+      }
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F36",
+     "kind": "worth",
+     "line": "'Effect of each extra tech lead on defects found after release' (Olumi's estimate) · aim 'Maintain code quality' · worth finding out",
+     "hover": "In this model: 'Effect of each extra tech lead on defects found after release' (Olumi's estimate); 'Maintain code quality'; within: Stay within the budget; worth finding out.\nabout 6 points, an estimate",
+     "aim": "maintain_code_quality",
+     "limits": [
+      "stay_within_the_budget"
+     ],
+     "figure": {
+      "label": "Effect of each extra tech lead on defects found after release",
+      "whose": "olumi",
+      "id": "defects_found_after_release_change_per_tech_lead",
+      "mark": null,
+      "give": {
+       "text": "Give your figure with",
+       "edit": {
+        "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+        "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+       }
+      }
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F38",
+     "kind": "middle",
+     "line": "'Hire a Tech lead' · aim 'Increase productivity': misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire a Tech lead', for 'Increase productivity': misses it. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead).",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F39",
+     "kind": "middle",
+     "line": "'Hire two developers' · aim 'Increase productivity': misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire two developers', for 'Increase productivity': misses it. It rests on Olumi's what-if ranges for 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%).",
+     "aim": "increase_productivity",
+     "option": "hire_two_developers",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F40",
+     "kind": "middle",
+     "line": "'Hire a Tech lead and one developer' · aim 'Increase productivity': misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire a Tech lead and one developer', for 'Increase productivity': misses it. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on productivity' (−5 to 15 %/tech lead), 'Effect on productivity if Developers grew by as many again as there are now' (0 to 60%). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them.",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead_and_one_developer",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F41",
+     "kind": "middle",
+     "line": "'Hire a Tech lead' · aim 'Maintain code quality': meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire a Tech lead', for 'Maintain code quality': meets it. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead). Olumi has not modelled: Maintainability, design and test coverage.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F42",
+     "kind": "middle",
+     "line": "'Hire two developers' · aim 'Maintain code quality': misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire two developers', for 'Maintain code quality': misses it. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). Olumi has not modelled: Maintainability, design and test coverage.",
+     "aim": "maintain_code_quality",
+     "option": "hire_two_developers",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F43",
+     "kind": "middle",
+     "line": "'Hire a Tech lead and one developer' · aim 'Maintain code quality': meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire a Tech lead and one developer', for 'Maintain code quality': meets it. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 0%), not yet confirmed by them. It rests on Olumi's what-if ranges for 'Effect of each extra tech lead on defects found after release' (−20 to 5 %/tech lead), 'Effect on defects found after release if Developers grew by as many again as there are now' (−12 to 60%). It rests on Olumi's proposed figures for 'Hire a Tech lead and one developer: how many Developers', not yet confirmed by them. It rests on Olumi's proposed settings: 'Hire a Tech lead and one developer' using 'Hire a Tech lead: how many Tech leads', not yet confirmed by them. Olumi has not modelled: Maintainability, design and test coverage.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead_and_one_developer",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [
+    {
+     "id": "F44",
+     "kind": "chance",
+     "line": "For 'Hire a Tech lead' to meet 'Maintain code quality' more often than not, 'Effect of each extra tech lead on defects found after release' would have to be below about 0.122 %/tech lead (between −0.312 and 0.982 %/tech lead).",
+     "hover": "In this model, for 'Hire a Tech lead' to meet 'Maintain code quality' more often than not, 'Effect of each extra tech lead on defects found after release' (Olumi's estimate) would have to be below about 0.122 %/tech lead. In this model's samples, the chance of 'Hire a Tech lead' meeting 'Maintain code quality' passes 50% at about that value; the crossing sits between −0.312 and 0.982 %/tech lead, which is how far the samples leave it uncertain.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead",
+     "versus": null,
+     "figure": {
+      "id": "defects_found_after_release_change_per_tech_lead",
+      "label": "Effect of each extra tech lead on defects found after release",
+      "whose": "olumi"
+     },
+     "side": "below",
+     "at": 0.12166326519512669,
+     "low": -0.3116561495278353,
+     "high": 0.9814240086930673,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F45",
+     "kind": "lead",
+     "line": "For 'Hire a Tech lead' to stay more likely than 'Hire a Tech lead and one developer' to achieve 'Maintain code quality', 'Effect of each extra tech lead on defects found after release' would have to be below about 0.659 %/tech lead (between −0.312 and 0.982 %/tech lead).",
+     "hover": "In this model, for 'Hire a Tech lead' to stay more likely than 'Hire a Tech lead and one developer' to achieve 'Maintain code quality', 'Effect of each extra tech lead on defects found after release' (Olumi's estimate) would have to be below about 0.659 %/tech lead. In this model's samples, the two options swap places in their chances of meeting 'Maintain code quality' at about that value; the crossing sits between −0.312 and 0.982 %/tech lead, which is how far the samples leave it uncertain.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead",
+     "versus": "hire_a_tech_lead_and_one_developer",
+     "figure": {
+      "id": "defects_found_after_release_change_per_tech_lead",
+      "label": "Effect of each extra tech lead on defects found after release",
+      "whose": "olumi"
+     },
+     "side": "below",
+     "at": 0.6591019751189418,
+     "low": -0.3116561495278353,
+     "high": 0.9814240086930673,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "increase_productivity",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_separated",
+       "text": "no option is clearly more likely than another to achieve 'Increase productivity', so no crossing is worked out: it is worked out only where one option is clearly ahead",
+       "line": "No option is clearly more likely than another to achieve 'Increase productivity', so no crossing is worked out: it is worked out only where one option is clearly ahead."
+      }
+     ]
+    },
+    {
+     "aim": "maintain_code_quality",
+     "lines": [
+      "F44",
+      "F45"
+     ],
+     "silent": []
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [
+    {
+     "id": "F52",
+     "kind": "goal",
+     "line": "About 61% of the variation in whether 'Hire a Tech lead' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 39% is not attributed to any one range.",
+     "hover": "About 61% of the variation in whether 'Hire a Tech lead' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 39% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead",
+     "olumi_share": 0.606459370136337,
+     "person_share": 0,
+     "unassigned": 0.393540629863663,
+     "figures": [
+      {
+       "id": "productivity_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on productivity",
+       "whose": "olumi",
+       "share": 0.6011200432159886,
+       "text": "about 60%",
+       "line": "'Effect of each extra tech lead on productivity' (Olumi's estimate) · about 60%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_chance",
+       "label": "How likely it is that A new hire adds little before the launch",
+       "whose": "olumi",
+       "share": 0.004063759302334904,
+       "text": "under 1%",
+       "line": "'How likely it is that A new hire adds little before the launch' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How likely it is that A new hire adds little before the launch” in %: one number, or a range like 40 to 70",
+         "ask": "For “How likely it is that A new hire adds little before the launch”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_factor",
+       "label": "How much of the change in productivity remains if it happens",
+       "whose": "olumi",
+       "share": 0.0019014350713700136,
+       "text": "under 1%",
+       "line": "'How much of the change in productivity remains if it happens' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How much of the change in productivity remains if it happens”: one number, or a range like 150 to 400",
+         "ask": "For “How much of the change in productivity remains if it happens”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "productivity_change_per_share_of_developers",
+       "label": "Effect on productivity if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0,
+       "text": "under 1%",
+       "line": "'Effect on productivity if Developers grew by as many again as there are now' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on productivity if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on productivity if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F53",
+     "kind": "goal",
+     "line": "About 99% of the variation in whether 'Hire a Tech lead' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 1% is not attributed to any one range.",
+     "hover": "About 99% of the variation in whether 'Hire a Tech lead' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 1% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead",
+     "olumi_share": 0.9891938964894514,
+     "person_share": 0,
+     "unassigned": 0.01080610351054856,
+     "figures": [
+      {
+       "id": "defects_found_after_release_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on defects found after release",
+       "whose": "olumi",
+       "share": 0.9890341408646327,
+       "text": "about 99%",
+       "line": "'Effect of each extra tech lead on defects found after release' (Olumi's estimate) · about 99%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "defects_found_after_release_change_per_share_of_developers",
+       "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0.00015975562481871446,
+       "text": "under 1%",
+       "line": "'Effect on defects found after release if Developers grew by as many again as there are now' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on defects found after release if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on defects found after release if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F54",
+     "kind": "goal",
+     "line": "About 58% of the variation in whether 'Hire two developers' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 42% is not attributed to any one range.",
+     "hover": "About 58% of the variation in whether 'Hire two developers' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 42% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "increase_productivity",
+     "option": "hire_two_developers",
+     "olumi_share": 0.5787088007497052,
+     "person_share": 0,
+     "unassigned": 0.4212911992502948,
+     "figures": [
+      {
+       "id": "productivity_change_per_share_of_developers",
+       "label": "Effect on productivity if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0.5670086035727034,
+       "text": "about 57%",
+       "line": "'Effect on productivity if Developers grew by as many again as there are now' (Olumi's estimate) · about 57%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on productivity if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on productivity if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_chance",
+       "label": "How likely it is that A new hire adds little before the launch",
+       "whose": "olumi",
+       "share": 0.00788837416749414,
+       "text": "about 1%",
+       "line": "'How likely it is that A new hire adds little before the launch' (Olumi's estimate) · about 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How likely it is that A new hire adds little before the launch” in %: one number, or a range like 40 to 70",
+         "ask": "For “How likely it is that A new hire adds little before the launch”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_factor",
+       "label": "How much of the change in productivity remains if it happens",
+       "whose": "olumi",
+       "share": 0.0038724481112024757,
+       "text": "under 1%",
+       "line": "'How much of the change in productivity remains if it happens' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How much of the change in productivity remains if it happens”: one number, or a range like 150 to 400",
+         "ask": "For “How much of the change in productivity remains if it happens”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "productivity_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on productivity",
+       "whose": "olumi",
+       "share": 0,
+       "text": "under 1%",
+       "line": "'Effect of each extra tech lead on productivity' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F55",
+     "kind": "goal",
+     "line": "About 98% of the variation in whether 'Hire two developers' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range.",
+     "hover": "About 98% of the variation in whether 'Hire two developers' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "maintain_code_quality",
+     "option": "hire_two_developers",
+     "olumi_share": 0.9820641466846612,
+     "person_share": 0,
+     "unassigned": 0.017935853315338757,
+     "figures": [
+      {
+       "id": "defects_found_after_release_change_per_share_of_developers",
+       "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0.9828936017293979,
+       "text": "about 98%",
+       "line": "'Effect on defects found after release if Developers grew by as many again as there are now' (Olumi's estimate) · about 98%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on defects found after release if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on defects found after release if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "defects_found_after_release_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on defects found after release",
+       "whose": "olumi",
+       "share": 0,
+       "text": "under 1%",
+       "line": "'Effect of each extra tech lead on defects found after release' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F56",
+     "kind": "limit",
+     "line": "About 42% of the variation in whether 'Hire two developers' stays within 'Stay within the budget' traces to ranges Olumi estimated, counting each figure on its own; about 58% is not attributed to any one range.",
+     "hover": "About 42% of the variation in whether 'Hire two developers' stays within 'Stay within the budget' traces to ranges Olumi estimated, counting each figure on its own; about 58% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "stay_within_the_budget",
+     "option": "hire_two_developers",
+     "olumi_share": 0.4180433716146836,
+     "person_share": 0,
+     "unassigned": 0.5819566283853164,
+     "figures": [
+      {
+       "id": "spending_change_per_developer",
+       "label": "Effect of each extra developer on spending",
+       "whose": "olumi",
+       "share": 0.41721466637271326,
+       "text": "about 42%",
+       "line": "'Effect of each extra developer on spending' (Olumi's estimate) · about 42%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra developer on spending” (GBP/developer): one number, or a range like 150 to 400",
+         "ask": "For “Effect of each extra developer on spending”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "spending_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on spending",
+       "whose": "olumi",
+       "share": 0.000828705241970334,
+       "text": "under 1%",
+       "line": "'Effect of each extra tech lead on spending' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on spending” (GBP/tech lead): one number, or a range like 150 to 400",
+         "ask": "For “Effect of each extra tech lead on spending”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F57",
+     "kind": "goal",
+     "line": "About 43% of the variation in whether 'Hire a Tech lead and one developer' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 57% is not attributed to any one range.",
+     "hover": "About 43% of the variation in whether 'Hire a Tech lead and one developer' meets 'Increase productivity' traces to ranges Olumi estimated, counting each figure on its own; about 57% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "increase_productivity",
+     "option": "hire_a_tech_lead_and_one_developer",
+     "olumi_share": 0.4263310413698756,
+     "person_share": 0,
+     "unassigned": 0.5736689586301245,
+     "figures": [
+      {
+       "id": "productivity_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on productivity",
+       "whose": "olumi",
+       "share": 0.33233975190423193,
+       "text": "about 33%",
+       "line": "'Effect of each extra tech lead on productivity' (Olumi's estimate) · about 33%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "productivity_change_per_share_of_developers",
+       "label": "Effect on productivity if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0.07772357466849092,
+       "text": "about 8%",
+       "line": "'Effect on productivity if Developers grew by as many again as there are now' (Olumi's estimate) · about 8%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on productivity if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on productivity if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_chance",
+       "label": "How likely it is that A new hire adds little before the launch",
+       "whose": "olumi",
+       "share": 0.01057339085438738,
+       "text": "about 1%",
+       "line": "'How likely it is that A new hire adds little before the launch' (Olumi's estimate) · about 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How likely it is that A new hire adds little before the launch” in %: one number, or a range like 40 to 70",
+         "ask": "For “How likely it is that A new hire adds little before the launch”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "a_new_hire_adds_little_before_the_launch_factor",
+       "label": "How much of the change in productivity remains if it happens",
+       "whose": "olumi",
+       "share": 0.005694323942765412,
+       "text": "about 1%",
+       "line": "'How much of the change in productivity remains if it happens' (Olumi's estimate) · about 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “How much of the change in productivity remains if it happens”: one number, or a range like 150 to 400",
+         "ask": "For “How much of the change in productivity remains if it happens”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F58",
+     "kind": "goal",
+     "line": "About 71% of the variation in whether 'Hire a Tech lead and one developer' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 29% is not attributed to any one range.",
+     "hover": "About 71% of the variation in whether 'Hire a Tech lead and one developer' meets 'Maintain code quality' traces to ranges Olumi estimated, counting each figure on its own; about 29% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "maintain_code_quality",
+     "option": "hire_a_tech_lead_and_one_developer",
+     "olumi_share": 0.7114283609951888,
+     "person_share": 0,
+     "unassigned": 0.2885716390048112,
+     "figures": [
+      {
+       "id": "defects_found_after_release_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on defects found after release",
+       "whose": "olumi",
+       "share": 0.5707700109461853,
+       "text": "about 57%",
+       "line": "'Effect of each extra tech lead on defects found after release' (Olumi's estimate) · about 57%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "defects_found_after_release_change_per_share_of_developers",
+       "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "share": 0.14065835004900354,
+       "text": "about 14%",
+       "line": "'Effect on defects found after release if Developers grew by as many again as there are now' (Olumi's estimate) · about 14%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on defects found after release if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on defects found after release if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "id": "F59",
+     "kind": "limit",
+     "line": "About 66% of the variation in whether 'Hire a Tech lead and one developer' stays within 'Stay within the budget' traces to ranges Olumi estimated, counting each figure on its own; about 34% is not attributed to any one range.",
+     "hover": "About 66% of the variation in whether 'Hire a Tech lead and one developer' stays within 'Stay within the budget' traces to ranges Olumi estimated, counting each figure on its own; about 34% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "stay_within_the_budget",
+     "option": "hire_a_tech_lead_and_one_developer",
+     "olumi_share": 0.6573763500286997,
+     "person_share": 0,
+     "unassigned": 0.34262364997130035,
+     "figures": [
+      {
+       "id": "spending_change_per_tech_lead",
+       "label": "Effect of each extra tech lead on spending",
+       "whose": "olumi",
+       "share": 0.5118014185285263,
+       "text": "about 51%",
+       "line": "'Effect of each extra tech lead on spending' (Olumi's estimate) · about 51%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on spending” (GBP/tech lead): one number, or a range like 150 to 400",
+         "ask": "For “Effect of each extra tech lead on spending”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "spending_change_per_developer",
+       "label": "Effect of each extra developer on spending",
+       "whose": "olumi",
+       "share": 0.1455749315001733,
+       "text": "about 15%",
+       "line": "'Effect of each extra developer on spending' (Olumi's estimate) · about 15%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra developer on spending” (GBP/developer): one number, or a range like 150 to 400",
+         "ask": "For “Effect of each extra developer on spending”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "find_out": [
+    {
+     "aim": "increase_productivity",
+     "line": "In this model's samples, which of the options compared is most likely to meet 'Increase productivity' while staying within 'Stay within the budget' differs with the value of each of these figures. They are in the order of the model's estimate of what knowing each is worth, largest first; the order is approximate.",
+     "compared": [
+      {
+       "id": "hire_a_tech_lead",
+       "label": "Hire a Tech lead"
+      },
+      {
+       "id": "hire_two_developers",
+       "label": "Hire two developers"
+      },
+      {
+       "id": "hire_a_tech_lead_and_one_developer",
+       "label": "Hire a Tech lead and one developer"
+      }
+     ],
+     "not_compared": [],
+     "within": [
+      {
+       "id": "stay_within_the_budget",
+       "label": "Stay within the budget"
+      }
+     ],
+     "figures": [
+      {
+       "id": "productivity_change_per_tech_lead",
+       "fact": "F34",
+       "label": "Effect of each extra tech lead on productivity",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 11.78,
+       "estimate_text": "about 12 points, an estimate",
+       "line": "'Effect of each extra tech lead on productivity' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on productivity” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on productivity”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "productivity_change_per_share_of_developers",
+       "fact": "F35",
+       "label": "Effect on productivity if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 11.67,
+       "estimate_text": "about 12 points, an estimate",
+       "line": "'Effect on productivity if Developers grew by as many again as there are now' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on productivity if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on productivity if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    },
+    {
+     "aim": "maintain_code_quality",
+     "line": "In this model's samples, which of the options compared is most likely to meet 'Maintain code quality' while staying within 'Stay within the budget' differs with the value of each of these figures. They are in the order of the model's estimate of what knowing each is worth, largest first; the order is approximate.",
+     "compared": [
+      {
+       "id": "hire_a_tech_lead",
+       "label": "Hire a Tech lead"
+      },
+      {
+       "id": "hire_two_developers",
+       "label": "Hire two developers"
+      },
+      {
+       "id": "hire_a_tech_lead_and_one_developer",
+       "label": "Hire a Tech lead and one developer"
+      }
+     ],
+     "not_compared": [],
+     "within": [
+      {
+       "id": "stay_within_the_budget",
+       "label": "Stay within the budget"
+      }
+     ],
+     "figures": [
+      {
+       "id": "defects_found_after_release_change_per_tech_lead",
+       "fact": "F36",
+       "label": "Effect of each extra tech lead on defects found after release",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 5.66,
+       "estimate_text": "about 6 points, an estimate",
+       "line": "'Effect of each extra tech lead on defects found after release' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect of each extra tech lead on defects found after release” in %/tech lead: one number, or a range like 40 to 70",
+         "ask": "For “Effect of each extra tech lead on defects found after release”, type it in %/tech lead: one number, or a range like 40 to 70."
+        }
+       }
+      },
+      {
+       "id": "defects_found_after_release_change_per_share_of_developers",
+       "fact": "F37",
+       "label": "Effect on defects found after release if Developers grew by as many again as there are now",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 5.4,
+       "estimate_text": "about 5 points, an estimate",
+       "line": "'Effect on defects found after release if Developers grew by as many again as there are now' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “Effect on defects found after release if Developers grew by as many again as there are now” in %: one number, or a range like 40 to 70",
+         "ask": "For “Effect on defects found after release if Developers grew by as many again as there are now”, type it in %: one number, or a range like 40 to 70."
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "find_out_heading": "Worth finding out",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Increase productivity’."
+    }
+   ]
+  },
+  "edit_base": 9,
+  "holdable": [
+   {
+    "link": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers"
+    },
+    "from": "developers",
+    "to": "developers_with_the_option",
+    "text": "'Developers' → 'Developers with the option'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "developers_with_the_option_sum",
+     "part": "developers_added"
+    },
+    "from": "developers_added",
+    "to": "developers_with_the_option",
+    "text": "'Developers added' → 'Developers with the option'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "productivity_change_from_the_options",
+     "part": "tech_leads_added"
+    },
+    "from": "tech_leads_added",
+    "to": "productivity_change",
+    "text": "'Tech leads added' → 'productivity, change compared with now (in %)'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "productivity_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    },
+    "from": "developers_added_as_a_share_of_developers_now",
+    "to": "productivity_change",
+    "text": "'Developers added as a share of Developers now' → 'productivity, change compared with now (in %)'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "tech_leads_added"
+    },
+    "from": "tech_leads_added",
+    "to": "defects_found_after_release_change",
+    "text": "'Tech leads added' → 'defects found after release, change compared with now (in %)'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "defects_found_after_release_change_from_the_options",
+     "part": "developers_added_as_a_share_of_developers_now"
+    },
+    "from": "developers_added_as_a_share_of_developers_now",
+    "to": "defects_found_after_release_change",
+    "text": "'Developers added as a share of Developers now' → 'defects found after release, change compared with now (in %)'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "spending_change_from_the_options",
+     "part": "tech_leads_added"
+    },
+    "from": "tech_leads_added",
+    "to": "spending_change",
+    "text": "'Tech leads added' → 'Change in spending'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "spending_change_from_the_options",
+     "part": "developers_added"
+    },
+    "from": "developers_added",
+    "to": "spending_change",
+    "text": "'Developers added' → 'Change in spending'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "productivity_change",
+   "value": 10,
+   "unit": "%",
+   "text": "a rise of at least 10%",
+   "title": "10%",
+   "side": "at_least"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "One risk captured, all Olumi's so far.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks you have not listed.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "developers",
+    "family": "quantity",
+    "label": "Developers"
+   },
+   {
+    "id": "tech_leads_added",
+    "family": "quantity",
+    "label": "Tech leads added"
+   },
+   {
+    "id": "tech_leads_added_hire_a_tech_lead",
+    "family": "quantity",
+    "label": "Hire a Tech lead: how many Tech leads"
+   },
+   {
+    "id": "developers_added",
+    "family": "quantity",
+    "label": "Developers added"
+   },
+   {
+    "id": "developers_added_hire_two_developers",
+    "family": "quantity",
+    "label": "Hire two developers: how many Developers"
+   },
+   {
+    "id": "developers_added_hire_a_tech_lead_and_one_developer",
+    "family": "quantity",
+    "label": "Hire a Tech lead and one developer: how many Developers"
+   },
+   {
+    "id": "hire_a_tech_lead",
+    "family": "option",
+    "label": "Hire a Tech lead"
+   },
+   {
+    "id": "hire_two_developers",
+    "family": "option",
+    "label": "Hire two developers"
+   },
+   {
+    "id": "hire_a_tech_lead_and_one_developer",
+    "family": "option",
+    "label": "Hire a Tech lead and one developer"
+   },
+   {
+    "id": "developers_with_the_option",
+    "family": "quantity",
+    "label": "Developers with the option"
+   },
+   {
+    "id": "developers_with_the_option_sum",
+    "family": "relation",
+    "label": "how Developers with the option is worked out"
+   },
+   {
+    "id": "productivity_change",
+    "family": "quantity",
+    "label": "productivity, change compared with now (in %)"
+   },
+   {
+    "id": "increase_productivity_target",
+    "family": "quantity",
+    "label": "The target for 'Increase productivity'"
+   },
+   {
+    "id": "time_to_the_launch_date",
+    "family": "quantity",
+    "label": "Time to the launch date"
+   },
+   {
+    "id": "increase_productivity",
+    "family": "goal",
+    "label": "Increase productivity"
+   },
+   {
+    "id": "defects_found_after_release_change",
+    "family": "quantity",
+    "label": "defects found after release, change compared with now (in %)"
+   },
+   {
+    "id": "maintainability_design_and_test_coverage",
+    "family": "left_out",
+    "label": "Maintainability, design and test coverage",
+    "why": "Defects found after release can hold steady while these get worse.",
+    "quote": null
+   },
+   {
+    "id": "maintain_code_quality_target",
+    "family": "quantity",
+    "label": "Olumi's estimate of the target for 'Maintain code quality'"
+   },
+   {
+    "id": "maintain_code_quality",
+    "family": "goal",
+    "label": "Maintain code quality"
+   },
+   {
+    "id": "spending_change",
+    "family": "quantity",
+    "label": "Change in spending"
+   },
+   {
+    "id": "stay_within_the_budget_bound",
+    "family": "quantity",
+    "label": "The limit for 'Stay within the budget'"
+   },
+   {
+    "id": "stay_within_the_budget",
+    "family": "limit",
+    "label": "Stay within the budget"
+   },
+   {
+    "id": "productivity_change_per_tech_lead",
+    "family": "quantity",
+    "label": "Effect of each extra tech lead on productivity"
+   },
+   {
+    "id": "productivity_change_per_share_of_developers",
+    "family": "quantity",
+    "label": "Effect on productivity if Developers grew by as many again as there are now"
+   },
+   {
+    "id": "developers_added_as_a_share_of_developers_now",
+    "family": "quantity",
+    "label": "Developers added as a share of Developers now"
+   },
+   {
+    "id": "developers_added_as_a_share_of_developers_now_def",
+    "family": "relation",
+    "label": "how Developers added as a share of Developers now is worked out"
+   },
+   {
+    "id": "no_change_percent",
+    "family": "quantity",
+    "label": "No change (%)"
+   },
+   {
+    "id": "productivity_change_from_the_options",
+    "family": "relation",
+    "label": "how productivity, change compared with now (in %) is worked out"
+   },
+   {
+    "id": "defects_found_after_release_change_per_tech_lead",
+    "family": "quantity",
+    "label": "Effect of each extra tech lead on defects found after release"
+   },
+   {
+    "id": "defects_found_after_release_change_per_share_of_developers",
+    "family": "quantity",
+    "label": "Effect on defects found after release if Developers grew by as many again as there are now"
+   },
+   {
+    "id": "defects_found_after_release_change_from_the_options",
+    "family": "relation",
+    "label": "how defects found after release, change compared with now (in %) is worked out"
+   },
+   {
+    "id": "spending_change_per_tech_lead",
+    "family": "quantity",
+    "label": "Effect of each extra tech lead on spending"
+   },
+   {
+    "id": "spending_change_per_developer",
+    "family": "quantity",
+    "label": "Effect of each extra developer on spending"
+   },
+   {
+    "id": "no_change_gbp",
+    "family": "quantity",
+    "label": "No change (GBP)"
+   },
+   {
+    "id": "spending_change_from_the_options",
+    "family": "relation",
+    "label": "how Change in spending is worked out"
+   },
+   {
+    "id": "lower_spending",
+    "family": "preference",
+    "label": "Change in spending: lower"
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch_chance",
+    "family": "quantity",
+    "label": "How likely it is that A new hire adds little before the launch"
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch_factor",
+    "family": "quantity",
+    "label": "How much of the change in productivity remains if it happens"
+   },
+   {
+    "id": "a_new_hire_adds_little_before_the_launch",
+    "family": "risk",
+    "label": "A new hire adds little before the launch"
+   },
+   {
+    "id": "writer_we_re_lacking_leadership",
+    "family": "claim",
+    "label": "we're lacking leadership"
+   },
+   {
+    "id": "test_whether_leadership_is_what_holds_delivery_back_now_rather_t",
+    "family": "condition",
+    "label": "Test whether leadership is what holds delivery back now, rather than unclear scope or slow reviews: neither hire helps if the bottleneck is elsewhere."
+   },
+   {
+    "id": "whether_the_launch_itself_lands_on_time",
+    "family": "left_out",
+    "label": "Whether the launch itself lands on time",
+    "why": "The brief gives no scope or remaining work, so the launch date is used only as the time the aims are read over.",
+    "quote": null
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [
+   {
+    "option": "hire_a_tech_lead",
+    "aim": "maintain_code_quality",
+    "fact": "F44",
+    "kind": "chance",
+    "text": "Reconsider if 'Effect of each extra tech lead on defects found after release' comes in above about 0.122 %/tech lead (between −0.312 and 0.982 %/tech lead): in this model, 'Hire a Tech lead' then meets 'Maintain code quality' less often than not."
+   },
+   {
+    "option": "hire_a_tech_lead",
+    "aim": "maintain_code_quality",
+    "fact": "F45",
+    "kind": "lead",
+    "text": "Reconsider if 'Effect of each extra tech lead on defects found after release' comes in above about 0.659 %/tech lead (between −0.312 and 0.982 %/tech lead): in this model, 'Hire a Tech lead and one developer' is then more likely than 'Hire a Tech lead' to achieve 'Maintain code quality'."
+   }
+  ],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "developers",
+    "label": "Developers"
+   },
+   {
+    "id": "tech_leads_added",
+    "label": "Tech leads added"
+   },
+   {
+    "id": "tech_leads_added_hire_a_tech_lead",
+    "label": "Hire a Tech lead: how many Tech leads"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 7,
+   "by": "Paul",
+   "version": "version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Hire a Tech lead or two developers?",
+   "answer": {
+    "answer": [
+     {
+      "text": "Noted."
+     }
+    ],
+    "why": [],
+    "next": {
+     "label": "What evidence would settle it?",
+     "text": [
+      {
+       "text": "Check."
+      }
+     ],
+     "about": [],
+     "at": null,
+     "newest": true,
+     "move": "gather_evidence"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "developers": "Please change “Developers”: ",
+   "tech_leads_added": "Please change “Tech leads added”: ",
+   "tech_leads_added_hire_a_tech_lead": "Please change “Hire a Tech lead: how many Tech leads”: ",
+   "developers_added": "Please change “Developers added”: ",
+   "developers_added_hire_two_developers": "Please change “Hire two developers: how many Developers”: ",
+   "developers_added_hire_a_tech_lead_and_one_developer": "Please change “Hire a Tech lead and one developer: how many Developers”: ",
+   "hire_a_tech_lead": "Please change “Hire a Tech lead”: ",
+   "hire_two_developers": "Please change “Hire two developers”: ",
+   "hire_a_tech_lead_and_one_developer": "Please change “Hire a Tech lead and one developer”: ",
+   "developers_with_the_option": "Please change “Developers with the option”: ",
+   "developers_with_the_option_sum": "Please change “how Developers with the option is worked out”: ",
+   "productivity_change": "Please change “productivity, change compared with now (in %)”: ",
+   "increase_productivity_target": "Please change “The target for 'Increase productivity'”: ",
+   "time_to_the_launch_date": "Please change “Time to the launch date”: ",
+   "increase_productivity": "Please change “Increase productivity”: ",
+   "defects_found_after_release_change": "Please change “defects found after release, change compared with now (in %)”: ",
+   "maintainability_design_and_test_coverage": "Please change “Maintainability, design and test coverage”: ",
+   "maintain_code_quality_target": "Please change “Olumi's estimate of the target for 'Maintain code quality'”: ",
+   "maintain_code_quality": "Please change “Maintain code quality”: ",
+   "spending_change": "Please change “Change in spending”: ",
+   "stay_within_the_budget_bound": "Please change “The limit for 'Stay within the budget'”: ",
+   "stay_within_the_budget": "Please change “Stay within the budget”: ",
+   "productivity_change_per_tech_lead": "Please change “Effect of each extra tech lead on productivity”: ",
+   "productivity_change_per_share_of_developers": "Please change “Effect on productivity if Developers grew by as many again as there are now”: ",
+   "developers_added_as_a_share_of_developers_now": "Please change “Developers added as a share of Developers now”: ",
+   "developers_added_as_a_share_of_developers_now_def": "Please change “how Developers added as a share of Developers now is worked out”: ",
+   "no_change_percent": "Please change “No change (%)”: ",
+   "productivity_change_from_the_options": "Please change “how productivity, change compared with now (in %) is worked out”: ",
+   "defects_found_after_release_change_per_tech_lead": "Please change “Effect of each extra tech lead on defects found after release”: ",
+   "defects_found_after_release_change_per_share_of_developers": "Please change “Effect on defects found after release if Developers grew by as many again as there are now”: ",
+   "defects_found_after_release_change_from_the_options": "Please change “how defects found after release, change compared with now (in %) is worked out”: ",
+   "spending_change_per_tech_lead": "Please change “Effect of each extra tech lead on spending”: ",
+   "spending_change_per_developer": "Please change “Effect of each extra developer on spending”: ",
+   "no_change_gbp": "Please change “No change (GBP)”: ",
+   "spending_change_from_the_options": "Please change “how Change in spending is worked out”: ",
+   "lower_spending": "Please change “Change in spending: lower”: ",
+   "a_new_hire_adds_little_before_the_launch_chance": "Please change “How likely it is that A new hire adds little before the launch”: ",
+   "a_new_hire_adds_little_before_the_launch_factor": "Please change “How much of the change in productivity remains if it happens”: ",
+   "a_new_hire_adds_little_before_the_launch": "Please change “A new hire adds little before the launch”: ",
+   "writer_we_re_lacking_leadership": "Please change “we're lacking leadership”: ",
+   "test_whether_leadership_is_what_holds_delivery_back_now_rather_t": "Please change “Test whether leadership is what holds delivery back now, rather than unclear scope or slow reviews: neither hire helps if the bottleneck is elsewhere.”: ",
+   "whether_the_launch_itself_lands_on_time": "Please change “Whether the launch itself lands on time”: "
+  }
+ },
+ "brief": "Hire a Tech lead or two developers?",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "figure_first",
+    "text": "Let us give our figure first",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": {
+   "offer": {
+    "quantity": "productivity_change_per_tech_lead",
+    "label": "Effect of each extra tech lead on productivity",
+    "text": "Let us give our figure first"
+   },
+   "given": null,
+   "headings": {
+    "theirs": "Your figure",
+    "olumi": "Olumi's figure",
+    "basis": "Olumi's basis",
+    "seen": "Before you gave yours",
+    "adopted": "Adopted"
+   }
+  },
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-11T21:44:52.933Z",
+  "job": 3,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-11T21:44:52.076Z",
+  "stop": null
+ },
+ "turn": null,
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 10 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}
