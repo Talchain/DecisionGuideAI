@@ -39,6 +39,25 @@ describe('the top bar never overlaps the dock (1232 wide, seven people)', () => 
   it('discsThatFit: all when they fit; otherwise the most that fit, the rest as one chip; stable once it fits', () => {
     expect([discsThatFit(6, 6, 40), discsThatFit(6, 6, -46), discsThatFit(6, 1, 14), discsThatFit(6, 1, 100), discsThatFit(6, 6, -999)]).toEqual([6, 1, 1, 6, 0])
   })
+  it('U12b: the count settles at every width, whatever the chip really measures; it never grows from a layout that does not fit', () => {
+    // The page as the effect sees it: `room` px for the discs; each disc takes 18, the "+N" chip its REAL width (18 for one digit, up to 30).
+    // The effect asks again after every change, so a count that comes back to one it already had is a render loop (React stops the page).
+    const loops: string[] = []
+    for (const chip of [18, 24, 30]) for (let total = 1; total <= 8; total++) for (let room = -40; room <= 200; room++) {
+      const free = (n: number) => room - n * 18 - (n < total ? chip : 0)
+      const seen = [total]
+      for (let n = total; ;) {
+        const next = discsThatFit(total, n, free(n))
+        if (free(n) < 0 && next > n) loops.push(`grew ${n}->${next} of ${total} with ${free(n)} px free (chip ${chip})`)
+        if (next === n) break
+        if (seen.includes(next)) { loops.push(`loop ${[...seen, next].join('>')} of ${total}, room ${room}, chip ${chip}`); break }
+        seen.push(next); n = next
+      }
+    }
+    expect(loops.slice(0, 5)).toEqual([])
+    // The inventory's own case: one other person, the bar 5 px past the limit. One disc became the chip; it must not come back.
+    expect([discsThatFit(1, 1, -5), discsThatFit(1, 0, -5)]).toEqual([0, 0])
+  })
   it('seven people with no room: the discs that do not fit become "+N", and the bar ends before the dock', () => {
     setup(850 - 12 - 6) // the bar's right edge would be 958 with all six discs: 34 px under the dock
     const discs = screen.getAllByTestId(/^team-presence-m\d$/)

@@ -46,16 +46,22 @@ export function TeamPresence() {
   )
 }
 
-/** How much room each overlapping disc takes (24 px wide, 6 px overlapped), the "+N" chip, and the gap kept between the bar and the dock (px). */
-export const DISC_STEP = 18, CHIP_STEP = 30, DOCK_GAP = 12
+/**
+ * How much room each overlapping disc takes (24 px wide, 6 px overlapped), the most the "+N" chip takes and the least (one digit: a disc's
+ * own room), and the gap kept between the bar and the dock (px).
+ */
+export const DISC_STEP = 18, CHIP_STEP = 30, CHIP_LEAST = 18, DOCK_GAP = 12
 
 /**
  * How many of `total` discs to draw, given `shown` are drawn now and `free` px are left between the bar's right edge and the dock (negative
- * when the bar runs under it). The most that fit; the rest become one "+N" chip. Never changes a layout that already fits, so it settles.
+ * when the bar runs under it). The most that fit; the rest become one "+N" chip.
+ * It settles (state-machine inventory U12b, 11 Nov: the count ping-ponged inside the layout effect, a render loop on a shared scenario):
+ * a layout that does not fit only ever loses discs, and a layout that fits only gains discs it has measured room for, with the chip
+ * costed at its widest when it arrives and credited at its narrowest when it goes. So no answer can undo the one before it.
  */
 export function discsThatFit(total: number, shown: number, free: number): number {
-  const chip = (n: number) => (n < total ? CHIP_STEP : 0)
-  for (let n = total; n >= 0; n--) if ((n - shown) * DISC_STEP + chip(n) - chip(shown) <= free) return n
+  const chip = (n: number) => ((n < total) === (shown < total) ? 0 : n < total ? CHIP_STEP : -CHIP_LEAST)
+  for (let n = free < 0 ? Math.min(shown, total) : total; n >= 0; n--) if ((n - shown) * DISC_STEP + chip(n) <= free) return n
   return 0
 }
 
