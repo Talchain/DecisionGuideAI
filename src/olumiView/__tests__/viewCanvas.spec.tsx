@@ -11,7 +11,7 @@ import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useLayoutStore } from '../../canvas/layoutStore'
 import { useViewStore } from '../store'
-import { drawViewCanvas, layViewCanvas, useViewCanvas, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
+import { drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
 import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
@@ -38,7 +38,8 @@ describe('the View draws the canvas', () => {
     const places = await causalPlaces(model, new Map(), { direction, spacing: nodeSpacing }), cards = nodes.slice(1)
     expect(cards.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
     expect(cards.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
-    expect(edges.map((e) => [e.source, e.target])).toEqual(model.links.map((l) => [l.from, l.to]))
+    // The previous graph's question-to-option lines (ROOT_LINK) are drawn besides core's own links (previousCard.spec.ts).
+    expect(edges.filter((e) => e.type === VIEW_LINK).map((e) => [e.source, e.target])).toEqual(model.links.map((l) => [l.from, l.to]))
   })
 
   it('R2 each View that lands redraws it: the approved model replaces the one before (00052 #1)', async () => {
@@ -125,7 +126,7 @@ describe('the canvas keeps what core\'s page shows (00057)', () => {
   it('#3 every link is a View link edge carrying that link and its place in the View', async () => {
     const model = golden('european').model!
     await layViewCanvas(model)
-    const { edges } = useCanvasStore.getState()
+    const edges = useCanvasStore.getState().edges.filter((e) => e.type !== ROOT_LINK)
     expect(edges.every((e) => e.type === VIEW_LINK)).toBe(true)
     expect(edges.map((e) => (e.data as unknown as { link: unknown }).link)).toEqual(model.links)
     expect(edges.map((e) => (e.data as unknown as { i: number }).i)).toEqual(model.links.map((_, i) => i))

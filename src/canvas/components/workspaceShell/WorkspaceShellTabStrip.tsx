@@ -30,13 +30,13 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal, X } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
-import { isOlumiCoreLane, previousCanvasSpike } from '../../../olumiCore/lane'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { HIT_44 } from '../../../styles/hitArea'
 import { SELECTED } from '../../../styles/selected'
 import {
@@ -52,8 +52,6 @@ import {
  * controls have to read as one set — a control that self-styles differently
  * looks like a button that lost its styling.
  */
-/** The surfaces the olumi-core lane opens from the canvas, as a named panel, never as a tab (DL ruling 9 Nov). */
-const PANEL_ONLY: ReadonlySet<string> = new Set(['diagnostics', 'team'])
 
 const ROW_ICON_CONTROL =
   'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
@@ -334,10 +332,9 @@ export function WorkspaceShellTabStrip({
   // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
   // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
   const coreLane = isOlumiCoreLane()
-  // DL ruling 9 Nov (one entry point each): on the olumi-core lane Model and Team are opened by the canvas's Model · Explore · Team
-  // controls, never by a tab; the dock's tabs are Olumi, Analysis, Reasoning and Compare, one row (their labels need about 210 px).
-  // Spike, RULING 8: the previous canvas has no Model · Explore · Team buttons, so Model and Team are tabs again (Team: the DL's default).
-  const shown = coreLane && !previousCanvasSpike() ? surfaces.filter(s => !PANEL_ONLY.has(s.id)) : surfaces
+  // UI restore, 11 Nov: the canvas no longer has Model · Explore · Team buttons (Paul withdrew them), so Model and Team are tabs again on
+  // the olumi-core lane, as shellContract.ts defines them: every surface is a tab, one entry point each.
+  const shown = surfaces
   const wrapTabs = !isCompact
   // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
   // four tabs, never floating over its end; elsewhere they stay in the row.
@@ -379,20 +376,6 @@ export function WorkspaceShellTabStrip({
     },
     [shown, activeTab, onTabClick],
   )
-
-  // The olumi-core lane's Model or Team, opened from the canvas: the panel's name as its header and a close back to Olumi, no tabs.
-  if (coreLane && PANEL_ONLY.has(activeTab)) {
-    const label = surfaces.find(s => s.id === activeTab)?.label ?? ''
-    return (
-      <div className="flex items-center justify-between gap-2 px-3" style={{ minHeight: SHELL_TABSTRIP_HEIGHT_PX }} data-testid="outputs-dock-panel-header">
-        <h2 className={`${typography.viewPanelBody} m-0 font-semibold text-text-header`} data-testid="outputs-dock-panel-title">{label}</h2>
-        <button type="button" onClick={() => onTabClick('olumi' as OutputTab)} aria-label={`Close ${label}`} data-testid="outputs-dock-panel-close"
-          className={`${ROW_ICON_CONTROL} border-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-          <X className="w-3.5 h-3.5" aria-hidden="true" />
-        </button>
-      </div>
-    )
-  }
 
   return (
     // ⚠ THE OUTER WRAPPER NO LONGER CARRIES `aria-label`. It is a role-less

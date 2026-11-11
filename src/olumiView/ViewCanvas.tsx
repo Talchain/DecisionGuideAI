@@ -16,7 +16,6 @@ import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from '../canvas/store'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
 import { registerFocusHelpers } from '../canvas/utils/focusHelpers'
-import { ViewQuestionNode } from '../canvas/nodes/ViewQuestionNode'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
 import { OlumiAttentionCard } from '../canvas/components/OlumiAttentionCard'
 import { OutputsDock } from '../canvas/components/OutputsDock'
@@ -29,11 +28,15 @@ import { ToastProvider } from '../canvas/ToastContext'
 import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
-import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
-import { useV10Lane, ViewCardV10 } from './v10'
+import { CoreCard } from './previous/CoreCard'
+import { RootLinkEdge } from './previous/RootLinkEdge'
+import { LodSync } from '../canvas/components/LodSync'
+import { CanvasLabelScaleSync } from '../canvas/components/CanvasLabelScaleSync'
+import { useV10Lane } from './v10'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
@@ -53,9 +56,10 @@ import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
 import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
 
-// Each card is drawn with v10's controls (./v10): the card itself, and the Olumi corner that asks about it.
-const nodeTypes = { [VIEW_CARD]: ViewCardV10, [VIEW_QUESTION]: ViewQuestionNode }
-const edgeTypes = { [VIEW_LINK]: ViewLinkEdge }
+// UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
+// product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
+const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard }
+const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
 const SELECT_PAN_BUTTONS = [1]
@@ -213,6 +217,8 @@ function ViewFlow() {
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
         <Background variant={BackgroundVariant.Dots} gap={16} />
+        {/* The previous card frame's zoomed-out face and label scale (the two syncs the previous canvas mounts; they write no model state). */}
+        <LodSync /><CanvasLabelScaleSync />
       </ReactFlow>
       <CanvasViewportControls
         onZoomIn={() => { userMoved.current = true; void zoomIn({ duration: 200 }) }}
@@ -231,8 +237,8 @@ function ViewFlow() {
       {hasModel ? <BelowCue /> : null}
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
       {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true }} /> : null}
-      {/* V11 navigation (Paul 6 Nov): Model, Explore, Team; drop `nav` for the six lens pills. */}
-      {hasModel ? <ViewLensBar nav /> : null}
+      {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
+      {hasModel ? <ViewLensBar previousPlace /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}

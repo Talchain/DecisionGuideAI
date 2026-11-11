@@ -34,7 +34,7 @@ import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
 import { useLegacyValidationOff } from '../canvas/nodes/shared/savedModelIsCore'
 import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
-import { isOlumiCoreLane, previousCanvasSpike } from '../olumiCore/lane'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 import { ViewCanvas } from '../olumiView/ViewCanvas'
 import { useViewStore } from '../olumiView/store'
 
@@ -376,7 +376,7 @@ function CanvasMVPBody() {
         {/* React Flow Container */}
         <main role="main" data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
           {/* The olumi-core lane draws the View on its own canvas (olumiView/ViewCanvas.tsx), never the legacy one. */}
-          {isOlumiCoreLane() && !previousCanvasSpike() ? <ViewCanvas /> : <ReactFlowGraph
+          {isOlumiCoreLane() ? <ViewCanvas /> : <ReactFlowGraph
             blueprintEventBus={blueprintEventBus}
             onCanvasInteraction={handleCanvasInteraction}
             /* ⭐ THE ONLY MOUNT THAT MAY OFFER STARTERS. This route is the

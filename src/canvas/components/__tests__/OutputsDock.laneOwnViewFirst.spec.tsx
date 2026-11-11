@@ -71,11 +71,9 @@ const land = async (view: View) => {
   render(<ConversationProvider><OutputsDock /></ConversationProvider>)
   await act(async () => { await new Promise((r) => setTimeout(r, 80)) })
 }
-// DL ruling 9 Nov: on the lane Team is a named panel opened from the canvas, not a tab; what is in front is that panel or the selected tab.
-const fronted = () => {
-  const panel = document.querySelector('[data-testid="outputs-dock-panel-title"]')?.textContent
-  return panel ? `panel:${panel}` : document.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('data-testid') ?? null
-}
+// UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the lane Team is a tab again, as the shell contract defines it; what is in
+// front is the selected tab.
+const fronted = () => document.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('data-testid') ?? null
 const note = () => useCanvasStore.getState().olumiAttention?.turnId ?? null
 /** The card the newest reply's next step sits beside, as the View canvas draws it. */
 const cardOnCanvas = () => useCanvasStore.setState({ nodes: [{ id: 'per_specialist', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'Per specialist' } }] } as never)
@@ -86,7 +84,7 @@ describe('a member core holds gives their own view first', () => {
   it('Bea, held: the Team tab, the private-view box focused, and no Olumi note', async () => {
     cardOnCanvas()
     await land(viewFor('5', true))
-    expect(fronted()).toBe('panel:Team')
+    expect(fronted()).toBe('outputs-dock-tab-team')
     expect(document.activeElement?.getAttribute('data-testid')).toBe('team-view-text')
     expect(note()).toBeNull()
   })
@@ -98,7 +96,7 @@ describe('a member core holds gives their own view first', () => {
     await act(async () => { useViewStore.setState({ view: viewFor('5', false, given) } as never) })
     await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
     expect(note()).toMatch(/^olumi-view-next:/)
-    expect(fronted()).toBe('panel:Team')
+    expect(fronted()).toBe('outputs-dock-tab-team')
   })
 
   it('the landing is once: if core holds her again after she has gone to another tab, she is not moved, and the note is held', async () => {
@@ -107,8 +105,8 @@ describe('a member core holds gives their own view first', () => {
     await act(async () => { useViewStore.setState({ view: viewFor('5', false, given) } as never) })
     await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
     expect(note()).toMatch(/^olumi-view-next:/)
-    // She leaves the Team panel by its close (DL ruling 9 Nov: Team is a named panel on the lane), which returns the dock to Olumi.
-    await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-panel-close')) })
+    // She leaves the Team tab by pressing the Olumi tab, which returns the dock to Olumi.
+    await act(async () => { fireEvent.click(screen.getByTestId('outputs-dock-tab-olumi')) })
     await act(async () => { useViewStore.setState({ view: viewFor('5', true) } as never) })
     await act(async () => { await new Promise((r) => setTimeout(r, 30)) })
     expect(fronted()).toBe('outputs-dock-tab-olumi')
@@ -118,13 +116,13 @@ describe('a member core holds gives their own view first', () => {
   it('who is held is core\'s word alone: Cy, whose link the admin made (not in core\'s invitations), is held too', async () => {
     cardOnCanvas()
     await land(viewFor('18', true))
-    expect(fronted()).toBe('panel:Team')
+    expect(fronted()).toBe('outputs-dock-tab-team')
     expect(note()).toBeNull()
   })
 
   it('held before there is a model: the Team tab, not the brief box (the brief is not hers to write)', async () => {
     await land({ ...viewFor('5', true), model: null, version: null, proposal: null } as View)
-    expect(fronted()).toBe('panel:Team')
+    expect(fronted()).toBe('outputs-dock-tab-team')
   })
 })
 

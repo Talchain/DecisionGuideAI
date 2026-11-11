@@ -977,8 +977,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // does not rename on the card (as the inspector's does not, #3008). Until the saved read answers, nothing is offered.
   const titleRenames = livingOnly === null && programState === 'not_program'
 
-  // A core card (olumiView/coreViewToLegacy.ts): what is missing is said by core, in the card's body, never by this frame's own rule.
-  const isIncomplete = (data as { core?: boolean } | undefined)?.core === true ? false : (() => {
+  // A core card (olumiView/previous/CoreCard.tsx): what is missing is said by core, in the card's body, never by this frame's own rule; and
+  // its name is core's, drawn whole at full size (nothing of core's is cut; only the zoomed-out face shows less, and says so).
+  const isCoreCard = (data as { core?: boolean } | undefined)?.core === true
+  const titleClamp = isCoreCard ? '' : 'line-clamp-2'
+  const isIncomplete = isCoreCard ? false : (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
 
@@ -2734,7 +2737,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
                 : lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-body break-words line-clamp-2`
+                ? `${typography.nodeTitle} font-semibold text-text-body break-words ${titleClamp}`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2748,8 +2751,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                    (`.node` sets no title colour; #3F3F3E). The anchors were
                    #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words line-clamp-2`
-                  : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
+                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words ${titleClamp}`
+                  : `${typography.nodeTitle} text-text-body break-words ${titleClamp}`
             )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's

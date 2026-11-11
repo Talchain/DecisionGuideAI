@@ -6,7 +6,6 @@
  */
 
 import { useMemo } from 'react'
-import { previousCanvasSpike } from '../../olumiCore/lane'
 import {
   Sparkles, HelpCircle, Waypoints, Route, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   Pencil, Plus, Flag, Scissors, CopyPlus,
@@ -660,8 +659,6 @@ function buildPaneMenu(
       action: () => {},
     },
     DIV,
-    // Spike (UI restore, 11 Nov 2026): core has no undo route, so on the previous canvas over core's model the two rows are left out, never dead.
-    ...(previousCanvasSpike() ? [] : [
     {
       id: 'undo',
       label: 'Undo',
@@ -683,7 +680,6 @@ function buildPaneMenu(
       action: wrap(() => void runCanvasUndo('redo')),
     },
     DIV,
-    ]),
     {
       id: 'auto-arrange',
       label: 'Auto-arrange',
@@ -738,8 +734,7 @@ function buildNodeMenu(
 
   // The quick-action row has three slots. Details stays keyboard-reachable
   // through More as well as the existing node-click inspector route.
-  // Spike (UI restore, 11 Nov 2026): the inspector reads the previous data model, which a core card does not carry, so it is not offered.
-  if (!previousCanvasSpike()) items.push({
+  items.push({
     id: 'open-details',
     label: 'Open details',
     icon: PanelRight,

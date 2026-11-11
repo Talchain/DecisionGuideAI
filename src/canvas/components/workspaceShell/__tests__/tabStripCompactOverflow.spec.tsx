@@ -190,12 +190,11 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
 
 describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never cut', () => {
   afterEach(() => { lane.core = false })
-  it('DL ruling 9 Nov: on the olumi-core lane Model and Team are no tabs; the rest are one row of 44 px tabs; the flush dock is as before', () => {
+  it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; one row of 44 px tabs', () => {
     lane.core = true
     draw(300)
-    const tablist = screen.getByTestId('outputs-dock-tablist')
-    expect(tablist.className).toMatch(/\bflex-nowrap\b/)
-    expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results'])
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-nowrap\b/)
+    expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
     for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     cleanup(); lane.core = false
     draw(300)
@@ -203,19 +202,16 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-nowrap\b/)
   })
 
-  it('DL ruling 9 Nov: Model or Team opened from the canvas shows its name as the header and a close back to Olumi, no tabs', () => {
+  it('UI restore 11 Nov: no named-panel header on the lane; the active Model tab is a tab like any other', () => {
     lane.core = true
-    const onTabClick = vi.fn()
     render(
       <PanelWidthProvider value={{ width: 300, contentWidth: 274 }}>
-        <WorkspaceShellTabStrip surfaces={surfaces} activeTab="diagnostics" onTabClick={onTabClick} isOpen={true} onToggleOpen={vi.fn()}
+        <WorkspaceShellTabStrip surfaces={surfaces} activeTab="diagnostics" onTabClick={vi.fn()} isOpen={true} onToggleOpen={vi.fn()}
           expertMode={false} onToggleExpertMode={vi.fn()} showResultsFreshnessIcon={false} resultsStale={false} factorsToVerify={0} />
       </PanelWidthProvider>,
     )
-    expect(screen.queryByRole('tab')).toBeNull()
-    expect(screen.getByTestId('outputs-dock-panel-title').textContent).toBe('Model')
-    fireEvent.click(screen.getByRole('button', { name: 'Close Model' }))
-    expect(onTabClick).toHaveBeenCalledWith('olumi')
+    expect(screen.queryByTestId('outputs-dock-panel-title')).toBeNull()
+    expect(screen.getByRole('tab', { name: /Model/ }).getAttribute('aria-selected')).toBe('true')
     lane.core = false
   })
 })

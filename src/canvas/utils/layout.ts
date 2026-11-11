@@ -122,7 +122,7 @@ type LayoutDirection = NonNullable<LayoutOptions['direction']>
  *  `layoutGraph` and `solveLayoutNodeWidth` (CLAUDE.md trap 12: derive, never
  *  mirror — two copies of this mapping is how the two would drift apart). */
 function tierOf(node: Node): number {
-  // A node may state its row (the olumi-core lane's limit: olumiView/coreViewToLegacy.ts LIMIT_TIER). No previous-product node carries one.
+  // A node may state its row (the olumi-core lane's limit: olumiView/layout.ts LIMIT_TIER). No previous-product node carries one.
   const stated = (node.data as Record<string, unknown> | undefined)?.layoutTier
   if (typeof stated === 'number') return stated
   const kind = (node.type ?? (node.data as Record<string, unknown> | undefined)?.kind) as string | undefined

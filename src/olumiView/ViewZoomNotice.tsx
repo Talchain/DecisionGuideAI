@@ -9,13 +9,16 @@ import { ZoomIn } from 'lucide-react'
 import { CANVAS_LOD_NOTICE_ACTION, CANVAS_LOD_NOTICE_COPY, CANVAS_LOD_NOTICE_TESTID } from '../canvas/components/CanvasLodNotice'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { typography } from '../styles/typography'
-import { reducedFaceSize } from './camera'
+import { useCanvasStore } from '../canvas/store'
+import { selectLodBodyHidden } from '../canvas/utils/zoomLegibility'
 
 /** The zoom the action lands on: full size, a whole notch clear of the threshold (one step out would draw the reduced face again). */
 const DETAIL_ZOOM = 1
 
 export function ViewZoomNotice({ onZoom }: { onZoom?: () => void }): JSX.Element | null {
-  const reduced = useStore((s) => reducedFaceSize(s.transform[2]) > 0)
+  // UI restore, 11 Nov: the cards are the previous frame's, so the notice answers the frame's own rung (the zoom at which a card shows
+  // only its name and one line), never a second threshold of this lane's.
+  const reduced = useCanvasStore(selectLodBodyHidden)
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const { getViewport, setViewport } = useReactFlow()
   if (!reduced) return null

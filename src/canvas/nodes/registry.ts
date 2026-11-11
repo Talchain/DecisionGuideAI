@@ -26,8 +26,6 @@ import { GhostTierNode } from './GhostTierNode'
 import { withNodeKeyboardScope } from './nodeKeyboardScope'
 import { ViewCardNode } from './ViewCardNode'
 import { ViewQuestionNode } from './ViewQuestionNode'
-import { previousCanvasSpike } from '../../olumiCore/lane'
-import { CoreCard } from '../../olumiView/previous/CoreCard'
 
 /**
  * The renderers, before the keyboard scope is applied.
@@ -55,10 +53,6 @@ export const rawNodeTypes: NodeTypes = {
   // The olumi-core lane's one card for every View card (decision A, src/olumiView/canvas.ts).
   viewCard: ViewCardNode,
   viewQuestion: ViewQuestionNode,
-  // SPIKE (UI restore, 11 Nov 2026; `?previous-canvas` on the olumi-core lane only, never served): every kind is a core card on the
-  // previous frame, its body core's own words (olumiView/previous/CoreCard.tsx). `constraint` is core's limit; the previous product
-  // has no card for it (see the note in domain/nodes.ts), and off the spike there is still none.
-  ...(previousCanvasSpike() ? { goal: CoreCard, decision: CoreCard, option: CoreCard, factor: CoreCard, risk: CoreCard, outcome: CoreCard, constraint: CoreCard } : {}),
 }
 
 /**

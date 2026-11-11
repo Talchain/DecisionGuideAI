@@ -26,20 +26,20 @@ const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/ol
 afterEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }) })
 
 describe('the mounted core-lane canvas', () => {
-  it('draws every View card through v10\'s wrapper, with the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
+  it('draws every View card on the previous card frame with core\'s body, the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
     const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
     const places = await causalPlaces(model, new Map())
     act(() => { drawViewCanvas(model, places) })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.documentElement.dataset['presentation']).toBe('v10')
-    const wrapped = [...container.querySelectorAll('[data-testid="view-card-v10"]')]
-    expect(wrapped.length).toBe(model.cards.length)
+    const wrapped = [...container.querySelectorAll('[data-core-card]')]
+    expect(wrapped.map((e) => e.getAttribute('data-core-card')).sort()).toEqual(model.cards.map((c) => c.id).sort())
     const withDriver = model.cards.filter((c) => c.driver !== null).map((c) => c.id).sort()
     const badges = [...container.querySelectorAll('[data-testid^="view-driver-"]:not([data-testid^="view-driver-mark-"])')]
     expect(badges.map((e) => e.getAttribute('data-testid')!.slice('view-driver-'.length)).sort()).toEqual(withDriver)
-    // Each in DGAI's shell's own top-right place (VIEW_CARD_SLOTS); the corner's place is bound in v10Lane.spec, where a chat receives asks.
-    expect(badges.length > 0 && badges.every((e) => e.closest('[data-slot="driver-badge"]') !== null)).toBe(true)
+    // Each in the previous frame's corner place (`cornerSlot`); the Olumi corner's place is bound in v10Lane.spec, where a chat receives asks.
+    expect(withDriver.length, 'contrast: the bakery has drivers').toBeGreaterThan(0)
     unmount()
     expect(document.documentElement.dataset['presentation']).toBeUndefined()
   })

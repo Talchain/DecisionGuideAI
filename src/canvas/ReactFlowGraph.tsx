@@ -109,13 +109,9 @@ import { DirectionNeededLayer } from './nodes/DirectionNeededLayer'
 import { coreSwitchOptionOf, withoutCoreSwitches } from './domain/coreSwitch'
 import { NoteRecordsPublisher } from './components/NoteRecordsPublisher'
 import { ViewLinkEdge } from './edges/ViewLinkEdge'
-import { isOlumiCoreLane, previousCanvasSpike } from '../olumiCore/lane'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from '../olumiView/store'
 import { isViewNode, placeViewCards } from '../olumiView/canvas'
-import { ViewLensBar } from '../olumiView/ViewLensBar'
-import { ViewWhatIfKey } from '../olumiView/ViewWhatIfKey'
-import { ViewTradeOffsKey } from '../olumiView/ViewTradeOffsKey'
-import { ViewPreMortemKey } from '../olumiView/ViewPreMortemKey'
 import { useDrawnLivingModel } from './hooks/useDrawnLivingModel'
 import { livingOnlyOf } from './domain/livingModelCanvas'
 import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
@@ -1593,14 +1589,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
    * graph change and must not be undoable.
    */
   const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string; type?: string; data?: unknown }) => {
-    if (!node?.id || livingOnlyOf(node.data) !== null || isViewNode(node) || previousCanvasSpike()) return
+    if (!node?.id || livingOnlyOf(node.data) !== null || isViewNode(node)) return
     useCanvasStore.getState().selectNodeWithoutHistory(node.id)
     requestNodeRename(node.id)
     setShowFullInspector(true)
   }, [])
 
   const handleEdgeDoubleClick = useCallback(() => {
-    if (previousCanvasSpike()) return
     setShowFullInspector(true)
   }, [])
 
@@ -1776,7 +1771,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const handleAutoArrange = useCallback(() => {
     // The olumi-core lane's cards are placed as the View's causal graph: Auto-arrange puts them back there (canvas A S6, B5).
-    const viewModel = isOlumiCoreLane() && !previousCanvasSpike() ? useViewStore.getState().view?.model ?? null : null
+    const viewModel = isOlumiCoreLane() ? useViewStore.getState().view?.model ?? null : null
     if (viewModel) {
       void placeViewCards(viewModel)
       return
@@ -2848,10 +2843,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // selection through `onNodesChange`, past the impact check and the
             // confirm dialog. Delete/Backspace is handled once, by
             // `useKeyboardShortcuts` → `deleteAction` — see the constant's header.
-            deleteKeyCode={previousCanvasSpike() ? null : REACT_FLOW_DELETE_KEY_CODE}
+            deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer && !previousCanvasSpike()}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED && !isViewer}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
@@ -2966,8 +2961,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
            `effectiveMode` makes the label a promise the click keeps. */
         onSelectClick={() => setInteractionMode(effectiveMode === 'select' ? 'hand' : 'select')}
         onUndoClick={() => void runCanvasUndo('undo')}
-        /* Spike: core has no undo route (undoCommand.ts answers "use the chat"), so the button is left out, never dead. */
-        showUndo={!previousCanvasSpike()}
         onRedoClick={() => void runCanvasUndo('redo')}
         canUndo
         canRedo
@@ -3077,8 +3070,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* ⭐ E4: a ghost door's "What else…?" chooser (chips send questions; free text sends the person’s words). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
-      {/* Spike: the inspector reads the previous data model, which a core card does not carry; it never opens over core's model. */}
-      {showFullInspector && !previousCanvasSpike() && (
+      {showFullInspector && (
         <PanelErrorBoundary panel="Inspector">
           <InspectorModal
             nodeId={selectedNodeId}
@@ -3258,9 +3250,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <RightEdgeChat showStarters={showStarters} />
 
       {/* Lenses on the model: the bar that switches them, and the key card of the one on screen */}
-      {/* Spike, RULING 5: on core's model the bar is the lane's own six lenses, every word and count core's (`lens_words`), in the previous
-          bar's place, with the key card of the lens on screen. The previous bar counts from its own store, which core never fills. */}
-      {previousCanvasSpike() ? <><ViewLensBar previousPlace /><ViewWhatIfKey /><ViewTradeOffsKey /><ViewPreMortemKey /></> : <LensBar />}
+      <LensBar />
       <LensInfoPanel />
 
       {/* Coaching nudges render on the nodes themselves

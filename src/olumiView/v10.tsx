@@ -123,7 +123,7 @@ export function optionBands(cards: readonly ViewCard[], aim: Aim | null = null):
 }
 
 /** The bands of the cards on the canvas now: one axis for exactly the options drawn. */
-function useOptionBands(): ReadonlyMap<string, OptionBand> {
+export function useOptionBands(): ReadonlyMap<string, OptionBand> {
   const nodes = useCanvasStore((s) => s.nodes)
   const aim = useViewStore((s) => s.view?.model?.aim ?? null)
   return useMemo(() => optionBands(nodes.flatMap((n) => {

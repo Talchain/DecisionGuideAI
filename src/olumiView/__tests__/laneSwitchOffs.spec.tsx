@@ -99,7 +99,8 @@ describe('B5 Auto-arrange on the lane puts every View card back in its causal pl
   it('PL 7 Nov: every link\'s focusable edge is described by its own words (aria-describedby names the words\' id), not React Flow\'s delete hint', async () => {
     useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: false })
     await layViewCanvas(view.model!)
-    const edges = useCanvasStore.getState().edges as { data?: { i?: number }; domAttributes?: Record<string, string> }[]
+    // Core's links (the question-to-option lines carry no words, so they are no link of core's: previousCard.spec.ts).
+    const edges = (useCanvasStore.getState().edges as { type?: string; data?: { i?: number }; domAttributes?: Record<string, string> }[]).filter((e) => e.type === 'viewLink')
     expect(edges.length).toBeGreaterThan(0)
     for (const e of edges) expect(e.domAttributes?.['aria-describedby']).toBe(linkWordsIdOf(e.data!.i!))
   })

@@ -210,8 +210,7 @@ import { AskOlumiDrawer } from '../../components/results/coaching/AskOlumiDrawer
 import { AssistantOpenedNotice } from './AssistantOpenedNotice'
 import { DefineSuccessModal, DecisionRecordModal, HowComputedModal, openDecisionRecord, useDecisionRecordForScenario } from '../../components/results/modals'
 import { useIsViewer } from '../../lib/viewerMode'
-import { coreLaneShowsSurface, isOlumiCoreLane, previousCanvasSpike } from '../../olumiCore/lane'
-import { usePreviousCanvas } from '../../olumiView/coreViewToLegacy'
+import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { BriefPanel, leaveBriefPanel, useBriefPanelShown } from '../../olumiView/BriefPanel'
 import { awaitsBriefOf } from '../../olumiView/ViewWelcome'
@@ -821,8 +820,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(shownModel)
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
-  useViewCanvas(isOlumiCoreLane() && !previousCanvasSpike())
-  usePreviousCanvas(previousCanvasSpike())
+  useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
   const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
   // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the tab strip
@@ -3169,8 +3167,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // the 12px gap plus (416 − 319) px automatically.
   // J1 gate (UI session 8 Nov, the prototype's dock): on the olumi-core lane the open dock is an inset card, 300 px, 8 px off the
   // window's edges and the header strip, rounded, with the prototype's edge and shadow.
-  // Spike, RULING 8: on the previous canvas the dock is the previous product's (flush right, full height, its own width; collapsed, its icon rail).
-  const insetDock = effectiveIsOpen && isOlumiCoreLane() && !previousCanvasSpike()
+  // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): the lane's dock is the previous product's again (flush
+  // right, full height, its own width; collapsed, its icon rail). The inset card is no longer drawn; its branches below are to be removed
+  // once Paul has judged the pair (output/ui-restore-20261111/IMPROVEMENTS.md A6).
+  const insetDock: boolean = false
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: insetDock ? 300 : effectiveIsOpen

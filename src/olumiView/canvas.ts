@@ -8,7 +8,7 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
@@ -17,6 +17,9 @@ import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
+/** The previous graph's line from the question to each of its options (RULING 1): core states the card is an option of this question; the
+ *  line draws that statement and carries no strength, sign or word. */
+export const ROOT_LINK = 'rootLink'
 /** A card or the question drawn from core's View: it has no store node, so a click selects it (its words show) and opens no inspector,
  *  which could only say it has no editor (4 Nov drive). Its own controls (✎, the Olumi icon) are on the card. */
 export const isViewNode = (node: { type?: string } | null | undefined): boolean => node?.type === VIEW_CARD || node?.type === VIEW_QUESTION
@@ -136,11 +139,12 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>
   const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title,
     // Its words describe it (React Flow's own description speaks of deleting a link, which this canvas never does).
     domAttributes: { 'aria-describedby': linkWordsIdOf(i) } }))
-  if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.id, e.data]), edges.map((e) => [e.id, e.data]))) return false
+  const roots = allOptionCards(model).map((c) => ({ id: `root:${c.id}`, source: QUESTION, target: c.id, type: ROOT_LINK, data: {}, focusable: false, selectable: false }))
+  if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.id, e.data]), [...roots, ...edges].map((e) => [e.id, e.data]))) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     // Every card is placed already: a layout begun on the canvas this replaces is stale, and none is asked for.
-    useCanvasStore.setState({ nodes: nodes as never, edges: edges as never, pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
+    useCanvasStore.setState({ nodes: nodes as never, edges: [...roots, ...edges] as never, pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }

@@ -92,6 +92,8 @@ export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boo
 }
 
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
+/** A limit's row on the previous layout: its own, between the consequences and the goal. */
+export const LIMIT_TIER = 4
 const W = REPEATED_CARD_W, GAP_X = 48 // UI restore stage 1: the previous product's card, the width its layout places (nodeLayoutConstants)
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
@@ -153,7 +155,7 @@ type Size = { width: number; height: number }
 /** The View's cards and question as the previous product's layout reads them: each by its kind (the question as the decision). */
 const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) => Size): Node[] => [
   { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, W, 85) },
-  ...model.cards.map((c): Node => { const kind = drawKindOf(c, model); return { id: c.id, type: kind, data: { kind }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
+  ...model.cards.map((c): Node => { const kind = drawKindOf(c, model); return { id: c.id, type: kind, data: { kind, ...(kind === 'constraint' ? { layoutTier: LIMIT_TIER } : {}) }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
 ]
 /**
  * THE PREVIOUS PRODUCT'S GRAPH FOR CORE'S MODEL (UI restore stage 1, rows 5 and 6; DL ruling 10 Nov on Paul's test: "so much worse than it
