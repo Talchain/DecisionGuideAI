@@ -1555,8 +1555,8 @@
   "sharpen": [
    {
     "id": "risk_count",
-    "lead": "No risks captured yet.",
-    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "lead": "Olumi has raised one challenge to test; no risks listed yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks and shows what a challenge would mean.",
     "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
     "move": "pre_mortem"
    }
