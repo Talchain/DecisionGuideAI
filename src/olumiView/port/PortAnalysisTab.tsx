@@ -64,6 +64,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
       <Strengthen
         model={model}
         giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
+        findOutGive={(f) => (f.give == null ? null : <FigureEdit id={f.id} edit={f.give.edit} place="worth" glyph="✎" words={false} lead={f.give.text} label={`Change ${f.label}`} />)}
       />
       <YourOptions model={model} />
       <WhatWouldChange model={model} />

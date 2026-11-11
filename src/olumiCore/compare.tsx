@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META } from './team/ui'
@@ -153,17 +154,59 @@ export function useLatestApproved(): number | null | undefined {
   return listed?.key === key ? listed.n : undefined
 }
 
+export type Since = NonNullable<ViewRun['since']>
+
+/**
+ * UI-9 (DL 11 Nov): the version shown beside the one before it, as the View carries it (`model.run.since`, science surface 3, SCI-6: read
+ * from the chance facts the two versions already saved, under one engine stamp; no Run on read). Core's heading, then each option's line
+ * verbatim (what changed and what it accounts for, whose the figure is in core's words), with the shift track placing core's two fractions
+ * (`from`, `to`: positions only, never drawn as numbers; the marks speak core's `from_text` and `to_text`) under the two versions' labels.
+ * The changed figures are listed only where no line names one (`sole` null: core credits no single change), each in core's words, Olumi's
+ * in blue. Absent on version 1 and where the builds differ: nothing is drawn.
+ */
+export function SinceVersion({ since }: { since: Since }): JSX.Element | null {
+  if (since.lines.length === 0 && since.changed.length === 0) return null
+  const names = { first: since.from.label, second: since.to.label }
+  const tracked = since.lines.some((l) => markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
+  return (
+    <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
+      <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
+      {since.lines.length === 0 ? null : (
+        <ul className="m-0 grid list-none gap-2 p-0">
+          {since.lines.map((l, i) => (
+            <li key={`${l.option}:${l.aim}`} className={BODY} data-since-line={`${l.option}:${l.aim}`}>
+              <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
+              <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {since.sole !== null || since.changed.length === 0 ? null : (
+        <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-since-changed">
+          {since.changed.map((c, i) => (
+            <li key={c.id} className={`${META} ${c.whose === 'olumi' ? 'text-info' : ''}`} data-since-changed={c.id} data-since-whose={c.whose ?? ''} data-view={`run.since.changed.${i}.label`}>{c.label}</li>
+          ))}
+        </ul>
+      )}
+      {tracked ? <TrackKey first={names.first} second={names.second} /> : null}
+    </section>
+  )
+}
+
 /**
  * The dock's Compare tab on the olumi-core lane: the previous approved version against the latest, as core compares them, and, beneath it,
  * "Compare with another scenario" (core's `GET /api/compare`, scenarioCompare.tsx). The second half needs only an open scenario, not two versions.
+ * Above both, where the View carries it, the version shown beside the one before it (`run.since`, SinceVersion).
  */
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
+  const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
   const latest = useLatestApproved()
   if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
     <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6">
+      {since === null ? null : <SinceVersion since={since} />}
       {!sid || latest === null || latest === undefined
         ? <p className={BODY} data-testid="core-compare-none">Start a model in the chat first. Compare reads the versions you approve.</p>
         : latest < 2

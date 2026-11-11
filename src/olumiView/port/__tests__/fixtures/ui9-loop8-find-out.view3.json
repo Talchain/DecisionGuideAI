@@ -1,0 +1,3386 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_68ac51d82d8a",
+ "title": "Bike repair workshop wait times",
+ "commit": "ec6922969f273c893de605bf171a8abad9d15bc8",
+ "signature": "[null,47,[[47,\"pending\"]],[],[\"Loop\"],[],[\"1\"]]",
+ "you": "Loop",
+ "you_id": "1",
+ "members": [
+  {
+   "id": "1",
+   "name": "Loop"
+  }
+ ],
+ "version": null,
+ "model": {
+  "question": {
+   "text": "How can the workshop bring the average repair wait under 5 days by the end of March without spending more than £1,500 a month extra?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "repair_jobs_turned_away_per_week",
+     "e_bike_jobs_take_about_twice_as_long",
+     "open_question_1_changed",
+     "open_question_2_changed",
+     "both_mechanics_are_fully_booked_so_the_workshop_turns_away_repai",
+     "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne"
+    ],
+    "text": "2 things left out, 2 figures, 1 claim, 1 challenge",
+    "title": "+ left out: Repair jobs turned away per week: ≈12 repair jobs/week\n+ left out: E-bike jobs take about twice as long: ≈2 times as long\n+ Figure: Open question 1 changed\n+ Figure: Open question 2 changed\n+ claim: Both mechanics are fully booked, so the workshop turns away repair jobs.\n+ challenge: Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.",
+    "label": "Show 6 notes behind this, 6 proposed changes",
+    "open": false,
+    "proposed": true,
+    "change": "+",
+    "words": "2 things left out, 2 figures, 1 claim, 1 challenge",
+    "face": "2 things left out and 4 more",
+    "icon": ""
+   }
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "current_average_wait_for_a_repair",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Current average wait for a repair",
+    "typed": false,
+    "detail": "Current average wait for a repair · quantity · Theirs: “The average wait is about 9 days now.” (Loop) · An approximate figure: 9 days",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◐",
+     "title": "Theirs: “The average wait is about 9 days now.” (Loop) · Olumi reads it as their figure most likely, 10% either way for 8 times in 10, until they give a range."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "≈9 days",
+     "title": "An approximate figure: 9 days",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The average wait is about 9 days now.",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "mixed",
+     "text": "Loop’s figure, from the brief, Olumi’s range",
+     "title": "Theirs: “The average wait is about 9 days now.” (Loop) · Olumi reads it as their figure most likely, 10% either way for 8 times in 10, until they give a range."
+    },
+    "failed": []
+   },
+   {
+    "id": "part_time_mechanic_cost",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Part-time mechanic cost",
+    "typed": false,
+    "detail": "Part-time mechanic cost · quantity · Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop) · An approximate figure: £1,300/month",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◐",
+     "title": "Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop) · Olumi reads it as their figure most likely, 10% either way for 8 times in 10, until they give a range."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "≈£1,300/month",
+     "title": "An approximate figure: £1,300/month",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Part-time mechanic cost",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "mixed",
+     "text": "Loop’s figure, from the brief, Olumi’s range",
+     "title": "Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop) · Olumi reads it as their figure most likely, 10% either way for 8 times in 10, until they give a range."
+    },
+    "failed": []
+   },
+   {
+    "id": "hire_a_part_time_mechanic",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a part-time mechanic",
+    "typed": false,
+    "detail": "Hire a part-time mechanic · option · Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop)",
+    "col": 0,
+    "h": 180,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.",
+      "title": "Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same. · challenge · Proposed by Olumi: When a workshop is turning work away, new capacity often fills with that unmet demand before the queue gets any shorter.",
+      "id": "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: When a workshop is turning work away, new capacity often fills with that unmet demand before the queue gets any shorter."
+      }
+     },
+     {
+      "glyph": "!",
+      "text": "Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest.",
+      "title": "Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest. · challenge · Proposed by Olumi: New hires rarely work at full pace from the first week, and the deadline is fixed.",
+      "id": "finding_a_mechanic_and_getting_them_up_to_speed_takes_time_so_th",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: New hires rarely work at full pace from the first week, and the deadline is fixed."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 36% chance",
+      "fixed": false,
+      "approx": "≈ ",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Average repair wait under 5 days by end of March",
+      "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+      "title": "The chance that 'Hire a part-time mechanic' meets 'Average repair wait under 5 days by end of March', in this model on current information. It rests on Olumi's what-if ranges for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (12 to 24 hours/week), 'Effect of each extra hours/week on average wait for a repair' (−0.3 to −0.1 days weeks/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+      "chance": 0.3578,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 3.0693942456462793,
+       "median": 5.6666353179252775,
+       "high": 7.679139499990362,
+       "unit": "days",
+       "text": "between 3.07 and 7.68 days (middle 5.67)",
+       "title": "Under 'Hire a part-time mechanic', 'average wait for a repair' is likely to be in this range (8 times in 10). It rests on Olumi's what-if ranges for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (12 to 24 hours/week), 'Effect of each extra hours/week on average wait for a repair' (−0.3 to −0.1 days weeks/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range."
+      },
+      "driver": {
+       "figure": "average_wait_for_a_repair_per_hours_week",
+       "low": 0.7077707770777077,
+       "high": 0.0429042904290429
+      },
+      "text": "The chance that 'Hire a part-time mechanic' meets 'Average repair wait under 5 days by end of March', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+        "average_wait_for_a_repair_per_hours_week"
+       ],
+       "estimates": [
+        "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+        "average_wait_for_a_repair_per_hours_week"
+       ],
+       "approx": [
+        "current_average_wait_for_a_repair"
+       ]
+      },
+      "rests_on_text": "Rests on Olumi's 2 what-ifs; their approximate 'Current average wait for a repair', read as a range.",
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      },
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "about 98%",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "aim": "Extra spend no more than £1,500 a month",
+      "aim_id": "extra_spend_no_more_than_1_500_a_month",
+      "title": "The chance that 'Hire a part-time mechanic' stays within 'Extra spend no more than £1,500 a month', in this model.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "about 71% if 'Effect of each extra hours/week on average wait for a repair' is low, about 4% if it is high: Under 'Hire a part-time mechanic', the chance of meeting 'Average repair wait under 5 days by end of March' moves most with 'Effect of each extra hours/week on average wait for a repair': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "about 71% if 'Effect of each extra hours/week on average wait for a repair' is low, about 4% if it is high: Under 'Hire a part-time mechanic', the chance of meeting 'Average repair wait under 5 days by end of March' moves most with 'Effect of each extra hours/week on average wait for a repair': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "figure": "average_wait_for_a_repair_per_hours_week",
+     "low": 0.7077707770777077,
+     "high": 0.0429042904290429
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+      "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne",
+      "finding_a_mechanic_and_getting_them_up_to_speed_takes_time_so_th"
+     ],
+     "text": "1 figure, 2 challenges",
+     "title": "+ Figure: Hire a part-time mechanic: how many Mechanic hours worked in the workshop\n+ challenge: Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.\n+ challenge: Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest.",
+     "label": "Show 3 notes behind this, 3 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 figure, 2 challenges",
+     "face": "1 figure, 2 challenges",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+      "whose": "olumi",
+      "label": "Hire a part-time mechanic: how many Mechanic hours worked in the workshop",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "average_wait_for_a_repair_per_hours_week",
+      "whose": "olumi",
+      "label": "Effect of each extra hours/week on average wait for a repair",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "current_average_wait_for_a_repair",
+      "whose": "mixed",
+      "label": "Current average wait for a repair",
+      "author": "Loop’s figure, from the brief, Olumi’s range"
+     }
+    ],
+    "sets": [
+     {
+      "id": "part_time_mechanic_cost",
+      "lever": "part_time_mechanic_added",
+      "label": "Part-time mechanic cost",
+      "figure": {
+       "text": "≈£1,300/month",
+       "title": "An approximate figure: £1,300/month"
+      },
+      "whose": "mixed",
+      "author": "Loop’s figure, from the brief, Olumi’s range"
+     },
+     {
+      "id": "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+      "lever": "mechanic_hours_worked_in_the_workshop_changed",
+      "label": "Hire a part-time mechanic: how many Mechanic hours worked in the workshop",
+      "figure": {
+       "text": "12 to 24 hours/week",
+       "title": "Plausible range: 12 to 24 hours/week"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Hire a part-time mechanic",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+     "state": "chance",
+     "text": "about 36% chance",
+     "title": "The chance that 'Hire a part-time mechanic' meets 'Average repair wait under 5 days by end of March', in this model on current information. It rests on Olumi's what-if ranges for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (12 to 24 hours/week), 'Effect of each extra hours/week on average wait for a repair' (−0.3 to −0.1 days weeks/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "range": "about 71% if 'Effect of each extra hours/week on average wait for a repair' is low, about 4% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "open_on_sundays",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Open on Sundays",
+    "typed": false,
+    "detail": "Open on Sundays · option · Theirs: “open on Sundays” (Loop)",
+    "col": 0,
+    "h": 148,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⚑",
+      "text": "Jo: Jo thinks Sunday opening would only spread the same work over more days.",
+      "title": "Jo: Jo thinks Sunday opening would only spread the same work over more days. · dissent · Theirs: “Jo thinks Sunday opening would only spread the same work over more days.” (Jo, reported by Loop)",
+      "id": "jo_thinks_sunday_opening_would_only_spread_the_same_work_over_mo",
+      "olumi": null
+     },
+     {
+      "glyph": "!",
+      "text": "Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.",
+      "title": "Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same. · challenge · Proposed by Olumi: When a workshop is turning work away, new capacity often fills with that unmet demand before the queue gets any shorter.",
+      "id": "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: When a workshop is turning work away, new capacity often fills with that unmet demand before the queue gets any shorter."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+      "text": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated.",
+      "title": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated."
+     },
+     {
+      "kind": "none",
+      "aim_id": "extra_spend_no_more_than_1_500_a_month",
+      "text": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated.",
+      "title": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "mechanic_hours_worked_in_the_workshop_changed_open_on_sundays",
+      "extra_cost_of_opening_on_sundays_changed_open_on_sundays",
+      "open_question_1_changed_open_on_sundays",
+      "open_question_2_changed_open_on_sundays",
+      "sunday_opening_would_only_spread_the_same_work_over_more_days",
+      "jo_thinks_sunday_opening_would_only_spread_the_same_work_over_mo",
+      "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne"
+     ],
+     "text": "4 figures, 1 claim, 1 disagreement, 1 challenge",
+     "title": "+ Figure: Open on Sundays: how many Mechanic hours worked in the workshop\n+ Figure: Extra cost of opening on Sundays changed: Open on Sundays\n+ Figure: Open question 1 changed: Open on Sundays\n+ Figure: Open question 2 changed: Open on Sundays\n+ claim: Sunday opening would only spread the same work over more days.\n+ dissent: Jo: Jo thinks Sunday opening would only spread the same work over more days.\n+ challenge: Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.",
+     "label": "Show 7 notes behind this, 7 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "4 figures, 1 claim, 1 disagreement, 1 challenge",
+     "face": "4 figures and 3 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "mechanic_hours_worked_in_the_workshop_changed_open_on_sundays",
+      "lever": "mechanic_hours_worked_in_the_workshop_changed",
+      "label": "Open on Sundays: how many Mechanic hours worked in the workshop",
+      "figure": {
+       "text": "0 to 16 hours/week",
+       "title": "Plausible range: 0 to 16 hours/week"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "extra_cost_of_opening_on_sundays_changed_open_on_sundays",
+      "lever": "extra_cost_of_opening_on_sundays_changed",
+      "label": "Extra cost of opening on Sundays changed: Open on Sundays",
+      "figure": {
+       "text": "£300 to £1,200/month",
+       "title": "Plausible range: £300 to £1,200/month"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "open_question_1_changed_open_on_sundays",
+      "lever": "open_question_1_changed",
+      "label": "Open question 1 changed: Open on Sundays",
+      "figure": {
+       "text": "not given yet",
+       "title": "On Sundays, would the mechanics work hours on top of their current week, or would the same hours be moved from other days?"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "open_question_2_changed_open_on_sundays",
+      "lever": "open_question_2_changed",
+      "label": "Open question 2 changed: Open on Sundays",
+      "figure": {
+       "text": "not given yet",
+       "title": "How much would \"Open on Sundays\" change \"Average repair wait under 5 days by end of March\"? Loop said: “Sunday opening would only spread the same work over more days”"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Open on Sundays",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “open on Sundays” (Loop)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated.",
+     "range": null,
+     "why": "The chance for 'Open on Sundays' cannot be worked out yet: rests on \"Open question 2 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on \"Open question 1 changed: Open on Sundays\", which is not measured: Propose asked this of the option, which has no route to the aims yet; rests on the link \"Open on Sundays → Average repair wait under 5 days by end of March\", which is in words, never calculated.",
+     "add": "Add On Sundays, would the mechanics work hours on top of their current week, or would the same hours be moved from other days? and How much would \"Open on Sundays\" change \"Average repair wait under 5 days by end of March\"? Loop said: “Sunday opening would only spread the same work over more days” to see its chance.",
+     "shared": false
+    }
+   },
+   {
+    "id": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "Open on Sundays → Average repair wait under 5 days by end of March",
+    "typed": true,
+    "detail": "Open on Sundays → Average repair wait under 5 days by end of March · relation · Theirs: “Sunday opening would only spread the same work over more days” (Loop)",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Sunday opening would only spread the same work over more days",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “Sunday opening would only spread the same work over more days” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "stop_taking_e_bike_jobs",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Stop taking e-bike jobs",
+    "typed": false,
+    "detail": "Stop taking e-bike jobs · option · Theirs: “stop taking e-bike jobs” (Loop)",
+    "col": 0,
+    "h": 162,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss.",
+      "title": "Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss. · challenge · Proposed by Olumi: The two aims cover wait and spending only, so a cost in lost takings could go unseen when the options are compared.",
+      "id": "stopping_e_bike_work_gives_up_the_income_and_the_customers_those",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: The two aims cover wait and spending only, so a cost in lost takings could go unseen when the options are compared."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "about 13% chance",
+      "fixed": false,
+      "approx": "≈ ",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Average repair wait under 5 days by end of March",
+      "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+      "title": "The chance that 'Stop taking e-bike jobs' meets 'Average repair wait under 5 days by end of March', in this model on current information. It rests on Olumi's what-if ranges for 'Stop taking e-bike jobs: how many Average mechanic time per repair job' (−0.5 to −0.1 hours/job), 'Effect of each extra hours/job on average wait for a repair' (3 to 12 days jobs/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+      "chance": 0.1302,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 4.582964468557523,
+       "median": 7.205002705483073,
+       "high": 8.847526524324952,
+       "unit": "days",
+       "text": "between 4.58 and 8.85 days (middle 7.21)",
+       "title": "Under 'Stop taking e-bike jobs', 'average wait for a repair' is likely to be in this range (8 times in 10). It rests on Olumi's what-if ranges for 'Stop taking e-bike jobs: how many Average mechanic time per repair job' (−0.5 to −0.1 hours/job), 'Effect of each extra hours/job on average wait for a repair' (3 to 12 days jobs/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range."
+      },
+      "driver": {
+       "figure": "average_wait_for_a_repair_per_hours_job",
+       "low": 0.0018001800180018,
+       "high": 0.34113411341134114
+      },
+      "text": "The chance that 'Stop taking e-bike jobs' meets 'Average repair wait under 5 days by end of March', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [
+        "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+        "average_wait_for_a_repair_per_hours_job"
+       ],
+       "estimates": [
+        "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+        "average_wait_for_a_repair_per_hours_job"
+       ],
+       "approx": [
+        "current_average_wait_for_a_repair"
+       ]
+      },
+      "rests_on_text": "Rests on Olumi's 2 what-ifs; their approximate 'Current average wait for a repair', read as a range.",
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      },
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "always within in this model",
+      "olumi": null,
+      "aim": "Extra spend no more than £1,500 a month",
+      "aim_id": "extra_spend_no_more_than_1_500_a_month",
+      "title": "With the model's figures, 'Stop taking e-bike jobs' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+      "estimate": null
+     }
+    ],
+    "driver": {
+     "text": "under 1% if 'Effect of each extra hours/job on average wait for a repair' is low, about 34% if it is high: Under 'Stop taking e-bike jobs', the chance of meeting 'Average repair wait under 5 days by end of March' moves most with 'Effect of each extra hours/job on average wait for a repair': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "title": "under 1% if 'Effect of each extra hours/job on average wait for a repair' is low, about 34% if it is high: Under 'Stop taking e-bike jobs', the chance of meeting 'Average repair wait under 5 days by end of March' moves most with 'Effect of each extra hours/job on average wait for a repair': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "figure": "average_wait_for_a_repair_per_hours_job",
+     "low": 0.0018001800180018,
+     "high": 0.34113411341134114
+    },
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+      "stopping_e_bike_work_gives_up_the_income_and_the_customers_those"
+     ],
+     "text": "1 figure, 1 challenge",
+     "title": "+ Figure: Stop taking e-bike jobs: how many Average mechanic time per repair job\n+ challenge: Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss.",
+     "label": "Show 2 notes behind this, 2 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 figure, 1 challenge",
+     "face": "1 figure, 1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [
+     {
+      "id": "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+      "whose": "olumi",
+      "label": "Stop taking e-bike jobs: how many Average mechanic time per repair job",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "average_wait_for_a_repair_per_hours_job",
+      "whose": "olumi",
+      "label": "Effect of each extra hours/job on average wait for a repair",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "current_average_wait_for_a_repair",
+      "whose": "mixed",
+      "label": "Current average wait for a repair",
+      "author": "Loop’s figure, from the brief, Olumi’s range"
+     }
+    ],
+    "sets": [
+     {
+      "id": "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+      "lever": "average_mechanic_time_per_repair_job_changed",
+      "label": "Stop taking e-bike jobs: how many Average mechanic time per repair job",
+      "figure": {
+       "text": "−0.5 to −0.1 hours/job",
+       "title": "Plausible range: −0.5 to −0.1 hours/job"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Stop taking e-bike jobs",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “stop taking e-bike jobs” (Loop)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+     "state": "chance",
+     "text": "about 13% chance",
+     "title": "The chance that 'Stop taking e-bike jobs' meets 'Average repair wait under 5 days by end of March', in this model on current information. It rests on Olumi's what-if ranges for 'Stop taking e-bike jobs: how many Average mechanic time per repair job' (−0.5 to −0.1 hours/job), 'Effect of each extra hours/job on average wait for a repair' (3 to 12 days jobs/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "range": "under 1% if 'Effect of each extra hours/job on average wait for a repair' is low, about 34% if it is high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "leave_things_as_they_are",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Leave things as they are",
+    "typed": false,
+    "detail": "Leave things as they are · option · Proposed by Olumi: A baseline with the two current mechanics and current opening days shows what each other option would actually change.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: A baseline with the two current mechanics and current opening days shows what each other option would actually change."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "under 1% chance",
+      "fixed": false,
+      "approx": "≈ ",
+      "olumi": null,
+      "likely": null,
+      "aim": "Average repair wait under 5 days by end of March",
+      "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+      "title": "The chance that 'Leave things as they are' meets 'Average repair wait under 5 days by end of March', in this model on current information. It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 8.101340866134912,
+       "median": 8.998257821196578,
+       "high": 9.899759834422488,
+       "unit": "days",
+       "text": "between 8.1 and 9.9 days (middle 9)",
+       "title": "Under 'Leave things as they are', 'average wait for a repair' is likely to be in this range (8 times in 10). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range."
+      },
+      "driver": null,
+      "text": "The chance that 'Leave things as they are' meets 'Average repair wait under 5 days by end of March', in this model on current information.",
+      "rests_on": {
+       "reading": false,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": [
+        "current_average_wait_for_a_repair"
+       ]
+      },
+      "rests_on_text": "Rests on their approximate 'Current average wait for a repair', read as a range.",
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      },
+      "estimate": null
+     },
+     {
+      "kind": "limit",
+      "value": "always within in this model",
+      "olumi": null,
+      "aim": "Extra spend no more than £1,500 a month",
+      "aim_id": "extra_spend_no_more_than_1_500_a_month",
+      "title": "With the model's figures, 'Leave things as they are' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [
+     {
+      "id": "current_average_wait_for_a_repair",
+      "whose": "mixed",
+      "label": "Current average wait for a repair",
+      "author": "Loop’s figure, from the brief, Olumi’s range"
+     }
+    ],
+    "sets": [],
+    "face": {
+     "title": {
+      "text": "Leave things as they are",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: A baseline with the two current mechanics and current opening days shows what each other option would actually change."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+     "state": "chance",
+     "text": "under 1% chance",
+     "title": "The chance that 'Leave things as they are' meets 'Average repair wait under 5 days by end of March', in this model on current information. It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "range": "under 1% whether 'Current average wait for a repair' is low or high",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "average_wait_for_a_repair",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Average wait for a repair",
+    "typed": false,
+    "detail": "average wait for a repair · quantity · Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop) · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a part-time mechanic: about 5.67 days (3.07 to 7.68 days) · Stop taking e-bike jobs: about 7.21 days (4.58 to 8.85 days) · Leave things as they are: about 9 days (8.1 to 9.9 days)",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Hire a part-time mechanic, Stop taking e-bike jobs it rests on figures Olumi proposed. Hire a part-time mechanic: about 5.67 days (3.07 to 7.68 days); Stop taking e-bike jobs: about 7.21 days (4.58 to 8.85 days); Leave things as they are: about 9 days (8.1 to 9.9 days). Not worked out under Open on Sundays. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "mechanic_hours_worked_in_the_workshop_changed",
+      "average_mechanic_time_per_repair_job_changed",
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "text": "2 figures, 1 calculation",
+     "title": "+ Figure: Mechanic hours worked in the workshop changed\n+ Figure: Average mechanic time per repair job changed\n+ How average wait for a repair is worked out",
+     "label": "Show 3 notes behind this, 3 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "2 figures, 1 calculation",
+     "face": "2 figures, 1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_part_time_mechanic",
+      "text": "about 5.67 days (3.07 to 7.68 days)",
+      "p10": 3.0693942456462793,
+      "p50": 5.6666353179252775,
+      "p90": 7.679139499990362,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     },
+     {
+      "option": "stop_taking_e_bike_jobs",
+      "text": "about 7.21 days (4.58 to 8.85 days)",
+      "p10": 4.582964468557523,
+      "p50": 7.205002705483073,
+      "p90": 8.847526524324952,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     },
+     {
+      "option": "leave_things_as_they_are",
+      "text": "about 9 days (8.1 to 9.9 days)",
+      "p10": 8.101340866134912,
+      "p50": 8.998257821196578,
+      "p90": 9.899759834422488,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Average wait for a repair",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "average_repair_wait_under_5_days_by_end_of_march_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The target for 'Average repair wait under 5 days by end of March'",
+    "typed": false,
+    "detail": "The target for 'Average repair wait under 5 days by end of March' · quantity · Theirs: “under 5 days” (Loop) · 5 days",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "5 days",
+     "title": "5 days",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "under 5 days",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s figure, from the brief",
+     "title": "Theirs: “under 5 days” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "average_repair_wait_under_5_days_by_end_of_march",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Average repair wait under 5 days by end of March",
+    "typed": false,
+    "detail": "Average repair wait under 5 days by end of March · goal · Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "less than 5 days",
+     "title": "less than 5 days",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne",
+      "finding_a_mechanic_and_getting_them_up_to_speed_takes_time_so_th"
+     ],
+     "text": "2 challenges",
+     "title": "+ challenge: Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.\n+ challenge: Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest.",
+     "label": "Show 2 notes behind this, 2 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "2 challenges",
+     "face": "2 challenges",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Average repair wait under 5 days by end of March",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "extra_spend_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in extra spend",
+    "typed": false,
+    "detail": "Change in extra spend · quantity · Theirs: “we can't spend more than £1,500 a month extra” (Loop) · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Hire a part-time mechanic: about £1,300/month (£1,170 to £1,430/month) · Stop taking e-bike jobs: £0/month · Leave things as they are: £0/month",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Hire a part-time mechanic it rests on figures Olumi proposed. Hire a part-time mechanic: about £1,300/month (£1,170 to £1,430/month); Stop taking e-bike jobs: £0/month; Leave things as they are: £0/month. Not worked out under Open on Sundays. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "part_time_mechanic_added",
+      "extra_cost_of_opening_on_sundays_changed",
+      "extra_spend_change_per_gbp_month",
+      "extra_spend_change_per_gbp_month_2",
+      "no_change_gbp_month",
+      "extra_spend_change_from_the_options"
+     ],
+     "text": "5 figures, 1 calculation",
+     "title": "+ Figure: Part-time mechanic added\n+ Figure: Extra cost of opening on Sundays changed\n+ Figure: Effect of each extra GBP/month on extra spend\n+ Figure: Effect of each extra GBP/month on extra spend\n+ Figure: No change (GBP/month)\n+ How Change in extra spend is worked out",
+     "label": "Show 6 notes behind this, 6 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "5 figures, 1 calculation",
+     "face": "5 figures, 1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "hire_a_part_time_mechanic",
+      "text": "about £1,300/month (£1,170 to £1,430/month)",
+      "p10": 1169.6016585912762,
+      "p50": 1299.2797201730848,
+      "p90": 1426.4476946102827,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     },
+     {
+      "option": "stop_taking_e_bike_jobs",
+      "text": "£0/month",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     },
+     {
+      "option": "leave_things_as_they_are",
+      "text": "£0/month",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in extra spend",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “we can't spend more than £1,500 a month extra” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "extra_spend_no_more_than_1_500_a_month_bound",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The limit for 'Extra spend no more than £1,500 a month'",
+    "typed": false,
+    "detail": "The limit for 'Extra spend no more than £1,500 a month' · quantity · Theirs: “more than £1,500 a month extra” (Loop) · £1,500/month",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "£1,500/month",
+     "title": "£1,500/month",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "more than £1,500 a month extra",
+      "whole": false,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s figure, from the brief",
+     "title": "Theirs: “more than £1,500 a month extra” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "extra_spend_no_more_than_1_500_a_month",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Extra spend no more than £1,500 a month",
+    "typed": false,
+    "detail": "Extra spend no more than £1,500 a month · limit · Theirs: “we can't spend more than £1,500 a month extra” (Loop)",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most £1,500/month",
+     "title": "at most £1,500/month",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Extra spend no more than £1,500 a month",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “we can't spend more than £1,500 a month extra” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "average_wait_for_a_repair_per_hours_week",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra hours/week on average wait for a repair",
+    "typed": false,
+    "detail": "Effect of each extra hours/week on average wait for a repair · quantity · Proposed by Olumi: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place. · Plausible range: −0.3 to −0.1 days weeks/hours",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "−0.3 to −0.1 days weeks/hours",
+     "title": "Plausible range: −0.3 to −0.1 days weeks/hours",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Effect of each extra hours/week on average wait for a repair",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place."
+    },
+    "failed": []
+   },
+   {
+    "id": "average_wait_for_a_repair_per_hours_job",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Effect of each extra hours/job on average wait for a repair",
+    "typed": false,
+    "detail": "Effect of each extra hours/job on average wait for a repair · quantity · Proposed by Olumi: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place. · Plausible range: 3 to 12 days jobs/hours",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "3 to 12 days jobs/hours",
+     "title": "Plausible range: 3 to 12 days jobs/hours",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Effect of each extra hours/job on average wait for a repair",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place."
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "current_average_wait_for_a_repair",
+    "to": "average_wait_for_a_repair",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "average_wait_for_a_repair_per_hours_week",
+    "to": "average_wait_for_a_repair",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "average_wait_for_a_repair_per_hours_job",
+    "to": "average_wait_for_a_repair",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "how much · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "open_on_sundays",
+    "to": "average_repair_wait_under_5_days_by_end_of_march",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": true,
+    "title": "link in words: disputed, unsure; Sunday opening would only spread the same work over more days · Theirs: “Sunday opening would only spread the same work over more days” (Loop)",
+    "records": [
+     "sunday_opening_would_only_spread_the_same_work_over_more_days_2"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "size": {
+     "record": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+     "text": "stays a claim in words",
+     "title": "‘Open on Sundays’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+     "edit": null
+    }
+   },
+   {
+    "from": "hire_a_part_time_mechanic",
+    "to": "part_time_mechanic_cost",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "option input",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "part_time_mechanic_cost",
+    "to": "extra_spend_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Part-time mechanic added · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "extra_spend_change_from_the_options"
+    ],
+    "effect": {
+     "text": "≈1",
+     "title": "Effect of each extra GBP/month on extra spend · An approximate figure: 1 · worked out through Part-time mechanic added",
+     "figure": "extra_spend_change_per_gbp_month"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "hire_a_part_time_mechanic",
+    "to": "average_wait_for_a_repair",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Hire a part-time mechanic: how many Mechanic hours worked in the workshop, Mechanic hours worked in the workshop changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": {
+     "text": "−0.3 to −0.1 days weeks/hours",
+     "title": "Effect of each extra hours/week on average wait for a repair · Plausible range: −0.3 to −0.1 days weeks/hours · worked out through Hire a part-time mechanic: how many Mechanic hours worked in the workshop, Mechanic hours worked in the workshop changed",
+     "figure": "average_wait_for_a_repair_per_hours_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "open_on_sundays",
+    "to": "average_wait_for_a_repair",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Open on Sundays: how many Mechanic hours worked in the workshop, Mechanic hours worked in the workshop changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": {
+     "text": "−0.3 to −0.1 days weeks/hours",
+     "title": "Effect of each extra hours/week on average wait for a repair · Plausible range: −0.3 to −0.1 days weeks/hours · worked out through Open on Sundays: how many Mechanic hours worked in the workshop, Mechanic hours worked in the workshop changed",
+     "figure": "average_wait_for_a_repair_per_hours_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "open_on_sundays",
+    "to": "extra_spend_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Extra cost of opening on Sundays changed: Open on Sundays, Extra cost of opening on Sundays changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "extra_spend_change_from_the_options"
+    ],
+    "effect": {
+     "text": "≈1",
+     "title": "Effect of each extra GBP/month on extra spend · An approximate figure: 1 · worked out through Extra cost of opening on Sundays changed: Open on Sundays, Extra cost of opening on Sundays changed",
+     "figure": "extra_spend_change_per_gbp_month_2"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "stop_taking_e_bike_jobs",
+    "to": "average_wait_for_a_repair",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Stop taking e-bike jobs: how many Average mechanic time per repair job, Average mechanic time per repair job changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "average_wait_for_a_repair_from_the_options"
+    ],
+    "effect": {
+     "text": "3 to 12 days jobs/hours",
+     "title": "Effect of each extra hours/job on average wait for a repair · Plausible range: 3 to 12 days jobs/hours · worked out through Stop taking e-bike jobs: how many Average mechanic time per repair job, Average mechanic time per repair job changed",
+     "figure": "average_wait_for_a_repair_per_hours_job"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "average_wait_for_a_repair",
+    "to": "average_repair_wait_under_5_days_by_end_of_march",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "average_repair_wait_under_5_days_by_end_of_march_target",
+    "to": "average_repair_wait_under_5_days_by_end_of_march",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "extra_spend_change",
+    "to": "extra_spend_no_more_than_1_500_a_month",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "extra_spend_no_more_than_1_500_a_month_bound",
+    "to": "extra_spend_no_more_than_1_500_a_month",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+    "to": "open_on_sundays",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Open on Sundays → Average repair wait under 5 days by end of March",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+    "to": "average_repair_wait_under_5_days_by_end_of_march",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Open on Sundays → Average repair wait under 5 days by end of March",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Average repair wait under 5 days by end of March’",
+   "lead": "Chance of ‘Average repair wait under 5 days by end of March’, in this model on current information",
+   "all_withheld": false,
+   "most_likely": {
+    "text": "Which option leads depends on Olumi's estimate of 'Effect of each extra hours/week on average wait for a repair': 'Hire a part-time mechanic' leads when it is low, 'Stop taking e-bike jobs' when it is high. Give yours with ✎. Among the options whose chance could be worked out; not 'Open on Sundays'.",
+    "title": "Which option leads depends on Olumi's estimate of 'Effect of each extra hours/week on average wait for a repair': 'Hire a part-time mechanic' leads when it is low, 'Stop taking e-bike jobs' when it is high. Give yours with ✎. Among the options whose chance could be worked out; not 'Open on Sundays'. It rests on Olumi's what-if ranges for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (12 to 24 hours/week), 'Stop taking e-bike jobs: how many Average mechanic time per repair job' (−0.5 to −0.1 hours/job), 'Effect of each extra hours/job on average wait for a repair' (3 to 12 days jobs/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+    "rests_on": {
+     "reading": false,
+     "target": false,
+     "what_ifs": [
+      "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+      "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+      "average_wait_for_a_repair_per_hours_week",
+      "average_wait_for_a_repair_per_hours_job"
+     ],
+     "estimates": [
+      "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+      "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+      "average_wait_for_a_repair_per_hours_week",
+      "average_wait_for_a_repair_per_hours_job"
+     ],
+     "approx": [
+      "current_average_wait_for_a_repair"
+     ]
+    },
+    "rests_on_text": "Rests on Olumi's 3 what-ifs; their approximate 'Current average wait for a repair', read as a range.",
+    "if_approved": {
+     "glyph": "↻",
+     "title": "if approved"
+    },
+    "option": null,
+    "aim_id": "average_repair_wait_under_5_days_by_end_of_march",
+    "estimate": "average_wait_for_a_repair_per_hours_week"
+   },
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 3 things",
+    "items": [
+     {
+      "id": "open_question_1_changed_open_on_sundays",
+      "text": "On Sundays, would the mechanics work hours on top of their current week, or would the same hours be moved from other days?",
+      "title": "On Sundays, would the mechanics work hours on top of their current week, or would the same hours be moved from other days?",
+      "answer": true,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "open_question_2_changed_open_on_sundays",
+      "text": "How much would \"Open on Sundays\" change \"Average repair wait under 5 days by end of March\"? Loop said: “Sunday opening would only spread the same work over more days”",
+      "title": "How much would \"Open on Sundays\" change \"Average repair wait under 5 days by end of March\"? Loop said: “Sunday opening would only spread the same work over more days”",
+      "answer": true,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+      "text": "‘Open on Sundays → Average repair wait under 5 days by end of March’",
+      "title": "Open on Sundays → Average repair wait under 5 days by end of March",
+      "answer": false,
+      "unknown": null,
+      "edit": null,
+      "stays_in_words": "‘Open on Sundays’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words."
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    },
+    {
+     "text": "about 98%: The chance that 'Hire a part-time mechanic' stays within 'Extra spend no more than £1,500 a month', in this model.",
+     "title": "about 98%: The chance that 'Hire a part-time mechanic' stays within 'Extra spend no more than £1,500 a month', in this model.",
+     "about": {
+      "kind": "limit",
+      "olumi": true,
+      "fact": "F15",
+      "range": false
+     }
+    },
+    {
+     "text": "about 2%: The chance that 'Hire a part-time mechanic' goes outside 'Extra spend no more than £1,500 a month', in this model.",
+     "title": "about 2%: The chance that 'Hire a part-time mechanic' goes outside 'Extra spend no more than £1,500 a month', in this model.",
+     "about": {
+      "kind": "outside",
+      "olumi": true,
+      "fact": "F16",
+      "range": false
+     }
+    },
+    {
+     "text": "always within in this model: With the model's figures, 'Stop taking e-bike jobs' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "title": "always within in this model: With the model's figures, 'Stop taking e-bike jobs' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "about": {
+      "kind": "limit",
+      "olumi": false,
+      "fact": "F17",
+      "range": false
+     }
+    },
+    {
+     "text": "always within in this model: With the model's figures, 'Leave things as they are' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "title": "always within in this model: With the model's figures, 'Leave things as they are' always stays within 'Extra spend no more than £1,500 a month': nothing uncertain reaches it, so this is fixed by the model, not a forecast.",
+     "about": {
+      "kind": "limit",
+      "olumi": false,
+      "fact": "F18",
+      "range": false
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop', not their figure: 12 to 24 hours/week. Basis: A part-time mechanic at about £1,300 a month usually works two to three days a week, roughly 12 to 24 hours. Please give the hours you would actually contract in their place.",
+     "title": "Olumi's what-if for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop', not their figure: 12 to 24 hours/week. Basis: A part-time mechanic at about £1,300 a month usually works two to three days a week, roughly 12 to 24 hours. Please give the hours you would actually contract in their place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Open on Sundays: how many Mechanic hours worked in the workshop', not their figure: 0 to 16 hours/week. Basis: Sunday opening could add up to a day of mechanic time, about 8 hours per mechanic, but Jo thinks existing staff would simply spread their hours, so the net gain could be nil. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Open on Sundays: how many Mechanic hours worked in the workshop', not their figure: 0 to 16 hours/week. Basis: Sunday opening could add up to a day of mechanic time, about 8 hours per mechanic, but Jo thinks existing staff would simply spread their hours, so the net gain could be nil. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Extra cost of opening on Sundays changed: Open on Sundays', not their figure: £300 to £1,200/month. Basis: Sunday premium pay and extra running costs for about four or five Sundays a month would plausibly fall in this band. Please replace it with your own figure.",
+     "title": "Olumi's what-if for 'Extra cost of opening on Sundays changed: Open on Sundays', not their figure: £300 to £1,200/month. Basis: Sunday premium pay and extra running costs for about four or five Sundays a month would plausibly fall in this band. Please replace it with your own figure.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F3",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Stop taking e-bike jobs: how many Average mechanic time per repair job', not their figure: −0.5 to −0.1 hours/job. Basis: E-bike jobs take about twice as long as ordinary ones, so dropping them cuts average time per job; the size depends on the e-bike share, assumed here as 15 to 40 percent of jobs. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Stop taking e-bike jobs: how many Average mechanic time per repair job', not their figure: −0.5 to −0.1 hours/job. Basis: E-bike jobs take about twice as long as ordinary ones, so dropping them cuts average time per job; the size depends on the e-bike share, assumed here as 15 to 40 percent of jobs. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F4",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect of each extra hours/week on average wait for a repair', not their figure: −0.3 to −0.1 days weeks/hours. Basis: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place.",
+     "title": "Olumi's what-if for 'Effect of each extra hours/week on average wait for a repair', not their figure: −0.3 to −0.1 days weeks/hours. Basis: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F5",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Effect of each extra hours/job on average wait for a repair', not their figure: 3 to 12 days jobs/hours. Basis: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Effect of each extra hours/job on average wait for a repair', not their figure: 3 to 12 days jobs/hours. Basis: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F6",
+      "range": true
+     }
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [
+    {
+     "id": "F27",
+     "kind": "worth",
+     "line": "'Effect of each extra hours/week on average wait for a repair' (Olumi's estimate) · aim 'Average repair wait under 5 days by end of March' · worth finding out",
+     "hover": "In this model: 'Effect of each extra hours/week on average wait for a repair' (Olumi's estimate); 'Average repair wait under 5 days by end of March'; within: Extra spend no more than £1,500 a month; worth finding out. Options not compared: Open on Sundays.\nabout 3 points, an estimate",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "limits": [
+      "extra_spend_no_more_than_1_500_a_month"
+     ],
+     "figure": {
+      "label": "Effect of each extra hours/week on average wait for a repair",
+      "whose": "olumi",
+      "id": "average_wait_for_a_repair_per_hours_week",
+      "mark": null,
+      "give": null
+     },
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F29",
+     "kind": "middle",
+     "line": "'Hire a part-time mechanic' · aim 'Average repair wait under 5 days by end of March': 5.61 days, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Hire a part-time mechanic', for 'Average repair wait under 5 days by end of March': 'average wait for a repair' 5.61 days, against a target of less than 5 days: misses it. It rests on Olumi's what-if ranges for 'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (12 to 24 hours/week), 'Effect of each extra hours/week on average wait for a repair' (−0.3 to −0.1 days weeks/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "option": "hire_a_part_time_mechanic",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F30",
+     "kind": "middle",
+     "line": "'Stop taking e-bike jobs' · aim 'Average repair wait under 5 days by end of March': 7.2 days, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Stop taking e-bike jobs', for 'Average repair wait under 5 days by end of March': 'average wait for a repair' 7.2 days, against a target of less than 5 days: misses it. It rests on Olumi's what-if ranges for 'Stop taking e-bike jobs: how many Average mechanic time per repair job' (−0.5 to −0.1 hours/job), 'Effect of each extra hours/job on average wait for a repair' (3 to 12 days jobs/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "option": "stop_taking_e_bike_jobs",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    },
+    {
+     "id": "F31",
+     "kind": "middle",
+     "line": "'Leave things as they are' · aim 'Average repair wait under 5 days by end of March': 9 days, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Leave things as they are', for 'Average repair wait under 5 days by end of March': 'average wait for a repair' 9 days, against a target of less than 5 days: misses it. It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range.",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "option": "leave_things_as_they_are",
+     "versus": null,
+     "status": "missed",
+     "olumi": null
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_separated",
+       "text": "no option is clearly more likely than another to achieve 'Average repair wait under 5 days by end of March', so no crossing is worked out: it is worked out only where one option is clearly ahead",
+       "line": "No option is clearly more likely than another to achieve 'Average repair wait under 5 days by end of March', so no crossing is worked out: it is worked out only where one option is clearly ahead."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [
+    {
+     "id": "F34",
+     "kind": "goal",
+     "line": "About 64% of the variation in whether 'Hire a part-time mechanic' meets 'Average repair wait under 5 days by end of March' traces to ranges Olumi estimated, counting each figure on its own; about 36% is not attributed to any one range.",
+     "hover": "About 64% of the variation in whether 'Hire a part-time mechanic' meets 'Average repair wait under 5 days by end of March' traces to ranges Olumi estimated, counting each figure on its own; about 36% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "option": "hire_a_part_time_mechanic",
+     "olumi_share": 0.6380560736805553,
+     "person_share": 0,
+     "unassigned": 0.3619439263194447,
+     "figures": [
+      {
+       "id": "average_wait_for_a_repair_per_hours_week",
+       "label": "Effect of each extra hours/week on average wait for a repair",
+       "whose": "olumi",
+       "share": 0.36439969000394484,
+       "text": "about 36%",
+       "line": "'Effect of each extra hours/week on average wait for a repair' (Olumi's estimate) · about 36%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+       "label": "Hire a part-time mechanic: how many Mechanic hours worked in the workshop",
+       "whose": "olumi",
+       "share": 0.18800149206143463,
+       "text": "about 19%",
+       "line": "'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (Olumi's estimate) · about 19%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "current_average_wait_for_a_repair",
+       "label": "Current average wait for a repair",
+       "whose": "mixed",
+       "share": 0.08606542825313328,
+       "text": "about 9%",
+       "line": "'Current average wait for a repair' (a person's figure, Olumi's range) · about 9%",
+       "mark": {
+        "glyph": "◐",
+        "title": "Partly Olumi’s: a person’s figure, Olumi’s range"
+       },
+       "give": null
+      },
+      {
+       "id": "average_wait_for_a_repair_per_hours_job",
+       "label": "Effect of each extra hours/job on average wait for a repair",
+       "whose": "olumi",
+       "share": 0,
+       "text": "under 1%",
+       "line": "'Effect of each extra hours/job on average wait for a repair' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      }
+     ]
+    },
+    {
+     "id": "F35",
+     "kind": "limit",
+     "line": "About 85% of the variation in whether 'Hire a part-time mechanic' stays within 'Extra spend no more than £1,500 a month' traces to ranges Olumi estimated, counting each figure on its own; about 15% is not attributed to any one range.",
+     "hover": "About 85% of the variation in whether 'Hire a part-time mechanic' stays within 'Extra spend no more than £1,500 a month' traces to ranges Olumi estimated, counting each figure on its own; about 15% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "extra_spend_no_more_than_1_500_a_month",
+     "option": "hire_a_part_time_mechanic",
+     "olumi_share": 0.8516579808377408,
+     "person_share": 0,
+     "unassigned": 0.1483420191622592,
+     "figures": [
+      {
+       "id": "part_time_mechanic_cost",
+       "label": "Part-time mechanic cost",
+       "whose": "mixed",
+       "share": 0.8516579808377408,
+       "text": "about 85%",
+       "line": "'Part-time mechanic cost' (a person's figure, Olumi's range) · about 85%",
+       "mark": {
+        "glyph": "◐",
+        "title": "Partly Olumi’s: a person’s figure, Olumi’s range"
+       },
+       "give": null
+      }
+     ]
+    },
+    {
+     "id": "F36",
+     "kind": "goal",
+     "line": "About 48% of the variation in whether 'Stop taking e-bike jobs' meets 'Average repair wait under 5 days by end of March' traces to ranges Olumi estimated, counting each figure on its own; about 52% is not attributed to any one range.",
+     "hover": "About 48% of the variation in whether 'Stop taking e-bike jobs' meets 'Average repair wait under 5 days by end of March' traces to ranges Olumi estimated, counting each figure on its own; about 52% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "option": "stop_taking_e_bike_jobs",
+     "olumi_share": 0.4834813437645763,
+     "person_share": 0,
+     "unassigned": 0.5165186562354237,
+     "figures": [
+      {
+       "id": "average_wait_for_a_repair_per_hours_job",
+       "label": "Effect of each extra hours/job on average wait for a repair",
+       "whose": "olumi",
+       "share": 0.2708064595201307,
+       "text": "about 27%",
+       "line": "'Effect of each extra hours/job on average wait for a repair' (Olumi's estimate) · about 27%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+       "label": "Stop taking e-bike jobs: how many Average mechanic time per repair job",
+       "whose": "olumi",
+       "share": 0.1775353514704331,
+       "text": "about 18%",
+       "line": "'Stop taking e-bike jobs: how many Average mechanic time per repair job' (Olumi's estimate) · about 18%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "current_average_wait_for_a_repair",
+       "label": "Current average wait for a repair",
+       "whose": "mixed",
+       "share": 0.035459077949007045,
+       "text": "about 4%",
+       "line": "'Current average wait for a repair' (a person's figure, Olumi's range) · about 4%",
+       "mark": {
+        "glyph": "◐",
+        "title": "Partly Olumi’s: a person’s figure, Olumi’s range"
+       },
+       "give": null
+      },
+      {
+       "id": "average_wait_for_a_repair_per_hours_week",
+       "label": "Effect of each extra hours/week on average wait for a repair",
+       "whose": "olumi",
+       "share": 0,
+       "text": "under 1%",
+       "line": "'Effect of each extra hours/week on average wait for a repair' (Olumi's estimate) · under 1%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      }
+     ]
+    }
+   ],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "find_out": [
+    {
+     "aim": "average_repair_wait_under_5_days_by_end_of_march",
+     "line": "In this model's samples, which of the options compared is most likely to meet 'Average repair wait under 5 days by end of March' while staying within 'Extra spend no more than £1,500 a month' differs with the value of each of these figures. They are in the order of the model's estimate of what knowing each is worth, largest first; the order is approximate. Options not compared: 'Open on Sundays'.",
+     "compared": [
+      {
+       "id": "hire_a_part_time_mechanic",
+       "label": "Hire a part-time mechanic"
+      },
+      {
+       "id": "stop_taking_e_bike_jobs",
+       "label": "Stop taking e-bike jobs"
+      },
+      {
+       "id": "leave_things_as_they_are",
+       "label": "Leave things as they are"
+      }
+     ],
+     "not_compared": [
+      {
+       "id": "open_on_sundays",
+       "label": "Open on Sundays"
+      }
+     ],
+     "within": [
+      {
+       "id": "extra_spend_no_more_than_1_500_a_month",
+       "label": "Extra spend no more than £1,500 a month"
+      }
+     ],
+     "figures": [
+      {
+       "id": "average_wait_for_a_repair_per_hours_week",
+       "fact": "F27",
+       "label": "Effect of each extra hours/week on average wait for a repair",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 2.9000000000000004,
+       "estimate_text": "about 3 points, an estimate",
+       "line": "'Effect of each extra hours/week on average wait for a repair' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "average_wait_for_a_repair_per_hours_job",
+       "fact": "F28",
+       "label": "Effect of each extra hours/job on average wait for a repair",
+       "whose": "olumi",
+       "set_by": [],
+       "points": 1.7999999999999998,
+       "estimate_text": "about 2 points, an estimate",
+       "line": "'Effect of each extra hours/job on average wait for a repair' (Olumi's estimate) · worth finding out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+       "fact": "F26",
+       "label": "Stop taking e-bike jobs: how many Average mechanic time per repair job",
+       "whose": "olumi",
+       "set_by": [
+        {
+         "id": "stop_taking_e_bike_jobs",
+         "label": "Stop taking e-bike jobs"
+        }
+       ],
+       "points": 1.09,
+       "estimate_text": "about 1 point, an estimate",
+       "line": "'Stop taking e-bike jobs: how many Average mechanic time per repair job' (Olumi's estimate) · set by 'Stop taking e-bike jobs': give the amount you intend, or find it out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      },
+      {
+       "id": "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+       "fact": "F25",
+       "label": "Hire a part-time mechanic: how many Mechanic hours worked in the workshop",
+       "whose": "olumi",
+       "set_by": [
+        {
+         "id": "hire_a_part_time_mechanic",
+         "label": "Hire a part-time mechanic"
+        }
+       ],
+       "points": 1.04,
+       "estimate_text": "about 1 point, an estimate",
+       "line": "'Hire a part-time mechanic: how many Mechanic hours worked in the workshop' (Olumi's estimate) · set by 'Hire a part-time mechanic': give the amount you intend, or find it out",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": null
+      }
+     ]
+    }
+   ],
+   "find_out_heading": "Worth finding out",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Average repair wait under 5 days by end of March’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Average repair wait under 5 days by end of March’ is likely to be (8 times in 10)."
+    }
+   ]
+  },
+  "edit_base": null,
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "average_wait_for_a_repair",
+   "value": 5,
+   "unit": "days",
+   "text": "less than 5 days",
+   "title": "5 days",
+   "side": "at_most"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "Olumi has raised 3 challenges to test; no risks listed yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks and shows what a challenge would mean.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": {
+  "id": 47,
+  "base": null,
+  "heading": "Olumi proposes 40 changes",
+  "on": "new scenario",
+  "removed": null,
+  "problem": null,
+  "marks": [],
+  "changes": [
+   {
+    "id": "repair_jobs_turned_away_per_week",
+    "top": false,
+    "text": "+ outside the model: Repair jobs turned away per week: ≈12 repair jobs/week",
+    "detail": "Repair jobs turned away per week: ≈12 repair jobs/week · outside the model · Theirs: “turns away about 12 repair jobs a week” (Loop) · Kept as you said it; not used in the working-out.",
+    "family": "left_out",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "current_average_wait_for_a_repair",
+    "top": false,
+    "text": "+ figure: Current average wait for a repair",
+    "detail": "Current average wait for a repair · figure · Theirs: “The average wait is about 9 days now.” (Loop) · An approximate figure: 9 days",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "part_time_mechanic_cost",
+    "top": false,
+    "text": "+ figure: Part-time mechanic cost",
+    "detail": "Part-time mechanic cost · figure · Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop) · An approximate figure: £1,300/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "hire_a_part_time_mechanic"
+     ],
+     "why": "read only by ‘Hire a part-time mechanic’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "e_bike_jobs_take_about_twice_as_long",
+    "top": false,
+    "text": "+ outside the model: E-bike jobs take about twice as long: ≈2 times as long",
+    "detail": "E-bike jobs take about twice as long: ≈2 times as long · outside the model · Theirs: “e-bike jobs, which take roughly twice as long as ordinary ones” (Loop) · Kept as you said it; not used in the working-out.",
+    "family": "left_out",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "part_time_mechanic_added",
+    "top": false,
+    "text": "+ figure: Part-time mechanic added",
+    "detail": "Part-time mechanic added · figure · Structure: None added without an option. · £0/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "hire_a_part_time_mechanic",
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘Hire a part-time mechanic’, ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "mechanic_hours_worked_in_the_workshop_changed",
+    "top": false,
+    "text": "+ figure: Mechanic hours worked in the workshop changed",
+    "detail": "Mechanic hours worked in the workshop changed · figure · Structure: No change without an option. · 0 hours/week",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "hire_a_part_time_mechanic",
+      "open_on_sundays",
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘Hire a part-time mechanic’, ‘Open on Sundays’, ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m",
+    "top": false,
+    "text": "+ figure: Hire a part-time mechanic: how many Mechanic hours worked in the workshop",
+    "detail": "Hire a part-time mechanic: how many Mechanic hours worked in the workshop · figure · Proposed by Olumi: A part-time mechanic at about £1,300 a month usually works two to three days a week, roughly 12 to 24 hours. Please give the hours you would actually contract in their place. · Plausible range: 12 to 24 hours/week",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "hire_a_part_time_mechanic"
+     ],
+     "why": "read only by ‘Hire a part-time mechanic’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "mechanic_hours_worked_in_the_workshop_changed_open_on_sundays",
+    "top": false,
+    "text": "+ figure: Open on Sundays: how many Mechanic hours worked in the workshop",
+    "detail": "Open on Sundays: how many Mechanic hours worked in the workshop · figure · Proposed by Olumi: Sunday opening could add up to a day of mechanic time, about 8 hours per mechanic, but Jo thinks existing staff would simply spread their hours, so the net gain could be nil. Please give your own figure in its place. · Plausible range: 0 to 16 hours/week",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_cost_of_opening_on_sundays_changed",
+    "top": false,
+    "text": "+ figure: Extra cost of opening on Sundays changed",
+    "detail": "Extra cost of opening on Sundays changed · figure · Structure: No change without an option. · £0/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "open_on_sundays",
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘Open on Sundays’, ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_cost_of_opening_on_sundays_changed_open_on_sundays",
+    "top": false,
+    "text": "+ figure: Extra cost of opening on Sundays changed: Open on Sundays",
+    "detail": "Extra cost of opening on Sundays changed: Open on Sundays · figure · Proposed by Olumi: Sunday premium pay and extra running costs for about four or five Sundays a month would plausibly fall in this band. Please replace it with your own figure. · Plausible range: £300 to £1,200/month",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "open_question_1_changed",
+    "top": false,
+    "text": "+ figure: Open question 1 changed",
+    "detail": "Open question 1 changed · figure · Structure: No change without an option. · 0",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "open_question_1_changed_open_on_sundays",
+    "top": false,
+    "text": "+ figure: Open question 1 changed: Open on Sundays",
+    "detail": "Open question 1 changed: Open on Sundays · figure · Proposed by Olumi: Propose asked this of the option, which has no route to the aims yet. · On Sundays, would the mechanics work hours on top of their current week, or would the same hours be moved from other days?",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "open_question_2_changed",
+    "top": false,
+    "text": "+ figure: Open question 2 changed",
+    "detail": "Open question 2 changed · figure · Structure: No change without an option. · 0",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "open_question_2_changed_open_on_sundays",
+    "top": false,
+    "text": "+ figure: Open question 2 changed: Open on Sundays",
+    "detail": "Open question 2 changed: Open on Sundays · figure · Proposed by Olumi: Propose asked this of the option, which has no route to the aims yet. · How much would \"Open on Sundays\" change \"Average repair wait under 5 days by end of March\"? Loop said: “Sunday opening would only spread the same work over more days”",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "open_on_sundays"
+     ],
+     "why": "read only by ‘Open on Sundays’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_mechanic_time_per_repair_job_changed",
+    "top": false,
+    "text": "+ figure: Average mechanic time per repair job changed",
+    "detail": "Average mechanic time per repair job changed · figure · Structure: No change without an option. · 0 hours/job",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "stop_taking_e_bike_jobs",
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘Stop taking e-bike jobs’, ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike",
+    "top": false,
+    "text": "+ figure: Stop taking e-bike jobs: how many Average mechanic time per repair job",
+    "detail": "Stop taking e-bike jobs: how many Average mechanic time per repair job · figure · Proposed by Olumi: E-bike jobs take about twice as long as ordinary ones, so dropping them cuts average time per job; the size depends on the e-bike share, assumed here as 15 to 40 percent of jobs. Please give your own figure in its place. · Plausible range: −0.5 to −0.1 hours/job",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "stop_taking_e_bike_jobs"
+     ],
+     "why": "read only by ‘Stop taking e-bike jobs’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "hire_a_part_time_mechanic",
+    "top": false,
+    "text": "+ option: Hire a part-time mechanic",
+    "detail": "Hire a part-time mechanic · option · Theirs: “hire a part-time mechanic for about £1,300 a month” (Loop)",
+    "family": "option",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "part_time_mechanic_cost",
+      "part_time_mechanic_added",
+      "mechanic_hours_worked_in_the_workshop_changed",
+      "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m"
+     ],
+     "why": "reads ‘Hire a part-time mechanic: how many Mechanic hours worked in the workshop’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "open_on_sundays",
+    "top": false,
+    "text": "+ option: Open on Sundays",
+    "detail": "Open on Sundays · option · Theirs: “open on Sundays” (Loop)",
+    "family": "option",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "mechanic_hours_worked_in_the_workshop_changed",
+      "mechanic_hours_worked_in_the_workshop_changed_open_on_sundays",
+      "extra_cost_of_opening_on_sundays_changed",
+      "extra_cost_of_opening_on_sundays_changed_open_on_sundays",
+      "open_question_1_changed",
+      "open_question_1_changed_open_on_sundays",
+      "open_question_2_changed",
+      "open_question_2_changed_open_on_sundays"
+     ],
+     "why": "reads ‘Open question 2 changed: Open on Sundays’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "stop_taking_e_bike_jobs",
+    "top": false,
+    "text": "+ option: Stop taking e-bike jobs",
+    "detail": "Stop taking e-bike jobs · option · Theirs: “stop taking e-bike jobs” (Loop)",
+    "family": "option",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "average_mechanic_time_per_repair_job_changed",
+      "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike"
+     ],
+     "why": "reads ‘Stop taking e-bike jobs: how many Average mechanic time per repair job’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "leave_things_as_they_are",
+    "top": false,
+    "text": "+ option: Leave things as they are",
+    "detail": "Leave things as they are · option · Proposed by Olumi: A baseline with the two current mechanics and current opening days shows what each other option would actually change.",
+    "family": "option",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "average_wait_for_a_repair",
+    "top": false,
+    "text": "+ figure: average wait for a repair",
+    "detail": "average wait for a repair · figure · Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop) · Worked out from the figures it depends on",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "average_repair_wait_under_5_days_by_end_of_march",
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘Average repair wait under 5 days by end of March’, ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_repair_wait_under_5_days_by_end_of_march_target",
+    "top": false,
+    "text": "+ figure: The target for 'Average repair wait under 5 days by end of March'",
+    "detail": "The target for 'Average repair wait under 5 days by end of March' · figure · Theirs: “under 5 days” (Loop) · 5 days",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "average_repair_wait_under_5_days_by_end_of_march"
+     ],
+     "why": "read only by ‘Average repair wait under 5 days by end of March’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_repair_wait_under_5_days_by_end_of_march",
+    "top": false,
+    "text": "+ aim: Average repair wait under 5 days by end of March",
+    "detail": "Average repair wait under 5 days by end of March · aim · Theirs: “We want the average wait for a repair under 5 days by the end of March” (Loop)",
+    "family": "goal",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "average_wait_for_a_repair",
+      "average_repair_wait_under_5_days_by_end_of_march_target"
+     ],
+     "why": "reads ‘The target for 'Average repair wait under 5 days by end of March'’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_change",
+    "top": false,
+    "text": "+ figure: Change in extra spend",
+    "detail": "Change in extra spend · figure · Theirs: “we can't spend more than £1,500 a month extra” (Loop) · Worked out from the figures it depends on",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "extra_spend_no_more_than_1_500_a_month",
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘Extra spend no more than £1,500 a month’, ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_no_more_than_1_500_a_month_bound",
+    "top": false,
+    "text": "+ figure: The limit for 'Extra spend no more than £1,500 a month'",
+    "detail": "The limit for 'Extra spend no more than £1,500 a month' · figure · Theirs: “more than £1,500 a month extra” (Loop) · £1,500/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "extra_spend_no_more_than_1_500_a_month"
+     ],
+     "why": "read only by ‘Extra spend no more than £1,500 a month’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_no_more_than_1_500_a_month",
+    "top": false,
+    "text": "+ limit: Extra spend no more than £1,500 a month",
+    "detail": "Extra spend no more than £1,500 a month · limit · Theirs: “we can't spend more than £1,500 a month extra” (Loop)",
+    "family": "limit",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "extra_spend_change",
+      "extra_spend_no_more_than_1_500_a_month_bound"
+     ],
+     "why": "reads ‘The limit for 'Extra spend no more than £1,500 a month'’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_wait_for_a_repair_per_hours_week",
+    "top": false,
+    "text": "+ figure: Effect of each extra hours/week on average wait for a repair",
+    "detail": "Effect of each extra hours/week on average wait for a repair · figure · Proposed by Olumi: With two full-time mechanics, about 70 to 80 hours a week, and a 9 day wait, each added hour cuts the wait by roughly 0.1 to 0.3 days, since queues shorten faster than capacity grows. Please offer your own figure in its place. · Plausible range: −0.3 to −0.1 days weeks/hours",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_wait_for_a_repair_per_hours_job",
+    "top": false,
+    "text": "+ figure: Effect of each extra hours/job on average wait for a repair",
+    "detail": "Effect of each extra hours/job on average wait for a repair · figure · Proposed by Olumi: Wait scales with time per job, so a one hour change in average job time moves the wait by several days when the workshop is near full capacity, assuming jobs average one to two hours. Please give your own figure in its place. · Plausible range: 3 to 12 days jobs/hours",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "average_wait_for_a_repair_from_the_options"
+     ],
+     "why": "read only by ‘how average wait for a repair is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "average_wait_for_a_repair_from_the_options",
+    "top": false,
+    "text": "+ link: how average wait for a repair is worked out",
+    "detail": "how average wait for a repair is worked out · link · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "family": "relation",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "current_average_wait_for_a_repair",
+      "mechanic_hours_worked_in_the_workshop_changed",
+      "average_mechanic_time_per_repair_job_changed",
+      "average_wait_for_a_repair",
+      "average_wait_for_a_repair_per_hours_week",
+      "average_wait_for_a_repair_per_hours_job"
+     ],
+     "why": "reads ‘Effect of each extra hours/job on average wait for a repair’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_change_per_gbp_month",
+    "top": false,
+    "text": "+ figure: Effect of each extra GBP/month on extra spend",
+    "detail": "Effect of each extra GBP/month on extra spend · figure · Proposed by Olumi: Each extra pound a month of cost adds one pound a month of extra spend, so the link is one to one. Please give your own figure in its place if it differs. · An approximate figure: 1",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_change_per_gbp_month_2",
+    "top": false,
+    "text": "+ figure: Effect of each extra GBP/month on extra spend",
+    "detail": "Effect of each extra GBP/month on extra spend · figure · Proposed by Olumi: Each extra pound a month of cost adds one pound a month of extra spend, so the link is one to one. Please give your own figure in its place if it differs. · An approximate figure: 1",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "no_change_gbp_month",
+    "top": false,
+    "text": "+ figure: No change (GBP/month)",
+    "detail": "No change (GBP/month) · figure · Structure: A change is zero when nothing changes. · £0/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "extra_spend_change_from_the_options"
+     ],
+     "why": "read only by ‘how Change in extra spend is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "extra_spend_change_from_the_options",
+    "top": false,
+    "text": "+ link: how Change in extra spend is worked out",
+    "detail": "how Change in extra spend is worked out · link · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "family": "relation",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "part_time_mechanic_added",
+      "extra_cost_of_opening_on_sundays_changed",
+      "extra_spend_change",
+      "extra_spend_change_per_gbp_month",
+      "extra_spend_change_per_gbp_month_2",
+      "no_change_gbp_month"
+     ],
+     "why": "reads ‘No change (GBP/month)’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "both_mechanics_are_fully_booked_so_the_workshop_turns_away_repai",
+    "top": false,
+    "text": "+ claim: Both mechanics are fully booked, so the workshop turns away repair jobs.",
+    "detail": "Both mechanics are fully booked, so the workshop turns away repair jobs. · claim · Theirs: “because both mechanics are fully booked” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "sunday_opening_would_only_spread_the_same_work_over_more_days",
+    "top": false,
+    "text": "+ claim: Sunday opening would only spread the same work over more days.",
+    "detail": "Sunday opening would only spread the same work over more days. · claim · Theirs: “Sunday opening would only spread the same work over more days” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "sunday_opening_would_only_spread_the_same_work_over_more_days_2",
+    "top": false,
+    "text": "+ link: Open on Sundays → Average repair wait under 5 days by end of March",
+    "detail": "Open on Sundays → Average repair wait under 5 days by end of March · link · Theirs: “Sunday opening would only spread the same work over more days” (Loop)",
+    "family": "relation",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "jo_thinks_sunday_opening_would_only_spread_the_same_work_over_mo",
+    "top": false,
+    "text": "+ dissent: Jo: Jo thinks Sunday opening would only spread the same work over more days.",
+    "detail": "Jo: Jo thinks Sunday opening would only spread the same work over more days. · dissent · Theirs: “Jo thinks Sunday opening would only spread the same work over more days.” (Jo, reported by Loop)",
+    "family": "dissent",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne",
+    "top": false,
+    "text": "+ challenge: Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.",
+    "detail": "Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same. · challenge · Proposed by Olumi: When a workshop is turning work away, new capacity often fills with that unmet demand before the queue gets any shorter.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "finding_a_mechanic_and_getting_them_up_to_speed_takes_time_so_th",
+    "top": false,
+    "text": "+ challenge: Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest.",
+    "detail": "Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest. · challenge · Proposed by Olumi: New hires rarely work at full pace from the first week, and the deadline is fixed.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "stopping_e_bike_work_gives_up_the_income_and_the_customers_those",
+    "top": false,
+    "text": "+ challenge: Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss.",
+    "detail": "Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss. · challenge · Proposed by Olumi: The two aims cover wait and spending only, so a cost in lost takings could go unseen when the options are compared.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   }
+  ],
+  "groups": [
+   {
+    "heading": "Aims and limits · 2 · 2 theirs",
+    "lines": [
+     22,
+     25
+    ]
+   },
+   {
+    "heading": "Figures · 23 · 6 theirs · 10 Olumi's",
+    "lines": [
+     1,
+     2,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     20,
+     21,
+     23,
+     24,
+     26,
+     27,
+     29,
+     30,
+     31
+    ]
+   },
+   {
+    "heading": "Options · 4 · 3 theirs · 1 Olumi's",
+    "lines": [
+     16,
+     17,
+     18,
+     19
+    ]
+   },
+   {
+    "heading": "Links · 3 · 1 theirs · 2 Olumi's",
+    "lines": [
+     28,
+     32,
+     35
+    ]
+   },
+   {
+    "heading": "Reasoning records · 8 · 5 theirs · 3 Olumi's",
+    "lines": [
+     0,
+     3,
+     33,
+     34,
+     36,
+     37,
+     38,
+     39
+    ]
+   }
+  ],
+  "from": null,
+  "verdict": null
+ },
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Loop"
+   }
+  ],
+  "records": [],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 47,
+   "by": "Loop",
+   "version": "proposal · before version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Our bike repair workshop turns away about 12 repair jobs a week because both mechanics are fully booked. We want the average wait for a repair under 5 days by the end of March, and we can't spend more than £1,500 a month extra. We could hire a part-time mechanic for about £1,300 a month, open on Sundays, or stop taking e-bike jobs, which take roughly twice as long as ordinary ones. Jo thinks Sunday opening would only spread the same work over more days. The average wait is about 9 days now.",
+   "answer": {
+    "answer": [
+     {
+      "text": "The part-time hire is the only option with a real chance on the wait aim, and it hinges on Olumi's estimate of how much each extra mechanic hour shortens the wait."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "If Olumi's estimates hold, the hire's chance swings from about 71% if 'Effect of each extra hours/week on average wait for a repair' is low, about 4% if it is high, so this one figure largely decides it."
+      }
+     ],
+     [
+      {
+       "text": "The hire fits your spending limit at about 98% (of staying within Extra spend no more than £1,500 a month) (if Olumi's estimates hold), yet "
+      },
+      {
+       "cite": "With every figure at its most likely value and no risk happening, 'Hire a part-time mechanic', for 'Average repair wait under 5 days by end of March': 'average wait for a repair' 5.61 days, against a target of less than 5 days: misses it. It rests on Olumi's what-if ranges for 'Mechanic hours worked in the workshop changed: Hire a part-time mechanic' (12 to 24 hours/week), 'Effect of each extra hours/week on average wait for a repair' (−0.3 to −0.1 days weeks/hours). It reads their approximate 'Current average wait for a repair' as 10% either way, 8 times in 10, until they give a range."
+      },
+      {
+       "text": " shows it missing on middle figures."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What would change your mind?",
+     "text": [
+      {
+       "text": "What have you seen, such as weeks with extra cover, showing how much one added hour shortens your queue?"
+      }
+     ],
+     "about": [
+      "average_wait_for_a_repair_per_hours_week"
+     ],
+     "at": "average_wait_for_a_repair_per_hours_week",
+     "newest": true,
+     "move": "what_would_change_your_mind"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "repair_jobs_turned_away_per_week": "Please change “Repair jobs turned away per week: ≈12 repair jobs/week”: ",
+   "current_average_wait_for_a_repair": "Please change “Current average wait for a repair”: ",
+   "part_time_mechanic_cost": "Please change “Part-time mechanic cost”: ",
+   "e_bike_jobs_take_about_twice_as_long": "Please change “E-bike jobs take about twice as long: ≈2 times as long”: ",
+   "part_time_mechanic_added": "Please change “Part-time mechanic added”: ",
+   "mechanic_hours_worked_in_the_workshop_changed": "Please change “Mechanic hours worked in the workshop changed”: ",
+   "mechanic_hours_worked_in_the_workshop_changed_hire_a_part_time_m": "Please change “Hire a part-time mechanic: how many Mechanic hours worked in the workshop”: ",
+   "mechanic_hours_worked_in_the_workshop_changed_open_on_sundays": "Please change “Open on Sundays: how many Mechanic hours worked in the workshop”: ",
+   "extra_cost_of_opening_on_sundays_changed": "Please change “Extra cost of opening on Sundays changed”: ",
+   "extra_cost_of_opening_on_sundays_changed_open_on_sundays": "Please change “Extra cost of opening on Sundays changed: Open on Sundays”: ",
+   "open_question_1_changed": "Please change “Open question 1 changed”: ",
+   "open_question_1_changed_open_on_sundays": "Please change “Open question 1 changed: Open on Sundays”: ",
+   "open_question_2_changed": "Please change “Open question 2 changed”: ",
+   "open_question_2_changed_open_on_sundays": "Please change “Open question 2 changed: Open on Sundays”: ",
+   "average_mechanic_time_per_repair_job_changed": "Please change “Average mechanic time per repair job changed”: ",
+   "average_mechanic_time_per_repair_job_changed_stop_taking_e_bike": "Please change “Stop taking e-bike jobs: how many Average mechanic time per repair job”: ",
+   "hire_a_part_time_mechanic": "Please change “Hire a part-time mechanic”: ",
+   "open_on_sundays": "Please change “Open on Sundays”: ",
+   "stop_taking_e_bike_jobs": "Please change “Stop taking e-bike jobs”: ",
+   "leave_things_as_they_are": "Please change “Leave things as they are”: ",
+   "average_wait_for_a_repair": "Please change “average wait for a repair”: ",
+   "average_repair_wait_under_5_days_by_end_of_march_target": "Please change “The target for 'Average repair wait under 5 days by end of March'”: ",
+   "average_repair_wait_under_5_days_by_end_of_march": "Please change “Average repair wait under 5 days by end of March”: ",
+   "extra_spend_change": "Please change “Change in extra spend”: ",
+   "extra_spend_no_more_than_1_500_a_month_bound": "Please change “The limit for 'Extra spend no more than £1,500 a month'”: ",
+   "extra_spend_no_more_than_1_500_a_month": "Please change “Extra spend no more than £1,500 a month”: ",
+   "average_wait_for_a_repair_per_hours_week": "Please change “Effect of each extra hours/week on average wait for a repair”: ",
+   "average_wait_for_a_repair_per_hours_job": "Please change “Effect of each extra hours/job on average wait for a repair”: ",
+   "average_wait_for_a_repair_from_the_options": "Please change “how average wait for a repair is worked out”: ",
+   "extra_spend_change_per_gbp_month": "Please change “Effect of each extra GBP/month on extra spend”: ",
+   "extra_spend_change_per_gbp_month_2": "Please change “Effect of each extra GBP/month on extra spend”: ",
+   "no_change_gbp_month": "Please change “No change (GBP/month)”: ",
+   "extra_spend_change_from_the_options": "Please change “how Change in extra spend is worked out”: ",
+   "both_mechanics_are_fully_booked_so_the_workshop_turns_away_repai": "Please change “Both mechanics are fully booked, so the workshop turns away repair jobs.”: ",
+   "sunday_opening_would_only_spread_the_same_work_over_more_days": "Please change “Sunday opening would only spread the same work over more days.”: ",
+   "sunday_opening_would_only_spread_the_same_work_over_more_days_2": "Please change “Open on Sundays → Average repair wait under 5 days by end of March”: ",
+   "jo_thinks_sunday_opening_would_only_spread_the_same_work_over_mo": "Please change “Jo: Jo thinks Sunday opening would only spread the same work over more days.”: ",
+   "extra_capacity_may_be_taken_up_by_the_jobs_currently_being_turne": "Please change “Extra capacity may be taken up by the jobs currently being turned away, leaving the wait for each customer much the same.”: ",
+   "finding_a_mechanic_and_getting_them_up_to_speed_takes_time_so_th": "Please change “Finding a mechanic and getting them up to speed takes time, so the effect on the wait by the end of March may be smaller than the extra hours suggest.”: ",
+   "stopping_e_bike_work_gives_up_the_income_and_the_customers_those": "Please change “Stopping e-bike work gives up the income and the customers those jobs bring, and neither aim would show that loss.”: "
+  }
+ },
+ "brief": "Our bike repair workshop turns away about 12 repair jobs a week because both mechanics are fully booked. We want the average wait for a repair under 5 days by the end of March, and we can't spend more than £1,500 a month extra. We could hire a part-time mechanic for about £1,300 a month, open on Sundays, or stop taking e-bike jobs, which take roughly twice as long as ordinary ones. Jo thinks Sunday opening would only spread the same work over more days. The average wait is about 9 days now.",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-11T13:21:28.464Z",
+  "job": 39,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-11T13:20:07.049Z",
+  "stop": null
+ },
+ "turn": null,
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 3 to check or set"
+ },
+ "team_presence": {
+  "title": "Loop (you)",
+  "label": "Team: Loop (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Loop (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}
