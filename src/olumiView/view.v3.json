@@ -2776,6 +2776,107 @@
              },
              "unassigned": {
               "type": "number"
+             },
+             "figures": {
+              "type": "array",
+              "items": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                },
+                "whose": {
+                 "type": "string",
+                 "enum": [
+                  "theirs",
+                  "olumi",
+                  "mixed"
+                 ]
+                },
+                "share": {
+                 "type": "number"
+                },
+                "text": {
+                 "type": "string"
+                },
+                "line": {
+                 "type": "string"
+                },
+                "mark": {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "glyph": {
+                     "type": "string"
+                    },
+                    "title": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "glyph",
+                    "title"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                },
+                "give": {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "text": {
+                     "type": "string"
+                    },
+                    "edit": {
+                     "type": "object",
+                     "properties": {
+                      "prompt": {
+                       "type": "string"
+                      },
+                      "ask": {
+                       "type": "string"
+                      }
+                     },
+                     "required": [
+                      "prompt",
+                      "ask"
+                     ],
+                     "additionalProperties": false
+                    }
+                   },
+                   "required": [
+                    "text",
+                    "edit"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                }
+               },
+               "required": [
+                "id",
+                "label",
+                "whose",
+                "share",
+                "text",
+                "line",
+                "mark",
+                "give"
+               ],
+               "additionalProperties": false
+              }
              }
             },
             "required": [
@@ -2793,6 +2894,9 @@
            }
           },
           "rests_heading": {
+           "type": "string"
+          },
+          "rests_figures_heading": {
            "type": "string"
           },
           "lenses": {

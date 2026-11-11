@@ -510,8 +510,28 @@ export type View = {
         olumi_share: number
         person_share: number
         unassigned: number
+        figures?: Array<{
+          id: string
+          label: string
+          whose: "theirs" | "olumi" | "mixed"
+          share: number
+          text: string
+          line: string
+          mark: {
+            glyph: string
+            title: string
+          } | null
+          give: {
+            text: string
+            edit: {
+              prompt: string
+              ask: string
+            }
+          } | null
+        }>
       }>
       rests_heading: string
+      rests_figures_heading?: string
       lenses: Array<{
         id: "goal" | "outcome"
         label: string
