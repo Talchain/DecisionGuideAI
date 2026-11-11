@@ -4,7 +4,8 @@
  * real boards. The chances stay in Analysis (DL ruling 9 Nov): one link there, and no chance is drawn here. Per option, in core's order:
  *   - its heading (press: the canvas selects and centres its card; hover rings it) and whose idea it is (`author.text`);
  *   - What it works through: every link core draws to or from the option (`model.links`, in core's order), each row the other card's
- *     heading, its figure (`figure.text`; where core has none, core's own words for the gap, `figure.title`), whose it is (`author.text`)
+ *     heading, its figure (`figure.text`; where core has none, core's own words for the gap, `figure.title`; for an outcome the option works
+ *     through to that core has worked out per option, only this option's own value, `values[k].text`), whose it is (`author.text`)
  *     and core's words for the link (`links[].title`, with `effect.text` where core sizes it); then each card the option's chance rows rest
  *     on (`rows[].rests_on`) not already listed. Every row presses its card;
  *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark); they are said here and
@@ -73,8 +74,14 @@ function Press({ id, children, label, ring }: { id: string; children: React.Reac
   )
 }
 
-function Through({ t, ring }: { t: OptionThrough; ring: (id: string | null) => void }) {
-  const c = t.card, f = c.figure
+function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | null) => void; option: string }) {
+  // An outcome the option works through to (a `through` link from it): its figure is every option's worked-out value, Analysis's to show
+  // (ruling 9 Nov); here its name, whose it is and core's words for how the option reaches it.
+  // Where core has worked it out per option (`values`), only this option's own value is drawn (`values[k].text`); where it has not, core's
+  // words for why (`figure.text`, e.g. "waits on: …").
+  const outcome = t.link !== null && t.link.l.kind === 'through' && t.link.l.from === option
+  const c = t.card, mine = outcome && Array.isArray(c.values) ? c.values.findIndex((v) => v.option === option) : -1
+  const f = outcome && Array.isArray(c.values) ? null : c.figure
   const gap = f != null && f.text === ''
   return (
     <li data-rack-through={c.id}>
@@ -84,6 +91,7 @@ function Through({ t, ring }: { t: OptionThrough; ring: (id: string | null) => v
           {f == null ? null : gap
             ? <> <span className="text-text-light" data-rack-gap="" data-view={`${c.id}.figure.title`}>{f.title}</span></>
             : <> <span className="font-medium" data-view={`${c.id}.figure.text`}>{f.text}</span></>}
+          {mine < 0 ? null : <> <span className="font-medium" data-rack-own-value="" data-view={`${c.id}.values.${mine}.text`}>{c.values![mine]!.text}</span></>}
         </span>
         {c.author == null ? null : <span className={`${TYPE.meta} block ${c.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-rack-whose={c.author.by} data-view={`${c.id}.author.text`}>{c.author.text}</span>}
         {t.link === null || t.link.l.title === '' ? null : (
@@ -124,7 +132,7 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
             </Press>
             {through.length === 0 ? null : (
               <div data-rack-section="through"><Head>{RACK_LABELS.through}</Head>
-                <ul className="m-0 list-none space-y-1 p-0">{through.map((t) => <Through key={t.card.id} t={t} ring={setHover} />)}</ul></div>
+                <ul className="m-0 list-none space-y-1 p-0">{through.map((t) => <Through key={t.card.id} t={t} ring={setHover} option={o.id} />)}</ul></div>
             )}
             {premises.length === 0 ? null : (
               <div data-rack-section="premises"><Head>{RACK_LABELS.premises}</Head>

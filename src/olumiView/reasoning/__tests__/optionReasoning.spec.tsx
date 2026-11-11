@@ -64,6 +64,18 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
     }
   })
 
+  it('an outcome the option works through to: core\'s link words and THIS option\'s own worked-out value, never the other options\' (A7 Open on Sundays)', () => {
+    ready(A7)
+    const l = A7.model!.links.find((x) => x.from === 'open_on_sundays' && x.kind === 'through')!
+    const row = option('open_on_sundays').querySelector<HTMLElement>(`[data-rack-through="${l.to}"]`)!
+    const card = A7.model!.cards.find((c) => c.id === l.to)!, k = card.values!.findIndex((v) => v.option === 'open_on_sundays')
+    expect(row.querySelector(`[data-view="${l.to}.figure.text"]`)).toBeNull()
+    expect(row.querySelector('[data-rack-own-value]')).toHaveAttribute('data-view', `${l.to}.values.${k}.text`)
+    expect(row.querySelector('[data-rack-own-value]')!.textContent).toBe(card.values![k]!.text)
+    for (const v of card.values!) if (v.option !== 'open_on_sundays') expect(row.textContent).not.toContain(v.text)
+    expect(row.textContent).toContain(l.title)
+  })
+
   it('European: a figure core has not got says core\'s own words for the gap; nothing is filled', () => {
     ready(EU)
     const card = EU.model!.cards.find((c) => c.id === 'monthly_churn_2')!
