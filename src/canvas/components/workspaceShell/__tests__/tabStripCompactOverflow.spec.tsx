@@ -198,6 +198,8 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     expect(SHELL_TABSTRIP_COMPACT_BELOW_PX).toBeGreaterThan(300)
     expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-wrap\b/)
     expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bflex-nowrap\b/)
+    // On one row (jsdom: every tab's top is 0) the tabs fill it with their dividers, as at 1232.
+    for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).not.toMatch(/(^|\s)before:hidden(\s|$)/) }
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
     for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     cleanup(); lane.core = false
@@ -217,5 +219,19 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     expect(screen.queryByTestId('outputs-dock-panel-title')).toBeNull()
     expect(screen.getByRole('tab', { name: /Model/ }).getAttribute('aria-selected')).toBe('true')
     lane.core = false
+  })
+})
+
+describe('T3: where the lane\'s tabs have wrapped (measured), each is its own width with no divider', () => {
+  afterEach(() => { lane.core = false; vi.restoreAllMocks() })
+  it('a tab on a second row (offsetTop differs) turns every tab to its own width, no rule; the other lane is untouched', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset['testid'] === 'outputs-dock-tab-diagnostics' ? 44 : 0 })
+    lane.core = true
+    draw(272)
+    for (const tab of screen.getAllByRole('tab')) { expect(tab.className, tab.dataset['testid']).toMatch(/\bflex-none\b/); expect(tab.className).toMatch(/(^|\s)before:hidden(\s|$)/) }
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-x-2\b/)
+    cleanup(); lane.core = false
+    draw(272)
+    for (const tab of screen.getAllByRole('tab')) expect(tab.className).toMatch(/\bflex-auto\b/)
   })
 })

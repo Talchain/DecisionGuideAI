@@ -29,7 +29,7 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
@@ -368,6 +368,16 @@ export function WorkspaceShellTabStrip({
   // or the user's focus is left on a tab that is no longer selected and the
   // next arrow key steps from the wrong place.
   const tabRefs = useRef(new Map<OutputTab, HTMLButtonElement | null>())
+  // Where the lane's tabs have wrapped onto two rows (measured: the tabs' tops differ), each is its own width with no dividers, so the second
+  // row is plain tabs, not stretched ones behind a stray rule; on one row (the 1232 dock) they fill it with their dividers as before. Stable
+  // both ways: own-width tabs that wrapped still wrap, and own-width tabs that fit one row fill it.
+  const [laneTwoRows, setLaneTwoRows] = useState(false)
+  useLayoutEffect(() => {
+    if (!coreLane) return
+    const two = new Set([...tabRefs.current.values()].flatMap((el) => (el ? [el.offsetTop] : []))).size > 1
+    if (two !== laneTwoRows) setLaneTwoRows(two)
+  })
+  const laneWrapped = coreLane && laneTwoRows
   const handleTabKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
       const next = nextTabForKey(shown, activeTab, event.key)
@@ -454,7 +464,7 @@ export function WorkspaceShellTabStrip({
       <div
         // gap-0 in both modes: the spacing now lives inside each `flex-auto` tab,
         // so the divider at a tab's edge sits midway between two labels.
-        className={`flex flex-1 min-w-0 gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
+        className={`flex flex-1 min-w-0 ${laneWrapped ? 'gap-x-2' : 'gap-0'} ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -532,7 +542,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative flex-auto ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative ${laneWrapped ? 'flex-none before:hidden' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
