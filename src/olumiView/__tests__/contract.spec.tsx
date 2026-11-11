@@ -95,7 +95,8 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
    * binds them by aim id.
    * Nor a row's `state` (`shown` | `withheld` | `not_computable`, in the schema before SCI-10 and sent on none rows since core SCI-10 (4d0c3634, fd672840)):
    * a machine key like `kind`, no words; the row's own `text` says it. Nor a withheld row's `question` (the ask for the figure it waits on):
-   * it is said once, by `run.waits_on` (the Analysis tab's waits-on list) and the figure's own card, never again on each option's line.
+   * the same words are core's hover on `run.waits_on.items[].title` and on the figure's own card (`figure.title`); the visible waits-on
+   * item names the figure. Whether the ask itself should be visible words is open (IMPROVEMENTS U5), not decided by this exemption.
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
     typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'state' && k !== 'question' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
