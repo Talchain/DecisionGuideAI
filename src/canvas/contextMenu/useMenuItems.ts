@@ -738,7 +738,8 @@ function buildNodeMenu(
 
   // The quick-action row has three slots. Details stays keyboard-reachable
   // through More as well as the existing node-click inspector route.
-  items.push({
+  // Spike (UI restore, 11 Nov 2026): the inspector reads the previous data model, which a core card does not carry, so it is not offered.
+  if (!previousCanvasSpike()) items.push({
     id: 'open-details',
     label: 'Open details',
     icon: PanelRight,

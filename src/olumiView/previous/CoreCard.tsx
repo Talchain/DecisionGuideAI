@@ -53,7 +53,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     <BaseNode {...props} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={lead}
       borderClassOverride={dashed ? `border-dashed ${proposed ? 'border-info' : ''}` : undefined}>
       {card === null ? null : (
-        <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : card.detail} data-driver-of={driverOf === null ? undefined : ''}>
+        <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'}`} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {lead === null ? null : <p className={`${typography.nodeValue} ${olumi && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}>{lead}</p>}
           {(card.values?.length ?? 0) > 1 ? card.values!.map((v) => (
@@ -61,8 +61,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               <span className="text-text-light">{headingOf(v.option)}</span> {v.text}
             </p>
           )) : null}
-          {/* Core's own words for a gap, where it sends them: a figure with no value says why in its title. */}
-          {card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? <p className={`${typography.nodeLabel} text-text-light`} data-core-gap={id}>{card.figure.title}</p> : null}
+          {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
           {olumi ? <p className={`${typography.nodeLabel} text-info`} title={card.author!.title} data-core-author={id}>{card.author!.text}</p> : null}
         </div>
       )}

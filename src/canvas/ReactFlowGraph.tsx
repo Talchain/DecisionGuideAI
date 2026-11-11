@@ -3077,7 +3077,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* ⭐ E4: a ghost door's "What else…?" chooser (chips send questions; free text sends the person’s words). */}
       <WhatElseChooserHost />
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
-      {showFullInspector && (
+      {/* Spike: the inspector reads the previous data model, which a core card does not carry; it never opens over core's model. */}
+      {showFullInspector && !previousCanvasSpike() && (
         <PanelErrorBoundary panel="Inspector">
           <InspectorModal
             nodeId={selectedNodeId}
