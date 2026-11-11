@@ -84,7 +84,8 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
   const run = model.run ?? null, settable = settableFigures(model)
   const challenges = challengedCards(model)
   // Each premise once, wherever core put it (an option's own premises, and the notes on the card they concern), by core's words.
-  const { premises, cards: reasoning } = premisesOnce(model)
+  // An option's own premises are said in its row of the rack (each option's reasoning), so the door holds every other one (one home).
+  const { premises, cards: reasoning } = premisesOnce(model, true)
   const notes = premises.length + reasoning.length
   // What would change your mind holds core's worth lines and its compared lines, as Worth and Compared draw them (a group core gives no
   // heading for is drawn as nothing, so it is not counted).
@@ -94,7 +95,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
       <WhatIfShown model={model} labelled={!stated} />
       <Spine model={model} brief={brief} labels={REASONING_LABELS} />
       <ReviewStrip model={model} review={REASONING_LABELS.review} />
-      <Rack model={model} />
+      <Rack model={model} view={view} />
       <People view={view} />
       {challenges.length + notes === 0 ? null : (
         <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">

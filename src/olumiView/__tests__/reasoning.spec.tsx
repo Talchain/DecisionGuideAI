@@ -3,7 +3,7 @@
  * order, each bound to its own View string; nothing while no model is current; a figure tried there drawn there, nothing saved.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { useViewLens } from '../lens'
 import path from 'node:path'
@@ -13,7 +13,7 @@ import { useViewStore } from '../store'
 import { drawKindOf, modelGroupsOf, optionCards } from '../layout'
 import { REASONING_LABELS, ViewReasoning, ViewReasoningBlock } from '../ViewReasoning'
 import { ViewChances } from '../ViewChances'
-import { restsOfOption, SEE_CHANCES } from '../reasoning/Rack'
+import { RACK_LABELS, SEE_CHANCES } from '../reasoning/Rack'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { attCards, ringCards } from '../ring'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -31,7 +31,7 @@ const ready = (view: View, more: object = {}) => {
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 /** Every word drawn: inside an element bound to its View string, or one of the tab's own labels (code writes labels, core the rest). */
-const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' ', '\u00a0']) // spacing only: a plain space, and the no-break space that keeps a mark on its value's line (R5)
+const LABELS = new Set(['Worth checking first', 'Try a figure', '✎', ' ', ' · ', '\u00a0']) // spacing only: a plain space, and the no-break space that keeps a mark on its value's line (R5)
 const unbound = (root: HTMLElement, also: string[]) => {
   const out: string[] = [], walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let n = walk.nextNode(); n !== null; n = walk.nextNode()) {
@@ -47,12 +47,12 @@ function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
   // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
-  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : id === 'lens_words' ? view.lens_words : id === 'chat' ? view.chat : m.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? m.run : id === 'links' ? m.links : id === 'key' ? m.key : id === 'collab' ? view.collab : id === 'lens_words' ? view.lens_words : id === 'chat' ? view.chat : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
 // The tab's own words: its labels, and the rack's one link to Analysis (DL ruling 9 Nov).
-const OWN = [...Object.values(REASONING_LABELS), SEE_CHANCES] as string[]
+const OWN = [...Object.values(REASONING_LABELS), ...Object.values(RACK_LABELS), SEE_CHANCES] as string[]
 /** Opens every closed door and section row in the tab (the crafted rest state keeps depth closed), so every row can be read. */
 const openAll = (root: HTMLElement) => { for (const b of root.querySelectorAll<HTMLElement>('[data-testid^="view-reasoning-"][data-testid$="-toggle"][aria-expanded="false"]')) fireEvent.click(b) }
 
@@ -131,9 +131,11 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
       for (const e of marked) expect(e.getAttribute('title')).toBe(m.cards.find((c) => c.id === e.dataset['glanceCard'])!.heading)
       // Challenge Your Thinking: exactly the cards core marks challenged.
       expect([...root.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')].map((e) => e.dataset['reasoningChallenge'])).toEqual(m.cards.filter((c) => c.challenged === true).map((c) => c.id))
-      // Assumptions and evidence: each premise core put on any card, once, by its words.
+      // Assumptions and evidence: each premise core put on any card, once, by its words; an option's own are said in its rack row (PL-252),
+      // so the door holds the rest.
+      const own = new Set(m.cards.flatMap((c) => (c.family === 'option' ? (c.premises ?? []).map((x) => x.text) : [])))
       const texts = [...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)
-      expect(texts).toEqual([...new Set(m.cards.flatMap((c) => (c.premises ?? []).map((x) => x.text)))])
+      expect(texts).toEqual([...new Set(m.cards.flatMap((c) => (c.premises ?? []).map((x) => x.text)))].filter((t) => !own.has(t)))
       // What would change your mind: each worth line and each comparison, bound to its own fact (Worth/Compared, shared with Analysis).
       ;(m.run!.science ?? []).forEach((l, i) => { expect(root.querySelector(`[data-view="run.science.${i}.line"]`)?.textContent).toBe(l.line) })
       // Only the tab's own labels are unbound (and a worth line's ✎ lead, which is core's give text).
@@ -157,7 +159,9 @@ describe('the Reasoning tab: the previous PoC\'s sections, in core\'s words (Pau
     const order = [...root.querySelectorAll('section[aria-label]:not([data-testid="view-reasoning-rack"])')].map((e) => e.getAttribute('aria-label'))
     expect(order.slice(0, 2)).toEqual([REASONING_LABELS.challenge, REASONING_LABELS.premises])
     expect(root.querySelector('[data-reasoning-challenge="a_challenge"] [data-view="a_challenge.reason"]')?.textContent).toBe('Demand may fall first.')
-    expect([...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)).toEqual(['A shared premise.', 'A note on the figure.'])
+    // The option's own premise is said in its rack row (PL-252); the same words on the figure are not said again in the door.
+    expect([...root.querySelectorAll('[data-reasoning-premise] [data-view$=".text"]')].map((e) => e.textContent)).toEqual(['A note on the figure.'])
+    expect(root.querySelector(`[data-rack-option="${opt.id}"] [data-rack-premise="shared_premise"]`)?.textContent).toContain('A shared premise.')
   })
 })
 
@@ -680,7 +684,11 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
   const count = (id: string) => screen.getByTestId(`view-reasoning-${id}`).querySelector('[data-count]')?.textContent
 
   it('catch: capacity: the question is drawn at rest; the premises and reasoning cards sit behind the closed door, its count the rows it opens onto', () => {
-    const view = real('capacity'), m = view.model!
+    // capacity's premises are all on its options, which the rack now says (PL-252, its own spec); with them off the options, the door's
+    // own mechanics are exercised on capacity's reasoning cards as before.
+    const real0 = real('capacity'), m = structuredClone(real0.model!)
+    for (const k of m.cards) if (k.family === 'option') k.premises = []
+    const view = { ...real0, model: m }
     ready(view)
     const root = render(<ViewReasoning model={m} brief={view.brief} />).container
     const c = m.cards.find((x) => x.challenged === true)!
@@ -692,7 +700,9 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
     expect(toggle('premises').getAttribute('aria-controls')).toBe(screen.getByTestId('view-reasoning-premises-region').id)
     const drawn = [...root.querySelectorAll<HTMLElement>('[data-reasoning-premise], [data-reasoning-card]')].map((e) => e.dataset['reasoningPremise'] ?? e.dataset['reasoningCard'])
     // Each premise once by its words, and none in the words of a challenge already drawn above the door (SC-02: said once).
+    // An option's own premises are said in its rack row (PL-252), so the door holds every other one.
     const seen = new Set<string>(m.cards.flatMap((k) => (k.challenged === true && k.reason !== null ? [k.reason] : []))), want: string[] = []
+    for (const k of m.cards) if (k.family === 'option') for (const p of k.premises ?? []) seen.add(p.text)
     for (const k of m.cards) (k.premises ?? []).forEach((p, j) => { if (!seen.has(p.text)) { seen.add(p.text); want.push(`${k.id}.${j}`) } })
     for (const k of m.cards) if (['assumption', 'condition', 'claim', 'evidence', 'left_out'].includes(k.family) && k.challenged !== true && k.reason !== null && !seen.has(k.reason)) want.push(k.id)
     expect(drawn).toEqual(want)
@@ -742,109 +752,8 @@ describe('the crafted rest state: the challenge open, depth closed behind counte
   })
 })
 
-// The option rack (the redesign's Z3; DL ruling 1, 7 Nov): each option's chance through the one readout the served Analysis tab's option
-// row draws it with (port/HeroOptionRow HeroReadout, as PortAnalysisTab mounts AnalysisHeroPanel), in core's order, beside the marks of
-// what it rests on; each option a control into the canvas.
-describe('the option rack: each option\'s chance, through the served Analysis row\'s one readout, beside what it rests on', () => {
-  const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
-  const none = () => ({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } }) as never
-  let focused: string[] = [], unregister: () => void = () => {}
-  const mount = (view: View) => {
-    for (const c of view.model!.cards) document.body.insertAdjacentHTML('beforeend', `<div class="react-flow__node" data-id="${c.id}"></div>`)
-    ready(view)
-    return render(<ViewReasoning model={view.model!} brief={view.brief} />).container
-  }
-  beforeEach(() => { focused = []; unregister = registerFocusHelpers((id) => { focused.push(id) }, () => {}); useCanvasStore.setState(none()) })
-  afterEach(() => { cleanup(); unregister(); ringCards([]); attCards([]); document.querySelectorAll('.react-flow__node').forEach((e) => e.remove()); useCanvasStore.setState(none()) })
-  const rack = () => screen.getByTestId('view-reasoning-rack')
-  const lit = () => [...document.querySelectorAll<HTMLElement>('.react-flow__node.v10-lit')].map((e) => e.dataset['id']!).sort()
+// The option rack's marks (redesign Z3) are replaced by each option's reasoning (PL-252): reasoning/__tests__/optionReasoning.spec.tsx.
 
-  // DL ruling 9 Nov: the chances belong to Analysis. These rows replace "catch: <golden>: the options in core's order under core's lens
-  // label; each row's readout is the served Analysis row's" and "catch: bakery: each row is core's aim at its path over its readout",
-  // which pinned the duplicate chance cards removed here.
-  for (const golden of ['bakery.view.json', 'european.view.json', 'proposal.view.json']) {
-    it(`catch: ${golden}: Reasoning draws no chance; one link opens Analysis; the options that rest on something, in core's order`, () => {
-      const view = read(golden), m = view.model!
-      const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
-      mount(view)
-      expect(rack().querySelector('[data-testid="port-row-readout"], [data-view-row], [data-view$=".likely.glyph"]')).toBeNull()
-      const resting = optionCards(m).filter((c) => restsOfOption(m, c).length > 0).map((c) => c.id)
-      expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(resting)
-      fireEvent.click(screen.getByTestId('view-reasoning-see-chances'))
-      expect(screen.getByTestId('view-reasoning-see-chances').textContent).toBe('See chances in Analysis')
-      expect(force).toHaveBeenCalledWith('results')
-      force.mockRestore()
-    })
-  }
-
-  it('pressing an option asks the canvas to focus its card; it shows as pressed while selected, and pressing again lets it go; hover rings it', () => {
-    // European, not bakery: an option is drawn only where it rests on something core names (DL ruling 9 Nov), and bakery's rest on nothing.
-    const view = read('european.view.json'), o = optionCards(view.model!).find((c) => restsOfOption(view.model!, c).length > 0)!
-    mount(view)
-    const press = rack().querySelector<HTMLButtonElement>(`[data-rack-press="${o.id}"]`)!
-    expect([press.tagName, press.querySelector(`[data-view="${o.id}.heading"]`)?.textContent]).toEqual(['BUTTON', o.heading])
-    fireEvent.click(press)
-    expect(focused).toEqual([o.id])
-    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([o.id]), edgeIds: new Set<string>(), anchorPosition: null } } as never) })
-    expect(press.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(press)
-    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
-    fireEvent.mouseEnter(press)
-    expect(lit()).toEqual([o.id])
-    fireEvent.mouseLeave(press)
-    expect(lit()).toEqual([])
-  })
-
-  it('catch: european: what each option rests on, one mark per card core names, in core\'s order, core\'s Olumi glyph by its key id; an id no card draws is not drawn', () => {
-    const view = read('european.view.json'), m = view.model!, k = m.key.findIndex((x) => x.id === 'olumi')
-    mount(view)
-    let skipped = 0
-    for (const o of optionCards(m)) {
-      const want = o.rests_on.filter((r) => m.cards.some((c) => c.id === r.id))
-      skipped += o.rests_on.length - want.length
-      const marks = [...rack().querySelectorAll<HTMLElement>(`[data-rack-rests="${o.id}"] [data-rack-rest]`)]
-      expect(marks.map((e) => e.dataset['rackRest']), o.id).toEqual(want.map((r) => r.id))
-      for (const e of marks) {
-        const c = m.cards.find((x) => x.id === e.dataset['rackRest'])!
-        expect([e.dataset['whose'], e.getAttribute('title'), e.getAttribute('aria-label'), e.querySelector(`[data-view="key.${k}.glyph"]`)?.textContent], c.id).toEqual(['olumi', c.heading, `${c.heading}, ${m.key[k]!.text}`, m.key[k]!.glyph])
-      }
-    }
-    expect(skipped).toBeGreaterThan(0)
-  })
-
-  it('hovering what an option rests on rings that card, together with the glance\'s own ring', () => {
-    const view = real('hiring'), m = view.model!, o = optionCards(m)[0]!, rest = o.rests_on[0]!.id
-    mount(view)
-    const glance = document.querySelector<HTMLElement>('[data-glance-card]')!
-    fireEvent.mouseEnter(glance)
-    fireEvent.mouseEnter(rack().querySelector(`[data-rack-rests="${o.id}"] [data-rack-rest="${rest}"]`)!)
-    expect(lit()).toEqual([...new Set([glance.dataset['glanceCard']!, rest])].sort())
-    fireEvent.mouseLeave(glance)
-    expect(lit()).toEqual([rest])
-  })
-
-  it('negative: a person\'s own (theirs) has no Olumi glyph, partly Olumi\'s has core\'s; past 8, the rest is a count', () => {
-    const view = structuredClone(read('european.view.json')), m = view.model!, o = optionCards(m)[0]!
-    const figures = m.cards.filter((c) => c.family !== 'option').slice(0, 10)
-    expect(figures.length).toBe(10)
-    o.rests_on = figures.map((c, i) => ({ id: c.id, whose: i === 0 ? 'theirs' : i === 1 ? 'mixed' : 'olumi' }))
-    mount(view)
-    const marks = [...rack().querySelectorAll<HTMLElement>(`[data-rack-rests="${o.id}"] [data-rack-rest]`)]
-    expect(marks.map((e) => e.dataset['rackRest'])).toEqual(figures.slice(0, 8).map((c) => c.id))
-    const p = m.key.findIndex((x) => x.id === 'partly_olumi')
-    expect([marks[0]!.querySelector('[data-view]'), marks[0]!.getAttribute('aria-label')]).toEqual([null, figures[0]!.heading])
-    expect(marks[1]!.querySelector(`[data-view="key.${p}.glyph"]`)?.textContent).toBe(m.key[p]!.glyph)
-    expect(rack().querySelector(`[data-rack-rests="${o.id}"] [data-rack-rests-more]`)?.textContent).toBe(`+${figures.length - 8}`)
-  })
-
-  it('negative: bakery\'s options rest on nothing core names: no marks, and no empty list', () => {
-    mount(read('bakery.view.json'))
-    expect(rack().querySelector('[data-rack-rests]')).toBeNull()
-  })
-})
-
-// The people strip (the redesign's Z4; DL ruling 2, 7 Nov): read-only, the views core shares with this viewer only, each played in the
-// Team tab's own components with no call; nothing for a viewer core holds back.
 describe('the people strip: the views core shares, read-only, each played in core\'s words', () => {
   const r5 = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', `${n}.view3.json`), 'utf8'))
   const strip = () => screen.queryByTestId('view-reasoning-people')

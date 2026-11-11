@@ -105,7 +105,9 @@ describe('SC-02: each tab says each thing once', () => {
     expect(c).toBeDefined()
     ready(view)
     render(<ViewReasoningBlock />)
-    fireEvent.click(screen.getByTestId('view-reasoning-premises-toggle'))
+    // The door opens where it has rows (an option's own premises are said in its rack row, PL-252, so it may have none).
+    const door = screen.queryByTestId('view-reasoning-premises-toggle')
+    if (door !== null) fireEvent.click(door)
     const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
     expect(said.map((e) => e.getAttribute('data-view'))).toEqual([`${c.id}.reason`])
   })

@@ -1,0 +1,2017 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_e9e4d8e81b08",
+ "title": "European market expansion",
+ "commit": "e33447b182fca97ab13bf1d17f1419cafa009d66",
+ "signature": "[null,24,[[24,\"pending\"]],[],[\"Loop\"],[],[\"1\"]]",
+ "you": "Loop",
+ "you_id": "1",
+ "members": [
+  {
+   "id": "1",
+   "name": "Loop"
+  }
+ ],
+ "version": null,
+ "model": {
+  "question": {
+   "text": "Should we expand into the European market in the next 6-12 months?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "current_customer_base",
+     "time_to_be_compliant_and_selling_in_the_target_countries_changed",
+     "investment_budget_changed",
+     "losing_money_if_churn_exceeds_12",
+     "complex_regulations_across_several_countries"
+    ],
+    "text": "1 thing left out, 2 figures, 2 claims",
+    "title": "+ left out: Current customer base: 400 customers\n+ Figure: Time to be compliant and selling in the target countries changed\n+ Figure: Investment budget changed\n+ claim: Losing money if churn exceeds 12%\n+ claim: Complex regulations across several countries",
+    "label": "Show 5 notes behind this, 5 proposed changes",
+    "open": false,
+    "proposed": true,
+    "change": "+",
+    "words": "1 thing left out, 2 figures, 2 claims",
+    "face": "2 figures and 3 more",
+    "icon": ""
+   }
+  },
+  "whole": true,
+  "cards": [
+   {
+    "id": "monthly_churn",
+    "family": "left_out",
+    "glyph": "○",
+    "heading": "Monthly churn",
+    "typed": true,
+    "detail": "Monthly churn: 8 %/month · left out · Theirs: “Monthly churn is at 8%.” (Loop) · Kept as you said it; not used in the working-out.",
+    "col": 0,
+    "h": 140,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": true,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Monthly churn: 8 %/month",
+    "badge": {
+     "records": [
+      "if_it_goes_beyond_12_we_re_in_danger_of_losing_money"
+     ],
+     "text": "1 claim",
+     "title": "+ claim: If it goes beyond 12%, we're in danger of losing money.",
+     "label": "Show 1 notes behind this, 1 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 claim",
+     "face": "1 claim",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly churn",
+      "whole": true,
+      "words": "theirs"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “Monthly churn is at 8%.” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "investment_budget",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Investment budget",
+    "typed": false,
+    "detail": "Investment budget · quantity · Theirs: “The investment budget is up to £500k.” (Loop) · not given yet · You said at most 500 for \"Investment budget\". What figure, or range, would you use?",
+    "col": 1,
+    "h": 116,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not given yet · You said at most 500 for \"Investment budget\". What figure, or range, would you use?",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "regulatory_work_in_several_countries_could_use_up_much_of_the_6"
+     ],
+     "text": "1 challenge",
+     "title": "+ challenge: Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers.",
+     "label": "Show 1 notes behind this, 1 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 challenge",
+     "face": "1 challenge",
+     "icon": ""
+    },
+    "unused": "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance.",
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Investment budget",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “The investment budget is up to £500k.” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "expand_into_the_european_market_in_the_next_6_12_months",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Expand into the European market in the next 6-12 months",
+    "typed": false,
+    "detail": "Expand into the European market in the next 6-12 months · option · Theirs: “Should we expand into the European market in the next 6-12 months?” (Loop)",
+    "col": 0,
+    "h": 148,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers.",
+      "title": "Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers. · challenge · Proposed by Olumi: Expansion plans of this kind commonly run late because of compliance, which delays revenue while costs start straight away.",
+      "id": "regulatory_work_in_several_countries_could_use_up_much_of_the_6",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Expansion plans of this kind commonly run late because of compliance, which delays revenue while costs start straight away."
+      }
+     },
+     {
+      "glyph": "!",
+      "text": "Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others.",
+      "title": "Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others. · challenge · Proposed by Olumi: Strong incumbents in a market raise the cost of winning customers and can raise churn.",
+      "id": "competition_intensity_differs_by_country_so_a_single_europe_wide",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Strong incumbents in a market raise the cost of winning customers and can raise churn."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "grow_customer_base_to_800",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Grow customer base to 800"
+     },
+     {
+      "kind": "none",
+      "aim_id": "keep_monthly_churn_from_going_beyond_12",
+      "text": "Can't yet say if 'Keep monthly churn from going beyond 12%' holds: 'monthly churn now' is missing.",
+      "title": "'Keep monthly churn from going beyond 12%' waits on the answers to: 'monthly churn now'."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "time_to_be_compliant_and_selling_in_the_target_countries_changed_2",
+      "monthly_churn_among_newly_won_european_customers_changed_expand",
+      "competition_intensity_varies",
+      "multiple_complex_country_regulations_are_a_consideration",
+      "regulatory_work_in_several_countries_could_use_up_much_of_the_6",
+      "competition_intensity_differs_by_country_so_a_single_europe_wide"
+     ],
+     "text": "2 figures, 2 claims, 2 challenges",
+     "title": "+ Figure: Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries\n+ Figure: Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months\n+ claim: Competition intensity varies.\n+ claim: Multiple complex country regulations are a consideration.\n+ challenge: Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers.\n+ challenge: Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others.",
+     "label": "Show 6 notes behind this, 6 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "2 figures, 2 claims, 2 challenges",
+     "face": "2 figures and 4 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Expand into the European market in the next 6-12 months",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “Should we expand into the European market in the next 6-12 months?” (Loop)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "grow_customer_base_to_800",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Grow customer base to 800",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "leave_things_as_they_are_stay_in_current_markets",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Leave things as they are: stay in current markets",
+    "typed": false,
+    "detail": "Leave things as they are: stay in current markets · option · Proposed by Olumi: Gives a baseline to weigh the European expansion and any other option against.",
+    "col": 0,
+    "h": 84,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Gives a baseline to weigh the European expansion and any other option against."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "grow_customer_base_to_800",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Grow customer base to 800"
+     },
+     {
+      "kind": "none",
+      "aim_id": "keep_monthly_churn_from_going_beyond_12",
+      "text": "Can't yet say if 'Keep monthly churn from going beyond 12%' holds: 'monthly churn now' is missing.",
+      "title": "'Keep monthly churn from going beyond 12%' waits on the answers to: 'monthly churn now'."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Leave things as they are: stay in current markets",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Gives a baseline to weigh the European expansion and any other option against."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "grow_customer_base_to_800",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Grow customer base to 800",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "pilot_in_one_european_country_first_then_widen",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Pilot in one European country first, then widen",
+    "typed": false,
+    "detail": "Pilot in one European country first, then widen · option · Proposed by Olumi: Staging the move limits regulatory and budget exposure, and shows what European churn looks like before committing the full budget.",
+    "col": 0,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Staging the move limits regulatory and budget exposure, and shows what European churn looks like before committing the full budget."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "grow_customer_base_to_800",
+      "text": "No chance yet",
+      "title": "Cannot be worked out yet: Grow customer base to 800"
+     },
+     {
+      "kind": "none",
+      "aim_id": "keep_monthly_churn_from_going_beyond_12",
+      "text": "Can't yet say if 'Keep monthly churn from going beyond 12%' holds: 'monthly churn now' is missing.",
+      "title": "'Keep monthly churn from going beyond 12%' waits on the answers to: 'monthly churn now'."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "investment_budget_changed_pilot_in_one_european_country_first_th",
+      "support_coverage_for_european_customers_changed_pilot_in_one_eur"
+     ],
+     "text": "2 figures",
+     "title": "+ Figure: Investment budget changed: Pilot in one European country first, then widen\n+ Figure: Pilot in one European country first, then widen: how many Support coverage for European customers",
+     "label": "Show 2 notes behind this, 2 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "2 figures",
+     "face": "2 figures",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Pilot in one European country first, then widen",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Staging the move limits regulatory and budget exposure, and shows what European churn looks like before committing the full budget."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "grow_customer_base_to_800",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Cannot be worked out yet: Grow customer base to 800",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": true
+    }
+   },
+   {
+    "id": "grow_customer_base_to_800",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Grow customer base to 800",
+    "typed": false,
+    "detail": "Grow customer base to 800 · goal · Theirs: “The target is 800.” (Loop)",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": true,
+    "challenged": false,
+    "doubt": true,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "Would \"Grow customer base to 800\" be met at 800 customers or more, or at 800 customers or less?",
+     "title": "Would \"Grow customer base to 800\" be met at 800 customers or more, or at 800 customers or less?",
+     "olumi": null,
+     "measured": false
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Grow customer base to 800",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “The target is 800.” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+    "family": "condition",
+    "glyph": "!",
+    "heading": "Reaching 800 from 400 means replacing the customers lost to chur",
+    "typed": true,
+    "detail": "Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted. · challenge · Proposed by Olumi: At 8% monthly churn a large share of the base turns over each month, which makes the net gain much smaller than the sign-ups.",
+    "col": 3,
+    "h": 112,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: At 8% monthly churn a large share of the base turns over each month, which makes the net gain much smaller than the sign-ups."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": true,
+    "challenged": true,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted.",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Challenge",
+      "whole": false,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: At 8% monthly churn a large share of the base turns over each month, which makes the net gain much smaller than the sign-ups."
+    },
+    "failed": []
+   },
+   {
+    "id": "monthly_churn_2",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Monthly churn",
+    "typed": false,
+    "detail": "monthly churn · quantity · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop) · Worked out from other figures, but not yet: it waits on monthly churn now",
+    "col": 2,
+    "h": 116,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "waits on: monthly churn now",
+     "title": "Worked out from other figures, but not yet: it waits on monthly churn now",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "monthly_churn_among_newly_won_european_customers_changed",
+      "support_coverage_for_european_customers_changed",
+      "monthly_churn_2_per_of_those_customers_month",
+      "monthly_churn_2_per_support_hours_week",
+      "monthly_churn_2_from_the_options"
+     ],
+     "text": "4 figures, 1 calculation",
+     "title": "+ Figure: Monthly churn among newly won European customers changed\n+ Figure: Support coverage for European customers changed\n+ Figure: Effect of each extra % of those customers/month on monthly churn\n+ Figure: Effect of each extra support hours/week on monthly churn\n+ How monthly churn is worked out",
+     "label": "Show 5 notes behind this, 5 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "4 figures, 1 calculation",
+     "face": "4 figures, 1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly churn",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "keep_monthly_churn_from_going_beyond_12_bound",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The limit for 'Keep monthly churn from going beyond 12%'",
+    "typed": false,
+    "detail": "The limit for 'Keep monthly churn from going beyond 12%' · quantity · Theirs: “If it goes beyond 12%” (Loop) · 12%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "12%",
+     "title": "12%",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The limit for 'Keep monthly churn from going beyond 12%'",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s figure, from the brief",
+     "title": "Theirs: “If it goes beyond 12%” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "keep_monthly_churn_from_going_beyond_12",
+    "family": "limit",
+    "glyph": "□",
+    "heading": "Keep monthly churn from going beyond 12%",
+    "typed": false,
+    "detail": "Keep monthly churn from going beyond 12% · limit · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "more than 12%",
+     "title": "more than 12%",
+     "olumi": null,
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "if_monthly_churn_goes_beyond_12_the_business_is_in_danger_of_los",
+      "if_it_goes_beyond_12_we_re_in_danger_of_losing_money"
+     ],
+     "text": "2 claims",
+     "title": "+ claim: If monthly churn goes beyond 12%, the business is in danger of losing money.\n+ claim: If it goes beyond 12%, we're in danger of losing money.",
+     "label": "Show 2 notes behind this, 2 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "2 claims",
+     "face": "2 claims",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Keep monthly churn from going beyond 12%",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Loop’s idea, from the brief",
+     "title": "Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)"
+    },
+    "failed": []
+   },
+   {
+    "id": "monthly_churn_2_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Monthly churn now",
+    "typed": false,
+    "detail": "monthly churn now · quantity · Proposed by Olumi · not given yet · What figure would you use for ‘monthly churn now’?",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not given yet · What figure would you use for ‘monthly churn now’?",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Monthly churn now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi"
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "monthly_churn_2_now",
+    "to": "monthly_churn_2",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": true,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "monthly_churn_2_from_the_options"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "monthly_churn",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "○",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "left out: Monthly churn: 8 %/month",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "expand_into_the_european_market_in_the_next_6_12_months",
+    "to": "monthly_churn_2",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months, Monthly churn among newly won European customers changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "monthly_churn_2_from_the_options"
+    ],
+    "effect": {
+     "text": "0.02 to 0.2 % months/% of those customers",
+     "title": "Effect of each extra % of those customers/month on monthly churn · Plausible range: 0.02 to 0.2 % months/% of those customers · worked out through Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months, Monthly churn among newly won European customers changed",
+     "figure": "monthly_churn_2_per_of_those_customers_month"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "pilot_in_one_european_country_first_then_widen",
+    "to": "monthly_churn_2",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "worked out through Pilot in one European country first, then widen: how many Support coverage for European customers, Support coverage for European customers changed · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "monthly_churn_2_from_the_options"
+    ],
+    "effect": {
+     "text": "−0.1 to 0 % weeks/support hours",
+     "title": "Effect of each extra support hours/week on monthly churn · Plausible range: −0.1 to 0 % weeks/support hours · worked out through Pilot in one European country first, then widen: how many Support coverage for European customers, Support coverage for European customers changed",
+     "figure": "monthly_churn_2_per_support_hours_week"
+    },
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "monthly_churn_2",
+    "to": "keep_monthly_churn_from_going_beyond_12",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "keep_monthly_churn_from_going_beyond_12_bound",
+    "to": "keep_monthly_churn_from_going_beyond_12",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "bound",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+    "to": "grow_customer_base_to_800",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted.",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   },
+   {
+    "from": "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+    "to": "monthly_churn",
+    "kind": "reason",
+    "label": "!",
+    "doubt": true,
+    "alert": true,
+    "proposed": false,
+    "title": "challenge: Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted.",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Grow customer base to 800’",
+   "lead": "Chance of ‘Grow customer base to 800’, in this model on current information",
+   "all_withheld": true,
+   "shared_blockers": [
+    {
+     "aim_id": "grow_customer_base_to_800",
+     "options": [
+      "expand_into_the_european_market_in_the_next_6_12_months",
+      "leave_things_as_they_are_stay_in_current_markets",
+      "pilot_in_one_european_country_first_then_widen"
+     ],
+     "text": "The chance of 'Grow customer base to 800' cannot be worked out yet: the aim has no measure."
+    }
+   ],
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Waits on:",
+    "text": "waits on 2 things",
+    "items": [
+     {
+      "id": "grow_customer_base_to_800",
+      "text": "‘Grow customer base to 800’",
+      "title": "Grow customer base to 800",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "monthly_churn_2_now",
+      "text": "‘monthly churn now’",
+      "title": "What figure would you use for ‘monthly churn now’?",
+      "answer": true,
+      "unknown": null,
+      "edit": null
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "Olumi's what-if for 'Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries', not their figure: 4 to 12 months. Basis: Entering several European countries with complex, differing regulations (registration, data protection, local entity set-up) usually takes a few months to about a year before sales can start. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries', not their figure: 4 to 12 months. Basis: Entering several European countries with complex, differing regulations (registration, data protection, local entity set-up) usually takes a few months to about a year before sales can start. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months', not their figure: 8 to 15 % of those customers/month. Basis: New customers in a new market often churn at or above the current rate, which is given as 8 per cent, because of support, language and fit gaps. The upper end sits above the 12 per cent bound. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months', not their figure: 8 to 15 % of those customers/month. Basis: New customers in a new market often churn at or above the current rate, which is given as 8 per cent, because of support, language and fit gaps. The upper end sits above the 12 per cent bound. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Investment budget changed: Pilot in one European country first, then widen', not their figure: £50,000 to £200,000. Basis: A single-country pilot usually costs a fraction of a full expansion and sits well inside the £500k ceiling. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Investment budget changed: Pilot in one European country first, then widen', not their figure: £50,000 to £200,000. Basis: A single-country pilot usually costs a fraction of a full expansion and sits well inside the £500k ceiling. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F3",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Pilot in one European country first, then widen: how many Support coverage for European customers', not their figure: 10 to 50 support hours/week. Basis: One country means one or two languages and a small initial customer group, so cover of a fraction of one to over one full-time role is usual. Please give your own figure in its place.",
+     "title": "Olumi's what-if for 'Pilot in one European country first, then widen: how many Support coverage for European customers', not their figure: 10 to 50 support hours/week. Basis: One country means one or two languages and a small initial customer group, so cover of a fraction of one to over one full-time role is usual. Please give your own figure in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F4",
+      "range": true
+     }
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "lenses": []
+  },
+  "edit_base": null,
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "removed": [],
+  "aim": null,
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "Olumi has raised 3 challenges to test; no risks listed yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks and shows what a challenge would mean.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ]
+ },
+ "proposal": {
+  "id": 24,
+  "base": null,
+  "heading": "Olumi proposes 31 changes",
+  "on": "new scenario",
+  "removed": null,
+  "problem": null,
+  "marks": [
+   {
+    "what": "6",
+    "status": "your figure isn't used",
+    "title": "A figure that was given is not used anywhere in the model."
+   },
+   {
+    "what": "12",
+    "status": "your figure isn't used",
+    "title": "A figure that was given is not used anywhere in the model."
+   },
+   {
+    "what": "500",
+    "status": "your figure isn't used",
+    "title": "A figure that was given is not used anywhere in the model."
+   },
+   {
+    "what": "800",
+    "status": "your figure isn't used",
+    "title": "A figure that was given is not used anywhere in the model."
+   }
+  ],
+  "changes": [
+   {
+    "id": "current_customer_base",
+    "top": false,
+    "text": "+ outside the model: Current customer base: 400 customers",
+    "detail": "Current customer base: 400 customers · outside the model · Theirs: “Our current customer base is 400.” (Loop) · Kept as you said it; not used in the working-out.",
+    "family": "left_out",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "monthly_churn",
+    "top": false,
+    "text": "+ outside the model: Monthly churn: 8 %/month",
+    "detail": "Monthly churn: 8 %/month · outside the model · Theirs: “Monthly churn is at 8%.” (Loop) · Kept as you said it; not used in the working-out.",
+    "family": "left_out",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "investment_budget",
+    "top": false,
+    "text": "+ figure: Investment budget",
+    "detail": "Investment budget · figure · Theirs: “The investment budget is up to £500k.” (Loop) · You said at most 500 for \"Investment budget\". What figure, or range, would you use?",
+    "family": "quantity",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "time_to_be_compliant_and_selling_in_the_target_countries_changed",
+    "top": false,
+    "text": "+ figure: Time to be compliant and selling in the target countries changed",
+    "detail": "Time to be compliant and selling in the target countries changed · figure · Structure: No change without an option. · 0 months",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "expand_into_the_european_market_in_the_next_6_12_months"
+     ],
+     "why": "read only by ‘Expand into the European market in the next 6-12 months’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "time_to_be_compliant_and_selling_in_the_target_countries_changed_2",
+    "top": false,
+    "text": "+ figure: Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries",
+    "detail": "Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries · figure · Proposed by Olumi: Entering several European countries with complex, differing regulations (registration, data protection, local entity set-up) usually takes a few months to about a year before sales can start. Please give your own figure in its place. · Plausible range: 4 to 12 months",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "expand_into_the_european_market_in_the_next_6_12_months"
+     ],
+     "why": "read only by ‘Expand into the European market in the next 6-12 months’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_among_newly_won_european_customers_changed",
+    "top": false,
+    "text": "+ figure: Monthly churn among newly won European customers changed",
+    "detail": "Monthly churn among newly won European customers changed · figure · Structure: No change without an option. · 0 % of those customers/month",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "expand_into_the_european_market_in_the_next_6_12_months",
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘Expand into the European market in the next 6-12 months’, ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_among_newly_won_european_customers_changed_expand",
+    "top": false,
+    "text": "+ figure: Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months",
+    "detail": "Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months · figure · Proposed by Olumi: New customers in a new market often churn at or above the current rate, which is given as 8 per cent, because of support, language and fit gaps. The upper end sits above the 12 per cent bound. Please give your own figure in its place. · Plausible range: 8 to 15 % of those customers/month",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "expand_into_the_european_market_in_the_next_6_12_months"
+     ],
+     "why": "read only by ‘Expand into the European market in the next 6-12 months’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "investment_budget_changed",
+    "top": false,
+    "text": "+ figure: Investment budget changed",
+    "detail": "Investment budget changed · figure · Structure: No change without an option. · £0",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "pilot_in_one_european_country_first_then_widen"
+     ],
+     "why": "read only by ‘Pilot in one European country first, then widen’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "investment_budget_changed_pilot_in_one_european_country_first_th",
+    "top": false,
+    "text": "+ figure: Investment budget changed: Pilot in one European country first, then widen",
+    "detail": "Investment budget changed: Pilot in one European country first, then widen · figure · Proposed by Olumi: A single-country pilot usually costs a fraction of a full expansion and sits well inside the £500k ceiling. Please give your own figure in its place. · Plausible range: £50,000 to £200,000",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "pilot_in_one_european_country_first_then_widen"
+     ],
+     "why": "read only by ‘Pilot in one European country first, then widen’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "support_coverage_for_european_customers_changed",
+    "top": false,
+    "text": "+ figure: Support coverage for European customers changed",
+    "detail": "Support coverage for European customers changed · figure · Structure: No change without an option. · 0 support hours/week",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "pilot_in_one_european_country_first_then_widen",
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘Pilot in one European country first, then widen’, ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "support_coverage_for_european_customers_changed_pilot_in_one_eur",
+    "top": false,
+    "text": "+ figure: Pilot in one European country first, then widen: how many Support coverage for European customers",
+    "detail": "Pilot in one European country first, then widen: how many Support coverage for European customers · figure · Proposed by Olumi: One country means one or two languages and a small initial customer group, so cover of a fraction of one to over one full-time role is usual. Please give your own figure in its place. · Plausible range: 10 to 50 support hours/week",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "pilot_in_one_european_country_first_then_widen"
+     ],
+     "why": "read only by ‘Pilot in one European country first, then widen’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "expand_into_the_european_market_in_the_next_6_12_months",
+    "top": false,
+    "text": "+ option: Expand into the European market in the next 6-12 months",
+    "detail": "Expand into the European market in the next 6-12 months · option · Theirs: “Should we expand into the European market in the next 6-12 months?” (Loop)",
+    "family": "option",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "time_to_be_compliant_and_selling_in_the_target_countries_changed",
+      "time_to_be_compliant_and_selling_in_the_target_countries_changed_2",
+      "monthly_churn_among_newly_won_european_customers_changed",
+      "monthly_churn_among_newly_won_european_customers_changed_expand"
+     ],
+     "why": "reads ‘Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "leave_things_as_they_are_stay_in_current_markets",
+    "top": false,
+    "text": "+ option: Leave things as they are: stay in current markets",
+    "detail": "Leave things as they are: stay in current markets · option · Proposed by Olumi: Gives a baseline to weigh the European expansion and any other option against.",
+    "family": "option",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "pilot_in_one_european_country_first_then_widen",
+    "top": false,
+    "text": "+ option: Pilot in one European country first, then widen",
+    "detail": "Pilot in one European country first, then widen · option · Proposed by Olumi: Staging the move limits regulatory and budget exposure, and shows what European churn looks like before committing the full budget.",
+    "family": "option",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "investment_budget_changed",
+      "investment_budget_changed_pilot_in_one_european_country_first_th",
+      "support_coverage_for_european_customers_changed",
+      "support_coverage_for_european_customers_changed_pilot_in_one_eur"
+     ],
+     "why": "reads ‘Pilot in one European country first, then widen: how many Support coverage for European customers’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "grow_customer_base_to_800",
+    "top": false,
+    "text": "+ aim: Grow customer base to 800",
+    "detail": "Grow customer base to 800 · aim · Theirs: “The target is 800.” (Loop)",
+    "family": "goal",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "monthly_churn_2",
+    "top": false,
+    "text": "+ figure: monthly churn",
+    "detail": "monthly churn · figure · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop) · Worked out from the figures it depends on",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "keep_monthly_churn_from_going_beyond_12",
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘Keep monthly churn from going beyond 12%’, ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "keep_monthly_churn_from_going_beyond_12_bound",
+    "top": false,
+    "text": "+ figure: The limit for 'Keep monthly churn from going beyond 12%'",
+    "detail": "The limit for 'Keep monthly churn from going beyond 12%' · figure · Theirs: “If it goes beyond 12%” (Loop) · 12%",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "keep_monthly_churn_from_going_beyond_12"
+     ],
+     "why": "read only by ‘Keep monthly churn from going beyond 12%’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "keep_monthly_churn_from_going_beyond_12",
+    "top": false,
+    "text": "+ limit: Keep monthly churn from going beyond 12%",
+    "detail": "Keep monthly churn from going beyond 12% · limit · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)",
+    "family": "limit",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "monthly_churn_2",
+      "keep_monthly_churn_from_going_beyond_12_bound"
+     ],
+     "why": "reads ‘The limit for 'Keep monthly churn from going beyond 12%'’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_2_per_of_those_customers_month",
+    "top": false,
+    "text": "+ figure: Effect of each extra % of those customers/month on monthly churn",
+    "detail": "Effect of each extra % of those customers/month on monthly churn · figure · Proposed by Olumi: Newly won European customers would be a minority of the roughly 400 base at first, so each extra point of their churn moves overall churn only slightly, more so as their share grows towards the 800 target. Please give your own figure in its place. · Plausible range: 0.02 to 0.2 % months/% of those customers",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_2_per_support_hours_week",
+    "top": false,
+    "text": "+ figure: Effect of each extra support hours/week on monthly churn",
+    "detail": "Effect of each extra support hours/week on monthly churn · figure · Proposed by Olumi: Extra support usually trims churn slightly, and each added weekly hour is likely to cut monthly churn by between nothing and a tenth of a percentage point, with diminishing returns. Please give your own figure in its place. · Plausible range: −0.1 to 0 % weeks/support hours",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_2_now",
+    "top": false,
+    "text": "+ figure: monthly churn now",
+    "detail": "monthly churn now · figure · Proposed by Olumi · What figure would you use for ‘monthly churn now’?",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "monthly_churn_2_from_the_options"
+     ],
+     "why": "read only by ‘how monthly churn is worked out’ in this proposal: approved together"
+    }
+   },
+   {
+    "id": "monthly_churn_2_from_the_options",
+    "top": false,
+    "text": "+ link: how monthly churn is worked out",
+    "detail": "how monthly churn is worked out · link · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "family": "relation",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "monthly_churn_among_newly_won_european_customers_changed",
+      "support_coverage_for_european_customers_changed",
+      "monthly_churn_2",
+      "monthly_churn_2_per_of_those_customers_month",
+      "monthly_churn_2_per_support_hours_week",
+      "monthly_churn_2_now"
+     ],
+     "why": "reads ‘monthly churn now’, added in this proposal: approved together"
+    }
+   },
+   {
+    "id": "losing_money_if_churn_exceeds_12",
+    "top": false,
+    "text": "+ claim: Losing money if churn exceeds 12%",
+    "detail": "Losing money if churn exceeds 12% · claim · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "complex_regulations_across_several_countries",
+    "top": false,
+    "text": "+ claim: Complex regulations across several countries",
+    "detail": "Complex regulations across several countries · claim · Theirs: “Multiple complex country regulations are a consideration.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "if_monthly_churn_goes_beyond_12_the_business_is_in_danger_of_los",
+    "top": false,
+    "text": "+ claim: If monthly churn goes beyond 12%, the business is in danger of losing money.",
+    "detail": "If monthly churn goes beyond 12%, the business is in danger of losing money. · claim · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "competition_intensity_varies",
+    "top": false,
+    "text": "+ claim: Competition intensity varies.",
+    "detail": "Competition intensity varies. · claim · Theirs: “Competition intensity varies.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "multiple_complex_country_regulations_are_a_consideration",
+    "top": false,
+    "text": "+ claim: Multiple complex country regulations are a consideration.",
+    "detail": "Multiple complex country regulations are a consideration. · claim · Theirs: “Multiple complex country regulations are a consideration.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "if_it_goes_beyond_12_we_re_in_danger_of_losing_money",
+    "top": false,
+    "text": "+ claim: If it goes beyond 12%, we're in danger of losing money.",
+    "detail": "If it goes beyond 12%, we're in danger of losing money. · claim · Theirs: “If it goes beyond 12%, we're in danger of losing money.” (Loop)",
+    "family": "claim",
+    "olumi": null,
+    "together": null
+   },
+   {
+    "id": "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+    "top": false,
+    "text": "+ challenge: Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted.",
+    "detail": "Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted. · challenge · Proposed by Olumi: At 8% monthly churn a large share of the base turns over each month, which makes the net gain much smaller than the sign-ups.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "regulatory_work_in_several_countries_could_use_up_much_of_the_6",
+    "top": false,
+    "text": "+ challenge: Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers.",
+    "detail": "Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers. · challenge · Proposed by Olumi: Expansion plans of this kind commonly run late because of compliance, which delays revenue while costs start straight away.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   },
+   {
+    "id": "competition_intensity_differs_by_country_so_a_single_europe_wide",
+    "top": false,
+    "text": "+ challenge: Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others.",
+    "detail": "Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others. · challenge · Proposed by Olumi: Strong incumbents in a market raise the cost of winning customers and can raise churn.",
+    "family": "condition",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null
+   }
+  ],
+  "groups": [
+   {
+    "heading": "Aims and limits · 2 · 2 theirs",
+    "lines": [
+     14,
+     17
+    ]
+   },
+   {
+    "heading": "Figures · 14 · 3 theirs · 7 Olumi's",
+    "lines": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     15,
+     16,
+     18,
+     19,
+     20
+    ]
+   },
+   {
+    "heading": "Options · 3 · 1 theirs · 2 Olumi's",
+    "lines": [
+     11,
+     12,
+     13
+    ]
+   },
+   {
+    "heading": "Links · 1 · 1 Olumi's",
+    "lines": [
+     21
+    ]
+   },
+   {
+    "heading": "Reasoning records · 11 · 8 theirs · 3 Olumi's",
+    "lines": [
+     0,
+     1,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30
+    ]
+   }
+  ],
+  "from": null,
+  "verdict": null
+ },
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Loop"
+   }
+  ],
+  "records": [],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 24,
+   "by": "Loop",
+   "version": "proposal · before version 1",
+   "earlier": false,
+   "status": null,
+   "said": "Should we expand into the European market in the next 6-12 months? Our current customer base is 400. The target is 800. Monthly churn is at 8%. If it goes beyond 12%, we're in danger of losing money. The investment budget is up to £500k. Competition intensity varies. Multiple complex country regulations are a consideration.",
+   "answer": {
+    "answer": [
+     {
+      "text": "The model cannot yet say whether any option reaches the target: that aim has no measure "
+     },
+     {
+      "cite": "The chance of 'Grow customer base to 800' cannot be worked out yet: the aim has no measure."
+     },
+     {
+      "text": ", and the churn limit waits on your current churn "
+     },
+     {
+      "cite": "'Keep monthly churn from going beyond 12%' waits on the answers to: 'monthly churn now'."
+     },
+     {
+      "text": "."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Olumi's challenge, a possibility to test and not a finding, is that sign-ups must replace churned customers as well as add new ones."
+      }
+     ],
+     [
+      {
+       "text": "Olumi's what-if for new European customers' churn runs past your limit 12% at its upper end 8 to 15 % of those customers/month."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What could go wrong?",
+     "text": [
+      {
+       "text": "Suppose a year from now you are still well short of the target because churn absorbed the sign-ups. What happened, and what did the plan quietly assume about monthly wins?"
+      }
+     ],
+     "about": [
+      "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+      "grow_customer_base_to_800",
+      "monthly_churn"
+     ],
+     "at": "reaching_800_from_400_means_replacing_the_customers_lost_to_chur",
+     "newest": true,
+     "move": "pre_mortem"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "current_customer_base": "Please change “Current customer base: 400 customers”: ",
+   "monthly_churn": "Please change “Monthly churn: 8 %/month”: ",
+   "investment_budget": "Please change “Investment budget”: ",
+   "time_to_be_compliant_and_selling_in_the_target_countries_changed": "Please change “Time to be compliant and selling in the target countries changed”: ",
+   "time_to_be_compliant_and_selling_in_the_target_countries_changed_2": "Please change “Expand into the European market in the next 6-12 months: how many Time to be compliant and selling in the target countries”: ",
+   "monthly_churn_among_newly_won_european_customers_changed": "Please change “Monthly churn among newly won European customers changed”: ",
+   "monthly_churn_among_newly_won_european_customers_changed_expand": "Please change “Monthly churn among newly won European customers changed: Expand into the European market in the next 6-12 months”: ",
+   "investment_budget_changed": "Please change “Investment budget changed”: ",
+   "investment_budget_changed_pilot_in_one_european_country_first_th": "Please change “Investment budget changed: Pilot in one European country first, then widen”: ",
+   "support_coverage_for_european_customers_changed": "Please change “Support coverage for European customers changed”: ",
+   "support_coverage_for_european_customers_changed_pilot_in_one_eur": "Please change “Pilot in one European country first, then widen: how many Support coverage for European customers”: ",
+   "expand_into_the_european_market_in_the_next_6_12_months": "Please change “Expand into the European market in the next 6-12 months”: ",
+   "leave_things_as_they_are_stay_in_current_markets": "Please change “Leave things as they are: stay in current markets”: ",
+   "pilot_in_one_european_country_first_then_widen": "Please change “Pilot in one European country first, then widen”: ",
+   "grow_customer_base_to_800": "Please change “Grow customer base to 800”: ",
+   "monthly_churn_2": "Please change “monthly churn”: ",
+   "keep_monthly_churn_from_going_beyond_12_bound": "Please change “The limit for 'Keep monthly churn from going beyond 12%'”: ",
+   "keep_monthly_churn_from_going_beyond_12": "Please change “Keep monthly churn from going beyond 12%”: ",
+   "monthly_churn_2_per_of_those_customers_month": "Please change “Effect of each extra % of those customers/month on monthly churn”: ",
+   "monthly_churn_2_per_support_hours_week": "Please change “Effect of each extra support hours/week on monthly churn”: ",
+   "monthly_churn_2_now": "Please change “monthly churn now”: ",
+   "monthly_churn_2_from_the_options": "Please change “how monthly churn is worked out”: ",
+   "losing_money_if_churn_exceeds_12": "Please change “Losing money if churn exceeds 12%”: ",
+   "complex_regulations_across_several_countries": "Please change “Complex regulations across several countries”: ",
+   "if_monthly_churn_goes_beyond_12_the_business_is_in_danger_of_los": "Please change “If monthly churn goes beyond 12%, the business is in danger of losing money.”: ",
+   "competition_intensity_varies": "Please change “Competition intensity varies.”: ",
+   "multiple_complex_country_regulations_are_a_consideration": "Please change “Multiple complex country regulations are a consideration.”: ",
+   "if_it_goes_beyond_12_we_re_in_danger_of_losing_money": "Please change “If it goes beyond 12%, we're in danger of losing money.”: ",
+   "reaching_800_from_400_means_replacing_the_customers_lost_to_chur": "Please change “Reaching 800 from 400 means replacing the customers lost to churn as well as adding new ones, so gross sign-ups must run well above the net growth wanted.”: ",
+   "regulatory_work_in_several_countries_could_use_up_much_of_the_6": "Please change “Regulatory work in several countries could use up much of the 6-12 month window and of the £500k, leaving little time or money to win customers.”: ",
+   "competition_intensity_differs_by_country_so_a_single_europe_wide": "Please change “Competition intensity differs by country, so a single Europe-wide plan may fit some markets and fail in others.”: "
+  }
+ },
+ "brief": "Should we expand into the European market in the next 6-12 months? Our current customer base is 400. The target is 800. Monthly churn is at 8%. If it goes beyond 12%, we're in danger of losing money. The investment budget is up to £500k. Competition intensity varies. Multiple complex country regulations are a consideration.",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-11T15:00:45.335Z",
+  "job": 16,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-11T14:59:43.959Z",
+  "stop": null
+ },
+ "turn": null,
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 1 to check or set"
+ },
+ "team_presence": {
+  "title": "Loop (you)",
+  "label": "Team: Loop (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Loop (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this"
+  }
+ }
+}
