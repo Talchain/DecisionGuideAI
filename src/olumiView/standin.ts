@@ -55,6 +55,8 @@ export function ifApprovedFieldOf(x: object): { readonly glyph: string; readonly
 export type ViewEffectRun = {
   readonly quantity: string; readonly goal: string; readonly status: 'changes' | 'moves' | 'same'; readonly leader: string | null; readonly model_leader: string | null
   readonly most: string | null; readonly gap_text?: string | null; readonly if_absent: readonly string[]
+  /** A partial comparison (core 65cf0711, PL-243): the options not compared, by id, and core's words for the scope. Absent when every pair was compared. */
+  readonly not_compared?: readonly string[]; readonly scope_text?: string
 }
 export type ViewEffect = ViewEffectRun | { readonly quantity: string; readonly refused: string }
 /** Core's labels: each status, a figure not run, and (core 066287e) the drawer's four row labels; a core before 066287e lacks those four. */

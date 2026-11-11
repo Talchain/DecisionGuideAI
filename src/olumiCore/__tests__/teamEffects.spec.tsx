@@ -110,3 +110,24 @@ describe('beside each revealed view, what each of its figures does to the Run (D
     expect(document.querySelectorAll('[data-effect-status]').length).toBeGreaterThan(0)
   })
 })
+
+describe('a partial comparison (core 65cf0711, PL-243): core\'s scope words beside the consequences', () => {
+  // Core's sentence in its own template (src/run/views.ts:176), for this fixture's options; drawn verbatim, bound to its figure by id.
+  const SCOPE = 'Compared here: Hire a specialist. Not compared: Outsource overflow; their chance for this aim is not worked out on both figures.'
+  it('PS1: the effect core marks partial draws its scope_text verbatim inside that figure\'s row; every other row draws none', () => {
+    const paul = sharedOf(effects).find((s) => s.by === 'Paul')!
+    const target = paul.effects.find((e) => e.refused === undefined)!
+    const v = { ...effects, collab: { ...effects.collab, shared: sharedOf(effects).map((s) => (s.id !== paul.id ? s : { ...s,
+      effects: s.effects.map((e) => (e.quantity !== target.quantity ? e : { ...e, not_compared: ['outsource_overflow'], scope_text: SCOPE })) })) } } as unknown as View
+    show(v)
+    const scoped = [...document.querySelectorAll<HTMLElement>('[data-effect-scope]')]
+    expect(scoped).toHaveLength(1)
+    expect(scoped[0]!.textContent).toBe(SCOPE)
+    expect(scoped[0]!.closest('[data-effect]')!.getAttribute('data-effect')).toBe(target.quantity)
+    expect(effectEl(paul, target.quantity)).toContainElement(scoped[0]!)
+  })
+  it('PS2: CONTRAST: core\'s fixture with no partial comparison draws no scope paragraph', () => {
+    show(effects)
+    expect(document.querySelectorAll('[data-effect-scope]')).toHaveLength(0)
+  })
+})

@@ -38,7 +38,8 @@ export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX
  * Only core's fields (`effects`, read through standin.ts), no sentence composed and no value formatted (DL: the View carries every label and
  * value): each status, and each row's label, as core gives it (`effect_headings`); the move as core words it (`gap_text`); the figure by the
  * view's own label for it, else its card's heading; the aim, the options and the conditions by their cards' headings, by id; a null leader
- * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated.
+ * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated. Where core compared
+ * only some options (`not_compared`), its `scope_text` is drawn verbatim beside the consequences, so a subset never reads as the whole.
  */
 export function Effects({ at, view, by: by_id, figures, effects, headings, alone = false }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null; alone?: boolean }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
@@ -70,6 +71,8 @@ export function Effects({ at, view, by: by_id, figures, effects, headings, alone
               {!inLane(e.quantity) && e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
+              {/* A partial comparison (PL-243): core's words for what was and was not compared, beside the consequences, verbatim; nothing when absent. */}
+              {(e.scope_text ?? '') === '' ? null : <p className="text-text-body" data-effect-scope="">{e.scope_text}</p>}
             </>
           )}
         </li>
