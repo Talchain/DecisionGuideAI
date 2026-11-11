@@ -36,9 +36,11 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
       const m = view.model!, options = m.cards.filter((c) => c.family === 'option')
       expect([...rack().querySelectorAll<HTMLElement>('[data-rack-option]')].map((e) => e.dataset['rackOption'])).toEqual(options.map((o) => o.id))
       for (const o of options) {
-        // Independently: every card linked to or from the option, in link order, then each card its chance rows rest on.
+        // Independently: every card linked to or from the option but by a reason link, in link order; then what core says it rests on
+        // (`rests_on`); then each card its chance rows name.
         const want: string[] = []
-        m.links.forEach((l) => { const x = l.from === o.id ? l.to : l.to === o.id ? l.from : null; if (x !== null && m.cards.some((c) => c.id === x) && !want.includes(x)) want.push(x) })
+        m.links.forEach((l) => { if (l.kind === 'reason') return; const x = l.from === o.id ? l.to : l.to === o.id ? l.from : null; if (x !== null && m.cards.some((c) => c.id === x) && !want.includes(x)) want.push(x) })
+        for (const r of o.rests_on ?? []) if (m.cards.some((c) => c.id === r.id) && !want.includes(r.id)) want.push(r.id)
         for (const r of o.rows) for (const id of [...((r as { rests_on?: { what_ifs?: string[]; estimates?: string[]; approx?: string[] } | null }).rests_on?.what_ifs ?? []), ...((r as { rests_on?: { estimates?: string[] } | null }).rests_on?.estimates ?? []), ...((r as { rests_on?: { approx?: string[] } | null }).rests_on?.approx ?? [])])
           if (m.cards.some((c) => c.id === id) && !want.includes(id)) want.push(id)
         expect([...option(o.id).querySelectorAll<HTMLElement>('[data-rack-through]')].map((e) => e.dataset['rackThrough']), o.id).toEqual(want)
@@ -85,6 +87,38 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
     // An option core gives nothing to: its name and whose idea it is, and no section.
     const stay = option('leave_things_as_they_are_stay_in_current_markets')
     expect(stay.querySelectorAll('[data-rack-section]')).toHaveLength(0)
+  })
+
+  it('PL-273 counter-row: Jo\'s dissent (a reason link to Open on Sundays) is not something it works through; it is said once, as the challenge', () => {
+    const jo = 'jo_thinks_sunday_opening_would_only_spread_the_same_work_over_mo'
+    const l = A7.model!.links.find((x) => x.from === jo && x.to === 'open_on_sundays')!
+    expect(l.kind).toBe('reason')
+    ready(A7, true)
+    expect(option('open_on_sundays').querySelector(`[data-rack-through="${jo}"]`)).toBeNull()
+    expect(document.querySelector(`[data-reasoning-challenge="${jo}"]`)).not.toBeNull()
+    expect(rack().textContent).not.toContain(l.title)
+  })
+
+  it('PL-273: a person\'s own input, with no Olumi reliance mark: Dana\'s 6 hours under Hire, whose by core, not Olumi\'s colour or glyph', () => {
+    ready(A7)
+    const id = 'mechanic_hours_available_for_repairs_changed_hire_a_part_time_me', card = A7.model!.cards.find((c) => c.id === id)!
+    expect([card.author!.by, card.olumi]).toEqual(['person', null])
+    const row = option('hire_a_part_time_mechanic').querySelector<HTMLElement>(`[data-rack-through="${id}"]`)!
+    expect(row.querySelector('[data-rack-whose]')).toHaveAttribute('data-rack-whose', 'person')
+    expect(row.querySelector('[data-rack-whose]')!.className).not.toContain('text-info')
+    expect(row.querySelector('.text-info, [data-view$=".olumi.glyph"]')).toBeNull()
+  })
+
+  it('PL-273: what core says an option rests on (`cards[].rests_on`) is read by id, even where its chance rows name nothing', () => {
+    // core wip/science-cards cb742d07's own rests_on for A7 Hire (SCI-9 payload), its { id, whose } keys only; the rows' own list emptied.
+    const m = structuredClone(A7.model!), hire = m.cards.find((c) => c.id === 'hire_a_part_time_mechanic')!
+    hire.rests_on = [{ id: 'average_wait_for_a_repair_per_hours_week', whose: 'olumi' }, { id: 'current_average_wait_for_a_repair', whose: 'mixed' }]
+    for (const r of hire.rows) if ((r as { rests_on?: unknown }).rests_on) (r as { rests_on?: unknown }).rests_on = { reading: false, target: false, what_ifs: [], estimates: [], approx: [] }
+    ready({ ...A7, model: m })
+    const rows = [...option('hire_a_part_time_mechanic').querySelectorAll<HTMLElement>('[data-rack-through]')].map((e) => e.dataset['rackThrough'])
+    expect(rows).toContain('current_average_wait_for_a_repair')
+    // An id no card draws has no heading to name it by here (that needs core's `label`, SCI-10): not drawn.
+    expect(rows).not.toContain('average_wait_for_a_repair_per_hours_week')
   })
 
   it('what matters next is drawn only under the option core ties it to by id (A7: the coach\'s step about Jo\'s dissent, under Open on Sundays)', () => {

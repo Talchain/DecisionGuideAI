@@ -3,11 +3,12 @@
  * no invented cells). It replaces the redesign's Z3 rack of marks, whose source (`cards[].rests_on`) the rebuilt path leaves empty on
  * real boards. The chances stay in Analysis (DL ruling 9 Nov): one link there, and no chance is drawn here. Per option, in core's order:
  *   - its heading (press: the canvas selects and centres its card; hover rings it) and whose idea it is (`author.text`);
- *   - What it works through: every link core draws to or from the option (`model.links`, in core's order), each row the other card's
+ *   - What it works through: every link core draws to or from the option except a reason link (a dissent: its home is the challenge
+ *     zone; Codex PL-273), in core's order (`model.links`), each row the other card's
  *     heading, its figure (`figure.text`; where core has none, core's own words for the gap, `figure.title`; for an outcome the option works
  *     through to that core has worked out per option, only this option's own value, `values[k].text`), whose it is (`author.text`)
- *     and core's words for the link (`links[].title`, with `effect.text` where core sizes it); then each card the option's chance rows rest
- *     on (`rows[].rests_on`) not already listed. Every row presses its card;
+ *     and core's words for the link (`links[].title`, with `effect.text` where core sizes it); then each card core says the option rests on
+ *     (`cards[].rests_on`, by id), then each its chance rows name (`rows[].rests_on`), not already listed. Every row presses its card;
  *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark); they are said here and
  *     not again in the tab's "Assumptions and evidence" door; one in the same words as a challenged card's reason is that challenge, said in
  *     the tab's challenge zone, so not here;
@@ -39,10 +40,18 @@ export function throughOf(model: ViewModel, option: ViewCard): OptionThrough[] {
   const byId = new Map(model.cards.map((c) => [c.id, c]))
   const out: OptionThrough[] = [], seen = new Set<string>()
   model.links.forEach((l, i) => {
+    // A reason link (a dissent, a claim against the option) is a reasoning edge, not a cause it works through: it has its own home in the
+    // challenge zone (Codex PL-273).
+    if (l.kind === 'reason') return
     const other = l.from === option.id ? l.to : l.to === option.id ? l.from : null
     const card = other === null ? undefined : byId.get(other)
     if (card !== undefined && !seen.has(card.id)) { seen.add(card.id); out.push({ card, link: { l, i } }) }
   })
+  // What core says the option rests on (`cards[].rests_on`, by id: a person's own range among them), then what its chance rows name.
+  for (const r of option.rests_on ?? []) {
+    const card = byId.get(r.id)
+    if (card !== undefined && !seen.has(r.id)) { seen.add(r.id); out.push({ card, link: null }) }
+  }
   for (const r of option.rows ?? []) {
     const ro = (r as { rests_on?: { what_ifs?: string[]; estimates?: string[]; approx?: string[] } | null }).rests_on
     for (const id of [...(ro?.what_ifs ?? []), ...(ro?.estimates ?? []), ...(ro?.approx ?? [])]) {
@@ -55,7 +64,10 @@ export function throughOf(model: ViewModel, option: ViewCard): OptionThrough[] {
 
 /** What matters next for an option, only where core ties it by id: the coach's step, the waits-on items among its inputs, its rests line. */
 export function nextOf(view: View, model: ViewModel, option: ViewCard, through: readonly OptionThrough[]) {
-  const ids = new Set<string>([option.id, ...through.map((t) => t.card.id), ...(option.premises ?? []).flatMap((p) => (p.id == null ? [] : [p.id]))])
+  // Tied by id: the option, what it works through, its premises, and the other end of a reason link to it (a dissent is not a cause it
+  // works through, but a step about that dissent is about this option).
+  const reasons = model.links.flatMap((l) => (l.kind !== 'reason' ? [] : l.to === option.id ? [l.from] : l.from === option.id ? [l.to] : []))
+  const ids = new Set<string>([option.id, ...through.map((t) => t.card.id), ...reasons, ...(option.premises ?? []).flatMap((p) => (p.id == null ? [] : [p.id]))])
   const next = newestNextOf(view.chat)
   const step = next !== null && (next.next.about ?? []).some((a) => ids.has(a)) ? next : null
   const waits = (model.run?.waits_on?.items ?? []).flatMap((it, i) => (ids.has(it.id) && it.text !== '' ? [{ it, i }] : []))
