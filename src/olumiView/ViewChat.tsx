@@ -763,7 +763,7 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
 
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
-export function MoveTap({ turn, next, arrow = false }: { turn: number; next: Next; arrow?: boolean }) {
+export function MoveTap({ turn, next, arrow = false, at }: { turn: number; next: Next; arrow?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
   if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
@@ -771,7 +771,7 @@ export function MoveTap({ turn, next, arrow = false }: { turn: number; next: Nex
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
           className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
-      : <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{next.label}</Button></div>
+      : <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
 

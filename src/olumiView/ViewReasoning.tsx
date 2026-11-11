@@ -38,6 +38,7 @@ import { Compared, WhatIfShown, Worth } from './ViewChances'
 import { Door, SectionRow, SignalRow, ZoneTitle } from './reasoning/parts'
 import { Spine } from './reasoning/Spine'
 import { ReviewStrip } from './reasoning/ReviewStrip'
+import { Commitment } from './reasoning/Commitment'
 import { Rack } from './reasoning/Rack'
 import { People } from './reasoning/People'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
@@ -46,7 +47,7 @@ import { typography } from '../styles/typography'
 /** The tab's own labels (the crafted Reasoning tab's), the only words not core's. */
 export const REASONING_LABELS = {
   brief: 'Brief', goal: 'Goal', options: 'Options', factors: 'Factors', risks: 'Risks', outcomes: 'Outcomes',
-  challenge: 'Challenge Your Thinking', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
+  challenge: 'Challenge Your Thinking', commitment: 'Move towards commitment', premises: 'Assumptions and evidence', change: 'What would change your mind', tryFigure: 'Try a figure',
   more: 'More', less: 'Less', glance: 'The model at a glance', review: 'to review',
 } as const
 
@@ -117,6 +118,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
           )}
         </section>
       )}
+      {view === null ? null : <Commitment view={view} title={REASONING_LABELS.commitment} />}
       {change === 0 ? null : (
         <SectionRow title={REASONING_LABELS.change} Icon={Activity} count={change} testId="change">
           <Worth run={run} tab="analysisNew" />

@@ -47,7 +47,7 @@ function at(view: View, path: string): unknown {
   if (path === 'brief') return view.brief
   const m = view.model!, [id, ...rest] = path.split('.')
   // `key.N.glyph`: core's key entry N (the Olumi mark beside an outcome band), a path on the model like `run`.
-  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : id === 'lens_words' ? view.lens_words : m.cards.find((c) => c.id === id)
+  let x: unknown = id === 'run' ? m.run : id === 'key' ? m.key : id === 'collab' ? view.collab : id === 'lens_words' ? view.lens_words : id === 'chat' ? view.chat : m.cards.find((c) => c.id === id)
   for (const k of rest) x = x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]
   return x
 }
@@ -967,5 +967,21 @@ describe('the compact strip and its review row', () => {
     expect(useViewLens.getState().lens).toBe('premortem')
     fireEvent.click(pre)
     expect(useViewLens.getState().lens).toBe('full')
+  })
+})
+
+describe('Move towards commitment: only what core carries, in its words (DL 11 Nov)', () => {
+  it('Still open is core\'s waits_on and Next is the newest reply\'s next step; nothing is drawn when core holds neither', () => {
+    const v = read('bakery.view.json')
+    expect(v.model!.run!.waits_on, 'precondition: this golden carries waits_on').not.toBeNull()
+    ready(v)
+    const { unmount } = render(<ViewReasoning model={v.model!} brief={v.brief} />)
+    const waits = screen.getByTestId('view-reasoning-waits')
+    expect([...waits.querySelectorAll('p')].map((p) => p.textContent)).toEqual([v.model!.run!.waits_on!.head, v.model!.run!.waits_on!.text, ...v.model!.run!.waits_on!.items.map((i) => i.text)])
+    unmount()
+    const bare = { ...v, chat: [], model: { ...v.model!, run: { ...v.model!.run!, waits_on: null } } } as View
+    ready(bare)
+    render(<ViewReasoning model={bare.model!} brief={bare.brief} />)
+    expect(screen.queryByTestId('view-reasoning-commitment')).toBeNull()
   })
 })
