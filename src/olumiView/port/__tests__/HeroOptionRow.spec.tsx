@@ -281,3 +281,24 @@ describe('the row reads its finding first', () => {
 
 })
 
+
+describe('a withheld row says its question in the row, at rest (DL 11 Nov, UI-7 item 1)', () => {
+  // Every withheld row core asks a question on, in core's bakery golden (core SCI-10 fd672840): second_oven, longer_hours, carry_on.
+  const asked = golden.model!.cards.flatMap((c) => c.rows.flatMap((r, i) => (r.kind === 'none' && (r.question ?? '') !== '' ? [{ card: c.id, i, q: r.question! }] : [])))
+  it('the golden holds withheld rows that ask', () => expect(asked.map((a) => a.card)).toEqual(['second_oven', 'longer_hours', 'carry_on']))
+  for (const a of asked) {
+    it(`${a.card}: core's question is drawn closed (not behind the chevron, not hover), at its path, once`, () => {
+      const { row, container } = draw(golden, a.card, a.i, 'goal', false)
+      const q = container.querySelectorAll<HTMLElement>(`[data-view="${a.card}.rows.${a.i}.question"]`)
+      expect(q).toHaveLength(1)
+      expect(q[0]!.textContent).toBe(a.q)
+      expect(q[0]!.closest('[title]')?.getAttribute('title') === a.q).toBe(false)
+      expect(row.contains(q[0]!)).toBe(true)
+      expect(q[0]!.closest('[id$="-detail"], [role="region"]')).toBeNull()
+    })
+  }
+  it('a chance row draws no question', () => {
+    const { container } = draw(golden, 'second_oven', 1)
+    expect(container.querySelector('[data-testid="port-row-question"]')).toBeNull()
+  })
+})

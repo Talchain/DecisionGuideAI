@@ -48,8 +48,8 @@ const panelOnly = (card: ViewModel['cards'][number]): string[] => card.headline 
   : [...['state', 'range', 'why', 'add'].map((k) => `${card.id}.headline.${k}`), ...(card.headline.shared === true ? [`${card.id}.headline.text`] : [])]
 // `sets` (core SCI-10 fd672840 (schema as 4d0c3634): an option's own settings, a lever id, its words and whose) are said once, in the Reasoning tab's rack
 // (reasoning/Rack.tsx), not again on the canvas card: optionReasoning.spec SCI-10 binds each by path. A chance row's `state` is a machine
-// key (no words); a withheld row's `question` is core's hover elsewhere, open whether it should be visible (contract.spec says why). Both are
-// skipped by key name at any depth: today only chance rows carry them (a headline's `state` is panelOnly above).
+// key (no words); a withheld row's `question` is said in the Analysis option row (HeroOptionRow, DL 11 Nov), not again on the small
+// canvas card. Both are skipped by key name at any depth: today only chance rows carry them (a headline's `state` is panelOnly above).
 const SKIP = new Set(['state', 'question', 'id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author', 'sets'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))

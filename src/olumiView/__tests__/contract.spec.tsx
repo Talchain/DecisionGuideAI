@@ -94,12 +94,10 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
    * src/view/schema.ts ChanceRowV3). The Analysis chart draws them as marks and the figure's own card heading: driverTornado.spec DT-A1
    * binds them by aim id.
    * Nor a row's `state` (`shown` | `withheld` | `not_computable`, in the schema before SCI-10 and sent on none rows since core SCI-10 (4d0c3634, fd672840)):
-   * a machine key like `kind`, no words; the row's own `text` says it. Nor a withheld row's `question` (the ask for the figure it waits on):
-   * the same words are core's hover on `run.waits_on.items[].title` and on the figure's own card (`figure.title`); the visible waits-on
-   * item names the figure. Whether the ask itself should be visible words is open (IMPROVEMENTS U5), not decided by this exemption.
+   * a machine key like `kind`, no words; the row's own `text` says it. A withheld row's `question` IS drawn, in the row (DL 11 Nov, UI-7 item 1).
    */
   const shownStrings = (row: Record<string, unknown>, at: string): string[] => Object.entries(row).flatMap(([k, v]) =>
-    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'state' && k !== 'question' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
+    typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'state' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' && k !== 'driver' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
     it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {

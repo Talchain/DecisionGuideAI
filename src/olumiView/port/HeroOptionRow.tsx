@@ -256,6 +256,12 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
           ) : null}
         </div>
       ) : null}
+      {/* A withheld row's question (core's `rows[].question`: the ask for the figure the chance waits on), at rest and in the row, never only on
+          hover (DL 11 Nov, UI-7 item 1): when Olumi cannot give a chance it is the one useful thing on the row. Said once where the headline's
+          `add` already says the same words. */}
+      {row.kind !== 'none' || row.question == null || row.question === '' || row.question === add ? null : (
+        <p className={`${TYPE.meta} px-2 pb-1 text-text-body`} data-testid="port-row-question" data-view={`${at}.question`}>{row.question}</p>
+      )}
       {/* What this chance rests on, in core's words, at rest (DL 7 Nov: the place Paul sees Olumi's proposed target, in place of a bare ◆). */}
       {chance?.rests_on_text == null || chance.rests_on_text === '' ? null : (
         <p className={`${TYPE.meta} px-2 pb-1 text-text-light`} data-testid="port-row-rests-on" data-view={`${at}.rests_on_text`}>{chance.rests_on_text}</p>

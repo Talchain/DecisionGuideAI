@@ -60,7 +60,9 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
       // a core before view-dock serves no `text`: the row says its title, as the base dock did (00058 P1)
       return row.text == null
         ? <div data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></div>
-        : <div title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span></div>
+        : <div title={row.title} data-view-row={at}><span data-view={`${at}.text`}>{row.text}</span>
+          {/* core's question for the figure it waits on, readable in the row, not only on hover (DL 11 Nov) */}
+          {row.question == null || row.question === '' ? null : <span className={`${typography.viewPanelMeta} block`} data-view={`${at}.question`}>{row.question}</span>}</div>
   }
 }
 
