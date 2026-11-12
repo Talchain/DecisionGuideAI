@@ -21,7 +21,8 @@ import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
-import { CoreCard } from '../previous/CoreCard'
+import { CoreCard, leadLineOf } from '../previous/CoreCard'
+import { useCanvasStore } from '../../canvas/store'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
 import { Proposal } from '../ViewChat'
@@ -251,6 +252,20 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
       expect(el.closest('[data-core-author], [data-core-lead], [data-core-badge]'), c.id).not.toBeNull()
       cleanup()
     }
+  })
+
+  it('FT12 (live draft, 12 Nov: "No changes specified" on options zoomed out): a core card with no far line of core\'s draws none, never the previous product\'s; CONTRAST: one with a line draws it', () => {
+    const opt = EU.model!.cards.find((c) => c.family === 'option')!
+    const bare = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [] }))
+    const zoomedOut = (v: View) => { ready(v); return render(<ReactFlowProvider><Node {...props(opt.id, v.model!.cards.find((c) => c.id === opt.id))} /></ReactFlowProvider>).container }
+    const was = useCanvasStore.getState().lodRung
+    useCanvasStore.setState({ lodRung: 'line' } as never)
+    try {
+      expect(zoomedOut(bare).textContent).not.toContain('No changes specified'); cleanup()
+      const lead = leadLineOf(EU.model!.cards.find((c) => c.id === opt.id)!) ?? 'about'
+      expect(zoomedOut(withCard(EU, opt.id, (c) => ({ ...c, headline: { ...(c.headline ?? { title: '', shared: false, state: 'shown', aim_id: null }), text: 'about 41% chance' } as never }))).textContent, 'CONTRAST').toContain('about 41% chance')
+      void lead
+    } finally { useCanvasStore.setState({ lodRung: was } as never) }
   })
 
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
