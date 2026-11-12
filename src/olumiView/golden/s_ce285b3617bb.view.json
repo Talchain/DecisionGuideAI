@@ -36,7 +36,7 @@
     "glyph": "●",
     "heading": "Funding window",
     "typed": false,
-    "detail": "Funding window · quantity · Theirs: “within the next 2 months” · 2 months",
+    "detail": "Funding window · quantity · Theirs: “within the next ⟦F24.value⟧” · ⟦F24.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -45,8 +45,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "2 months",
-     "title": "2 months",
+     "text": "⟦F24.value⟧",
+     "title": "⟦F24.value⟧",
      "edit": {
       "prompt": "New figure for “Funding window” (month): one number, or a range like 150 to 400",
       "ask": "For “Funding window”, type one number, or a range like 150 to 400."
@@ -64,7 +64,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "within the next 2 months",
+      "text": "within the next ⟦F24.value⟧",
       "whole": false,
       "words": "theirs"
      },
@@ -73,7 +73,7 @@
     "author": {
      "by": "brief",
      "text": "Reported in the brief",
-     "title": "Theirs: “within the next 2 months”"
+     "title": "Theirs: “within the next ⟦F24.value⟧”"
     },
     "failed": []
    },
@@ -521,7 +521,7 @@
     "glyph": "★",
     "heading": "Secure funding within the funding window",
     "typed": false,
-    "detail": "Secure funding within the funding window · goal · Theirs: “I need to accelerate securing funding within the next 2 months.”",
+    "detail": "Secure funding within the funding window · goal · Theirs: “I need to accelerate securing funding within the next ⟦F24.value⟧.”",
     "col": 3,
     "h": 130,
     "olumi": null,
@@ -584,7 +584,7 @@
     "author": {
      "by": "brief",
      "text": "Reported in the brief",
-     "title": "Theirs: “I need to accelerate securing funding within the next 2 months.”"
+     "title": "Theirs: “I need to accelerate securing funding within the next ⟦F24.value⟧.”"
     },
     "failed": []
    },
@@ -779,7 +779,7 @@
     "rows": [
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -789,7 +789,7 @@
       "likely": null,
       "aim": "Secure funding within the funding window",
       "aim_id": "secure_funding",
-      "title": "If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. See the notes for what Olumi has not modelled.",
+      "title": "⟦F10.pointed⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -800,16 +800,16 @@
        "median": 662368.9160430939,
        "high": 5287900.689246738,
        "unit": "GBP",
-       "text": "between 63,600 and 5,290,000 GBP (middle 662,000)",
-       "title": "If Olumi's estimates hold, under 'Continue institutional cold email and warm introductions', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
+       "text": "⟦F11.value⟧",
+       "title": "⟦F11.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      },
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -819,7 +819,7 @@
       "likely": null,
       "aim": "Buy more operating time",
       "aim_id": "cash_survival",
-      "title": "If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+      "title": "⟦F17.text⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -830,12 +830,12 @@
        "median": 724886.0121820148,
        "high": 5339882.072556103,
        "unit": "GBP",
-       "text": "between 125,000 and 5,340,000 GBP (middle 725,000)",
-       "title": "If Olumi's estimates hold, under 'Continue institutional cold email and warm introductions', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
+       "text": "⟦F18.value⟧",
+       "title": "⟦F18.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -879,6 +879,7 @@
       "author": "Olumi inferred"
      }
     ],
+    "sets": [],
     "face": {
      "title": {
       "text": "Continue institutional cold email and warm introductions",
@@ -898,14 +899,13 @@
     "headline": {
      "aim_id": "secure_funding",
      "state": "chance",
-     "text": "over 99% chance",
-     "title": "If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date. See the notes for what Olumi has not modelled.",
+     "text": "⟦F10.value⟧ chance",
+     "title": "⟦F10.pointed⟧",
      "range": null,
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": []
+    }
    },
    {
     "id": "add_angel_bridge",
@@ -947,7 +947,7 @@
     "rows": [
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -957,7 +957,7 @@
       "likely": null,
       "aim": "Secure funding within the funding window",
       "aim_id": "secure_funding",
-      "title": "If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. See the notes for what Olumi has not modelled.",
+      "title": "⟦F12.pointed⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -968,16 +968,16 @@
        "median": 506337.3200206752,
        "high": 2975059.6735837613,
        "unit": "GBP",
-       "text": "between 82,400 and 2,980,000 GBP (middle 506,000)",
-       "title": "If Olumi's estimates hold, under 'Pursue an angel bridge alongside institutional outreach', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
+       "text": "⟦F13.value⟧",
+       "title": "⟦F13.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      },
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -987,7 +987,7 @@
       "likely": null,
       "aim": "Buy more operating time",
       "aim_id": "cash_survival",
-      "title": "If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+      "title": "⟦F19.text⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -998,12 +998,12 @@
        "median": 569419.9814489953,
        "high": 3029676.6522076586,
        "unit": "GBP",
-       "text": "between 143,000 and 3,030,000 GBP (middle 569,000)",
-       "title": "If Olumi's estimates hold, under 'Pursue an angel bridge alongside institutional outreach', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
+       "text": "⟦F20.value⟧",
+       "title": "⟦F20.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -1057,32 +1057,6 @@
       "author": "Olumi inferred"
      }
     ],
-    "face": {
-     "title": {
-      "text": "Pursue an angel bridge alongside institutional outreach",
-      "whole": true,
-      "words": "name"
-     },
-     "line": null
-    },
-    "author": {
-     "by": "brief",
-     "text": "Reported in the brief",
-     "title": "Theirs: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
-    },
-    "committed": null,
-    "failed": [],
-    "failed_reason": null,
-    "headline": {
-     "aim_id": "secure_funding",
-     "state": "chance",
-     "text": "over 99% chance",
-     "title": "If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. See the notes for what Olumi has not modelled.",
-     "range": null,
-     "why": null,
-     "add": null,
-     "shared": false
-    },
     "sets": [
      {
       "id": "bridge_angel_opportunities",
@@ -1106,7 +1080,33 @@
       "whose": "olumi",
       "author": "Olumi’s estimate"
      }
-    ]
+    ],
+    "face": {
+     "title": {
+      "text": "Pursue an angel bridge alongside institutional outreach",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "brief",
+     "text": "Reported in the brief",
+     "title": "Theirs: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding",
+     "state": "chance",
+     "text": "⟦F10.value⟧ chance",
+     "title": "⟦F12.pointed⟧",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "bridge_terms_compatibility",
@@ -1193,7 +1193,7 @@
     "rows": [
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -1203,7 +1203,7 @@
       "likely": null,
       "aim": "Secure funding within the funding window",
       "aim_id": "secure_funding",
-      "title": "If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. See the notes for what Olumi has not modelled.",
+      "title": "⟦F14.pointed⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -1214,16 +1214,16 @@
        "median": 506337.3200206752,
        "high": 2975059.6735837613,
        "unit": "GBP",
-       "text": "between 82,400 and 2,980,000 GBP (middle 506,000)",
-       "title": "If Olumi's estimates hold, under 'Combine an angel bridge with temporary spend deferral', 'Total net funding received during the window' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. It leaves out: The funding measure tests receipt of some net cash, not whether the amount is sufficient for the intended round, milestone or operating buffer; A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out."
+       "text": "⟦F13.value⟧",
+       "title": "⟦F15.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      },
      {
       "kind": "chance",
-      "value": "over 99% chance",
+      "value": "⟦F10.value⟧ chance",
       "fixed": false,
       "approx": "≈ ",
       "olumi": {
@@ -1233,7 +1233,7 @@
       "likely": null,
       "aim": "Buy more operating time",
       "aim_id": "cash_survival",
-      "title": "If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+      "title": "⟦F21.text⟧",
       "chance": 1,
       "companion": null,
       "companion_title": null,
@@ -1244,12 +1244,12 @@
        "median": 593470.0182295068,
        "high": 3056117.284865905,
        "unit": "GBP",
-       "text": "between 169,000 and 3,060,000 GBP (middle 593,000)",
-       "title": "If Olumi's estimates hold, under 'Combine an angel bridge with temporary spend deferral', 'Cash surplus or shortfall at the funding window's end' at the end of the window is likely to be in this range (8 draws in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window."
+       "text": "⟦F22.value⟧",
+       "title": "⟦F22.text⟧"
       },
+      "driver": null,
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -1301,32 +1301,6 @@
       "author": "Olumi inferred"
      }
     ],
-    "face": {
-     "title": {
-      "text": "Combine an angel bridge with temporary spend deferral",
-      "whole": true,
-      "words": "name"
-     },
-     "line": null
-    },
-    "author": {
-     "by": "olumi",
-     "text": "Proposed by Olumi",
-     "title": "Proposed by Olumi: A different lever on the same aim: reduce the cash needed to reach a financing milestone while pursuing funding. This is an exploratory combination, not a recommendation; contractual and operating feasibility are unresolved."
-    },
-    "committed": null,
-    "failed": [],
-    "failed_reason": null,
-    "headline": {
-     "aim_id": "secure_funding",
-     "state": "chance",
-     "text": "over 99% chance",
-     "title": "If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Secure funding within the funding window', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window. See the notes for what Olumi has not modelled.",
-     "range": null,
-     "why": null,
-     "add": null,
-     "shared": false
-    },
     "sets": [
      {
       "id": "bridge_angel_opportunities",
@@ -1361,7 +1335,33 @@
       "whose": "olumi",
       "author": "Olumi’s estimate"
      }
-    ]
+    ],
+    "face": {
+     "title": {
+      "text": "Combine an angel bridge with temporary spend deferral",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: A different lever on the same aim: reduce the cash needed to reach a financing milestone while pursuing funding. This is an exploratory combination, not a recommendation; contractual and operating feasibility are unresolved."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding",
+     "state": "chance",
+     "text": "⟦F10.value⟧ chance",
+     "title": "⟦F14.pointed⟧",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "deferral_feasibility",
@@ -1422,7 +1422,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "horizon",
@@ -1439,7 +1440,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "opening_cash",
@@ -1461,6 +1463,29 @@
     "holds": {
      "record": "calculate_end_cash_margin",
      "part": "opening_cash"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "end_cash_margin",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "opening_cash",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Available unrestricted cash' raises 'Cash surplus or shortfall at the funding window's end'. It moves it one for one: this is the model's own arithmetic."
     }
    },
    {
@@ -1483,6 +1508,29 @@
     "holds": {
      "record": "calculate_end_cash_margin",
      "part": "net_funding"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "end_cash_margin",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Reconciles opening liquidity, funding receipts and operating cash consumption over the same window."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "net_funding",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Total net funding received during the window' raises 'Cash surplus or shortfall at the funding window's end'. It moves it one for one: this is the model's own arithmetic."
     }
    },
    {
@@ -1497,7 +1545,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "end_cash_margin",
@@ -1511,7 +1560,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "add_angel_bridge",
@@ -1529,7 +1579,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1547,7 +1598,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "bridge_and_spend_deferral",
@@ -1564,7 +1616,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "pipeline_approximation",
@@ -1578,7 +1631,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "pipeline_approximation",
@@ -1592,7 +1646,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "window_accounting",
@@ -1606,7 +1661,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "window_accounting",
@@ -1620,7 +1676,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "window_accounting",
@@ -1634,7 +1691,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "deferral_feasibility",
@@ -1648,7 +1706,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "deferral_feasibility",
@@ -1665,7 +1724,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "deferral_feasibility",
@@ -1679,7 +1739,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1693,7 +1754,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1707,7 +1769,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "bridge_terms_compatibility",
@@ -1723,7 +1786,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1737,7 +1801,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1751,7 +1816,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "reported_cash_and_spend_basis",
@@ -1765,7 +1831,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    }
   ],
   "run": {
@@ -1773,8 +1840,8 @@
    "lead": "Chance of ‘Secure funding within the funding window’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
-    "text": "No option is clearly more likely than another to achieve 'Secure funding within the funding window' in this model; the top two are too close to separate. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations.",
-    "title": "No option is clearly more likely than another to achieve 'Secure funding within the funding window' in this model; the top two are too close to separate. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. See the notes for what Olumi has not modelled.",
+    "text": "⟦F16.head⟧",
+    "title": "⟦F16.pointed⟧",
     "if_approved": null,
     "option": null,
     "aim_id": "secure_funding",
@@ -1791,8 +1858,8 @@
      "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
     },
     {
-     "text": "over 99%: If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
-     "title": "over 99%: If Olumi's estimates hold, the chance that 'Continue institutional cold email and warm introductions' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+     "text": "⟦F17.line⟧",
+     "title": "⟦F17.line⟧",
      "about": {
       "kind": "chance",
       "olumi": true,
@@ -1801,8 +1868,8 @@
      }
     },
     {
-     "text": "over 99%: If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
-     "title": "over 99%: If Olumi's estimates hold, the chance that 'Pursue an angel bridge alongside institutional outreach' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs'. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+     "text": "⟦F19.line⟧",
+     "title": "⟦F19.line⟧",
      "about": {
       "kind": "chance",
       "olumi": true,
@@ -1811,8 +1878,8 @@
      }
     },
     {
-     "text": "over 99%: If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
-     "title": "over 99%: If Olumi's estimates hold, the chance that 'Combine an angel bridge with temporary spend deferral' meets 'Buy more operating time', in this model on current information. It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's what-if ranges for 'Qualified institutional opportunities worked during the funding window', 'Institutional opportunity share reaching cash receipt within the window', 'Net cash per funded institutional opportunity', 'Institutional fundraising capacity retained while pursuing angels', 'Qualified angel opportunities under the bridge route', 'Angel opportunity share reaching cash receipt within the window', 'Gross cash per funded angel opportunity', 'Angel proceeds retained after transaction cash costs', 'Operating burn retained after temporary spend deferral'. It reads their approximate 'Monthly net operating cash burn before new funding' as within 10% either way until they give a range. It rests on: Alternatives begin at the model start. Conversion inputs include only funding received before the window ends. Monthly burn is held constant, and the end balance is evaluated without assuming that cash arrives before an earlier cash-out date; Any modeled spend deferral is lawful, agreed where necessary, and does not reduce revenue, essential delivery or fundability during the funding window; Pipeline volume, cash conversion and cheque size approximate funding receipts. Capacity displacement proportionally reduces institutional throughput. Fractional funded opportunities are an aggregate approximation, not literal completed deals or a calibrated probability of success; Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment; Check whether bridge terms, investor rights and cap-table changes are compatible with the intended institutional round and existing obligations. It leaves out: A positive end-of-window balance does not establish uninterrupted solvency. Funding could arrive after cash has already run out; The comparison includes transaction-cost retention and displaced institutional effort, but not dilution, founder workload in hours, fixed failed-deal costs, governance burden or obligations falling due after the window.",
+     "text": "⟦F21.line⟧",
+     "title": "⟦F21.line⟧",
      "about": {
       "kind": "chance",
       "olumi": true,
@@ -1821,8 +1888,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Qualified institutional opportunities worked during the funding window', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. Exploratory pipeline-volume assumption, not an estimate of the current pipeline. A first-guess band of 2–8 around 4 is widened on a ratio scale to 1–16. Counts qualified opportunities, not cold emails.",
-     "title": "Olumi's what-if for 'Qualified institutional opportunities worked during the funding window', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. Exploratory pipeline-volume assumption, not an estimate of the current pipeline. A first-guess band of 2–8 around 4 is widened on a ratio scale to 1–16. Counts qualified opportunities, not cold emails.",
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1831,8 +1898,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Institutional opportunity share reaching cash receipt within the window', not their figure: 0.025 to 0.4. Basis: No typical rate known; replace with your figure. A first-guess band of 0.05–0.20 around 0.10 is widened on a ratio scale. Applies only to qualified institutional opportunities producing cleared cash during this funding window; it is not a sourced fundraising conversion rate.",
-     "title": "Olumi's what-if for 'Institutional opportunity share reaching cash receipt within the window', not their figure: 0.025 to 0.4. Basis: No typical rate known; replace with your figure. A first-guess band of 0.05–0.20 around 0.10 is widened on a ratio scale. Applies only to qualified institutional opportunities producing cleared cash during this funding window; it is not a sourced fundraising conversion rate.",
+     "text": "⟦F2.text⟧",
+     "title": "⟦F2.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1841,8 +1908,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Net cash per funded institutional opportunity', not their figure: 250,000 to 4,000,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 500,000–2,000,000 around GBP 1,000,000 is widened on a ratio scale. This is a separate hypothetical net cheque, not a reinterpretation of the supplied firms' deal-size band. Whether their deal sizes correspond to an individual cheque or a whole round needs confirmation.",
-     "title": "Olumi's what-if for 'Net cash per funded institutional opportunity', not their figure: 250,000 to 4,000,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 500,000–2,000,000 around GBP 1,000,000 is widened on a ratio scale. This is a separate hypothetical net cheque, not a reinterpretation of the supplied firms' deal-size band. Whether their deal sizes correspond to an individual cheque or a whole round needs confirmation.",
+     "text": "⟦F3.text⟧",
+     "title": "⟦F3.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1851,8 +1918,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Institutional fundraising capacity retained while pursuing angels', not their figure: 0.25 to 1. Basis: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions.",
-     "title": "Olumi's what-if for 'Institutional fundraising capacity retained while pursuing angels', not their figure: 0.25 to 1. Basis: No typical rate known; replace with your figure. A first-guess band approximately 0.354–0.707 around 0.5 is widened on a ratio scale to 0.25–1. This tests displacement of institutional work by bridge fundraising, rather than assuming angel proceeds are free additions.",
+     "text": "⟦F4.text⟧",
+     "title": "⟦F4.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1861,8 +1928,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Qualified angel opportunities under the bridge route', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of 2–8 around 4 is widened on a ratio scale. This is an exploratory volume of qualified angel opportunities, not an assertion that these investors are accessible.",
-     "title": "Olumi's what-if for 'Qualified angel opportunities under the bridge route', not their figure: 1 to 16 opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of 2–8 around 4 is widened on a ratio scale. This is an exploratory volume of qualified angel opportunities, not an assertion that these investors are accessible.",
+     "text": "⟦F5.text⟧",
+     "title": "⟦F5.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1871,8 +1938,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Angel opportunity share reaching cash receipt within the window', not their figure: 0.05 to 0.8. Basis: No typical rate known; replace with your figure. A first-guess band of 0.10–0.40 around 0.20 is widened on a ratio scale. This tests, rather than establishes, whether angels can reach cleared cash more readily within the window.",
-     "title": "Olumi's what-if for 'Angel opportunity share reaching cash receipt within the window', not their figure: 0.05 to 0.8. Basis: No typical rate known; replace with your figure. A first-guess band of 0.10–0.40 around 0.20 is widened on a ratio scale. This tests, rather than establishes, whether angels can reach cleared cash more readily within the window.",
+     "text": "⟦F6.text⟧",
+     "title": "⟦F6.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1881,8 +1948,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Gross cash per funded angel opportunity', not their figure: 12,500 to 200,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 25,000–100,000 around GBP 50,000 is widened on a ratio scale. This is a hypothetical cheque per funded angel opportunity, not the bridge amount the company needs.",
-     "title": "Olumi's what-if for 'Gross cash per funded angel opportunity', not their figure: 12,500 to 200,000 GBP/opportunity. Basis: No typical rate known; replace with your figure. A first-guess band of GBP 25,000–100,000 around GBP 50,000 is widened on a ratio scale. This is a hypothetical cheque per funded angel opportunity, not the bridge amount the company needs.",
+     "text": "⟦F7.text⟧",
+     "title": "⟦F7.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1891,8 +1958,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Angel proceeds retained after transaction cash costs', not their figure: 0.8 to 0.988. Basis: No typical rate known; replace with your figure. A first-guess transaction-cost share of 0.025–0.10 around 0.05 is widened on a ratio scale to 0.0125–0.20 and represented as retained proceeds. Costs scale with proceeds here; fixed costs incurred without a close are excluded.",
-     "title": "Olumi's what-if for 'Angel proceeds retained after transaction cash costs', not their figure: 0.8 to 0.988. Basis: No typical rate known; replace with your figure. A first-guess transaction-cost share of 0.025–0.10 around 0.05 is widened on a ratio scale to 0.0125–0.20 and represented as retained proceeds. Costs scale with proceeds here; fixed costs incurred without a close are excluded.",
+     "text": "⟦F8.text⟧",
+     "title": "⟦F8.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1901,8 +1968,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent.",
-     "title": "Olumi's what-if for 'Operating burn retained after temporary spend deferral', not their figure: 0.5 to 0.969. Basis: No typical rate known; replace with your figure. A first-guess deferrable burn share of 0.0625–0.25 around 0.125 is widened on a ratio scale to 0.03125–0.50 and represented as retained burn. This is a cash-timing what-if, not evidence that these savings are feasible or permanent.",
+     "text": "⟦F9.text⟧",
+     "title": "⟦F9.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1915,7 +1982,7 @@
    "timing": [],
    "science": [],
    "sensitivity": {
-    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "text": "⟦SENSITIVITY_NOTE⟧",
     "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [],
@@ -1956,6 +2023,7 @@
    "failure_heading": "What could go wrong",
    "rests": [],
    "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
    "lenses": [
     {
      "id": "goal",
@@ -2444,7 +2512,7 @@
    "version": "earlier: version 1",
    "earlier": true,
    "status": null,
-   "said": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+   "said": "I need to accelerate securing funding within the next ⟦F24.value⟧. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
    "answer": {
     "answer": [
      {
@@ -2498,7 +2566,7 @@
    "answer": {
     "answer": [
      {
-      "text": "The model now uses your cash of 180,000 GBP and monthly spending of about 60,000 GBP/month, replacing the unspecified cash position. The key distinction is whether spending means net cash burn after incoming revenue. That determines how urgently a bridge is needed, rather than just whether it adds cash."
+      "text": "The model now uses your cash of ⟦F25.value⟧ and monthly spending of ⟦F26.value⟧, replacing the unspecified cash position. The key distinction is whether spending means net cash burn after incoming revenue. That determines how urgently a bridge is needed, rather than just whether it adds cash."
      }
     ],
     "why": [
@@ -2639,7 +2707,7 @@
    "reported_cash_and_spend_basis": "Please change “Cash on hand is treated as available to meet operating payments, and reported monthly spending is provisionally treated as net cash burn. Restricted cash, additional committed payments or operating receipts not included in that spending would require an adjustment.”: "
   }
  },
- "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
+ "brief": "I need to accelerate securing funding within the next ⟦F24.value⟧. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it.",
  "gated": false,
  "session": {
   "goal": null,

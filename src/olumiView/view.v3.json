@@ -1793,6 +1793,180 @@
            "edit"
           ],
           "additionalProperties": false
+         },
+         "causal": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "sign": {
+              "type": "string",
+              "enum": [
+               "increases",
+               "decreases",
+               "none",
+               "unknown"
+              ]
+             },
+             "of": {
+              "type": "string",
+              "enum": [
+               "more_of_from",
+               "choosing_from"
+              ]
+             },
+             "target": {
+              "type": "string"
+             },
+             "disputed": {
+              "type": "boolean"
+             },
+             "author": {
+              "anyOf": [
+               {
+                "type": "object",
+                "properties": {
+                 "by": {
+                  "type": "string",
+                  "enum": [
+                   "person",
+                   "brief",
+                   "olumi",
+                   "mixed"
+                  ]
+                 },
+                 "text": {
+                  "type": "string"
+                 },
+                 "title": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "by",
+                 "text",
+                 "title"
+                ],
+                "additionalProperties": false
+               },
+               {
+                "type": "null"
+               }
+              ]
+             },
+             "strength": {
+              "type": "object",
+              "properties": {
+               "state": {
+                "type": "string",
+                "enum": [
+                 "sized",
+                 "unsized",
+                 "in_words"
+                ]
+               },
+               "figure": {
+                "type": [
+                 "string",
+                 "null"
+                ]
+               },
+               "low": {
+                "type": [
+                 "number",
+                 "null"
+                ]
+               },
+               "likely": {
+                "type": [
+                 "number",
+                 "null"
+                ]
+               },
+               "high": {
+                "type": [
+                 "number",
+                 "null"
+                ]
+               },
+               "unit": {
+                "type": [
+                 "string",
+                 "null"
+                ]
+               },
+               "per": {
+                "type": [
+                 "string",
+                 "null"
+                ]
+               },
+               "share": {
+                "type": [
+                 "number",
+                 "null"
+                ]
+               },
+               "relative_to": {
+                "anyOf": [
+                 {
+                  "type": "object",
+                  "properties": {
+                   "figure": {
+                    "type": "string"
+                   },
+                   "option": {
+                    "type": "string"
+                   },
+                   "against": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "figure",
+                   "option",
+                   "against"
+                  ],
+                  "additionalProperties": false
+                 },
+                 {
+                  "type": "null"
+                 }
+                ]
+               }
+              },
+              "required": [
+               "state",
+               "figure",
+               "low",
+               "likely",
+               "high",
+               "unit",
+               "per",
+               "share",
+               "relative_to"
+              ],
+              "additionalProperties": false
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "sign",
+             "of",
+             "target",
+             "disputed",
+             "author",
+             "strength",
+             "text"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
          }
         },
         "required": [
@@ -1807,7 +1981,8 @@
          "records",
          "effect",
          "remove",
-         "holds"
+         "holds",
+         "causal"
         ],
         "additionalProperties": false
        }

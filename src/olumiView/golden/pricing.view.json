@@ -36,7 +36,7 @@
     "glyph": "●",
     "heading": "Margin",
     "typed": false,
-    "detail": "margin · quantity · Theirs: “each cup earns us £1.55” · £1.55/cup",
+    "detail": "margin · quantity · Theirs: “each cup earns us £1.55” · ⟦F8.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -45,8 +45,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£1.55/cup",
-     "title": "£1.55/cup",
+     "text": "⟦F8.value⟧",
+     "title": "⟦F8.value⟧",
      "edit": {
       "prompt": "New figure for “margin” (GBP/cup): one number, or a range like 150 to 400",
       "ask": "For “margin”, type one number, or a range like 150 to 400."
@@ -63,7 +63,7 @@
     "values": [
      {
       "option": "raise_price",
-      "text": "£2/cup",
+      "text": "⟦F9.value⟧",
       "p10": 2,
       "p50": 2,
       "p90": 2,
@@ -73,7 +73,7 @@
      },
      {
       "option": "carry_on",
-      "text": "£1.55/cup",
+      "text": "⟦F8.value⟧",
       "p10": 1.55,
       "p50": 1.55,
       "p90": 1.55,
@@ -104,7 +104,7 @@
     "glyph": "●",
     "heading": "Margin raised",
     "typed": false,
-    "detail": "margin raised · quantity · Theirs: “so each cup earns £2.00” · £2/cup",
+    "detail": "margin raised · quantity · Theirs: “so each cup earns £2.00” · ⟦F9.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -113,8 +113,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£2/cup",
-     "title": "£2/cup",
+     "text": "⟦F9.value⟧",
+     "title": "⟦F9.value⟧",
      "edit": {
       "prompt": "New figure for “margin raised” (GBP/cup): one number, or a range like 150 to 400",
       "ask": "For “margin raised”, type one number, or a range like 150 to 400."
@@ -151,7 +151,7 @@
     "glyph": "●",
     "heading": "Cups now",
     "typed": false,
-    "detail": "cups now · quantity · Theirs: “sells 4,000 coffees a month” · 4,000 cups/month",
+    "detail": "cups now · quantity · Theirs: “sells 4,000 coffees a month” · ⟦F10.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -160,8 +160,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "4,000 cups/month",
-     "title": "4,000 cups/month",
+     "text": "⟦F10.value⟧",
+     "title": "⟦F10.value⟧",
      "edit": {
       "prompt": "New figure for “cups now” (cup/month): one number, or a range like 150 to 400",
       "ask": "For “cups now”, type one number, or a range like 150 to 400."
@@ -198,7 +198,7 @@
     "glyph": "●",
     "heading": "Cups change",
     "typed": false,
-    "detail": "cups change · quantity · Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month. · Plausible range: −900 to −100 cups/month",
+    "detail": "cups change · quantity · Proposed by Olumi: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month. · Plausible range: ⟦F1.value⟧",
     "col": 1,
     "h": 88,
     "olumi": {
@@ -210,8 +210,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "−900 to −100 cups/month",
-     "title": "Plausible range: −900 to −100 cups/month",
+     "text": "⟦F1.value⟧",
+     "title": "Plausible range: ⟦F1.value⟧",
      "edit": {
       "prompt": "New figure for “cups change” (cup/month): one number, or a range like 150 to 400",
       "ask": "For “cups change”, type one number, or a range like 150 to 400."
@@ -260,8 +260,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month) · Keep the price: £6,200/month",
-     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: £6,200/month. Worked out from the figures it depends on.",
+     "text": "Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month) · Keep the price: ⟦F5.value⟧",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Raise the price by 45p it rests on figures Olumi proposed. Raise the price by 45p: about £6,990/month (£6,190 to £7,820/month); Keep the price: ⟦F5.value⟧. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -301,7 +301,7 @@
      },
      {
       "option": "carry_on",
-      "text": "£6,200/month",
+      "text": "⟦F5.value⟧",
       "p10": 6200,
       "p50": 6200,
       "p90": 6200,
@@ -332,7 +332,7 @@
     "glyph": "●",
     "heading": "Profit target",
     "typed": false,
-    "detail": "profit target · quantity · Theirs: “make at least £7,000 a month” · £7,000/month",
+    "detail": "profit target · quantity · Theirs: “make at least £7,000 a month” · ⟦F11.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -341,8 +341,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£7,000/month",
-     "title": "£7,000/month",
+     "text": "⟦F11.value⟧",
+     "title": "⟦F11.value⟧",
      "edit": {
       "prompt": "New figure for “profit target” (GBP/month): one number, or a range like 150 to 400",
       "ask": "For “profit target”, type one number, or a range like 150 to 400."
@@ -393,8 +393,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least £7,000/month",
-     "title": "at least £7,000/month",
+     "text": "at least ⟦F11.value⟧",
+     "title": "at least ⟦F11.value⟧",
      "olumi": null,
      "measured": true
     },
@@ -436,7 +436,7 @@
     "rows": [
      {
       "kind": "chance",
-      "value": "about 49% chance",
+      "value": "⟦F2.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -445,11 +445,11 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "Among the options compared, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎."
+       "title": "⟦F6.text⟧"
       },
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+      "title": "⟦F2.text⟧",
       "chance": 0.4921,
       "companion": null,
       "companion_title": null,
@@ -460,10 +460,15 @@
        "median": 6985.7864462053185,
        "high": 7820.149703344684,
        "unit": "GBP/month",
-       "text": "between £6,190 and £7,820/month (middle £6,990)",
-       "title": "Under 'Raise the price by 45p', 'profit' is likely to be in this range (8 times in 10). It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month)."
+       "text": "⟦F3.value⟧",
+       "title": "⟦F3.text⟧"
       },
-      "text": "The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information.",
+      "driver": {
+       "figure": "cups_change",
+       "low": 0,
+       "high": 1
+      },
+      "text": "The chance⟦F2.body⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -477,17 +482,12 @@
       },
       "rests_on_text": "Rests on Olumi's what-if for 'cups change'.",
       "if_approved": null,
-      "estimate": null,
-      "driver": {
-       "figure": "cups_change",
-       "low": 0,
-       "high": 1
-      }
+      "estimate": null
      }
     ],
     "driver": {
-     "text": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
-     "title": "under 1% if 'cups change' is low, over 99% if it is high: Under 'Raise the price by 45p', the chance of meeting 'Make £7,000 a month' moves most with 'cups change': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "text": "⟦F7.line⟧",
+     "title": "⟦F7.line⟧",
      "figure": "cups_change",
      "low": 0,
      "high": 1
@@ -518,32 +518,6 @@
       "author": "Olumi’s estimate"
      }
     ],
-    "face": {
-     "title": {
-      "text": "Raise the price by 45p",
-      "whole": true,
-      "words": "name"
-     },
-     "line": null
-    },
-    "author": {
-     "by": "person",
-     "text": "Stated by the team",
-     "title": "Theirs: “raise the price by 45p”"
-    },
-    "committed": null,
-    "failed": [],
-    "failed_reason": null,
-    "headline": {
-     "aim_id": "profit_goal",
-     "state": "chance",
-     "text": "about 49% chance",
-     "title": "The chance that 'Raise the price by 45p' meets 'Make £7,000 a month', in this model on current information. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
-     "range": "under 1% if 'cups change' is low, over 99% if it is high",
-     "why": null,
-     "add": null,
-     "shared": false
-    },
     "sets": [
      {
       "id": "margin_raised",
@@ -567,7 +541,33 @@
       "whose": "theirs",
       "author": null
      }
-    ]
+    ],
+    "face": {
+     "title": {
+      "text": "Raise the price by 45p",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by the team",
+     "title": "Theirs: “raise the price by 45p”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "profit_goal",
+     "state": "chance",
+     "text": "⟦F2.value⟧ chance",
+     "title": "⟦F2.text⟧",
+     "range": "⟦F7.value⟧",
+     "why": null,
+     "add": null,
+     "shared": false
+    }
    },
    {
     "id": "carry_on",
@@ -588,14 +588,14 @@
     "rows": [
      {
       "kind": "chance",
-      "value": "never met in this model",
+      "value": "⟦F4.value⟧",
       "fixed": true,
       "approx": "",
       "olumi": null,
       "likely": null,
       "aim": "Make £7,000 a month",
       "aim_id": "profit_goal",
-      "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "title": "⟦F4.text⟧",
       "chance": 0,
       "companion": null,
       "companion_title": null,
@@ -606,10 +606,11 @@
        "median": 6200,
        "high": 6200,
        "unit": "GBP/month",
-       "text": "£6,200/month",
-       "title": "Under 'Keep the price', 'profit' is this in at least 8 times in 10."
+       "text": "⟦F5.value⟧",
+       "title": "⟦F5.text⟧"
       },
-      "text": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "driver": null,
+      "text": "⟦F4.text⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -618,8 +619,7 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -629,6 +629,7 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "sets": [],
     "face": {
      "title": {
       "text": "Keep the price",
@@ -648,14 +649,13 @@
     "headline": {
      "aim_id": "profit_goal",
      "state": "fixed",
-     "text": "never met in this model",
-     "title": "With the model's figures, 'Keep the price' never meets 'Make £7,000 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+     "text": "⟦F4.value⟧",
+     "title": "⟦F4.text⟧",
      "range": null,
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": []
+    }
    }
   ],
   "links": [
@@ -674,7 +674,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "cups_change",
@@ -691,7 +692,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "margin",
@@ -707,7 +709,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "profit",
@@ -721,7 +724,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "profit_target",
@@ -735,7 +739,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "raise_price",
@@ -749,7 +754,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "margin_raised",
@@ -763,7 +769,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "raise_price",
@@ -779,15 +786,16 @@
      "profit_rel"
     ],
     "effect": {
-     "text": "−900 to −100 cups/month",
-     "title": "Cups change · Plausible range: −900 to −100 cups/month · worked out through rise switched on, rise on, cups",
+     "text": "⟦F1.value⟧",
+     "title": "Cups change · Plausible range: ⟦F1.value⟧ · worked out through rise switched on, rise on, cups",
      "figure": "cups_change"
     },
     "remove": null,
     "holds": {
      "record": "cups_rel",
      "part": "rise_on"
-    }
+    },
+    "causal": null
    }
   ],
   "run": {
@@ -795,8 +803,8 @@
    "lead": "Chance of ‘Make £7,000 a month’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
-    "text": "Among the options compared, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
-    "title": "Among the options compared, 'Raise the price by 45p' is more likely to achieve 'Make £7,000 a month' in this model (about 49%; 'Keep the price' never meets it); it rests on Olumi's estimate of 'cups change' — give yours with ✎.",
+    "text": "⟦F6.text⟧",
+    "title": "⟦F6.text⟧",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -820,8 +828,8 @@
      "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
     },
     {
-     "text": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
-     "title": "Olumi's what-if for 'cups change', not their figure: −900 to −100 cups/month. Basis: Cafés that raise prices by about a sixth usually lose some regulars; Olumi's estimate, between 100 and 900 cups a month.",
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -834,15 +842,15 @@
    "timing": [],
    "science": [],
    "sensitivity": {
-    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "text": "⟦SENSITIVITY_NOTE⟧",
     "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [
     {
      "id": "F12",
      "kind": "middle",
-     "line": "'Raise the price by 45p' · aim 'Make £7,000 a month': £7,000/month, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Raise the price by 45p', for 'Make £7,000 a month': 'profit' £7,000/month, against a target of at least £7,000/month: meets it. It rests on Olumi's what-if ranges for 'cups change' (−900 to −100 cups/month).",
+     "line": "'Raise the price by 45p' · aim 'Make £7,000 a month': ⟦F12.value⟧",
+     "hover": "⟦F12.text⟧",
      "aim": "profit_goal",
      "option": "raise_price",
      "versus": null,
@@ -855,8 +863,8 @@
     {
      "id": "F13",
      "kind": "middle",
-     "line": "'Keep the price' · aim 'Make £7,000 a month': £6,200/month, misses it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Keep the price', for 'Make £7,000 a month': 'profit' £6,200/month, against a target of at least £7,000/month: misses it.",
+     "line": "'Keep the price' · aim 'Make £7,000 a month': ⟦F13.value⟧",
+     "hover": "⟦F13.text⟧",
      "aim": "profit_goal",
      "option": "carry_on",
      "versus": null,
@@ -873,8 +881,8 @@
     {
      "id": "F14",
      "kind": "chance",
-     "line": "For 'Raise the price by 45p' to meet 'Make £7,000 a month' more often than not, 'cups change' would have to be above about −502 cups/month (between −526 and −485 cups/month).",
-     "hover": "In this model, for 'Raise the price by 45p' to meet 'Make £7,000 a month' more often than not, 'cups change' (Olumi's estimate) would have to be above about −502 cups/month. In this model's samples, the chance of 'Raise the price by 45p' meeting 'Make £7,000 a month' passes 50% at about that value; the crossing sits between −526 and −485 cups/month, which is how far the samples leave it uncertain.",
+     "line": "For 'Raise the price by 45p' to meet 'Make £7,000 a month' more often than not, ⟦F14.value⟧.",
+     "hover": "⟦F14.text⟧",
      "aim": "profit_goal",
      "option": "raise_price",
      "versus": null,
@@ -909,16 +917,38 @@
     {
      "id": "F16",
      "kind": "goal",
-     "line": "About 98% of the variation in whether 'Raise the price by 45p' meets 'Make £7,000 a month' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range.",
-     "hover": "About 98% of the variation in whether 'Raise the price by 45p' meets 'Make £7,000 a month' traces to ranges Olumi estimated, counting each figure on its own; about 2% is not attributed to any one range. No one else has a range here. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "line": "⟦F16.value⟧.",
+     "hover": "⟦F16.text⟧",
      "aim": "profit_goal",
      "option": "raise_price",
      "olumi_share": 0.9807830537368114,
      "person_share": 0,
-     "unassigned": 0.019216946263188595
+     "unassigned": 0.019216946263188595,
+     "figures": [
+      {
+       "id": "cups_change",
+       "label": "cups change",
+       "whose": "olumi",
+       "share": 0.9807830537368114,
+       "text": "about 98%",
+       "line": "'cups change' (Olumi's estimate) · about 98%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “cups change” (cup/month): one number, or a range like 150 to 400",
+         "ask": "For “cups change”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
     }
    ],
    "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
    "lenses": [
     {
      "id": "goal",
@@ -1083,8 +1113,8 @@
    "quantity": "profit",
    "value": 7000,
    "unit": "GBP/month",
-   "text": "at least £7,000/month",
-   "title": "£7,000/month",
+   "text": "at least ⟦F11.value⟧",
+   "title": "⟦F11.value⟧",
    "side": "at_least"
   },
   "sharpen": [

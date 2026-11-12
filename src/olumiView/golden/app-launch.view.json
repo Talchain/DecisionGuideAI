@@ -36,7 +36,7 @@
     "glyph": "●",
     "heading": "Feared review rating",
     "typed": false,
-    "detail": "Feared review rating · quantity · Theirs: “if we launch broken apps people will give us 1 star reviews” · 1 star",
+    "detail": "Feared review rating · quantity · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews” · ⟦F9.value⟧",
     "col": 1,
     "h": 116,
     "olumi": null,
@@ -45,8 +45,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "1 star",
-     "title": "1 star",
+     "text": "⟦F9.value⟧",
+     "title": "⟦F9.value⟧",
      "edit": {
       "prompt": "New figure for “Feared review rating” (star): one number, or a range like 150 to 400",
       "ask": "For “Feared review rating”, type one number, or a range like 150 to 400."
@@ -87,7 +87,7 @@
     "author": {
      "by": "person",
      "text": "The team’s figure",
-     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
     },
     "failed": []
    },
@@ -97,7 +97,7 @@
     "glyph": "△",
     "heading": "Broken release prompts one-star reviews",
     "typed": false,
-    "detail": "Broken release prompts one-star reviews · risk · Theirs: “if we launch broken apps people will give us 1 star reviews”",
+    "detail": "Broken release prompts one-star reviews · risk · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”",
     "col": 0,
     "h": 130,
     "olumi": null,
@@ -145,7 +145,7 @@
     "author": {
      "by": "person",
      "text": "Stated by the team",
-     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
     },
     "failed": []
    },
@@ -226,7 +226,7 @@
     "glyph": "★",
     "heading": "Avoid damaging users' experience and trust",
     "typed": false,
-    "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us 1 star reviews”",
+    "detail": "Avoid damaging users' experience and trust · goal · Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”",
     "col": 3,
     "h": 130,
     "olumi": null,
@@ -275,7 +275,7 @@
     "author": {
      "by": "person",
      "text": "Stated by the team",
-     "title": "Theirs: “if we launch broken apps people will give us 1 star reviews”"
+     "title": "Theirs: “if we launch broken apps people will give us ⟦F9.value⟧ reviews”"
     },
     "failed": []
    },
@@ -285,7 +285,7 @@
     "glyph": "●",
     "heading": "Time available before release",
     "typed": false,
-    "detail": "Time available before release · quantity · Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure. · Plausible range: 0.5 to 4 weeks",
+    "detail": "Time available before release · quantity · Proposed by Olumi: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure. · Plausible range: ⟦F1.value⟧",
     "col": 1,
     "h": 116,
     "olumi": {
@@ -297,8 +297,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "0.5 to 4 weeks",
-     "title": "Plausible range: 0.5 to 4 weeks",
+     "text": "⟦F1.value⟧",
+     "title": "Plausible range: ⟦F1.value⟧",
      "edit": {
       "prompt": "New figure for “Time available before release” (week): one number, or a range like 150 to 400",
       "ask": "For “Time available before release”, type one number, or a range like 150 to 400."
@@ -328,7 +328,7 @@
     "values": [
      {
       "option": "option_scheduled",
-      "text": "0.5 to 4 weeks",
+      "text": "⟦F1.value⟧",
       "p10": 0.5,
       "p50": null,
       "p90": 4,
@@ -338,7 +338,7 @@
      },
      {
       "option": "option_delay",
-      "text": "4 to 16 weeks",
+      "text": "⟦F4.value⟧",
       "p10": 4,
       "p50": null,
       "p90": 16,
@@ -348,7 +348,7 @@
      },
      {
       "option": "option_isolate",
-      "text": "0.5 to 4 weeks",
+      "text": "⟦F1.value⟧",
       "p10": 0.5,
       "p50": null,
       "p90": 4,
@@ -476,7 +476,7 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 0 weeks",
+     "text": "at least ⟦F8.value⟧",
      "title": "Does allowing time for both repair and validation capture your release-readiness requirement, and what release buffer would your team use?",
      "olumi": {
       "glyph": "◆",
@@ -588,6 +588,7 @@
     },
     "values": null,
     "rests_on": [],
+    "sets": [],
     "face": {
      "title": {
       "text": "Keep the currently scheduled full release",
@@ -613,8 +614,7 @@
      "why": null,
      "add": null,
      "shared": true
-    },
-    "sets": []
+    }
    },
    {
     "id": "option_delay",
@@ -704,6 +704,19 @@
     },
     "values": null,
     "rests_on": [],
+    "sets": [
+     {
+      "id": "delayed_release_offset",
+      "lever": "release_offset",
+      "label": "Postponed release time from now",
+      "figure": {
+       "text": "⟦F4.value⟧",
+       "title": "Plausible range: ⟦F4.value⟧"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
     "face": {
      "title": {
       "text": "Postpone the full update",
@@ -729,20 +742,7 @@
      "why": null,
      "add": null,
      "shared": true
-    },
-    "sets": [
-     {
-      "id": "delayed_release_offset",
-      "lever": "release_offset",
-      "label": "Postponed release time from now",
-      "figure": {
-       "text": "⟦F4.value⟧",
-       "title": "Plausible range: ⟦F4.value⟧"
-      },
-      "whose": "olumi",
-      "author": "Olumi’s estimate"
-     }
-    ]
+    }
    },
    {
     "id": "schedule_assumptions",
@@ -872,6 +872,7 @@
     },
     "values": null,
     "rests_on": [],
+    "sets": [],
     "face": {
      "title": {
       "text": "Explore shipping without the affected sync path",
@@ -897,8 +898,7 @@
      "why": null,
      "add": null,
      "shared": true
-    },
-    "sets": []
+    }
    },
    {
     "id": "isolation_readiness_link",
@@ -970,6 +970,29 @@
     "holds": {
      "record": "calculate_readiness_margin",
      "part": "release_offset"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "readiness_margin",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Arithmetic comparison of available time with repair and validation duration."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "release_offset",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Time available before release' raises 'Release time minus repair and validation time'. It moves it one for one: this is the model's own arithmetic."
     }
    },
    {
@@ -995,6 +1018,29 @@
      "text": "stays a claim in words",
      "title": "‘Explore shipping without the affected sync path’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
      "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "choosing_from",
+     "target": "protect_user_trust",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Retains the possible mechanism without inventing a risk reduction or claiming feasibility."
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way choosing 'Explore shipping without the affected sync path' moves 'Avoid damaging users' experience and trust' is not settled. It stays a claim in words: nothing is worked out from it."
     }
    },
    {
@@ -1012,7 +1058,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "negative_reviews",
@@ -1026,7 +1073,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "readiness_margin",
@@ -1040,7 +1088,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "schedule_assumptions",
@@ -1054,7 +1103,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "schedule_assumptions",
@@ -1068,7 +1118,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "option_delay",
@@ -1082,7 +1133,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "isolation_readiness_link",
@@ -1096,7 +1148,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "isolation_readiness_link",
@@ -1112,7 +1165,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    }
   ],
   "run": {
@@ -1127,7 +1181,7 @@
       "option_delay",
       "option_isolate"
      ],
-     "text": "The chance of 'Explain the release decision without unfair team blame' cannot be worked out yet: the aim has no measure."
+     "text": "⟦F5.text⟧"
     },
     {
      "aim_id": "protect_user_trust",
@@ -1136,7 +1190,7 @@
       "option_delay",
       "option_isolate"
      ],
-     "text": "The chance of 'Avoid damaging users' experience and trust' cannot be worked out yet: the aim has no measure."
+     "text": "⟦F6.text⟧"
     },
     {
      "aim_id": "allow_readiness_work",
@@ -1145,7 +1199,7 @@
       "option_delay",
       "option_isolate"
      ],
-     "text": "The chance of 'Allow time for repair and validation' cannot be worked out yet: rests on the link \"Explore shipping without the affected sync path → Time to complete repair and validation\", which is in words, never calculated."
+     "text": "⟦F7.text⟧"
     }
    ],
    "most_likely": null,
@@ -1191,8 +1245,8 @@
    },
    "notes": [
     {
-     "text": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 weeks. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
-     "title": "Olumi's what-if for 'Time available before release', not their figure: 0.5 to 4 weeks. Basis: Illustrative time remaining, not a conversion of 'less than a month' into an exact deadline. A deliberately widened ratio-scale what-if; no typical rate known; replace with your figure.",
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1201,8 +1255,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 weeks. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
-     "title": "Olumi's what-if for 'Time to implement the sync fix', not their figure: 2 to 12 weeks. Basis: Sarah's 'weeks' does not supply numerical endpoints. This deliberately widened ratio-scale what-if is not her estimate or an industry forecast. Open-source bug-resolution averages do not fit this defect; no typical rate known; replace with your figure.",
+     "text": "⟦F2.text⟧",
+     "title": "⟦F2.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1211,8 +1265,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 weeks. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
-     "title": "Olumi's what-if for 'Validation time after implementing the fix', not their figure: 0.25 to 2 weeks. Basis: Separate allowance for reproducer-based verification, regression checks and release validation. Deliberately widened on a ratio scale, not calibrated to this team; no typical rate known; replace with your figure. Remove this separate allowance if Sarah's estimate already includes it.",
+     "text": "⟦F3.text⟧",
+     "title": "⟦F3.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1221,8 +1275,8 @@
      }
     },
     {
-     "text": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
-     "title": "Olumi's what-if for 'Postponed release time from now', not their figure: 4 to 16 weeks. Basis: An exploratory postponed-release window, measured from now rather than added to the original date. Deliberately widened on a ratio scale; no typical rate known; replace with your figure. It is neither a recommendation nor a commitment that the defect will be resolved by then.",
+     "text": "⟦F4.text⟧",
+     "title": "⟦F4.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1231,8 +1285,8 @@
      }
     },
     {
-     "text": "Olumi's estimate of 'Minimum proposed schedule margin': 0 weeks.",
-     "title": "Olumi's estimate of 'Minimum proposed schedule margin': 0 weeks.",
+     "text": "⟦F8.text⟧",
+     "title": "⟦F8.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1245,7 +1299,7 @@
    "timing": [],
    "science": [],
    "sensitivity": {
-    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "text": "⟦SENSITIVITY_NOTE⟧",
     "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [],
@@ -1274,6 +1328,7 @@
    "failure_heading": "What could go wrong",
    "rests": [],
    "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
    "lenses": []
   },
   "edit_base": 1,

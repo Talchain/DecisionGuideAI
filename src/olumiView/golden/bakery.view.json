@@ -36,7 +36,7 @@
     "glyph": "●",
     "heading": "Base sales",
     "typed": false,
-    "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · 300 loaves/week",
+    "detail": "base sales · quantity · Theirs: “We bake and sell 300 loaves a week” · ⟦F8.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -45,8 +45,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "300 loaves/week",
-     "title": "300 loaves/week",
+     "text": "⟦F8.value⟧",
+     "title": "⟦F8.value⟧",
      "edit": {
       "prompt": "New figure for “base sales” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “base sales”, type one number, or a range like 150 to 400."
@@ -83,7 +83,7 @@
     "glyph": "●",
     "heading": "Sales target",
     "typed": false,
-    "detail": "sales target · quantity · Theirs: “want to sell at least 360” · 360 loaves/week",
+    "detail": "sales target · quantity · Theirs: “want to sell at least 360” · ⟦F13.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -92,8 +92,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "360 loaves/week",
-     "title": "360 loaves/week",
+     "text": "⟦F13.value⟧",
+     "title": "⟦F13.value⟧",
      "edit": {
       "prompt": "New figure for “sales target” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “sales target”, type one number, or a range like 150 to 400."
@@ -130,7 +130,7 @@
     "glyph": "●",
     "heading": "Extra sold per oven",
     "typed": false,
-    "detail": "extra sold per oven · quantity · Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes. · Plausible range: 60 to 90 loaves/week/oven",
+    "detail": "extra sold per oven · quantity · Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes. · Plausible range: ⟦F1.value⟧",
     "col": 1,
     "h": 88,
     "olumi": {
@@ -142,8 +142,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "60 to 90 loaves/week/oven",
-     "title": "Plausible range: 60 to 90 loaves/week/oven",
+     "text": "⟦F1.value⟧",
+     "title": "Plausible range: ⟦F1.value⟧",
      "edit": {
       "prompt": "New figure for “extra sold per oven” (loaf/week/oven): one number, or a range like 150 to 400",
       "ask": "For “extra sold per oven”, type one number, or a range like 150 to 400."
@@ -180,7 +180,7 @@
     "glyph": "●",
     "heading": "Extra hours sold",
     "typed": false,
-    "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: 40 to 80 loaves/week",
+    "detail": "extra hours sold · quantity · Theirs: “somewhere around 40 to 80 extra loaves a week” · Plausible range: ⟦F14.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -189,8 +189,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "40 to 80 loaves/week",
-     "title": "Plausible range: 40 to 80 loaves/week",
+     "text": "⟦F14.value⟧",
+     "title": "Plausible range: ⟦F14.value⟧",
      "edit": {
       "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
       "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
@@ -239,8 +239,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "A second oven: about 370 loaves/week (337 to 387 loaves/week) · Open two hours longer: about 360 loaves/week (339 to 380 loaves/week) · Carry on as now: 300 loaves/week",
-     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about 360 loaves/week (339 to 380 loaves/week); Carry on as now: 300 loaves/week. Worked out from the figures it depends on.",
+     "text": "A second oven: about 370 loaves/week (337 to 387 loaves/week) · Open two hours longer: about ⟦F13.value⟧ (339 to 380 loaves/week) · Carry on as now: ⟦F8.value⟧",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under A second oven it rests on figures Olumi proposed. A second oven: about 370 loaves/week (337 to 387 loaves/week); Open two hours longer: about ⟦F13.value⟧ (339 to 380 loaves/week); Carry on as now: ⟦F8.value⟧. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -279,7 +279,7 @@
      },
      {
       "option": "longer_hours",
-      "text": "about 360 loaves/week (339 to 380 loaves/week)",
+      "text": "about ⟦F13.value⟧ (339 to 380 loaves/week)",
       "p10": 339.4744945801455,
       "p50": 359.9971077421209,
       "p90": 379.7323179658307,
@@ -289,7 +289,7 @@
      },
      {
       "option": "carry_on",
-      "text": "300 loaves/week",
+      "text": "⟦F8.value⟧",
       "p10": 300,
       "p50": 300,
       "p90": 300,
@@ -414,7 +414,7 @@
     "glyph": "●",
     "heading": "Budget",
     "typed": false,
-    "detail": "budget · quantity · Theirs: “We have £3,000 to spend” · £3,000",
+    "detail": "budget · quantity · Theirs: “We have ⟦F17.value⟧ to spend” · ⟦F17.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -423,8 +423,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£3,000",
-     "title": "£3,000",
+     "text": "⟦F17.value⟧",
+     "title": "⟦F17.value⟧",
      "edit": {
       "prompt": "New figure for “budget” (GBP): one number, or a range like 150 to 400",
       "ask": "For “budget”, type one number, or a range like 150 to 400."
@@ -451,7 +451,7 @@
     "author": {
      "by": "person",
      "text": "The team’s figure",
-     "title": "Theirs: “We have £3,000 to spend”"
+     "title": "Theirs: “We have ⟦F17.value⟧ to spend”"
     },
     "failed": []
    },
@@ -508,7 +508,7 @@
     "glyph": "●",
     "heading": "Fitting",
     "typed": false,
-    "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · £400/oven",
+    "detail": "fitting · quantity · Theirs: “fitting an oven costs £400” · ⟦F18.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -517,8 +517,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£400/oven",
-     "title": "£400/oven",
+     "text": "⟦F18.value⟧",
+     "title": "⟦F18.value⟧",
      "edit": {
       "prompt": "New figure for “fitting” (GBP/oven): one number, or a range like 150 to 400",
       "ask": "For “fitting”, type one number, or a range like 150 to 400."
@@ -632,8 +632,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 360 loaves/week",
-     "title": "at least 360 loaves/week",
+     "text": "at least ⟦F13.value⟧",
+     "title": "at least ⟦F13.value⟧",
      "olumi": null,
      "measured": true
     },
@@ -660,9 +660,9 @@
     "id": "within_budget",
     "family": "limit",
     "glyph": "□",
-    "heading": "Within the £3,000",
+    "heading": "Within the ⟦F17.value⟧",
     "typed": false,
-    "detail": "Within the £3,000 · limit · Theirs: “We have £3,000 to spend”",
+    "detail": "Within the ⟦F17.value⟧ · limit · Theirs: “We have ⟦F17.value⟧ to spend”",
     "col": 3,
     "h": 102,
     "olumi": null,
@@ -676,8 +676,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at most £3,000",
-     "title": "at most £3,000",
+     "text": "at most ⟦F17.value⟧",
+     "title": "at most ⟦F17.value⟧",
      "olumi": null,
      "measured": true
     },
@@ -687,7 +687,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "Within the £3,000",
+      "text": "Within the ⟦F17.value⟧",
       "whole": true,
       "words": "name"
      },
@@ -696,7 +696,7 @@
     "author": {
      "by": "person",
      "text": "Stated by the team",
-     "title": "Theirs: “We have £3,000 to spend”"
+     "title": "Theirs: “We have ⟦F17.value⟧ to spend”"
     },
     "failed": []
    },
@@ -720,14 +720,14 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
-      "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "text": "Can't yet say if 'Within the ⟦F17.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F2.text⟧",
       "state": "withheld",
       "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
-      "value": "about 72% chance",
+      "value": "⟦F3.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": {
@@ -736,11 +736,11 @@
       },
       "likely": {
        "glyph": "◉",
-       "title": "Among the options compared, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎."
+       "title": "⟦F9.text⟧"
       },
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "The chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven).",
+      "title": "⟦F3.text⟧",
       "chance": 0.7162,
       "companion": null,
       "companion_title": null,
@@ -751,10 +751,15 @@
        "median": 369.96239436039934,
        "high": 387.0940544324368,
        "unit": "loaf/week",
-       "text": "between 337 and 387 loaves/week (middle 370)",
-       "title": "Under 'A second oven', 'sales' is likely to be in this range (8 times in 10). It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven)."
+       "text": "⟦F4.value⟧",
+       "title": "⟦F4.text⟧"
       },
-      "text": "The chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "driver": {
+       "figure": "extra_sold_per_oven",
+       "low": 0.5346534653465347,
+       "high": 0.8067806780678067
+      },
+      "text": "The chance⟦F3.body⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -768,17 +773,12 @@
       },
       "rests_on_text": "Rests on Olumi's what-if for 'extra sold per oven'.",
       "if_approved": null,
-      "estimate": null,
-      "driver": {
-       "figure": "extra_sold_per_oven",
-       "low": 0.5346534653465347,
-       "high": 0.8067806780678067
-      }
+      "estimate": null
      }
     ],
     "driver": {
-     "text": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
-     "title": "about 53% if 'extra sold per oven' is low, about 81% if it is high: Under 'A second oven', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra sold per oven': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "text": "⟦F10.line⟧",
+     "title": "⟦F10.line⟧",
      "figure": "extra_sold_per_oven",
      "low": 0.5346534653465347,
      "high": 0.8067806780678067
@@ -809,6 +809,19 @@
       "author": "Olumi’s estimate"
      }
     ],
+    "sets": [
+     {
+      "id": "one_oven",
+      "lever": "ovens_added",
+      "label": "one oven",
+      "figure": {
+       "text": "1 oven",
+       "title": "1 oven"
+      },
+      "whose": "theirs",
+      "author": null
+     }
+    ],
     "face": {
      "title": {
       "text": "A second oven",
@@ -828,26 +841,13 @@
     "headline": {
      "aim_id": "sell_360",
      "state": "chance",
-     "text": "about 72% chance",
-     "title": "The chance that 'A second oven' meets 'Sell at least 360 loaves a week', in this model on current information. It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven).",
-     "range": "about 53% if 'extra sold per oven' is low, about 81% if it is high",
+     "text": "⟦F3.value⟧ chance",
+     "title": "⟦F3.text⟧",
+     "range": "⟦F10.value⟧",
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": [
-     {
-      "id": "one_oven",
-      "lever": "ovens_added",
-      "label": "one oven",
-      "figure": {
-       "text": "1 oven",
-       "title": "1 oven"
-      },
-      "whose": "theirs",
-      "author": null
-     }
-    ]
+    }
    },
    {
     "id": "longer_hours",
@@ -869,21 +869,21 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
-      "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "text": "Can't yet say if 'Within the ⟦F17.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F2.text⟧",
       "state": "withheld",
       "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
-      "value": "about 50% chance",
+      "value": "⟦F5.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": null,
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "title": "⟦F5.text⟧",
       "chance": 0.4999,
       "companion": null,
       "companion_title": null,
@@ -894,10 +894,15 @@
        "median": 359.9971077421209,
        "high": 379.7323179658307,
        "unit": "loaf/week",
-       "text": "between 339 and 380 loaves/week (middle 360)",
-       "title": "Under 'Open two hours longer', 'sales' is likely to be in this range (8 times in 10)."
+       "text": "⟦F6.value⟧",
+       "title": "⟦F6.text⟧"
       },
-      "text": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "driver": {
+       "figure": "extra_hours_sold",
+       "low": 0,
+       "high": 1
+      },
+      "text": "⟦F5.text⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -906,17 +911,12 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null,
-      "driver": {
-       "figure": "extra_hours_sold",
-       "low": 0,
-       "high": 1
-      }
+      "estimate": null
      }
     ],
     "driver": {
-     "text": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
-     "title": "under 1% if 'extra hours sold' is low, over 99% if it is high: Under 'Open two hours longer', the chance of meeting 'Sell at least 360 loaves a week' moves most with 'extra hours sold': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "text": "⟦F11.line⟧",
+     "title": "⟦F11.line⟧",
      "figure": "extra_hours_sold",
      "low": 0,
      "high": 1
@@ -940,6 +940,19 @@
     },
     "values": null,
     "rests_on": [],
+    "sets": [
+     {
+      "id": "hours_switched_on",
+      "lever": "hours_on",
+      "label": "hours switched on",
+      "figure": {
+       "text": "1",
+       "title": "1"
+      },
+      "whose": "theirs",
+      "author": null
+     }
+    ],
     "face": {
      "title": {
       "text": "Open two hours longer",
@@ -959,26 +972,13 @@
     "headline": {
      "aim_id": "sell_360",
      "state": "chance",
-     "text": "about 50% chance",
-     "title": "The chance that 'Open two hours longer' meets 'Sell at least 360 loaves a week', in this model on current information.",
-     "range": "under 1% if 'extra hours sold' is low, over 99% if it is high",
+     "text": "⟦F5.value⟧ chance",
+     "title": "⟦F5.text⟧",
+     "range": "⟦F11.value⟧",
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": [
-     {
-      "id": "hours_switched_on",
-      "lever": "hours_on",
-      "label": "hours switched on",
-      "figure": {
-       "text": "1",
-       "title": "1"
-      },
-      "whose": "theirs",
-      "author": null
-     }
-    ]
+    }
    },
    {
     "id": "carry_on",
@@ -1000,21 +1000,21 @@
      {
       "kind": "none",
       "aim_id": "within_budget",
-      "text": "Can't yet say if 'Within the £3,000' holds: 'oven price' is missing.",
-      "title": "'Within the £3,000' waits on the answers to: 'oven price'.",
+      "text": "Can't yet say if 'Within the ⟦F17.value⟧' holds: 'oven price' is missing.",
+      "title": "⟦F2.text⟧",
       "state": "withheld",
       "question": "What would the second oven cost?"
      },
      {
       "kind": "chance",
-      "value": "under 1% chance",
+      "value": "⟦F7.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": null,
       "likely": null,
       "aim": "Sell at least 360 loaves a week",
       "aim_id": "sell_360",
-      "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "title": "⟦F7.text⟧",
       "chance": 0,
       "companion": null,
       "companion_title": null,
@@ -1025,10 +1025,11 @@
        "median": 300,
        "high": 300,
        "unit": "loaf/week",
-       "text": "300 loaves/week",
-       "title": "Under 'Carry on as now', 'sales' is this in at least 8 times in 10."
+       "text": "⟦F8.value⟧",
+       "title": "⟦F8.text⟧"
       },
-      "text": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+      "driver": null,
+      "text": "⟦F7.text⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -1037,8 +1038,7 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -1048,6 +1048,7 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "sets": [],
     "face": {
      "title": {
       "text": "Carry on as now",
@@ -1067,14 +1068,13 @@
     "headline": {
      "aim_id": "sell_360",
      "state": "chance",
-     "text": "under 1% chance",
-     "title": "The chance that 'Carry on as now' meets 'Sell at least 360 loaves a week', in this model on current information.",
+     "text": "⟦F7.value⟧ chance",
+     "title": "⟦F7.text⟧",
      "range": null,
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": []
+    }
    },
    {
     "id": "oven_repair",
@@ -1131,7 +1131,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "extra_sold_per_oven",
@@ -1150,7 +1151,8 @@
     "holds": {
      "record": "sales_rel",
      "part": "ovens_added"
-    }
+    },
+    "causal": null
    },
    {
     "from": "extra_hours_sold",
@@ -1169,7 +1171,8 @@
     "holds": {
      "record": "sales_rel",
      "part": "hours_on"
-    }
+    },
+    "causal": null
    },
    {
     "from": "oven_price",
@@ -1186,7 +1189,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "fitting",
@@ -1203,7 +1207,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "sales",
@@ -1217,7 +1222,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "sales_target",
@@ -1231,7 +1237,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "spend",
@@ -1245,7 +1252,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "budget",
@@ -1259,7 +1267,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "second_oven",
@@ -1274,14 +1283,37 @@
      "sales_rel"
     ],
     "effect": {
-     "text": "60 to 90 loaves/week/oven",
-     "title": "Extra sold per oven · Plausible range: 60 to 90 loaves/week/oven · worked out through one oven, ovens added",
+     "text": "⟦F1.value⟧",
+     "title": "Extra sold per oven · Plausible range: ⟦F1.value⟧ · worked out through one oven, ovens added",
      "figure": "extra_sold_per_oven"
     },
     "remove": null,
     "holds": {
      "record": "sales_rel",
      "part": "ovens_added"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "choosing_from",
+     "target": "sales",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi’s estimate",
+      "title": "Proposed by Olumi: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": "extra_sold_per_oven",
+      "low": 60,
+      "likely": null,
+      "high": 90,
+      "unit": "loaf/week/oven",
+      "per": "ovens_added",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, choosing 'A second oven' raises 'sales'. Sized by 'extra sold per oven': ⟦F1.value⟧."
     }
    },
    {
@@ -1298,7 +1330,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "longer_hours",
@@ -1313,14 +1346,37 @@
      "sales_rel"
     ],
     "effect": {
-     "text": "40 to 80 loaves/week",
-     "title": "Extra hours sold · Plausible range: 40 to 80 loaves/week · worked out through hours switched on, hours on",
+     "text": "⟦F14.value⟧",
+     "title": "Extra hours sold · Plausible range: ⟦F14.value⟧ · worked out through hours switched on, hours on",
      "figure": "extra_hours_sold"
     },
     "remove": null,
     "holds": {
      "record": "sales_rel",
      "part": "hours_on"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "choosing_from",
+     "target": "sales",
+     "disputed": false,
+     "author": {
+      "by": "person",
+      "text": "The team’s figure",
+      "title": "Theirs: “somewhere around 40 to 80 extra loaves a week”"
+     },
+     "strength": {
+      "state": "sized",
+      "figure": "extra_hours_sold",
+      "low": 40,
+      "likely": null,
+      "high": 80,
+      "unit": "loaf/week",
+      "per": "hours_on",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, choosing 'Open two hours longer' raises 'sales'. Sized by 'extra hours sold': ⟦F14.value⟧."
     }
    },
    {
@@ -1335,7 +1391,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    }
   ],
   "run": {
@@ -1343,8 +1400,8 @@
    "lead": "Chance of ‘Sell at least 360 loaves a week’, in this model on current information",
    "all_withheld": false,
    "most_likely": {
-    "text": "Among the options compared, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
-    "title": "Among the options compared, 'A second oven' is more likely to achieve 'Sell at least 360 loaves a week' in this model (about 72%, against about 50% for 'Open two hours longer'); it rests on Olumi's estimate of 'extra sold per oven' — give yours with ✎.",
+    "text": "⟦F9.text⟧",
+    "title": "⟦F9.text⟧",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -1385,8 +1442,8 @@
      "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
     },
     {
-     "text": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
-     "title": "Olumi's what-if for 'extra sold per oven', not their figure: 60 to 90 loaves/week/oven. Basis: New capacity sells only as far as demand grows; never more than the 100 extra loaves it bakes.",
+     "text": "⟦F1.text⟧",
+     "title": "⟦F1.text⟧",
      "about": {
       "kind": "input",
       "olumi": true,
@@ -1401,8 +1458,8 @@
     {
      "id": "F20",
      "kind": "worth",
-     "line": "'extra hours sold' (a person's range) · aim 'Sell at least 360 loaves a week' · worth finding out",
-     "hover": "In this model: 'extra hours sold' (the person's range); 'Sell at least 360 loaves a week'; worth finding out. Not covered: Within the £3,000.\nabout 14 points, an estimate",
+     "line": "'extra hours sold' (a person's range) · aim 'Sell at least 360 loaves a week' · ⟦F19.value⟧",
+     "hover": "⟦F20.text⟧\nabout 14 points, an estimate",
      "aim": "sell_360",
      "limits": [],
      "figure": {
@@ -1425,15 +1482,15 @@
     }
    ],
    "sensitivity": {
-    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "text": "⟦SENSITIVITY_NOTE⟧",
     "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [
     {
      "id": "F21",
      "kind": "middle",
-     "line": "'A second oven' · aim 'Sell at least 360 loaves a week': 373 loaves/week, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'A second oven', for 'Sell at least 360 loaves a week': 'sales' 373 loaves/week, against a target of at least 360 loaves/week: meets it. It rests on Olumi's what-if ranges for 'extra sold per oven' (60 to 90 loaves/week/oven).",
+     "line": "'A second oven' · aim 'Sell at least 360 loaves a week': ⟦F21.value⟧",
+     "hover": "⟦F21.text⟧",
      "aim": "sell_360",
      "option": "second_oven",
      "versus": null,
@@ -1446,8 +1503,8 @@
     {
      "id": "F22",
      "kind": "middle",
-     "line": "'Open two hours longer' · aim 'Sell at least 360 loaves a week': 360 loaves/week, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Open two hours longer', for 'Sell at least 360 loaves a week': 'sales' 360 loaves/week, against a target of at least 360 loaves/week: meets it.",
+     "line": "'Open two hours longer' · aim 'Sell at least 360 loaves a week': ⟦F22.value⟧",
+     "hover": "⟦F22.text⟧",
      "aim": "sell_360",
      "option": "longer_hours",
      "versus": null,
@@ -1457,8 +1514,8 @@
     {
      "id": "F23",
      "kind": "middle",
-     "line": "'Carry on as now' · aim 'Sell at least 360 loaves a week': 300 loaves/week, misses it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Carry on as now', for 'Sell at least 360 loaves a week': 'sales' 300 loaves/week, against a target of at least 360 loaves/week: misses it.",
+     "line": "'Carry on as now' · aim 'Sell at least 360 loaves a week': ⟦F23.value⟧",
+     "hover": "⟦F23.text⟧",
      "aim": "sell_360",
      "option": "carry_on",
      "versus": null,
@@ -1475,8 +1532,8 @@
     {
      "id": "F24",
      "kind": "chance",
-     "line": "For 'A second oven' to meet 'Sell at least 360 loaves a week' more often than not, 'extra sold per oven' would have to be above about 60.1 loaves/week/oven (between 57.7 and 61 loaves/week/oven).",
-     "hover": "In this model, for 'A second oven' to meet 'Sell at least 360 loaves a week' more often than not, 'extra sold per oven' (Olumi's estimate) would have to be above about 60.1 loaves/week/oven. In this model's samples, the chance of 'A second oven' meeting 'Sell at least 360 loaves a week' passes 50% at about that value; the crossing sits between 57.7 and 61 loaves/week/oven, which is how far the samples leave it uncertain.",
+     "line": "For 'A second oven' to meet 'Sell at least 360 loaves a week' more often than not, ⟦F24.value⟧.",
+     "hover": "⟦F24.text⟧",
      "aim": "sell_360",
      "option": "second_oven",
      "versus": null,
@@ -1497,8 +1554,8 @@
     {
      "id": "F25",
      "kind": "lead",
-     "line": "For 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', 'extra hours sold' would have to be below about 60.5 loaves/week (between 59 and 61.1 loaves/week).",
-     "hover": "In this model, for 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', 'extra hours sold' (the person's range) would have to be below about 60.5 loaves/week. In this model's samples, the two options swap places in their chances of meeting 'Sell at least 360 loaves a week' at about that value; the crossing sits between 59 and 61.1 loaves/week, which is how far the samples leave it uncertain.",
+     "line": "For 'A second oven' to stay more likely than 'Open two hours longer' to achieve 'Sell at least 360 loaves a week', ⟦F25.value⟧.",
+     "hover": "⟦F25.text⟧",
      "aim": "sell_360",
      "option": "second_oven",
      "versus": "longer_hours",
@@ -1534,28 +1591,54 @@
     {
      "id": "F28",
      "kind": "goal",
-     "line": "About 29% of the variation in whether 'A second oven' meets 'Sell at least 360 loaves a week' traces to ranges Olumi estimated, counting each figure on its own; about 71% is not attributed to any one range.",
-     "hover": "About 29% of the variation in whether 'A second oven' meets 'Sell at least 360 loaves a week' traces to ranges Olumi estimated, counting each figure on its own; about 71% is not attributed to any one range. Under 1% traces to the ranges people gave. This shows where the uncertainty sits in this model; it is not a prediction.",
+     "line": "⟦F28.value⟧.",
+     "hover": "⟦F28.text⟧",
      "aim": "sell_360",
      "option": "second_oven",
      "olumi_share": 0.29284119238249123,
      "person_share": 0,
-     "unassigned": 0.7071588076175088
+     "unassigned": 0.7071588076175088,
+     "figures": [
+      {
+       "id": "extra_sold_per_oven",
+       "label": "extra sold per oven",
+       "whose": "olumi",
+       "share": 0.29284119238249123,
+       "text": "about 29%",
+       "line": "'extra sold per oven' (Olumi's estimate) · about 29%",
+       "mark": {
+        "glyph": "◆",
+        "title": "Olumi’s estimate"
+       },
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “extra sold per oven” (loaf/week/oven): one number, or a range like 150 to 400",
+         "ask": "For “extra sold per oven”, type one number, or a range like 150 to 400."
+        }
+       }
+      },
+      {
+       "id": "extra_hours_sold",
+       "label": "extra hours sold",
+       "whose": "theirs",
+       "share": 0,
+       "text": "⟦F7.value⟧",
+       "line": "'extra hours sold' (a person's range) · ⟦F7.value⟧",
+       "mark": null,
+       "give": {
+        "text": "Give your figure with",
+        "edit": {
+         "prompt": "New figure for “extra hours sold” (loaf/week): one number, or a range like 150 to 400",
+         "ask": "For “extra hours sold”, type one number, or a range like 150 to 400."
+        }
+       }
+      }
+     ]
     }
    ],
    "rests_heading": "How much rests on Olumi's guesses",
-   "lenses": [
-    {
-     "id": "goal",
-     "label": "Chance of meeting the aim",
-     "title": "In this model, on current information, each option’s chance of meeting ‘Sell at least 360 loaves a week’."
-    },
-    {
-     "id": "outcome",
-     "label": "Likely outcome",
-     "title": "In this model, on current information, what each option’s outcome for ‘Sell at least 360 loaves a week’ is likely to be (8 times in 10)."
-    }
-   ],
+   "rests_figures_heading": "Figure by figure",
    "find_out": [
     {
      "aim": "sell_360",
@@ -1619,7 +1702,19 @@
      ]
     }
    ],
-   "find_out_heading": "Worth finding out"
+   "find_out_heading": "Worth finding out",
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Sell at least 360 loaves a week’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Sell at least 360 loaves a week’ is likely to be (8 times in 10)."
+    }
+   ]
   },
   "edit_base": 1,
   "holdable": [
@@ -1783,8 +1878,8 @@
    "quantity": "sales",
    "value": 360,
    "unit": "loaf/week",
-   "text": "at least 360 loaves/week",
-   "title": "360 loaves/week",
+   "text": "at least ⟦F13.value⟧",
+   "title": "⟦F13.value⟧",
    "side": "at_least"
   },
   "sharpen": [
@@ -1918,7 +2013,7 @@
    {
     "id": "within_budget",
     "family": "limit",
-    "label": "Within the £3,000"
+    "label": "Within the ⟦F17.value⟧"
    },
    {
     "id": "second_oven",
@@ -2069,7 +2164,7 @@
    "oven_cost_rel": "Please change “how oven cost is worked out”: ",
    "spend_rel": "Please change “how spend is worked out”: ",
    "sell_360": "Please change “Sell at least 360 loaves a week”: ",
-   "within_budget": "Please change “Within the £3,000”: ",
+   "within_budget": "Please change “Within the ⟦F17.value⟧”: ",
    "second_oven": "Please change “A second oven”: ",
    "longer_hours": "Please change “Open two hours longer”: ",
    "carry_on": "Please change “Carry on as now”: ",
