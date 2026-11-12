@@ -41,6 +41,9 @@ function Turn({ t, onShow }: { t: Loose; onShow: (id: string) => void }) {
             {a.next ? <div className="askq"><h4>{a.next.label}</h4><Segs arr={a.next.text} />{a.next.at ? <button type="button" className="textlink" onClick={() => onShow(a.next.at)}><span>{t._show}</span></button> : null}</div> : null}
           </div>
         </div>
+      ) : t.problem ? (
+        // A turn that ended with no answer and no held reply: core's own words for why (JOIN-13 serves a turn that could not finish this way).
+        <div className="reply" data-testid="next-turn-problem"><span className="mk" aria-hidden="true"><Brand s={18} /></span><div className="col"><p className="say err">{t.problem}</p></div></div>
       ) : null}
     </section>
   )
