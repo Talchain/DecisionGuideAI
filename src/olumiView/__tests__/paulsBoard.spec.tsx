@@ -273,6 +273,15 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     } finally { useCanvasStore.setState({ lodRung: was } as never) }
   })
 
+  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is clamped to two lines, core\'s words whole on hover', () => {
+    const opt = EU.model!.cards.find((c) => c.family === 'option')!
+    const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
+    const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
+    const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
+    const clamp = lead.querySelector('[data-core-lead-clamp]')
+    expect([clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, long, true])
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
