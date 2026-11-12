@@ -36,7 +36,7 @@
     "glyph": "●",
     "heading": "Class fee",
     "typed": false,
-    "detail": "class fee · quantity · Theirs: “£12 a class” · £12/class",
+    "detail": "class fee · quantity · Theirs: “£12 a class” · ⟦F10.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -45,8 +45,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£12/class",
-     "title": "£12/class",
+     "text": "⟦F10.value⟧",
+     "title": "⟦F10.value⟧",
      "edit": {
       "prompt": "New figure for “class fee” (GBP/class): one number, or a range like 150 to 400",
       "ask": "For “class fee”, type one number, or a range like 150 to 400."
@@ -83,7 +83,7 @@
     "glyph": "●",
     "heading": "Classes now",
     "typed": false,
-    "detail": "classes now · quantity · Theirs: “teaches 200 classes a month” · 200 classes/month",
+    "detail": "classes now · quantity · Theirs: “teaches 200 classes a month” · ⟦F11.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -92,8 +92,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "200 classes/month",
-     "title": "200 classes/month",
+     "text": "⟦F11.value⟧",
+     "title": "⟦F11.value⟧",
      "edit": {
       "prompt": "New figure for “classes now” (class/month): one number, or a range like 150 to 400",
       "ask": "For “classes now”, type one number, or a range like 150 to 400."
@@ -130,7 +130,7 @@
     "glyph": "●",
     "heading": "Evening extra",
     "typed": false,
-    "detail": "evening extra · quantity · Theirs: “somewhere between 20 and 40 evening classes a month” · Plausible range: 20 to 40 classes/month",
+    "detail": "evening extra · quantity · Theirs: “somewhere between 20 and 40 evening classes a month” · Plausible range: ⟦F12.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -139,8 +139,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "20 to 40 classes/month",
-     "title": "Plausible range: 20 to 40 classes/month",
+     "text": "⟦F12.value⟧",
+     "title": "Plausible range: ⟦F12.value⟧",
      "edit": {
       "prompt": "New figure for “evening extra” (class/month): one number, or a range like 150 to 400",
       "ask": "For “evening extra”, type one number, or a range like 150 to 400."
@@ -189,8 +189,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "Evening classes: about £2,760/month (£2,640 to £2,880/month) · Weekend workshops: £2,580/month · Carry on as now: £2,400/month",
-     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: £2,580/month; Carry on as now: £2,400/month. Worked out from the figures it depends on.",
+     "text": "Evening classes: about £2,760/month (£2,640 to £2,880/month) · Weekend workshops: ⟦F5.value⟧ · Carry on as now: ⟦F7.value⟧",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. The first figure is the middle value (the median): half the calculated values fall above it, half below. Under Weekend workshops it rests on figures Olumi proposed. Evening classes: about £2,760/month (£2,640 to £2,880/month); Weekend workshops: ⟦F5.value⟧; Carry on as now: ⟦F7.value⟧. Worked out from the figures it depends on.",
      "edit": null
     },
     "premises": [],
@@ -230,7 +230,7 @@
      },
      {
       "option": "weekend_workshops",
-      "text": "£2,580/month",
+      "text": "⟦F5.value⟧",
       "p10": 2580,
       "p50": 2580,
       "p90": 2580,
@@ -240,7 +240,7 @@
      },
      {
       "option": "carry_on",
-      "text": "£2,400/month",
+      "text": "⟦F7.value⟧",
       "p10": 2400,
       "p50": 2400,
       "p90": 2400,
@@ -271,7 +271,7 @@
     "glyph": "●",
     "heading": "Takings target",
     "typed": false,
-    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · £2,640/month",
+    "detail": "takings target · quantity · Theirs: “take at least £2,640 a month” · ⟦F13.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -280,8 +280,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "£2,640/month",
-     "title": "£2,640/month",
+     "text": "⟦F13.value⟧",
+     "title": "⟦F13.value⟧",
      "edit": {
       "prompt": "New figure for “takings target” (GBP/month): one number, or a range like 150 to 400",
       "ask": "For “takings target”, type one number, or a range like 150 to 400."
@@ -318,7 +318,7 @@
     "glyph": "●",
     "heading": "Members",
     "typed": false,
-    "detail": "members · quantity · Theirs: “has 150 members” · 150 members",
+    "detail": "members · quantity · Theirs: “has ⟦F14.value⟧” · ⟦F14.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -327,8 +327,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "150 members",
-     "title": "150 members",
+     "text": "⟦F14.value⟧",
+     "title": "⟦F14.value⟧",
      "edit": {
       "prompt": "New figure for “members” (member): one number, or a range like 150 to 400",
       "ask": "For “members”, type one number, or a range like 150 to 400."
@@ -355,7 +355,7 @@
     "author": {
      "by": "person",
      "text": "The team’s figure",
-     "title": "Theirs: “has 150 members”"
+     "title": "Theirs: “has ⟦F14.value⟧”"
     },
     "failed": []
    },
@@ -365,7 +365,7 @@
     "glyph": "●",
     "heading": "Members target",
     "typed": false,
-    "detail": "members target · quantity · Theirs: “keep at least 140 members” · 140 members",
+    "detail": "members target · quantity · Theirs: “keep at least ⟦F15.value⟧” · ⟦F15.value⟧",
     "col": 1,
     "h": 88,
     "olumi": null,
@@ -374,8 +374,8 @@
     "challenged": false,
     "doubt": false,
     "figure": {
-     "text": "140 members",
-     "title": "140 members",
+     "text": "⟦F15.value⟧",
+     "title": "⟦F15.value⟧",
      "edit": {
       "prompt": "New figure for “members target” (member): one number, or a range like 150 to 400",
       "ask": "For “members target”, type one number, or a range like 150 to 400."
@@ -402,7 +402,7 @@
     "author": {
      "by": "person",
      "text": "The team’s figure",
-     "title": "Theirs: “keep at least 140 members”"
+     "title": "Theirs: “keep at least ⟦F15.value⟧”"
     },
     "failed": []
    },
@@ -451,7 +451,7 @@
     },
     "author": {
      "by": "olumi",
-     "text": "Olumi’s estimate",
+     "text": "Olumi’s question, not yet sized",
      "title": "Proposed by Olumi: No one can measure how members feel yet; repeat bookings might show it."
     },
     "failed": []
@@ -532,8 +532,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least £2,640/month",
-     "title": "at least £2,640/month",
+     "text": "at least ⟦F13.value⟧",
+     "title": "at least ⟦F13.value⟧",
      "olumi": null,
      "measured": true
     },
@@ -560,9 +560,9 @@
     "id": "keep_members",
     "family": "goal",
     "glyph": "★",
-    "heading": "Keep at least 140 members",
+    "heading": "Keep at least ⟦F15.value⟧",
     "typed": false,
-    "detail": "Keep at least 140 members · goal · Theirs: “keep at least 140 members”",
+    "detail": "Keep at least ⟦F15.value⟧ · goal · Theirs: “keep at least ⟦F15.value⟧”",
     "col": 3,
     "h": 102,
     "olumi": null,
@@ -576,8 +576,8 @@
     "driver": null,
     "status": null,
     "bound": {
-     "text": "at least 140 members",
-     "title": "at least 140 members",
+     "text": "at least ⟦F15.value⟧",
+     "title": "at least ⟦F15.value⟧",
      "olumi": null,
      "measured": true
     },
@@ -587,7 +587,7 @@
     "rests_on": [],
     "face": {
      "title": {
-      "text": "Keep at least 140 members",
+      "text": "Keep at least ⟦F15.value⟧",
       "whole": true,
       "words": "name"
      },
@@ -596,7 +596,7 @@
     "author": {
      "by": "person",
      "text": "Stated by the team",
-     "title": "Theirs: “keep at least 140 members”"
+     "title": "Theirs: “keep at least ⟦F15.value⟧”"
     },
     "failed": []
    },
@@ -621,21 +621,21 @@
       "kind": "none",
       "aim_id": "keep_members",
       "text": "No chance yet",
-      "title": "Cannot be worked out yet: Keep at least 140 members"
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
      },
      {
       "kind": "chance",
-      "value": "about 89% chance",
+      "value": "⟦F2.value⟧ chance",
       "fixed": false,
       "approx": "",
       "olumi": null,
       "likely": {
        "glyph": "◉",
-       "title": "Among the options compared, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎."
+       "title": "⟦F8.text⟧"
       },
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+      "title": "⟦F2.text⟧",
       "chance": 0.893,
       "companion": null,
       "companion_title": null,
@@ -646,10 +646,15 @@
        "median": 2759.211381632416,
        "high": 2876.256859711379,
        "unit": "GBP/month",
-       "text": "between £2,640 and £2,880/month (middle £2,760)",
-       "title": "Under 'Evening classes', 'takings' is likely to be in this range (8 times in 10)."
+       "text": "⟦F3.value⟧",
+       "title": "⟦F3.text⟧"
       },
-      "text": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
+      "driver": {
+       "figure": "evening_extra",
+       "low": 0.678967896789679,
+       "high": 1
+      },
+      "text": "⟦F2.text⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -658,17 +663,12 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null,
-      "driver": {
-       "figure": "evening_extra",
-       "low": 0.678967896789679,
-       "high": 1
-      }
+      "estimate": null
      }
     ],
     "driver": {
-     "text": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
-     "title": "about 68% if 'evening extra' is low, over 99% if it is high: Under 'Evening classes', the chance of meeting 'Take £2,640 a month' moves most with 'evening extra': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+     "text": "⟦F9.line⟧",
+     "title": "⟦F9.line⟧",
      "figure": "evening_extra",
      "low": 0.678967896789679,
      "high": 1
@@ -679,6 +679,19 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "sets": [
+     {
+      "id": "evening_extra",
+      "lever": "extra_classes",
+      "label": "evening extra",
+      "figure": {
+       "text": "⟦F12.value⟧",
+       "title": "Plausible range: ⟦F12.value⟧"
+      },
+      "whose": "theirs",
+      "author": "The team’s figure"
+     }
+    ],
     "face": {
      "title": {
       "text": "Evening classes",
@@ -698,26 +711,13 @@
     "headline": {
      "aim_id": "takings_goal",
      "state": "chance",
-     "text": "about 89% chance",
-     "title": "The chance that 'Evening classes' meets 'Take £2,640 a month', in this model on current information.",
-     "range": "about 68% if 'evening extra' is low, over 99% if it is high",
+     "text": "⟦F2.value⟧ chance",
+     "title": "⟦F2.text⟧",
+     "range": "⟦F9.value⟧",
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": [
-     {
-      "id": "evening_extra",
-      "lever": "extra_classes",
-      "label": "evening extra",
-      "figure": {
-       "text": "⟦F12.value⟧",
-       "title": "Plausible range: ⟦F12.value⟧"
-      },
-      "whose": "theirs",
-      "author": "The team’s figure"
-     }
-    ]
+    }
    },
    {
     "id": "evening_mood",
@@ -782,11 +782,11 @@
       "kind": "none",
       "aim_id": "keep_members",
       "text": "No chance yet",
-      "title": "Cannot be worked out yet: Keep at least 140 members"
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
      },
      {
       "kind": "chance",
-      "value": "never met in this model",
+      "value": "⟦F4.value⟧",
       "fixed": true,
       "approx": "",
       "olumi": {
@@ -796,7 +796,7 @@
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+      "title": "⟦F4.text⟧",
       "chance": 0,
       "companion": null,
       "companion_title": null,
@@ -807,10 +807,11 @@
        "median": 2580,
        "high": 2580,
        "unit": "GBP/month",
-       "text": "£2,580/month",
-       "title": "Under 'Weekend workshops', 'takings' is this in at least 8 times in 10. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them."
+       "text": "⟦F5.value⟧",
+       "title": "⟦F5.text⟧"
       },
-      "text": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "driver": null,
+      "text": "⟦F4.body⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -822,8 +823,7 @@
       },
       "rests_on_text": "Rests on Olumi's proposed figure for 'workshop extra'.",
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -853,6 +853,19 @@
       "author": "Olumi’s estimate"
      }
     ],
+    "sets": [
+     {
+      "id": "workshop_extra",
+      "lever": "extra_classes",
+      "label": "workshop extra",
+      "figure": {
+       "text": "15 classes/month",
+       "title": "15 classes/month"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
     "face": {
      "title": {
       "text": "Weekend workshops",
@@ -872,26 +885,13 @@
     "headline": {
      "aim_id": "takings_goal",
      "state": "fixed",
-     "text": "never met in this model",
-     "title": "With the model's figures, 'Weekend workshops' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+     "text": "⟦F4.value⟧",
+     "title": "⟦F4.text⟧",
      "range": null,
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": [
-     {
-      "id": "workshop_extra",
-      "lever": "extra_classes",
-      "label": "workshop extra",
-      "figure": {
-       "text": "15 classes/month",
-       "title": "15 classes/month"
-      },
-      "whose": "olumi",
-      "author": "Olumi’s estimate"
-     }
-    ]
+    }
    },
    {
     "id": "carry_on",
@@ -914,18 +914,18 @@
       "kind": "none",
       "aim_id": "keep_members",
       "text": "No chance yet",
-      "title": "Cannot be worked out yet: Keep at least 140 members"
+      "title": "Cannot be worked out yet: Keep at least ⟦F15.value⟧"
      },
      {
       "kind": "chance",
-      "value": "never met in this model",
+      "value": "⟦F4.value⟧",
       "fixed": true,
       "approx": "",
       "olumi": null,
       "likely": null,
       "aim": "Take £2,640 a month",
       "aim_id": "takings_goal",
-      "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "title": "⟦F6.text⟧",
       "chance": 0,
       "companion": null,
       "companion_title": null,
@@ -936,10 +936,11 @@
        "median": 2400,
        "high": 2400,
        "unit": "GBP/month",
-       "text": "£2,400/month",
-       "title": "Under 'Carry on as now', 'takings' is this in at least 8 times in 10."
+       "text": "⟦F7.value⟧",
+       "title": "⟦F7.text⟧"
       },
-      "text": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "driver": null,
+      "text": "⟦F6.text⟧",
       "rests_on": {
        "reading": false,
        "target": false,
@@ -948,8 +949,7 @@
        "approx": []
       },
       "if_approved": null,
-      "estimate": null,
-      "driver": null
+      "estimate": null
      }
     ],
     "driver": null,
@@ -959,6 +959,7 @@
     "badge": null,
     "values": null,
     "rests_on": [],
+    "sets": [],
     "face": {
      "title": {
       "text": "Carry on as now",
@@ -978,14 +979,13 @@
     "headline": {
      "aim_id": "takings_goal",
      "state": "fixed",
-     "text": "never met in this model",
-     "title": "With the model's figures, 'Carry on as now' never meets 'Take £2,640 a month': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+     "text": "⟦F4.value⟧",
+     "title": "⟦F6.text⟧",
      "range": null,
      "why": null,
      "add": null,
      "shared": false
-    },
-    "sets": []
+    }
    }
   ],
   "links": [
@@ -1004,7 +1004,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "class_fee",
@@ -1020,7 +1021,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "evening_classes",
@@ -1048,6 +1050,29 @@
      "text": "stays a claim in words",
      "title": "‘Evening classes’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
      "edit": null
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "choosing_from",
+     "target": "member_mood",
+     "disputed": false,
+     "author": {
+      "by": "person",
+      "text": "Stated by the team",
+      "title": "Theirs: “Members have asked for evening slots”"
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, choosing 'Evening classes' raises 'How members feel'. It stays a claim in words: nothing is worked out from it."
     }
    },
    {
@@ -1073,6 +1098,29 @@
      "text": "stays a claim in words",
      "title": "‘How members feel’ is not measured in any unit yet, so no strength per unit can be worked out. The link stays a claim in words.",
      "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "more_of_from",
+     "target": "members",
+     "disputed": true,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Happier members stay only if the evening slots suit them; see the condition and the dissent on this link."
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way a rise in 'How members feel' moves 'members' is not settled. It stays a claim in words: nothing is worked out from it. This link is disputed."
     }
    },
    {
@@ -1087,7 +1135,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "evening_mood",
@@ -1101,7 +1150,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "mood_members",
@@ -1115,7 +1165,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "mood_members",
@@ -1129,7 +1180,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "takings",
@@ -1143,7 +1195,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "takings_target",
@@ -1157,7 +1210,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "members",
@@ -1171,7 +1225,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "members_target",
@@ -1185,7 +1240,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "evening_classes",
@@ -1199,7 +1255,8 @@
     "records": [],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "evening_extra",
@@ -1216,7 +1273,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    },
    {
     "from": "weekend_workshops",
@@ -1233,7 +1291,8 @@
     ],
     "effect": null,
     "remove": null,
-    "holds": null
+    "holds": null,
+    "causal": null
    }
   ],
   "run": {
@@ -1248,12 +1307,12 @@
       "weekend_workshops",
       "carry_on"
      ],
-     "text": "No option's chance of 'Keep at least 140 members' can be worked out yet: it rests on 3 things the model cannot yet put a figure on."
+     "text": "⟦F1.text⟧"
     }
    ],
    "most_likely": {
-    "text": "Among the options compared, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
-    "title": "Among the options compared, 'Evening classes' is more likely to achieve 'Take £2,640 a month' in this model (about 89%; 'Weekend workshops' never meets it); it rests on Olumi's estimate of 'workshop extra' — give yours with ✎.",
+    "text": "⟦F8.text⟧",
+    "title": "⟦F8.text⟧",
     "rests_on": {
      "reading": false,
      "target": false,
@@ -1314,15 +1373,15 @@
    "timing": [],
    "science": [],
    "sensitivity": {
-    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "text": "⟦SENSITIVITY_NOTE⟧",
     "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
    },
    "compared": [
     {
      "id": "F16",
      "kind": "middle",
-     "line": "'Evening classes' · aim 'Take £2,640 a month': £2,760/month, meets it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Evening classes', for 'Take £2,640 a month': 'takings' £2,760/month, against a target of at least £2,640/month: meets it.",
+     "line": "'Evening classes' · aim 'Take £2,640 a month': ⟦F16.value⟧",
+     "hover": "⟦F16.text⟧",
      "aim": "takings_goal",
      "option": "evening_classes",
      "versus": null,
@@ -1332,8 +1391,8 @@
     {
      "id": "F17",
      "kind": "middle",
-     "line": "'Weekend workshops' · aim 'Take £2,640 a month': £2,580/month, misses it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Weekend workshops', for 'Take £2,640 a month': 'takings' £2,580/month, against a target of at least £2,640/month: misses it. It rests on Olumi's proposed figures for 'workshop extra', not yet confirmed by them.",
+     "line": "'Weekend workshops' · aim 'Take £2,640 a month': ⟦F17.value⟧",
+     "hover": "⟦F17.text⟧",
      "aim": "takings_goal",
      "option": "weekend_workshops",
      "versus": null,
@@ -1346,8 +1405,8 @@
     {
      "id": "F18",
      "kind": "middle",
-     "line": "'Carry on as now' · aim 'Take £2,640 a month': £2,400/month, misses it",
-     "hover": "With every figure at its most likely value and no risk happening, 'Carry on as now', for 'Take £2,640 a month': 'takings' £2,400/month, against a target of at least £2,640/month: misses it.",
+     "line": "'Carry on as now' · aim 'Take £2,640 a month': ⟦F18.value⟧",
+     "hover": "⟦F18.text⟧",
      "aim": "takings_goal",
      "option": "carry_on",
      "versus": null,
@@ -1364,8 +1423,8 @@
     {
      "id": "F19",
      "kind": "chance",
-     "line": "For 'Evening classes' to meet 'Take £2,640 a month' more often than not, 'evening extra' would have to be above about 19.7 classes/month (between 18.3 and 20.8 classes/month).",
-     "hover": "In this model, for 'Evening classes' to meet 'Take £2,640 a month' more often than not, 'evening extra' (the person's range) would have to be above about 19.7 classes/month. In this model's samples, the chance of 'Evening classes' meeting 'Take £2,640 a month' passes 50% at about that value; the crossing sits between 18.3 and 20.8 classes/month, which is how far the samples leave it uncertain.",
+     "line": "For 'Evening classes' to meet 'Take £2,640 a month' more often than not, ⟦F19.value⟧.",
+     "hover": "⟦F19.text⟧",
      "aim": "takings_goal",
      "option": "evening_classes",
      "versus": null,
@@ -1397,8 +1456,8 @@
       {
        "crossing": null,
        "reason": "not_recorded",
-       "text": "nothing is said about what would have to be true for 'Keep at least 140 members': this version was saved before Olumi kept the reason",
-       "line": "Nothing is said about what would have to be true for 'Keep at least 140 members': this version was saved before Olumi kept the reason."
+       "text": "nothing is said about what would have to be true for 'Keep at least ⟦F15.value⟧': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Keep at least ⟦F15.value⟧': this version was saved before Olumi kept the reason."
       }
      ]
     }
@@ -1407,6 +1466,7 @@
    "failure_heading": "What could go wrong",
    "rests": [],
    "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
    "lenses": [
     {
      "id": "goal",
@@ -1582,8 +1642,8 @@
    "quantity": "takings",
    "value": 2640,
    "unit": "GBP/month",
-   "text": "at least £2,640/month",
-   "title": "£2,640/month",
+   "text": "at least ⟦F13.value⟧",
+   "title": "⟦F13.value⟧",
    "side": "at_least"
   },
   "sharpen": [
@@ -1697,7 +1757,7 @@
    {
     "id": "keep_members",
     "family": "goal",
-    "label": "Keep at least 140 members"
+    "label": "Keep at least ⟦F15.value⟧"
    },
    {
     "id": "evening_classes",
@@ -1850,7 +1910,7 @@
    "evening_mood": "Please change “Evening classes → How members feel”: ",
    "mood_members": "Please change “How members feel → members”: ",
    "takings_goal": "Please change “Take £2,640 a month”: ",
-   "keep_members": "Please change “Keep at least 140 members”: ",
+   "keep_members": "Please change “Keep at least ⟦F15.value⟧”: ",
    "evening_classes": "Please change “Evening classes”: ",
    "weekend_workshops": "Please change “Weekend workshops”: ",
    "carry_on": "Please change “Carry on as now”: ",

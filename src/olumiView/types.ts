@@ -332,6 +332,33 @@ export type View = {
           }>
         } | null
       }
+      causal: {
+        sign: "increases" | "decreases" | "none" | "unknown"
+        of: "more_of_from" | "choosing_from"
+        target: string
+        disputed: boolean
+        author: {
+          by: "person" | "brief" | "olumi" | "mixed"
+          text: string
+          title: string
+        } | null
+        strength: {
+          state: "sized" | "unsized" | "in_words"
+          figure: string | null
+          low: number | null
+          likely: number | null
+          high: number | null
+          unit: string | null
+          per: string | null
+          share: number | null
+          relative_to: {
+            figure: string
+            option: string
+            against: string
+          } | null
+        }
+        text: string
+      } | null
     }>
     run: {
       aim: string | null
