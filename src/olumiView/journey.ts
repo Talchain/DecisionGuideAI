@@ -208,6 +208,8 @@ export async function awaitTurn({ timeoutMs = 120_000, everyMs = 1_500 }: { time
  * - `held`: Olumi held its reply back: the newest turn carries core's own sentence (`broke`) and no answer. With a core that types it
  *   (COACH-WITHHELD, f549b9cc) `withheld` says what it could not stand behind and the question to take forward; at ac41 it is null.
  * - `answered`: Olumi's answer on the newest turn, and the proposal it brought (null when it only discussed).
+ * - `problem`: the newest turn ended with no answer and no held reply, only core's words for why (`problem`: a stopped or blocked turn,
+ *   a reply held from a gated viewer). Drawn as that, never as an empty reply.
  * - `none`: nothing has been said yet.
  */
 export type Withheld = { readonly kind: string; readonly limit: string; readonly next: string | null }
@@ -217,13 +219,15 @@ export type TurnState =
   | { readonly kind: 'failed' | 'lost'; readonly said: string | null; readonly words: string | null; readonly job: number }
   | { readonly kind: 'held'; readonly said: string; readonly words: string; readonly withheld: Withheld | null; readonly turn: number }
   | { readonly kind: 'answered'; readonly said: string; readonly answer: NonNullable<View['chat'][number]['answer']>; readonly turn: number; readonly proposal: number | null }
+  | { readonly kind: 'problem'; readonly said: string; readonly words: string; readonly turn: number }
 export function turnStateOf(view: View): TurnState {
   const t = view.turn
   if (t) return t.status === 'answering' ? { kind: 'waiting', said: t.said, words: t.words, job: t.job } : { kind: t.status, said: t.said, words: t.words, job: t.job }
   const last = view.chat.at(-1)
   if (!last) return { kind: 'none' }
   if (last.broke) return { kind: 'held', said: last.said, words: last.broke, withheld: (last as { withheld?: Withheld | null }).withheld ?? null, turn: last.id }
-  return last.answer ? { kind: 'answered', said: last.said, answer: last.answer, turn: last.id, proposal: view.proposal?.id ?? null } : { kind: 'none' }
+  if (last.answer) return { kind: 'answered', said: last.said, answer: last.answer, turn: last.id, proposal: view.proposal?.id ?? null }
+  return last.problem ? { kind: 'problem', said: last.said, words: last.problem, turn: last.id } : { kind: 'none' }
 }
 /** Olumi's open questions on this model, each as the person may answer it (`answer`): core's words, in core's order. */
 export const questionsOf = (view: View): QuestionRef[] => (view.model?.coaching_questions ?? []).map((text, at) => ({ at, text }))

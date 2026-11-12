@@ -121,6 +121,10 @@ describe('where the conversation stands (turnStateOf), typed, in core\'s words',
   it('held wins over a stale answer object (core sends answer null with broke; never draw both)', () => {
     expect(turnStateOf(held({ broke: AC41, answer: capacity.chat.at(-1)!.answer })).kind).toBe('held')
   })
+  it('a turn with no answer and no held reply, only core\'s words for why: problem, never an empty answer', () => {
+    const t = capacity.chat.at(-1)!, words = 'Olumi stopped before it finished.'
+    expect(turnStateOf({ ...capacity, chat: [...capacity.chat.slice(0, -1), { ...t, answer: null, broke: null, problem: words }] } as View)).toEqual({ kind: 'problem', said: t.said, words, turn: t.id })
+  })
   it('nothing said yet: none', () => {
     expect(turnStateOf({ ...capacity, chat: [], turn: undefined } as View)).toEqual({ kind: 'none' })
   })
