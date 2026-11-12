@@ -74,10 +74,23 @@ const cardOf = (v: View, id: string) => v.model?.cards.find((c) => c.id === id) 
 const recordIds = (v: View): Set<string> => new Set(v.collab.records.map((r) => r.id))
 const words = (e: unknown) => (e instanceof TeamApiError ? `${e.status} ${e.message}` : String(e))
 
-// What the journey decides, from the pending View itself (ids only, read at run time).
-const REFUSE = ['spend_rises_faster_than_progress', 'fundraising_distracts_the_founders'] // two of Olumi's risks: refused
-const FIGURE = 'current_funding_ask', TYPED = '1500000' // the person's correction of their own figure
-const RENAMED = 'keep_the_ask_at_1_3_million_and_run_lean', LABEL = 'Hold at 1.3 million and stay lean'
+// What the journey acts on, chosen from the pending View by shape at run time (nothing from the store is written here):
+// - REFUSE: two of Olumi's risks offered on their own (no `together`, and no other line needs them);
+// - FIGURE: a quantity card whose figure is the person's own, corrected to about 15% more than it was;
+// - RENAMED: one option Olumi proposed, given the person's own name.
+let REFUSE: string[] = [], FIGURE = '', TYPED = '', SHOWN = '', RENAMED = ''
+const LABEL = 'Renamed by the action-layer test'
+function choose(v: View): void {
+  const p = v.proposal!, cards = v.model!.cards
+  const needed = new Set(p.changes.flatMap((c) => c.together?.ids ?? []))
+  REFUSE = p.changes.filter((c) => c.olumi != null && c.together == null && !needed.has(c.id) && cards.some((k) => k.id === c.id && k.family === 'risk')).slice(0, 2).map((c) => c.id)
+  const mine = cards.find((k) => k.family === 'quantity' && k.author?.by === 'person' && /\d/.test(k.figure?.title ?? ''))!
+  FIGURE = mine.id
+  const was = Number((mine.figure!.title ?? '').replace(/[^0-9.]/g, ''))
+  const now = Math.round(was * 1.15)
+  TYPED = String(now); SHOWN = now.toLocaleString('en-GB')
+  RENAMED = cards.find((k) => k.family === 'option' && k.author?.by === 'olumi')!.id
+}
 let pending: View | null = null
 const results: Record<string, string> = {}
 
@@ -94,6 +107,9 @@ describe.skipIf(!ready).sequential('the action layer drives the slice: pending r
   it('1 open: the pending first draft, as the person, with Olumi\'s changes held as a proposal', async () => {
     const v = await open()
     pending = v
+    choose(v)
+    expect(REFUSE, 'two of Olumi\'s risks to refuse').toHaveLength(2)
+    results['chosen'] = JSON.stringify({ refuse: REFUSE.length, figure: FIGURE !== '', renamed: RENAMED !== '' })
     expect(v.you_id).toBe('1')
     expect(v.proposal, 'a proposal held').not.toBeNull()
     expect(v.version, 'no approved version yet').toBeNull()
@@ -138,7 +154,7 @@ describe.skipIf(!ready).sequential('the action layer drives the slice: pending r
     const base = view().model!.edit_base!
     try { await runWrite(`${SID}:edit:${FIGURE}`, { op: true }, { base, quantity: FIGURE, typed: TYPED }, (op) => writes.edit(SID, base, FIGURE, TYPED, op!)) } catch (e) { results['4 correct figure'] = `FAIL: ${words(e)}`; throw e }
     expect(await useViewStore.getState().modelChanged()).toBe(true)
-    expect(JSON.stringify(cardOf(view(), FIGURE)?.figure ?? null)).toContain('1,500,000')
+    expect(JSON.stringify(cardOf(view(), FIGURE)?.figure ?? null)).toContain(SHOWN)
     results['4 correct figure'] = 'PASS'
   })
 
@@ -162,11 +178,14 @@ describe.skipIf(!ready).sequential('the action layer drives the slice: pending r
     const approved = pending!.proposal!.changes.map((c) => c.id).filter((id) => !REFUSE.includes(id))
     expect(approved.filter((id) => !recordIds(v).has(id)), 'every approved line still in').toEqual([])
     expect(REFUSE.filter((id) => recordIds(v).has(id) || cardOf(v, id) !== null), 'no refused line in').toEqual([])
-    expect(JSON.stringify(cardOf(v, FIGURE)?.figure ?? null), 'the correction').toContain('1,500,000')
+    expect(JSON.stringify(cardOf(v, FIGURE)?.figure ?? null), 'the correction').toContain(SHOWN)
     expect(cardOf(v, RENAMED)?.heading, 'the edit').toBe(LABEL)
     // Authorship: every card the pending draft showed, other than the two the person changed, says who wrote it exactly as it did then.
     const changed = new Set([FIGURE, RENAMED])
     const drifted = pending!.model!.cards.filter((c) => !changed.has(c.id) && cardOf(v, c.id) !== null && JSON.stringify(cardOf(v, c.id)!.author) !== JSON.stringify(c.author)).map((c) => c.id)
+    const compared = pending!.model!.cards.filter((c) => !changed.has(c.id) && cardOf(v, c.id) !== null).length
+    results['6 authors compared'] = `${compared} of ${pending!.model!.cards.length - changed.size} untouched pending cards (others folded into badges after approval)`
+    expect(compared).toBeGreaterThan(0)
     expect(drifted, 'authors unchanged').toEqual([])
     results['6 cold reopen'] = 'PASS'
     results['6 authors of the two changed cards'] = JSON.stringify([FIGURE, RENAMED].map((id) => [id, pending!.model!.cards.find((c) => c.id === id)?.author?.by, cardOf(v, id)?.author?.by]))
