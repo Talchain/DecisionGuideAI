@@ -15,7 +15,13 @@ const EXIT = 20
 /** How far under the source's row the link runs along to its rail. */
 const UNDER = 12
 
-const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => to.y + to.h < from.y && to.y <= Math.min(...cards.map((c) => c.y)) + 1
+// Only where the head row is flanked (the aims beside the question, Build 2b's layout): the previous product's layout heads the board with
+// the question alone, where a rail ran round the whole board edge beside the dock (DL, A13d approved with notes open: "a long right-angle
+// detour"). There a link into the question keeps its short direct curve, as the option lines do.
+const goesUp = (from: Box, to: Box, cards: readonly Box[]): boolean => {
+  const top = Math.min(...cards.map((c) => c.y))
+  return to.y + to.h < from.y && to.y <= top + 1 && cards.filter((c) => c.y <= top + 1).length > 1
+}
 const sideOf = (to: Box, cards: readonly Box[]): 'left' | 'right' => {
   const left = Math.min(...cards.map((c) => c.x)), right = Math.max(...cards.map((c) => c.x + c.w))
   return to.x + to.w / 2 < (left + right) / 2 ? 'left' : 'right'

@@ -21,9 +21,11 @@ import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
-import { CoreCard } from '../previous/CoreCard'
+import { CoreCard, leadLineOf } from '../previous/CoreCard'
+import { useCanvasStore } from '../../canvas/store'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
+import { railOf } from '../../canvas/edges/linkRail'
 import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
@@ -184,14 +186,18 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   it('FT2 doubt / change / challenged: dashed only where core doubts it, Olumi\'s blue where proposed, orange where challenged', () => {
     const m = EU.model!
-    const doubtful = m.cards.find((c) => c.doubt && c.change != null && !c.challenged)!, plain = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged)!
+    const doubtful = m.cards.find((c) => c.doubt && c.change != null && !c.challenged)!, plain = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by !== 'olumi')!
+    const olumis = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by === 'olumi')!
     const chal = m.cards.find((c) => c.challenged)!
     const f1 = frame(draw(EU, doubtful.id)); cleanup()
     const f2 = frame(draw(EU, plain.id)); cleanup()
     const f3 = frame(draw(EU, chal.id))
     expect([f1.includes('border-dashed'), f1.includes('border-info')]).toEqual([true, true])
-    expect([f2.includes('border-dashed'), f2.includes('border-info')], 'a proposed card core does not doubt is solid').toEqual([false, true])
-    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt])
+    expect([f2.includes('border-dashed'), f2.includes('border-info')], 'the person\'s own proposed card is solid').toEqual([false, true])
+    cleanup()
+    const f4 = frame(draw(EU, olumis.id))
+    expect([f4.includes('border-dashed'), f4.includes('border-info')], 'DL ruling 12 Nov: Olumi\'s proposed card is provisional, dashed').toEqual([true, true])
+    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt || (chal.change != null && chal.author?.by === 'olumi')])
   })
 
   it('FT3 change: core\'s change mark on every changed card, its words as hover and accessible name', () => {
@@ -253,6 +259,20 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     }
   })
 
+  it('FT12 (live draft, 12 Nov: "No changes specified" on options zoomed out): a core card with no far line of core\'s draws none, never the previous product\'s; CONTRAST: one with a line draws it', () => {
+    const opt = EU.model!.cards.find((c) => c.family === 'option')!
+    const bare = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [] }))
+    const zoomedOut = (v: View) => { ready(v); return render(<ReactFlowProvider><Node {...props(opt.id, v.model!.cards.find((c) => c.id === opt.id))} /></ReactFlowProvider>).container }
+    const was = useCanvasStore.getState().lodRung
+    useCanvasStore.setState({ lodRung: 'line' } as never)
+    try {
+      expect(zoomedOut(bare).textContent).not.toContain('No changes specified'); cleanup()
+      const lead = leadLineOf(EU.model!.cards.find((c) => c.id === opt.id)!) ?? 'about'
+      expect(zoomedOut(withCard(EU, opt.id, (c) => ({ ...c, headline: { ...(c.headline ?? { title: '', shared: false, state: 'shown', aim_id: null }), text: 'about 41% chance' } as never }))).textContent, 'CONTRAST').toContain('about 41% chance')
+      void lead
+    } finally { useCanvasStore.setState({ lodRung: was } as never) }
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
@@ -299,5 +319,14 @@ describe('the field table, on the lenses: If it failed and What if on the lane\'
     clearWhatIf()
     const none = draw(CHAIN, Q)
     expect([none.querySelector('[data-card-try]'), none.querySelector('[data-option-try]')]).toEqual([null, null])
+  })
+})
+
+describe('the DL\'s look at A13d (12 Nov)', () => {
+  it('PB10: a link into the question alone at the head of the board takes no rail (its short curve); CONTRAST: with an aim beside the question, the rail', () => {
+    const q = { x: 0, y: 0, w: 900, h: 80 }, opt = { x: 0, y: 160, w: 240, h: 100 }, rec = { x: 600, y: 360, w: 240, h: 100 }
+    expect(railOf(rec, q, [q, opt, rec])).toBeNull()
+    const aim = { x: 1000, y: 0, w: 240, h: 80 }
+    expect(railOf(rec, q, [q, aim, opt, rec])).not.toBeNull()
   })
 })

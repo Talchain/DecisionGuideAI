@@ -842,6 +842,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     if (lodMetric != null && lodMetric.length > 0) {
       return { text: lodMetric, unconfirmedEstimate: false }
     }
+    // A core card (olumi-core lane, `data.core`) says only core's words: where core sends no far line, none. The previous product's
+    // resolver reads the previous data model ("No changes specified" on an option core sent no line for: live draft, 12 Nov).
+    if ((data as { core?: unknown } | undefined)?.core === true) return { text: null, unconfirmedEstimate: false }
     return resolveLodMetricLineDetail({
       nodeType,
       data: (allNodes.find(n => n.id === id)?.data ?? data) as Record<string, unknown> | undefined,
