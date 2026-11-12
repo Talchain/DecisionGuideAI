@@ -171,8 +171,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
             <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
-              title={[leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
-              {lead}
+              title={[card.family === 'option' ? lead : null, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
+              {/* An option's line is core's, whole, but at most two lines on the face; the rest on hover (DL, live draft: a setting question
+                  made one option card twice its neighbours' height). */}
+              {card.family === 'option' ? <span className="line-clamp-2" data-core-lead-clamp={id}>{lead}</span> : lead}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
               {changeOn === 'lead' ? changeMark : null}
