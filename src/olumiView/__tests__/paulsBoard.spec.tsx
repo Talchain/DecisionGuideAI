@@ -245,6 +245,14 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect(b.querySelector('[data-figure-edit-wrap]')!.closest(`[data-core-lead="${sized.id}"]`), sized.id).not.toBeNull()
   })
 
+  it('FT11 (DL, A13d: "+" on a row of its own on every pending card): core\'s change mark ends a line the card already draws, never a row of its own', () => {
+    for (const c of EU.model!.cards.filter((x) => x.change != null)) {
+      const el = draw(EU, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)!
+      expect(el.closest('[data-core-author], [data-core-lead], [data-core-badge]'), c.id).not.toBeNull()
+      cleanup()
+    }
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!

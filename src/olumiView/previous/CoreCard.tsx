@@ -132,8 +132,13 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // it opens them (Badge.tsx). The retired ViewCardNode and ViewQuestionNode drew it; this card did not, so on the lane every fold was
   // unseen (Paul's A11 board, 12 Nov: the question held his "1.3 million", the 12-month runway and two challenges, none on the board).
   const badge = id === QUESTION ? model?.question.badge ?? null : card?.badge ?? null
+  // Core's change mark (+ added, ↻ changed), its words for the change on hover: at the end of a line the card already draws (Olumi's
+  // author line, else the lead line, else the badge's), never a row of its own (DL, A13d: on a pending first model every card is an
+  // addition, and its "+" took a row on all of them).
+  const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
+  const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
   const badgeLine = badge === null ? null
-    : <p className={`${typography.nodeLabel} text-text-body`} data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} /></p>
+    : <p className={`${typography.nodeLabel} text-text-body`} data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.nodeLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
@@ -168,6 +173,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {lead}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
+              {changeOn === 'lead' ? changeMark : null}
               {cueOnLead ? <>{' '}{editCue}</> : null}
             </div>
           )}
@@ -202,8 +208,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {card.family === 'option' ? <>{band === null ? null : <ViewOptionBand id={id} band={band} />}<OptionMarkLine card={id} /></> : <ViewValuesBand card={card} />}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
-            {/* Core's change mark (+ added, ↻ changed), its words for the change (field by field) on hover. */}
-            <Glyph at={`${id}.change`} mark={card.change} className={`${typography.nodeLabel} text-info`} />
+            {/* Core's change mark, here only where no other line can carry it (changeOn, above). */}
+            {changeOn === 'band' ? changeMark : null}
             {card.committed == null ? null : <span className={`${typography.nodeLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
             {/* K5 If it failed: one mark per Olumi failure story resting on this card, core's number with Olumi's glyph, the story on hover; on an
                 option, the story most within the team's control, in core's words. All Olumi's (../k5.ts). */}
@@ -220,7 +226,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
           {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
-          {olumi ? <div className={`${typography.nodeLabel} text-info`} data-core-author={id}><span title={card.author!.title}>{card.author!.text}</span>{cueOnAuthor ? <>{' '}{editCue}</> : null}</div> : null}
+          {olumi ? <div className={`${typography.nodeLabel} text-info`} data-core-author={id}><span title={card.author!.title}>{card.author!.text}</span>{changeOn === 'author' ? changeMark : null}{cueOnAuthor ? <>{' '}{editCue}</> : null}</div> : null}
           {badgeLine}
         </div>
       )}
