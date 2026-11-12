@@ -133,6 +133,15 @@ export async function approveSelected(picks: Picks, choose: { readonly readings?
   return { answer, shown: await useViewStore.getState().modelChanged(), unrecorded: [...(refused.lines ?? [])] }
 }
 
+/** Approve the whole proposal as core holds it (no selection sent: core's own whole approval). Then the View is read again. */
+export async function approveAll(): Promise<Outcome<unknown>> {
+  const p = liveView().proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  if (verdictOf(p)?.supported === false) throw new JourneyRefusal('unsupported')
+  const answer = await runWrite(`${useViewStore.getState().sid}:approve:${p.id}`, { op: APPROVAL_TAKES_OP }, { whole: p.id }, () => writes.approve(p.id, p.base))
+  return { answer, shown: await useViewStore.getState().modelChanged() }
+}
+
 /** Set the whole proposal aside (core's discard): nothing of it is added. Then the View is read again. */
 export async function setAside(): Promise<Outcome<unknown>> {
   const p = liveView().proposal
@@ -199,6 +208,8 @@ export function editGateOf(s: { readonly sid: string | null; readonly view: View
   const p = s.view.proposal
   return p !== null ? no('after_approval', { id: p.id, heading: p.heading }) : no('no_version')
 }
+/** The same gate, as the store and the page's person stand now (for a screen that re-draws on every store change). */
+export const editGateNow = (): EditGate => editGateOf(useViewStore.getState(), useMe.getState().me)
 /** The figure edit core offers on this card (`figure.edit`: its ask, in core's words), or null where core offers none. */
 export const figureEditOf = (card: ViewCard) => card.figure?.edit ?? null
 

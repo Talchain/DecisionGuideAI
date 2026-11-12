@@ -101,6 +101,8 @@ const DebugPanel = lazy(() => import('../components/DebugPanel'))
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
 const ScenarioComparePage = lazyWithStallBound(() => import('../pages/ScenarioComparePage'), 'Scenario comparison')
+// The redesign slice (DL 12 Nov): a working prototype on its own route, beside the frozen lane screen in the same build.
+const NextScreen = lazyWithStallBound(() => import('../olumiNext/NextScreen'), 'The redesign slice')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
 const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
 const ReasoningPrototype = lazyWithStallBound(() => import('../routes/ReasoningPrototype'), 'The reasoning prototype')
@@ -999,6 +1001,7 @@ export default function AppPoC() {
                 {/* Auth-guarded routes */}
                 <Route element={<AuthGuard />}>
                   <Route path="/scenario/:id" element={<RouteContent><CanvasMVP /></RouteContent>} />
+                  <Route path="/next/:sid" element={<RouteContent><NextScreen /></RouteContent>} />
                   <Route path="/canvas" element={<RouteContent><CanvasMVP /></RouteContent>} />
                   {/* The rest need accounts, CEE or the v10 design: not on the olumi-core lane (`NotOnTheLane`). */}
                   {/* Home: My scenarios on the olumi-core lane (src/olumiCore/accounts/), the scenario list off it. */}
