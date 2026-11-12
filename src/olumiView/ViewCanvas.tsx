@@ -72,6 +72,13 @@ const SELECT_PAN_BUTTONS = [1]
 const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
 const DURATION = 400, MAX_FITS = 3
+/**
+ * When the board is framed: once it has settled, or after a bounded wait however it stands (DL, A13f cold reopen at 1510×910: the board was
+ * never framed, the question cut at the top and three cards under the dock). The wait is in time, not frames: a throttled pane draws about
+ * 3 frames a second, so 300 frames was about 100 s. A pan or zoom by the person still ends it (the caller).
+ */
+export const FRAME_WAIT_MS = 1500
+export const frameDue = (settled: boolean, waitedMs: number): boolean => settled || waitedMs >= FRAME_WAIT_MS
 
 /** The View's nodes as drawn, with the store's measurements. */
 const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
@@ -110,7 +117,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   useEffect(() => {
     if (version === '') return
     userMoved.current = false
-    let raf = 0, frames = 0, last = '', fitted = '', fits = 0
+    let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
     const tick = () => {
       if (userMoved.current) return
       const cards = useViewStore.getState().view?.model?.cards ?? []
@@ -120,12 +127,12 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
       const now = `${board}@${getViewport().zoom}`
       const settled = drawn.length === ids.size && now === last && !viewLaying()
       last = now
-      if (!settled && ++frames < 300) { raf = requestAnimationFrame(tick); return }
+      if (!frameDue(settled, performance.now() - since)) { raf = requestAnimationFrame(tick); return }
       if (drawn.length === 0 || board === fitted || fits >= MAX_FITS) return
       fit()
       fits += 1
       fitted = board
-      frames = 0
+      since = performance.now()
       last = ''
       raf = requestAnimationFrame(tick)
     }

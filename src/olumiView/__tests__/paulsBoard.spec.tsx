@@ -26,6 +26,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
 import { railOf } from '../../canvas/edges/linkRail'
+import { frameDue, FRAME_WAIT_MS } from '../ViewCanvas'
 import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
@@ -282,6 +283,15 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, long, true])
   })
 
+  it('FT14 (DL, A13f: a challenge\'s paragraph ran ~15 lines on its face): any card\'s face line is clamped to three lines, core\'s words whole on hover', () => {
+    const chal = EU.model!.cards.find((c) => c.family !== 'option' && c.figure === null && c.bound == null)!
+    const para = 'A larger pre-seed round may raise the bar for the next raise: later investors expect progress in line with the money raised, so missing milestones could make follow-on funding harder. '.repeat(3).trim()
+    const v = withCard(EU, chal.id, (c) => ({ ...c, face: { ...(c.face ?? {}), line: { text: para, words: 'olumi' } } as never }))
+    const lead = draw(v, chal.id).querySelector<HTMLElement>(`[data-core-lead="${chal.id}"]`)!
+    const clamp = lead.querySelector('[data-core-lead-clamp]')
+    expect([clamp?.className, clamp?.textContent, lead.title.startsWith(para)]).toEqual(['line-clamp-3', para, true])
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
@@ -337,5 +347,14 @@ describe('the DL\'s look at A13d (12 Nov)', () => {
     expect(railOf(rec, q, [q, opt, rec])).toBeNull()
     const aim = { x: 1000, y: 0, w: 240, h: 80 }
     expect(railOf(rec, q, [q, aim, opt, rec])).not.toBeNull()
+  })
+})
+
+describe('the DL\'s look at A13f (12 Nov)', () => {
+  it('PB11: the first frame is due once the board settles, or after a bounded WAIT IN TIME however few frames a throttled pane drew; CONTRAST: unsettled and early, not yet', () => {
+    expect(frameDue(true, 0)).toBe(true)
+    expect(frameDue(false, FRAME_WAIT_MS)).toBe(true) // ~5 frames at 3 fps: the old 300-frame cap waited ~100 s
+    expect(frameDue(false, FRAME_WAIT_MS - 1)).toBe(false)
+    expect(FRAME_WAIT_MS).toBeLessThanOrEqual(2000)
   })
 })

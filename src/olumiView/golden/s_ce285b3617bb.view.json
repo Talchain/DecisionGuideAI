@@ -2194,6 +2194,14 @@
     "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
+  "coaching_questions": [
+   "Is the cash on hand all available for operations, and is monthly spending net of incoming revenue and inclusive of committed payments?",
+   "What net amount and operating milestone would make a bridge worthwhile?",
+   "Which institutional and angel opportunities are already qualified, and what concrete steps remain before cash could clear?",
+   "What would you replace the illustrative opportunity counts, cash-conversion shares and cheque sizes with?",
+   "What fees, terms and team effort would an angel bridge require, and how much institutional fundraising work would it displace?",
+   "Could any spending be deferred without damaging delivery, revenue or the next funding round?"
+  ],
   "removed": [],
   "aim": {
    "quantity": "net_funding",

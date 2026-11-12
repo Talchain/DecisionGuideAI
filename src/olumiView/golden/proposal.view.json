@@ -1032,6 +1032,9 @@
     "text": "changed"
    }
   ],
+  "coaching_questions": [
+   "What would show you the team is coping?"
+  ],
   "removed": [],
   "aim": {
    "quantity": "total_capacity",

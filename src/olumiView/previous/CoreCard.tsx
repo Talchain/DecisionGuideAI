@@ -171,10 +171,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
             <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
-              title={[card.family === 'option' ? lead : null, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
+              title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
               {/* An option's line is core's, whole, but at most two lines on the face; the rest on hover (DL, live draft: a setting question
                   made one option card twice its neighbours' height). */}
-              {card.family === 'option' ? <span className="line-clamp-2" data-core-lead-clamp={id}>{lead}</span> : lead}
+              {/* Every card's face line is core's, whole on hover, but a few lines on the face (DL, A13f: a challenge's paragraph ran about 15
+                  lines, taller than the rest of the board): an option's two, any other card's three. */}
+              <span className={card.family === 'option' ? 'line-clamp-2' : 'line-clamp-3'} data-core-lead-clamp={id}>{lead}</span>
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
               {changeOn === 'lead' ? changeMark : null}

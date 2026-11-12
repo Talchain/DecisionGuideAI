@@ -1488,6 +1488,13 @@
     "text": "blue range: rests on a figure Olumi proposed"
    }
   ],
+  "coaching_questions": [
+   "What exactly has Sarah reproduced, what can happen to users' data, and what does her 'weeks' estimate include? What repair and validation ranges would she put in place of these illustrative ones?",
+   "What is the exact planned release date, and what evidence would your team require before calling the update ready?",
+   "Can the affected sync path genuinely be excluded without exposing existing users or shared data, or is it inseparable from the update?",
+   "Which Q4 ads can be moved or redirected, and what additional loss would each release option actually cause?",
+   "What do you need your boss to authorize, and what finding would change your current view that the full release must move?"
+  ],
   "removed": [],
   "aim": null,
   "sharpen": [

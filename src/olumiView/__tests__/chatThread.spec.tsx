@@ -237,21 +237,34 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
   })
 
   it('CT8b (DL-183, Paul\'s 1.33 scale): with a Next step card below the newest reply, following brings the card whole into view, or its top when taller; CONTRAST: no card, the reply\'s start', () => {
+    // The step alone: the question above it is CT8c's.
+    const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
-    show({ ...proposal, chat: proposal.chat.slice(0, Math.max(0, proposal.chat.length - 1)) })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
     const { getByTestId, queryByTestId } = render(<ViewChat />)
     const scroll = getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
-    act(() => show(proposal))
+    act(() => show(bare))
     expect(queryByTestId('view-next-step'), 'precondition: core asks for a next step on a held proposal').not.toBeNull()
     expect(scroll.scrollTop).toBe(666) // 700 + 150 + 16 - 200: the card whole, its foot 16 px above the thread's
     cleanup()
-    show({ ...proposal, chat: proposal.chat.slice(0, Math.max(0, proposal.chat.length - 1)) })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
     const short = render(<ViewChat />).getByTestId('view-chat-scroll')
     Object.defineProperties(short, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 100, configurable: true } })
-    act(() => show(proposal))
+    act(() => show(bare))
     expect(short.scrollTop).toBe(684) // taller than the thread: its top
+  })
+
+  it('CT8c (DL, 12 Nov): Olumi\'s question above the Next step comes into view with it: the block runs from the question\'s top when the two are taller than the thread', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 760 : this.dataset.testid === 'view-model-question' ? 700 : 600 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : this.dataset.testid === 'view-model-question' ? 50 : 0 })
+    const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
+    show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
+    const scroll = render(<ViewChat />).getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 120, configurable: true } })
+    act(() => show(asked))
+    expect(scroll.scrollTop).toBe(684) // the question's top (700 - 16), not the step's (744)
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).

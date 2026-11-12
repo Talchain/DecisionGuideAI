@@ -1064,7 +1064,10 @@ export function ViewChat() {
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
     // newest reply, or its top where it is taller than the thread (DL-183: at Paul's 1.33 scale it opened cut at its foot, Approve below).
     const step = job === null ? el.querySelector<HTMLElement>('[data-testid="view-next-step"]') : null
-    if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(step.offsetTop - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
+    // Olumi's question (core's model.coaching_questions) sits just above the step and is part of it: the block runs from its top.
+    const asked = step === null ? null : el.querySelector<HTMLElement>('[data-testid="view-model-question"]')
+    const from = asked?.offsetTop ?? step?.offsetTop ?? 0
+    if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)
