@@ -27,6 +27,8 @@ import { answer, approveSelected, awaitTurn, confirmReading, converse, noChanceO
 const env = process.env
 const NEED = ['FUND_START', 'FUND_BASE', 'FUND_ADMIN', 'FUND_PENDING_A', 'FUND_PENDING_B', 'FUND_PENDING_C', 'FUND_PENDING_SID', 'FUND_APPROVED_1', 'FUND_APPROVED_2', 'FUND_APPROVED_3', 'FUND_APPROVED_SID', 'FUND_SAID', 'FUND_ASKS', 'FUND_TELL', 'FUND_AFTER_ASIDE', 'FUND_MEASURE', 'FUND_ATTEMPTS_PENDING', 'FUND_ATTEMPTS_APPROVED']
 const ready = NEED.every((k) => (env[k] ?? '') !== '')
+/** FUND_SKIP_D=1: skip the branches answered by saved replies (on a core whose Update request changed, a saved reply is not that request's). */
+const skipD = env['FUND_SKIP_D'] === '1'
 const BASE = env['FUND_BASE'] ?? '', OUT = env['FUND_OUT'] ?? ''
 const nodeFetch = globalThis.fetch.bind(globalThis)
 let server: ChildProcess | null = null, store = '', cookie = ''
@@ -181,7 +183,7 @@ async function goalAnswered(dir: string, tag: string): Promise<View> {
   return v
 }
 
-describe.skipIf(!ready).sequential('D1: goal answered, Olumi\'s reading CONFIRMED, then not calculated, then cold', () => {
+describe.skipIf(!ready || skipD).sequential('D1: goal answered, Olumi\'s reading CONFIRMED, then not calculated, then cold', () => {
   let after: string[] = [], n = 0
   beforeAll(async () => { await goalAnswered(env['FUND_APPROVED_1']!, 'D1.') }, 300_000)
   afterAll(async () => { await stop() }, 60_000)
@@ -210,7 +212,7 @@ describe.skipIf(!ready).sequential('D1: goal answered, Olumi\'s reading CONFIRME
   }, 200_000)
 })
 
-describe.skipIf(!ready).sequential('D2: goal answered, then A DIFFERENT MEASURE told to Olumi before approving', () => {
+describe.skipIf(!ready || skipD).sequential('D2: goal answered, then A DIFFERENT MEASURE told to Olumi before approving', () => {
   beforeAll(async () => { await goalAnswered(env['FUND_APPROVED_2']!, 'D2.') }, 300_000)
   afterAll(async () => { await stop() }, 60_000)
   it('D2.1 [NEEDS LIVE REPLY] a different measure, told while Olumi\'s reading is pending, reaches the Update call; never a refusal', async () => {
@@ -223,7 +225,7 @@ describe.skipIf(!ready).sequential('D2: goal answered, then A DIFFERENT MEASURE 
   }, 200_000)
 })
 
-describe.skipIf(!ready).sequential('D3: goal answered, Olumi\'s reading left UNSURE (neither confirmed nor refused)', () => {
+describe.skipIf(!ready || skipD).sequential('D3: goal answered, Olumi\'s reading left UNSURE (neither confirmed nor refused)', () => {
   beforeAll(async () => { await goalAnswered(env['FUND_APPROVED_3']!, 'D3.') }, 300_000)
   afterAll(async () => { await stop() }, 60_000)
   it('D3.1 unsure: approve without choosing or refusing the reading; no refused reading is written', async () => {
