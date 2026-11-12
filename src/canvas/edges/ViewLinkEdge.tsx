@@ -39,7 +39,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const { link, i } = data as ViewLinkData
   const causal = link.causal ?? null
   const signed = causal === null ? link.label !== '' : causal.sign === 'increases' || causal.sign === 'decreases'
+  const labelWord = useViewStore((s) => causal === null && link.label === '!' ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
+  const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
@@ -150,15 +152,16 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // Never faded: a quieter colour, not opacity (nothing dims). An alert, a proposal or a driver link is never quiet.
   const quiet = rail !== null && !near && !link.alert && !link.proposed && !marked && !removing
   // SCI-16: core's typed sign and sizing state are authoritative. A default-width solid line has a size, not greater certainty;
-  // an unsized/words-only claim is dashed. Pending changes and disagreement retain their provisional cue. No magnitude becomes width.
+  // an unsized/words-only claim is dashed. Core's doubt, pending changes and disagreement retain their cue. Olumi's ink stays blue;
+  // the typed sign keeps its own direction colour. No magnitude becomes width.
   const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
-  const colour = causal === null ? null : { increases: '#62B290', decreases: '#D6336C', none: 'var(--edge-neutral)', unknown: 'var(--text-header)' }[causal.sign]
-  const stroke = causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : colour!
-  const dashed = causal === null ? link.doubt || byOlumi : link.proposed || causal.disputed || causal.strength.state !== 'sized'
+  const colour = causal === null ? null : { increases: '#62B290', decreases: '#D6336C', none: 'var(--edge-neutral)', unknown: 'var(--text-light)' }[causal.sign]
+  const stroke = causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : linkOlumi ? 'var(--semantic-info)' : colour!
+  const dashed = causal === null ? link.doubt || byOlumi : link.doubt || link.proposed || causal.disputed || causal.strength.state !== 'sized'
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={byOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined}>
       <title>{title}</title>
       <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill={stroke} /></marker></defs>
       <BaseEdge id={id} path={path} markerEnd={markerEnd ?? `url(#${arrow})`} style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : 1.5, ...(dashed ? { strokeDasharray: '5 5' } : {}) }} />
@@ -172,9 +175,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
-            {!signed ? null : causal === null ? <span data-view={`links.${i}.label`}>{link.label}</span> : (
+            {!signed ? null : causal === null ? <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span> : (
               // The sign is a graphic of core's enum, not a sentence or a strength inferred from a legacy label.
-              <svg width="1em" height="1em" viewBox="0 0 12 12" aria-hidden="true" data-view-link-sign={`links.${i}.causal.sign`} data-sign={causal.sign}>
+              <svg width="1em" height="1em" viewBox="0 0 12 12" style={{ color: colour ?? undefined }} aria-hidden="true" data-view-link-sign={`links.${i}.causal.sign`} data-sign={causal.sign}>
                 <path d={causal.sign === 'increases' ? 'M1 6H11M6 1V11' : 'M1 6H11'} fill="none" stroke="currentColor" strokeWidth="1.4" />
               </svg>
             )}

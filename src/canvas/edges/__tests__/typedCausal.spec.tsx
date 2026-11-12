@@ -5,6 +5,8 @@ import { Position, ReactFlowProvider } from '@xyflow/react'
 import { ViewLinkEdge } from '../ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 import type { ViewLink } from '../../../olumiView/client'
+import { useViewStore } from '../../../olumiView/store'
+import proposal from '../../../olumiView/golden/proposal.view.json'
 
 type Causal = NonNullable<ViewLink['causal']>
 // Synthetic rows of the producer contract, not invented causal measurements or a saved user's model.
@@ -22,10 +24,10 @@ const draw = (c: Causal | null, changes: Partial<ViewLink> = {}) => {
   const p = r.querySelector<SVGPathElement>('path.react-flow__edge-path')!
   return { r, p }
 }
-afterEach(cleanup)
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('a link renders the typed causal meaning, with no inferred strength scale', () => {
-  it.each([['increases', '#62B290', '−'], ['decreases', '#D6336C', '+'], ['none', 'var(--edge-neutral)', '+'], ['unknown', 'var(--text-header)', '+']] as const)
+  it.each([['increases', '#62B290', '−'], ['decreases', '#D6336C', '+'], ['none', 'var(--edge-neutral)', '+'], ['unknown', 'var(--text-light)', '+']] as const)
     ('%s uses the producer sign, even when a legacy label suggests another direction', (sign, stroke, label) => {
       const got = draw(causal(sign), { label })
       expect(got.p.style.stroke).toBe(stroke)
@@ -34,7 +36,7 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
       expect(glyph?.getAttribute('d') ?? null).toBe(sign === 'increases' ? 'M1 6H11M6 1V11' : sign === 'decreases' ? 'M1 6H11' : null)
     })
   it('an actual sized zero is neutral and solid, while an unsized or words-only link is dashed', () => {
-    expect(draw(causal('none'), { doubt: true }).p.style.strokeDasharray).toBe('')
+    expect(draw(causal('none')).p.style.strokeDasharray).toBe('')
     for (const state of ['unsized', 'in_words'] as const) {
       cleanup(); expect(draw(causal('unknown', state)).p.style.strokeDasharray).toBe('5 5')
     }
@@ -55,9 +57,22 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
       cleanup(); expect(draw(c).p.style.strokeWidth).toBe('1.5')
     }
   })
+  it('a size does not erase core\'s doubt or Olumi\'s authorship; the sign keeps its direction colour', () => {
+    const c = causal('increases'); c.author = { by: 'olumi', text: 'Olumi inferred', title: 'Olumi proposed this link.' }
+    const got = draw(c, { doubt: true })
+    expect([got.p.style.stroke, got.p.style.strokeDasharray]).toEqual(['var(--semantic-info)', '5 5'])
+    expect((got.r.querySelector('[data-view-link-sign]') as SVGElement).style.color).toBe('rgb(98, 178, 144)')
+  })
   it('a noncausal line retains its existing treatment; an alert retains its priority', () => {
     expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('#62B290')
     cleanup()
     expect(draw(causal('decreases'), { alert: true }).p.style.stroke).toBe('var(--olumi-mark-orange)')
+  })
+  it('the challenge glyph is hoverable and named with core\'s own legend word', () => {
+    useViewStore.setState({ view: proposal as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']> })
+    const glyph = draw(null, { label: '!' }).r.querySelector('[data-view="links.0.label"]') as HTMLElement
+    expect(glyph).toHaveAccessibleName('challenge')
+    expect(glyph).toHaveAttribute('title', 'challenge')
+    expect(glyph.style.pointerEvents).toBe('auto')
   })
 })
