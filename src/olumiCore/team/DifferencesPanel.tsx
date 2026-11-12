@@ -10,6 +10,7 @@ import { call, TeamApiError } from './api'
 import { putDraft } from './drafts'
 import { differencesKey, readDifferences, stepDifference, useDifferences, type Difference, type Differences } from './differences'
 import { runWrite } from './writes'
+import { EarlierDifference } from './EarlierDifference'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
 
 /**
@@ -39,8 +40,10 @@ export function DifferencesPanel({ sid, view, onWrote }: { sid: string; view: Vi
       {error && <p role="alert" className={ERR} data-testid="team-differences-error">{error}</p>}
       {data.differences.length === 0
         ? <p className={META} data-testid="team-differences-empty">{data.empty}</p>
-        : data.differences.map((d, i) => <DifferenceCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={data} d={d} ring={ring} onWrote={async () => { await readDifferences(sid, key); return onWrote() }}
+        : data.differences.map((d, i) => d.earlier !== undefined ? null : <DifferenceCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={data} d={d} ring={ring} onWrote={async () => { await readDifferences(sid, key); return onWrote() }}
             sidesSaid={d.kind === 'link' && data.differences.findIndex((x) => x.kind === 'link' && x.record === d.record) < i} />)}
+      {/* SCI-HISTORY: a difference revealed on an earlier version, after every current one, read-only (EarlierDifference.tsx). */}
+      {data.differences.map((d) => d.earlier === undefined ? null : <EarlierDifference key={`${d.record}|${d.goal}|v${d.earlier.version}`} d={{ ...d, earlier: d.earlier }} h={data.headings} ring={ring} />)}
     </section>
   )
 }

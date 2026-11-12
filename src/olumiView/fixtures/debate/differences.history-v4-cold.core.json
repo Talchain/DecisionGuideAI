@@ -1,0 +1,187 @@
+{
+  "scenario": "s_34b431cd03dc",
+  "version": 4,
+  "heading": "Where your explanations differ",
+  "headings": {
+    "sides": "Your figures",
+    "explanations": "Your explanations",
+    "options": "Chance of meeting the aim",
+    "model": "With the model's figure",
+    "settle": "What would tell your explanations apart",
+    "steps": "What you decided",
+    "dissent": "Keep this as a disagreement",
+    "research": "Agree to find out",
+    "commit": "Commit to a next step"
+  },
+  "stances": [
+    {
+      "id": "know",
+      "text": "What I know"
+    },
+    {
+      "id": "suspect",
+      "text": "What I suspect"
+    },
+    {
+      "id": "unsure",
+      "text": "Unsure"
+    },
+    {
+      "id": "would_try",
+      "text": "What I would try"
+    },
+    {
+      "id": "others_may_miss",
+      "text": "What others may miss"
+    }
+  ],
+  "link_stance": {
+    "heading": "Where you stand on a link",
+    "note": "Everyone in this scenario sees what you say here, with your name.",
+    "link": "The link",
+    "pick": "Choose a link",
+    "doubt": "I doubt this link holds",
+    "keep": "I keep the link as the model has it",
+    "words": "Why, in your own words",
+    "limit": 200,
+    "send": "Say where you stand",
+    "yours": "What you have said"
+  },
+  "empty": "Once two of you have revealed different figures for the same card, they show here side by side, with what each does to the chances.",
+  "gated": false,
+  "differences": [
+    {
+      "kind": "figure",
+      "record": "current_average_wait_for_a_repair",
+      "label": "Current average wait for a repair",
+      "cards": [
+        "current_average_wait_for_a_repair"
+      ],
+      "sides_heading": "Your figures",
+      "settle": [],
+      "steps": [
+        {
+          "id": 19,
+          "at": "2026-11-12T10:46:23.507Z",
+          "by": "Workshop",
+          "by_id": "1",
+          "step": "dissent",
+          "version": 3,
+          "text": "Workshop kept this as a disagreement: both views stay as they are, and neither is taken as the model's."
+        }
+      ],
+      "earlier": {
+        "version": 3,
+        "text": "As revealed on version 3. The model has changed since, so these figures and chances are version 3's, not the current model's."
+      },
+      "goal": "average_repair_wait_under_5_days",
+      "goal_label": "Average repair wait under 5 days",
+      "status": "withheld",
+      "status_text": "As revealed on version 3. The model has changed since, so these figures and chances are version 3's, not the current model's. With either figure, no option is clearly most likely to achieve 'Average repair wait under 5 days'. For 'Stop taking e-bike jobs' and 'Average repair wait under 5 days': about 76% with Workshop's figure and about 17% with Tomasz's figure. In Workshop's version the engine gives no chance of achieving 'Average repair wait under 5 days' for 'Open on Sundays' (not given in this run), so it is not compared. In Tomasz's version the engine gives no chance of achieving 'Average repair wait under 5 days' for 'Open on Sundays' (not given in this run), so it is not compared.",
+      "sides": [
+        {
+          "view": 16,
+          "holder": "Workshop",
+          "holder_id": "1",
+          "figure": "6 days",
+          "title": "6 days",
+          "leader": null,
+          "text": "Workshop: 6 days"
+        },
+        {
+          "view": 17,
+          "holder": "Tomasz",
+          "holder_id": "2",
+          "figure": "8 days",
+          "title": "8 days",
+          "leader": null,
+          "text": "Tomasz: 8 days"
+        }
+      ],
+      "options": [
+        {
+          "option": "hire_a_part_time_mechanic",
+          "label": "Hire a part-time mechanic",
+          "model": "about 47% on version 3",
+          "chances": [
+            {
+              "holder_id": "1",
+              "chance": 0.9418,
+              "text": "about 94%",
+              "withheld": null
+            },
+            {
+              "holder_id": "2",
+              "chance": 0.6704,
+              "text": "about 67%",
+              "withheld": null
+            }
+          ]
+        },
+        {
+          "option": "stop_taking_e_bike_jobs",
+          "label": "Stop taking e-bike jobs",
+          "model": "about 7% on version 3",
+          "chances": [
+            {
+              "holder_id": "1",
+              "chance": 0.7551,
+              "text": "about 76%",
+              "withheld": null
+            },
+            {
+              "holder_id": "2",
+              "chance": 0.1692,
+              "text": "about 17%",
+              "withheld": null
+            }
+          ]
+        },
+        {
+          "option": "leave_things_as_they_are",
+          "label": "Leave things as they are",
+          "model": "never met in version 3's model",
+          "chances": [
+            {
+              "holder_id": "1",
+              "chance": 0,
+              "text": "never met in version 3's model",
+              "withheld": null
+            },
+            {
+              "holder_id": "2",
+              "chance": 0,
+              "text": "never met in version 3's model",
+              "withheld": null
+            }
+          ]
+        },
+        {
+          "option": "open_on_sundays",
+          "label": "Open on Sundays",
+          "model": "not given in this run",
+          "chances": [
+            {
+              "holder_id": "1",
+              "chance": null,
+              "text": "not given in this run",
+              "withheld": {
+                "value": "not given in this run",
+                "reason": "This run of Workshop's figure on version 3 gives no chance for 'Open on Sundays' on 'Average repair wait under 5 days'."
+              }
+            },
+            {
+              "holder_id": "2",
+              "chance": null,
+              "text": "not given in this run",
+              "withheld": {
+                "value": "not given in this run",
+                "reason": "This run of Tomasz's figure on version 3 gives no chance for 'Open on Sundays' on 'Average repair wait under 5 days'."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

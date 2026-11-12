@@ -26,6 +26,9 @@ export interface Difference {
   /** TM-04 (links only, additive): core's words for the doubted link's chip on the canvas, at most 28 characters, naming only who doubts
    *  it, never a keeper ("Cara doubts this link", else counted). Core b365e50e debate.ts:65. Absent on an older core. */
   readonly chip?: string
+  /** SCI-HISTORY (core 2a5f61f7, additive, figures only; absent on every current entry): a difference revealed on an EARLIER version, read
+   *  with that version's figures, stored runs and receipt. History: drawn read-only, after the current entries (EarlierDifference.tsx). */
+  readonly earlier?: { readonly version: number; readonly text: string }
 }
 export interface DifferenceHeadings { readonly sides: string; readonly options: string; readonly model: string; readonly settle: string; readonly steps: string; readonly dissent: string; readonly research: string; readonly commit: string }
 export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings
@@ -49,9 +52,13 @@ export function differencesShape(x: unknown): Differences | null {
   const ok = d.differences.every((x) => isStr(x.record) && isStr(x.label) && isStr(x.status_text) && Array.isArray(x.sides) && Array.isArray(x.options) && Array.isArray(x.settle) && Array.isArray(x.steps))
   if (!ok) return null
   // TM-04's `chip` (additive): core's words, or it is dropped from that entry and never drawn as anything else.
-  const out = d.differences.some((e) => e.chip !== undefined && !isStr(e.chip))
+  let out = d.differences.some((e) => e.chip !== undefined && !isStr(e.chip))
     ? { ...d, differences: d.differences.map((e) => (e.chip === undefined || isStr(e.chip) ? e : { ...e, chip: undefined })) }
     : d
+  // SCI-HISTORY's `earlier`: an entry that carries one not in core's shape is dropped, never drawn as a current one with its steps.
+  const isEarlier = (e: unknown) => e === undefined || (e !== null && typeof e === 'object' && Number.isInteger((e as { version?: unknown }).version) && isStr((e as { text?: unknown }).text))
+  const ds = out.differences as readonly Difference[]
+  if (ds.some((e) => !isEarlier(e.earlier))) out = { ...out, differences: ds.filter((e) => isEarlier(e.earlier)) }
   const st = (out as { stances?: unknown }).stances
   if (st !== undefined && !(Array.isArray(st) && st.every((e) => e !== null && typeof e === 'object' && isStr((e as { id?: unknown }).id) && isStr((e as { text?: unknown }).text)))) {
     const { stances: _drop, ...rest } = out as Differences
