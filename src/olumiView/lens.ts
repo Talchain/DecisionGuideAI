@@ -136,9 +136,9 @@ export function usePreMortemOf(id: string): 'rests' | 'other' | null {
  * TM-27: the try on this card's face (layout.ts tryOnCardOf), in every lens, while core's answer is for the version shown: the same gate as
  * the dock's what-if box (ViewChances useWhatIfOn), so the card and the dock never disagree about whether a try is on screen.
  */
-export function useTryOn(card: ViewCard): TryOnCard | null {
+export function useTryOn(card: ViewCard | null): TryOnCard | null {
   const sid = useViewStore((s) => s.sid)
   const base = useViewStore((s) => s.view?.model?.edit_base ?? null)
   const shown = useWhatIf((s) => s.shown)
-  return useMemo(() => (shown === null || shown.sid !== sid || shown.base !== base ? null : tryOnCardOf(shown.variant, shown.quantity, shown.typed, card)), [shown, sid, base, card])
+  return useMemo(() => (card === null || shown === null || shown.sid !== sid || shown.base !== base ? null : tryOnCardOf(shown.variant, shown.quantity, shown.typed, card)), [shown, sid, base, card])
 }

@@ -18,7 +18,10 @@ import { typography } from '../../styles/typography'
 import type { ViewCard } from '../client'
 import { CARD_WIDTH, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
-import { useDriverOf, useRestsOnItem } from '../lens'
+import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
+import { failedOf, failedReasonOf } from '../k5'
+import { clearWhatIf } from '../whatif'
+import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { optionBands, ViewDriverBadge, ViewOptionBand, ViewValuesBand } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -109,6 +112,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The lenses mark the cards they are about (RULING 5): the Rests on number, in Olumi's blue where core marks the figure Olumi's; the
   // ring of What would change. Both are core's (lens.ts); null off those lenses.
   const restsOn = useRestsOnItem(id), driverOf = useDriverOf(id)
+  // If it failed (K5): the cards Olumi's stories rest on stand in front, the rest recede; What if (TM-27): the figure tried, on its card.
+  const preMortem = usePreMortemOf(id), tried = useTriedOn(id)
+  const tryOn = useTryOn(card)
+  const versionN = useViewStore((s) => s.view?.version?.n ?? null)
   // The figure's own edit (R25, as the lane's card): wherever core offers one, the ✎ is on the figure's line, and core takes the figure
   // through its own route as the person's. While a proposal is held core offers none; the ✎ then offers to set the proposal aside first.
   const keptEdit = useOpenFigureEdits((o) => o.open.get(id) ?? null)
@@ -130,10 +137,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.nodeLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
+  // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
+  const triedMark = tried === null || tryOn?.kind === 'tried' ? null
+    : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   return (
-    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : undefined}
+    // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
+    <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}>
+    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? undefined}
       lodMark={restsFar}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? <>{decideBy}{badgeLine}</> : (
@@ -161,12 +173,40 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           </> : null}
           {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
           {card.unused == null || card.unused === '' ? null : <p className={`${typography.nodeLabel} text-text-body`} data-view={`${id}.unused`}>{card.unused}</p>}
+          {tryOn?.kind !== 'tried' ? null : (
+            // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
+            // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
+            <div className="nodrag grid gap-1 rounded-lg bg-panel-hover px-2 py-1.5" data-card-try={id}>
+              <p className={`${typography.nodeValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+              {tryOn.said === null ? null : <p className={`${typography.nodeLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+              <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
+                className={`${typography.nodeLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
+            </div>
+          )}
+          {tryOn?.kind !== 'option' ? null : (
+            // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.
+            <p className={`${typography.nodeLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
+              {WHAT_IF_COPY.whatIf}: <span className="font-semibold text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
+            </p>
+          )}
           {card.family === 'option' ? <>{band === null ? null : <ViewOptionBand id={id} band={band} />}<OptionMarkLine card={id} /></> : <ViewValuesBand card={card} />}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
             {/* Core's change mark (+ added, ↻ changed), its words for the change (field by field) on hover. */}
             <Glyph at={`${id}.change`} mark={card.change} className={`${typography.nodeLabel} text-info`} />
             {card.committed == null ? null : <span className={`${typography.nodeLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
+            {/* K5 If it failed: one mark per Olumi failure story resting on this card, core's number with Olumi's glyph, the story on hover; on an
+                option, the story most within the team's control, in core's words. All Olumi's (../k5.ts). */}
+            {failedOf(card).map((f, j) => (
+              <span key={`f${f.n}`} className={`${typography.nodeLabel} text-info`} title={`${f.olumi.title} · ${f.title}`} aria-label={`${f.olumi.title} · ${f.title}`} data-failed={`${id}.${f.n}`}>
+                <span data-view={`${id}.failed.${j}.olumi.glyph`}>{f.olumi.glyph}</span>{f.n}
+              </span>
+            ))}
+            {(() => { const r = failedReasonOf(card); return r === null ? null : (
+              <span className={`${typography.nodeLabel} text-info`} title={`${r.olumi.title} · ${r.title}`} aria-label={`${r.olumi.title} · ${r.text} · ${r.title}`} data-failed-reason={id}>
+                <span data-view={`${id}.failed_reason.olumi.glyph`}>{r.olumi.glyph}</span> <span data-view={`${id}.failed_reason.text`}>{r.text}</span>
+              </span>
+            ) })()}
             <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
           {card.figure === null ? null : edit !== null
@@ -178,6 +218,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         </div>
       )}
     </BaseNode>
+    </div>
   )
 }
 export const CoreCard = memo(CoreCardImpl)
