@@ -292,6 +292,15 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([clamp?.className, clamp?.textContent, lead.title.startsWith(para)]).toEqual(['line-clamp-3', para, true])
   })
 
+  it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the title is three lines on the face, the whole heading its hover; core\'s words unchanged', () => {
+    const c0 = EU.model!.cards.find((c) => c.family === 'condition') ?? EU.model!.cards[0]!
+    const long = ('A different view comes from later investors: a larger pre-seed round raises the bar for the next raise, because they expect progress in line with the money raised. ').repeat(2).trim()
+    expect(long.length).toBeGreaterThan(200)
+    const v = withCard(EU, c0.id, (c) => ({ ...c, heading: long, face: { ...(c.face ?? {}), title: null, line: null } as never }))
+    const t = draw(v, c0.id).querySelector<HTMLElement>('[data-testid="node-title"]')!
+    expect([t.className.includes('line-clamp-3'), t.title, t.textContent!.includes(long)]).toEqual([true, long, true])
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
