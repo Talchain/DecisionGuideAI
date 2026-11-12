@@ -122,7 +122,7 @@ export function CoreVersions(): JSX.Element {
       </ul>
       {versions.length >= 2 && <CoreCompare sid={sid} latest={versions[versions.length - 1]!.n} id="versions-compare" />}
       <p className={META}>
-        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className="text-info underline underline-offset-2" data-testid="core-versions-record-link">Printable record</a>
+        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[24px] items-center text-info underline underline-offset-2" data-testid="core-versions-record-link">Printable record</a>
       </p>
     </div>
   )

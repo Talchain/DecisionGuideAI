@@ -25,7 +25,7 @@ const A7 = read('a7-reveal'), EU = read('european-loop9'), A7S = read('a7-sci10'
 const ready = (view: View, tab = false) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
-  return render(tab ? <ViewReasoning model={view.model!} /> : <Rack model={view.model!} view={view} />)
+  return render(tab ? <ViewReasoning model={view.model!} /> : <Rack model={view.model!} />)
 }
 const rack = () => screen.getByTestId('view-reasoning-rack')
 const option = (id: string) => rack().querySelector<HTMLElement>(`[data-rack-option="${id}"]`)!
@@ -157,9 +157,15 @@ describe('each option\'s reasoning, from the real model, every word core\'s', ()
     expect(row.querySelector('button')).toBeNull()
   })
 
-  it('what matters next is drawn only under the option core ties it to by id (A7: the coach\'s step about Jo\'s dissent, under Open on Sundays)', () => {
-    ready(A7)
-    expect([...rack().querySelectorAll<HTMLElement>('[data-rack-next="step"]')].map((e) => e.closest<HTMLElement>('[data-rack-option]')!.dataset['rackOption'])).toEqual(['open_on_sundays'])
+  it('one home (12 Nov, Paul\'s A11 board): the coach\'s next step and what the chances wait on are said once in the tab, in Move towards commitment, never again in the rack (A7: the step about Jo\'s dissent)', () => {
+    ready(A7, true)
+    const k = A7.chat.length - 1, next = A7.chat[k]!.answer!.next
+    expect(next.newest, 'precondition: A7 has a newest next step').toBe(true)
+    const at = [...document.querySelectorAll<HTMLElement>(`[data-view="chat.${k}.answer.next.label"]`)]
+    // Its line and the act core offers on it (the tap) both sit in Move towards commitment; none in the rack.
+    expect(at.length).toBeGreaterThan(0)
+    expect(at.every((e) => e.closest('[data-testid="view-reasoning-commitment"]') !== null)).toBe(true)
+    expect(rack().querySelectorAll('[data-rack-next="step"], [data-rack-next="waits"]')).toHaveLength(0)
   })
 
   it('a press on a row asks the canvas to focus that card; while it is selected the row shows pressed, and a second press lets it go', () => {

@@ -151,11 +151,11 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     board([], turn, null, 800)
     const icon = screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`)
     expect(parseFloat(icon.style.left) + 24, icon.style.left).toBeLessThanOrEqual(1010)
-    expect(icon.style.left).toBe('774px')
-    // CONTRAST: with room on the right, beside its right edge as before.
+    expect(icon.style.left).toBe('788px') // its top-left corner (12 Nov: seated on the card, not 2 px off it)
+    // CONTRAST: with room on the right, on its top-right corner (the card's right edge at 700, less half the icon).
     cleanup()
     board([], turn)
-    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.left).toBe('702px')
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.left).toBe('688px')
   })
   it('the icon never sits under the top bar: below its bottom when the card\'s top is under it; at the card otherwise', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
@@ -163,7 +163,7 @@ describe('R1.1 (Paul\'s screen): on the core lane Olumi\'s next step is an icon 
     await vi.waitFor(() => expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('344px'))
     cleanup()
     board([], turn)
-    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('306px')
+    expect(screen.getByTestId(`${OLUMI_ATTENTION_CARD_TESTID}-icon`).style.top).toBe('288px') // the card's top at 300, less half the icon
   })
 })
 

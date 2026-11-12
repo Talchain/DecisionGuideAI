@@ -195,7 +195,9 @@ describe('on the canvas, the edge places its words against the cards as React Fl
         const at = drawnAt(c.querySelector<HTMLElement>(`[data-view-link-words="links.${i}"]`)!)
         for (const card of paul.cards) expect(boxOver(at, l.words, card), `${l.edge}: ${JSON.stringify(at)} over ${card.id}`).toBe(false)
         // And on its own line (review 7 Nov: off every card is not enough): within a unit of a point of the link's path, with no leader.
-        const [d] = getBezierPath({ sourceX: l.sourceX, sourceY: l.sourceY, targetX: l.targetX, targetY: l.targetY, sourcePosition: Position.Bottom, targetPosition: Position.Top })
+        // The line as drawn (an upward link leaves its source's top for its target's foot, 12 Nov), not one rebuilt from the handles.
+        const d = c.querySelector(`[data-view-link="links.${i}"] path.react-flow__edge-path`)!.getAttribute('d')!
+        expect(d.includes('C'), `${l.edge} is a curve`).toBe(true)
         const v = d.match(/-?[\d.]+(?:e-?\d+)?/g)!.map(Number), P = (t: number, k: 0 | 1) => (1 - t) ** 3 * v[k]! + 3 * (1 - t) ** 2 * t * v[2 + k]! + 3 * (1 - t) * t * t * v[4 + k]! + t ** 3 * v[6 + k]!
         const gap = Math.min(...Array.from({ length: 2001 }, (_, k) => Math.hypot(P(k / 2000, 0) - at.x, P(k / 2000, 1) - at.y)))
         expect(gap, `${l.edge} words ${gap.toFixed(2)} from their line`).toBeLessThan(1)

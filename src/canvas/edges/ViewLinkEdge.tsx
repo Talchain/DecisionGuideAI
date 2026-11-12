@@ -7,7 +7,7 @@
  */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { reducedFaceSize } from '../../olumiView/camera'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
@@ -85,7 +85,13 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // A removal on its way keeps the link and its ask drawn, whatever focus does (Codex delta 4960db98).
   const removing = useRemovingLink(link.remove)
   const rail = from && to ? railOf(from, to, cards, slot) : null
-  const [bezier, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
+  // A link into a card wholly above its source (a claim under the option it argues about) leaves the source's top and enters the target's
+  // foot. From the fixed bottom and top handles it ran down, behind both cards and back up, so only two curls showed (Paul's A11 board,
+  // 12 Nov). A rail keeps its own ends.
+  const up = rail === null && from !== undefined && to !== undefined && to.y + to.h <= from.y ? { from, to } : null
+  const [bezier, midX, midY] = getBezierPath(up !== null
+    ? { sourceX: up.from.x + up.from.w / 2, sourceY: up.from.y, targetX: up.to.x + up.to.w / 2, targetY: up.to.y + up.to.h, sourcePosition: Position.Top, targetPosition: Position.Bottom }
+    : { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   const path = rail?.path ?? bezier
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
   // Clear of the words of the links before this one too (railBoxes.ts useLinkWordsBoxes): opened cards' near links no longer stack words.

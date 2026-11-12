@@ -198,9 +198,12 @@ export function SinceVersion({ since }: { since: Since }): JSX.Element | null {
  * "Compare with another scenario" (core's `GET /api/compare`, scenarioCompare.tsx). The second half needs only an open scenario, not two versions.
  * Above both, where the View carries it, the version shown beside the one before it (`run.since`, SinceVersion).
  */
+export const COMPARE_NONE = 'Start a model in the chat first. Compare reads the versions you approve.'
+export const COMPARE_HELD = "This model is still Olumi's proposal. Compare reads the versions you approve: approve it in the chat to start."
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
   const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
+  const held = useViewStore((s) => s.view?.proposal != null)
   const latest = useLatestApproved()
   if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
@@ -208,7 +211,8 @@ export function CoreCompareTab(): JSX.Element {
     <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6">
       {since === null ? null : <SinceVersion since={since} />}
       {!sid || latest === null || latest === undefined
-        ? <p className={BODY} data-testid="core-compare-none">Start a model in the chat first. Compare reads the versions you approve.</p>
+        // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
+        ? <p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p>
         : latest < 2
           ? <p className={BODY} data-testid="core-compare-one">Compare needs two approved versions. Approve a change to the model to make the second.</p>
           : <CoreCompare sid={sid} latest={latest} id="core-compare" auto boxed />}

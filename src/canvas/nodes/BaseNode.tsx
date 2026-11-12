@@ -1975,7 +1975,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         cursor-default
         ${selected && !isHighlighted ? colors.selected : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
-        ${isAttended ? 'ring-2 ring-info' : ''}
+        ${isAttended ? 'ring-4 ring-info/20' : ''}
         ${isRunChangeSubdued ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}

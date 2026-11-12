@@ -460,13 +460,17 @@ function SharpenCard({ model }: { model: ViewModel }) {
   )
 }
 
+/** A held proposal in core's words: its heading, then the version it is on, apart (`proposal.heading` · `.on`, as the chat and the Model tab
+ *  draw them); run together they read "Olumi proposes 12 changes new scenario" (Paul's A11 board, 12 Nov). */
+export function ProposalWords({ p }: { p: { heading: string; on: string } }) {
+  return <><span data-view-proposal="heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view-proposal="on">{p.on}</span></>}</>
+}
+
 /** While a proposal is held, the tabs say so first in core's words: its heading and the version it is on (`proposal.heading`, `.on`). */
 export function HeldProposalLine() {
   const p = useViewStore((s) => s.view?.proposal ?? null)
   return p === null ? null : (
-    <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-tabs-held-proposal">
-      <span data-view-proposal="heading">{p.heading}</span> <span data-view-proposal="on">{p.on}</span>
-    </p>
+    <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-tabs-held-proposal"><ProposalWords p={p} /></p>
   )
 }
 

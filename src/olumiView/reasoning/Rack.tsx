@@ -14,21 +14,19 @@
  *   - Assumptions and evidence: the option's own premises (`cards[].premises`, core's glyph, words and Olumi mark; not pressable, being on
  *     the option's card, which its heading presses); they are said here and not again in the tab's "Assumptions and evidence" door; one in
  *     the same words as a challenged card's reason is that challenge, said in the tab's challenge zone, so not here;
- *   - What matters next: only where core ties it to this option by id: the coach's next step whose `about` names the option, a card listed
- *     above or one of its premises (`chat[].answer.next`); a figure the chances wait on that is listed above (`run.waits_on.items`); and core's
- *     line on how much of this option's chance rests on Olumi's guesses (`run.rests[]` for this option).
+ *   - What matters next: core's line on how much of this option's chance rests on Olumi's guesses (`run.rests[]` for this option). The
+ *     coach's next step and what the chances wait on are said once in the tab, in Move towards commitment (12 Nov, Paul's A11 board).
  * A cell with nothing from core is left out, never filled. The section labels are the tab's own; every other word is core's, verbatim.
  */
 import { useEffect, useState } from 'react'
-import type { ViewCard, ViewModel, View } from '../client'
-import { challengedReasons, newestNextOf, optionCards } from '../layout'
+import type { ViewCard, ViewModel } from '../client'
+import { challengedReasons, optionCards } from '../layout'
 import { useUIStore } from '../../stores/uiStore'
 import { pressCard, ringFrom } from './tabRing'
 import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
 import { TYPE } from '../port/type'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
-import { Words } from '../ViewChat'
 
 export const RACK_LABEL = 'Each option\'s reasoning'
 export const SEE_CHANCES = 'See chances in Analysis'
@@ -80,21 +78,12 @@ export function throughOf(model: ViewModel, option: ViewCard): OptionThrough[] {
   return out
 }
 
-/** What matters next for an option, only where core ties it by id: the coach's step, the waits-on items among its inputs, its rests line. */
-export function nextOf(view: View, model: ViewModel, option: ViewCard, through: readonly OptionThrough[]) {
-  // Tied by id: the option, what it works through, its premises, and the other end of a reason link to it (a dissent is not a cause it
-  // works through, but a step about that dissent is about this option).
-  const reasons = model.links.flatMap((l) => (l.kind !== 'reason' ? [] : l.to === option.id ? [l.from] : l.from === option.id ? [l.to] : []))
-  const ids = new Set<string>([option.id, ...through.map(throughId), ...reasons, ...(option.premises ?? []).flatMap((p) => (p.id == null ? [] : [p.id]))])
-  const next = newestNextOf(view.chat)
-  const step = next !== null && (next.next.about ?? []).some((a) => ids.has(a)) ? next : null
-  const waits = (model.run?.waits_on?.items ?? []).flatMap((it, i) => (ids.has(it.id) && it.text !== '' ? [{ it, i }] : []))
-  const rests = (model.run?.rests ?? []).flatMap((r, i) => (r.option === option.id && r.line !== '' ? [{ r, i }] : []))
-  return { step, waits, rests }
-}
+/** What matters next for an option: core's line on how much of its chance rests on Olumi's guesses (`run.rests[]` for this option). The
+ *  coach's next step and what the chances wait on are said once in the tab, in Move towards commitment, with the act core offers on them
+ *  (Paul's A11 board, 12 Nov: the same question was said in both places). */
+export const restsOf = (model: ViewModel, option: ViewCard) =>
+  (model.run?.rests ?? []).flatMap((r, i) => (r.option === option.id && r.line !== '' ? [{ r, i }] : []))
 
-/** A row that presses its card (the canvas selects and centres it; hover rings it). Its name is its own words: core's heading, figure, whose
- *  and link words, so a screen reader hears what a sighted person reads. */
 function Press({ id, children, ring }: { id: string; children: React.ReactNode; ring: (id: string | null) => void }) {
   const selected = useCanvasStore((s) => s.selection.nodeIds.has(id))
   return (
@@ -174,7 +163,7 @@ function Through({ t, ring, option }: { t: OptionThrough; ring: (id: string | nu
 
 const Head = ({ children }: { children: string }) => <p className={`${TYPE.meta} m-0 font-medium text-text-light`}>{children}</p>
 
-export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
+export function Rack({ model }: { model: ViewModel }) {
   const options = optionCards(model)
   const [hover, setHover] = useState<string | null>(null)
   const present = new Set(model.cards.map((c) => c.id))
@@ -189,8 +178,7 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
         className={`${TYPE.meta} inline-flex min-h-[24px] cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header ${ACTION_FOCUS}`}>{SEE_CHANCES}</button>
       {options.map((o) => {
         const through = throughOf(model, o), premises = (o.premises ?? []).flatMap((p, j) => (challenged.has(p.text) ? [] : [{ p, j }]))
-        const nx = view === null ? { step: null, waits: [], rests: [] } : nextOf(view, model, o, through)
-        const hasNext = nx.step !== null || nx.waits.length + nx.rests.length > 0
+        const rests = restsOf(model, o)
         return (
           <div key={o.id} className="space-y-2 rounded-xl border border-panel-border p-2" data-rack-option={o.id}>
             <Press id={o.id} ring={setHover}>
@@ -223,18 +211,9 @@ export function Rack({ model, view }: { model: ViewModel; view: View | null }) {
                   </li>
                 ))}</ul></div>
             )}
-            {!hasNext ? null : (
+            {rests.length === 0 ? null : (
               <div data-rack-section="next" className="space-y-1"><Head>{RACK_LABELS.next}</Head>
-                {nx.step === null ? null : (
-                  <p className={`${TYPE.body} m-0`} data-rack-next="step"><span className="font-medium text-text-header" data-view={`chat.${nx.step.k}.answer.next.label`}>{nx.step.next.label}</span>{' '}
-                    <Words parts={nx.step.next.text} at={`chat.${nx.step.k}.answer.next.text`} first={nx.step.first} /></p>
-                )}
-                {nx.waits.map(({ it, i }) => (
-                  <p key={it.id} className={`${TYPE.body} m-0`} title={it.title} data-rack-next="waits">
-                    <span className="text-text-light" data-view="run.waits_on.label">{model.run!.waits_on!.label}</span>{' '}<span data-view={`run.waits_on.items.${i}.text`}>{it.text}</span>
-                  </p>
-                ))}
-                {nx.rests.map(({ r, i }) => <p key={r.id} className={`${TYPE.body} m-0 text-text-body`} title={r.hover} data-rack-next="rests" data-view={`run.rests.${i}.line`}>{r.line}</p>)}
+                {rests.map(({ r, i }) => <p key={r.id} className={`${TYPE.body} m-0 text-text-body`} title={r.hover} data-rack-next="rests" data-view={`run.rests.${i}.line`}>{r.line}</p>)}
               </div>
             )}
           </div>

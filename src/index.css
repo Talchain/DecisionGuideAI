@@ -946,7 +946,9 @@
 
 /* v10 presentation (#/canvas2, src/presentation/v10.tsx): a card named in the chat is ringed in Olumi's colour while
    hovered. Nothing else dims. */
-[data-presentation="v10"] .react-flow__node.v10-lit { outline: 2px solid var(--info, #277A9D); outline-offset: 3px; border-radius: 12px; }
+/* Paul's A11 board (12 Nov): a hard 2px ring read as a selection, so two cards looked selected at rest. Olumi pointing at a card is a soft
+   halo in its colour; a selection keeps the card's own lift and border. One look with Olumi's attention ring (BaseNode `isAttended`). */
+[data-presentation="v10"] .react-flow__node.v10-lit { outline: 4px solid color-mix(in srgb, var(--info, #277A9D) 22%, transparent); outline-offset: 2px; border-radius: 12px; }
 
 /* v10 "Rests on" (#/canvas2): figures are told apart by AUTHOR. Blue is Olumi's only (an unchecked estimate solid, one you
    accepted outlined), ink is the person's, a dash is a figure not set or of unknown origin. Provenance sits on the figure,

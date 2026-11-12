@@ -95,7 +95,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
       <WhatIfShown model={model} labelled={!stated} />
       <Spine model={model} brief={brief} labels={REASONING_LABELS} />
       <ReviewStrip model={model} review={REASONING_LABELS.review} />
-      <Rack model={model} view={view} />
+      <Rack model={model} />
       <People view={view} />
       {challenges.length + notes === 0 ? null : (
         <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.challenge} className="space-y-1">

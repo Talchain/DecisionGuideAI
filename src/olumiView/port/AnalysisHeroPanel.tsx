@@ -92,6 +92,11 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   const ml = run.most_likely
   const next = newestNextOf(chat)
   const figureOf = (card: ViewCard) => (card.driver == null ? null : figureCard(model, card.driver))
+  // A run with nothing for the hero to say (a pending first model: no lead, no aim, no option row) draws no empty box (Paul's A11 board,
+  // 12 Nov); what the caller mounts below the hero still draws, unboxed.
+  const says = run.lead != null || allWait || (run.shared_blockers?.length ?? 0) > 0 || groups.length > 0 || lone.length > 0 || ml != null
+    || (run.waits_on !== null && !waitsBelow) || (next !== null && !nextBelow)
+  if (!says) return <>{children}</>
 
   return (
     <section className={`${TYPE.body} ${PORT_BOX}`} data-testid="port-analysis-hero">

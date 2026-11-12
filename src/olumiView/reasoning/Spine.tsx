@@ -128,7 +128,7 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
                 // Named (DL 9 Nov, alpha comprehension: unlabelled marks could not be told apart): each mark carries its card's heading, core's
                 // words, whole and wrapping; its shape stays before it.
                 <button key={c.id} {...p} title={c.heading} aria-label={c.heading} data-glance-card={c.id} data-glance-kind={kind}
-                  className={`inline-grid h-6 w-5 place-items-center rounded-full text-text-body hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
+                  className={`inline-grid h-6 w-6 place-items-center rounded-full text-text-body hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
                   <NodeShapeIndicator nodeKind={kind} size={12} /><span className="sr-only" data-view={`${c.id}.glyph`}>{c.glyph}</span>
                   <span className="sr-only" data-view={`${c.id}.heading`}>{c.heading}</span>
                 </button>

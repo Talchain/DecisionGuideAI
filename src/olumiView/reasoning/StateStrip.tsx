@@ -17,7 +17,7 @@
  */
 import { useViewStore } from '../store'
 import { clearWhatIf } from '../whatif'
-import { useWhatIfOn } from '../ViewChances'
+import { ProposalWords, useWhatIfOn } from '../ViewChances'
 import type { ViewModel } from '../client'
 import { TYPE } from '../port/type'
 import { action } from '../../components/results/analysisNew/panelSurfaces'
@@ -42,7 +42,7 @@ export function StateStrip({ state }: { state: TabState }) {
   if (state === 'proposal' && proposal !== null) {
     return (
       <div className={`${STRIP} border-info`} role="status" data-testid="view-reasoning-state" data-state="proposal">
-        <p className="m-0 min-w-0" data-testid="view-tabs-held-proposal"><span data-view-proposal="heading">{proposal.heading}</span> <span data-view-proposal="on">{proposal.on}</span></p>
+        <p className="m-0 min-w-0" data-testid="view-tabs-held-proposal"><ProposalWords p={proposal} /></p>
       </div>
     )
   }

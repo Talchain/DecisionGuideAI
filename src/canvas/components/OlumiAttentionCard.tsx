@@ -387,14 +387,15 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   if (folded) {
     inPanelNow.current = false
     const label = attention.note?.title ?? ATTENTION_CARD_COPY.olumi
-    // Beside the card's right edge; where that has no room (under the dock: the real capacity board, R3), at its left edge, never under it.
-    const right = anchorBox.x + anchorBox.w + 2
-    iconLeft.current = right + ICON <= roomRight ? right : Math.max(0, anchorBox.x - ICON - 2)
+    // On the card's top-right corner, straddling its edge, so it reads as the card's own note (Paul's A11 board, 12 Nov: 2 px off the edge
+    // it floated like a stray mark); where that has no room (under the dock: the real capacity board, R3), on its top-left corner.
+    const right = anchorBox.x + anchorBox.w - ICON / 2
+    iconLeft.current = right + ICON <= roomRight ? right : Math.max(0, anchorBox.x - ICON / 2)
     return (
       <button ref={iconRef} type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
         onClick={() => setOpenedKey(attention.turnId ?? null)}
         className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        style={{ position: 'absolute', left: iconLeft.current, top: Math.max(anchorBox.y + 6, iconFloor), zIndex: 95 }}>
+        style={{ position: 'absolute', left: iconLeft.current, top: Math.max(anchorBox.y - ICON / 2, iconFloor), zIndex: 95 }}>
         <OlumiMark size={14} aria-hidden="true" />
       </button>
     )

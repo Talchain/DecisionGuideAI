@@ -49,7 +49,7 @@ describe('a disputed chance, on the saved loop5-B workshop model (core\'s own re
   })
 
   it('D2: on the Reasoning tab, the sentence is in Open on Sundays\' block, verbatim, and in no other option\'s', () => {
-    ready(view); render(<Rack model={m} view={view} />)
+    ready(view); render(<Rack model={m} />)
     const block = document.querySelector<HTMLElement>(`[data-rack-option="${SUNDAYS}"]`)!
     expect([...block.querySelectorAll('[data-rack-disputed]')].map((e) => [e.getAttribute('data-rack-disputed'), e.textContent, e.getAttribute('data-view')]))
       .toEqual([[DISSENT, d.line, `${SUNDAYS}.disputed.0.line`]])
@@ -60,7 +60,7 @@ describe('a disputed chance, on the saved loop5-B workshop model (core\'s own re
     const bare = without(view, (c) => { delete (c as { disputed?: unknown }).disputed })
     ready(bare); const a = render(<PortAnalysisTab />)
     expect(document.querySelectorAll('[data-row-disputed]')).toHaveLength(0)
-    a.unmount(); render(<Rack model={bare.model!} view={bare} />)
+    a.unmount(); render(<Rack model={bare.model!} />)
     expect(document.querySelectorAll('[data-rack-disputed]')).toHaveLength(0)
   })
 
