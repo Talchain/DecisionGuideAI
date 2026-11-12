@@ -1125,6 +1125,12 @@ export function ViewChat() {
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+            {view?.model?.coaching_questions?.[0] ? (
+              <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label="Olumi’s question">
+                <p className={`${typography.viewPanelMeta} text-info`}>Olumi’s question</p>
+                <p data-testid="view-model-question-text" data-view="model.coaching_questions.0">{view.model.coaching_questions[0]}</p>
+              </section>
+            ) : null}
             {view === null ? null : <NextStepCard view={view} busy={busy} />}
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />

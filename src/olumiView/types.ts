@@ -692,6 +692,7 @@ export type View = {
       glyph: string
       text: string
     }>
+    coaching_questions?: Array<string>
     removed: Array<{
       id: string
       heading: string

@@ -339,3 +339,33 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     for (const turn of getByTestId('view-chat-turns').children) expect(turn.firstElementChild).toHaveAttribute('data-testid', 'view-chat-said-bubble')
   })
 })
+
+
+describe('the shown model’s existing open question in the ordinary panel', () => {
+  const question = 'What would success look like here? The brief does not yet say what is being aimed for.'
+  it('draws the first verbatim question as Olumi’s, above approval, without sending anything', () => {
+    const view = structuredClone(proposal)
+    view.model!.coaching_questions = [question, 'What evidence could change your view?']
+    show(view)
+    const { getByTestId, queryByText } = render(<ViewChat />)
+    expect(getByTestId('view-model-question').textContent).toContain('Olumi’s question')
+    expect(getByTestId('view-model-question-text').textContent).toBe(question)
+    follows(getByTestId('view-model-question'), getByTestId('view-next-step'))
+    expect(queryByText('What evidence could change your view?')).toBeNull()
+    expect(posts).toEqual([])
+  })
+  it('withdraws the question when the saved View no longer carries it; older payloads need no field', () => {
+    const view = structuredClone(proposal)
+    view.model!.coaching_questions = [question]
+    show(view)
+    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    expect(getByTestId('view-model-question-text').textContent).toBe(question)
+    act(() => show({ ...view, proposal: null, model: { ...view.model!, coaching_questions: [] } }))
+    expect(queryByTestId('view-model-question')).toBeNull()
+    const older = structuredClone(view)
+    delete older.model!.coaching_questions
+    act(() => show(older))
+    expect(queryByTestId('view-model-question')).toBeNull()
+    expect(posts).toEqual([])
+  })
+})

@@ -3779,6 +3779,12 @@
         "additionalProperties": false
        }
       },
+      "coaching_questions": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
       "removed": {
        "type": "array",
        "items": {
