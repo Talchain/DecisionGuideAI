@@ -75,4 +75,22 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(glyph).toHaveAttribute('title', 'challenge')
     expect(glyph.style.pointerEvents).toBe('auto')
   })
+  it.each(['❝', '✓', '⊢'])('the legacy %s glyph carries the word core supplies in its key', (label) => {
+    const view = structuredClone(proposal)
+    const entry = view.model!.key.find((k) => k.glyph === label)!
+    expect(entry).toBeDefined()
+    useViewStore.setState({ view: view as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']> })
+    const glyph = draw(null, { label }).r.querySelector('[data-view="links.0.label"]') as HTMLElement
+    expect(glyph).toHaveAccessibleName(entry.text)
+    expect(glyph).toHaveAttribute('title', entry.text)
+    expect(glyph.style.pointerEvents).toBe('auto')
+  })
+  it('a new core legend glyph needs no UI word table', () => {
+    const view = structuredClone(proposal)
+    view.model!.key.push({ id: 'test-note', glyph: '§', text: 'provisional note' })
+    useViewStore.setState({ view: view as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']> })
+    const glyph = draw(null, { label: '§' }).r.querySelector('[data-view="links.0.label"]') as HTMLElement
+    expect(glyph).toHaveAccessibleName('provisional note')
+    expect(glyph).toHaveAttribute('title', 'provisional note')
+  })
 })

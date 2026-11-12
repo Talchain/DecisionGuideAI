@@ -39,7 +39,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const { link, i } = data as ViewLinkData
   const causal = link.causal ?? null
   const signed = causal === null ? link.label !== '' : causal.sign === 'increases' || causal.sign === 'decreases'
-  const labelWord = useViewStore((s) => causal === null && link.label === '!' ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
+  const labelWord = useViewStore((s) => causal === null ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
