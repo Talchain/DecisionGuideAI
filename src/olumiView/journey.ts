@@ -142,6 +142,31 @@ export async function approveAll(): Promise<Outcome<unknown>> {
   return { answer, shown: await useViewStore.getState().modelChanged() }
 }
 
+/**
+ * OLUMI'S READING ON A PROPOSAL (a mark with core's `reading.id`, e.g. which saved figure an aim is measured by): core's own words for it (`status`,
+ * and `title`, its question naming the choices) and the three acts the person has (PL-626). None of them writes a refusal:
+ * - `confirmReading`: approve the ticked lines (all when none are ticked) WITH the reading (`only_readings`), so it is applied;
+ * - a different measure: the person tells Olumi in their own words (`tellOlumi`), and Olumi answers in core;
+ * - `unsureOfReading`: approve the ticked lines (all when none are ticked) WITHOUT the reading and without refusing it: the record stays as
+ *   they gave it, and the question stays open. Never `refuse_readings`: unsure is not a no.
+ */
+export type Reading = { readonly id: string; readonly what: string; readonly status: string; readonly question: string }
+export const readingsOn = (p: Proposal | null): Reading[] =>
+  (p?.marks ?? []).flatMap((m) => (m.reading ? [{ id: m.reading.id, what: m.what, status: m.status, question: m.title }] : []))
+const allIfNone = (changes: readonly Change[], picks: Picks & { readonly left: Change[] }) =>
+  (picks.only.length + picks.only_top.length === 0 ? picksOf(changes, tickEvery(changes)) : picks)
+export function confirmReading(picks: Picks & { readonly left: Change[] }, reading: string) {
+  const p = liveView().proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  const use = allIfNone(p.changes, picks)
+  return approveSelected(use, { readings: [reading] }, { lines: use.left.map((c) => c.id) })
+}
+export function unsureOfReading(picks: Picks & { readonly left: Change[] }) {
+  const p = liveView().proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  const use = allIfNone(p.changes, picks)
+  return approveSelected(use, {}, { lines: use.left.map((c) => c.id) })
+}
 /** Set the whole proposal aside (core's discard): nothing of it is added. Then the View is read again. */
 export async function setAside(): Promise<Outcome<unknown>> {
   const p = liveView().proposal

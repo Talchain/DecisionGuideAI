@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { View } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import {
-  TeamApiError, answer, approveAll, approveSelected, awaitTurn, correctFigure, editGateNow, tellOlumi, working, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
+  TeamApiError, answer, approveAll, approveSelected, awaitTurn, confirmReading, correctFigure, editGateNow, readingsOn, tellOlumi, unsureOfReading, working, type Reading, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
   type Change, type Ticks,
 } from '../olumiView/journey'
 import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Send, Tick } from './icons'
@@ -26,7 +26,7 @@ function Turn({ t, onShow }: { t: Loose; onShow: (id: string) => void }) {
   const a = t.answer
   return (
     <section className="turn">
-      <div className="turn-meta"><span className="by">{t.by}</span><span className="meta">{t.version}</span></div>
+      <div className="turn-meta"><span className="by">{t.by}</span><span className="meta">{t.version}</span>{t.status ? <span className="meta" data-testid="next-turn-status">{t.status}</span> : null}</div>
       <div className="said-wrap"><Clamp cls="said" text={t.said} lines={3} /></div>
       {t.broke ? (
         // Olumi held its reply back: core's one sentence for it (`broke`; with a later core's COACH-WITHHELD marker it names what Olumi could not
@@ -180,13 +180,15 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
   // (`awaitTurn`) and draws the answer, and any proposal it brings goes through the same review. Words stay in the box until Olumi answers.
   const [tell, setTell] = useState('')
   const [telling, setTelling] = useState(false)
+  // A different measure for Olumi's reading (PL-626): the person says it in their own words; the reading's question is screen context only.
+  const [measureFor, setMeasureFor] = useState<Reading | null>(null)
   const send = async () => {
     if (tell.trim() === '' || telling) return
     setTelling(true); setError(null)
     try {
       await (answering ? answer(answering, tell) : tellOlumi(tell))
       const ended = await awaitTurn()
-      if (ended !== 'failed' && ended !== 'lost' && ended !== 'timeout') { setTell(''); setAnswering(null) }
+      if (ended !== 'failed' && ended !== 'lost' && ended !== 'timeout') { setTell(''); setAnswering(null); setMeasureFor(null) }
     } catch (e) { setError(said(e, MW)) } finally { setTelling(false) }
   }
   // A question the person chose that Olumi no longer asks (a newer View): the chip goes, so their words are sent as an ordinary message.
@@ -206,7 +208,7 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
         {detail !== null ? <Detail key={`${v.id}:${detail}`} v={v} id={detail} editing={editing} onClose={closeDetail} onTell={setTell} /> : null}
         {chat.some((t) => t.earlier) ? (
           <div className="earlier-list">{chat.flatMap((t, i) => (t.earlier ? [
-            <details key={i} className="earlier"><summary><span className="by">{t.by}</span><span className="meta">{t.version}</span><span className="one">{t.said}</span><span><Chev /></span></summary><Turn t={t} onShow={flash} /></details>,
+            <details key={i} className="earlier"><summary><span className="by">{t.by}</span><span className="meta">{t.version}</span>{t.status ? <span className="meta">{t.status}</span> : null}<span className="one">{t.said}</span><span><Chev /></span></summary><Turn t={t} onShow={flash} /></details>,
           ] : []))}</div>
         ) : null}
         {chat.flatMap((t, i) => (t.earlier ? [] : [<Turn key={i} t={t} onShow={flash} />]))}
@@ -219,6 +221,19 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
           </section>
         ) : null}
         {P ? <Review v={v} ticks={ticks} setTicks={setTicks} /> : null}
+        {readingsOn(P).map((r) => (
+          // Olumi's reading on this proposal, in core's words, with the person's three answers (PL-626): confirm it, give a different measure in
+          // their own words, or stay unsure (approve without it and without refusing it: the question stays open).
+          <section key={r.id} className="sec reading" data-testid="next-reading" data-reading={r.id}>
+            <p className="meta">{r.status}</p>
+            <p>{r.question}</p>
+            <div className="detail-acts">
+              <button type="button" className="btn btn-primary" disabled={busy} data-testid="next-reading-confirm" onClick={() => void act(() => confirmReading(picks, r.id))}>Confirm</button>
+              <button type="button" className="btn btn-quiet" disabled={busy || telling} data-testid="next-reading-different" onClick={() => { setMeasureFor(r); setAnswering(null) }}>A different measure</button>
+              <button type="button" className="btn btn-quiet" disabled={busy} data-testid="next-reading-unsure" onClick={() => void act(() => unsureOfReading(picks))}>Unsure</button>
+            </div>
+          </section>
+        ))}
       </div>
       {P ? (
         <div className="nx-decide" data-testid="next-decide">
@@ -233,6 +248,7 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
       {error ? <p role="alert" className="meta err nx-decide-note" data-testid="next-error">{error}</p> : null}
       {!past ? (
         <form className="nx-composer" data-testid="next-tell" onSubmit={(e) => { e.preventDefault(); void send() }}>
+          {measureFor ? <p className="meta answering" data-testid="next-measure-for">{measureFor.question}<button type="button" className="icon-btn" aria-label={MW.cancel} onClick={() => setMeasureFor(null)}><Close /></button></p> : null}
           {answering ? <p className="meta answering" data-testid="next-answering">{answering.text}<button type="button" className="icon-btn" aria-label={MW.cancel} onClick={() => setAnswering(null)}><Close /></button></p> : null}
           <div className="field">
             <input type="text" value={tell} onChange={(e) => setTell(e.target.value)} disabled={telling || working(v)} placeholder={P ? 'Tell Olumi what to change' : 'Reply, or edit the model'} aria-label={P ? 'Tell Olumi what to change' : 'Reply, or edit the model'} data-testid="next-tell-field" />

@@ -94,7 +94,13 @@ function OptionBody({ v, c }: { v: View; c: ViewCard }) {
     if (rf?.aim && !oneGoal) out.push(<p key="a" className="meta">{rf.aim}</p>)
   } else if (hl) {
     if (wi?.answer && wi.text === hl.text) out.push(<OlumiSays key="h" text={hl.text} lines={4} compact={2} />)
-    else { out.push(<p key="h" className="nochance" title={hl.title}>{hl.text}</p>); if (hl.add) out.push(<OlumiSays key="a" text={hl.add} lines={4} compact={2} />) }
+    else {
+      out.push(<p key="h" className="nochance" title={hl.title}>{hl.text}</p>)
+      // What this option waits on, in core's words: Olumi's question when core asks one (`add`), else core's own line for it (`why`, e.g. after a
+      // confirmed reading: "Waits on: 'Runway at the chosen spend' (Olumi's, not yet sized).").
+      if (hl.add) out.push(<OlumiSays key="a" text={hl.add} lines={4} compact={2} />)
+      else if (hl.why) out.push(<Clamp key="y" cls="meta" text={hl.why} lines={4} compact={2} />)
+    }
   } else if (wi) {
     out.push(<div key="w" className="words"><Clamp lines={3} compact={2}><span>{W.label}</span> <span>{wi.text}</span>{wi.unknown ? <span>{wi.unknown}</span> : null}</Clamp></div>)
   } else out.push(<span key="n" className="nothing" aria-hidden="true" />)
