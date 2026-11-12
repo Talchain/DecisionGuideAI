@@ -1,0 +1,246 @@
+/**
+ * THE JOURNEY LAYER (DL 12 Nov, redesign action layer, ruling a): what a screen needs to take the person through review -> correction ->
+ * approval -> edit -> cold reopen, with no component, no DOM and no React. A new screen imports this, the View types (`./client`) and the
+ * store (`./store`), and nothing of the lane's components. Every word the person reads is core's; this module decides only what may be
+ * sent, sends it through `runWrite`, and says in a typed reason why something may not be done yet. It formats no model value.
+ *
+ * Lifted from the lane's components, which keep their own copies untouched (that screen is frozen): the proposal's ticks and their
+ * together-rule (ViewChat.tsx Proposal), approve / set aside and the re-read after (ViewChat.tsx `act`), waiting for Olumi (poll.ts
+ * `drafting`), the edit gate and base capture (model/editing.ts, FigureEdit.tsx, Rename.tsx), and who a card is by (CoreCard.tsx,
+ * model/author.ts).
+ *
+ * Three things core does not take yet are typed slots here, so a screen built now needs no signature change later (DL rulings b, e):
+ * an explicit refused set on an approval (`Refusals.lines`: core drops an unpicked line without a record today, approval.ts:197-203),
+ * and an op on approve and set aside. Until core takes them they are not sent, and the outcome says so (`unrecorded`).
+ */
+import { TeamApiError, newOp } from '../olumiCore/team/api'
+import { runWrite } from '../olumiCore/team/writes'
+import { isForThisPage, useMe, type Me } from '../olumiCore/me'
+import { derivedUuidOf } from '../olumiCore/team/sid'
+import { useViewStore } from './store'
+import { writes, type View, type ViewCard } from './client'
+
+// ─── Opening a scenario ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Open core's scenario `sid` (s_<12 hex>) as the person whose private link this browser holds: who they are first (every write names
+ *  them), then the View into the store. Opening again after a reload is the same call: core holds everything (cold reopen). */
+export async function openScenario(sid: string): Promise<View | null> {
+  await useMe.getState().load()
+  await useViewStore.getState().use(derivedUuidOf(sid))
+  return useViewStore.getState().view
+}
+
+// ─── Records by id ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * THE ONE PLACE TO CHECK A RECORD BY ID (DL ruling d): `collab.records`, core's list of the approved model's records. A record need not be
+ * a card of its own: core folds one into a card's badge, a premise or the question's badge, and `all` does not unfold badges, so a card
+ * list is never the test of whether a record is in the model. Empty while nothing is approved (a pending first draft).
+ */
+export const recordIdsOf = (view: View): ReadonlySet<string> => new Set(view.collab.records.map((r) => r.id))
+export const hasRecord = (view: View, id: string): boolean => view.collab.records.some((r) => r.id === id)
+
+// ─── Olumi's proposal: what is ticked ─────────────────────────────────────────────────────────────────────────────────────────────────
+export type Proposal = NonNullable<View['proposal']>
+export type Change = Proposal['changes'][number]
+/** A line's key: its id and whether it is a top-level field (a record named like a field gives two lines with one id, API v1.9). */
+export const lineKey = (c: Change): string => `${c.top ? 'top' : 'rec'}:${c.id}`
+
+/**
+ * The lines that stand or fall with this one: every line linked to it through core's `together.ids`, either way round, as far as the links
+ * go. Core refuses an approval that chooses a line whose partner is left out (approval.ts approveSelected), so a tick never leaves
+ * Olumi's figure without the line that reads it, and an untick never leaves a line without the figure it needs.
+ */
+export function partnersOf(changes: readonly Change[], c: Change): Change[] {
+  const recs = changes.flatMap((x) => (x.top ? [] : [x]))
+  const linked = (a: Change, b: Change) => !a.top && !b.top && ((a.together?.ids ?? []).includes(b.id) || (b.together?.ids ?? []).includes(a.id))
+  const seen = new Set<string>([lineKey(c)]), out: Change[] = [c], queue: Change[] = [c]
+  while (queue.length > 0) {
+    const x = queue.shift()!
+    for (const y of recs) if (!seen.has(lineKey(y)) && linked(x, y)) { seen.add(lineKey(y)); out.push(y); queue.push(y) }
+  }
+  return out
+}
+
+export type Ticks = ReadonlySet<string>
+const setAll = (t: Ticks, cs: readonly Change[], on: boolean): Ticks => { const n = new Set(t); for (const x of cs) { if (on) n.add(lineKey(x)); else n.delete(lineKey(x)) } return n }
+/** Tick or untick one line, with every line that stands or falls with it. */
+export const toggleLine = (changes: readonly Change[], t: Ticks, c: Change): Ticks => setAll(t, partnersOf(changes, c), !t.has(lineKey(c)))
+/** Tick or untick every line of one of core's groups (`proposal.groups[].lines`, indexes into `changes`), with their partners. */
+export function setGroup(changes: readonly Change[], t: Ticks, lines: readonly number[], on: boolean): Ticks {
+  return setAll(t, lines.flatMap((i) => (changes[i] === undefined ? [] : partnersOf(changes, changes[i]!))), on)
+}
+/** Is every line of a group ticked? */
+export const groupTicked = (changes: readonly Change[], t: Ticks, lines: readonly number[]): boolean =>
+  lines.length > 0 && lines.every((i) => changes[i] !== undefined && t.has(lineKey(changes[i]!)))
+/** Every line ticked: the whole proposal. */
+export const tickEvery = (changes: readonly Change[]): Ticks => new Set(changes.map(lineKey))
+
+/** What a set of ticks approves, in core's order and core's two lists, and what it leaves out (the lines that are not added). */
+export type Picks = { readonly only: string[]; readonly only_top: string[] }
+export function picksOf(changes: readonly Change[], t: Ticks): Picks & { readonly left: Change[] } {
+  const only: string[] = [], only_top: string[] = [], left: Change[] = []
+  for (const c of changes) { if (!t.has(lineKey(c))) left.push(c); else (c.top ? only_top : only).push(c.id) }
+  return { only, only_top, left }
+}
+
+/** Core's verdict on the change (`proposal.verdict`): unsupported means no Approve, and core says what would support it. */
+export type Verdict = { readonly supported: boolean; readonly text: string; readonly asks: string | null }
+export function verdictOf(p: Proposal): Verdict | null {
+  const v = (p as { verdict?: unknown }).verdict as { supported?: unknown; text?: unknown; asks?: unknown } | null | undefined
+  if (v == null || typeof v.supported !== 'boolean' || typeof v.text !== 'string' || v.text === '') return null
+  return { supported: v.supported, text: v.text, asks: typeof v.asks === 'string' && v.asks !== '' ? v.asks : null }
+}
+
+// ─── Acts ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Why an act was not sent, typed so the screen words it (core's own refusal words come back as `TeamApiError.message`). */
+export type NotNow = 'past_version' | 'not_your_page' | 'no_view' | 'no_proposal' | 'unsupported' | 'nothing_ticked' | 'stale_question' | 'busy'
+export class JourneyRefusal extends Error { constructor(readonly reason: NotNow) { super(reason); this.name = 'JourneyRefusal' } }
+
+/** After a saved write: whether the View read since shows it. False is "saved, not shown yet" (the screen says so; the write is not lost). */
+export type Outcome<T> = { readonly answer: T; readonly shown: boolean }
+
+/**
+ * DL ruling b: what the person refuses, said explicitly. `readings`: Olumi's readings they refuse (core takes these today as
+ * `refuse_readings`, app.ts:495, and saves them in the version). `lines`: change lines refused. CORE DOES NOT TAKE THESE YET: an approval
+ * simply leaves them out and core keeps no record; they are returned in `unrecorded` so the screen never claims a refusal was saved.
+ */
+export type Refusals = { readonly lines?: readonly string[]; readonly readings?: readonly string[] }
+/** DL ruling e: core takes no op on approve or set aside yet. The slot is here; until core takes it nothing is sent and a lost answer
+ *  locks the act (runWrite without an op: no second send, "may have saved" words), never a silent resend. */
+export const APPROVAL_TAKES_OP = false
+
+function liveView(): View {
+  const s = useViewStore.getState()
+  if (s.at !== null) throw new JourneyRefusal('past_version')
+  if (s.view === null || s.sid === null) throw new JourneyRefusal('no_view')
+  return s.view
+}
+
+/**
+ * Approve exactly what is ticked (`picks`), with the readings chosen (`readings`: Olumi's readings to use, `proposal.marks[].reading.id`)
+ * and what is refused (`refused`). Then the View is read again (the model changed). Refused readings are sent; refused lines are not
+ * (core takes none yet) and come back in `unrecorded`.
+ */
+export async function approveSelected(picks: Picks, choose: { readonly readings?: readonly string[] } = {}, refused: Refusals = {}): Promise<Outcome<unknown> & { readonly unrecorded: readonly string[] }> {
+  const view = liveView(), p = view.proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  if (verdictOf(p)?.supported === false) throw new JourneyRefusal('unsupported')
+  const readings = [...(choose.readings ?? [])], refuse = [...(refused.readings ?? [])]
+  if (picks.only.length + picks.only_top.length === 0 && readings.length === 0 && refuse.length === 0) throw new JourneyRefusal('nothing_ticked')
+  // Core reads a missing `only` / `only_top` as empty once readings are named, so both lists always go together (client.ts approve).
+  const body = { only: picks.only, only_top: picks.only_top, ...(readings.length > 0 ? { only_readings: readings } : {}), ...(refuse.length > 0 ? { refuse_readings: refuse } : {}) }
+  const answer = await runWrite(`${useViewStore.getState().sid}:approve:${p.id}`, { op: APPROVAL_TAKES_OP }, body,
+    () => writes.approve(p.id, p.base, body as Parameters<typeof writes.approve>[2]))
+  return { answer, shown: await useViewStore.getState().modelChanged(), unrecorded: [...(refused.lines ?? [])] }
+}
+
+/** Set the whole proposal aside (core's discard): nothing of it is added. Then the View is read again. */
+export async function setAside(): Promise<Outcome<unknown>> {
+  const p = liveView().proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  const answer = await runWrite(`${useViewStore.getState().sid}:discard:${p.id}`, { op: APPROVAL_TAKES_OP }, { proposal: p.id }, () => writes.discard(p.id))
+  return { answer, shown: await useViewStore.getState().modelChanged() }
+}
+
+/** One of Olumi's questions, by its place in `model.coaching_questions` and its words (core sends no id: the words guard a stale place). */
+export type QuestionRef = { readonly at: number; readonly text: string }
+/**
+ * Answer one of Olumi's questions in the person's own words: sent as their message (core binds no answer to a question yet), only while
+ * the View still asks that question in those words. Olumi answers in core; `awaitTurn` waits for it.
+ */
+export async function answer(q: QuestionRef, text: string) {
+  const view = liveView(), sid = useViewStore.getState().sid!
+  if ((view.model?.coaching_questions ?? [])[q.at] !== q.text) throw new JourneyRefusal('stale_question')
+  return runWrite(`${sid}:answer:${q.at}`, { op: true }, { q, text }, (op) => writes.message(sid, text, op!))
+}
+
+/** Challenge one record (a card or a statement) of the model, by one of core's challenge kinds. Olumi answers in core. */
+export async function challenge(kind: string, record: string) {
+  liveView()
+  const sid = useViewStore.getState().sid!
+  return runWrite(`${sid}:challenge:${kind}:${record}`, { op: true }, { kind, record }, (op) => writes.challenge(sid, kind, record, op!))
+}
+
+/** Is Olumi still working on this scenario (a first draft drafting, a turn being answered, a reply to an edit running)? */
+export const working = (view: View | null): boolean =>
+  view === null || view.draft?.status === 'drafting' || view.turn?.status === 'answering' || view.reply?.status === 'running'
+
+/**
+ * Wait for Olumi: the store reads the View again every `everyMs` until Olumi is no longer working, then answers how the turn ended
+ * ('done', 'failed', 'lost', ... as core says it on `turn.status`, or 'idle' with no turn), or 'timeout'. Reading never starts work.
+ */
+export async function awaitTurn({ timeoutMs = 120_000, everyMs = 1_500 }: { timeoutMs?: number; everyMs?: number } = {}): Promise<string> {
+  const t0 = Date.now()
+  for (;;) {
+    await useViewStore.getState().refresh()
+    const v = useViewStore.getState().view
+    if (!working(v)) return v?.turn?.status ?? 'idle'
+    if (Date.now() - t0 >= timeoutMs) return 'timeout'
+    await new Promise((r) => setTimeout(r, everyMs))
+  }
+}
+
+// ─── Editing the model directly ───────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * May the person change the model directly now, and on which version? One gate for every direct edit (lifted from model/editing.ts):
+ * their own page, the latest version, a View read whole and not overtaken, and a version core takes edits on (`model.edit_base`).
+ * DL ruling c: while Olumi's proposal is held core takes no edit (edits.ts:382, 409) and the reason is `after_approval`, typed, never a
+ * silent absence: the proposal is Olumi's, and approving (selectively) then correcting keeps whose figure is whose.
+ */
+export type EditGate =
+  | { readonly ok: true; readonly sid: string; readonly base: number }
+  | { readonly ok: false; readonly reason: 'after_approval' | 'past_version' | 'not_your_page' | 'not_read' | 'no_version'; readonly held: { readonly id: number; readonly heading: string } | null }
+export function editGateOf(s: { readonly sid: string | null; readonly view: View | null; readonly at: number | null; readonly error: string | null; readonly stale: boolean }, me: Me | null): EditGate {
+  const no = (reason: Extract<EditGate, { ok: false }>['reason'], held: { id: number; heading: string } | null = null): EditGate => ({ ok: false, reason, held })
+  if (s.at !== null) return no('past_version')
+  if (s.sid === null || s.view === null || s.error !== null || s.stale) return no('not_read')
+  if (!isForThisPage(s.view, me)) return no('not_your_page')
+  const base = s.view.model?.edit_base ?? null
+  if (base !== null) return { ok: true, sid: s.sid, base }
+  const p = s.view.proposal
+  return p !== null ? no('after_approval', { id: p.id, heading: p.heading }) : no('no_version')
+}
+/** The figure edit core offers on this card (`figure.edit`: its ask, in core's words), or null where core offers none. */
+export const figureEditOf = (card: ViewCard) => card.figure?.edit ?? null
+
+/**
+ * Correct one figure, as the person typed it, on the base the editor OPENED on (`gate.base`, captured once at open: a background re-read
+ * never moves their words onto a newer version; core refuses a stale base in its own words). Then the View is read again.
+ */
+export async function correctFigure(gate: Extract<EditGate, { ok: true }>, quantity: string, typed: string) {
+  const answer = await runWrite(`${gate.sid}:edit:${quantity}`, { op: true }, { base: gate.base, quantity, typed }, (op) => writes.edit(gate.sid, gate.base, quantity, typed, op!))
+  return { answer, shown: await useViewStore.getState().modelChanged() }
+}
+/** Give one card the person's own name, on the base the editor opened on. Then the View is read again. */
+export async function renameCard(gate: Extract<EditGate, { ok: true }>, record: string, label: string) {
+  const answer = await runWrite(`${gate.sid}:rename:${record}`, { op: true }, { base: gate.base, record, label }, (op) => writes.rename(gate.sid, gate.base, record, label, op!))
+  return { answer, shown: await useViewStore.getState().modelChanged() }
+}
+
+// ─── Who a card is by ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * Who a card is by, and how settled it is, from core's fields only (lifted from CoreCard.tsx and model/author.ts). `by` and its words are
+ * core's `card.author` (null where core says nothing readable). `proposed`: core marks a change on it (Olumi's proposal holds it).
+ * `provisional`: core doubts it, or Olumi proposes it and it is not yet the person's (DL ruling 12 Nov: dashed means exactly this).
+ * `challenged`: core marks it challenged. A screen draws these; it never infers one from words.
+ */
+export type Authorship = {
+  readonly by: 'person' | 'brief' | 'olumi' | 'mixed' | null
+  readonly text: string | null
+  readonly title: string | null
+  readonly proposed: boolean
+  readonly provisional: boolean
+  readonly challenged: boolean
+}
+export function authorshipOf(card: ViewCard): Authorship {
+  const a = (card as unknown as { author?: unknown }).author as { by?: unknown; text?: unknown; title?: unknown } | null | undefined
+  const ok = a != null && typeof a === 'object' && (a.by === 'person' || a.by === 'brief' || a.by === 'olumi' || a.by === 'mixed') && typeof a.text === 'string' && a.text !== ''
+  const by = ok ? (a!.by as Authorship['by']) : null
+  const proposed = card.change != null
+  return {
+    by, text: ok ? (a!.text as string) : null, title: ok && typeof a!.title === 'string' ? a!.title : null,
+    proposed, provisional: card.doubt === true || (proposed && by === 'olumi'), challenged: card.challenged === true,
+  }
+}
+
+/** For specs and a fresh page: a new op id, as runWrite mints one. */
+export { newOp, TeamApiError }

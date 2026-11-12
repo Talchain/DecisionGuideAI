@@ -1,8 +1,8 @@
 /**
  * THE ACTION LAYER, DRIVEN WITHOUT A SCREEN (DL, 12 Nov: the redesign's slice must stand on it). One journey on actual saved data, through
  * ONLY the modules a new drawing would import: the core client and its writes (olumiView/client.ts), the View store (olumiView/store.ts),
- * the page person (olumiCore/me.ts), the scenario id (olumiCore/team/sid.ts), the write settler (olumiCore/team/writes.ts) and the call
- * itself (olumiCore/team/api.ts). No component, no DOM, no browser.
+ * the page person (olumiCore/me.ts), the scenario id (olumiCore/team/sid.ts), the call itself (olumiCore/team/api.ts) and, for every act and
+ * every judgement about what may be done, the journey layer (olumiView/journey.ts) ONLY. No component, no DOM, no browser.
  *
  * Open the pending first draft -> correct one figure -> approve some changes and refuse others -> edit one card -> stop the server and start
  * it again on the same store -> reopen cold, and read by id: the approved changes are in, the refused ones are not, the correction and the
@@ -21,10 +21,9 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { setTeamFetch, setPagePerson, TeamApiError } from '../team/api'
 import { useMe } from '../me'
-import { derivedUuidOf } from '../team/sid'
-import { runWrite } from '../team/writes'
 import { useViewStore } from '../../olumiView/store'
-import { writes, type View } from '../../olumiView/client'
+import type { View } from '../../olumiView/client'
+import { openScenario, approveSelected, authorshipOf, correctFigure, editGateOf, hasRecord, lineKey, picksOf, recordIdsOf, renameCard, setGroup, tickEvery, toggleLine, groupTicked, type Ticks } from '../../olumiView/journey'
 
 const env = process.env
 const ready = ['ACTION_START', 'ACTION_STORE', 'ACTION_BASE', 'ACTION_SID', 'ACTION_ADMIN'].every((k) => (env[k] ?? '') !== '')
@@ -59,8 +58,7 @@ function coldPage(): void {
   useMe.setState({ me: null, status: 'none' }); setPagePerson(null)
 }
 async function open(): Promise<View> {
-  await useMe.getState().load()
-  await useViewStore.getState().use(derivedUuidOf(SID))
+  await openScenario(SID)
   // Every figure opened (the layer's own read, `setOpened`): a closed badge folds cards away, and a folded card is not a missing one.
   await useViewStore.getState().setOpened({ open: new Map(), all: true })
   const s = useViewStore.getState()
@@ -69,9 +67,8 @@ async function open(): Promise<View> {
 }
 const view = (): View => useViewStore.getState().view!
 const cardOf = (v: View, id: string) => v.model?.cards.find((c) => c.id === id) ?? null
-/** The approved model's records by id, as core serves them (`collab.records`). A record need not be a card of its own: core folds one into
- *  a card's badge, a premise or the question's badge (seen on this store), and `all` does not unfold badges. */
-const recordIds = (v: View): Set<string> => new Set(v.collab.records.map((r) => r.id))
+const recordIds = (v: View): Set<string> => new Set(recordIdsOf(v))
+const gate = () => editGateOf(useViewStore.getState(), useMe.getState().me)
 const words = (e: unknown) => (e instanceof TeamApiError ? `${e.status} ${e.message}` : String(e))
 
 // What the journey acts on, chosen from the pending View by shape at run time (nothing from the store is written here):
@@ -113,55 +110,69 @@ describe.skipIf(!ready).sequential('the action layer drives the slice: pending r
     expect(v.you_id).toBe('1')
     expect(v.proposal, 'a proposal held').not.toBeNull()
     expect(v.version, 'no approved version yet').toBeNull()
-    for (const id of REFUSE) expect(v.proposal!.changes.some((c) => c.id === id && c.together == null), `${id} is offered on its own`).toBe(true)
-    // Nothing else in the proposal needs a refused line (core refuses a pick that leaves out a partner).
-    expect(v.proposal!.changes.filter((c) => (c.together?.ids ?? []).some((x) => REFUSE.includes(x))).map((c) => c.id)).toEqual([])
+    expect(recordIds(v).size, 'nothing approved yet').toBe(0)
+    // Olumi's proposals read as proposals: every card the draft shows is held by the proposal, and Olumi's are provisional.
+    const cards = v.model!.cards
+    expect(cards.every((c) => authorshipOf(c).proposed), 'every card of the first draft is proposed').toBe(true)
+    expect(cards.some((c) => authorshipOf(c).by === 'olumi') && cards.every((c) => authorshipOf(c).by !== 'olumi' || authorshipOf(c).provisional), "Olumi's cards are provisional").toBe(true)
     results['1 open'] = 'PASS'
   })
 
-  it('2 correct one figure on the pending draft (their own figure, before approving)', async () => {
-    const v = view()
-    const base = v.model?.edit_base ?? null
-    results['2 correct before approval'] = `FAIL: edit_base ${String(base)}`
-    expect(base, 'the layer has a base to correct against while the first draft is pending').not.toBeNull()
-    await runWrite(`${SID}:edit:${FIGURE}`, { op: true }, { base, quantity: FIGURE, typed: TYPED }, (op) => writes.edit(SID, base!, FIGURE, TYPED, op!))
-    results['2 correct before approval'] = 'PASS'
+  it('2 correct one figure while the first draft is pending: the layer says "after approval", typed (DL ruling c)', () => {
+    const g = gate()
+    results['2 correct while pending'] = g.ok ? 'FAIL: the gate offers an edit core refuses' : `PASS: ${g.reason}`
+    expect(g).toMatchObject({ ok: false, reason: 'after_approval', held: { id: view().proposal!.id } })
   })
 
-  it('3 approve some changes and refuse others', async () => {
-    const p = view().proposal!
-    const only = p.changes.filter((c) => !c.top && !REFUSE.includes(c.id)).map((c) => c.id)
-    const only_top = p.changes.filter((c) => c.top && !REFUSE.includes(c.id)).map((c) => c.id)
-    try { await writes.approve(p.id, p.base, { only, only_top }) } catch (e) { results['3 approve selected'] = `FAIL: ${words(e)}`; throw e }
-    expect(await useViewStore.getState().modelChanged()).toBe(true)
+  it('3 tick by group and by line, untick two of Olumi\'s risks, approve what is ticked', async () => {
+    const p = view().proposal!, ch = p.changes
+    let t: Ticks = tickEvery(ch)
+    // By group: every group unticked and ticked again comes back whole (with its partners), where core groups the lines.
+    for (const g of p.groups ?? []) { t = setGroup(ch, t, g.lines, false); expect(groupTicked(ch, t, g.lines)).toBe(false); t = setGroup(ch, t, g.lines, true) }
+    expect(t.size, 'all ticked again').toBe(ch.length)
+    // By line: a line with partners unticks with every one of them; ticked again, they come back together.
+    const linked = ch.find((c) => (c.together?.ids.length ?? 0) > 0)!
+    const off = toggleLine(ch, t, linked)
+    expect(off.has(lineKey(linked))).toBe(false)
+    for (const id of linked.together!.ids) expect([...off].some((k) => k === `rec:${id}`), `partner ${id} unticked with it`).toBe(false)
+    t = toggleLine(ch, off, linked)
+    expect(t.size).toBe(ch.length)
+    for (const id of REFUSE) t = toggleLine(ch, t, ch.find((c) => c.id === id)!)
+    const picks = picksOf(ch, t)
+    expect(picks.left.map((c) => c.id), 'exactly the refused lines are left out').toEqual(REFUSE)
+    let out
+    try { out = await approveSelected(picks, {}, { lines: REFUSE }) } catch (e) { results['3 approve selected'] = `FAIL: ${words(e)}`; throw e }
+    expect(out.shown).toBe(true)
+    expect(out.unrecorded, 'the layer never claims a refusal core did not save').toEqual(REFUSE)
     const v = view()
     expect(v.proposal, 'the proposal is settled').toBeNull()
     expect(v.version?.n).toBe(1)
-    const ids = recordIds(v)
-    expect(only.filter((id) => !ids.has(id)), 'every approved line is a record of the model').toEqual([])
-    expect(REFUSE.filter((id) => ids.has(id) || cardOf(v, id) !== null), 'no refused line is').toEqual([])
+    expect(picks.only.filter((id) => !hasRecord(v, id)), 'every approved line is a record of the model').toEqual([])
+    expect(REFUSE.filter((id) => hasRecord(v, id) || cardOf(v, id) !== null), 'no refused line is').toEqual([])
     results['3 approve selected'] = 'PASS'
   })
 
   it('3b the refusal is a record of its own (who refused what), not only an absence', () => {
     const served = JSON.stringify(view())
     const named = REFUSE.filter((id) => served.includes(id))
-    results['3b refusal recorded'] = named.length === REFUSE.length ? 'PASS' : `FAIL: the View names ${named.length} of ${REFUSE.length} refused lines`
+    results['3b refusal recorded'] = named.length === REFUSE.length ? 'PASS' : `FAIL: the View names ${named.length} of ${REFUSE.length} refused lines (core change, DL ruling b)`
     expect(named, 'each refused line is still named in what core serves').toEqual(REFUSE)
   })
 
-  it('4 correct one figure (after approval, the layer\'s only way)', async () => {
-    const base = view().model!.edit_base!
-    try { await runWrite(`${SID}:edit:${FIGURE}`, { op: true }, { base, quantity: FIGURE, typed: TYPED }, (op) => writes.edit(SID, base, FIGURE, TYPED, op!)) } catch (e) { results['4 correct figure'] = `FAIL: ${words(e)}`; throw e }
-    expect(await useViewStore.getState().modelChanged()).toBe(true)
+  it('4 correct one figure, after approval, on the base the editor opened on', async () => {
+    const g = gate()
+    expect(g.ok, 'the gate opens once the proposal is approved').toBe(true)
+    if (!g.ok) return
+    try { expect((await correctFigure(g, FIGURE, TYPED)).shown).toBe(true) } catch (e) { results['4 correct figure'] = `FAIL: ${words(e)}`; throw e }
     expect(JSON.stringify(cardOf(view(), FIGURE)?.figure ?? null)).toContain(SHOWN)
+    expect(authorshipOf(cardOf(view(), FIGURE)!).by, 'the corrected figure is the person\'s').toBe('person')
     results['4 correct figure'] = 'PASS'
   })
 
   it('5 edit one card (their own name for it)', async () => {
-    const base = view().model!.edit_base!
-    try { await runWrite(`${SID}:rename:${RENAMED}`, { op: true }, { base, record: RENAMED, label: LABEL }, (op) => writes.rename(SID, base, RENAMED, LABEL, op!)) } catch (e) { results['5 edit card'] = `FAIL: ${words(e)}`; throw e }
-    expect(await useViewStore.getState().modelChanged()).toBe(true)
+    const g = gate()
+    if (!g.ok) throw new Error(`gate: ${g.reason}`)
+    try { expect((await renameCard(g, RENAMED, LABEL)).shown).toBe(true) } catch (e) { results['5 edit card'] = `FAIL: ${words(e)}`; throw e }
     expect(cardOf(view(), RENAMED)?.heading).toBe(LABEL)
     results['5 edit card'] = 'PASS'
   })
@@ -176,18 +187,24 @@ describe.skipIf(!ready).sequential('the action layer drives the slice: pending r
     for (const c of before.model!.cards) expect(cardOf(v, c.id), `kept ${c.id}`).not.toBeNull()
     expect([...recordIds(v)].sort(), 'the same records, by id').toEqual([...recordIds(before)].sort())
     const approved = pending!.proposal!.changes.map((c) => c.id).filter((id) => !REFUSE.includes(id))
-    expect(approved.filter((id) => !recordIds(v).has(id)), 'every approved line still in').toEqual([])
-    expect(REFUSE.filter((id) => recordIds(v).has(id) || cardOf(v, id) !== null), 'no refused line in').toEqual([])
+    expect(approved.filter((id) => !hasRecord(v, id)), 'every approved line still in').toEqual([])
+    expect(REFUSE.filter((id) => hasRecord(v, id) || cardOf(v, id) !== null), 'no refused line in').toEqual([])
     expect(JSON.stringify(cardOf(v, FIGURE)?.figure ?? null), 'the correction').toContain(SHOWN)
     expect(cardOf(v, RENAMED)?.heading, 'the edit').toBe(LABEL)
-    // Authorship: every card the pending draft showed, other than the two the person changed, says who wrote it exactly as it did then.
+    // Authorship: every card the pending draft showed, other than the two the person changed, is by whom it was then.
     const changed = new Set([FIGURE, RENAMED])
-    const drifted = pending!.model!.cards.filter((c) => !changed.has(c.id) && cardOf(v, c.id) !== null && JSON.stringify(cardOf(v, c.id)!.author) !== JSON.stringify(c.author)).map((c) => c.id)
-    const compared = pending!.model!.cards.filter((c) => !changed.has(c.id) && cardOf(v, c.id) !== null).length
-    results['6 authors compared'] = `${compared} of ${pending!.model!.cards.length - changed.size} untouched pending cards (others folded into badges after approval)`
-    expect(compared).toBeGreaterThan(0)
-    expect(drifted, 'authors unchanged').toEqual([])
+    const kept = pending!.model!.cards.filter((c) => !changed.has(c.id) && cardOf(v, c.id) !== null)
+    results['6 authors compared'] = `${kept.length} of ${pending!.model!.cards.length - changed.size} untouched pending cards (others folded into badges after approval)`
+    expect(kept.length).toBeGreaterThan(0)
+    expect(kept.filter((c) => authorshipOf(cardOf(v, c.id)!).by !== authorshipOf(c).by).map((c) => c.id), 'authors unchanged').toEqual([])
+    expect(authorshipOf(cardOf(v, FIGURE)!).by, 'the correction stays the person\'s').toBe('person')
     results['6 cold reopen'] = 'PASS'
-    results['6 authors of the two changed cards'] = JSON.stringify([FIGURE, RENAMED].map((id) => [id, pending!.model!.cards.find((c) => c.id === id)?.author?.by, cardOf(v, id)?.author?.by]))
+    results['6 renamed card author'] = `${authorshipOf(pending!.model!.cards.find((c) => c.id === RENAMED)!).by} -> ${authorshipOf(cardOf(v, RENAMED)!).by}`
   }, 180_000)
+
+  // Olumi answers these in core, so they need a saved reply for THIS scenario's turn. The operator's saved Update reply
+  // (bank-before-send-update/update-attempts.jsonl) answers another scenario's goal question: replaying it here would show an answer to a
+  // different question. Skipped, with this reason, until a store with its own saved replies is available (DL, 12 Nov).
+  it.skip('7 answer Olumi\'s question (journey.answer + awaitTurn): SKIPPED, no saved reply for this scenario\'s turn', () => {})
+  it.skip('8 challenge a statement (journey.challenge + awaitTurn): SKIPPED, no saved reply for this scenario\'s turn', () => {})
 })
