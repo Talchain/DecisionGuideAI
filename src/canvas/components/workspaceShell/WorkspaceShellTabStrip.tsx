@@ -410,7 +410,9 @@ export function WorkspaceShellTabStrip({
     // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
     <div
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
-      className={`flex items-center ${coreLane ? 'flex-wrap gap-x-2 px-2' : isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
+      // The olumi-core lane's six tabs at the dock's 360 px ceiling (DL, 12 Nov: "cramped against the corner" at 2000; measured 345 px of
+      // labels in 344): the row keeps 12 px from the dock's edges and each pill 6 px a side, so the six fit with room between them.
+      className={`flex items-center ${coreLane ? 'flex-wrap gap-x-2 px-3' : isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
       style={coreLane ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
@@ -559,7 +561,7 @@ export function WorkspaceShellTabStrip({
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
                   surface.id === 'results' && resultsStale ? ' text-warning' : ''
-                }${coreLane ? ` h-8 rounded-full ${isCompact ? 'px-1' : 'px-2'} transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
+                }${coreLane ? ` h-8 rounded-full ${isCompact ? 'px-1' : 'px-1.5'} transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
                 data-tab-pill={coreLane ? (isActive ? 'on' : '') : undefined}
               >
                 {/* Only the LABEL truncates. The affordances after it are

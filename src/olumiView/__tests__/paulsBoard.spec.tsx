@@ -4,8 +4,10 @@
  * reasoning/__tests__/fixtures/european-loop9.view3.json); a row that needs a shape it lacks says so and derives it from that View.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
+// The chat's proposal (PB9) is mounted alone: the sign-in client it imports is not reached.
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
@@ -21,6 +23,8 @@ import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/comp
 import type { NodeProps } from '@xyflow/react'
 import { CoreCard } from '../previous/CoreCard'
 import { QUESTION } from '../layout'
+import { boardKeyOf, openBadgesKeyOf } from '../camera'
+import { Proposal } from '../ViewChat'
 
 const EU = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/european-loop9.view3.json'), 'utf8')) as View
 const ready = (view: View | null, sid: string | null = view?.id ?? null) => {
@@ -122,5 +126,26 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
       else expect([btn?.getAttribute('aria-label'), btn?.textContent?.includes(said(c.badge as unknown as B))], c.id).toEqual([(c.badge as unknown as B).label, true])
       r.unmount()
     }
+  })
+})
+
+describe('the DL\'s look at A13b (12 Nov)', () => {
+  it('PB8: opening or closing a badge changes the board the camera frames (the View it returned); CONTRAST: the same View keeps its key', () => {
+    const m = EU.model!, carded = m.cards.find((c) => c.badge != null)!
+    const key = (v: View) => `${boardKeyOf('s', v)}|${openBadgesKeyOf(v)}`
+    const shut = { ...EU, model: { ...m, question: { ...m.question, badge: m.question.badge && { ...m.question.badge, open: false } }, cards: m.cards.map((c) => (c.badge == null ? c : { ...c, badge: { ...c.badge, open: false } })) } } as View
+    const qOpen = { ...shut, model: { ...shut.model!, question: { ...shut.model!.question, badge: { ...shut.model!.question.badge!, open: true } } } } as View
+    const cOpen = { ...shut, model: { ...shut.model!, cards: shut.model!.cards.map((c) => (c.id === carded.id ? { ...c, badge: { ...c.badge!, open: true } } : c)) } } as View
+    expect(new Set([key(shut), key(qOpen), key(cOpen)]).size).toBe(3)
+    expect(key({ ...shut } as View)).toBe(key(shut))
+  })
+
+  it('PB9 (the DL saw "Olumi proposes 18 changes new scenario"): the chat\'s proposal says core\'s heading and what it is on apart; both are core\'s words, unchanged', () => {
+    ready(EU)
+    const p = EU.proposal!
+    expect(p.on, 'precondition: core says what the proposal is on').not.toBe('')
+    const c = render(<Proposal p={p} busy={false} evidence={EU.evidence} />).container
+    const head = c.querySelector('[data-view="proposal.heading"]')!.parentElement!
+    expect(head.textContent!.startsWith(`${p.heading} · ${p.on}`)).toBe(true)
   })
 })

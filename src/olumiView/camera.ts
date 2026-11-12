@@ -75,3 +75,14 @@ export function boardKeyOf(sid: string | null, view: View | null): string {
   if (view.version) return `${sid}:v${view.version.id}`
   return view.proposal ? `${sid}:p${view.proposal.id}` : ''
 }
+
+/**
+ * The badges core shows open (`badge.open`, on the question and on each card) in the View it returned. Opening or closing one adds or takes
+ * away the records it folds, so the board changes size: the camera frames it again (DL, 12 Nov: at 2000 with the question's notes open the
+ * right-most cards ran under the dock). Keyed on the View core returns, never on the press, so the frame is of the board that arrived.
+ */
+export function openBadgesKeyOf(view: View | null): string {
+  const m = view?.model
+  if (m == null) return ''
+  return [m.question.badge?.open ? 'question' : null, ...m.cards.map((c) => (c.badge?.open ? c.id : null))].filter((x) => x !== null).join(',')
+}

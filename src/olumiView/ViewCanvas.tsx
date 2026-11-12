@@ -35,7 +35,7 @@ import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { drawKindOf } from './layout'
-import { boardKeyOf, CORE_LANE_FIT_FLOOR, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
+import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { CoreCard } from './previous/CoreCard'
@@ -105,7 +105,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     const v = frameFor(viewNodes(getNodes()), pane.current)
     if (v) void setViewport(v, { duration: DURATION })
   }, [getNodes, setViewport])
-  const version = useViewStore((s) => boardKeyOf(s.sid, s.view))
+  // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
+  const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}` })
   useEffect(() => {
     if (version === '') return
     userMoved.current = false
