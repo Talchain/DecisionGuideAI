@@ -84,5 +84,5 @@ export function boardKeyOf(sid: string | null, view: View | null): string {
 export function openBadgesKeyOf(view: View | null): string {
   const m = view?.model
   if (m == null) return ''
-  return [m.question.badge?.open ? 'question' : null, ...m.cards.map((c) => (c.badge?.open ? c.id : null))].filter((x) => x !== null).join(',')
+  return [...(m.question.badge?.open ? ['question'] : []), ...m.cards.flatMap((c) => (c.badge?.open ? [c.id] : []))].join(',')
 }
