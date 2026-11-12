@@ -25,6 +25,7 @@ import { CoreCard, leadLineOf } from '../previous/CoreCard'
 import { useCanvasStore } from '../../canvas/store'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
+import { railOf } from '../../canvas/edges/linkRail'
 import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
@@ -318,5 +319,14 @@ describe('the field table, on the lenses: If it failed and What if on the lane\'
     clearWhatIf()
     const none = draw(CHAIN, Q)
     expect([none.querySelector('[data-card-try]'), none.querySelector('[data-option-try]')]).toEqual([null, null])
+  })
+})
+
+describe('the DL\'s look at A13d (12 Nov)', () => {
+  it('PB10: a link into the question alone at the head of the board takes no rail (its short curve); CONTRAST: with an aim beside the question, the rail', () => {
+    const q = { x: 0, y: 0, w: 900, h: 80 }, opt = { x: 0, y: 160, w: 240, h: 100 }, rec = { x: 600, y: 360, w: 240, h: 100 }
+    expect(railOf(rec, q, [q, opt, rec])).toBeNull()
+    const aim = { x: 1000, y: 0, w: 240, h: 80 }
+    expect(railOf(rec, q, [q, aim, opt, rec])).not.toBeNull()
   })
 })
