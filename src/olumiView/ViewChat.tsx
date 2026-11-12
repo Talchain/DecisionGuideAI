@@ -1057,9 +1057,15 @@ export function ViewChat() {
     const el = scroll.current
     if (el === null) return
     if (!follows.current) { setAway(true); return }
-    const newest = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
-    el.scrollTop = newest === null ? maxScroll : Math.max(0, Math.min(maxScroll, newest.offsetTop - 16))
+    let top = newest === null ? maxScroll : newest.offsetTop - 16
+    // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
+    // newest reply, or its top where it is taller than the thread (DL-183: at Paul's 1.33 scale it opened cut at its foot, Approve below).
+    const step = job === null ? el.querySelector<HTMLElement>('[data-testid="view-next-step"]') : null
+    if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(step.offsetTop - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
+    el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)
   }, [])

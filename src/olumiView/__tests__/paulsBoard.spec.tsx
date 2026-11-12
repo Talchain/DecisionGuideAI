@@ -234,6 +234,17 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([r.textContent, r.className.includes('text-info')]).toEqual(['Reached in 2 of 3 windows', true])
   })
 
+  it('FT10 (DL-183, "a stray pencil glyph on a row of its own"): the ✎ is on the figure\'s line; on Olumi\'s question with no value yet, at the end of its author line; never a row of its own', () => {
+    const studio = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/studio.view.json'), 'utf8')) as View
+    const asked = studio.model!.cards.find((c) => c.figure?.edit != null && c.figure.text === '' && c.author?.by === 'olumi')!
+    const sized = studio.model!.cards.find((c) => c.figure?.edit != null && c.figure.text !== '' && c.family === 'quantity' && (c.values?.length ?? 0) <= 1)!
+    expect([asked, sized].every(Boolean), 'precondition').toBe(true)
+    const a = draw(studio, asked.id)
+    expect(a.querySelector('[data-figure-edit-wrap]')!.closest(`[data-core-author="${asked.id}"]`), asked.id).not.toBeNull(); cleanup()
+    const b = draw(studio, sized.id)
+    expect(b.querySelector('[data-figure-edit-wrap]')!.closest(`[data-core-lead="${sized.id}"]`), sized.id).not.toBeNull()
+  })
+
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
