@@ -5,6 +5,8 @@ import { Position, ReactFlowProvider } from '@xyflow/react'
 import { ViewLinkEdge } from '../ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 import type { ViewLink } from '../../../olumiView/client'
+import { useViewStore } from '../../../olumiView/store'
+import proposal from '../../../olumiView/golden/proposal.view.json'
 
 type Causal = NonNullable<ViewLink['causal']>
 // Synthetic rows of the producer contract, not invented causal measurements or a saved user's model.
@@ -22,7 +24,7 @@ const draw = (c: Causal | null, changes: Partial<ViewLink> = {}) => {
   const p = r.querySelector<SVGPathElement>('path.react-flow__edge-path')!
   return { r, p }
 }
-afterEach(cleanup)
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('a link renders the typed causal meaning, with no inferred strength scale', () => {
   it.each([['increases', '#62B290', '−'], ['decreases', '#D6336C', '+'], ['none', 'var(--edge-neutral)', '+'], ['unknown', 'var(--text-header)', '+']] as const)
@@ -59,5 +61,12 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('#62B290')
     cleanup()
     expect(draw(causal('decreases'), { alert: true }).p.style.stroke).toBe('var(--olumi-mark-orange)')
+  })
+  it('the challenge glyph is hoverable and named with core\'s own legend word', () => {
+    useViewStore.setState({ view: proposal as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']> })
+    const glyph = draw(null, { label: '!' }).r.querySelector('[data-view="links.0.label"]') as HTMLElement
+    expect(glyph).toHaveAccessibleName('challenge')
+    expect(glyph).toHaveAttribute('title', 'challenge')
+    expect(glyph.style.pointerEvents).toBe('auto')
   })
 })

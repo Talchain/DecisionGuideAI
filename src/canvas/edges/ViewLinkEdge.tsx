@@ -39,6 +39,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const { link, i } = data as ViewLinkData
   const causal = link.causal ?? null
   const signed = causal === null ? link.label !== '' : causal.sign === 'increases' || causal.sign === 'decreases'
+  const labelWord = useViewStore((s) => causal === null && link.label === '!' ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
   const hovered = useViewHover((h) => h.id)
@@ -172,7 +173,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
-            {!signed ? null : causal === null ? <span data-view={`links.${i}.label`}>{link.label}</span> : (
+            {!signed ? null : causal === null ? <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span> : (
               // The sign is a graphic of core's enum, not a sentence or a strength inferred from a legacy label.
               <svg width="1em" height="1em" viewBox="0 0 12 12" aria-hidden="true" data-view-link-sign={`links.${i}.causal.sign`} data-sign={causal.sign}>
                 <path d={causal.sign === 'increases' ? 'M1 6H11M6 1V11' : 'M1 6H11'} fill="none" stroke="currentColor" strokeWidth="1.4" />
