@@ -337,3 +337,9 @@
 .olumi-next .nx-detail .edit .field:focus-within{border-color:var(--text-header)}
 .olumi-next .nx-detail .edit input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;color:var(--text-header)}
 .olumi-next .nx-detail .edit-acts{display:flex;gap:var(--space-2);align-items:center}
+/* the panel's scroll fades at its top as well as its bottom, so text scrolled up never runs into the panel head (DL-235 fault 1; the
+   look-proof's panel never scrolled past its first turn). For the design session to take into the look. */
+.olumi-next .nx-scroll{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 12px,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,transparent,#000 12px,#000 calc(100% - 28px),transparent)}
+/* real counts are wider than the look-proof's "0": the decide row wraps, Set aside to the right, instead of clipping at the panel edge */
+.olumi-next .nx-decide{flex-wrap:wrap;row-gap:var(--space-2)}
+.olumi-next .nx-decide .btn-text{margin-left:auto}

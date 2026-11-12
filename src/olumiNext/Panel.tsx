@@ -3,14 +3,14 @@
  * layer. Only what works is drawn: no composer (no AI key on this slice), no lens other than Model. Core's words throughout; the screen's
  * own words are the look's three buttons ("Approve", "Approve selected · n") and the one line that says what unticked lines mean.
  */
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { View } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import {
-  TeamApiError, approveAll, approveSelected, correctFigure, editGateNow, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
+  TeamApiError, approveAll, approveSelected, awaitTurn, correctFigure, editGateNow, tellOlumi, working, type EditGate, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
   type Change, type Ticks,
 } from '../olumiView/journey'
-import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Tick } from './icons'
+import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Send, Tick } from './icons'
 import { Clamp, loose, type Loose } from './Cards'
 
 const said = (e: unknown, MW: Loose): string => (e instanceof TeamApiError ? e.message : MW.failed)
@@ -88,17 +88,22 @@ function Review({ v, ticks, setTicks }: { v: View; ticks: Ticks; setTicks: (t: T
 }
 
 /** The detail of one card: core's words for whose it is, its figure, what it rests on; and, where the person may, their correction and name. */
-function Detail({ v, id, editing, onClose }: { v: View; id: string; editing: boolean; onClose: () => void }) {
+function Detail({ v, id, editing, onClose, onTell }: { v: View; id: string; editing: boolean; onClose: () => void; onTell: (draft: string) => void }) {
   const c = (v.model?.cards ?? []).find((x) => x.id === id) ?? null
   const MW = loose(v.model_words), q = loose(v.model?.question)
   useViewStore((st) => st.view) // re-drawn on every View the store holds
   const gate = editGateNow()
-  const [form, setForm] = useState<'figure' | 'name' | null>(editing ? 'figure' : null)
+  const [form, setForm] = useState<'figure' | 'name' | null>(null)
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // The base the editor OPENED on: a background read never moves the person's words onto a newer version.
-  const [base] = useState(gate)
+  // The base THIS editor opened on (PL-581): captured when the person opens it, kept with their typing across any later View, never
+  // retargeted silently; core refuses a stale base in its own words and the typing stays. A save, a cancel or a new editor takes it afresh.
+  const [base, setBase] = useState<Extract<EditGate, { ok: true }> | null>(null)
+  const open = (which: 'figure' | 'name', start: string) => { const g = editGateNow(); if (!g.ok) return; setBase(g); setTyped(start); setForm(which); setError(null) }
+  const close = () => { setForm(null); setBase(null); setTyped(''); setError(null) }
+  // The card's pencil opens the figure editor on a detail already open; never over an editor the person is typing in.
+  useEffect(() => { if (editing && form === null) open('figure', '') }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
   const L = loose(c), f = L.figure, ls = (v.model?.links ?? []).filter((l) => l.from === id || l.to === id)
   const pairs: [ReactNode, (string | null | undefined)[] | null][] = c === null ? [[null, [q.badge?.title]]] : [
     [MW.whose, L.author ? [L.author.text, L.author.title] : null],
@@ -112,35 +117,39 @@ function Detail({ v, id, editing, onClose }: { v: View; id: string; editing: boo
   ]
   const save = async (act: () => Promise<{ shown: boolean }>) => {
     setBusy(true); setError(null)
-    try { const r = await act(); if (r.shown) { setForm(null); setTyped('') } else setError(MW.savedNotShown) } catch (e) { setError(said(e, MW)) } finally { setBusy(false) }
+    try { const r = await act(); if (r.shown) close(); else setError(MW.savedNotShown) } catch (e) { setError(said(e, MW)) } finally { setBusy(false) }
   }
   const offersFigure = c !== null && c.family !== 'option' && f != null
   return (
     <section className="nx-detail" data-testid="next-detail" data-detail-of={id}>
       <header><h3>{c?.heading ?? q.text}</h3><button type="button" className="icon-btn" aria-label={loose(v.evidence_words).close} onClick={onClose}><Close /></button></header>
       <dl>{pairs.map(([dt, dd], i) => (dd === null || dd.every((x) => !x) ? null : <div key={i}>{dt ? <dt>{dt}</dt> : <dt />}{dd.map((x, j) => (x ? <dd key={j}>{x}</dd> : null))}</div>))}</dl>
-      {c === null ? null : !base.ok ? (
-        // Core takes no change while Olumi's proposal waits (DL ruling c): its own words say so, where a change would be made.
-        base.reason === 'after_approval' ? <div className="held" data-testid="next-held"><p className="say">{MW.heldLead}</p><p className="meta">{MW.heldBody}</p></div> : null
-      ) : form === null ? (
-        <div className="detail-acts">
-          {offersFigure && f.edit ? <button type="button" className="textlink" data-testid="next-change-figure" onClick={() => setForm('figure')}><Pencil /><span>{f.text ? MW.changeFigure : MW.setFigure}</span></button> : null}
-          <button type="button" className="textlink" data-testid="next-rename" onClick={() => { setTyped(c.heading); setForm('name') }}><span>{MW.rename}</span></button>
-        </div>
-      ) : (
-        <form className="edit" data-testid={`next-form-${form}`} onSubmit={(e) => {
+      {c === null ? null : form !== null && base !== null ? (
+        <form className="edit" data-testid={`next-form-${form}`} data-base={base.base} onSubmit={(e) => {
           e.preventDefault()
-          if (!base.ok || typed.trim() === '') return
+          if (typed.trim() === '') return
           void save(() => (form === 'figure' ? correctFigure(base, id, typed) : renameCard(base, id, typed)))
         }}>
           <label className="meta" htmlFor="next-edit-field">{form === 'figure' ? (f?.edit?.ask ?? MW.figure) : MW.newName}</label>
           <div className="field"><input id="next-edit-field" type="text" value={typed} placeholder={form === 'figure' ? MW.figureHint : undefined} onChange={(e) => setTyped(e.target.value)} disabled={busy} data-testid="next-edit-field" /></div>
           <div className="edit-acts">
             <button type="submit" className="btn btn-primary" disabled={busy || typed.trim() === ''} data-testid="next-edit-save">{busy ? MW.saving : form === 'figure' ? (f?.text ? MW.changeFigure : MW.setFigure) : MW.saveName}</button>
-            <button type="button" className="btn btn-text" onClick={() => { setForm(null); setError(null) }} disabled={busy}>{MW.cancel}</button>
+            <button type="button" className="btn btn-text" onClick={close} disabled={busy}>{MW.cancel}</button>
           </div>
         </form>
-      )}
+      ) : gate.ok ? (
+        <div className="detail-acts">
+          {offersFigure && f.edit ? <button type="button" className="textlink" data-testid="next-change-figure" onClick={() => open('figure', '')}><Pencil /><span>{f.text ? MW.changeFigure : MW.setFigure}</span></button> : null}
+          <button type="button" className="textlink" data-testid="next-rename" onClick={() => open('name', c.heading)}><span>{MW.rename}</span></button>
+        </div>
+      ) : gate.reason === 'after_approval' ? (
+        // While Olumi's proposal waits, core takes no direct change (its own words say so) and the person corrects it by telling Olumi
+        // (PL-567): core's own words for that, and core's own opening for this card.
+        <div className="held" data-testid="next-held">
+          <p className="say">{MW.heldLead}</p><p className="meta">{MW.heldBody}</p>
+          {MW.askChange ? <button type="button" className="textlink" data-testid="next-ask-change" onClick={() => onTell(MW.askChangeDraft?.[id] ?? '')}><span>{MW.askChange}</span></button> : null}
+        </div>
+      ) : null}
       {error ? <p role="alert" className="meta err" data-testid="next-error">{error}</p> : null}
     </section>
   )
@@ -158,11 +167,20 @@ export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; det
     try { const r = await f(); setTicks(new Set()); if (!r.shown) setError(MW.savedNotShown) } catch (e) { setError(said(e, MW)) } finally { setBusy(false) }
   }
   const chat: Loose[] = (v.chat ?? []).map((t) => ({ ...loose(t), _show: MW.showOnCanvas }))
+  // While a proposal is pending, the person corrects it by telling Olumi (core takes the message against the pending draft); the answer
+  // arrives as Olumi's newest turn. Not offered once the model is approved: there the person edits directly.
+  const [tell, setTell] = useState('')
+  const [telling, setTelling] = useState(false)
+  const send = async () => {
+    if (tell.trim() === '' || telling) return
+    setTelling(true); setError(null)
+    try { await tellOlumi(tell); setTell(''); await awaitTurn() } catch (e) { setError(said(e, MW)) } finally { setTelling(false) }
+  }
   return (
     <aside className="nx-panel" data-testid="next-panel">
       <div className="nx-panel-head">{v.team_presence ? <span className="meta">{loose(v.team_presence).label}</span> : null}</div>
       <div className="nx-scroll">
-        {detail !== null ? <Detail key={`${detail}:${editing}:${v.version?.n ?? 0}`} v={v} id={detail} editing={editing} onClose={closeDetail} /> : null}
+        {detail !== null ? <Detail key={`${v.id}:${detail}`} v={v} id={detail} editing={editing} onClose={closeDetail} onTell={setTell} /> : null}
         {chat.some((t) => t.earlier) ? (
           <div className="earlier-list">{chat.flatMap((t, i) => (t.earlier ? [
             <details key={i} className="earlier"><summary><span className="by">{t.by}</span><span className="meta">{t.version}</span><span className="one">{t.said}</span><span><Chev /></span></summary><Turn t={t} onShow={flash} /></details>,
@@ -182,6 +200,14 @@ export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; det
       {/* Unticked lines are not added: said in plain numbers while some are ticked and some are not (the layer keeps no refusal record yet). */}
       {P && n > 0 && picks.left.length > 0 ? <p className="meta nx-decide-note" data-testid="next-left-out">{picks.left.length} not ticked: Approve selected does not add them.</p> : null}
       {error ? <p role="alert" className="meta err nx-decide-note" data-testid="next-error">{error}</p> : null}
+      {P ? (
+        <form className="nx-composer" data-testid="next-tell" onSubmit={(e) => { e.preventDefault(); void send() }}>
+          <div className="field">
+            <input type="text" value={tell} onChange={(e) => setTell(e.target.value)} disabled={telling || working(v)} placeholder="Tell Olumi what to change" aria-label="Tell Olumi what to change" data-testid="next-tell-field" />
+            <button type="submit" aria-label="Send" disabled={telling || working(v) || tell.trim() === ''} data-testid="next-tell-send"><Send /></button>
+          </div>
+        </form>
+      ) : null}
     </aside>
   )
 }

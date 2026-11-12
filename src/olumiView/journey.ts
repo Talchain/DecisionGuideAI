@@ -150,16 +150,28 @@ export async function setAside(): Promise<Outcome<unknown>> {
   return { answer, shown: await useViewStore.getState().modelChanged() }
 }
 
-/** One of Olumi's questions, by its place in `model.coaching_questions` and its words (core sends no id: the words guard a stale place). */
-export type QuestionRef = { readonly at: number; readonly text: string }
 /**
- * Answer one of Olumi's questions in the person's own words: sent as their message (core binds no answer to a question yet), only while
- * the View still asks that question in those words. Olumi answers in core; `awaitTurn` waits for it.
+ * Tell Olumi something in the person's own words (a correction, an answer, a doubt): one message, answered in core (`awaitTurn`). While a
+ * proposal is pending this is how it is corrected: core takes the message against the pending draft (app/turns.ts:162/198), where a direct
+ * edit waits for approval (DL ruling c, amended by PL-567).
  */
+export async function tellOlumi(text: string) {
+  liveView()
+  const sid = useViewStore.getState().sid!
+  return runWrite(`${sid}:tell`, { op: true }, { text }, (op) => writes.message(sid, text, op!))
+}
+
+/**
+ * One of Olumi's questions as the SCREEN shows it: its place in `model.coaching_questions` and its words. SCREEN CONTEXT ONLY: core has no
+ * question id and binds no answer to a question (the message route takes words alone), so nothing of this is sent. It only guards that
+ * the screen still asks that question in those words when the person answers.
+ */
+export type QuestionRef = { readonly at: number; readonly text: string }
+/** Answer one of Olumi's questions: the guard above, then the person's words as an ordinary message (`tellOlumi`). No binding is implied. */
 export async function answer(q: QuestionRef, text: string) {
-  const view = liveView(), sid = useViewStore.getState().sid!
+  const view = liveView()
   if ((view.model?.coaching_questions ?? [])[q.at] !== q.text) throw new JourneyRefusal('stale_question')
-  return runWrite(`${sid}:answer:${q.at}`, { op: true }, { q, text }, (op) => writes.message(sid, text, op!))
+  return tellOlumi(text)
 }
 
 /** Challenge one record (a card or a statement) of the model, by one of core's challenge kinds. Olumi answers in core. */
