@@ -855,7 +855,7 @@ describe('the compact strip and its review row', () => {
     const { container, unmount } = render(<ViewReasoning model={v.model!} brief={v.brief} />)
     const marks = [...container.querySelectorAll<HTMLElement>('[data-glance-card]')]
     expect(marks.length).toBeGreaterThan(3)
-    for (const m of marks) { expect(m.className).toMatch(/\bw-5\b/); expect(m.querySelector('[data-view$=".heading"]')!.className).toMatch(/sr-only/); expect(m.getAttribute('title')).toBe(m.getAttribute('aria-label')) }
+    for (const m of marks) { expect(m.className).toMatch(/\bh-6 w-6\b/); expect(m.querySelector('[data-view$=".heading"]')!.className).toMatch(/sr-only/); expect(m.getAttribute('title')).toBe(m.getAttribute('aria-label')) }
     const flagged = v.model!.cards.filter((c) => c.focus || c.challenged || c.change != null).length
     expect(flagged, 'precondition: the proposal golden has cards to review').toBeGreaterThan(0)
     expect(screen.getByTestId('view-reasoning-to-review').textContent).toBe(`${flagged} ${REASONING_LABELS.review}`)

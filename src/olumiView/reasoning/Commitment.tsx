@@ -7,13 +7,14 @@
  */
 import type { View } from '../client'
 import { MoveTap, Words } from '../ViewChat'
+import { newestNextOf } from '../layout'
 import { typography } from '../../styles/typography'
 import { ZoneTitle } from './parts'
 
 export function Commitment({ view, title }: { view: View; title: string }) {
   const waits = view.model?.run?.waits_on ?? null
-  const last = view.chat.length === 0 ? null : view.chat[view.chat.length - 1]!
-  const next = last?.answer?.next.newest ? last.answer.next : null
+  // The newest reply's next step, by core's own `newest` mark (layout.ts newestNextOf, the picker the Analysis tab uses too).
+  const nx = newestNextOf(view.chat), next = nx?.next ?? null
   if (waits === null && next === null) return null
   return (
     <section className="space-y-1" data-testid="view-reasoning-commitment" aria-label={title}>
@@ -25,10 +26,10 @@ export function Commitment({ view, title }: { view: View; title: string }) {
           {waits.items.map((w, i) => <p key={w.id} title={w.title} data-view={`run.waits_on.items.${i}.text`}>{w.text}</p>)}
         </div>
       )}
-      {next === null || last === null ? null : (
+      {nx === null ? null : (
         <div className={`${typography.viewPanelBody} space-y-1`} data-testid="view-reasoning-next">
-          <p><span className={typography.panelHeader} data-view={`chat.${view.chat.length - 1}.answer.next.label`}>{next.label}</span>{' '}<Words parts={next.text} at={`chat.${view.chat.length - 1}.answer.next.text`} /></p>
-          <MoveTap turn={last.id} next={next} at={`chat.${view.chat.length - 1}.answer.next`} />
+          <p><span className={typography.panelHeader} data-view={`chat.${nx.k}.answer.next.label`}>{nx.next.label}</span>{' '}<Words parts={nx.next.text} at={`chat.${nx.k}.answer.next.text`} /></p>
+          <MoveTap turn={nx.turn.id} next={nx.next} at={`chat.${nx.k}.answer.next`} />
         </div>
       )}
     </section>
