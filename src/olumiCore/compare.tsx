@@ -205,10 +205,10 @@ export function CoreCompareTab(): JSX.Element {
   const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
   const held = useViewStore((s) => s.view?.proposal != null)
   const latest = useLatestApproved()
-  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
+  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
-    <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] gap-3 px-3 py-3 pb-6">
+    <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6">
       {since === null ? null : <SinceVersion since={since} />}
       {!sid || latest === null || latest === undefined
         // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).

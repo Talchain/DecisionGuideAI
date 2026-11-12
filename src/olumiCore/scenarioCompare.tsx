@@ -392,7 +392,7 @@ function CompareSides({ sid }: { sid: string }): JSX.Element {
   }
   const saved = async (id: string) => { await own.reread(); setPicked(id); void go(a, id) }
   return (
-    <section className="grid gap-2" data-testid="scenario-compare" aria-label="Compare side by side">
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="scenario-compare" aria-label="Compare side by side">
       <h3 className={H}>Compare side by side</h3>
       {others === null ? <p className={META} data-testid="scenario-compare-loading">Reading your scenarios…</p>
         : others === 'error' && !any ? <p className={ERR} data-testid="scenario-compare-list-error">Your scenarios could not be read just now.</p>
