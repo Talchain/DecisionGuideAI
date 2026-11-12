@@ -1,0 +1,23 @@
+/* LIVE conversation and review panel: v2's tokens only (tokens.css), no new colours or sizes. */
+.live-panel { position: fixed; right: var(--sp-4); bottom: var(--sp-4); top: calc(var(--topbar-h) + var(--sp-4)); width: 380px; display: flex; flex-direction: column;
+  background: var(--bg-panel); border: 1px solid var(--border-emphasis); border-radius: var(--radius-md); box-shadow: var(--shadow-2); z-index: var(--z-popover);
+  font: var(--fw-regular) var(--fs-14)/var(--lh-14) var(--font-sans); color: var(--text-body); }
+.live-panel .lp-head { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-default); }
+.live-panel .lp-body { flex: 1; overflow: auto; padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.live-panel .lp-meta { color: var(--text-light); font-size: var(--fs-13); line-height: var(--lh-13); }
+.live-panel .lp-err { color: var(--danger); font-size: var(--fs-13); line-height: var(--lh-13); padding: 0 var(--sp-4); }
+.live-panel .lp-said { background: var(--bg-sunken); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--text-header); }
+.live-panel .lp-olumi { color: var(--text-header); }
+.live-panel .lp-next { color: var(--info-ink); margin-top: var(--sp-2); }
+.live-panel .lp-qs { display: flex; flex-direction: column; gap: var(--sp-1h); }
+.live-panel .lp-q { text-align: left; color: var(--info-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.live-panel .lp-q:hover { text-decoration: underline; text-underline-offset: 3px; }
+.live-panel .lp-review { border-top: 1px solid var(--border-default); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.live-panel .lp-reading { border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); background: var(--info-wash); }
+.live-panel .lp-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1h); font-size: var(--fs-13); line-height: var(--lh-13); }
+.live-panel .lp-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.live-panel .lp-composer { border-top: 1px solid var(--border-default); padding: var(--sp-3) var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.live-panel .lp-composer input { flex: 1; min-width: 0; height: 32px; border: 1px solid var(--border-field); border-radius: var(--radius-sm); padding: 0 var(--sp-2); font: inherit; color: var(--text-header); }
+.live-panel .lp-ctx { flex-basis: 100%; color: var(--info-ink); }
+.live-panel .lp-x { border: 0; background: none; color: var(--text-light); cursor: pointer; font: inherit; }
+.lp-fatal { position: fixed; inset: auto var(--sp-4) var(--sp-4) auto; background: var(--danger-light); color: var(--danger); padding: var(--sp-3); border-radius: var(--radius-sm); }

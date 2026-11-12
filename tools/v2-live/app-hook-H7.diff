@@ -1,0 +1,85 @@
+--- /Users/paulslee/Documents/GitHub/output/olumi-moves-20261112/v2/app.js	2026-11-12 23:03:05
++++ /Users/paulslee/Documents/GitHub/output/olumi-moves-20261112/v2-live/app.js	2026-11-12 22:10:31
+@@ -323,7 +323,8 @@
+     let limit = '';
+     if (o.limit) {
+       const lv = o.limit.state === 'none' ? `<span class="lim-text lim-text--none">not worked out</span>`
+-        : `<span class="lim-meter"><i style="--w:${((o.limit.value || 0) * 100).toFixed(1)}%"></i></span><span class="lim-text">${esc(o.limit.text)}${o.limit.state === 'chance' ? ' within' : ''}</span>`;
++        // v2-live hook H7: a meter only for a typed chance; a chance the View gives in words only is drawn as its words (never a 0% bar).
++        : `${typeof o.limit.value === 'number' ? `<span class="lim-meter"><i style="--w:${(o.limit.value * 100).toFixed(1)}%"></i></span>` : ''}<span class="lim-text">${esc(o.limit.text)}${o.limit.state === 'chance' ? ' within' : ''}</span>`;
+       limit = `<div class="o-limit" title="${esc(o.limit.title)}">${kindGlyph('limit')}<span class="lim-label">Limit</span>${lv}</div>`;
+     }
+     const fixedShort = o.chance >= 1 ? 'always met' : 'never met';
+@@ -362,18 +363,18 @@
+     const titleAttr = c.short ? ` title="${esc(c.heading)}"` : '';
+     const noFig = !c.figureText && c.figureState ? `<span class="f-none" title="${esc(c.figureTitle || '')}"><i aria-hidden="true"></i>${esc(c.figureState)}</span>` : '';
+     const figLine = c.figureText ? `<span class="f-fig">${esc(c.figureText)}</span>` : noFig;
+-    if (dens === 'slim') return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="3"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>`;
++    if (dens === 'slim') return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="2"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>`;
+     /* a risk nobody has sized, when space is short: its state rides in the head as a dashed slot */
+     if (kind === 'risk' && !c.range && (dens === 'compact' || dens === 'snug')) {
+-      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="3"${titleAttr}>${head}</h3><span class="f-none f-none--slot" title="${esc(c.figureText || c.figureState || '')}"><i aria-hidden="true"></i><span class="sr">${esc(c.figureText || c.figureState || '')}</span></span>${authorMark(c.author)}</div>`;
++      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="2"${titleAttr}>${head}</h3><span class="f-none f-none--slot" title="${esc(c.figureText || c.figureState || '')}"><i aria-hidden="true"></i><span class="sr">${esc(c.figureText || c.figureState || '')}</span></span>${authorMark(c.author)}</div>`;
+     }
+     if (dens === 'compact') {
+-      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="3"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>
++      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="2"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>
+         <div class="f-row">${figLine}${c.team ? `<span class="team-mini">${c.team.people.map((p) => avatar(p.person, 'av--xs')).join('')}</span>` : ''}</div>
+         ${G.proposals[c.id] ? range : ''}`;
+     }
+     if (dens === 'snug') {
+-      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="3"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>
++      return `<div class="c-head">${kindGlyph(kind)}<h3 class="c-title c-title--sm" data-clamp="2"${titleAttr}>${head}</h3>${authorMark(c.author)}</div>
+         <div class="f-row f-row--snug">${figLine}${c.team ? `<span class="team-mini" title="${esc(c.team.people.map((p) => p.person.name + ' ' + p.text).join(' · '))}">${icon('team')}${c.team.people.map((p) => avatar(p.person, 'av--xs')).join('')}</span>` : ''}</div>
+         ${range}`;
+     }
+@@ -608,21 +609,11 @@
+     G.tried = [];
+     const forced = P.get('dens');
+     /* full → snug → compact → dense (no lane headings) → denser (other options slim): the first that fits */
+-    /* Builder 3: with a move open, full/snug/compact are kept only if the WHOLE artefact fits beside them (an artefact
+-       that scrolls hides part of the move); dense and focus accept the bench at its floor. */
+     for (const dens of (forced ? [forced] : ['full', 'snug', 'compact', 'dense', 'focus'])) {
+       placed = tryDensity(dens);
+       G.tried.push(dens + ':' + Math.round(placed.height) + '/' + H);
+       benchH = benchWant ? Math.max(benchMin, Math.min(benchWant, H - placed.height - 12)) : 0;
+-      /* roomy: the artefact's own body does not scroll at this bench height (an empty body, at open, always fits;
+-         play() lays out again once the move has drawn, see below) */
+-      let roomy = !benchWant || ['dense', 'focus'].includes(dens) || !!forced;
+-      if (!roomy) {
+-        const bb = $('#bench-body');
+-        $('#bench').style.height = benchH + 'px';
+-        roomy = !bb || !bb.firstChild || bb.scrollHeight <= bb.clientHeight + 1;
+-      }
+-      if (roomy && placed.height + (benchWant ? benchH + 12 : 0) <= H) break;
++      if (placed.height + (benchWant ? benchH + 12 : 0) <= H) break;
+     }
+     G.benchH = benchH;
+     G.fits = placed.height + (benchWant ? benchH + 12 : 0) <= H + 1;
+@@ -1110,8 +1101,6 @@
+     renderShelf();
+     const ctx = ctxFor(id);
+     try { await def.play(ctx); } catch (err) { console.error(err); }
+-    /* Builder 3: now the artefact is drawn, lay out once more so the graph steps down if the artefact would scroll */
+-    if (S.playing === id && S.benchFrom) { G.rendered = false; relayout(); }
+     const close = $('.bench-close');
+     if (close && !FAST) close.focus({ preventScroll: true });
+   }
+@@ -1149,7 +1138,7 @@
+     const issues = [];
+     const main = $('#canvas').getBoundingClientRect();
+     const root = $('#iface');
+-    const cards = $$('.card, .trow', root).filter((el) => el.getClientRects().length).map((el) => ({ id: el.dataset.card || el.dataset.opt, r: el.getBoundingClientRect() }));
++    const cards = $$('.card, .trow', root).map((el) => ({ id: el.dataset.card || el.dataset.opt, r: el.getBoundingClientRect() }));
+     const bench = $('#bench').classList.contains('is-open') ? $('#bench').getBoundingClientRect() : null;
+     const ov = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+     for (let i = 0; i < cards.length; i++) {
+@@ -1186,7 +1175,7 @@
+       });
+     });
+     /* a word-boundary clamp that fired is a shortened name: report it, the shots must not rely on it */
+-    $$('[data-clamp]', $('#canvas')).forEach((t) => { if (/…$/.test(t.textContent) && t.getClientRects().length) issues.push(`shortened "${t.textContent.trim().slice(0, 36)}"`); });
++    $$('[data-clamp]', root).forEach((t) => { if (/…$/.test(t.textContent) && t.getClientRects().length) issues.push(`shortened "${t.textContent.trim().slice(0, 36)}"`); });
+     $$('.ring-tag', root).forEach((t) => {
+       const r = t.getBoundingClientRect();
+       for (const c of cards) { const own = G.rings[c.id]; if (!own && ov(r, c.r)) issues.push(`ring tag sits on ${c.id}`); }

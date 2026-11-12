@@ -68,7 +68,8 @@ const SUSPENDED = 'the look-proof is no longer the source (Paul rejected the loo
 describe.skip(`board layout equals the look-proof, node for node and wire for wire [SUSPENDED: ${SUSPENDED}]`, () => {
   const views: Record<string, View> = {}
   const refs: Record<string, Ref> = {}
-  if (have) {
+  // Collecting a skipped suite still runs this body: while suspended, nothing is read (the look-proof files may be rewritten or empty).
+  if (have && !SUSPENDED) {
     for (const b of BOARDS) {
       views[b.name] = JSON.parse(readFileSync(path.join(LOOKPROOF_DIR, b.file), 'utf8')) as View
       for (const s of SIZES) refs[`${b.name}-${s}`] = JSON.parse(readFileSync(path.join(LAYOUT_REF_DIR, `${b.name}-${s}.json`), 'utf8')) as Ref

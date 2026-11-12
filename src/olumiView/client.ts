@@ -108,7 +108,8 @@ export const writes = {
    *  `only_top` as empty once `only_readings` is present, so a caller that sends readings always sends both lists with them (the type holds it). */
   approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[]; only_readings?: string[] }) =>
     call<unknown>('POST', `/api/proposals/${proposal}/approve`, pick === undefined ? { base } : { base, ...pick }),
-  discard: (proposal: number) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, {}),
+  /** Set aside (core's discard). `refuse` (PL-629/PL-661): readings the person declined, by the View's opaque `reading.id` as served; never inferred. */
+  discard: (proposal: number, refuse: readonly string[] = []) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, refuse.length > 0 ? { refuse_readings: [...refuse] } : {}),
   /** The person's own figure for one quantity, as they typed it (API v1.9 `typed`): core reads it as its page does, or refuses in the card's own ask. */
   edit: (sid: string, base: number, quantity: string, typed: string, op: string) => call<{ version: number; n: number; receipt: string }>('POST', `${scenarioPath(sid)}/edit`, { base, quantity, typed, op }),
   /** R25: their own name for a card (DL contract 02:14Z): saved at once as a person-authored version, only the name changes. */

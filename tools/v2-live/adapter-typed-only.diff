@@ -1,0 +1,65 @@
+--- /Users/paulslee/Documents/GitHub/output/olumi-moves-20261112/v2-live/adapter.frozen.js	2026-11-12 22:10:24
++++ /Users/paulslee/Documents/GitHub/output/olumi-moves-20261112/v2-live/adapter.js	2026-11-12 22:10:24
+@@ -7,6 +7,9 @@
+   'use strict';
+ 
+   /* ---------- small helpers ---------- */
++  /* v2-live: every place the View serves a needed value only as words is counted here (model.gaps), never parsed around. Reset per adapt(). */
++  let GAPS = [];
++  const gap = (code, what, where) => { if (!GAPS.some((g) => g.code === code && g.where === where)) GAPS.push({ code, what, where: where || null }); };
+   const byId = (list) => Object.fromEntries((list || []).map((x) => [x.id, x]));
+   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+@@ -143,6 +146,7 @@
+ 
+   /* ---------- the adapter ---------- */
+   function adapt(view, key) {
++    GAPS = [];
+     const m = view.model || {};
+     const cardsIn = m.cards || [];
+     const linksIn = m.links || [];
+@@ -243,7 +247,8 @@
+ 
+       /* sensitivity: the figure the chance moves most with (served per option) */
+       const drv = goalRow && goalRow.driver ? goalRow.driver : null;
+-      const drvText = c.driver ? parseDriverText(c.driver.text) : null;
++      // v2-live: the low/high chance WORDS are not cut out of the driver sentence (contract gap G4); the typed low/high numbers stay.
++      const drvText = null; if (c.driver) gap('G4', 'driver low/high words only inside driver.text', id);
+       o.driver = drv ? {
+         figure: drv.figure, label: labelOf(drv.figure), low: drv.low, high: drv.high,
+         lowText: drvText ? drvText.lowText : null, highText: drvText ? drvText.highText : null,
+@@ -252,9 +257,10 @@
+ 
+       /* within the limit */
+       if (limitRow && limitRow.kind === 'limit') {
+-        const p = parseShownPercent(limitRow.value);
+-        o.limit = { state: p && (p.qualifier === 'always' || p.qualifier === 'never') ? 'fixed' : 'chance',
+-          value: p ? p.value : null, text: limitRow.value, aimId: limitRow.aim_id, title: limitRow.title || '' };
++        // v2-live (PL-647): the View serves this chance as words only (core keeps it typed in about.chance but the View drops it). No number is
++        // read from the words: the text is drawn as given, its value stays null, and the gap is counted (contract gap G1).
++        o.limit = { state: 'text', value: null, text: limitRow.value, aimId: limitRow.aim_id, title: limitRow.title || '' };
++        gap('G1', 'limit chance as words only: rows[kind=limit].value', id);
+       } else if (limitRow) {
+         o.limit = { state: 'none', value: null, text: null, aimId: limitRow.aim_id, title: limitRow.text || '' };
+       } else {
+@@ -340,9 +346,8 @@
+       if (m.aim && m.aim.quantity === c.id) {
+         aim = { value: m.aim.value, side: m.aim.side, text: m.aim.title, goalId: gid, source: 'aim' };
+       } else if (g && g.threshold) {
+-        const v = parseShownNumber(g.threshold.text);
+-        const side = /at most|under|less|below|no more/i.test(g.boundText || '') ? 'at_most' : 'at_least';
+-        if (v !== null) aim = { value: v, side, text: g.threshold.text, goalId: gid, source: 'threshold' };
++        // v2-live: a goal or limit other than the View's typed aim has its threshold in words only: no number or side is read from them (gaps G2, G3).
++        gap('G2', 'threshold value only in words', gid); gap('G3', 'threshold side only in words', gid);
+       }
+       o.aim = aim;
+       o.goalId = gid;
+@@ -481,7 +486,7 @@
+     };
+ 
+     return {
+-      key, schema: view.schema, title: view.title,
++      key, schema: view.schema, title: view.title, gaps: GAPS,
+       version: view.version ? { label: view.version.label, at: view.version.at_text } : null,
+       you: personOf(view.you_id, view.you), members,
+       question: { text: m.question ? m.question.text : '' },

@@ -92,7 +92,7 @@ export function verdictOf(p: Proposal): Verdict | null {
 
 // ─── Acts ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 /** Why an act was not sent, typed so the screen words it (core's own refusal words come back as `TeamApiError.message`). */
-export type NotNow = 'past_version' | 'not_your_page' | 'no_view' | 'no_proposal' | 'unsupported' | 'nothing_ticked' | 'stale_question' | 'busy'
+export type NotNow = 'past_version' | 'not_your_page' | 'no_view' | 'no_proposal' | 'unsupported' | 'nothing_ticked' | 'stale_question' | 'busy' | 'not_served'
 export class JourneyRefusal extends Error { constructor(readonly reason: NotNow) { super(reason); this.name = 'JourneyRefusal' } }
 
 /** After a saved write: whether the View read since shows it. False is "saved, not shown yet" (the screen says so; the write is not lost). */
@@ -163,11 +163,30 @@ export async function unsureOfReading(picks: Picks & { readonly left: Change[] }
   if (picks.only.length + picks.only_top.length === 0) throw new JourneyRefusal('nothing_ticked')
   return approveSelected(picks, {}, { lines: picks.left.map((c) => c.id) })
 }
-/** Set the whole proposal aside (core's discard): nothing of it is added. Then the View is read again. */
-export async function setAside(): Promise<Outcome<unknown>> {
+/** A reading id this proposal serves (PL-661): ids are core's opaque keys, used exactly as served; one it does not serve is refused, never sent. */
+function served(p: Proposal, ids: readonly string[]) {
+  const known = new Set(readingsOn(p).map((r) => r.id))
+  if (ids.some((id) => !known.has(id))) throw new JourneyRefusal('not_served')
+}
+/**
+ * The person's answers to Olumi's readings, with the lines they chose (PL-661): confirmed readings go as `only_readings`, declined ones as
+ * `refuse_readings`, each by its served id; a reading left unsure goes in neither (unsure is not a no). Core refuses (409, its own words) an
+ * approval that leaves a reading carried from an earlier message unsettled. Nothing ticked: nothing is sent.
+ */
+export async function answerReadings(picks: Picks & { readonly left: Change[] }, answers: { readonly confirm: readonly string[]; readonly decline: readonly string[] }) {
   const p = liveView().proposal
   if (p === null) throw new JourneyRefusal('no_proposal')
-  const answer = await runWrite(`${useViewStore.getState().sid}:discard:${p.id}`, { op: APPROVAL_TAKES_OP }, { proposal: p.id }, () => writes.discard(p.id))
+  served(p, [...answers.confirm, ...answers.decline])
+  if (picks.only.length + picks.only_top.length === 0) throw new JourneyRefusal('nothing_ticked')
+  return approveSelected(picks, { readings: answers.confirm }, { readings: answers.decline, lines: picks.left.map((c) => c.id) })
+}
+/** Set the whole proposal aside (core's discard): nothing of it is added. `decline`: the readings the person declined, sent as core's
+ *  `refuse_readings` (PL-629); with none declined nothing is refused, and core says (409) if a carried reading is still unsettled. */
+export async function setAside({ decline = [] }: { readonly decline?: readonly string[] } = {}): Promise<Outcome<unknown>> {
+  const p = liveView().proposal
+  if (p === null) throw new JourneyRefusal('no_proposal')
+  served(p, decline)
+  const answer = await runWrite(`${useViewStore.getState().sid}:discard:${p.id}`, { op: APPROVAL_TAKES_OP }, { proposal: p.id, refuse_readings: decline }, () => writes.discard(p.id, decline))
   return { answer, shown: await useViewStore.getState().modelChanged() }
 }
 
