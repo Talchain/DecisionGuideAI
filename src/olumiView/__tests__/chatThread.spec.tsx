@@ -236,6 +236,24 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(550)
   })
 
+  it('CT8b (DL-183, Paul\'s 1.33 scale): with a Next step card below the newest reply, following brings the card whole into view, or its top when taller; CONTRAST: no card, the reply\'s start', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
+    show({ ...proposal, chat: proposal.chat.slice(0, Math.max(0, proposal.chat.length - 1)) })
+    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    act(() => show(proposal))
+    expect(queryByTestId('view-next-step'), 'precondition: core asks for a next step on a held proposal').not.toBeNull()
+    expect(scroll.scrollTop).toBe(666) // 700 + 150 + 16 - 200: the card whole, its foot 16 px above the thread's
+    cleanup()
+    show({ ...proposal, chat: proposal.chat.slice(0, Math.max(0, proposal.chat.length - 1)) })
+    const short = render(<ViewChat />).getByTestId('view-chat-scroll')
+    Object.defineProperties(short, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 100, configurable: true } })
+    act(() => show(proposal))
+    expect(short.scrollTop).toBe(684) // taller than the thread: its top
+  })
+
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
   it('CT9 observes content growth while following, preserves a scrolled-back position and disconnects', () => {
     let resize: ResizeObserverCallback = () => undefined

@@ -137,6 +137,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.nodeLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
+  // The figure's ✎ (R25): on the figure's own line, as the retired card drew it. A figure with no value yet (Olumi's question, not yet
+  // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
+  // "a stray pencil glyph on a row of its own").
+  const editCue = card === null || card.figure === null ? null : edit !== null
+    ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+    : card.change?.kind !== 'added' && kind !== 'outcome'
+      ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
+  const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
+  const cueOnAuthor = editCue !== null && !cueOnLead && olumi
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
     : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
@@ -154,12 +163,13 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {lead === null ? null : (
             // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
-            <p className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
+            <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
               title={[leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
               {lead}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
-            </p>
+              {cueOnLead ? <>{' '}{editCue}</> : null}
+            </div>
           )}
           {reading === null ? null : <p className={`${typography.nodeLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
@@ -209,11 +219,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             ) })()}
             <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
-          {card.figure === null ? null : edit !== null
-            ? <span className="nodrag self-start" data-figure-edit-wrap=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
-            : card.change?.kind !== 'added' && kind !== 'outcome'
-              ? <span className="nodrag self-start" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
-          {olumi ? <p className={`${typography.nodeLabel} text-info`} title={card.author!.title} data-core-author={id}>{card.author!.text}</p> : null}
+          {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
+          {olumi ? <div className={`${typography.nodeLabel} text-info`} data-core-author={id}><span title={card.author!.title}>{card.author!.text}</span>{cueOnAuthor ? <>{' '}{editCue}</> : null}</div> : null}
           {badgeLine}
         </div>
       )}
