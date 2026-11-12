@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { View } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import {
-  TeamApiError, answer, approveAll, approveSelected, awaitTurn, confirmReading, correctFigure, editGateNow, readingsOn, tellOlumi, unsureOfReading, working, type Reading, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
+  TeamApiError, answer, approveAll, approveSelected, awaitTurn, correctFigure, editGateNow, readingsOn, tellOlumi, tickEvery, working, type Reading, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
   type Change, type Ticks,
 } from '../olumiView/journey'
 import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Send, Tick } from './icons'
@@ -174,6 +174,11 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
     setBusy(true); setError(null)
     try { const r = await f(); setTicks(new Set()); if (!r.shown) setError(MW.savedNotShown) } catch (e) { setError(said(e, MW)) } finally { setBusy(false) }
   }
+  // PL-640: the person's answer to each of Olumi's readings is HELD here, never sent on its own; it goes only with an approval they make
+  // (Approve: every line, Approve selected: the lines they ticked). Confirm sends the reading with it; Unsure sends neither the reading nor a refusal.
+  const [answers, setAnswers] = useState<Readonly<Record<string, 'confirm' | 'unsure'>>>({})
+  useEffect(() => { setAnswers({}) }, [P?.id])
+  const confirmed = Object.entries(answers).flatMap(([id, a]) => (a === 'confirm' ? [id] : []))
   const chat: Loose[] = (v.chat ?? []).map((t) => ({ ...loose(t), _show: MW.showOnCanvas }))
   // The conversation (DL 12 Nov): the person writes to Olumi in their own words, as an answer to one of Olumi's questions (screen context
   // only) or as anything else; while a proposal is pending this is how it is corrected (PL-567). Olumi answers in core; the screen waits
@@ -228,18 +233,20 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
             <p className="meta">{r.status}</p>
             <p>{r.question}</p>
             <div className="detail-acts">
-              <button type="button" className="btn btn-primary" disabled={busy} data-testid="next-reading-confirm" onClick={() => void act(() => confirmReading(picks, r.id))}>Confirm</button>
-              <button type="button" className="btn btn-quiet" disabled={busy || telling} data-testid="next-reading-different" onClick={() => { setMeasureFor(r); setAnswering(null) }}>A different measure</button>
-              <button type="button" className="btn btn-quiet" disabled={busy} data-testid="next-reading-unsure" onClick={() => void act(() => unsureOfReading(picks))}>Unsure</button>
+              <button type="button" className={`btn ${answers[r.id] === 'confirm' ? 'btn-primary' : 'btn-quiet'}`} aria-pressed={answers[r.id] === 'confirm'} disabled={busy} data-testid="next-reading-confirm" onClick={() => setAnswers({ ...answers, [r.id]: 'confirm' })}>Confirm</button>
+              <button type="button" className="btn btn-quiet" disabled={busy || telling} data-testid="next-reading-different" onClick={() => { const { [r.id]: _drop, ...rest } = answers; void _drop; setAnswers(rest); setMeasureFor(r); setAnswering(null) }}>A different measure</button>
+              <button type="button" className={`btn ${answers[r.id] === 'unsure' ? 'btn-primary' : 'btn-quiet'}`} aria-pressed={answers[r.id] === 'unsure'} disabled={busy} data-testid="next-reading-unsure" onClick={() => setAnswers({ ...answers, [r.id]: 'unsure' })}>Unsure</button>
             </div>
           </section>
         ))}
       </div>
       {P ? (
         <div className="nx-decide" data-testid="next-decide">
-          <button type="button" className="btn btn-primary" disabled={busy} data-testid="next-approve" onClick={() => void act(approveAll)}>Approve</button>
+          {/* Approve: the whole proposal. With a confirmed reading, every line goes with it (the person pressed Approve); without one, core's own whole approval. */}
+          <button type="button" className="btn btn-primary" disabled={busy} data-testid="next-approve"
+            onClick={() => void act(() => (confirmed.length > 0 ? approveSelected(picksOf(ch, tickEvery(ch)), { readings: confirmed }) : approveAll()))}>Approve</button>
           <button type="button" className="btn btn-quiet" disabled={busy || n === 0} data-testid="next-approve-selected"
-            onClick={() => void act(() => approveSelected(picks, {}, { lines: picks.left.map((c) => c.id) }))}>Approve selected · <span className="selcount">{n}</span></button>
+            onClick={() => void act(() => approveSelected(picks, { readings: confirmed }, { lines: picks.left.map((c) => c.id) }))}>Approve selected · <span className="selcount">{n}</span></button>
           {MW.heldConfirm ? <button type="button" className="btn btn-text" disabled={busy} data-testid="next-set-aside" onClick={() => void act(setAside)}><span>{MW.heldConfirm}</span></button> : null}
         </div>
       ) : null}

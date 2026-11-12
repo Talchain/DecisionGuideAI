@@ -145,27 +145,23 @@ export async function approveAll(): Promise<Outcome<unknown>> {
 /**
  * OLUMI'S READING ON A PROPOSAL (a mark with core's `reading.id`, e.g. which saved figure an aim is measured by): core's own words for it (`status`,
  * and `title`, its question naming the choices) and the three acts the person has (PL-626). None of them writes a refusal:
- * - `confirmReading`: approve the ticked lines (all when none are ticked) WITH the reading (`only_readings`), so it is applied;
+ * - `confirmReading`: approve the ticked lines WITH the reading (`only_readings`), so it is applied;
  * - a different measure: the person tells Olumi in their own words (`tellOlumi`), and Olumi answers in core;
- * - `unsureOfReading`: approve the ticked lines (all when none are ticked) WITHOUT the reading and without refusing it: the record stays as
- *   they gave it, and the question stays open. Never `refuse_readings`: unsure is not a no.
+ * - `unsureOfReading`: approve the ticked lines WITHOUT the reading and without refusing it: the record stays as
+ *   they gave it, and the question stays open. Never `refuse_readings`: unsure is not a no. Nothing ticked: neither act sends anything (PL-640).
  */
 export type Reading = { readonly id: string; readonly what: string; readonly status: string; readonly question: string }
 export const readingsOn = (p: Proposal | null): Reading[] =>
   (p?.marks ?? []).flatMap((m) => (m.reading ? [{ id: m.reading.id, what: m.what, status: m.status, question: m.title }] : []))
-const allIfNone = (changes: readonly Change[], picks: Picks & { readonly left: Change[] }) =>
-  (picks.only.length + picks.only_top.length === 0 ? picksOf(changes, tickEvery(changes)) : picks)
-export function confirmReading(picks: Picks & { readonly left: Change[] }, reading: string) {
-  const p = liveView().proposal
-  if (p === null) throw new JourneyRefusal('no_proposal')
-  const use = allIfNone(p.changes, picks)
-  return approveSelected(use, { readings: [reading] }, { lines: use.left.map((c) => c.id) })
+// PL-640: an answer to a reading is scoped to what the person chose. An empty selection is never widened to every change: approveSelected refuses
+// it (`nothing_ticked`), so neither act ever approves a line the person did not tick. The screen holds the answer until they approve.
+export async function confirmReading(picks: Picks & { readonly left: Change[] }, reading: string) {
+  if (picks.only.length + picks.only_top.length === 0) throw new JourneyRefusal('nothing_ticked')
+  return approveSelected(picks, { readings: [reading] }, { lines: picks.left.map((c) => c.id) })
 }
-export function unsureOfReading(picks: Picks & { readonly left: Change[] }) {
-  const p = liveView().proposal
-  if (p === null) throw new JourneyRefusal('no_proposal')
-  const use = allIfNone(p.changes, picks)
-  return approveSelected(use, {}, { lines: use.left.map((c) => c.id) })
+export async function unsureOfReading(picks: Picks & { readonly left: Change[] }) {
+  if (picks.only.length + picks.only_top.length === 0) throw new JourneyRefusal('nothing_ticked')
+  return approveSelected(picks, {}, { lines: picks.left.map((c) => c.id) })
 }
 /** Set the whole proposal aside (core's discard): nothing of it is added. Then the View is read again. */
 export async function setAside(): Promise<Outcome<unknown>> {

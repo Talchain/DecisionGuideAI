@@ -188,7 +188,7 @@ describe.skipIf(!ready).sequential('D1: goal answered, Olumi\'s reading CONFIRME
   it('D1.1 confirm: approve with Olumi\'s reading(s) chosen by id (or the whole proposal where it carries none)', async () => {
     const v = view(), rs = readingsOn(v.proposal), was = (v.model as unknown as { aim?: { quantity: string } }).aim?.quantity ?? null
     expect(rs.length, 'Olumi asks which saved figure the aim is measured by').toBe(1)
-    const out = await confirmReading(picksOf(v.proposal!.changes, new Set()), rs[0]!.id)
+    const out = await confirmReading(picksOf(v.proposal!.changes, tickEvery(v.proposal!.changes)), rs[0]!.id) // the person ticks every line (PL-640: never implied)
     const w = view(); after = ids(w); n = w.version!.n
     const now = (w.model as unknown as { aim?: { quantity: string } }).aim?.quantity ?? null
     note('D1.1', { reading: rs[0], shown: out.shown, version: n, aim_measure: `${was} -> ${now}`, refused: await refusedReadings(), request: lastWrite() })
@@ -228,7 +228,7 @@ describe.skipIf(!ready).sequential('D3: goal answered, Olumi\'s reading left UNS
   afterAll(async () => { await stop() }, 60_000)
   it('D3.1 unsure: approve without choosing or refusing the reading; no refused reading is written', async () => {
     const v = view(), rs = readingsOn(v.proposal), was = (v.model as unknown as { aim?: { quantity: string } }).aim?.quantity ?? null
-    const out = await unsureOfReading(picksOf(v.proposal!.changes, new Set()))
+    const out = await unsureOfReading(picksOf(v.proposal!.changes, tickEvery(v.proposal!.changes))) // the person ticks every line (PL-640: never implied)
     const w = view(), now = (w.model as unknown as { aim?: { quantity: string } }).aim?.quantity ?? null
     const refused = await refusedReadings()
     note('D3.1', { readings_offered: rs, shown: out.shown, aim_measure: `${was} -> ${now}`, refused, request: lastWrite() })
