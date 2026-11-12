@@ -3,7 +3,8 @@
  * One screen, on its own route (#/next/<core scenario id>), beside the frozen lane screen in the same bundle. It imports only the journey
  * layer, the View types and the store, and its own drawing; no lane component. Core sends every word; this screen formats no model value.
  *
- * Only what works is drawn: the Model lens alone (the others are not wired here), no composer (no AI on this slice), no look-proof switcher.
+ * Only what works is drawn: the Model lens alone (the others are not wired here) and the conversation (the composer: an answer to one of Olumi's
+ * questions, or anything else told to Olumi), no look-proof switcher.
  */
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -11,7 +12,8 @@ import { useViewStore } from '../olumiView/store'
 import { openScenario } from '../olumiView/journey'
 import { Board } from './Board'
 import { Panel } from './Panel'
-import { OpenDetail, loose } from './Cards'
+import { AnswerQuestion, OpenDetail, loose } from './Cards'
+import type { QuestionRef } from '../olumiView/journey'
 import { Brand } from './icons'
 import './next.css'
 
@@ -20,6 +22,7 @@ export default function NextScreen() {
   const v = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const [detail, setDetail] = useState<{ id: string; editing: boolean } | null>(null)
   const [flashing, setFlashing] = useState<string | null>(null)
+  const [answering, setAnswering] = useState<QuestionRef | null>(null)
   useEffect(() => { void openScenario(sid) }, [sid])
   const flash = (id: string) => { setFlashing(null); requestAnimationFrame(() => { setFlashing(id); document.querySelector(`.olumi-next [data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' }) }) }
   const lw = loose(v?.lens_words), ver = v?.version ? loose(v.version) : null
@@ -32,10 +35,10 @@ export default function NextScreen() {
           {lw.label?.full ? <nav className="nx-lenses" aria-label={lw.bar}><button type="button" title={lw.hint?.full} aria-current="true"><span>{lw.label.full}</span></button></nav> : null}
         </header>
         {v === null ? <main className="nx-board">{error ? <p role="alert" className="meta">{error}</p> : null}</main> : (
-          <OpenDetail.Provider value={(id) => setDetail({ id, editing: false })}>
+          <OpenDetail.Provider value={(id) => setDetail({ id, editing: false })}><AnswerQuestion.Provider value={setAnswering}>
             <Board v={v} selected={detail?.id ?? null} flashing={flashing} onEdit={(id) => setDetail({ id, editing: true })} />
-            <Panel v={v} detail={detail?.id ?? null} editing={detail?.editing ?? false} closeDetail={() => setDetail(null)} flash={flash} />
-          </OpenDetail.Provider>
+            <Panel v={v} detail={detail?.id ?? null} editing={detail?.editing ?? false} closeDetail={() => setDetail(null)} flash={flash} answering={answering} setAnswering={setAnswering} />
+          </AnswerQuestion.Provider></OpenDetail.Provider>
         )}
       </div>
     </div>

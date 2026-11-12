@@ -3,11 +3,11 @@
  * layer. Only what works is drawn: no composer (no AI key on this slice), no lens other than Model. Core's words throughout; the screen's
  * own words are the look's three buttons ("Approve", "Approve selected · n") and the one line that says what unticked lines mean.
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { View } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import {
-  TeamApiError, approveAll, approveSelected, awaitTurn, correctFigure, editGateNow, tellOlumi, working, type EditGate, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
+  TeamApiError, answer, approveAll, approveSelected, awaitTurn, correctFigure, editGateNow, tellOlumi, working, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
   type Change, type Ticks,
 } from '../olumiView/journey'
 import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Send, Tick } from './icons'
@@ -28,7 +28,12 @@ function Turn({ t, onShow }: { t: Loose; onShow: (id: string) => void }) {
     <section className="turn">
       <div className="turn-meta"><span className="by">{t.by}</span><span className="meta">{t.version}</span></div>
       <div className="said-wrap"><Clamp cls="said" text={t.said} lines={3} /></div>
-      {a ? (
+      {t.broke ? (
+        // Olumi held its reply back: core's one sentence for it (`broke`; with a later core's COACH-WITHHELD marker it names what Olumi could not
+        // stand behind and the question to take forward). Drawn as that state, never as a reply; nothing of the held reply is shown.
+        <div className="reply withheld" data-testid="next-withheld" data-kind={t.withheld?.kind ?? undefined}><span className="mk" aria-hidden="true"><Brand s={18} /></span>
+          <div className="col"><p className="say">{t.broke}</p></div></div>
+      ) : a ? (
         <div className="reply"><span className="mk" aria-hidden="true"><Brand s={18} /></span>
           <div className="col">
             <Segs arr={a.answer} />
@@ -155,7 +160,7 @@ function Detail({ v, id, editing, onClose, onTell }: { v: View; id: string; edit
   )
 }
 
-export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; detail: string | null; editing: boolean; closeDetail: () => void; flash: (id: string) => void }) {
+export function Panel({ v, detail, editing, closeDetail, flash, answering = null, setAnswering = () => {} }: { v: View; detail: string | null; editing: boolean; closeDetail: () => void; flash: (id: string) => void; answering?: QuestionRef | null; setAnswering?: (q: QuestionRef | null) => void }) {
   const MW = loose(v.model_words), P = v.proposal
   const [ticks, setTicks] = useState<Ticks>(new Set())
   const [busy, setBusy] = useState(false)
@@ -167,19 +172,34 @@ export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; det
     try { const r = await f(); setTicks(new Set()); if (!r.shown) setError(MW.savedNotShown) } catch (e) { setError(said(e, MW)) } finally { setBusy(false) }
   }
   const chat: Loose[] = (v.chat ?? []).map((t) => ({ ...loose(t), _show: MW.showOnCanvas }))
-  // While a proposal is pending, the person corrects it by telling Olumi (core takes the message against the pending draft); the answer
-  // arrives as Olumi's newest turn. Not offered once the model is approved: there the person edits directly.
+  // The conversation (DL 12 Nov): the person writes to Olumi in their own words, as an answer to one of Olumi's questions (screen context
+  // only) or as anything else; while a proposal is pending this is how it is corrected (PL-567). Olumi answers in core; the screen waits
+  // (`awaitTurn`) and draws the answer, and any proposal it brings goes through the same review. Words stay in the box until Olumi answers.
   const [tell, setTell] = useState('')
   const [telling, setTelling] = useState(false)
   const send = async () => {
     if (tell.trim() === '' || telling) return
     setTelling(true); setError(null)
-    try { await tellOlumi(tell); setTell(''); await awaitTurn() } catch (e) { setError(said(e, MW)) } finally { setTelling(false) }
+    try {
+      await (answering ? answer(answering, tell) : tellOlumi(tell))
+      const ended = await awaitTurn()
+      if (ended !== 'failed' && ended !== 'lost' && ended !== 'timeout') { setTell(''); setAnswering(null) }
+    } catch (e) { setError(said(e, MW)) } finally { setTelling(false) }
   }
+  // A question the person chose that Olumi no longer asks (a newer View): the chip goes, so their words are sent as an ordinary message.
+  const asked: string[] = loose(v.model).coaching_questions ?? []
+  useEffect(() => { if (answering && asked[answering.at] !== answering.text) setAnswering(null) }, [answering, asked, setAnswering])
+  const turn = v.turn ? loose(v.turn) : null
+  // A new turn, Olumi answering, an answer or a turn that failed: the panel moves to it so the person sees where the conversation stands
+  // (not on first open, which keeps the panel where the look-proof draws it).
+  const scroll = useRef<HTMLDivElement | null>(null), seen = useRef<string | null>(null)
+  const at = `${chat.length}:${turn?.job ?? ''}:${turn?.status ?? ''}`
+  useEffect(() => { if (seen.current !== null && seen.current !== at && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; seen.current = at }, [at])
+  const past = useViewStore((st) => st.at) !== null
   return (
     <aside className="nx-panel" data-testid="next-panel">
       <div className="nx-panel-head">{v.team_presence ? <span className="meta">{loose(v.team_presence).label}</span> : null}</div>
-      <div className="nx-scroll">
+      <div className="nx-scroll" ref={scroll}>
         {detail !== null ? <Detail key={`${v.id}:${detail}`} v={v} id={detail} editing={editing} onClose={closeDetail} onTell={setTell} /> : null}
         {chat.some((t) => t.earlier) ? (
           <div className="earlier-list">{chat.flatMap((t, i) => (t.earlier ? [
@@ -187,6 +207,14 @@ export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; det
           ] : []))}</div>
         ) : null}
         {chat.flatMap((t, i) => (t.earlier ? [] : [<Turn key={i} t={t} onShow={flash} />]))}
+        {turn && (turn.status === 'answering' || turn.status === 'failed' || turn.status === 'lost') ? (
+          // Waiting for Olumi, or a turn that did not finish: the person's words and core's own words for where it stands.
+          <section className={`turn turn-${turn.status}`} data-testid={`next-turn-${turn.status}`}>
+            <div className="turn-meta"><span className="by">{turn.by}</span></div>
+            <div className="said-wrap"><p className="said">{turn.said}</p></div>
+            <div className="reply"><span className="mk" aria-hidden="true"><Brand s={18} /></span><div className="col"><p className={turn.status === 'answering' ? 'say meta' : 'say err'}>{turn.words}</p></div></div>
+          </section>
+        ) : null}
         {P ? <Review v={v} ticks={ticks} setTicks={setTicks} /> : null}
       </div>
       {P ? (
@@ -200,10 +228,11 @@ export function Panel({ v, detail, editing, closeDetail, flash }: { v: View; det
       {/* Unticked lines are not added: said in plain numbers while some are ticked and some are not (the layer keeps no refusal record yet). */}
       {P && n > 0 && picks.left.length > 0 ? <p className="meta nx-decide-note" data-testid="next-left-out">{picks.left.length} not ticked: Approve selected does not add them.</p> : null}
       {error ? <p role="alert" className="meta err nx-decide-note" data-testid="next-error">{error}</p> : null}
-      {P ? (
+      {!past ? (
         <form className="nx-composer" data-testid="next-tell" onSubmit={(e) => { e.preventDefault(); void send() }}>
+          {answering ? <p className="meta answering" data-testid="next-answering">{answering.text}<button type="button" className="icon-btn" aria-label={MW.cancel} onClick={() => setAnswering(null)}><Close /></button></p> : null}
           <div className="field">
-            <input type="text" value={tell} onChange={(e) => setTell(e.target.value)} disabled={telling || working(v)} placeholder="Tell Olumi what to change" aria-label="Tell Olumi what to change" data-testid="next-tell-field" />
+            <input type="text" value={tell} onChange={(e) => setTell(e.target.value)} disabled={telling || working(v)} placeholder={P ? 'Tell Olumi what to change' : 'Reply, or edit the model'} aria-label={P ? 'Tell Olumi what to change' : 'Reply, or edit the model'} data-testid="next-tell-field" />
             <button type="submit" aria-label="Send" disabled={telling || working(v) || tell.trim() === ''} data-testid="next-tell-send"><Send /></button>
           </div>
         </form>

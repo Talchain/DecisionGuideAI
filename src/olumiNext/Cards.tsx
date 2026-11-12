@@ -19,6 +19,8 @@ export type Place = { readonly style?: CSSProperties; readonly extra?: string }
 
 /** Something on the board changed height (a clamp opened): the board measures and lays out again. */
 export const Relayout = createContext<() => void>(() => {})
+/** One of Olumi's questions the person chose to answer: the composer takes it as screen context (core binds no answer to a question). */
+export const AnswerQuestion = createContext<((q: { at: number; text: string }) => void) | null>(null)
 /** The card the person pressed: the panel opens its detail. */
 export const OpenDetail = createContext<(id: string) => void>(() => {})
 
@@ -160,12 +162,13 @@ export function NoteNode({ v, c, style, extra = '' }: { v: View; c: ViewCard } &
 }
 
 export function AimSlot({ v, style }: { v: View } & Place) {
+  const ask = useContext(AnswerQuestion)
   const W = loose(v.model).run?.waits_on ?? {}, qs: string[] = loose(v.model).coaching_questions ?? []
   return (
     <section className="node aimslot" style={style} data-id="slot:aim">
       <header><Fam glyph="aim-empty" /><span className="meta">{keyText(v, '★')}</span>
         {(W.items ?? []).length ? <><span className="meta">·</span><span className="meta">{W.head}</span><span className="meta">·</span><span className="meta">{W.text}</span></> : null}</header>
-      {qs.length ? <ul>{qs.map((q, i) => <li key={i}><Mk><OlumiMark s={8} /></Mk><span>{q}</span></li>)}</ul> : null}
+      {qs.length ? <ul>{qs.map((q, i) => <li key={i}><Mk><OlumiMark s={8} /></Mk>{ask ? <button type="button" className="q-ask" data-testid={`next-question-${i}`} onClick={() => ask({ at: i, text: q })}>{q}</button> : <span>{q}</span>}</li>)}</ul> : null}
     </section>
   )
 }

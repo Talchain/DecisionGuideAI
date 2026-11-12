@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
-import { authorshipOf, editGateOf, groupTicked, lineKey, partnersOf, picksOf, setGroup, tickEvery, toggleLine, verdictOf } from '../journey'
+import { authorshipOf, editGateOf, groupTicked, lineKey, noChanceOf, partnersOf, picksOf, questionsOf, setGroup, tickEvery, toggleLine, turnStateOf, verdictOf } from '../journey'
 
 const read = (f: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8'))
 const consulting = read('v11/consulting-proposal.view3.json'), together = read('real/together.view3.json'), hosting = read('real/hosting.view3.json')
@@ -90,5 +90,54 @@ describe('who a card is by (core `cards[].author`, `change`, `doubt`, `challenge
 describe('core\'s verdict on a change', () => {
   it('absent from a core that sends none, so Approve is offered as before', () => {
     expect(verdictOf({ ...together.proposal!, verdict: undefined } as NonNullable<View['proposal']>)).toBeNull()
+  })
+})
+
+describe('where the conversation stands (turnStateOf), typed, in core\'s words', () => {
+  const failed = read('j1/bookshop-v1-turn-failed.core-172e23ae.view3.json'), capacity = read('real/capacity.view3.json')
+  it('a turn that did not finish: failed, with core\'s own words and the person\'s', () => {
+    expect(turnStateOf(failed)).toEqual({ kind: 'failed', said: 'Not sure', words: 'Olumi could not finish this turn. Please try again in a moment.', job: 41 })
+  })
+  it('Olumi answering: waiting (the same served turn while it runs)', () => {
+    const v = { ...failed, turn: { ...failed.turn!, status: 'answering', words: 'Olumi is answering.' } } as View
+    expect(turnStateOf(v)).toMatchObject({ kind: 'waiting', said: 'Not sure', words: 'Olumi is answering.' })
+  })
+  it('an answer: answered, on the newest turn, with the proposal it brought or none', () => {
+    const t = capacity.chat.at(-1)!, st = turnStateOf(capacity)
+    expect(st).toMatchObject({ kind: 'answered', said: t.said, turn: t.id, proposal: null })
+    expect(st.kind === 'answered' && st.answer).toBe(t.answer)
+  })
+  // Core's sentences as core's own tests pin them: ac41 shared/turn-words.ts REPLY_WITHHELD; f549b9cc view/__tests__/coach-withheld.test.ts.
+  const AC41 = 'Olumi\'s reply broke its own rules, so it is not shown.'
+  const F549 = { kind: 'untraced_figure', limit: 'Olumi held back its reply: it used a figure it could not trace to your model, and Olumi shows only what it can stand behind.', next: 'What share of your jobs are e-bike jobs?' }
+  const held = (extra: object) => ({ ...capacity, chat: [...capacity.chat.slice(0, -1), { ...capacity.chat.at(-1)!, answer: null, ...extra }] }) as View
+  it('a reply Olumi held back: held, never answered, with core\'s sentence (ac41: no typed reason)', () => {
+    expect(turnStateOf(held({ broke: AC41 }))).toMatchObject({ kind: 'held', words: AC41, withheld: null })
+  })
+  it('held, with a core that types it: what Olumi could not stand behind and the question to take forward', () => {
+    const words = `${F549.limit} A question to take forward: ${F549.next}`
+    expect(turnStateOf(held({ broke: words, withheld: F549 }))).toMatchObject({ kind: 'held', words, withheld: F549 })
+  })
+  it('held wins over a stale answer object (core sends answer null with broke; never draw both)', () => {
+    expect(turnStateOf(held({ broke: AC41, answer: capacity.chat.at(-1)!.answer })).kind).toBe('held')
+  })
+  it('nothing said yet: none', () => {
+    expect(turnStateOf({ ...capacity, chat: [], turn: undefined } as View)).toEqual({ kind: 'none' })
+  })
+})
+
+describe('Olumi\'s questions and where the model cannot support a chance', () => {
+  it('questionsOf: core\'s questions in core\'s order, each answerable by its place and words', () => {
+    const v = { ...read('real/capacity.view3.json') } as View
+    const q = ['What would success look like here?', 'What are the main risks?']
+    expect(questionsOf({ ...v, model: { ...v.model!, coaching_questions: q } } as View)).toEqual([{ at: 0, text: q[0] }, { at: 1, text: q[1] }])
+    expect(questionsOf(v)).toEqual([])
+  })
+  it('noChanceOf: each option whose headline is "none", with its words and the View\'s own question for what it waits on', () => {
+    const v = read('j1/bookshop-v1-turn-failed.core-172e23ae.view3.json')
+    const nc = noChanceOf(v), opts = v.model!.cards.flatMap((c) => (c.family === 'option' ? [c] : []))
+    expect(nc.map((x) => x.option)).toEqual(opts.map((c) => c.id))
+    expect(nc[0]).toEqual({ option: 'newsletter', text: 'this option: no chance yet', waits: 'No chance can be worked out for this option yet', add: null })
+    expect(noChanceOf(read('real/hiring-unchecked-first.view3.json'))).toEqual([])
   })
 })

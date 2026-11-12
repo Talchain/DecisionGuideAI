@@ -343,3 +343,11 @@
 /* real counts are wider than the look-proof's "0": the decide row wraps, Set aside to the right, instead of clipping at the panel edge */
 .olumi-next .nx-decide{flex-wrap:wrap;row-gap:var(--space-2)}
 .olumi-next .nx-decide .btn-text{margin-left:auto}
+/* the conversation (slice): Olumi's question the person chose to answer, a question pressed on the board, a turn waiting or failed */
+.olumi-next .nx-composer .answering{display:flex;align-items:center;gap:var(--space-2);padding-bottom:var(--space-1);color:var(--info-ink)}
+.olumi-next .aimslot .q-ask{text-align:left;color:inherit;font:inherit}
+.olumi-next .aimslot .q-ask:hover{text-decoration:underline;text-underline-offset:3px}
+.olumi-next .turn-failed .err,.olumi-next .turn-lost .err{color:var(--danger)}
+.olumi-next .reply.withheld .say{color:var(--text-light)}
+.olumi-next .nx-composer .answering .icon-btn{width:20px;height:20px;flex:none;border-radius:var(--radius-xs);background:none;color:var(--text-light)}
+.olumi-next .nx-composer .answering .icon-btn:hover{color:var(--text-header)}

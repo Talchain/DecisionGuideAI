@@ -202,6 +202,47 @@ export async function awaitTurn({ timeoutMs = 120_000, everyMs = 1_500 }: { time
 
 // ─── Editing the model directly ───────────────────────────────────────────────────────────────────────────────────────────────────────
 /**
+ * WHERE THE CONVERSATION STANDS, typed (DL 12 Nov): whatever the screen looks like, it draws each of these as its own state, in core's words.
+ * - `waiting`: Olumi is answering (the View's `turn`, `answering`): the person's words and core's words for it.
+ * - `failed` / `lost`: the turn did not finish (core's words; the model is as it was). Lost is a turn a restart ended.
+ * - `held`: Olumi held its reply back: the newest turn carries core's own sentence (`broke`) and no answer. With a core that types it
+ *   (COACH-WITHHELD, f549b9cc) `withheld` says what it could not stand behind and the question to take forward; at ac41 it is null.
+ * - `answered`: Olumi's answer on the newest turn, and the proposal it brought (null when it only discussed).
+ * - `none`: nothing has been said yet.
+ */
+export type Withheld = { readonly kind: string; readonly limit: string; readonly next: string | null }
+export type TurnState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'waiting'; readonly said: string | null; readonly words: string | null; readonly job: number }
+  | { readonly kind: 'failed' | 'lost'; readonly said: string | null; readonly words: string | null; readonly job: number }
+  | { readonly kind: 'held'; readonly said: string; readonly words: string; readonly withheld: Withheld | null; readonly turn: number }
+  | { readonly kind: 'answered'; readonly said: string; readonly answer: NonNullable<View['chat'][number]['answer']>; readonly turn: number; readonly proposal: number | null }
+export function turnStateOf(view: View): TurnState {
+  const t = view.turn
+  if (t) return t.status === 'answering' ? { kind: 'waiting', said: t.said, words: t.words, job: t.job } : { kind: t.status, said: t.said, words: t.words, job: t.job }
+  const last = view.chat.at(-1)
+  if (!last) return { kind: 'none' }
+  if (last.broke) return { kind: 'held', said: last.said, words: last.broke, withheld: (last as { withheld?: Withheld | null }).withheld ?? null, turn: last.id }
+  return last.answer ? { kind: 'answered', said: last.said, answer: last.answer, turn: last.id, proposal: view.proposal?.id ?? null } : { kind: 'none' }
+}
+/** Olumi's open questions on this model, each as the person may answer it (`answer`): core's words, in core's order. */
+export const questionsOf = (view: View): QuestionRef[] => (view.model?.coaching_questions ?? []).map((text, at) => ({ at, text }))
+/** Where the model cannot support a chance yet: each option's own words ("No chance yet") and the View's question for what it waits on. */
+export type NoChance = { readonly option: string; readonly text: string; readonly waits: string; readonly add: string | null }
+export const noChanceOf = (view: View): NoChance[] => (view.model?.cards ?? []).flatMap((c) =>
+  c.family === 'option' && c.headline?.state === 'none' ? [{ option: c.id, text: c.headline.text, waits: c.headline.title, add: c.headline.add }] : [])
+/**
+ * One turn of the conversation, through the layer only: the person's words (as an answer to one of Olumi's questions, or as anything else
+ * told to Olumi, which is how a pending proposal is corrected), then wait for Olumi (`awaitTurn`), then where it stands. Nothing is retried.
+ */
+export async function converse(text: string, q: QuestionRef | null = null, wait: { timeoutMs?: number; everyMs?: number } = {}): Promise<{ readonly ended: string; readonly state: TurnState }> {
+  await (q ? answer(q, text) : tellOlumi(text))
+  const ended = await awaitTurn(wait)
+  const v = useViewStore.getState().view
+  return { ended, state: v ? turnStateOf(v) : { kind: 'none' } }
+}
+
+/**
  * May the person change the model directly now, and on which version? One gate for every direct edit (lifted from model/editing.ts):
  * their own page, the latest version, a View read whole and not overtaken, and a version core takes edits on (`model.edit_base`).
  * DL ruling c: while Olumi's proposal is held core takes no edit (edits.ts:382, 409) and the reason is `after_approval`, typed, never a

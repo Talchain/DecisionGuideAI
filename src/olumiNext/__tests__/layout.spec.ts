@@ -62,7 +62,10 @@ function markerText(m: WireMarker | Record<string, unknown>): string {
   }
 }
 
-describe.skipIf(!have)('board layout equals the look-proof, node for node and wire for wire', () => {
+// SUSPENDED (DL, 12 Nov): Paul rejected the look the slice wears, so the look-proof is no longer the source of the board's geometry. Kept, not
+// deleted, so the identity can be re-pinned to whichever look is chosen.
+const SUSPENDED = 'the look-proof is no longer the source (Paul rejected the look, DL 12 Nov)'
+describe.skip(`board layout equals the look-proof, node for node and wire for wire [SUSPENDED: ${SUSPENDED}]`, () => {
   const views: Record<string, View> = {}
   const refs: Record<string, Ref> = {}
   if (have) {
