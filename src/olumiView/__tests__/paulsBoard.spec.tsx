@@ -18,6 +18,9 @@ import { EdgeLabelLayer } from './edgeLabelLayer'
 import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
+import type { NodeProps } from '@xyflow/react'
+import { CoreCard } from '../previous/CoreCard'
+import { QUESTION } from '../layout'
 
 const EU = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/european-loop9.view3.json'), 'utf8')) as View
 const ready = (view: View | null, sid: string | null = view?.id ?? null) => {
@@ -89,5 +92,35 @@ describe('the panel on a pending first model', () => {
     cleanup()
     ready(null, null)
     expect(render(<CoreCompareTab />).container.querySelector('[data-testid="core-compare-none"]')?.textContent).toBe(COMPARE_NONE)
+  })
+})
+
+describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)', () => {
+  const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
+  const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+    positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
+  type B = { label: string; face?: string; words?: string; text: string }
+  const said = (b: B) => b.face ?? b.words ?? b.text
+
+  it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', () => {
+    ready(EU)
+    const b = EU.model!.question.badge as unknown as B
+    expect(b, 'precondition: core folded records behind the question').not.toBeNull()
+    render(<ReactFlowProvider><Node {...props(QUESTION, undefined)} /></ReactFlowProvider>)
+    const btn = document.querySelector<HTMLElement>(`[data-core-badge="${QUESTION}"] button`)!
+    expect([btn.getAttribute('aria-label'), btn.textContent!.includes(said(b))]).toEqual([b.label, true])
+  })
+
+  it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', () => {
+    ready(EU)
+    const m = EU.model!, withBadge = m.cards.filter((c) => c.badge != null)
+    expect(withBadge.length).toBeGreaterThan(0)
+    for (const c of m.cards) {
+      const r = render(<ReactFlowProvider><Node {...props(c.id, c)} /></ReactFlowProvider>)
+      const btn = r.container.querySelector<HTMLElement>(`[data-core-badge="${c.id}"] button`)
+      if (c.badge == null) expect(btn, c.id).toBeNull()
+      else expect([btn?.getAttribute('aria-label'), btn?.textContent?.includes(said(c.badge as unknown as B))], c.id).toEqual([(c.badge as unknown as B).label, true])
+      r.unmount()
+    }
   })
 })

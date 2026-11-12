@@ -23,6 +23,7 @@ import { optionBands, ViewDriverBadge, ViewOptionBand, ViewValuesBand } from '..
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
+import { Badge } from '../Badge'
 
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
 export function leadLineOf(card: ViewCard): string | null {
@@ -87,13 +88,19 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const restsInk = restsOn === null ? '' : restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'
   // G3 (Paul's "do now", 11 Nov): zoomed out the body is blanked and only the far line shows, so the Rests on number is also drawn beside the
   // far line (BaseNode `lodMark`), at the line's own counter-scaled size; the lens then marks its cards on the whole-board first open too.
+  // Core's badge: the records it folded behind this card or the question ("Show 6 notes behind this"), its face words verbatim; pressing
+  // it opens them (Badge.tsx). The retired ViewCardNode and ViewQuestionNode drew it; this card did not, so on the lane every fold was
+  // unseen (Paul's A11 board, 12 Nov: the question held his "1.3 million", the 12-month runway and two challenges, none on the board).
+  const badge = id === QUESTION ? model?.question.badge ?? null : card?.badge ?? null
+  const badgeLine = badge === null ? null
+    : <p className={`${typography.nodeLabel} text-text-body`} data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} /></p>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.nodeLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   return (
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : undefined}
       lodMark={restsFar}
       borderClassOverride={dashed ? `border-dashed ${proposed ? 'border-info' : ''}` : undefined}>
-      {card === null ? null : (
+      {card === null ? badgeLine : (
         <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : !olumi && card.author != null && card.author.title !== '' ? `${card.detail}\n${card.author.title}` : card.detail} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {lead === null ? null : <p className={`${typography.nodeValue} ${olumi && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id} title={card === null ? undefined : leadTitleOf(card) ?? undefined}>{lead}</p>}
@@ -111,6 +118,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             : card.change?.kind !== 'added' && kind !== 'outcome'
               ? <span className="nodrag self-start" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}
           {olumi ? <p className={`${typography.nodeLabel} text-info`} title={card.author!.title} data-core-author={id}>{card.author!.text}</p> : null}
+          {badgeLine}
         </div>
       )}
     </BaseNode>
