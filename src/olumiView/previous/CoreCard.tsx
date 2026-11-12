@@ -105,7 +105,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The frame says three things, each on its own channel, as the retired cards did: dashes only where core doubts it; Olumi's blue where
   // Olumi proposes it (the card, or the question); core's orange where it is challenged (RULING 6's link rule, on the card).
   const proposed = card?.change != null || question?.proposed === true
-  const doubt = card?.doubt === true, challenged = card?.challenged === true
+  // DL ruling (12 Nov, A13d): one meaning everywhere: dashed = provisional (core doubts it, or Olumi proposes it and it is not yet the
+  // person's), solid = settled or the person's own. The card's words already say which ("Proposed by Olumi", "not yet sized").
+  const doubt = card?.doubt === true || (card?.change != null && card.author?.by === 'olumi'), challenged = card?.challenged === true
   const frame = doubt || proposed || challenged
     ? `${challenged ? 'border-[var(--olumi-mark-orange)]' : proposed ? 'border-info' : (nodeColors[kind as keyof typeof nodeColors] ?? nodeColors.factor).frame} ${doubt ? 'border-dashed' : ''}`
     : undefined

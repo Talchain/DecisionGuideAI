@@ -185,14 +185,18 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   it('FT2 doubt / change / challenged: dashed only where core doubts it, Olumi\'s blue where proposed, orange where challenged', () => {
     const m = EU.model!
-    const doubtful = m.cards.find((c) => c.doubt && c.change != null && !c.challenged)!, plain = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged)!
+    const doubtful = m.cards.find((c) => c.doubt && c.change != null && !c.challenged)!, plain = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by !== 'olumi')!
+    const olumis = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by === 'olumi')!
     const chal = m.cards.find((c) => c.challenged)!
     const f1 = frame(draw(EU, doubtful.id)); cleanup()
     const f2 = frame(draw(EU, plain.id)); cleanup()
     const f3 = frame(draw(EU, chal.id))
     expect([f1.includes('border-dashed'), f1.includes('border-info')]).toEqual([true, true])
-    expect([f2.includes('border-dashed'), f2.includes('border-info')], 'a proposed card core does not doubt is solid').toEqual([false, true])
-    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt])
+    expect([f2.includes('border-dashed'), f2.includes('border-info')], 'the person\'s own proposed card is solid').toEqual([false, true])
+    cleanup()
+    const f4 = frame(draw(EU, olumis.id))
+    expect([f4.includes('border-dashed'), f4.includes('border-info')], 'DL ruling 12 Nov: Olumi\'s proposed card is provisional, dashed').toEqual([true, true])
+    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt || (chal.change != null && chal.author?.by === 'olumi')])
   })
 
   it('FT3 change: core\'s change mark on every changed card, its words as hover and accessible name', () => {
