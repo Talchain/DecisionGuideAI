@@ -88,14 +88,14 @@ const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, 
  * across, never past 1 and never below the lane's floor (Paul, 10 Nov: the whole model in view at first open, as the previous product's).
  * Zoomed out, each card draws its reduced face (ViewCardNode), so the whole board stays readable.
  */
-export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
+export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }, ceiling = 1): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
   const insets = { ...raw, top: frameTop(raw.top) }
-  const whole = wholeAtTopViewport(bounds, pane, insets, 1, CORE_LANE_FIT_FLOOR)
+  const whole = wholeAtTopViewport(bounds, pane, insets, ceiling, CORE_LANE_FIT_FLOOR)
   // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
-  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, 1, CORE_LANE_FIT_FLOOR)
+  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, ceiling, CORE_LANE_FIT_FLOOR)
 }
 
 /**
@@ -108,15 +108,22 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const pane = useRef({ width, height })
   pane.current = { width, height }
+  // ONE DIRECTION (ORDER-UI-3, 13 Nov, 1128x707): a card's height follows the zoom (its reduced face is counter-scaled; below the body
+  // floor it draws its heading alone), so a board framed at one zoom is another size at the next. Re-fitting both ways had no resting
+  // point: 1 -> 0.51 -> 0.40 -> 0.36 -> 0.51, cards drawn over each other between frames, and it stopped at the fit cap with the board
+  // taller than the canvas ("1 more card below"). Within one board and one canvas size a re-fit may only keep or lower the zoom; a new
+  // version or a new canvas size starts again from 1.
+  const ceiling = useRef(1)
   const fit = useCallback(() => {
-    const v = frameFor(viewNodes(getNodes()), pane.current)
-    if (v) void setViewport(v, { duration: DURATION })
+    const v = frameFor(viewNodes(getNodes()), pane.current, undefined, ceiling.current)
+    if (v) { ceiling.current = v.zoom; void setViewport(v, { duration: DURATION }) }
   }, [getNodes, setViewport])
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
   const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}` })
   useEffect(() => {
     if (version === '') return
     userMoved.current = false
+    ceiling.current = 1
     let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
     const tick = () => {
       if (userMoved.current) return
@@ -140,7 +147,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     return () => cancelAnimationFrame(raf)
   }, [version, fit, getNodes, getViewport, userMoved])
   // The free canvas changes size (the window, the dock): frame again, unless the person has taken the camera.
-  useEffect(() => { if (!userMoved.current) fit() }, [width, height, fit, userMoved])
+  useEffect(() => { if (!userMoved.current) { ceiling.current = 1; fit() } }, [width, height, fit, userMoved])
   return fit
 }
 
