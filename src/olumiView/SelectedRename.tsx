@@ -13,6 +13,10 @@ import { typography } from '../styles/typography'
 function SelectedRename({ id }: { id: string }): JSX.Element | null {
   const heading = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const author = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.author ?? null)
+  // ORDER-UI-3 (DL-348, 13 Nov): what the card's headline rests on, in core's own sentence (`headline.title`), drawn whole once the card is
+  // selected: on the card it was reachable only by hover, so a chance resting on Olumi's assumption never said so where a person reads.
+  // Verbatim; nothing is drawn for a card core gives no headline.
+  const said = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.headline?.title ?? null)
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
   // UI restore 11 Nov (R12, DL PL-100): whose figure it is, core's words verbatim, once the card is selected: the person's neutral, Olumi's
@@ -21,6 +25,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
     <>
       <Rename key={id} id={id} heading={heading} shown />
       {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
+      {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={`${id}.headline.title`} data-testid="selected-headline-title">{said}</p>}
     </>
   )
 }

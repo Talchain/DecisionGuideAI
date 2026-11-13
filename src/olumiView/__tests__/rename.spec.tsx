@@ -67,6 +67,29 @@ describe('whose card it is, in the Selected row (UI restore 11 Nov, R12)', () =>
   })
 })
 
+// ORDER-UI-3 (DL-348, 13 Nov): on the acceptance store a chance rested on Olumi's assumption and said so only in the card's hover title. Core's
+// own sentence (`headline.title`, here exactly as core 2b99f880 served it after the approval) is drawn whole once the card is selected.
+describe('what a selected card\'s headline rests on, in core\'s words (ORDER-UI-3)', () => {
+  const SAID = "The chance that 'Keep sending cold emails and seeking warm connections' meets 'Secure funding within 2 months', in this model on current information. It is worked out as if 'Short runway weakens negotiating position' does not happen: that risk has no size yet. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 9 weeks), not yet confirmed by them. It rests on Olumi's assumption for 'Weeks until first funding arrives now' (12 to 36 weeks), for them to check."
+  const withHeadline = (title: string | null) => ({ ...approved, model: { ...approved.model!, cards: approved.model!.cards.map((c) => (c.id === card.id
+    ? { ...c, headline: title === null ? undefined : { aim_id: 'secure_funding_within_2_months', state: 'chance', text: "about 4% chance if 'Short runway weakens negotiating position' does not happen", title, range: null, why: null, add: null, shared: false } }
+    : { ...c, headline: undefined })) } }) as View
+  it('CATCH: the selected card\'s headline sentence is drawn verbatim in the Selected row, naming the assumption the chance rests on', () => {
+    useViewStore.setState({ view: withHeadline(SAID) })
+    const row = selectedRow(card.id)
+    const said = row.querySelector('[data-testid="selected-headline-title"]')!
+    expect(said.textContent).toBe(SAID)
+    expect(said.textContent).toContain("Olumi's assumption for 'Weeks until first funding arrives now'")
+  })
+  it('INVARIANCE: a card core gives no headline says nothing more; another card\'s sentence is never drawn for this one', () => {
+    useViewStore.setState({ view: withHeadline(null) })
+    expect(selectedRow(card.id).querySelector('[data-testid="selected-headline-title"]')).toBeNull()
+    cleanup(); useViewStore.setState({ view: withHeadline(SAID) })
+    const other = approved.model!.cards.find((c) => c.id !== card.id)!
+    expect(selectedRow(other.id).querySelector('[data-testid="selected-headline-title"]')).toBeNull()
+  })
+})
+
 describe('rename a card', () => {
   it('catch: in the dock\'s "Selected:" row, prefilled with its name; posts core\'s contract on the opening base; says core\'s version', async () => {
     const row = selectedRow(card.id)
