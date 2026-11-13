@@ -255,5 +255,92 @@
    "title": "Proposed by Olumi: Raising a round from firms doing deals of one to two million pounds typically takes around three to nine months from first outreach to money in the bank. This is my own assumption; please check it against your own pipeline and give your figure in its place."
   },
   "failed": []
+ },
+ {
+  "id": "cut_monthly_spending_to_stretch_the_runway",
+  "family": "option",
+  "glyph": "▣",
+  "heading": "Cut monthly spending to stretch the runway",
+  "typed": false,
+  "detail": "Cut monthly spending to stretch the runway · option · Proposed by Olumi: Lower outgoings buy time without depending on any investor's decision, which eases the 2-month deadline from the cost side.",
+  "col": 0,
+  "h": 112,
+  "olumi": {
+   "glyph": "◆",
+   "title": "Proposed by Olumi: Lower outgoings buy time without depending on any investor's decision, which eases the 2-month deadline from the cost side."
+  },
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": false,
+  "figure": null,
+  "premises": [],
+  "rows": [
+   {
+    "kind": "none",
+    "aim_id": "secure_funding_within_2_months",
+    "text": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly spending removed: Cut monthly spending to stretch the runway\"; rests on \"Effect of each GBP/month removed on Time until funding is secured\", which is unknown: Cutting spending stretches the runway but does not itself bring funding in sooner, so it has little direct effect on how long funding takes to arrive. It may only ease the pressure to accept poor terms; it waits on the answers to: 'Monthly spending removed: Cut monthly spending to stretch the runway'.",
+    "title": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly spending removed: Cut monthly spending to stretch the runway\"; rests on \"Effect of each GBP/month removed on Time until funding is secured\", which is unknown: Cutting spending stretches the runway but does not itself bring funding in sooner, so it has little direct effect on how long funding takes to arrive. It may only ease the pressure to accept poor terms; it waits on the answers to: 'Monthly spending removed: Cut monthly spending to stretch the runway'."
+   }
+  ],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": {
+   "records": [
+    "monthly_spending_removed_cut_monthly_spending_to_stretch_the_run"
+   ],
+   "text": "1 figure",
+   "title": "Figure: Monthly spending removed: Cut monthly spending to stretch the runway",
+   "label": "Show 1 notes behind this",
+   "open": false,
+   "proposed": false,
+   "change": "",
+   "words": "1 figure",
+   "face": "1 figure",
+   "icon": ""
+  },
+  "values": null,
+  "rests_on": [],
+  "sets": [
+   {
+    "id": "monthly_spending_removed_cut_monthly_spending_to_stretch_the_run",
+    "lever": "monthly_spending",
+    "label": "Monthly spending removed: Cut monthly spending to stretch the runway",
+    "figure": {
+     "text": "not given yet",
+     "title": "What is your current monthly spending, and how much of it could you cut within a month or two?"
+    },
+    "whose": "olumi",
+    "author": "Olumi’s question, not yet sized"
+   }
+  ],
+  "face": {
+   "title": {
+    "text": "Cut monthly spending to stretch the runway",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "olumi",
+   "text": "Proposed by Olumi",
+   "title": "Proposed by Olumi: Lower outgoings buy time without depending on any investor's decision, which eases the 2-month deadline from the cost side."
+  },
+  "committed": null,
+  "failed": [],
+  "failed_reason": null,
+  "headline": {
+   "aim_id": "secure_funding_within_2_months",
+   "state": "none",
+   "text": "No chance yet",
+   "title": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly spending removed: Cut monthly spending to stretch the runway\"; rests on \"Effect of each GBP/month removed on Time until funding is secured\", which is unknown: Cutting spending stretches the runway but does not itself bring funding in sooner, so it has little direct effect on how long funding takes to arrive. It may only ease the pressure to accept poor terms; it waits on the answers to: 'Monthly spending removed: Cut monthly spending to stretch the runway'.",
+   "range": null,
+   "why": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly spending removed: Cut monthly spending to stretch the runway\"; rests on \"Effect of each GBP/month removed on Time until funding is secured\", which is unknown: Cutting spending stretches the runway but does not itself bring funding in sooner, so it has little direct effect on how long funding takes to arrive. It may only ease the pressure to accept poor terms; it waits on the answers to: 'Monthly spending removed: Cut monthly spending to stretch the runway'.",
+   "add": "Add ‘Monthly spending removed: Cut monthly spending to stretch the runway’ to see its chance.",
+   "shared": false
+  }
  }
 ]

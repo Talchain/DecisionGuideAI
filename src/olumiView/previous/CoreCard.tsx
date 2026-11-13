@@ -89,7 +89,29 @@ export function leadLineOf(card: ViewCard): string | null {
 /** The one line beneath the name on the zoomed-out face: the lead line, or for a figure worked out per option core's own line of them all
  *  (the reduced face shows less of it, and the notice says so). */
 export function farLineOf(card: ViewCard): string | null {
+  const chance = farChanceOf(card)
+  if (chance !== null) return chance
   return leadLineOf(card) ?? (card.figure !== null && card.figure.text !== '' ? card.figure.text : null)
+}
+
+/**
+ * DL-424 (13 Nov, 1128 whole board): on the one-line far face a chance is never cut mid-word ("about 3% chance, on Ol…"). Core makes the chance
+ * line in one place (core src/view/run-lines.ts chanceFace: `${bare} chance` then its clauses, each after ", "): the far line is core's chance
+ * words up to the first of those clauses, whole; what it rests on is the far mark beside it (`farMarkOf`) and core's full sentence is on the
+ * hover and the opened card. A line that is not in that shape is drawn as core sent it. No words of the UI's own.
+ */
+export function farChanceOf(card: ViewCard): string | null {
+  if (card.family !== 'option' || card.headline?.state !== 'chance') return null
+  const t = card.headline.text, cut = t.indexOf(', ')
+  return cut > 0 && t.slice(0, cut).endsWith(' chance') ? t.slice(0, cut) : null
+}
+
+/** The far face's Olumi mark for a chance resting on Olumi's assumption (DL-424): core's own glyph for Olumi's figure it rests on (that card's
+ *  `olumi.glyph`), titled with core's full sentence for the chance. Null where the line is whole or nothing of Olumi's is rested on. */
+export function farMarkOf(card: ViewCard, cards: readonly ViewCard[]): { glyph: string; title: string } | null {
+  if (farChanceOf(card) === null || card.headline == null) return null
+  const glyph = (card.rests_on ?? []).filter((r) => r.whose === 'olumi').map((r) => cards.find((c) => c.id === r.id)?.olumi?.glyph).find((g) => g != null && g !== '')
+  return glyph === undefined ? null : { glyph, title: card.headline.title }
 }
 
 /** The hover that goes with `leadLineOf`: core's own title for the same thing (the goal, conditions and precision behind a chance; the bound's and
@@ -123,6 +145,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source])
   const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
+  const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
   // The frame says three things, each on its own channel, as the retired cards did: dashes only where core doubts it; Olumi's blue where
   // Olumi proposes it (the card, or the question); core's orange where it is challenged (RULING 6's link rule, on the card).
@@ -184,7 +207,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}>
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? undefined}
-      lodMark={restsFar}
+      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? <>{decideBy}{badgeLine}</> : (
         <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
