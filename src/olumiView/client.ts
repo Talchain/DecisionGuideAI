@@ -106,7 +106,7 @@ export const writes = {
   /** The whole proposal, or (API v1.4/v1.8 "confirm selected") exactly the ticked lines: record ids in `only`, top-level fields in `only_top`.
    *  `only_readings`: the readings of Olumi's the person chose to use (the proposal's `marks[].reading.id`). Core reads a missing `only` or
    *  `only_top` as empty once `only_readings` is present, so a caller that sends readings always sends both lists with them (the type holds it). */
-  approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[]; only_readings?: string[] }) =>
+  approve: (proposal: number, base: number | null, pick?: { only: string[]; only_top: string[]; only_readings?: string[]; refuse_readings?: string[] }) =>
     call<unknown>('POST', `/api/proposals/${proposal}/approve`, pick === undefined ? { base } : { base, ...pick }),
   /** Set aside (core's discard). `refuse` (PL-629/PL-661): readings the person declined, by the View's opaque `reading.id` as served; never inferred. */
   discard: (proposal: number, refuse: readonly string[] = []) => call<unknown>('POST', `/api/proposals/${proposal}/discard`, refuse.length > 0 ? { refuse_readings: [...refuse] } : {}),

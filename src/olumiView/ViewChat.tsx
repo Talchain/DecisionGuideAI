@@ -247,10 +247,11 @@ export const READINGS_CHANGED = 'Your choices changed after an approval that did
  * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
  *
- * A reading of Olumi's (a mark with core's `reading.id`) carries a two-way choice, "Keep the original" by default. Core saves one thing: on
- * approval the readings named in `only_readings` are confirmed, and any other offered reading is not applied. So an approval with a chosen
- * reading sends those ids WITH the proposal's own lines (every line for Approve, the ticked lines for Approve ticked): core reads a missing
- * `only` / `only_top` as empty once `only_readings` is present. With no reading chosen the approval is exactly as before.
+ * A reading of Olumi's (a mark with core's `reading.id`) carries a two-way choice, neither chosen until the person chooses. On approval the
+ * readings they chose to use are confirmed (`only_readings`), the ones they chose to keep the original for are refused (`refuse_readings`),
+ * and any other offered reading is not applied (nor refused: PL-661). So an approval with an answered reading sends those ids WITH the
+ * proposal's own lines (every line for Approve, the ticked lines for Approve ticked): core reads a missing `only` / `only_top` as empty once
+ * readings are named. With no reading answered the approval is exactly as before.
  */
 export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
@@ -278,8 +279,13 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   // proposal's own lines could not be named beside the readings, and core would then drop them. Nor does a proposal core does not support:
   // it has no Approve, so there is nothing a choice could be sent with.
   const readingIds = p.changes === undefined || verdict?.supported === false ? [] : [...new Set(p.marks.flatMap((m) => (m.reading ? [m.reading.id] : [])))]
-  const [used, setUsed] = useState<ReadonlySet<string>>(new Set())
-  const onlyReadings = readingIds.flatMap((id) => (used.has(id) ? [id] : []))
+  // Each reading's own answer, as the person gave it: Use Olumi's reading, or Keep the original. Neither is chosen until they choose (PL-661: an
+  // unanswered reading is not a refusal, and is never sent as one). An explicit Keep is the refusal core needs to settle a reading carried from
+  // an earlier message (PL-629, approval.ts `carriedSettled`): it once never left the page, so every approval of such a proposal was a 409
+  // (acceptance run, 13 Nov 15:03Z). One left unanswered core names in its own words.
+  const [choice, setChoice] = useState<Readonly<Record<string, 'use' | 'keep'>>>({})
+  const onlyReadings = readingIds.flatMap((id) => (choice[id] === 'use' ? [id] : []))
+  const refuseReadings = readingIds.flatMap((id) => (choice[id] === 'keep' ? [id] : []))
   const you = useViewStore((s) => s.view?.you ?? null)
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
@@ -288,13 +294,13 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const [refused, setRefused] = useState(false)
   const approve = (lines?: { only: string[]; only_top: string[] }) => {
     const every = { only: changes.flatMap((c) => (c.top ? [] : [c.id])), only_top: changes.flatMap((c) => (c.top ? [c.id] : [])) }
-    const withReadings = onlyReadings.length > 0
-    const body = withReadings ? { ...(lines ?? every), only_readings: onlyReadings } : lines
+    const withReadings = onlyReadings.length + refuseReadings.length > 0
+    const body = withReadings ? { ...(lines ?? every), ...(onlyReadings.length > 0 ? { only_readings: onlyReadings } : {}), ...(refuseReadings.length > 0 ? { refuse_readings: refuseReadings } : {}) } : lines
     const sent = JSON.stringify(body ?? null)
-    if (unsure.current !== null && unsure.current !== sent && (unsure.current.includes('"only_readings"') || withReadings)) { setRefused(true); return }
+    if (unsure.current !== null && unsure.current !== sent && (/"(only|refuse)_readings"/.test(unsure.current) || withReadings)) { setRefused(true); return }
     setRefused(false)
     // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
-    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setUsed(new Set()); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
+    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
   }
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
@@ -312,10 +318,10 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
         const id = m.reading?.id
         if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
-        const choose = (on: boolean) => { setRefused(false); setUsed((u) => { const n = new Set(u); if (on) n.add(id); else n.delete(id); return n }) }
+        const choose = (on: boolean) => { setRefused(false); setChoice((c) => ({ ...c, [id]: on ? 'use' : 'keep' })) }
         const option = (on: boolean) => (
           <label className="inline-flex min-h-[24px] cursor-pointer items-center gap-1">
-            <input type="radio" name={`view-reading-${p.id}-${j}`} checked={used.has(id) === on} disabled={busy} onChange={() => choose(on)} data-testid={`view-reading-${j}-${on ? 'use' : 'keep'}`} />
+            <input type="radio" name={`view-reading-${p.id}-${j}`} checked={choice[id] === (on ? 'use' : 'keep')} disabled={busy} onChange={() => choose(on)} data-testid={`view-reading-${j}-${on ? 'use' : 'keep'}`} />
             {on ? READING_USE : READING_KEEP}
           </label>
         )

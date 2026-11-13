@@ -54,13 +54,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null); useViewChat.setState({ busy: false, said: null }); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null }) })
 
 describe('choose per reading', () => {
-  it('each offered reading has a two-way choice, on "Keep the original"; its source words are core\'s, in view; said once that nothing is saved until Approve', () => {
+  // PL-661 / PL-629 (13 Nov): neither answer is chosen until the person chooses; an unanswered reading is not a refusal. (Was: on "Keep the
+  // original" by default, which made an explicit Keep indistinguishable from none, so a carried reading could never be refused: a 409 always.)
+  it('each offered reading has a two-way choice, neither chosen until the person chooses; its source words are core\'s, in view; said once that nothing is saved until Approve', () => {
     const { container } = show(withMarks([ADA, PLAIN, CAL]))
     expect(screen.getAllByTestId('view-readings-note')).toHaveLength(1)
     expect(screen.getByTestId('view-readings-note')).toHaveTextContent(READINGS_NOTE)
     expect(READINGS_NOTE).toContain('Nothing is saved until you press Approve')
     for (const j of [0, 2]) {
-      expect(radio(j, 'keep').checked, `reading ${j} keep`).toBe(true)
+      expect(radio(j, 'keep').checked, `reading ${j} keep`).toBe(false)
       expect(radio(j, 'use').checked, `reading ${j} use`).toBe(false)
       expect(radio(j, 'keep').closest('label')).toHaveTextContent('Keep the original')
       expect(radio(j, 'use').closest('label')).toHaveTextContent('Use Olumi’s reading')
@@ -86,7 +88,7 @@ describe('choose per reading', () => {
   it('two readings with different choices: only the chosen one is sent; Approve ticked sends the ticked lines beside it', async () => {
     show(withMarks([ADA, CAL]))
     fireEvent.click(radio(1, 'use'))
-    expect([radio(0, 'keep').checked, radio(0, 'use').checked, radio(1, 'keep').checked, radio(1, 'use').checked]).toEqual([true, false, false, true])
+    expect([radio(0, 'keep').checked, radio(0, 'use').checked, radio(1, 'keep').checked, radio(1, 'use').checked]).toEqual([false, false, false, true])
     expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve uses Olumi’s reading for 1 of 2 and keeps the original for the rest.')
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
@@ -111,26 +113,38 @@ describe('choose per reading', () => {
     expect(posts[0]).toEqual({ path: `/api/proposals/${p0.id}/approve`, body: { base: p0.base } })
   })
 
-  it('a choice made and then taken back sends no reading', async () => {
-    show(withMarks([ADA]))
+  // PL-661 / PL-629: Keep the original, chosen, is the person's refusal of Olumi's reading and is sent as one (`refuse_readings`, by the served
+  // id). (Was: a choice taken back sent no reading; core then refused every approval carrying a reading from an earlier message, 13 Nov 15:03Z.)
+  it('CATCH: Keep the original, chosen, is sent as that reading\'s refusal, with every line; a reading left unanswered is neither', async () => {
+    show(withMarks([ADA, CAL]))
     fireEvent.click(radio(0, 'use')); fireEvent.click(radio(0, 'keep'))
+    expect([radio(0, 'keep').checked, radio(0, 'use').checked, radio(1, 'keep').checked, radio(1, 'use').checked]).toEqual([true, false, false, false])
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
-    expect(posts[0]!.body).toEqual({ base: p0.base })
+    expect(posts[0]!.body).toEqual({ base: p0.base, only: p0.changes.map((c) => c.id), only_top: [], refuse_readings: ['rd_ada'] })
   })
 
-  it('reload before approval: the choices are back on "Keep the original", as the note says; nothing was sent', () => {
+  it('CATCH: one reading used and one kept, Approve ticked: the ticked lines, the use and the refusal, each by its id', async () => {
+    show(withMarks([ADA, CAL]))
+    fireEvent.click(radio(0, 'keep')); fireEvent.click(radio(1, 'use'))
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p0.base, only: [p0.changes[1]!.id], only_top: [], only_readings: ['rd_cal'], refuse_readings: ['rd_ada'] })
+  })
+
+  it('reload before approval: the choices are back to none chosen, as the note says; nothing was sent', () => {
     const first = show(withMarks([ADA, CAL]))
     fireEvent.click(radio(0, 'use'))
     expect(radio(0, 'use').checked).toBe(true)
     first.unmount()
     show(withMarks([ADA, CAL])) // the page read again: the same View from core
-    expect([radio(0, 'keep').checked, radio(1, 'keep').checked]).toEqual([true, true])
+    expect([radio(0, 'keep').checked, radio(0, 'use').checked, radio(1, 'keep').checked, radio(1, 'use').checked]).toEqual([false, false, false, false])
     expect(screen.getByTestId('view-readings-note')).toHaveTextContent('a choice you have not approved is not kept if the page is reloaded')
     expect(posts).toHaveLength(0)
   })
 
-  it('after approval the screen is core\'s View, never what the controls were set to: a reading core still offers is back on "Keep the original", in core\'s words', async () => {
+  it('after approval the screen is core\'s View, never what the controls were set to: a reading core still offers is back to none chosen, in core\'s words', async () => {
     // Core's answer here: the SAME proposal still held, Ada's reading no longer offered, Cal's still offered and not confirmed (core's words).
     // Both were set to "Use Olumi's reading" before Approve; the screen must show core's state, not those controls.
     afterApproval = { ...golden, proposal: { ...p0, marks: [{ ...CAL, status: 'Olumi’s reading: 3 weeks · not confirmed' }] } }
@@ -140,14 +154,14 @@ describe('choose per reading', () => {
     await waitFor(() => expect(posts).toHaveLength(1))
     expect((posts[0]!.body as { only_readings: string[] }).only_readings).toEqual(['rd_ada', 'rd_cal'])
     await waitFor(() => expect(container.querySelector('[data-view="proposal.marks.0.status"]')?.textContent).toBe('Olumi’s reading: 3 weeks · not confirmed'))
-    expect(radio(0, 'keep').checked).toBe(true) // Cal's, now the first mark: not the "use" that was pressed
+    expect(radio(0, 'keep').checked).toBe(false) // Cal's, now the first mark: not the "use" that was pressed, and no answer of its own
     expect(radio(0, 'use').checked).toBe(false)
     expect(screen.queryByTestId('view-reading-1')).toBeNull() // Ada's reading is no longer offered: core no longer marks it
     expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve keeps the original for every reading.')
     // A page read again later shows the same: the choices live nowhere but core.
     cleanup()
     show(afterApproval)
-    expect(radio(0, 'keep').checked).toBe(true)
+    expect([radio(0, 'keep').checked, radio(0, 'use').checked]).toEqual([false, false])
   })
 
   it('a failed write, then retry: the same selection is sent again, unchanged', async () => {
@@ -178,12 +192,12 @@ describe('choose per reading', () => {
     expect(screen.getByTestId('view-readings-refused')).toHaveAttribute('role', 'alert')
     await new Promise((r) => setTimeout(r, 20))
     expect(posts).toHaveLength(1)
-    // Put back as it was: the same approval goes again.
+    // PL-661: choosing Keep for Cal's is an answer too (a refusal), not a return to none, so the selection still differs and is still refused.
     fireEvent.click(radio(1, 'keep'))
-    expect(screen.queryByTestId('view-readings-refused')).toBeNull()
     fireEvent.click(screen.getByTestId('view-approve'))
-    await waitFor(() => expect(posts).toHaveLength(2))
-    expect(posts[1]).toEqual(posts[0])
+    expect(screen.getByTestId('view-readings-refused')).toHaveTextContent(READINGS_CHANGED)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(posts).toHaveLength(1)
   })
 
   it('CONTRAST: a write core refused was not saved, so a changed selection is sent, and nothing claims it may have been saved', async () => {
