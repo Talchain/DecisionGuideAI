@@ -49,6 +49,18 @@ export function openedWordsOf(card: ViewCard): string[] {
   ].filter((x): x is string => x != null && x !== '')
 }
 
+/**
+ * ORDER-UI-HOVER (DL, 13 Nov): what the card's hover says for its value, in core's words only. The card's figure as core words it; a card with
+ * no figure words says core's own state for it (its author line, e.g. "Olumi's question, not yet sized"). Null only when core says neither:
+ * the hover then draws no value row. The old product's hover read a figure the core lane never passes, so it said "Not on record" on every card.
+ */
+export function coreHoverValueOf(card: ViewCard): { text: string; source: string | null } | null {
+  const fig = card.figure?.text ?? ''
+  if (fig !== '') return { text: fig, source: card.author?.text ?? null }
+  const state = card.author?.text ?? ''
+  return state === '' ? null : { text: state, source: null }
+}
+
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
 export function leadLineOf(card: ViewCard): string | null {
   if (card.family === 'option') {
@@ -98,7 +110,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const faceTitle = card?.face?.title?.text ?? ''
   const titleOverride = faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
   const question = id === QUESTION ? model?.question ?? null : null
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true } : props.data), [hosted, props.data, label, kind])
+  const coreValue = card === null ? null : coreHoverValueOf(card)
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source])
   const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
   const olumi = card?.author?.by === 'olumi'

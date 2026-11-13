@@ -114,7 +114,12 @@ export function nodeHoverFacts(
     links: [],
   }
 
-  if (nodeType === 'factor') {
+  if (d.core === true) {
+    // ORDER-UI-HOVER: on the olumi-core lane the card's value is core's words (CoreCard `coreHoverValueOf`), never this pop-up's own read of
+    // a figure the lane does not pass; nothing core says → no value row, never "Not on record".
+    const cv = d.coreValue as { text?: unknown; source?: unknown } | null | undefined
+    facts.value = cv && typeof cv.text === 'string' && cv.text !== '' ? { text: cv.text, source: typeof cv.source === 'string' && cv.source !== '' ? cv.source : null, missing: false } : null
+  } else if (nodeType === 'factor') {
     // The card's own value read (`FactorNode` `valueDisplayData`): a descriptor
     // unit is suppressed, never shown as if measured.
     const obs = d.observedState as Record<string, unknown> | undefined

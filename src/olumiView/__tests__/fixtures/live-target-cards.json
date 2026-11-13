@@ -1,0 +1,209 @@
+[
+ {
+  "id": "monthly_spending_cut_monthly_spending_to_stretch_the_cash_that_i",
+  "family": "quantity",
+  "glyph": "●",
+  "heading": "Monthly spending: Cut monthly spending to stretch the cash that is left",
+  "typed": false,
+  "detail": "Monthly spending: Cut monthly spending to stretch the cash that is left · quantity · Proposed by Olumi: Cutting spending acts on the monthly amount going out. · not given yet · How many £ per month would \"Cut monthly spending to stretch the cash that is left\" set \"Monthly spending\" to?",
+  "col": 1,
+  "h": 88,
+  "olumi": {
+   "glyph": "◆",
+   "title": "Proposed by Olumi: Cutting spending acts on the monthly amount going out."
+  },
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": true,
+  "figure": {
+   "text": "",
+   "title": "not given yet · How many £ per month would \"Cut monthly spending to stretch the cash that is left\" set \"Monthly spending\" to?",
+   "edit": {
+    "prompt": "New figure for “Monthly spending: Cut monthly spending to stretch the cash that is left” (GBP/month): one number, or a range like 150 to 400",
+    "ask": "For “Monthly spending: Cut monthly spending to stretch the cash that is left”, type one number, or a range like 150 to 400."
+   }
+  },
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": null,
+  "unused": null,
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": null,
+   "line": null
+  },
+  "author": {
+   "by": "olumi",
+   "text": "Olumi’s question, not yet sized",
+   "title": "Proposed by Olumi: Cutting spending acts on the monthly amount going out."
+  },
+  "failed": []
+ },
+ {
+  "id": "secure_funding_within_2_months_target",
+  "family": "quantity",
+  "glyph": "●",
+  "heading": "The target for 'Secure funding within 2 months'",
+  "typed": false,
+  "detail": "The target for 'Secure funding within 2 months' · quantity · Set \"Target: Secure funding within 2 months\" to 2 months/from now. · 2 months/from now",
+  "col": 1,
+  "h": 88,
+  "olumi": null,
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": false,
+  "figure": {
+   "text": "2 months/from now",
+   "title": "2 months/from now",
+   "edit": {
+    "prompt": "New figure for “The target for 'Secure funding within 2 months'” (months/from now): one number, or a range like 150 to 400",
+    "ask": "For “The target for 'Secure funding within 2 months'”, type one number, or a range like 150 to 400."
+   }
+  },
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": null,
+  "unused": null,
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "The target for 'Secure funding within 2 months'",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "person",
+   "text": "Paul’s figure",
+   "title": "Set by Paul"
+  },
+  "failed": []
+ },
+ {
+  "id": "time_until_funding_is_secured_now",
+  "family": "quantity",
+  "glyph": "●",
+  "heading": "Time until funding is secured now",
+  "typed": false,
+  "detail": "Time until funding is secured now · quantity · Proposed by Olumi: Assumption: a round of £1-2 million from institutional investors usually takes about three to nine months from first outreach to money in the bank. Please check this against your own progress and give your own figure in its place. · Plausible range: 3 to 9 months/from now",
+  "col": 1,
+  "h": 88,
+  "olumi": {
+   "glyph": "◆",
+   "title": "Proposed by Olumi: Assumption: a round of £1-2 million from institutional investors usually takes about three to nine months from first outreach to money in the bank. Please check this against your own progress and give your own figure in its place."
+  },
+  "change": null,
+  "focus": true,
+  "challenged": false,
+  "doubt": false,
+  "figure": {
+   "text": "3 to 9 months/from now",
+   "title": "Plausible range: 3 to 9 months/from now",
+   "edit": {
+    "prompt": "New figure for “Time until funding is secured now” (months/from now): one number, or a range like 150 to 400",
+    "ask": "For “Time until funding is secured now”, type one number, or a range like 150 to 400."
+   }
+  },
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": null,
+  "unused": null,
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "Time until funding is secured now",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "olumi",
+   "text": "Olumi’s estimate",
+   "title": "Proposed by Olumi: Assumption: a round of £1-2 million from institutional investors usually takes about three to nine months from first outreach to money in the bank. Please check this against your own progress and give your own figure in its place."
+  },
+  "failed": []
+ },
+ {
+  "id": "bridge_strains_backer_relationships",
+  "family": "risk",
+  "glyph": "△",
+  "heading": "Bridge strains backer relationships",
+  "typed": false,
+  "detail": "Bridge strains backer relationships · risk · Proposed by Olumi: Asking people close to the business for money when cash is tight may meet reluctance if they see the position as risky.",
+  "col": 0,
+  "h": 102,
+  "olumi": {
+   "glyph": "◆",
+   "title": "Proposed by Olumi: Asking people close to the business for money when cash is tight may meet reluctance if they see the position as risky."
+  },
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": true,
+  "figure": {
+   "text": "no size yet",
+   "title": "How likely is ‘Bridge strains backer relationships’ to happen at least once over the period this model covers? If ‘Bridge strains backer relationships’ happens, by how much does ‘Bridging funds from existing backers added’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+   "edit": {
+    "prompt": "How likely is ‘Bridge strains backer relationships’ to happen at least once over the period this model covers?",
+    "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+    "route": "size",
+    "record": "bridge_strains_backer_relationships",
+    "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+    "fields": [
+     {
+      "key": "chance",
+      "prompt": "How likely is ‘Bridge strains backer relationships’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+     },
+     {
+      "key": "change",
+      "prompt": "If ‘Bridge strains backer relationships’ happens, by how much does ‘Bridging funds from existing backers added’ change?",
+      "ask": "A change in GBP. Use a minus sign: you said it lowers it."
+     }
+    ]
+   }
+  },
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": null,
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "Bridge strains backer relationships",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "olumi",
+   "text": "Olumi inferred",
+   "title": "Proposed by Olumi: Asking people close to the business for money when cash is tight may meet reluctance if they see the position as risky."
+  },
+  "failed": []
+ }
+]
