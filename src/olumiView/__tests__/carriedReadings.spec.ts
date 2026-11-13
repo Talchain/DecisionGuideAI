@@ -46,3 +46,21 @@ describe('PL-661: carried readings are settled only by the person, by the served
     expect(sent).toEqual([])
   })
 })
+
+// PL-667: a proposal may hold only readings (no ordinary line). The person's explicit Confirm or Decline, then Approve, is an act in itself:
+// it is sent with empty `only` / `only_top` and the served reading list. Only a truly empty act (no line, nothing confirmed or declined) is refused.
+describe('PL-667: a reading answered on its own is settled by an explicit Approve', () => {
+  const none = { only: [], only_top: [], left: [] }
+  it('Confirm alone, then Approve: one approval naming only that reading', async () => {
+    await J.answerReadings(none, { confirm: [CARRIED], decline: [] })
+    expect(sent.map((s) => [s.what, s.args[2]])).toEqual([['approve', { only: [], only_top: [], only_readings: [CARRIED] }]])
+  })
+  it('Decline alone, then Approve: one approval refusing only that reading', async () => {
+    await J.answerReadings(none, { confirm: [], decline: [CARRIED] })
+    expect(sent.map((s) => [s.what, s.args[2]])).toEqual([['approve', { only: [], only_top: [], refuse_readings: [CARRIED] }]])
+  })
+  it('control: no line, nothing confirmed or declined (Unsure alone): nothing is sent', async () => {
+    await expect(J.answerReadings(none, { confirm: [], decline: [] })).rejects.toEqual(new J.JourneyRefusal('nothing_ticked'))
+    expect(sent).toEqual([])
+  })
+})

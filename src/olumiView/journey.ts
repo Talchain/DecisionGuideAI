@@ -171,13 +171,14 @@ function served(p: Proposal, ids: readonly string[]) {
 /**
  * The person's answers to Olumi's readings, with the lines they chose (PL-661): confirmed readings go as `only_readings`, declined ones as
  * `refuse_readings`, each by its served id; a reading left unsure goes in neither (unsure is not a no). Core refuses (409, its own words) an
- * approval that leaves a reading carried from an earlier message unsettled. Nothing ticked: nothing is sent.
+ * approval that leaves a reading carried from an earlier message unsettled. A reading confirmed or declined is an act on its own (PL-667):
+ * with no line ticked it goes with empty `only` / `only_top`. Only a truly empty act (no line, nothing confirmed or declined) is refused.
  */
 export async function answerReadings(picks: Picks & { readonly left: Change[] }, answers: { readonly confirm: readonly string[]; readonly decline: readonly string[] }) {
   const p = liveView().proposal
   if (p === null) throw new JourneyRefusal('no_proposal')
   served(p, [...answers.confirm, ...answers.decline])
-  if (picks.only.length + picks.only_top.length === 0) throw new JourneyRefusal('nothing_ticked')
+  if (picks.only.length + picks.only_top.length + answers.confirm.length + answers.decline.length === 0) throw new JourneyRefusal('nothing_ticked')
   return approveSelected(picks, { readings: answers.confirm }, { readings: answers.decline, lines: picks.left.map((c) => c.id) })
 }
 /** Set the whole proposal aside (core's discard): nothing of it is added. `decline`: the readings the person declined, sent as core's
