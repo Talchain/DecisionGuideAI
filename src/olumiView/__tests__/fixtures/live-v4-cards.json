@@ -1,0 +1,259 @@
+[
+ {
+  "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+  "family": "option",
+  "glyph": "▣",
+  "heading": "Keep sending cold emails and seeking warm connections",
+  "typed": false,
+  "detail": "Keep sending cold emails and seeking warm connections · option · Theirs: “We'll keep sending cold emails and trying to find warm connections” (Paul)",
+  "col": 0,
+  "h": 142,
+  "olumi": null,
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": false,
+  "figure": null,
+  "premises": [
+   {
+    "glyph": "!",
+    "text": "The current focus on firms doing £1-2 million deals may itself be what slows the raise. If so, extra emails to the same firms and a small angel round would both leave that cause in place.",
+    "title": "The current focus on firms doing £1-2 million deals may itself be what slows the raise. If so, extra emails to the same firms and a small angel round would both leave that cause in place. · challenge · Proposed by Olumi: It is an alternative explanation for slow progress that no one has tested, and it changes which lever matters.",
+    "id": "the_current_focus_on_firms_doing_1_2_million_deals_may_itself_be",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: It is an alternative explanation for slow progress that no one has tested, and it changes which lever matters."
+    }
+   }
+  ],
+  "rows": [
+   {
+    "kind": "chance",
+    "value": "about 3% chance, on Olumi's assumption for 'Time until funding is secured now'",
+    "fixed": false,
+    "approx": "",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Rests on Olumi’s proposals"
+    },
+    "likely": null,
+    "aim": "Secure funding within 2 months",
+    "aim_id": "secure_funding_within_2_months",
+    "title": "The chance that 'Keep sending cold emails and seeking warm connections' meets 'Secure funding within 2 months', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 2 months), not yet confirmed by them. It rests on Olumi's assumption for 'Time until funding is secured now' (3 to 9 months), for them to check.",
+    "chance": 0.0338,
+    "companion": null,
+    "companion_title": null,
+    "timing": null,
+    "timing_title": null,
+    "outcome": {
+     "low": 3.022401205632893,
+     "median": 5.243113360487183,
+     "high": 8.965162324069537,
+     "unit": "months",
+     "text": "between 3.02 and 8.97 months (middle 5.24)",
+     "title": "Under 'Keep sending cold emails and seeking warm connections', 'Time until funding is secured' is likely to be in this range (8 times in 10). It rests on Olumi's reading of the aim, not yet confirmed by them. It rests on Olumi's assumption for 'Time until funding is secured now' (3 to 9 months), for them to check."
+    },
+    "driver": {
+     "figure": "time_until_funding_is_secured_now",
+     "low": 0.10141014101410141,
+     "high": 0
+    },
+    "text": "The chance that 'Keep sending cold emails and seeking warm connections' meets 'Secure funding within 2 months', in this model on current information.",
+    "rests_on": {
+     "reading": true,
+     "target": true,
+     "what_ifs": [
+      "time_until_funding_is_secured_now"
+     ],
+     "estimates": [
+      "secure_funding_within_2_months_target",
+      "time_until_funding_is_secured_now"
+     ],
+     "approx": []
+    },
+    "rests_on_text": "Rests on Olumi's reading of the aim, proposed target and what-if for 'Time until funding is secured now'.",
+    "if_approved": null,
+    "estimate": null
+   }
+  ],
+  "driver": {
+   "text": "about 10% if 'Time until funding is secured now' is low, under 1% if it is high: Under 'Keep sending cold emails and seeking warm connections', the chance of meeting 'Secure funding within 2 months' moves most with 'Time until funding is secured now': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+   "title": "about 10% if 'Time until funding is secured now' is low, under 1% if it is high: Under 'Keep sending cold emails and seeking warm connections', the chance of meeting 'Secure funding within 2 months' moves most with 'Time until funding is secured now': these are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+   "figure": "time_until_funding_is_secured_now",
+   "low": 0.10141014101410141,
+   "high": 0
+  },
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": {
+   "records": [
+    "the_current_focus_on_firms_doing_1_2_million_deals_may_itself_be"
+   ],
+   "text": "1 challenge",
+   "title": "challenge: The current focus on firms doing £1-2 million deals may itself be what slows the raise. If so, extra emails to the same firms and a small angel round would both leave that cause in place.",
+   "label": "Show 1 notes behind this",
+   "open": false,
+   "proposed": false,
+   "change": "",
+   "words": "1 challenge",
+   "face": "1 challenge",
+   "icon": ""
+  },
+  "values": null,
+  "rests_on": [
+   {
+    "id": "secure_funding_within_2_months_target",
+    "whose": "olumi",
+    "label": "Olumi's estimate of the target for 'Secure funding within 2 months'",
+    "author": "Olumi’s estimate"
+   },
+   {
+    "id": "time_until_funding_is_secured_now",
+    "whose": "olumi",
+    "label": "Time until funding is secured now",
+    "author": "Olumi’s estimate"
+   }
+  ],
+  "sets": [],
+  "face": {
+   "title": {
+    "text": "Keep sending cold emails and seeking warm connections",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "person",
+   "text": "Paul’s idea, from the brief",
+   "title": "Theirs: “We'll keep sending cold emails and trying to find warm connections” (Paul)"
+  },
+  "committed": null,
+  "failed": [],
+  "failed_reason": null,
+  "headline": {
+   "aim_id": "secure_funding_within_2_months",
+   "state": "chance",
+   "text": "about 3% chance, on Olumi's assumption for 'Time until funding is secured now'",
+   "title": "The chance that 'Keep sending cold emails and seeking warm connections' meets 'Secure funding within 2 months', in this model on current information. It rests on Olumi's reading of the aim and Olumi's proposed target (at most 2 months), not yet confirmed by them. It rests on Olumi's assumption for 'Time until funding is secured now' (3 to 9 months), for them to check.",
+   "range": "about 10% if 'Time until funding is secured now' is low, under 1% if it is high",
+   "why": null,
+   "add": null,
+   "shared": false
+  }
+ },
+ {
+  "id": "secure_funding_within_2_months",
+  "family": "goal",
+  "glyph": "★",
+  "heading": "Secure funding within 2 months",
+  "typed": false,
+  "detail": "Secure funding within 2 months · goal · Theirs: “I need to accelerate securing funding within the next 2 months.” (Paul)",
+  "col": 3,
+  "h": 130,
+  "olumi": null,
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": false,
+  "figure": null,
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": {
+   "text": "at most 2 months",
+   "title": "at most 2 months",
+   "olumi": {
+    "glyph": "◆",
+    "title": "Olumi’s proposal, for you to vet"
+   },
+   "measured": true
+  },
+  "reason": null,
+  "badge": {
+   "records": [
+    "secure_funding_within_2_months_target",
+    "the_money_will_run_out_soon",
+    "the_question_treats_the_2_month_window_as_the_real_constraint_bu",
+    "funding_that_only_buys_time_and_funding_that_closes_the_gap_are"
+   ],
+   "text": "1 figure, 1 claim, 2 challenges",
+   "title": "Figure: Olumi's estimate of the target for 'Secure funding within 2 months'\nclaim: The money will run out soon.\nchallenge: The question treats the 2-month window as the real constraint, but how many months of cash remain is not stated. If the runway is longer or shorter than 2 months, the options would be weighed differently.\nchallenge: Funding that only buys time and funding that closes the gap are different outcomes. A small quick amount could extend the runway without securing the round, so a lenders' or investors' view of 'secured' may differ from the aim as written.",
+   "label": "Show 4 notes behind this",
+   "open": false,
+   "proposed": false,
+   "change": "",
+   "words": "1 figure, 1 claim, 2 challenges",
+   "face": "2 challenges and 2 more",
+   "icon": ""
+  },
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "Secure funding within 2 months",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "person",
+   "text": "Paul’s idea, from the brief",
+   "title": "Theirs: “I need to accelerate securing funding within the next 2 months.” (Paul)"
+  },
+  "failed": []
+ },
+ {
+  "id": "time_until_funding_is_secured_now",
+  "family": "quantity",
+  "glyph": "●",
+  "heading": "Time until funding is secured now",
+  "typed": false,
+  "detail": "Time until funding is secured now · quantity · Proposed by Olumi: Raising a round from firms doing deals of one to two million pounds typically takes around three to nine months from first outreach to money in the bank. This is my own assumption; please check it against your own pipeline and give your figure in its place. · Plausible range: 3 to 9 months",
+  "col": 1,
+  "h": 88,
+  "olumi": {
+   "glyph": "◆",
+   "title": "Proposed by Olumi: Raising a round from firms doing deals of one to two million pounds typically takes around three to nine months from first outreach to money in the bank. This is my own assumption; please check it against your own pipeline and give your figure in its place."
+  },
+  "change": null,
+  "focus": true,
+  "challenged": false,
+  "doubt": false,
+  "figure": {
+   "text": "3 to 9 months",
+   "title": "Plausible range: 3 to 9 months",
+   "edit": {
+    "prompt": "New figure for “Time until funding is secured now” (months): one number, or a range like 150 to 400",
+    "ask": "For “Time until funding is secured now”, type one number, or a range like 150 to 400."
+   }
+  },
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": null,
+  "reason": null,
+  "badge": null,
+  "unused": null,
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "Time until funding is secured now",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "olumi",
+   "text": "Olumi’s estimate",
+   "title": "Proposed by Olumi: Raising a round from firms doing deals of one to two million pounds typically takes around three to nine months from first outreach to money in the bank. This is my own assumption; please check it against your own pipeline and give your figure in its place."
+  },
+  "failed": []
+ }
+]

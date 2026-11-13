@@ -49,6 +49,27 @@ export function openedWordsOf(card: ViewCard): string[] {
   ].filter((x): x is string => x != null && x !== '')
 }
 
+/**
+ * ORDER-UI-HOVER (DL, 13 Nov; Codex PL-851): the hover's Value line, in core's words only, in this order:
+ *  1. core's figure words, with that figure's own attribution: Olumi's mark where core marks the figure Olumi's estimate on a card that is not
+ *     Olumi's (as the face draws it, `estimate`), else the card's author line, which on a quantity says whose the figure is;
+ *  2. else core's BOUND words (a goal's "at most 2 months") with that bound's own Olumi mark; with no bound-specific attribution the source is
+ *     absent: never the goal's or card's author, which says whose the AIM is (a colleague can set a target on someone else's aim);
+ *  3. else, for a quantity core sends with an empty figure, core's own state line for it ("Olumi's question, not yet sized");
+ *  4. else null: no Value row (never "Not on record", which core never says).
+ */
+export function coreHoverValueOf(card: ViewCard): { text: string; source: string | null } | null {
+  const fig = card.figure?.text ?? ''
+  if (fig !== '') {
+    const olumisFigure = card.family === 'quantity' && card.olumi !== null && card.author?.by !== 'olumi'
+    return { text: fig, source: olumisFigure ? card.olumi!.title : card.author?.text ?? null }
+  }
+  const bound = card.bound?.text ?? ''
+  if (bound !== '') return { text: bound, source: card.bound?.olumi?.title ?? null }
+  const state = card.figure != null ? card.author?.text ?? '' : ''
+  return state === '' ? null : { text: state, source: null }
+}
+
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
 export function leadLineOf(card: ViewCard): string | null {
   if (card.family === 'option') {
@@ -98,7 +119,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const faceTitle = card?.face?.title?.text ?? ''
   const titleOverride = faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
   const question = id === QUESTION ? model?.question ?? null : null
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true } : props.data), [hosted, props.data, label, kind])
+  const coreValue = card === null ? null : coreHoverValueOf(card)
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source])
   const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
   const olumi = card?.author?.by === 'olumi'

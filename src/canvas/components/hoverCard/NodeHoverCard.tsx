@@ -114,7 +114,12 @@ export function nodeHoverFacts(
     links: [],
   }
 
-  if (nodeType === 'factor') {
+  if (d.core === true) {
+    // ORDER-UI-HOVER: on the olumi-core lane the card's value is core's words (CoreCard `coreHoverValueOf`), never this pop-up's own read of
+    // a figure the lane does not pass; nothing core says → no value row, never "Not on record".
+    const cv = d.coreValue as { text?: unknown; source?: unknown } | null | undefined
+    facts.value = cv && typeof cv.text === 'string' && cv.text !== '' ? { text: cv.text, source: typeof cv.source === 'string' && cv.source !== '' ? cv.source : null, missing: false } : null
+  } else if (nodeType === 'factor') {
     // The card's own value read (`FactorNode` `valueDisplayData`): a descriptor
     // unit is suppressed, never shown as if measured.
     const obs = d.observedState as Record<string, unknown> | undefined
@@ -181,7 +186,10 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
   const edges = useCanvasStore(s => (s.edges as GraphEdge[] | undefined) ?? EMPTY)
   const displayNodes = useSwitchFactorNodes<GraphNode>(nodes)
   // An item Olumi added on a core scenario says so, as its card does (`livingAuthorship.ts`).
-  const displayData = useLivingAuthorship(nodeId, displayNodes.find(n => n.id === nodeId)?.data ?? data)
+  // ORDER-UI-HOVER: on the olumi-core lane the card's own data (CoreCard: core's card and its words) is the pop-up's; the store's node
+  // carries only the card and its heading, so reading it first lost core's value and said "Not on record".
+  const own = (data as { core?: unknown } | undefined)?.core === true ? data : displayNodes.find(n => n.id === nodeId)?.data ?? data
+  const displayData = useLivingAuthorship(nodeId, own)
   const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, displayData, displayNodes, edges), [nodeId, nodeType, displayData, displayNodes, edges])
   const cardRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<HoverCardPlacement | null>(null)
