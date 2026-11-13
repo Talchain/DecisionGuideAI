@@ -17,6 +17,7 @@ import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type View
 import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
+import { questionsOf } from './journey'
 import { usePreMortemGate, useViewLens } from './lens'
 import { figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
@@ -1170,12 +1171,26 @@ export function ViewChat() {
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
-            {view?.model?.coaching_questions?.[0] ? (
-              <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label="Olumi’s question">
-                <p className={`${typography.viewPanelMeta} text-info`}>Olumi’s question</p>
-                <p data-testid="view-model-question-text" data-view="model.coaching_questions.0">{view.model.coaching_questions[0]}</p>
-              </section>
-            ) : null}
+            {/* ORDER-UI-5 (2), DL-408: core's open questions on this model, in core's order (journey.ts questionsOf), at most three, each
+                core's words whole; the first keeps its place and test id. Core sends each as words only (core src/contract/form.ts
+                `coaching_questions: z.array(z.string())`): no quantity id, so none is drawn here and none is guessed from the words. */}
+            {(() => {
+              const qs = view === null ? [] : questionsOf(view).filter((q) => q.text !== '').slice(0, 3)
+              if (qs.length === 0) return null
+              const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
+              return (
+                <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label={head}>
+                  <p className={`${typography.viewPanelMeta} text-info`}>{head}</p>
+                  {qs.length === 1
+                    ? <p data-testid="view-model-question-text" data-view="model.coaching_questions.0">{qs[0]!.text}</p>
+                    : (
+                      <ol className="m-0 list-decimal space-y-1 pl-5" data-testid="view-model-questions">
+                        {qs.map((q) => <li key={q.at} data-testid={q.at === 0 ? 'view-model-question-text' : `view-model-question-text-${q.at}`} data-view={`model.coaching_questions.${q.at}`}>{q.text}</li>)}
+                      </ol>
+                    )}
+                </section>
+              )
+            })()}
             {view === null ? null : <NextStepCard view={view} busy={busy} />}
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />

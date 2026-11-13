@@ -356,15 +356,34 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
 
 describe('the shown model’s existing open question in the ordinary panel', () => {
   const question = 'What would success look like here? The brief does not yet say what is being aimed for.'
-  it('draws the first verbatim question as Olumi’s, above approval, without sending anything', () => {
+  it('draws the questions verbatim as Olumi’s, first first, above approval, without sending anything (ORDER-UI-5 (2): every one, not only the first)', () => {
     const view = structuredClone(proposal)
     view.model!.coaching_questions = [question, 'What evidence could change your view?']
     show(view)
-    const { getByTestId, queryByText } = render(<ViewChat />)
-    expect(getByTestId('view-model-question').textContent).toContain('Olumi’s question')
+    const { getByTestId } = render(<ViewChat />)
+    expect(getByTestId('view-model-question').textContent).toContain('Olumi’s questions')
     expect(getByTestId('view-model-question-text').textContent).toBe(question)
+    expect(getByTestId('view-model-question-text-1').textContent).toBe('What evidence could change your view?')
+    follows(getByTestId('view-model-question-text'), getByTestId('view-model-question-text-1'))
     follows(getByTestId('view-model-question'), getByTestId('view-next-step'))
-    expect(queryByText('What evidence could change your view?')).toBeNull()
+    expect(posts).toEqual([])
+  })
+  it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each painted whole and reachable in the panel\'s scroll; the fourth is not drawn', () => {
+    const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
+    const qs = real.model!.coaching_questions!
+    expect(qs.length, 'precondition: core sends more than three').toBeGreaterThan(3)
+    show(real)
+    const { getByTestId, queryByTestId, queryByText } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    for (const at of [0, 1, 2]) {
+      const el = getByTestId(at === 0 ? 'view-model-question-text' : `view-model-question-text-${at}`)
+      expect([el.textContent, el.getAttribute('data-view')], `question ${at}`).toEqual([qs[at], `model.coaching_questions.${at}`])
+      // painted: rendered in the open panel, not hidden or clipped by a class; reachable: inside the panel's own scroll
+      expect(scroll.contains(el), `question ${at} is in the panel's scroll`).toBe(true)
+      for (let e: HTMLElement | null = el; e !== null && e !== scroll; e = e.parentElement) expect(e.hidden || /\b(hidden|sr-only|truncate|line-clamp-\d)\b/.test(e.className), `question ${at}: ${e.tagName} hides it`).toBe(false)
+    }
+    expect(queryByTestId('view-model-question-text-3')).toBeNull()
+    expect(queryByText(qs[3]!)).toBeNull()
     expect(posts).toEqual([])
   })
   it('withdraws the question when the saved View no longer carries it; older payloads need no field', () => {
