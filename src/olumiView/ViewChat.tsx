@@ -70,6 +70,42 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
 }
 
 /**
+ * A reply's answer in core's own layout (ORDER-UI-NEXT, 13 Nov: the first reply on #/scenario drew as one wall of text). Core's text keeps its
+ * line breaks: a blank line is a new paragraph, a line that starts "- " is a list item (drawn as a bullet, the "- " marker dropped), any other
+ * line break stays a line break. Words verbatim and in order; citation markers exactly as `Words` draws them, numbered in the same order.
+ * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
+ */
+type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
+export function Blocks({ parts, at, first = 1 }: { parts: Said; at: string; first?: number }) {
+  const lines: Piece[][] = [[]]
+  parts.forEach((p, i) => {
+    if ('cite' in p) { lines[lines.length - 1]!.push({ kind: 'cite', i, cite: p.cite }); return }
+    p.text.split('\n').forEach((s, k) => { if (k > 0) lines.push([]); if (s !== '') lines[lines.length - 1]!.push({ kind: 'text', i, k, s }) })
+  })
+  let n = first
+  const draw = (line: Piece[], strip: boolean) => line.map((x, j) => {
+    if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{n++}</sup>
+    const s = strip && j === 0 ? x.s.replace(/^\s*- /, '') : x.s
+    return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{s}</span>
+  })
+  const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
+  // Group: blank lines end a paragraph; consecutive "- " lines make one list.
+  const groups: { list: boolean; lines: Piece[][] }[] = []
+  for (const line of lines) {
+    if (line.length === 0) { groups.push({ list: false, lines: [] }); continue }
+    const list = isItem(line), last = groups[groups.length - 1]
+    if (last && last.lines.length > 0 && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+  }
+  return (
+    <>
+      {groups.filter((g) => g.lines.length > 0).map((g, gi) => (g.list
+        ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => <li key={li}>{draw(l, true)}</li>)}</ul>
+        : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
+    </>
+  )
+}
+
+/**
  * K5 "If it failed" (R3): the pre-mortem's stories on the reply they came with, under core's heading, each marked Olumi's with the key's
  * own Olumi glyph (`model.key`); the option a story is about and the cards it rests on as label: value lines, in each card's own heading.
  * Every word is core's (./k5.ts, ahead of core); a record that is not a card on the canvas is not named, and nothing is drawn without stories.
@@ -130,7 +166,7 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
-      <p><Words parts={t.answer.answer} at={`${at}.answer.answer`} /></p>
+      <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} />
       {t.answer.why.length === 0 ? null : (
         <details>
           <summary>Why</summary>

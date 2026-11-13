@@ -175,8 +175,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {/* An option's line is core's, whole, but at most two lines on the face; the rest on hover (DL, live draft: a setting question
                   made one option card twice its neighbours' height). */}
               {/* Every card's face line is core's, whole on hover, but a few lines on the face (DL, A13f: a challenge's paragraph ran about 15
-                  lines, taller than the rest of the board): an option's two, any other card's three. */}
-              <span className={card.family === 'option' ? 'line-clamp-2' : 'line-clamp-3'} data-core-lead-clamp={id}>{lead}</span>
+                  lines, taller than the rest of the board): three. An option's was two until ORDER-UI-NEXT (13 Nov): its chance line names
+                  the assumption it rests on, and two lines cut that name ("on Olumi's assumption for 'Weeks until first…"). */}
+              <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
               {changeOn === 'lead' ? changeMark : null}

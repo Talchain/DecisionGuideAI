@@ -274,13 +274,14 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     } finally { useCanvasStore.setState({ lodRung: was } as never) }
   })
 
-  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is clamped to two lines, core\'s words whole on hover', () => {
+  // ORDER-UI-NEXT (DL, 13 Nov): three lines, as every other card: at two, the chance line's assumption name was cut ("…for 'Weeks until first…").
+  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is clamped to three lines, core\'s words whole on hover', () => {
     const opt = EU.model!.cards.find((c) => c.family === 'option')!
     const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
     const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, long, true])
+    expect([clamp?.className.includes('line-clamp-3'), clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, false, long, true])
   })
 
   it('FT14 (DL, A13f: a challenge\'s paragraph ran ~15 lines on its face): any card\'s face line is clamped to three lines, core\'s words whole on hover', () => {
