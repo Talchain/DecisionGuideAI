@@ -15,6 +15,8 @@ import { drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIE
 import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
+const boundHeights = vi.hoisted(() => ({ current: new Map<string, number>() }))
+vi.mock('../../canvas/utils/measureNodeHeightsAtLabelBound', () => ({ measureNodeHeightsAtLabelBound: () => boundHeights.current }))
 vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
 const hydrate = vi.hoisted(() => vi.fn(async () => 'merged'))
 vi.mock('../../canvas/hydrate/serverGraphHydration', async (real) => ({ ...(await real<object>()), hydrateCanvasFromServer: hydrate }))
@@ -25,7 +27,7 @@ vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () =
 const golden = (n: string, dir = 'golden', ext = 'view'): View => JSON.parse(readFileSync(path.resolve('src/olumiView', dir, `${n}.${ext}.json`), 'utf8'))
 const ids = () => useCanvasStore.getState().nodes.slice(1).map((n) => n.id)
 
-beforeEach(() => { lane.on = true; hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
+beforeEach(() => { lane.on = true; boundHeights.current = new Map(); hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
 afterEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }))
 
 describe('the View draws the canvas', () => {
@@ -106,6 +108,34 @@ describe('the causal graph, not core\'s columns (Paul 4 Nov: "the horizontal mod
     const model = golden('european').model!
     expect([...(await causalPlaces(model, new Map()))]).toEqual([...(await causalPlaces(model, new Map()))])
     expect(drawViewCanvas(model, await causalPlaces(model, new Map()))).toBe(true)
+  })
+})
+
+describe('the View adapter reserves the existing counter-scale height bound', () => {
+  it('short live measurements cannot place a later row inside the full-height cards', async () => {
+    const model = golden('pricing').model!
+    await layViewCanvas(model)
+    const low = useCanvasStore.getState().nodes.map((n) => ({ ...n, measured: { width: CARD_WIDTH, height: 80 } }))
+    useCanvasStore.setState({ nodes: low })
+    boundHeights.current = new Map(low.map((n) => [n.id, 400]))
+    await layViewCanvas(model)
+    const boxes = useCanvasStore.getState().nodes.map((n) => ({ id: n.id, ...n.position, w: n.id === QUESTION ? questionPlace(model).width : CARD_WIDTH, h: 400 }))
+    for (const a of boxes) for (const b of boxes) if (a.id < b.id) {
+      expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, `${a.id} overlaps ${b.id} at the measured height bound`).toBe(false)
+    }
+  })
+
+  it('the same full-height bound gives the same board when live zoom measurements change', async () => {
+    const model = golden('pricing').model!
+    await layViewCanvas(model)
+    const live = (height: number) => useCanvasStore.getState().nodes.map((n) => ({ ...n, measured: { width: CARD_WIDTH, height } }))
+    boundHeights.current = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, 400]))
+    useCanvasStore.setState({ nodes: live(80) })
+    await layViewCanvas(model)
+    const before = useCanvasStore.getState().nodes.map((n) => [n.id, n.position])
+    useCanvasStore.setState({ nodes: live(160) })
+    await layViewCanvas(model)
+    expect(useCanvasStore.getState().nodes.map((n) => [n.id, n.position])).toEqual(before)
   })
 })
 

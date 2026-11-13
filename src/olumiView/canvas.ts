@@ -13,6 +13,7 @@ import { useViewStore } from './store'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
+import { measureNodeHeightsAtLabelBound } from '../canvas/utils/measureNodeHeightsAtLabelBound'
 import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 
@@ -58,8 +59,8 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing])
+const causalKey = (model: ViewModel, heights: ReadonlyMap<string, number>, railed: ReadonlySet<string>, opts: { direction: string; spacing: number }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), [...heights], [...railed], opts.direction, opts.spacing])
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
   if (typeof window === 'undefined') return { h: 0, w: 0 }
@@ -83,14 +84,18 @@ export const railedOf = (view: View | null): ReadonlySet<string> =>
   new Set([...(revealOf(view)?.cardChips.keys() ?? []), ...(view?.collab.link_marks ?? []).flatMap((m) => (!m.line && m.card !== null ? [m.card] : []))])
 const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().view)
 
-/** The previous product's places for the model (layout.ts causalPlaces), at the cards' drawn heights (else core's), worked out once per
+/** The previous product's places for the model (layout.ts causalPlaces), at its counter-scale height bound (else drawn heights or core's), worked out once per
  *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
-  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing })
+  // The same bound the previous canvas supplies to layoutGraph: fitting may grow labels after this placement. A live-height stride
+  // would then put the next row inside those taller cards. An absent bound keeps the existing measurement; it never becomes zero.
+  const heights = drawnHeights(nodes)
+  for (const [id, height] of measureNodeHeightsAtLabelBound()) if (height > 0) heights.set(id, height)
+  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, heights, railed, { direction, spacing: nodeSpacing })
   if (causal?.key === key) return causal.places
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
+  const size = new Map([...heights].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
   laying += 1
   try {
     const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing })
