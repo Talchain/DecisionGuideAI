@@ -245,6 +245,23 @@ describe('choose per reading', () => {
     expect((posts[0]!.body as { refuse_readings?: unknown }).refuse_readings).toBeUndefined()
   })
 
+  it('ORDER-UI-5 (5): the three action labels are core\'s proposal.actions where core sends them; absent (older core), today\'s words', () => {
+    const core = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/core-proposal-actions-e4e9a404.json'), 'utf8')).actions as { keep: string; use: string; approve: string }
+    const painted = () => [screen.getByTestId('view-reading-0-keep').parentElement!.textContent, screen.getByTestId('view-reading-0-use').parentElement!.textContent, screen.getByTestId('view-approve').textContent]
+    // core's served value (golden at e4e9a404)
+    let r = show({ ...withMarks([ADA]), proposal: { ...withMarks([ADA]).proposal!, actions: core } })
+    expect(painted()).toEqual([core.keep, core.use, core.approve])
+    r.unmount()
+    // DERIVED from core's shape, other words: the buttons follow core, never the UI's constants
+    const other = { keep: 'Leave it as written', use: 'Take Olumi’s figure', approve: 'Confirm' }
+    r = show({ ...withMarks([ADA]), proposal: { ...withMarks([ADA]).proposal!, actions: other } })
+    expect(painted()).toEqual([other.keep, other.use, other.approve])
+    r.unmount()
+    // absent: today's words
+    show(withMarks([ADA]))
+    expect(painted()).toEqual(['Keep the original', 'Use Olumi’s reading', 'Approve'])
+  })
+
   it('must not change: a proposal with no reading has no choice, no note, and Approve as before', async () => {
     show(withMarks([PLAIN]))
     expect(screen.queryByTestId('view-readings-note')).toBeNull()

@@ -1,0 +1,8 @@
+{
+ "source": "olumi-core e4e9a40459126566349ba2d0b77c099baf2160c1 src/view/__tests__/golden/proposal.view3.json proposal.actions",
+ "actions": {
+  "keep": "Keep the original",
+  "use": "Use Olumi’s reading",
+  "approve": "Approve"
+ }
+}

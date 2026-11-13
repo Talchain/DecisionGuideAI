@@ -777,6 +777,11 @@ export type View = {
       text: string
       asks: string | null
     } | null
+    actions?: {
+      keep: string
+      use: string
+      approve: string
+    }
   } | null
   collab: {
     alone: boolean

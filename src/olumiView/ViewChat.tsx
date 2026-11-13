@@ -279,8 +279,11 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
 // placeholder for this figure …" for a figure Olumi offered on request (model.ts:222). Core sends no kind field, so the UI never tells them
 // apart from the words; this note said "Olumi read each of these from someone's words", false on a placeholder (live v4, 13 Nov).
 export const READINGS_NOTE = 'Choose for each one. Nothing is saved until you press Approve, and a choice you have not approved is not kept if the page is reloaded.'
+// The panel's three action labels, as an older core (no `proposal.actions`) is drawn. A core that sends them is the producer (ORDER-OP-9 (3),
+// core src/view/view.ts:306 from words/pending-notice.ts PANEL, the value its notice and the coach's sentences read): the buttons draw its words.
 export const READING_KEEP = 'Keep the original'
 export const READING_USE = 'Use Olumi’s reading'
+export const APPROVE_WORD = 'Approve'
 /** An approval with readings that did not go through may still have been saved: a different selection is never sent in its place. */
 export const READINGS_CHANGED = 'Your choices changed after an approval that did not go through, so nothing was sent. That approval may have been saved: reload the page to see what the model holds, or put the choices back as they were and press Approve again.'
 
@@ -295,6 +298,8 @@ export const READINGS_CHANGED = 'Your choices changed after an approval that did
  * readings are named. With no reading answered the approval is exactly as before.
  */
 export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+  // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
+  const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
   // core's words for them (`from.by`: "You", their name, "a former member"), never `asked_by`, which is their member id; a core that sends
   // no words names no one.
@@ -363,7 +368,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         const option = (on: boolean) => (
           <label className="inline-flex min-h-[24px] cursor-pointer items-center gap-1">
             <input type="radio" name={`view-reading-${p.id}-${j}`} checked={choice[id] === (on ? 'use' : 'keep')} disabled={busy} onChange={() => choose(on)} data-testid={`view-reading-${j}-${on ? 'use' : 'keep'}`} />
-            {on ? READING_USE : READING_KEEP}
+            {on ? actions.use : actions.keep}
           </label>
         )
         return (
@@ -415,7 +420,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
       <div className="flex flex-wrap gap-2">
-        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>Approve</button>}
+        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>

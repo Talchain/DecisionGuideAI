@@ -4248,6 +4248,26 @@
          "type": "null"
         }
        ]
+      },
+      "actions": {
+       "type": "object",
+       "properties": {
+        "keep": {
+         "type": "string"
+        },
+        "use": {
+         "type": "string"
+        },
+        "approve": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "keep",
+        "use",
+        "approve"
+       ],
+       "additionalProperties": false
       }
      },
      "required": [
