@@ -134,6 +134,7 @@ interface K {
 interface R { kind: BoardRowKind; cards?: ViewCard[]; nodes: N[]; defer?: boolean; h: number; y: number }
 
 const NOTE_FAMILIES = new Set(['left_out', 'condition', 'relation'])
+const CARD_MIN = 168
 const BAR_H = 48
 const PANEL_MIN = 376
 const PANEL_MAX = 448
@@ -298,7 +299,7 @@ function order(rows: R[], links: K[]): void {
 
 /* ------------------------------------------------------------------ widths (the first half of layout()) */
 
-interface Cols { wide: boolean; padT: number; colGap: number; cardW: number; maxCount: number }
+interface Cols { wide: boolean; padT: number; colGap: number; cardW: number; maxCount: number; usedR: number }
 
 function assignWidths(rows: R[], bw: number): Cols {
   const wide = bw > 1300
@@ -306,7 +307,8 @@ function assignWidths(rows: R[], bw: number): Cols {
   const modelW = bw - padL - padR
   let maxCount = 1
   rows.forEach((r) => { if (r.kind !== 'question' && r.kind !== 'aimslot') maxCount = Math.max(maxCount, r.nodes.length) })
-  const cardW = Math.floor(Math.min(wide ? 300 : 280, (modelW - (maxCount - 1) * colGap) / maxCount))
+  // A card keeps a readable width (DL 13 Nov: a 7-figure row at 1128 broke words mid-word); a row wider than the board scrolls sideways.
+  const cardW = Math.max(CARD_MIN, Math.floor(Math.min(wide ? 300 : 280, (modelW - (maxCount - 1) * colGap) / maxCount)))
   const usedW = maxCount * cardW + (maxCount - 1) * colGap
   const x0 = padL + Math.max(0, Math.round((modelW - usedW) / 2))
   const noteList = rows[0].nodes.filter((n) => n.note)
@@ -345,7 +347,7 @@ function assignWidths(rows: R[], bw: number): Cols {
       x += nd.w + colGap
     })
   })
-  return { wide, padT, colGap, cardW, maxCount }
+  return { wide, padT, colGap, cardW, maxCount, usedR: x0 + usedW + padR }
 }
 
 function rowKindOf(rows: R[], n: N): BoardRowKind { return rows[n.row].kind }
@@ -373,7 +375,7 @@ export function layoutBoard(view: View, heights: ReadonlyMap<string, number>, vi
   const { rows, created, links, unrouted } = build(view)
   const board = boardSizeOf(viewport)
   const bw = board.w, bh = board.h
-  const { wide, padT, colGap, cardW } = assignWidths(rows, bw)
+  const { wide, padT, colGap, cardW, usedR } = assignWidths(rows, bw)
   const all = created
 
   all.forEach((n) => {
@@ -610,7 +612,7 @@ export function layoutBoard(view: View, heights: ReadonlyMap<string, number>, vi
     gap: i < nGap ? { top: gapTop[i], h: gapH[i], lanes: laneCount[i], topClear: topC[i], botClear: botC[i] } : null,
   }))
   return {
-    board, stage: { w: bw, h: Math.max(H, bh) }, wide, cardW, contentH, nodes, rows: rowsOut, wires, unrouted,
+    board, stage: { w: Math.max(bw, usedR), h: Math.max(H, bh) }, wide, cardW, contentH, nodes, rows: rowsOut, wires, unrouted,
     report: { rows: rowReport, cardW, contentH: Math.round(contentH), overlaps: over, outside, fitsFirstView: contentH <= bh },
   }
 }

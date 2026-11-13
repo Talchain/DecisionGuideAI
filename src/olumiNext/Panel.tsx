@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { View } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import {
-  TeamApiError, answer, answerReadings, approveAll, awaitTurn, correctFigure, editGateNow, readingsOn, tellOlumi, tickEvery, working, type Reading, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
+  TeamApiError, answer, answerReadings, clearWhatIf, tryFigure, useWhatIf, approveAll, awaitTurn, correctFigure, editGateNow, readingsOn, tellOlumi, tickEvery, working, type Reading, type EditGate, type QuestionRef, groupTicked, lineKey, picksOf, renameCard, setAside, setGroup, toggleLine,
   type Change, type Ticks,
 } from '../olumiView/journey'
 import { Brand, Chev, Close, Dash, OlumiMark, Pencil, Send, Tick } from './icons'
@@ -141,6 +141,7 @@ function Detail({ v, id, editing, onClose, onTell }: { v: View; id: string; edit
           <label className="meta" htmlFor="next-edit-field">{form === 'figure' ? (f?.edit?.ask ?? MW.figure) : MW.newName}</label>
           <div className="field"><input id="next-edit-field" type="text" value={typed} placeholder={form === 'figure' ? MW.figureHint : undefined} onChange={(e) => setTyped(e.target.value)} disabled={busy} data-testid="next-edit-field" /></div>
           <div className="edit-acts">
+            {form === 'figure' ? <button type="button" className="btn btn-quiet" disabled={busy || typed.trim() === ''} data-testid="next-whatif-try" onClick={() => { setBusy(true); setError(null); void tryFigure(base, id, typed).catch((e) => setError(e instanceof TeamApiError ? e.message : MW.triedFailed)).finally(() => setBusy(false)) }}>{busy ? MW.trying : MW.tryIt}</button> : null}
             <button type="submit" className="btn btn-primary" disabled={busy || typed.trim() === ''} data-testid="next-edit-save">{busy ? MW.saving : form === 'figure' ? (f?.text ? MW.changeFigure : MW.setFigure) : MW.saveName}</button>
             <button type="button" className="btn btn-text" onClick={close} disabled={busy}>{MW.cancel}</button>
           </div>
@@ -159,6 +160,31 @@ function Detail({ v, id, editing, onClose, onTell }: { v: View; id: string; edit
         </div>
       ) : null}
       {error ? <p role="alert" className="meta err" data-testid="next-error">{error}</p> : null}
+      <WhatIf v={v} />
+    </section>
+  )
+}
+
+/** The what-if shown (core's `POST …/whatif`), for the version it was asked on only: marked not saved, core's words for the figure tried,
+ *  then each option's rows from the copy's Run, in core's words, and its most likely line. Clear drops it; nothing was saved. */
+function WhatIf({ v }: { v: View }) {
+  const shown = useWhatIf((s) => s.shown), sid = useViewStore((s) => s.sid)
+  if (shown === null || shown.sid !== sid || shown.base !== loose(v.model).edit_base) return null
+  const w = shown.variant, byId = new Map((v.model?.cards ?? []).map((c) => [c.id, c]))
+  const rowText = (r: Loose) => (r.kind === 'none' ? r.text : `${r.value}${r.aim ? ` · ${r.aim}` : ''}`)
+  return (
+    <section className="sec whatif" data-testid="next-whatif" aria-label="What-if, not saved">
+      <header><h4>What-if, not saved</h4><button type="button" className="textlink" data-testid="next-whatif-clear" onClick={clearWhatIf}><span>Clear</span></button></header>
+      {w.edits.map((e) => <p key={e.quantity} className="meta">{e.words}</p>)}
+      {w.stopped !== null ? <p className="say">{w.stopped}</p> : w.blocked !== null ? <p className="say err" title={w.blocked}>{w.blocked}</p> : (
+        <>
+          {w.moved || w.why_not === null ? null : <p className="meta">{w.why_not}</p>}
+          {w.rows.map((o) => { const c = byId.get(o.option_id); return c ? (
+            <div key={o.option_id} className="whatif-opt" data-whatif-of={o.option_id}><p className="nm">{c.heading}</p>{(o.rows as Loose[]).map((r, i) => <p key={i} className="meta" title={r.title}>{rowText(r)}</p>)}</div>) : null })}
+          {(w.size ?? []).map((s) => <p key={`${s.option}:${s.goal}`} className="meta">{s.line}</p>)}
+          {w.most_likely ? <p className="say" title={w.most_likely.title}>{w.most_likely.text}</p> : null}
+        </>
+      )}
     </section>
   )
 }

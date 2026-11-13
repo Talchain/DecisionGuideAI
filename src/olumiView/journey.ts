@@ -19,6 +19,7 @@ import { isForThisPage, useMe, type Me } from '../olumiCore/me'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { useViewStore } from './store'
 import { writes, type View, type ViewCard } from './client'
+import { tryWhatIf } from './whatif'
 
 // ─── Opening a scenario ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 /** Open core's scenario `sid` (s_<12 hex>) as the person whose private link this browser holds: who they are first (every write names
@@ -353,3 +354,25 @@ export function authorshipOf(card: ViewCard): Authorship {
 
 /** For specs and a fresh page: a new op id, as runWrite mints one. */
 export { newOp, TeamApiError }
+
+// ─── A new scenario from a brief, and a what-if (DL 13 Nov, one usable screen) ────────────────────────────────────────────────────────────
+/** The person's brief starts a scenario in core (core API v1.26: accepted at once, drafted in the server); answers core's id (s_<12 hex>).
+ *  The screen then opens it and waits while the View's `draft` says Olumi is drafting. One op per brief, so a re-send is saved once. */
+export async function startScenario(brief: string, op: string = newOp()): Promise<string> {
+  await useMe.getState().load()
+  const made = await writes.create(brief, op)
+  if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, 'Olumi may have saved your brief, but its answer could not be read. Reload the page.', true)
+  return made.scenario
+}
+/** Try the first draft again (core's `POST …/draft`, a NEW op) after it failed or was lost; the View then says it is drafting. */
+export async function draftAgain(): Promise<void> {
+  const sid = useViewStore.getState().sid
+  if (!sid) throw new JourneyRefusal('no_proposal')
+  await writes.redraft(sid, newOp())
+  await useViewStore.getState().refresh()
+}
+/** What-if on a copy (core `POST …/whatif`): one figure as typed, on the version the editor opened on; nothing is saved, no AI call. */
+export async function tryFigure(gate: Extract<EditGate, { ok: true }>, quantity: string, typed: string): Promise<void> {
+  return tryWhatIf(gate.sid, gate.base, quantity, typed)
+}
+export { clearWhatIf, useWhatIf } from './whatif'
