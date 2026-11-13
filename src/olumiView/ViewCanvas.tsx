@@ -35,7 +35,8 @@ import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { drawKindOf } from './layout'
-import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, reducedFaceSize, wholeAtTopViewport } from './camera'
+import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, reducedFaceSize, wholeAtTopViewport } from './camera'
+import { LABEL_LEGIBLE_ZOOM, LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { CoreCard } from './previous/CoreCard'
@@ -71,7 +72,7 @@ const PAN_BUTTONS = [0, 1]
 const SELECT_PAN_BUTTONS = [1]
 const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
-const DURATION = 400, MAX_FITS = 3
+const DURATION = 400, MAX_FITS = 5
 /**
  * When the board is framed: once it has settled, or after a bounded wait however it stands (DL, A13f cold reopen at 1510×910: the board was
  * never framed, the question cut at the top and three cards under the dock). The wait is in time, not frames: a throttled pane draws about
@@ -88,14 +89,68 @@ const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, 
  * across, never past 1 and never below the lane's floor (Paul, 10 Nov: the whole model in view at first open, as the previous product's).
  * Zoomed out, each card draws its reduced face (ViewCardNode), so the whole board stays readable.
  */
-export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
+export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }, maxZoom = 1): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
   const insets = { ...raw, top: frameTop(raw.top) }
-  const whole = wholeAtTopViewport(bounds, pane, insets, 1, CORE_LANE_FIT_FLOOR)
+  const whole = wholeAtTopViewport(bounds, pane, insets, maxZoom, CORE_LANE_FIT_FLOOR)
   // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
-  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, 1, CORE_LANE_FIT_FLOOR)
+  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, maxZoom, CORE_LANE_FIT_FLOOR)
+}
+
+/** The three faces a card draws by zoom, each with its own heights (live v4 at 1128x707, 13 Nov: 12 cards summed 2075 flow px with full
+ *  faces, 3162 reduced with the body (labels counter-scaled up), 1662 with the body hidden): full from READABLE_WHOLE_ZOOM; reduced with
+ *  its body down to LOD_BODY_HIDDEN_ZOOM (back above it only from LOD_BODY_RESTORED_ZOOM); below that, the body hidden. */
+export type FaceRegime = 'full' | 'body' | 'line'
+export const faceRegimeOf = (zoom: number): FaceRegime => (reducedFaceSize(zoom) === 0 ? 'full' : zoom >= LOD_BODY_HIDDEN_ZOOM ? 'body' : 'line')
+const EPS = 0.001
+/** The zooms each face is framed in: inside its own band, so the faces (and their heights) a frame was computed from are the ones drawn. */
+export const FACE_RANGE: Record<FaceRegime, readonly [number, number]> = {
+  full: [READABLE_WHOLE_ZOOM, 1], body: [LOD_BODY_RESTORED_ZOOM, READABLE_WHOLE_ZOOM - EPS], line: [CORE_LANE_FIT_FLOOR, LOD_BODY_HIDDEN_ZOOM - EPS],
+}
+/** Where a reduced face with its body is tallest: its labels' counter-scale is at its cap here and below (zoomLegibility LABEL_LEGIBLE_ZOOM). */
+const BODY_PROBE = LABEL_LEGIBLE_ZOOM
+/** The board as last drawn with each face: its places and heights, and the zoom it was drawn at. */
+export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] }
+
+/**
+ * ORDER-UI-5 (4), DL-408: the one frame for a board, from heights MEASURED with the faces that frame will draw. The old rule framed the
+ * board as drawn at the moment, so a fit from one face's heights landed in another face's band, the cards changed height, and the camera
+ * framed again the other way, up to three times: at 1128x707 it went 1 → 0.87 → 0.50 → 0.30 → 0.51 and stopped with the goal under the
+ * foot and "more below" over the cards (live v4 copy, 13 Nov). Now, from the largest face down:
+ *  - a face drawn at least once is framed whole on its own heights, at the largest zoom inside its band, if that zoom is in its band;
+ *  - the first face not yet drawn under one that does not fit is drawn once to measure it: the body face at BODY_PROBE (its tallest), the
+ *    line face at the top of its band (its shortest); the camera's loop then frames again on what was measured.
+ * The heights a frame is computed from are the heights it draws, so it never swings back; a board too large for the floor opens at it.
+ */
+export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
+  let above: readonly Node[] | null = null
+  for (const r of ['full', 'body', 'line'] as const) {
+    const [lo, hi] = FACE_RANGE[r], s = snaps[r]
+    if (s === undefined) {
+      if (above === null) continue
+      // The body face is taller than the full face (its labels counter-scaled up): where the full face does not fit even at the body
+      // band's floor, neither does the body face, so the line face is next. The line face is shorter than the body face: always drawn once.
+      const whole = frameFor(above, pane, free, hi)
+      if (whole === null) return null
+      if (r === 'body' && whole.zoom < lo) continue
+      return atZoom(above, pane, free, r === 'body' ? Math.min(hi, BODY_PROBE) : hi)
+    }
+    const v = frameFor(s.nodes, pane, free, hi)
+    if (v !== null && v.zoom >= lo) return v
+    above = s.nodes
+  }
+  const last = snaps.line ?? snaps.body ?? snaps.full
+  return last === undefined ? null : frameFor(last.nodes, pane, free, FACE_RANGE.line[1])
+}
+
+/** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
+function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number): Viewport | null {
+  if (nodes.length === 0 || pane.width === 0) return null
+  const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
+  const insets = { ...raw, top: frameTop(raw.top) }, freeW = Math.max(1, pane.width - insets.left - insets.right)
+  return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
 }
 
 /**
@@ -108,15 +163,20 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const pane = useRef({ width, height })
   pane.current = { width, height }
+  // The board as last drawn with each face (`cameraFrame`); cleared per version.
+  const snaps = useRef<Partial<Record<FaceRegime, FaceSnap>>>({})
   const fit = useCallback(() => {
-    const v = frameFor(viewNodes(getNodes()), pane.current)
+    const drawn = viewNodes(getNodes()), zoom = getViewport().zoom
+    if (drawn.length > 0) snaps.current = { ...snaps.current, [faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
+    const v = cameraFrame(snaps.current, pane.current)
     if (v) void setViewport(v, { duration: DURATION })
-  }, [getNodes, setViewport])
+  }, [getNodes, getViewport, setViewport])
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
   const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}` })
   useEffect(() => {
     if (version === '') return
     userMoved.current = false
+    snaps.current = {}
     let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
     const tick = () => {
       if (userMoved.current) return

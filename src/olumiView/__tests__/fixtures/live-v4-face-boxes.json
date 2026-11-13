@@ -1,0 +1,282 @@
+{
+ "source": "served 1bc4c78e on a copy of the :4098 store (s_037fa202ee78 v2), ORDER-UI-5 (4) before-trace, 13 Nov; boxes in flow units (offset size, translate); line: the draw at 0.314 the old camera framed last (it then drew 0.505)",
+ "w1128": {
+  "pane": {
+   "width": 1128,
+   "height": 707
+  },
+  "body": {
+   "zoom": 0.503398,
+   "nodes": [
+    {
+     "id": "page:question",
+     "x": 478,
+     "y": 24,
+     "w": 720,
+     "h": 180
+    },
+    {
+     "id": "deal_size_of_investment_firms_targeted",
+     "x": 610,
+     "y": 442,
+     "w": 248,
+     "h": 249
+    },
+    {
+     "id": "angel_investors_approached_added_approach_angel_investors_for_a",
+     "x": 314,
+     "y": 442,
+     "w": 248,
+     "h": 217
+    },
+    {
+     "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+     "x": 672,
+     "y": 178,
+     "w": 248,
+     "h": 295
+    },
+    {
+     "id": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+     "x": 376,
+     "y": 178,
+     "w": 248,
+     "h": 219
+    },
+    {
+     "id": "widen_the_target_to_smaller_funds_and_seed_investors",
+     "x": 80,
+     "y": 178,
+     "w": 248,
+     "h": 219
+    },
+    {
+     "id": "cut_monthly_spending_to_stretch_the_runway",
+     "x": 1264,
+     "y": 178,
+     "w": 248,
+     "h": 250
+    },
+    {
+     "id": "look_at_non_equity_bridge_funding_such_as_grants_or_venture_debt",
+     "x": 968,
+     "y": 178,
+     "w": 248,
+     "h": 326
+    },
+    {
+     "id": "time_until_funding_is_secured",
+     "x": 758,
+     "y": 658,
+     "w": 248,
+     "h": 487
+    },
+    {
+     "id": "secure_funding_within_2_months",
+     "x": 478,
+     "y": 957,
+     "w": 248,
+     "h": 278
+    },
+    {
+     "id": "time_until_funding_is_secured_now",
+     "x": 906,
+     "y": 442,
+     "w": 248,
+     "h": 221
+    },
+    {
+     "id": "founder_time_spent_on_fundraising",
+     "x": 462,
+     "y": 658,
+     "w": 248,
+     "h": 221
+    }
+   ]
+  },
+  "line": {
+   "zoom": 0.313977,
+   "nodes": [
+    {
+     "id": "page:question",
+     "x": 478,
+     "y": 24,
+     "w": 720,
+     "h": 139
+    },
+    {
+     "id": "deal_size_of_investment_firms_targeted",
+     "x": 610,
+     "y": 432,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "angel_investors_approached_added_approach_angel_investors_for_a",
+     "x": 314,
+     "y": 432,
+     "w": 248,
+     "h": 161
+    },
+    {
+     "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+     "x": 672,
+     "y": 229,
+     "w": 248,
+     "h": 135
+    },
+    {
+     "id": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+     "x": 376,
+     "y": 229,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "widen_the_target_to_smaller_funds_and_seed_investors",
+     "x": 80,
+     "y": 229,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "cut_monthly_spending_to_stretch_the_runway",
+     "x": 1264,
+     "y": 229,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "look_at_non_equity_bridge_funding_such_as_grants_or_venture_debt",
+     "x": 968,
+     "y": 229,
+     "w": 248,
+     "h": 135
+    },
+    {
+     "id": "time_until_funding_is_secured",
+     "x": 758,
+     "y": 661,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "secure_funding_within_2_months",
+     "x": 478,
+     "y": 921,
+     "w": 248,
+     "h": 137
+    },
+    {
+     "id": "time_until_funding_is_secured_now",
+     "x": 906,
+     "y": 432,
+     "w": 248,
+     "h": 129
+    },
+    {
+     "id": "founder_time_spent_on_fundraising",
+     "x": 462,
+     "y": 661,
+     "w": 248,
+     "h": 192
+    }
+   ]
+  }
+ },
+ "w2000": {
+  "pane": {
+   "width": 2000,
+   "height": 1200
+  },
+  "full": {
+   "zoom": 1,
+   "nodes": [
+    {
+     "id": "page:question",
+     "x": 478,
+     "y": 24,
+     "w": 720,
+     "h": 90
+    },
+    {
+     "id": "deal_size_of_investment_firms_targeted",
+     "x": 610,
+     "y": 442,
+     "w": 248,
+     "h": 152
+    },
+    {
+     "id": "angel_investors_approached_added_approach_angel_investors_for_a",
+     "x": 314,
+     "y": 442,
+     "w": 248,
+     "h": 124
+    },
+    {
+     "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+     "x": 672,
+     "y": 178,
+     "w": 248,
+     "h": 179
+    },
+    {
+     "id": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+     "x": 376,
+     "y": 178,
+     "w": 248,
+     "h": 128
+    },
+    {
+     "id": "widen_the_target_to_smaller_funds_and_seed_investors",
+     "x": 80,
+     "y": 178,
+     "w": 248,
+     "h": 120
+    },
+    {
+     "id": "cut_monthly_spending_to_stretch_the_runway",
+     "x": 1264,
+     "y": 178,
+     "w": 248,
+     "h": 148
+    },
+    {
+     "id": "look_at_non_equity_bridge_funding_such_as_grants_or_venture_debt",
+     "x": 968,
+     "y": 178,
+     "w": 248,
+     "h": 200
+    },
+    {
+     "id": "time_until_funding_is_secured",
+     "x": 758,
+     "y": 658,
+     "w": 248,
+     "h": 235
+    },
+    {
+     "id": "secure_funding_within_2_months",
+     "x": 478,
+     "y": 957,
+     "w": 248,
+     "h": 128
+    },
+    {
+     "id": "time_until_funding_is_secured_now",
+     "x": 906,
+     "y": 442,
+     "w": 248,
+     "h": 127
+    },
+    {
+     "id": "founder_time_spent_on_fundraising",
+     "x": 462,
+     "y": 658,
+     "w": 248,
+     "h": 118
+    }
+   ]
+  }
+ }
+}
