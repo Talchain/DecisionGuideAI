@@ -274,7 +274,11 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
 }
 
 /** Said once above the readings Olumi offers: what the choice is, and that nothing is saved before Approve (a reload returns every choice to the original). */
-export const READINGS_NOTE = 'Olumi read each of these from someone’s words, shown beneath it. Choose for each one. Nothing is saved until you press Approve, and a choice you have not approved is not kept if the page is reloaded.'
+// ORDER-UI-5 (3), DL-408: said of EVERY offered choice, so it claims nothing about where each came from. Core says that beneath each, in its own
+// words (core src/view/model.ts readingMark): "Olumi read your message as …" for a reading of someone's words, "Olumi's general, unverified
+// placeholder for this figure …" for a figure Olumi offered on request (model.ts:222). Core sends no kind field, so the UI never tells them
+// apart from the words; this note said "Olumi read each of these from someone's words", false on a placeholder (live v4, 13 Nov).
+export const READINGS_NOTE = 'Choose for each one. Nothing is saved until you press Approve, and a choice you have not approved is not kept if the page is reloaded.'
 export const READING_KEEP = 'Keep the original'
 export const READING_USE = 'Use Olumi’s reading'
 /** An approval with readings that did not go through may still have been saved: a different selection is never sent in its place. */
@@ -406,7 +410,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       {readingIds.length === 0 || verdict?.supported === false ? null : (
         <p className="text-text-light" data-testid="view-readings-approve-says">
           {onlyReadings.length === 0 ? 'Approve keeps the original for every reading.' : `Approve uses Olumi’s reading for ${onlyReadings.length} of ${readingIds.length} and keeps the original for the rest.`}
-          {' '}Approving records {you === null || you === '' ? 'you' : you} as the person who approved; the words Olumi read stay their writer’s.
+          {' '}Approving records {you === null || you === '' ? 'you' : you} as the person who approved, never as the author of what Olumi read or proposed.
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}

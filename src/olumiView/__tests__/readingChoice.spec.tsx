@@ -224,11 +224,25 @@ describe('choose per reading', () => {
 
   it('a different person approving is named as the approver, never as the source: the quoted words stay their writer\'s', () => {
     const { container } = show(withMarks([ADA], 'Bea'))
-    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approving records Bea as the person who approved; the words Olumi read stay their writer’s.')
+    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approving records Bea as the person who approved, never as the author of what Olumi read or proposed.')
     const reading = screen.getByTestId('view-reading-0')
     expect(reading.textContent).toContain('Ada wrote')
     expect(reading.textContent).not.toContain('Bea')
     expect(container.querySelector('[data-view="proposal.marks.0.title"]')?.textContent).toBe(ADA.title)
+  })
+
+  it('ORDER-UI-5 (3), live v4 (s_037fa202ee78, proposal 16): Olumi\'s placeholder offered on request is never said to be read from someone\'s words; core\'s own words for it are under it; Use still confirms it', async () => {
+    const live = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-placeholder-marks.json'), 'utf8')) as Mark[]
+    expect(live.map((m) => m.reading?.id), 'precondition: one offered placeholder').toEqual(['time_until_funding_is_secured_per_gbp_month_removed'])
+    const { container } = show(withMarks(live, 'Paul'))
+    const panel = screen.getByTestId('view-chat-proposal').textContent ?? ''
+    for (const never of ['from someone’s words', 'the words Olumi read', 'their writer’s']) expect(panel, never).not.toContain(never)
+    expect(container.querySelector('[data-view="proposal.marks.0.title"]')?.textContent).toBe(live[0]!.title)
+    expect(container.querySelector('[data-view="proposal.marks.0.status"]')?.textContent).toBe(live[0]!.status)
+    fireEvent.click(radio(0, 'use')); fireEvent.click(screen.getByTestId('view-approve'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toMatchObject({ base: p0.base, only_readings: ['time_until_funding_is_secured_per_gbp_month_removed'] })
+    expect((posts[0]!.body as { refuse_readings?: unknown }).refuse_readings).toBeUndefined()
   })
 
   it('must not change: a proposal with no reading has no choice, no note, and Approve as before', async () => {
