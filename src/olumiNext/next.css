@@ -358,3 +358,5 @@
 .olumi-next .nx-pending + .nx-decide{background:none}
 .olumi-next .reading .reading-what{margin:0 0 var(--space-1)}
 .olumi-next .cstatus{margin:0;font-weight:600}
+/* DL-290: the last reading's answers scroll fully clear of the panel's bottom fade (28px mask), so none sits half-hidden above the pending block */
+.olumi-next .nx-scroll{padding-bottom:calc(var(--space-5) + 28px);scroll-padding-bottom:calc(var(--space-5) + 28px)}
