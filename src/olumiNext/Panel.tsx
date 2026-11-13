@@ -218,7 +218,7 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
   // What is waiting, kept in sight above Approve (DL-285 / Codex PL-685): core's own words that a change waits, the proposal's heading, and
   // the subject of each of Olumi's readings (core's `what`), each a link to its answers below. No action here: the answers stay in the review.
   const goReading = (id: string) => { const box = scroll.current, el = box?.querySelector<HTMLElement>(`[data-reading="${CSS.escape(id)}"]`); if (box && el) box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top }
-  const subjects = [...new Map(readingsOn(P).map((r) => [r.what, r.id])).entries()]
+  const subjects = [...new Map(readingsOn(P).map((r) => [`${r.what}\u0000${r.status}`, r])).values()]
   const past = useViewStore((st) => st.at) !== null
   return (
     <aside className="nx-panel" data-testid="next-panel">
@@ -259,7 +259,7 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
       {P ? (
         <div className="nx-pending" data-testid="next-pending">
           <p className="say"><span className="mk" aria-hidden="true"><OlumiMark s={8} /></span>{MW.heldLead ?? P.heading}</p>
-          <p className="meta"><span>{P.heading}</span>{subjects.map(([what, id]) => <span key={id}><span className="sep"> · </span><button type="button" className="textlink" data-testid="next-pending-reading" onClick={() => goReading(id)}>{what}</button></span>)}</p>
+          <p className="meta"><span>{P.heading}</span>{subjects.map((r) => <span key={r.id}><span className="sep"> · </span><button type="button" className="textlink" data-testid="next-pending-reading" onClick={() => goReading(r.id)}>{r.what}</button><span className="sep"> · </span><span data-testid="next-pending-status">{r.status}</span></span>)}</p>
         </div>
       ) : null}
       {P ? (
