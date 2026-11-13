@@ -5553,6 +5553,9 @@
        },
        "label": {
         "type": "string"
+       },
+       "prompt": {
+        "type": "string"
        }
       },
       "required": [

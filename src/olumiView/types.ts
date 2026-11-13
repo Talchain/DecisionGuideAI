@@ -1029,6 +1029,7 @@ export type View = {
     view_figure_cards?: Array<{
       id: string
       label: string
+      prompt?: string
     }>
     private_view_prompt: string | null
     next?: {
