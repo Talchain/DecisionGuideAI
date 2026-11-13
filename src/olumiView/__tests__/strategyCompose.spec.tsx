@@ -114,7 +114,7 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
     cleanup()
     const own: View = { ...real, strategy: { ...real.strategy!, views: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ ...l, mine: true })) },
-      collab: { ...real.collab, shared: [], mine: [{ ...real.collab.shared[0]!, shared: false, can_share: false }] } }
+      collab: { ...real.collab, shared: [], mine: [{ ...real.collab.shared[0]!, shared: false, can_share: false, earlier: false }] } }
     useViewStore.setState({ view: own })
     c = render(<TeamTab />).container
     expect.soft(c.querySelector('[data-testid="team-mine-12"] [data-item-about="speed_to_value"] [data-item-words]')?.textContent).toBe('Pilots showed value within a month.')

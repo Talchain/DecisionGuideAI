@@ -22,7 +22,7 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
   collab: {
     alone: false, heading: 'Team views · 2', open: true,
     shared: [{ id: 3, by: 'Bea', by_id: 'p_2', text: 'Hold until the pilot reports.', skip: false, figures: [], effects: [] }],
-    mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false, figures: [], can_share: false }],
+    mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip: false, figures: [], can_share: false, earlier: false }],
     placeholder: 'Your own view, private until revealed', can_reveal: false, waiting: 'waiting for Bea',
     commitments: [{ id: 9, at: '2026-11-03T10:00:00Z', by: 'Ada', by_id: 'p_1', action: 'Pilot in Germany', owner: 'Bea', owner_id: 'p_2', expect: 'Ten customers by March', reconsider: 'Fewer than five by February', keeps: ['d_1'], option: null, version: null, expect_band: null, review_on: null, trigger: null,
       outcomes: [{ id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null, figure: null, dissent: [] }] }],

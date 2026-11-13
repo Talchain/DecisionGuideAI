@@ -3794,7 +3794,9 @@
    "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
    "share": "Share with the team now",
    "give": "Add my view",
-   "skip": "I would rather not answer this"
+   "skip": "I would rather not answer this",
+   "earlier": "Written before this round began: it stays private to you and is not part of this round’s reveal.",
+   "reuse": "Use these words in this round"
   }
  }
 }

@@ -431,6 +431,10 @@ export type View = {
           range: boolean
         }
       }>
+      ask?: {
+        text: string
+        about: Array<string>
+      }
       shared_rests?: Array<{
         aim_id: string
         options: Array<string>
@@ -880,6 +884,7 @@ export type View = {
         range_kind: "bounds" | "plausible"
       }>
       can_share: boolean
+      earlier: boolean
     }>
     placeholder: string
     can_reveal: boolean
@@ -1134,6 +1139,11 @@ export type View = {
       move: string
       label: string
     } | null
+    withheld?: {
+      kind: "untraced_figure" | "unheld_source" | "unshown_lead" | "internal_name" | "shared_wording" | "choice_words" | "other"
+      limit: string
+      next: string | null
+    }
   }>
   model_words: {
     changeFigure: string
@@ -1495,6 +1505,8 @@ export type View = {
       share: string
       give: string
       skip: string
+      earlier: string
+      reuse: string
     }
   }
 }

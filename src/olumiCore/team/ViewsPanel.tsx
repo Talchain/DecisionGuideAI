@@ -202,6 +202,18 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               {itemLines(v)}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
+              {/* PL-783: core's `earlier` (written before this round began, so neither shared nor revealed) in core's words, with the one act
+                  it leaves the author: put its words, never its figures, into their own empty form below, to read and give in this round. A core
+                  that sends no `earlier` or no words for it draws neither. The note itself stays private; nothing is sent from here. */}
+              {v.earlier === true && view.team_words.views.earlier && view.team_words.views.reuse ? (
+                <div className="grid gap-1" data-testid={`team-mine-earlier-${v.id}`}>
+                  <p className={META}>{view.team_words.views.earlier}</p>
+                  <div>
+                    <Button size="sm" variant="secondary" data-testid={`team-reuse-${v.id}`} disabled={busy || sending || viewLocked || text.trim() !== ''}
+                      onClick={() => { setText(v.text); if (error) setError(null) }}>{view.team_words.views.reuse}</Button>
+                  </div>
+                </div>
+              ) : null}
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
                 <div>

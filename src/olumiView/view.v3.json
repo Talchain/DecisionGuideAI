@@ -2361,6 +2361,25 @@
             "additionalProperties": false
            }
           },
+          "ask": {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "about": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            }
+           },
+           "required": [
+            "text",
+            "about"
+           ],
+           "additionalProperties": false
+          },
           "shared_rests": {
            "type": "array",
            "items": {
@@ -4781,6 +4800,9 @@
        },
        "can_share": {
         "type": "boolean"
+       },
+       "earlier": {
+        "type": "boolean"
        }
       },
       "required": [
@@ -4789,7 +4811,8 @@
        "shared",
        "skip",
        "figures",
-       "can_share"
+       "can_share",
+       "earlier"
       ],
       "additionalProperties": false
      }
@@ -6186,6 +6209,38 @@
         "type": "null"
        }
       ]
+     },
+     "withheld": {
+      "type": "object",
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "untraced_figure",
+         "unheld_source",
+         "unshown_lead",
+         "internal_name",
+         "shared_wording",
+         "choice_words",
+         "other"
+        ]
+       },
+       "limit": {
+        "type": "string"
+       },
+       "next": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "kind",
+       "limit",
+       "next"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [
@@ -7973,6 +8028,12 @@
       },
       "skip": {
        "type": "string"
+      },
+      "earlier": {
+       "type": "string"
+      },
+      "reuse": {
+       "type": "string"
       }
      },
      "required": [
@@ -7983,7 +8044,9 @@
       "shareTitle",
       "share",
       "give",
-      "skip"
+      "skip",
+      "earlier",
+      "reuse"
      ],
      "additionalProperties": false
     }

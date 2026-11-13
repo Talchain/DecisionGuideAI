@@ -78,7 +78,7 @@ const note = () => useCanvasStore.getState().olumiAttention?.turnId ?? null
 /** The card the newest reply's next step sits beside, as the View canvas draws it. */
 const cardOnCanvas = () => useCanvasStore.setState({ nodes: [{ id: 'per_specialist', type: 'viewCard', position: { x: 0, y: 0 }, data: { label: 'Per specialist' } }] } as never)
 
-const given = [{ id: 40, text: 'Hire in March', shared: false, skip: false, figures: [], can_share: false }]
+const given = [{ id: 40, text: 'Hire in March', shared: false, skip: false, figures: [], can_share: false, earlier: false }]
 
 describe('a member core holds gives their own view first', () => {
   it('Bea, held: the Team tab, the private-view box focused, and no Olumi note', async () => {
