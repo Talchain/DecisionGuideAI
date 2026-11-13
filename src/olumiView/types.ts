@@ -697,6 +697,29 @@ export type View = {
       text: string
     }>
     coaching_questions?: Array<string>
+    trial_questions?: Array<{
+      id: string
+      text: string
+      title: string
+      answer: boolean
+      unknown: string | null
+      edit: {
+        prompt: string
+        ask: string
+      } | {
+        prompt: string
+        ask: string
+        route: "size"
+        record: string
+        note: string | null
+        fields: Array<{
+          key: "typed" | "chance" | "change"
+          prompt: string
+          ask: string
+        }>
+      } | null
+      stays_in_words?: string
+    }>
     removed: Array<{
       id: string
       heading: string

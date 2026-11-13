@@ -386,6 +386,38 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(queryByText(qs[3]!)).toBeNull()
     expect(posts).toEqual([])
   })
+  it('ORDER-UI-5 (2), SEAM-13 c2 13bd106e: a question core gives with its figure (model.trial_questions) is painted first and opens THAT figure\'s editor; core\'s bare questions are words; three at most', () => {
+    const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
+    const card = real.model!.cards.find((c) => c.id === 'horizon')!
+    // DERIVED: core's trial_questions item shape and words as core's own row serves them (rebuild-journey.test.ts:1571/1608 at 13bd106e),
+    // on a figure of this real View with its own edit; the id is the figure's, the edit the one its card offers.
+    const QN = 'How far along are your funding conversations: when would the first money arrive, as things stand?'
+    const view = { ...real, model: { ...real.model!, trial_questions: [{ id: card.id, text: `‘${card.heading}’`, title: QN, answer: true, unknown: null, edit: card.figure!.edit! }] } } as View
+    show(view)
+    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    const first = getByTestId('view-model-question-text')
+    expect([first.textContent, first.getAttribute('data-question-id')]).toEqual([QN, card.id])
+    const link = getByTestId(`view-question-edit-${card.id}`)
+    expect(link.tagName).toBe('BUTTON')
+    fireEvent.click(link)
+    // the figure's own editor, in core's words for THAT figure
+    const typed = getByTestId(`view-question-typed-${card.id}`)
+    expect(typed.ownerDocument.querySelector(`label[for="view-question-${card.id}"]`)?.textContent).toBe(card.figure!.edit!.prompt)
+    // core's bare questions follow, as words with no control; three in all
+    const second = getByTestId('view-model-question-text-1')
+    expect([second.textContent, second.querySelector('button')]).toEqual([real.model!.coaching_questions![0], null])
+    expect(getByTestId('view-model-question-text-2').textContent).toBe(real.model!.coaching_questions![1])
+    expect(queryByTestId('view-model-question-text-3')).toBeNull()
+    expect(posts).toEqual([])
+  })
+  it('SEAM-13 c2: a trial question with no edit (a proposal is held) is core\'s words, never dropped and never a control', () => {
+    const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
+    const QN = 'How far along are your funding conversations: when would the first money arrive, as things stand?'
+    show({ ...real, model: { ...real.model!, trial_questions: [{ id: 'horizon', text: '‘Funding window’', title: QN, answer: true, unknown: null, edit: null }] } } as View)
+    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    expect(getByTestId('view-model-question-text').textContent).toBe(QN)
+    expect(queryByTestId('view-question-edit-horizon')).toBeNull()
+  })
   it('withdraws the question when the saved View no longer carries it; older payloads need no field', () => {
     const view = structuredClone(proposal)
     view.model!.coaching_questions = [question]

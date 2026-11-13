@@ -3804,6 +3804,132 @@
         "type": "string"
        }
       },
+      "trial_questions": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string"
+         },
+         "answer": {
+          "type": "boolean"
+         },
+         "unknown": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "edit": {
+          "anyOf": [
+           {
+            "anyOf": [
+             {
+              "type": "object",
+              "properties": {
+               "prompt": {
+                "type": "string"
+               },
+               "ask": {
+                "type": "string"
+               }
+              },
+              "required": [
+               "prompt",
+               "ask"
+              ],
+              "additionalProperties": false
+             },
+             {
+              "type": "object",
+              "properties": {
+               "prompt": {
+                "type": "string"
+               },
+               "ask": {
+                "type": "string"
+               },
+               "route": {
+                "type": "string",
+                "const": "size"
+               },
+               "record": {
+                "type": "string"
+               },
+               "note": {
+                "type": [
+                 "string",
+                 "null"
+                ]
+               },
+               "fields": {
+                "type": "array",
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "key": {
+                   "type": "string",
+                   "enum": [
+                    "typed",
+                    "chance",
+                    "change"
+                   ]
+                  },
+                  "prompt": {
+                   "type": "string"
+                  },
+                  "ask": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "key",
+                  "prompt",
+                  "ask"
+                 ],
+                 "additionalProperties": false
+                }
+               }
+              },
+              "required": [
+               "prompt",
+               "ask",
+               "route",
+               "record",
+               "note",
+               "fields"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "stays_in_words": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "id",
+         "text",
+         "title",
+         "answer",
+         "unknown",
+         "edit"
+        ],
+        "additionalProperties": false
+       }
+      },
       "removed": {
        "type": "array",
        "items": {

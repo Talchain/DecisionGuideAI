@@ -297,6 +297,18 @@ export const READINGS_CHANGED = 'Your choices changed after an approval that did
  * proposal's own lines (every line for Approve, the ticked lines for Approve ticked): core reads a missing `only` / `only_top` as empty once
  * readings are named. With no reading answered the approval is exactly as before.
  */
+/**
+ * One of Olumi's questions in the question block (ORDER-UI-5 (2)): where core gives the figure it asks about (`id`) and that figure's editor
+ * (`edit`), and this person may edit it now (their page; a version to edit on), the question opens that editor (FigureEdit, the card's own);
+ * otherwise core's words alone, never dropped.
+ */
+function QuestionLine({ text, id, edit }: { text: string; id: string | null; edit: { prompt: string; ask: string } | null }): JSX.Element {
+  const view = useViewStore((s) => s.view)
+  const me = useMe((s) => s.me)
+  const can = id !== null && edit !== null && view !== null && isForThisPage(view, me) && view.model?.edit_base != null
+  return can ? <FigureEdit id={id} edit={edit} label={text} place="view-question" /> : <>{text}</>
+}
+
 export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
@@ -1180,21 +1192,27 @@ export function ViewChat() {
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
-            {/* ORDER-UI-5 (2), DL-408: core's open questions on this model, in core's order (journey.ts questionsOf), at most three, each
-                core's words whole; the first keeps its place and test id. Core sends each as words only (core src/contract/form.ts
-                `coaching_questions: z.array(z.string())`): no quantity id, so none is drawn here and none is guessed from the words. */}
+            {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
+                questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
+                first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
+                held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
+                An older core sends no trial_questions: as before. */}
             {(() => {
-              const qs = view === null ? [] : questionsOf(view).filter((q) => q.text !== '').slice(0, 3)
+              const trial = (view?.model?.trial_questions ?? []).filter((t) => t.title !== '').map((t, at) => ({ key: `t:${t.id}`, view: `model.trial_questions.${at}.title`, text: t.title, id: t.id, edit: t.edit }))
+              const words = view === null ? [] : questionsOf(view).filter((q) => q.text !== '').map((q) => ({ key: `c:${q.at}`, view: `model.coaching_questions.${q.at}`, text: q.text, id: null, edit: null }))
+              const qs = [...trial, ...words].slice(0, 3)
               if (qs.length === 0) return null
               const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
+              const body = (q: (typeof qs)[number]) => <QuestionLine text={q.text} id={q.id} edit={q.edit} />
+              const testid = (i: number) => (i === 0 ? 'view-model-question-text' : `view-model-question-text-${i}`)
               return (
                 <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label={head}>
                   <p className={`${typography.viewPanelMeta} text-info`}>{head}</p>
                   {qs.length === 1
-                    ? <p data-testid="view-model-question-text" data-view="model.coaching_questions.0">{qs[0]!.text}</p>
+                    ? <div data-testid={testid(0)} data-view={qs[0]!.view} data-question-id={qs[0]!.id ?? undefined}>{body(qs[0]!)}</div>
                     : (
                       <ol className="m-0 list-decimal space-y-1 pl-5" data-testid="view-model-questions">
-                        {qs.map((q) => <li key={q.at} data-testid={q.at === 0 ? 'view-model-question-text' : `view-model-question-text-${q.at}`} data-view={`model.coaching_questions.${q.at}`}>{q.text}</li>)}
+                        {qs.map((q, i) => <li key={q.key} data-testid={testid(i)} data-view={q.view} data-question-id={q.id ?? undefined}>{body(q)}</li>)}
                       </ol>
                     )}
                 </section>
