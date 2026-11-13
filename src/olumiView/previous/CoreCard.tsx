@@ -51,12 +51,16 @@ export function openedWordsOf(card: ViewCard): string[] {
 
 /**
  * ORDER-UI-HOVER (DL, 13 Nov): what the card's hover says for its value, in core's words only. The card's figure as core words it; a card with
- * no figure words says core's own state for it (its author line, e.g. "Olumi's question, not yet sized"). Null only when core says neither:
+ * no figure words says its bound (a goal's), else core's own state for it (its author line, e.g. "Olumi's question, not yet sized"). Null only when core says none:
  * the hover then draws no value row. The old product's hover read a figure the core lane never passes, so it said "Not on record" on every card.
  */
 export function coreHoverValueOf(card: ViewCard): { text: string; source: string | null } | null {
   const fig = card.figure?.text ?? ''
   if (fig !== '') return { text: fig, source: card.author?.text ?? null }
+  // A goal's value is its bound ("at most 2 months"), whose by core's own mark on it (e.g. "Olumi's proposal, for you to vet"); never the
+  // card's author line, which says whose the AIM is (live v4 draft, 13 Nov: the hover said "Paul's idea" for Olumi's proposed target).
+  const bound = card.bound?.text ?? ''
+  if (bound !== '') return { text: bound, source: card.bound?.olumi?.title ?? null }
   const state = card.author?.text ?? ''
   return state === '' ? null : { text: state, source: null }
 }

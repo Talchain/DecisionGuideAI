@@ -1,0 +1,65 @@
+[
+ {
+  "id": "secure_funding_within_2_months",
+  "family": "goal",
+  "glyph": "★",
+  "heading": "Secure funding within 2 months",
+  "typed": false,
+  "detail": "Secure funding within 2 months · goal · Theirs: “I need to accelerate securing funding within the next 2 months.” (Paul)",
+  "col": 3,
+  "h": 130,
+  "olumi": null,
+  "change": null,
+  "focus": false,
+  "challenged": false,
+  "doubt": false,
+  "figure": null,
+  "premises": [],
+  "rows": [],
+  "driver": null,
+  "status": null,
+  "bound": {
+   "text": "at most 2 months",
+   "title": "at most 2 months",
+   "olumi": {
+    "glyph": "◆",
+    "title": "Olumi’s proposal, for you to vet"
+   },
+   "measured": true
+  },
+  "reason": null,
+  "badge": {
+   "records": [
+    "secure_funding_within_2_months_target",
+    "the_money_will_run_out_soon",
+    "the_question_treats_the_2_month_window_as_the_real_constraint_bu",
+    "funding_that_only_buys_time_and_funding_that_closes_the_gap_are"
+   ],
+   "text": "1 figure, 1 claim, 2 challenges",
+   "title": "Figure: Olumi's estimate of the target for 'Secure funding within 2 months'\nclaim: The money will run out soon.\nchallenge: The question treats the 2-month window as the real constraint, but how many months of cash remain is not stated. If the runway is longer or shorter than 2 months, the options would be weighed differently.\nchallenge: Funding that only buys time and funding that closes the gap are different outcomes. A small quick amount could extend the runway without securing the round, so a lenders' or investors' view of 'secured' may differ from the aim as written.",
+   "label": "Show 4 notes behind this",
+   "open": false,
+   "proposed": false,
+   "change": "",
+   "words": "1 figure, 1 claim, 2 challenges",
+   "face": "2 challenges and 2 more",
+   "icon": ""
+  },
+  "values": null,
+  "rests_on": [],
+  "face": {
+   "title": {
+    "text": "Secure funding within 2 months",
+    "whole": true,
+    "words": "name"
+   },
+   "line": null
+  },
+  "author": {
+   "by": "person",
+   "text": "Paul’s idea, from the brief",
+   "title": "Theirs: “I need to accelerate securing funding within the next 2 months.” (Paul)"
+  },
+  "failed": []
+ }
+]

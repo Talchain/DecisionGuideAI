@@ -19,7 +19,9 @@ import { NOT_ON_RECORD } from '../../canvas/components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../canvas/components/hoverCard/hoverCardPlacement'
 
 const EU = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/european-loop9.view3.json'), 'utf8')) as View
-const LIVE = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-target-cards.json'), 'utf8')) as ViewCard[]
+const LIVE = [...JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-target-cards.json'), 'utf8')),
+  // the v4 live draft's goal (13 Nov, s_037fa202ee78): no figure, a bound Olumi proposed, an author line saying the AIM is Paul's
+  ...JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-goal-card.json'), 'utf8'))] as ViewCard[]
 const VIEW = { ...EU, model: { ...EU.model!, cards: [...EU.model!.cards, ...LIVE] } } as View
 const byId = (id: string) => LIVE.find((c) => c.id === id)!
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
@@ -58,5 +60,13 @@ describe('the core-lane hover says what core says about the card\'s value', () =
 
   it('H3 every live card: no hover says "Not on record" (core never says it)', () => {
     for (const c of LIVE) { const pop = hover(c); expect(pop?.textContent ?? '', c.id).not.toContain(NOT_ON_RECORD); cleanup(); vi.useRealTimers() }
+  })
+
+  it('H4 the goal ("at most 2 months", Olumi\'s proposed target): the hover\'s value is core\'s bound and core\'s mark on it, never the aim\'s author ("Paul\'s idea")', () => {
+    const g = byId('secure_funding_within_2_months')
+    expect([g.figure, g.bound?.text, g.author?.text], 'precondition: no figure, a bound, Paul\'s aim').toEqual([null, 'at most 2 months', 'Paul’s idea, from the brief'])
+    const pop = hover(g)
+    expect(valueOf(pop)).toBe(`Value${g.bound!.text} · ${g.bound!.olumi!.title}`)
+    expect(pop!.textContent).not.toContain(g.author!.text)
   })
 })
