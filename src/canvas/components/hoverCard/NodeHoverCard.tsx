@@ -186,7 +186,10 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
   const edges = useCanvasStore(s => (s.edges as GraphEdge[] | undefined) ?? EMPTY)
   const displayNodes = useSwitchFactorNodes<GraphNode>(nodes)
   // An item Olumi added on a core scenario says so, as its card does (`livingAuthorship.ts`).
-  const displayData = useLivingAuthorship(nodeId, displayNodes.find(n => n.id === nodeId)?.data ?? data)
+  // ORDER-UI-HOVER: on the olumi-core lane the card's own data (CoreCard: core's card and its words) is the pop-up's; the store's node
+  // carries only the card and its heading, so reading it first lost core's value and said "Not on record".
+  const own = (data as { core?: unknown } | undefined)?.core === true ? data : displayNodes.find(n => n.id === nodeId)?.data ?? data
+  const displayData = useLivingAuthorship(nodeId, own)
   const facts = useMemo(() => nodeHoverFacts(nodeId, nodeType, displayData, displayNodes, edges), [nodeId, nodeType, displayData, displayNodes, edges])
   const cardRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<HoverCardPlacement | null>(null)

@@ -1,7 +1,8 @@
 /**
  * ORDER-UI-HOVER (DL, 13 Nov): on Paul's live scenario the hover said "Value: Not on record" on every core-lane factor card while the card
  * showed its figure. Real path: the lane's card (CoreCard) with core's own cards from the live draft after the target edit
- * (fixtures/live-target-cards.json, read from the copy's View), hovered as Paul hovers, read from the pop-up BaseNode mounts. Bound by card id.
+ * (fixtures/live-target-cards.json, read from the copy's View), in the canvas store as the lane's canvas puts them, hovered as Paul hovers,
+ * read from the pop-up BaseNode mounts. Bound by card id.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +13,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
+import { useCanvasStore } from '../../canvas/store'
 import { CoreCard } from '../previous/CoreCard'
 import { NOT_ON_RECORD } from '../../canvas/components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../canvas/components/hoverCard/hoverCardPlacement'
@@ -21,12 +23,14 @@ const LIVE = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtu
 const VIEW = { ...EU, model: { ...EU.model!, cards: [...EU.model!.cards, ...LIVE] } } as View
 const byId = (id: string) => LIVE.find((c) => c.id === id)!
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
-afterEach(() => { cleanup(); vi.useRealTimers(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never) })
+afterEach(() => { cleanup(); vi.useRealTimers(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useCanvasStore.setState({ nodes: [], edges: [] } as never) })
 
 const hover = (card: ViewCard): HTMLElement | null => {
   vi.useFakeTimers()
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: VIEW.id, view: VIEW, status: 'ready', error: null, stale: false, at: null } as never)
-  const c = render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+  // The lane's canvas puts each card in the canvas store as canvas.ts drawViewCanvas does ({ card, label }): the live page's pop-up reads it.
+  useCanvasStore.setState({ nodes: LIVE.map((c) => ({ id: c.id, type: 'viewCard', data: { card: c, label: c.heading }, position: { x: 0, y: 0 } })), edges: [] } as never)
+  const c = render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
   fireEvent.mouseEnter(c.querySelector('[role="group"]')!)
   act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
