@@ -140,3 +140,26 @@ describe('a view carries the member\'s own figures, as typed', () => {
     expect(screen.queryByTestId('team-view-figure-churn_rate')).toBeNull()
   })
 })
+
+// PL-790 (olumi-core wip/pl-private-figures 2ad88ff7): core lists approved figures for a private view whatever the canvas folds, each as
+// `{id, label, prompt}`; the box is drawn from those words directly. Only an old entry (no `prompt`) falls back to the drawn card's edit.
+describe('PL-790: a figure core offers is given a box from its own id, label and prompt, drawn on the canvas or not', () => {
+  const folded = { id: 'folded_quantity', label: 'Team size added', prompt: 'New figure for “Team size added” (person): one number, or a range like 2 to 5' }
+  it('CATCH: an entry with a prompt whose card is not drawn gets its box, in core\'s words, and its figure is posted by that id', async () => {
+    expect(view.model!.cards.some((c) => c.id === folded.id)).toBe(false)
+    showOpen({ ...view, collab: { ...view.collab, view_figure_cards: [folded] } } as View)
+    expect(screen.getByTestId(`team-view-figprompt-${folded.id}`).textContent).toBe(folded.prompt)
+    expect(within(field(folded.id).closest('label')!).getByText(folded.label)).toBeTruthy()
+    fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'More hires than planned.' } })
+    fireEvent.change(field(folded.id), { target: { value: '3' } })
+    fireEvent.click(screen.getByTestId('team-view-give'))
+    await waitFor(() => expect(posts.length).toBe(1))
+    expect(posts[0]).toEqual({ text: 'More hires than planned.', figures: [{ quantity: folded.id, typed: '3' }], version: view.version!.n, op: expect.any(String) })
+  })
+  it('INVARIANCE: an old entry (no prompt) for a card that is not drawn gets no box; one for a drawn card keeps the card\'s own edit words', () => {
+    const drawn = givable[0]!
+    showOpen({ ...view, collab: { ...view.collab, view_figure_cards: [{ id: folded.id, label: folded.label }, { id: drawn.id, label: drawn.heading }] } } as View)
+    expect(screen.queryByTestId(`team-view-figure-${folded.id}`)).toBeNull()
+    expect(screen.getByTestId(`team-view-figprompt-${drawn.id}`).textContent).toBe(drawn.figure!.edit!.prompt)
+  })
+})
