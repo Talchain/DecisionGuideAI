@@ -22,10 +22,10 @@ function Cite({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
   return <><button type="button" className="cite" title={text} aria-expanded={open} onClick={() => setOpen(!open)}><svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" strokeWidth="1.2" /><path d="M8 7.3v3.4M8 5.2v.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg></button>{open ? <span className="cite-text">{text}</span> : null}</>
 }
-function Turn({ t, onShow }: { t: Loose; onShow: (id: string) => void }) {
+function Turn({ t, onShow, latest = false }: { t: Loose; onShow: (id: string) => void; latest?: boolean }) {
   const a = t.answer
   return (
-    <section className="turn">
+    <section className="turn" data-latest-turn={latest ? '1' : undefined}>
       <div className="turn-meta"><span className="by">{t.by}</span><span className="meta">{t.version}</span>{t.status ? <span className="meta" data-testid="next-turn-status">{t.status}</span> : null}</div>
       <div className="said-wrap"><Clamp cls="said" text={t.said} lines={3} /></div>
       {t.broke ? (
@@ -202,11 +202,23 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
   const asked: string[] = loose(v.model).coaching_questions ?? []
   useEffect(() => { if (answering && asked[answering.at] !== answering.text) setAnswering(null) }, [answering, asked, setAnswering])
   const turn = v.turn ? loose(v.turn) : null
-  // A new turn, Olumi answering, an answer or a turn that failed: the panel moves to it so the person sees where the conversation stands
-  // (not on first open, which keeps the panel where the look-proof draws it).
+  // A new turn, Olumi answering, an answer or a turn that failed: the panel moves to it so the person sees where the conversation stands.
+  // On first open it opens on the LATEST turn (DL-285 repair 3): the person's newest message and Olumi's reply to it, never the brief.
   const scroll = useRef<HTMLDivElement | null>(null), seen = useRef<string | null>(null)
+  const lastAt = chat.reduce((m, t, i) => (t.earlier ? m : i), -1)
   const at = `${chat.length}:${turn?.job ?? ''}:${turn?.status ?? ''}`
-  useEffect(() => { if (seen.current !== null && seen.current !== at && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; seen.current = at }, [at])
+  useEffect(() => {
+    const box = scroll.current
+    if (box && seen.current === null) {
+      const el = box.querySelector<HTMLElement>('[data-latest-turn="1"]')
+      if (el) box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top
+    } else if (box && seen.current !== at) box.scrollTop = box.scrollHeight
+    seen.current = at
+  }, [at])
+  // What is waiting, kept in sight above Approve (DL-285 / Codex PL-685): core's own words that a change waits, the proposal's heading, and
+  // the subject of each of Olumi's readings (core's `what`), each a link to its answers below. No action here: the answers stay in the review.
+  const goReading = (id: string) => { const box = scroll.current, el = box?.querySelector<HTMLElement>(`[data-reading="${CSS.escape(id)}"]`); if (box && el) box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top }
+  const subjects = [...new Map(readingsOn(P).map((r) => [r.what, r.id])).entries()]
   const past = useViewStore((st) => st.at) !== null
   return (
     <aside className="nx-panel" data-testid="next-panel">
@@ -218,7 +230,7 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
             <details key={i} className="earlier"><summary><span className="by">{t.by}</span><span className="meta">{t.version}</span>{t.status ? <span className="meta">{t.status}</span> : null}<span className="one">{t.said}</span><span><Chev /></span></summary><Turn t={t} onShow={flash} /></details>,
           ] : []))}</div>
         ) : null}
-        {chat.flatMap((t, i) => (t.earlier ? [] : [<Turn key={i} t={t} onShow={flash} />]))}
+        {chat.flatMap((t, i) => (t.earlier ? [] : [<Turn key={i} t={t} onShow={flash} latest={i === lastAt} />]))}
         {turn && (turn.status === 'answering' || turn.status === 'failed' || turn.status === 'lost') ? (
           // Waiting for Olumi, or a turn that did not finish: the person's words and core's own words for where it stands.
           <section className={`turn turn-${turn.status}`} data-testid={`next-turn-${turn.status}`}>
@@ -232,11 +244,12 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
           // Olumi's reading on this proposal, in core's words, with the person's three answers (PL-626): confirm it, give a different measure in
           // their own words, or stay unsure (approve without it and without refusing it: the question stays open).
           <section key={r.id} className="sec reading" data-testid="next-reading" data-reading={r.id}>
+            <h4 className="reading-what" data-testid="next-reading-what">{r.what}</h4>
             <p className="meta">{r.status}</p>
             <p>{r.question}</p>
             <div className="detail-acts">
               <button type="button" className={`btn ${answers[r.id] === 'confirm' ? 'btn-primary' : 'btn-quiet'}`} aria-pressed={answers[r.id] === 'confirm'} disabled={busy} data-testid="next-reading-confirm" onClick={() => setAnswers({ ...answers, [r.id]: 'confirm' })}>Confirm</button>
-              <button type="button" className="btn btn-quiet" disabled={busy || telling} data-testid="next-reading-different" onClick={() => { const { [r.id]: _drop, ...rest } = answers; void _drop; setAnswers(rest); setMeasureFor(r); setAnswering(null) }}>A different measure</button>
+              <button type="button" className="btn btn-quiet" disabled={busy || telling} data-testid="next-reading-different" onClick={() => { const { [r.id]: _drop, ...rest } = answers; void _drop; setAnswers(rest); setMeasureFor(r); setAnswering(null) }}>In my own words</button>
               <button type="button" className={`btn ${answers[r.id] === 'unsure' ? 'btn-primary' : 'btn-quiet'}`} aria-pressed={answers[r.id] === 'unsure'} disabled={busy} data-testid="next-reading-unsure" onClick={() => setAnswers({ ...answers, [r.id]: 'unsure' })}>Unsure</button>
               <button type="button" className={`btn ${answers[r.id] === 'decline' ? 'btn-primary' : 'btn-quiet'}`} aria-pressed={answers[r.id] === 'decline'} disabled={busy} data-testid="next-reading-decline" onClick={() => setAnswers({ ...answers, [r.id]: 'decline' })}>Decline</button>
             </div>
@@ -244,11 +257,17 @@ export function Panel({ v, detail, editing, closeDetail, flash, answering = null
         ))}
       </div>
       {P ? (
+        <div className="nx-pending" data-testid="next-pending">
+          <p className="say"><span className="mk" aria-hidden="true"><OlumiMark s={8} /></span>{MW.heldLead ?? P.heading}</p>
+          <p className="meta"><span>{P.heading}</span>{subjects.map(([what, id]) => <span key={id}><span className="sep"> · </span><button type="button" className="textlink" data-testid="next-pending-reading" onClick={() => goReading(id)}>{what}</button></span>)}</p>
+        </div>
+      ) : null}
+      {P ? (
         <div className="nx-decide" data-testid="next-decide">
           {/* Approve: the whole proposal. With a confirmed reading, every line goes with it (the person pressed Approve); without one, core's own whole approval. */}
           <button type="button" className="btn btn-primary" disabled={busy} data-testid="next-approve"
             onClick={() => void act(() => (answered ? answerReadings(picksOf(ch, tickEvery(ch)), { confirm: confirmed, decline: declined }) : approveAll()))}>Approve</button>
-          <button type="button" className="btn btn-quiet" disabled={busy || n === 0} data-testid="next-approve-selected"
+          <button type="button" className="btn btn-quiet" disabled={busy || (n === 0 && !answered)} data-testid="next-approve-selected"
             onClick={() => void act(() => answerReadings(picks, { confirm: confirmed, decline: declined }))}>Approve selected · <span className="selcount">{n}</span></button>
           {MW.heldConfirm ? <button type="button" className="btn btn-text" disabled={busy} data-testid="next-set-aside" onClick={() => void act(() => setAside({ decline: declined }))}><span>{MW.heldConfirm}</span></button> : null}
         </div>

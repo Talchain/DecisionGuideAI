@@ -107,6 +107,8 @@ interface N {
   w: number
   h: number
   b: number | null
+  /** a note's offset below its row's top where more notes than columns share one column (they stack, never overlap) */
+  off?: number
   ins: K[]
   outs: K[]
 }
@@ -380,6 +382,10 @@ export function layoutBoard(view: View, heights: ReadonlyMap<string, number>, vi
     n.h = h
   })
   rows.forEach((r) => { r.h = Math.max(...r.nodes.map((n) => n.h)) })
+  /* notes beyond the header band's free columns share its last column: stack them there (positions only; no node, link or order changes) */
+  const stack = new Map<number, number>()
+  rows[0].nodes.forEach((n) => { if (!n.note) return; const top = stack.get(n.x) ?? 0; n.off = top; stack.set(n.x, top + n.h + colGap) })
+  stack.forEach((t) => { rows[0].h = Math.max(rows[0].h, t - colGap) })
 
   /* ports */
   all.forEach((n) => { n.ins = []; n.outs = [] })
@@ -503,7 +509,7 @@ export function layoutBoard(view: View, heights: ReadonlyMap<string, number>, vi
   const gapTop: number[] = []
   rows.forEach((r, ri) => {
     r.y = y
-    r.nodes.forEach((n) => { n.y = y })
+    r.nodes.forEach((n) => { n.y = y + (n.off ?? 0) })
     y += r.h
     if (ri < nGap) { gapTop[ri] = y; gapH[ri] += extra; y += gapH[ri] }
   })

@@ -82,6 +82,8 @@ function OptionBody({ v, c }: { v: View; c: ViewCard }) {
   const oneGoal = (v.model?.cards ?? []).filter((x) => x.family === 'goal').length === 1
   const oneLimit = (v.model?.cards ?? []).filter((x) => x.family === 'limit').length === 1
   const out: ReactNode[] = []
+  // The option's CURRENT status in core's words (e.g. "ruled out"); a proposed change to it is shown in the review panel, never here.
+  if (L.status) out.push(<p key="st" className="cstatus" data-testid="next-card-status">{L.status}</p>)
   if (hl?.state === 'chance') {
     const r0 = rows.find((r) => r.kind === 'chance' && r.aim_id === hl.aim_id)
     out.push(<p key="h" className="chance" title={hl.title}>{hl.text}</p>)
@@ -130,6 +132,10 @@ function QuantityBody({ v, c, onEdit }: { v: View; c: ViewCard; onEdit: (id: str
   else if (f?.text) out.push(<div key="f" className="figrow"><span className={hasDigit(f.text) ? 'figure' : 'words'} title={f.title} data-figure-of={c.id}>{f.text}</span>{edit(MW.changeFigure)}</div>)
   else if (L.bound?.text) out.push(<div key="b" className="figrow"><span className="figure" title={L.bound.title}>{L.bound.text}</span></div>)
   else if (f) out.push(<div key="f" className="figrow"><span className="words" title={f.title}>{L.author ? L.author.text : ''}</span>{edit(MW.setFigure)}</div>)
+  // The aim's measure (DL-285 repair 5): model.aim.quantity is a card id; drawn by that card's heading on the one goal card, never read from words.
+  const aim = loose(v.model).aim, goals = (v.model?.cards ?? []).filter((x) => x.family === 'goal')
+  const by = c.family === 'goal' && goals.length === 1 && aim?.quantity ? byId.get(aim.quantity) : undefined
+  if (by) out.push(<p key="m" className="meta measure" data-testid="next-aim-measure" data-measure={by.id}>Measured by {titleOf(by).text}</p>)
   const tf = (v.collab?.shared ?? []).flatMap((s) => (s.figures ?? []).flatMap((x) => (x.quantity === c.id ? [{ by: s.by, f: loose(x) }] : [])))
   if (tf.length) out.push(<div key="t" className="views">{tf.map((t, i) => <span key={i} title={t.f.mark_label}><span className="vby">{t.by}</span><span className="vfig">{t.f.text}</span></span>)}</div>)
   return <>{out}</>
