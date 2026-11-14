@@ -238,7 +238,8 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([mark.textContent, mark.getAttribute('aria-label')]).toEqual(['↻', 'if approved; now 2 weeks'])
     expect(document.querySelector(`[data-view="${per.id}.values.1.if_approved.glyph"]`), 'CONTRAST: a value core does not mark').toBeNull(); cleanup()
     const r = draw(v, aim.id).querySelector<HTMLElement>(`[data-view="${aim.id}.reading"]`)!
-    expect([r.textContent, r.className.includes('text-info')]).toEqual(['Reached in 2 of 3 windows', true])
+    // DL-529: Olumi's blue is the look's own class (olumiLook.css `ok-by-olumi`, --o-info).
+    expect([r.textContent, r.className.includes('ok-by-olumi')]).toEqual(['Reached in 2 of 3 windows', true])
   })
 
   it('FT10 (DL-183, "a stray pencil glyph on a row of its own"): the ✎ is on the figure\'s line; on Olumi\'s question with no value yet, at the end of its author line; never a row of its own', () => {
@@ -302,11 +303,14 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([t.className.includes('line-clamp-3'), t.title, t.textContent!.includes(long)]).toEqual([true, long, true])
   })
 
-  it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {
+  // DL-529 (14 Nov, the component sheet): whose a card is is a first-class mark at its foot, the person's as Olumi's, never hover-only
+  // (this row said the opposite until the new look; the ruling changed, the row with it).
+  it('FT7 (DL-529) a person\'s author line is on the card\'s face, at its foot, in core\'s words; Olumi\'s in Olumi\'s blue, the person\'s not', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
-    const body = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-card="${person.id}"]`)!
-    expect(body.title).toContain(person.author!.text)
-    expect(body.textContent, 'not on the face').not.toContain(person.author!.text)
+    const line = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-author="${person.id}"]`)!
+    expect([line.textContent, line.closest('.ok-foot') !== null, line.className.includes('ok-by-olumi')]).toEqual([person.author!.text, true, false]); cleanup()
+    const theirs = EU.model!.cards.find((c) => c.author?.by === 'olumi')!
+    expect(draw(EU, theirs.id).querySelector<HTMLElement>(`[data-core-author="${theirs.id}"]`)!.className, 'CONTRAST: Olumi\'s').toContain('ok-by-olumi')
   })
 })
 

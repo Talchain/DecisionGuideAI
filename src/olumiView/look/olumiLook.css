@@ -1,0 +1,128 @@
+/*
+ * OLUMI'S LOOK ON THE SCENARIO BOARD (DL-529, 14 Nov 2026). The direction is the design page v4: frame-p
+ * (output/olumi-moves-20261112/frame-p) and its component sheet (ui-evidence/design-20261113/COMPONENTS.md), Olumi's version of
+ * Anthropic's restraint: one evolved system, never bubbly. Scoped to the lane's canvas (`.olumi-look`, ViewCanvas), so no other surface
+ * changes. Every size is the sheet's, multiplied by the canvas's own label scale so the board's zoom faces keep their counter-scaling.
+ *
+ * Tokens: the sheet's fifteen, nothing outside them (plus its three family-border literals).
+ */
+.olumi-look {
+  --o-canvas: #f7f5f0;
+  --o-panel: #fefefe;
+  --o-panel-hover: #fef9f3;
+  --o-border: #e8e5de;
+  --o-border-emph: #d9d8d0;
+  --o-ink: #213238;
+  --o-body: #3d5256;
+  --o-light: #687879;
+  --o-info: #1b7b88;
+  --o-info-ink: #126474;
+  --o-option: #8278bb;
+  --o-factor: #afa99d;
+  --o-goal: #e9bc50;
+  --o-edge-neu: #aab2ae;
+  --o-track: #eee6d8;
+  --o-fam-option: #bcb6d9;
+  --o-fam-factor: #c7c3ba;
+  --o-fam-aim: #d6b961;
+  --o-s: var(--canvas-label-scale, 1);
+  background: var(--o-canvas);
+}
+
+/* ── The card: one container ─────────────────────────────────────────────────────────────────────── */
+.olumi-look .react-flow__node [role='group'][aria-label] {
+  border-radius: 13px !important;
+  background: var(--o-panel) !important;
+  border-width: 1px;
+  border-color: var(--o-border-emph);
+  box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08), 0 1px 3px rgba(30, 49, 50, 0.045) !important;
+  transition: background-color 120ms ease;
+}
+/* Family lives in the border (never a fill): option, factor, aim; the question 1.5px Olumi blue. A provisional card keeps its dashes. */
+.olumi-look .react-flow__node:has([data-ok-family='option']) [role='group'][aria-label] { border-color: var(--o-fam-option) !important; }
+.olumi-look .react-flow__node:has([data-ok-family='factor']) [role='group'][aria-label] { border-color: var(--o-fam-factor) !important; }
+.olumi-look .react-flow__node:has([data-ok-family='aim']) [role='group'][aria-label] { border-color: var(--o-fam-aim) !important; }
+.olumi-look .react-flow__node:has([data-ok-family='question']) [role='group'][aria-label] {
+  border-color: var(--o-info) !important;
+  border-width: 1.5px !important;
+  box-shadow: 0 7px 20px rgba(27, 123, 136, 0.1), 0 1px 3px rgba(27, 123, 136, 0.06) !important;
+}
+/* Hover changes the background only, never position or scale; selected is the board's only 2px ring. */
+.olumi-look .react-flow__node [role='group'][aria-label]:hover { background: var(--o-panel-hover) !important; }
+.olumi-look .react-flow__node.selected [role='group'][aria-label] {
+  box-shadow: 0 0 0 2px var(--o-info), 0 7px 20px rgba(30, 49, 50, 0.08), 0 1px 3px rgba(30, 49, 50, 0.045) !important;
+}
+
+/* The family mark: a 9px square before the name (the sheet's), in place of the previous product's shape on the top edge. */
+.olumi-look .react-flow__node [data-testid='node-type-glyph'] { display: none; }
+.olumi-look .react-flow__node [data-testid='node-title'] {
+  color: var(--o-ink) !important;
+  font-weight: 600 !important;
+}
+.olumi-look .react-flow__node [data-testid='node-title']::before {
+  content: '';
+  display: inline-block;
+  width: calc(9px * var(--o-s));
+  height: calc(9px * var(--o-s));
+  margin-right: calc(7px * var(--o-s));
+  border-radius: 2px;
+  vertical-align: calc(0.5px * var(--o-s));
+  background: var(--o-border-emph);
+}
+.olumi-look .react-flow__node:has([data-ok-family='option']) [data-testid='node-title']::before { background: var(--o-fam-option); }
+.olumi-look .react-flow__node:has([data-ok-family='factor']) [data-testid='node-title']::before { background: var(--o-fam-factor); border-radius: 999px; }
+.olumi-look .react-flow__node:has([data-ok-family='aim']) [data-testid='node-title']::before { background: var(--o-goal); transform: rotate(45deg) scale(0.8); }
+.olumi-look .react-flow__node:has([data-ok-family='question']) [data-testid='node-title']::before { background: var(--o-info); }
+.olumi-look .react-flow__node:has([data-ok-family='question']) [data-testid='node-title'] {
+  font-size: calc(15px * var(--o-s)) !important;
+  line-height: 1.38 !important;
+}
+
+/* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
+.olumi-look .ok-face { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--o-body); }
+/* The one headline: an option's chance. */
+.olumi-look .ok-chance {
+  font-size: calc(19px * var(--o-s)); line-height: 1.15; font-weight: 600; color: var(--o-ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.olumi-look .ok-fixed { font-size: calc(15px * var(--o-s)); line-height: 1.25; font-weight: 600; color: var(--o-ink); }
+.olumi-look .ok-qual { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-light); }
+.olumi-look .ok-mark { color: var(--o-info); font-size: calc(11.5px * var(--o-s)); margin-left: calc(4px * var(--o-s)); font-weight: 400; }
+/* No chance yet: core's words as a quiet pill; "Why not" opens core's reason; the next step is ONE line. */
+.olumi-look .ok-pill {
+  display: inline-flex; align-self: flex-start; align-items: center; border: 1px solid var(--o-border-emph); border-radius: 999px;
+  padding: calc(1px * var(--o-s)) calc(8px * var(--o-s)); font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body);
+  background: var(--o-panel);
+}
+.olumi-look .ok-why > summary {
+  list-style: none; cursor: pointer; width: max-content; color: var(--o-info); font-size: calc(11.5px * var(--o-s)); line-height: 1.45;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.olumi-look .ok-why > summary::-webkit-details-marker { display: none; }
+.olumi-look .ok-why > p { margin-top: calc(3px * var(--o-s)); font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); border-left: 3px solid var(--o-track); padding-left: calc(8px * var(--o-s)); }
+.olumi-look .ok-next {
+  border-left: 3px solid var(--o-info); padding: calc(2px * var(--o-s)) 0 calc(2px * var(--o-s)) calc(8px * var(--o-s));
+  font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-ink);
+}
+/* A factor's figure: Olumi's estimate is underlined dotted in Olumi's blue, and that underline means nothing else; the person's is solid. */
+.olumi-look .ok-fig { font-size: calc(15px * var(--o-s)); line-height: 1.25; font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
+.olumi-look .ok-fig-olumi { text-decoration: underline dotted var(--o-info); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.olumi-look .ok-target { font-size: calc(14px * var(--o-s)); line-height: 1.25; font-weight: 600; color: var(--o-ink); }
+/* A worked-out value that waits, or each option's value: a quiet status line, never the card's figure. */
+.olumi-look .ok-status { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-light); border-left: 3px solid var(--o-track); padding-left: calc(8px * var(--o-s)); }
+.olumi-look .ok-status b { font-weight: 600; color: var(--o-body); }
+/* Whose it is: at the card's foot, Olumi's in Olumi's blue with core's ◆, the person's in body ink; then the count. */
+.olumi-look .ok-foot { margin-top: calc(4px * var(--o-s)); display: flex; flex-direction: column; gap: calc(1px * var(--o-s)); }
+.olumi-look .ok-by { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); }
+.olumi-look .ok-by-olumi { color: var(--o-info); }
+.olumi-look .ok-count { font-size: calc(10.5px * var(--o-s)); line-height: 1.4; color: var(--o-light); }
+.olumi-look .ok-count button { color: inherit; }
+/* The ✎ pill: max-content, never stretched to the card. */
+.olumi-look .ok-edit button {
+  display: inline-flex; align-items: center; gap: 4px; width: max-content; border: 1px solid var(--o-border); border-radius: 999px;
+  padding: 0 calc(7px * var(--o-s)); color: var(--o-info); font-size: calc(11.5px * var(--o-s)); text-decoration: none !important;
+}
+
+/* The goal and the question keep their full width for core's words (the previous frame reserved a rail beside an anchor card's body). */
+.olumi-look .react-flow__node [data-testid="anchor-body-rail-beside"]:has(> .ok-face) { padding-right: 0 !important; }
+

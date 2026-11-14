@@ -13,6 +13,7 @@ import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import './look/olumiLook.css'
 import { useCanvasStore } from '../canvas/store'
 import { CanvasContextMenu } from '../canvas/contextMenu/CanvasContextMenu'
 import type { ContextTarget } from '../canvas/contextMenu/types'
@@ -287,7 +288,7 @@ function ViewFlow() {
   return (
     <>
       <ReactFlow
-        nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
+        className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
         onNodeContextMenu={(e, n) => {
           e.preventDefault()

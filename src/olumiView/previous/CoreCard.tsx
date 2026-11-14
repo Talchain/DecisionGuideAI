@@ -22,7 +22,7 @@ import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } fro
 import { failedOf, failedReasonOf } from '../k5'
 import { clearWhatIf } from '../whatif'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
-import { optionBands, ViewDriverBadge, ViewOptionBand, ViewValuesBand } from '../v10'
+import { ViewDriverBadge, ViewValuesBand } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
@@ -124,6 +124,15 @@ export function leadTitleOf(card: ViewCard): string | null {
   return null
 }
 
+
+/** The family the board's skin draws in the card's border and mark (olumiLook.css): an option, a figure, an aim or limit, or other. */
+export function familyOf(card: ViewCard): 'option' | 'factor' | 'aim' | 'other' {
+  if (card.family === 'option') return 'option'
+  if (card.bound != null || card.family === 'goal' || card.family === 'limit') return 'aim'
+  if (card.family === 'quantity') return 'factor'
+  return 'other'
+}
+
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
@@ -170,8 +179,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The reading of this aim over its window (R19, DL P1 10 Nov: said once, on the aim's own card), and the core marks on the face.
   const reading = card === null || model === null ? null : readingOf(model, id)
   const edit = card === null || card.figure === null ? null : card.figure.edit ?? keptEdit
-  // An option's outcome band, every option on one axis: cards and aim from the ONE model read above (inventory G21b: never two stores).
-  const band = useMemo(() => (card?.family === 'option' && model !== null ? optionBands(model.cards, model.aim ?? null).get(id) ?? null : null), [card, model, id])
   const restsInk = restsOn === null ? '' : restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'
   // G3 (Paul's "do now", 11 Nov): zoomed out the body is blanked and only the far line shows, so the Rests on number is also drawn beside the
   // far line (BaseNode `lodMark`), at the line's own counter-scaled size; the lens then marks its cards on the whole-board first open too.
@@ -185,7 +192,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
   const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
   const badgeLine = badge === null ? null
-    : <p className={`${typography.nodeLabel} text-text-body`} data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
+    : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.nodeLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
@@ -203,44 +210,79 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
+  // THE FACE (DL-529, the component sheet's nine faces), core's words verbatim; nothing formatted, rounded or worked out here.
+  //  - an option: its headline as the View serves it: a chance (core's words up to its own first clause as the one headline, the clause
+  //    under it), a fixed result said as fixed, or no chance yet (core's words as a quiet pill, "Why not" opening core's reason, and core's
+  //    ONE next step, `headline.add`, in the next-step slot);
+  //  - a figure: Olumi's estimate underlined in Olumi's blue, the person's solid, ✎ on its line; each option's value as quiet status lines;
+  //  - an aim or limit: its target with core's mark; whose the target and the aim are, on the foot;
+  //  - anything else: core's line, three lines at most, whole on hover.
+  const faceOf = (): JSX.Element | null => {
+    if (card === null || lead === null) return null
+    const hover = [lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined
+    const trail = <>{changeOn === 'lead' ? changeMark : null}{cueOnLead ? <>{' '}{editCue}</> : null}</>
+    const h = card.family === 'option' ? card.headline ?? null : null
+    if (h !== null && h.state === 'chance') {
+      const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
+      const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null } | undefined
+      return (
+        <div data-core-lead={id} data-ok-face="chance" title={hover}>
+          <p className="ok-chance line-clamp-3"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
+            {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
+            {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
+          {qual === null || qual === '' ? null : <p className="ok-qual line-clamp-2" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
+          {h.add == null ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+        </div>
+      )
+    }
+    if (h !== null && h.state === 'fixed') return (
+      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed line-clamp-3"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
+    )
+    if (h !== null && h.state === 'none') return (
+      <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
+        <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id}>{h.text}</span>{trail}</span>
+        {h.why == null || h.why === '' ? null : <details className="ok-why nodrag" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>}
+        {h.add == null || h.add === '' ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+      </div>
+    )
+    if (card.figure !== null && lead === card.figure.text) return (
+      <div data-core-lead={id} data-ok-face="figure" title={hover}>
+        <p className="line-clamp-3"><span className={`ok-fig ${estimate || olumi ? 'ok-fig-olumi' : ''}`} data-core-lead-clamp={id}>{lead}</span>{trail}</p>
+      </div>
+    )
+    if (card.bound != null && lead === card.bound.text) return (
+      <div data-core-lead={id} data-ok-face="target" title={hover}>
+        <p className="ok-target line-clamp-3"><span data-core-lead-clamp={id}>{lead}</span>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
+      </div>
+    )
+    return (
+      <div data-core-lead={id} data-ok-face="line" title={hover} className="ok-by">
+        <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>{trail}
+      </div>
+    )
+  }
   return (
     // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}>
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
-      {card === null ? <>{decideBy}{badgeLine}</> : (
-        <div className={`flex flex-col gap-1 ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
+      {card === null ? <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}</div> : (
+        <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
-          {lead === null ? null : (
-            // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
-            // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
-            <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
-              title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
-              {/* An option's line is core's, whole, but at most two lines on the face; the rest on hover (DL, live draft: a setting question
-                  made one option card twice its neighbours' height). */}
-              {/* Every card's face line is core's, whole on hover, but a few lines on the face (DL, A13f: a challenge's paragraph ran about 15
-                  lines, taller than the rest of the board): three. An option's was two until ORDER-UI-NEXT (13 Nov): its chance line names
-                  the assumption it rests on, and two lines cut that name ("on Olumi's assumption for 'Weeks until first…"). */}
-              <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>
-              {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
-              {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
-              {changeOn === 'lead' ? changeMark : null}
-              {cueOnLead ? <>{' '}{editCue}</> : null}
-            </div>
-          )}
-          {reading === null ? null : <p className={`${typography.nodeLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
+          {faceOf()}
+          {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />
             {card.values!.map((v, i) => (
-              <p key={v.option} className={`${typography.nodeLabel} text-text-body`} data-core-value={`${id}.${v.option}`}>
-                <span className="text-text-light">{headingOf(v.option)}</span> <span data-view={`${id}.values.${i}.text`}>{v.text}</span>
+              <p key={v.option} className="ok-status" data-core-value={`${id}.${v.option}`}>
+                <span>{headingOf(v.option)}</span> <b data-view={`${id}.values.${i}.text`}>{v.text}</b>
                 {v.if_approved == null ? null : <>{' '}<Glyph at={`${id}.values.${i}.if_approved`} mark={v.if_approved} /></>}
               </p>
             ))}
           </> : null}
           {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
-          {card.unused == null || card.unused === '' ? null : <p className={`${typography.nodeLabel} text-text-body`} data-view={`${id}.unused`}>{card.unused}</p>}
+          {card.unused == null || card.unused === '' ? null : <p className="ok-qual" data-view={`${id}.unused`}>{card.unused}</p>}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
@@ -257,7 +299,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {WHAT_IF_COPY.whatIf}: <span className="font-semibold text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
             </p>
           )}
-          {card.family === 'option' ? <>{band === null ? null : <ViewOptionBand id={id} band={band} />}<OptionMarkLine card={id} /></> : <ViewValuesBand card={card} />}
+          {card.family === 'option' ? <OptionMarkLine card={id} /> : <ViewValuesBand card={card} />}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
             {/* Core's change mark, here only where no other line can carry it (changeOn, above). */}
@@ -278,8 +320,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* A figure with no value takes no row (DL 10 Nov, as ViewCardNode: core's words for it are `figure.title` and `detail`, the hover). */}
           {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
-          {olumi ? <div className={`${typography.nodeLabel} text-info`} data-core-author={id}><span title={card.author!.title}>{card.author!.text}</span>{changeOn === 'author' ? changeMark : null}{cueOnAuthor ? <>{' '}{editCue}</> : null}</div> : null}
-          {badgeLine}
+          {/* Whose it is, at the card's foot (the sheet): first-class marks, never hover-only. A target Olumi proposed says so on the face, the
+              figure Olumi estimated says so, and the card's own author line (Olumi's in its blue, the person's in body ink); then the count. */}
+          <div className="ok-foot">
+            {card.bound?.olumi == null ? null : <p className="ok-by ok-by-olumi" data-view={`${id}.bound.olumi.title`}><Glyph at={`${id}.bound.foot`} mark={card.bound.olumi} /> {card.bound.olumi.title}</p>}
+            {estimate && !olumi ? <p className="ok-by ok-by-olumi" data-view={`${id}.olumi.title`}>{card.olumi!.glyph} {card.olumi!.title}</p> : null}
+            {olumi ? <div className="ok-by ok-by-olumi" data-core-author={id}><span title={card.author!.title}>{card.olumi?.glyph ? `${card.olumi.glyph} ` : ''}{card.author!.text}</span>{changeOn === 'author' ? changeMark : null}{cueOnAuthor ? <>{' '}{editCue}</> : null}</div>
+              : card.author != null && card.author.text !== '' ? <p className="ok-by" data-core-author={id} title={card.author.title || undefined}>{card.author.text}</p> : null}
+            {badgeLine}
+          </div>
         </div>
       )}
     </BaseNode>
