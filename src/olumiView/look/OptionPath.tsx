@@ -58,10 +58,12 @@ export function optionPathOf(view: View, id: string): OptionPath | null {
 export function SetReads({ path, index }: { path: OptionPath; index: number }): JSX.Element | null {
   const row = path.sets.find((x) => x.index === index)
   if (row === undefined) return null
+  // Core's words for the break are drawn once, under the first setting nothing reads; a later one carries the mark, its words on hover.
+  const first = path.sets.find((x) => x.readers.length === 0)?.index === index
   return (
     <ul className="ok-path" data-path="set" data-path-from={row.set.id}>
       {row.readers.length === 0
-        ? <li data-path="break" data-path-missing="sets[].read_by" className="ok-path-break"><span aria-hidden="true">✕ </span>{path.breaks ?? ''}</li>
+        ? <li data-path="break" data-path-missing="sets[].read_by" className="ok-path-break" title={first ? undefined : path.breaks ?? undefined}><span aria-hidden="true">✕</span>{first && path.breaks !== null ? ` ${path.breaks}` : null}</li>
         : row.readers.map((r, i) => r.kind === 'step'
           ? <li key={`s${i}`} data-path="reads" data-path-to={`${r.card.id}.worked.steps.${r.index}`}><span aria-hidden="true">→ </span>{r.card.heading} · {r.label}</li>
           : <li key={`l${i}`} data-path="reads" data-path-to={r.link.to} title={r.link.title}><span aria-hidden="true">→ </span>{r.to?.heading ?? r.link.to}</li>)}

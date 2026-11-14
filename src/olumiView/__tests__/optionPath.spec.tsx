@@ -58,7 +58,10 @@ describe('one option\'s path, setting → what reads it → the measure the aim 
   })
   it('P4 another option: both its settings break, and its own link into the aim is drawn in core\'s words (a link in words, not a quantity)', () => {
     const el = select(STORE, ANGELS), sets = card(ANGELS).sets!
-    expect(sets.map((s) => el.querySelector(`[data-path="set"][data-path-from="${s.id}"] [data-path="break"]`) !== null)).toEqual(sets.map(() => true))
+    const brk = sets.map((s) => el.querySelector(`[data-path="set"][data-path-from="${s.id}"] [data-path="break"]`))
+    // Core's words for the break once (the option's row for the aim: no run.coverage entry for it), under the first; the second carries the mark.
+    const words = (card(ANGELS).rows as { aim_id?: string; kind?: string; text?: string }[]).find((r) => r.aim_id === GOAL.to && r.kind === 'none')!.text
+    expect([run.coverage.some((c) => c.option === ANGELS), brk.map((b) => b?.textContent), brk[1]?.getAttribute('title')]).toEqual([false, [`✕ ${words}`, '✕'], words])
     const own = m.links.find((l) => l.from === ANGELS && l.kind !== 'reason')!
     expect(el.querySelector(`[data-path="link"][data-path-to="${own.to}"]`)?.getAttribute('title')).toBe(own.title)
   })
