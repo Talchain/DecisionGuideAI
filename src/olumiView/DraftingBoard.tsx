@@ -30,6 +30,7 @@ export function DraftingBoard(): JSX.Element | null {
 }
 
 function Drafting({ draft }: { draft: Draft }): JSX.Element {
+  const brief = useViewStore(s => s.view?.brief ?? null)
   const running = draft.status === 'drafting'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -51,6 +52,7 @@ function Drafting({ draft }: { draft: Draft }): JSX.Element {
               className="min-h-[44px] rounded-md border border-border px-4 text-text-body hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">{draft.stop.label}</button>)
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
               className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+        {brief === null || brief === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-info">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
       </div>
     </div>
   )

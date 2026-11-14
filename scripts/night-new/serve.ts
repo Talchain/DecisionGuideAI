@@ -10,13 +10,13 @@ const core = execFileSync('git', ['-C', '/Users/paulslee/olumi-work/worktrees/d-
 const apps = new Map(), stores = new Map()
 let selected = 'approved', calls = 0
 function app(tag: string) {
-  if (!/^(approved|pending|approve-(?:2000|1128|133)|discard-(?:2000|1128|133)|pair|edit-(?:2000|1128|133))$/.test(tag)) throw new Error('Unknown evidence copy')
+  if (!/^(approved|pending|approve-(?:2000|1128|133)|discard-(?:2000|1128|133)|pair|edit-(?:2000|1128|133)|failure-(?:2000|1128|133))$/.test(tag)) throw new Error('Unknown evidence copy')
   if (!apps.has(tag)) {
     const store = new Store(resolve('.night-data', tag, 'olumi.db')); stores.set(tag, store)
-    const service = new Service(store, { prompts: {} as never, flags: [], today: () => '2026-11-14', commit: core,
-      caller: async () => { calls++; console.error('BLOCKED provider invocation'); throw new Error('Offline evidence run: providers disabled') } })
+    const service = new Service(store, { prompts: {draft:'Offline failure test',update:'Offline failure test',coach:'Offline failure test',descriptions:{}}, flags: [], today: () => '2026-11-14', commit: core,
+      caller: async () => { calls++; await new Promise(r => setTimeout(r, 3000)); throw new Error('Offline evidence run: providers disabled before any request') } })
     apps.set(tag, createApp({service, page: () => ({html:'',js:''}), adminKey:'night-new-isolated-evidence-admin', commit:core, secureCookie:false,
-      ui:uiFrom('/Users/paulslee/olumi-work/paul-copy-ui/scenario-ui-new-night/dist'), calls:{cap:0,used:()=>0}}))
+      ui:uiFrom('/Users/paulslee/olumi-work/paul-copy-ui/scenario-ui-new-night/dist'), ...(tag.startsWith('failure-') ? {} : {calls:{cap:0,used:()=>0}})}))
   }
   return apps.get(tag)
 }
