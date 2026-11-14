@@ -71,15 +71,15 @@ export async function drawList(root: HTMLElement | null): Promise<void> {
     const cell = (child: HTMLElement | string) => { const td = el('td', typeof child === 'string' ? child : '', { style: 'padding: 2px 10px 2px 0; vertical-align: top' }); if (typeof child !== 'string') td.append(child); tr.append(td) }
     cell(key)
     cell(row.view === null ? 'not a whole View document' : row.missing.length === 0 ? 'every required key' : `lacks: ${row.missing.join(', ')}`)
-    const acts = el('span')
+    const acts = el('span', '', { style: 'white-space: nowrap' })
     if (row.view !== null) {
       const view = row.view
       for (const [w, h] of SIZES) {
-        const b = el('button', `${w} by ${h}`, { type: 'button', style: 'margin-right: 6px' })
+        const b = el('button', `${w} by ${h}`, { type: 'button', style: 'margin-right: 6px; padding: 1px 8px; border: 1px solid GrayText; border-radius: 4px; cursor: pointer' })
         b.addEventListener('click', () => show(row, w, h))
         acts.append(b)
       }
-      acts.append(el('a', 'open alone', { href: frameUrlOf(view, key), target: '_blank', rel: 'noopener' }))
+      acts.append(el('a', 'open alone', { href: frameUrlOf(view, key), target: '_blank', rel: 'noopener', style: 'text-decoration: underline' }))
     }
     cell(acts)
     table.append(tr)

@@ -5,7 +5,8 @@
  *
  *  - a read the saved View can answer (`/api/me`, the scenario's own View): answered from it;
  *  - any other read under `/api/`: 404, listed under `unanswered` (a saved View is one document; the page's other reads are not in it);
- *  - every write: refused in words (409: a definite refusal; the app reads 5xx on a write as "may have been saved"), listed under `refused`;
+ *  - every write: refused in words, listed under `refused`. The status is 405: to the app a 5xx on a write means "may have been saved"
+ *    and a 409 means "this step has gone stale" (it hides the step); 405 is read as a plain refusal and its words are shown;
  *  - anything else (another origin, another path, a socket, a beacon): refused and listed under `refused`;
  *  - whatever the page's own policy blocks (view-gallery.html: a script, frame or connection from elsewhere): listed under `refused`.
  * Not seen here: a `/bff/` request, which the app's own guard (src/olumiCore/bffGuard.ts) answers 404 before it reaches this module. It
@@ -36,7 +37,7 @@ export function answerOf(view: { readonly id: string; readonly you?: unknown; re
 export function decide(method: string, url: URL, origin: string, answer: Answer): Decision {
   if (url.origin !== origin) return { kind: 'fail', why: 'outside' }
   const read = method.toUpperCase() === 'GET' || method.toUpperCase() === 'HEAD'
-  if (!read) return { kind: 'answer', status: 409, body: { error: READ_ONLY }, list: 'refused', why: 'write' }
+  if (!read) return { kind: 'answer', status: 405, body: { error: READ_ONLY }, list: 'refused', why: 'write' }
   if (QUIET.has(url.pathname)) return { kind: 'answer', status: 404, body: { error: NOT_SAVED_HERE } }
   if (!url.pathname.startsWith('/api/')) return { kind: 'answer', status: 404, body: { error: NOT_SAVED_HERE }, list: 'refused', why: 'unexpected' }
   const body = answer(url.pathname)
