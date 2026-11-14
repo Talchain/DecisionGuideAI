@@ -312,10 +312,6 @@ export const READINGS_NOTE = 'Choose for each one. Nothing is saved until you pr
 export const READING_KEEP = 'Keep the original'
 export const READING_USE = 'Use Olumi’s reading'
 export const APPROVE_WORD = 'Approve'
-/** The keys that can scroll a box, and how long after the person's input a scroll of the box counts as theirs (the held proposal's placing
- *  stops once the person scrolls it themselves). */
-const SCROLL_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Tab'])
-const INPUT_SCROLL_MS = 400
 /** An approval with readings that did not go through may still have been saved: a different selection is never sent in its place. */
 export const READINGS_CHANGED = 'Your choices changed after an approval that did not go through, so nothing was sent. That approval may have been saved: reload the page to see what the model holds, or put the choices back as they were and press Approve again.'
 
@@ -382,57 +378,41 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
   const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
   const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
-  // PL-1083 (1): at rest the reading rows sit wholly above the pinned actions (./readingsRest.ts). Placed when the proposal is held, and again
-  // whenever the box, a row or the actions change size (a resize, the dock opening, a font arriving, a label wrapping), until the person
-  // scrolls the box themselves.
+  // PL-1083 (1): the reading rows rest wholly above the pinned actions (./readingsRest.ts). THE RULE, one sentence: when the proposal is held,
+  // and again whenever the box, a row or the actions change size (a resize, the dock opening, a font arriving, a label wrapping), the box is
+  // scrolled the least that puts the rows whole above the actions, and not at all if they already are.
+  // The person's own scrolling is never read or guessed at (three Codex reads, 13:33Z to 14:1xZ, each found a state in which a guess at
+  // whose scroll it was left the rows under the actions for good): what they scroll to stands until the layout next changes, and a layout
+  // change puts the rows back in view. That is the DL's order of 12:5xZ (the rows and the actions never rest under anything).
   const root = useRef<HTMLDivElement>(null)
   // Keyed on the marks as they are drawn (each reading's id at its own place), so rows that are replaced are watched again (Codex 13:50Z).
   const restKey = `${p.id}:${p.marks.map((m) => (m.reading !== undefined && readingIds.includes(m.reading.id) ? m.reading.id : '-')).join(',')}`
   useLayoutEffect(() => {
     const el = root.current, box = el?.closest<HTMLElement>('.ok-pinned') ?? null
     if (el === null || box === null || readingIds.length === 0) return
-    // Codex 13:33Z (1), 13:50Z: only the person's own scrolling of THIS box stops the placing: a scroll of the box that follows their
-    // input on it (a wheel, a touch, a scroll key, or a press held on the box's own scrollbar). Input that scrolls nothing (a press on the
-    // padding, a sideways wheel, a wheel the list of changes takes) does not; nor does a scroll the browser makes itself when the box is
-    // resized (its scrollTop clamped), nor our own.
-    let theirs = false, armed = 0, held = false, placedAt = Number.NaN
-    const arm = () => { armed = Date.now() + INPUT_SCROLL_MS }
-    const pressed = (e: Event) => { if (e.target === box) held = true }
-    const released = () => { held = false }
-    const keyed = (e: KeyboardEvent) => { if (SCROLL_KEYS.has(e.key)) arm() }
-    const scrolled = () => { if (Math.abs(box.scrollTop - placedAt) < 1) return; if (held || Date.now() <= armed) theirs = true }
     const land = () => {
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
-      if (foot === null || theirs) return
+      if (foot === null) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
-      // cannot give that much it shrinks rather than run past the composer, and the first row's top is shown. Measured afresh each time
-      // from the stylesheet's own cap, so the box is never left taller than the rows now need.
+      // cannot give that much it shrinks rather than run past the composer, and as many leading rows as fit are shown whole. Measured
+      // afresh each time from the stylesheet's own cap, so the box is never left taller than the rows now need.
       box.style.maxHeight = ''
       const first = readingsRest(box, el, foot)
       if (first === null) return
       if (first.short > 0) box.style.maxHeight = `${Math.ceil(box.getBoundingClientRect().height + first.short)}px`
       const range = readingsRest(box, el, foot)
       if (range === null) return
-      box.scrollTop = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
-      placedAt = box.scrollTop // a scroll event that leaves the box where we put it is ours, or moved nothing
+      const to = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
+      if (to !== box.scrollTop) box.scrollTop = to
     }
     land()
-    box.addEventListener('wheel', arm, { passive: true }); box.addEventListener('touchmove', arm, { passive: true })
-    box.addEventListener('pointerdown', pressed); box.addEventListener('pointerup', released); box.addEventListener('pointercancel', released)
-    box.addEventListener('keydown', keyed); box.addEventListener('scroll', scrolled, { passive: true })
     // Codex 13:33Z (2): the actions are watched too, so a label that wraps onto another row places the rows again.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(land)
     if (observer !== null) {
       observer.observe(box)
       for (const part of Array.from(el.querySelectorAll('[data-reading-row], [data-testid="view-proposal-actions"]'))) observer.observe(part)
     }
-    return () => {
-      observer?.disconnect()
-      box.removeEventListener('wheel', arm); box.removeEventListener('touchmove', arm)
-      box.removeEventListener('pointerdown', pressed); box.removeEventListener('pointerup', released); box.removeEventListener('pointercancel', released)
-      box.removeEventListener('keydown', keyed); box.removeEventListener('scroll', scrolled)
-      box.style.maxHeight = ''
-    }
+    return () => { observer?.disconnect(); box.style.maxHeight = '' }
   }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the

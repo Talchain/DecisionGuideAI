@@ -7,7 +7,8 @@
  * whole above `foot`: at `low` the last of those rows sits just above the actions, at `high` the first row's top is just inside the box.
  * Where the words are long (13:50Z on 7163b55b: a first row of 352 px) not every row fits: then as many leading rows as do; the first row
  * alone may give up its gap to fit; and where even that cannot, the first row's top. `rows` says how many rest whole (0 = not even the
- * first) and `short` how many more pixels of height the box would need to hold them all (<= 0 when they all fit). Positions come from
+ * first). `short` is how many more pixels of height the box would need to hold EVERY row with its gap above and below (<= 0 when they all
+ * fit with their gaps; it can be a few pixels above 0 while `rows` counts them all, when a sole row fits only without its gap). Positions come from
  * layout and are taken in the box's own scroll coordinates, so they do not depend on where it is scrolled now. null where no row is held.
  */
 export type ReadingsRange = { readonly low: number; readonly high: number; readonly rows: number; readonly short: number }

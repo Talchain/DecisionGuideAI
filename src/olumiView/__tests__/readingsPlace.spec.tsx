@@ -80,55 +80,31 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(b.scrollTop).toBe(0)
     expect(observers.some((o) => o.seen.includes(b))).toBe(false)
   })
-  it('Codex (1): a scroll the browser made itself (the box resized, its scrollTop clamped: a scroll event with no input) is put right at the next resize', () => {
-    show(held)
-    const b = boxOf()!
-    b.scrollTop = 120; fireEvent.scroll(b) // not the person: no wheel, touch, key or scrollbar press before it
-    expect(whole()).toBe(false)
-    placer().fire()
-    expect(b.scrollTop).toBe(292)
-    expect(whole()).toBe(true)
-  })
-  it('Codex (1) CONTRAST: once the person scrolls the box themselves (a wheel, then the box scrolls), a later resize leaves it where they put it', () => {
-    show(held)
-    const b = boxOf()!
-    fireEvent.wheel(b); b.scrollTop = 40; fireEvent.scroll(b)
-    placer().fire()
-    expect(b.scrollTop).toBe(40)
-  })
-  it('the same for a scroll key and for a press held on the box\'s own scrollbar', () => {
-    for (const input of [(b: HTMLElement) => fireEvent.keyDown(b, { key: 'PageDown' }), (b: HTMLElement) => fireEvent.pointerDown(b)]) {
+  it('THE RULE: whatever moved the box (the browser clamping it, or the person), the next change of layout puts the rows back whole above the actions', () => {
+    for (const how of [(b: HTMLElement) => { b.scrollTop = 120; fireEvent.scroll(b) }, (b: HTMLElement) => { fireEvent.wheel(b); b.scrollTop = 40; fireEvent.scroll(b) }, (b: HTMLElement) => { fireEvent.keyDown(b, { key: 'PageDown' }); b.scrollTop = 900; fireEvent.scroll(b) }]) {
       const r = show(held)
       const b = boxOf()!
-      input(b); b.scrollTop = 60; fireEvent.scroll(b)
+      how(b)
+      expect(whole()).toBe(false)
       placer().fire()
-      expect(b.scrollTop).toBe(60)
+      expect(b.scrollTop).toBe(292)
+      expect(whole()).toBe(true)
       r.unmount(); observers = []
     }
   })
-  it('Codex 13:50Z: input that scrolls nothing never stops the placing (a wheel the list takes, a sideways wheel, a press on the padding)', () => {
+  it('THE RULE, the other half: with no change of layout nothing is moved; what the person scrolls to stands', () => {
     show(held)
     const b = boxOf()!
-    fireEvent.wheel(b); fireEvent.wheel(b, { deltaX: 40 }); fireEvent.pointerDown(b); fireEvent.pointerUp(b) // no scroll of the box follows
-    footH = 168
-    placer().fire()
-    expect(b.style.maxHeight).toBe('458px')
-    expect(whole()).toBe(true)
+    fireEvent.wheel(b); b.scrollTop = 40; fireEvent.scroll(b)
+    fireEvent.pointerDown(b); fireEvent.pointerUp(b); fireEvent.keyDown(b, { key: 'ArrowDown' })
+    expect(b.scrollTop).toBe(40) // no listener of ours answers their input: only a size change places
   })
-  it('our own placing is not taken for the person\'s: the scroll event it causes, even just after their wheel, stops nothing', () => {
+  it('a change of layout that leaves the rows whole moves nothing (the least move is none)', () => {
     show(held)
     const b = boxOf()!
-    fireEvent.wheel(b); fireEvent.scroll(b) // the event for the position we set (292): ours
-    b.scrollTop = 120; placer().fire()
+    placer().fire(); placer().fire()
     expect(b.scrollTop).toBe(292)
-  })
-  it('choosing a reading with the pointer or the keyboard is not a scroll: the rows are still placed afterwards', () => {
-    show(held)
-    const b = boxOf()!, use = screen.getByTestId('view-reading-0-use')
-    fireEvent.pointerDown(use); fireEvent.pointerUp(use); fireEvent.click(use)
-    b.scrollTop = 120
-    placer().fire()
-    expect(b.scrollTop).toBe(292)
+    expect(b.style.maxHeight).toBe('406px')
   })
   it('Codex (2): the actions are watched; when they grow (a label wraps to another row) the rows are placed again, still whole above them', () => {
     show(held)
