@@ -164,7 +164,9 @@ export type Since = NonNullable<ViewRun['since']>
  * The changed figures are listed only where no line names one (`sole` null: core credits no single change), each in core's words, Olumi's
  * in blue. Absent on version 1 and where the builds differ: nothing is drawn.
  */
-export function SinceVersion({ since }: { since: Since }): JSX.Element | null {
+/** `movedFirst` (DL journey 4, under a save's receipt): the lines whose reading moved come first, so the chance that moved is read first in a
+ *  short thread; each keeps its place in core's list as its id (`run.since.lines.<i>`). Core's words are unchanged. */
+export function SinceVersion({ since, movedFirst = false }: { since: Since; movedFirst?: boolean }): JSX.Element | null {
   if (since.lines.length === 0 && since.changed.length === 0) return null
   const names = { first: since.from.label, second: since.to.label }
   const tracked = since.lines.some((l) => markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
@@ -173,7 +175,7 @@ export function SinceVersion({ since }: { since: Since }): JSX.Element | null {
       <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
       {since.lines.length === 0 ? null : (
         <ul className="m-0 grid list-none gap-2 p-0">
-          {since.lines.map((l, i) => (
+          {since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0)).map(({ l, i }) => (
             <li key={`${l.option}:${l.aim}`} className={BODY} data-since-line={`${l.option}:${l.aim}`}>
               <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
               <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} />

@@ -42,6 +42,7 @@ import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, His
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
+import { SinceVersion } from '../olumiCore/compare'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
@@ -658,6 +659,8 @@ function say(text: string): Promise<boolean> {
   if (isDrafting(view)) return Promise.resolve(false) // its first model is still drafting: a second Send never makes a second scenario
   return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid))
     : write('message', text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op); dropPendingTurn(op); return r })
+      // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
+      .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }
 
 async function send(): Promise<void> {
@@ -1144,13 +1147,20 @@ export function ViewChat() {
     const asked = step === null ? null : el.querySelector<HTMLElement>('[data-testid="view-model-question"]')
     const from = asked?.offsetTop ?? step?.offsetTop ?? 0
     if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
+    // DL journey (4): a save's receipt and what it changed (ModelNoticeLine, after the newest line) come into view as the step does: whole,
+    // or from its top where it is taller than the thread.
+    const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
+    // It wins over the Next step below it (the person's own save is what they look for); the step stays a scroll away.
+    if (saved !== null) top = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)
   }, [])
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
-  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating])
+  const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
+  const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
+  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, sinceTo])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
@@ -1201,11 +1211,13 @@ export function ViewChat() {
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-            <ModelNoticeLine />
             {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+            {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
+                lands, below), so the person sees it where they are reading. */}
+            <ModelNoticeLine />
             {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
                 questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
                 first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
@@ -1268,8 +1280,16 @@ export function ViewChat() {
 /** The newest line of the conversation about the model's version: the person's own approval saved, or another member's approval arrived. */
 function ModelNoticeLine() {
   const notice = useModelNotice((s) => s.notice), sid = useViewStore((s) => s.sid)
+  const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
   if (notice === null || notice.sid !== sid) return null
-  return <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
+  // DL journey (4): under the receipt, what the new version changed, as core compares it with the one before (`run.since`: whose figure
+  // changed, and each chance that moved, in core's words), where core's comparison is of this very version. Nothing is computed here.
+  return (
+    <div className="space-y-2" data-testid="view-model-notice-block">
+      <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
+      {since === null || since.to.n !== notice.n ? null : <SinceVersion since={since} movedFirst />}
+    </div>
+  )
 }
 
 // A brief's drafting is said on the board in core's words (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
