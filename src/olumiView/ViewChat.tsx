@@ -43,6 +43,7 @@ import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass
 import styles from '../canvas/conversation/Conversation.module.css'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 import { lineBoxesNear, lineCutShift } from './footCut'
+import { readingsRest, restTop } from './readingsRest'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -353,6 +354,11 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const onlyReadings = readingIds.flatMap((id) => (choice[id] === 'use' ? [id] : []))
   const refuseReadings = readingIds.flatMap((id) => (choice[id] === 'keep' ? [id] : []))
   const you = useViewStore((s) => s.view?.you ?? null)
+  // PL-1083 (3): where core serves the same explanation under every reading (its `title`), it is drawn once above them, so each row is its
+  // own words and its two choices; a reading whose explanation differs keeps its own beneath it.
+  const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
+  const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
+  const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
   // choices and approve again.
@@ -384,6 +390,8 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
         const id = m.reading?.id
         if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
+        const shared = sharedTitle !== null && j === firstReading
+          ? <p key={`t${j}`} className="m-0 text-text-light" data-testid="view-readings-title" data-view={`proposal.marks.${j}.title`}>{sharedTitle}</p> : null
         const choose = (on: boolean) => { setRefused(false); setChoice((c) => ({ ...c, [id]: on ? 'use' : 'keep' })) }
         const option = (on: boolean) => (
           <label className="inline-flex min-h-[24px] cursor-pointer items-center gap-1">
@@ -392,11 +400,11 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
           </label>
         )
         return (
-          <fieldset key={j} className="m-0 grid min-w-0 gap-1 border-0 p-0" data-testid={`view-reading-${j}`}>
+          [shared, <fieldset key={j} className="m-0 grid min-w-0 gap-1 border-0 p-0" data-testid={`view-reading-${j}`} data-reading-row="">
             <legend className="p-0">{words}</legend>
-            {m.title === '' ? null : <p className="m-0 text-text-light" data-view={`proposal.marks.${j}.title`}>{m.title}</p>}
+            {m.title === '' || sharedTitle !== null ? null : <p className="m-0 text-text-light" data-view={`proposal.marks.${j}.title`}>{m.title}</p>}
             <div className="flex flex-wrap gap-x-4 gap-y-1">{option(false)}{option(true)}</div>
-          </fieldset>
+          </fieldset>]
         )
       })}
       {changes.length === 0 ? null : groups === null
@@ -434,8 +442,10 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       )}
       {readingIds.length === 0 || verdict?.supported === false ? null : (
         <p className="text-text-light" data-testid="view-readings-approve-says">
-          {onlyReadings.length === 0 ? 'Approve keeps the original for every reading.' : `Approve uses Olumi’s reading for ${onlyReadings.length} of ${readingIds.length} and keeps the original for the rest.`}
-          {' '}Approving records {you === null || you === '' ? 'you' : you} as the person who approved, never as the author of what Olumi read or proposed.
+          {/* PL-1083 (2): no sentence here says what Approve keeps or uses: core may refuse an approval that leaves a reading's companions
+              without it (409, 12:08Z click-through), and the View does not say which lines go with which reading, so any such claim could be
+              false. Core's own words say it when it refuses. */}
+          Approving records {you === null || you === '' ? 'you' : you} as the person who approved, never as the author of what Olumi read or proposed.
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
@@ -447,7 +457,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked changes · {chosen}</button>
         )}
         <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
@@ -1149,13 +1159,17 @@ export function ViewChat() {
     const prop = step?.dataset['step'] === 'approve' ? step.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]') : null
     const row = prop?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]') ?? null
     if (step !== null && prop != null && row !== null) top = Math.max(top, Math.min(step.offsetTop - 16, prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
+    // PL-1083 (1): while the proposal holds Olumi's readings, the thread rests where every reading row is whole above the sticky foot
+    // (./readingsRest.ts), past the step's top if it must; where they cannot all fit, at the first row's top.
+    const rest = prop != null && row !== null ? readingsRest(el, prop, row) : null
+    if (rest !== null) top = restTop(top, rest, maxScroll)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     // DL 07:48Z (4): no half-line at the foot's rule at rest: move the least that leaves each line wholly above the rule or under the foot,
     // never so far back that the foot loses its room, nor on past the step's top.
     if (step !== null && prop != null && row !== null) {
       const now = el.scrollTop
-      const upRoom = Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
-      const downRoom = Math.min(maxScroll - now, step.offsetTop - 16 - now)
+      const upRoom = Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight), rest === null ? Infinity : now - rest.low)
+      const downRoom = rest === null ? Math.min(maxScroll - now, step.offsetTop - 16 - now) : Math.min(maxScroll - now, rest.high - now)
       const shift = lineCutShift(lineBoxesNear(el, row, row.getBoundingClientRect().top), row.getBoundingClientRect().top, upRoom, downRoom)
       if (shift !== 0) el.scrollTop = now + shift
     }

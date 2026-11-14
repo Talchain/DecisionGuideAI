@@ -36,6 +36,8 @@ const show = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
   return render(<ViewChat />)
 }
+// PL-1083 (2): the line by Approve says only who is recorded as approving; it never claims what Approve keeps or uses (core may refuse).
+const noClaim = (el: HTMLElement) => /^Approving records .+ as the person who approved, never as the author of what Olumi read or proposed\.$/.test((el.textContent ?? '').trim())
 const radio = (j: number, which: 'use' | 'keep') => screen.getByTestId(`view-reading-${j}-${which}`) as HTMLInputElement
 beforeEach(() => {
   posts = []; failNext = 0; refuseNext = 0; afterApproval = null
@@ -77,7 +79,7 @@ describe('choose per reading', () => {
   it('an ordinary proposed change plus one chosen reading: Approve sends the reading WITH every line of the proposal, so both are applied; then the screen is core\'s View', async () => {
     show(withMarks([ADA]))
     fireEvent.click(radio(0, 'use'))
-    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve uses Olumi’s reading for 1 of 1')
+    expect(noClaim(screen.getByTestId('view-readings-approve-says'))).toBe(true)
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p0.id}/approve`, body: { base: p0.base, only: p0.changes.map((c) => c.id), only_top: [], only_readings: ['rd_ada'] } })
@@ -89,7 +91,7 @@ describe('choose per reading', () => {
     show(withMarks([ADA, CAL]))
     fireEvent.click(radio(1, 'use'))
     expect([radio(0, 'keep').checked, radio(0, 'use').checked, radio(1, 'keep').checked, radio(1, 'use').checked]).toEqual([false, false, false, true])
-    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve uses Olumi’s reading for 1 of 2 and keeps the original for the rest.')
+    expect(noClaim(screen.getByTestId('view-readings-approve-says'))).toBe(true)
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
@@ -107,7 +109,7 @@ describe('choose per reading', () => {
 
   it('must not change: approving the whole proposal confirms no reading unless one is chosen (the body is `base` alone, no `only_readings`)', async () => {
     show(withMarks([ADA, CAL]))
-    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve keeps the original for every reading.')
+    expect(noClaim(screen.getByTestId('view-readings-approve-says'))).toBe(true)
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p0.id}/approve`, body: { base: p0.base } })
@@ -157,7 +159,7 @@ describe('choose per reading', () => {
     expect(radio(0, 'keep').checked).toBe(false) // Cal's, now the first mark: not the "use" that was pressed, and no answer of its own
     expect(radio(0, 'use').checked).toBe(false)
     expect(screen.queryByTestId('view-reading-1')).toBeNull() // Ada's reading is no longer offered: core no longer marks it
-    expect(screen.getByTestId('view-readings-approve-says')).toHaveTextContent('Approve keeps the original for every reading.')
+    expect(noClaim(screen.getByTestId('view-readings-approve-says'))).toBe(true)
     // A page read again later shows the same: the choices live nowhere but core.
     cleanup()
     show(afterApproval)
@@ -269,5 +271,46 @@ describe('choose per reading', () => {
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p0.base })
+  })
+
+  // PL-1083, the 12:08Z click-through on 452caf7a's held cut13 proposal (core's two marks, served words, fixture from that View).
+  describe('PL-1083: the held readings of a stated net effect', () => {
+    const held = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-452caf7a-cut13-held-marks.json'), 'utf8')) as Mark[]
+    it('(3) core\'s one explanation under both readings is drawn once above them; each row is its own words and its two choices', () => {
+      expect(held.map((m) => m.reading?.id), 'precondition: two readings').toEqual(['angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2', 'approach_angel_investors_for_a_small_quicker_amount_of_funding'])
+      expect(held[0]!.title, 'precondition: core serves the same explanation on both').toBe(held[1]!.title)
+      const { container } = show(withMarks(held, 'Paul'))
+      expect(screen.getAllByTestId('view-readings-title')).toHaveLength(1)
+      expect(screen.getByTestId('view-readings-title').textContent).toBe(held[0]!.title)
+      for (const j of [0, 1]) {
+        const row = screen.getByTestId(`view-reading-${j}`)
+        expect(row.hasAttribute('data-reading-row')).toBe(true)
+        expect(row.textContent, `row ${j}`).not.toContain(held[0]!.title)
+        expect(container.querySelector(`[data-view="proposal.marks.${j}.status"]`)?.textContent).toBe(held[j]!.status)
+      }
+      // The explanation sits before the first row, not after it.
+      expect(screen.getByTestId('view-readings-title').compareDocumentPosition(screen.getByTestId('view-reading-0')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+    it('(3) CONTRAST: readings with different explanations keep each its own beneath it, and none is drawn above', () => {
+      const { container } = show(withMarks([ADA, CAL]))
+      expect(screen.queryByTestId('view-readings-title')).toBeNull()
+      expect(container.querySelector('[data-view="proposal.marks.0.title"]')?.textContent).toBe(ADA.title)
+      expect(container.querySelector('[data-view="proposal.marks.1.title"]')?.textContent).toBe(CAL.title)
+    })
+    it('(2) the line by Approve never says what Approve keeps or uses, whatever is chosen (none, one, both)', () => {
+      show(withMarks(held, 'Paul'))
+      const says = () => screen.getByTestId('view-readings-approve-says')
+      expect(noClaim(says())).toBe(true)
+      fireEvent.click(radio(1, 'use')); expect(noClaim(says())).toBe(true)
+      fireEvent.click(radio(0, 'use')); expect(noClaim(says())).toBe(true)
+      expect(says().textContent).not.toMatch(/keeps the original|uses Olumi/)
+    })
+    it('(5) the ticked count says what it counts: ticked changes, never the readings chosen', () => {
+      show(withMarks(held, 'Paul'))
+      fireEvent.click(radio(0, 'use')); fireEvent.click(radio(1, 'use'))
+      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked changes · 0')
+      fireEvent.click(screen.getByTestId('view-change-tick-1'))
+      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked changes · 1')
+    })
   })
 })
