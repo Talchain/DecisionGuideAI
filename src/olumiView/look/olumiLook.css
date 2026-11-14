@@ -217,7 +217,8 @@
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
-.ok-pinned [data-testid='view-approve'] { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }
+/* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
+.ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }
 .ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: #fefefe; padding: 8px 0 12px; box-shadow: 0 -8px 8px -8px rgba(30, 49, 50, 0.12); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */
