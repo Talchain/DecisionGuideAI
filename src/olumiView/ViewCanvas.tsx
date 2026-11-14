@@ -4,9 +4,8 @@
  * run here, so nothing re-lays out, re-spreads or inspects core's cards (the three faults of 4 Nov were each legacy machinery acting on
  * them). Cards are placed as DGAI's causal graph (`causalPlaces`, via the dock's `useViewCanvas`); the person may pan, zoom and move a card.
  *
- * The camera: each version of core's model is framed once its cards are drawn and settled, the whole board (`wholeAtTopViewport`)
- * once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
- * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
+ * The camera: once the causal layout settles, fit the full faces if they remain readable; otherwise open at reading size and pan
+ * overflow. Reframe measured height changes within a bounded number of attempts, never over the person's own pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -36,7 +35,7 @@ import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { drawKindOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, reducedFaceSize, wholeAtTopViewport } from './camera'
-import { LABEL_LEGIBLE_ZOOM, LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
+import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { CoreCard } from './previous/CoreCard'
@@ -110,40 +109,21 @@ const EPS = 0.001
 export const FACE_RANGE: Record<FaceRegime, readonly [number, number]> = {
   full: [READABLE_WHOLE_ZOOM, 1], body: [LOD_BODY_RESTORED_ZOOM, READABLE_WHOLE_ZOOM - EPS], line: [CORE_LANE_FIT_FLOOR, LOD_BODY_HIDDEN_ZOOM - EPS],
 }
-/** Where a reduced face with its body is tallest: its labels' counter-scale is at its cap here and below (zoomLegibility LABEL_LEGIBLE_ZOOM). */
-const BODY_PROBE = LABEL_LEGIBLE_ZOOM
 /** The board as last drawn with each face: its places and heights, and the zoom it was drawn at. */
 export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] }
 
-/**
- * ORDER-UI-5 (4), DL-408: the one frame for a board, from heights MEASURED with the faces that frame will draw. The old rule framed the
- * board as drawn at the moment, so a fit from one face's heights landed in another face's band, the cards changed height, and the camera
- * framed again the other way, up to three times: at 1128x707 it went 1 → 0.87 → 0.50 → 0.30 → 0.51 and stopped with the goal under the
- * foot and "more below" over the cards (live v4 copy, 13 Nov). Now, from the largest face down:
- *  - a face drawn at least once is framed whole on its own heights, at the largest zoom inside its band, if that zoom is in its band;
- *  - the first face not yet drawn under one that does not fit is drawn once to measure it: the body face at BODY_PROBE (its tallest), the
- *    line face at the top of its band (its shortest); the camera's loop then frames again on what was measured.
- * The heights a frame is computed from are the heights it draws, so it never swings back; a board too large for the floor opens at it.
- */
+/** Fit the measured full faces when readable; otherwise keep them at reading size and let the board pan. */
 export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
-  let above: readonly Node[] | null = null
-  for (const r of ['full', 'body', 'line'] as const) {
-    const [lo, hi] = FACE_RANGE[r], s = snaps[r]
-    if (s === undefined) {
-      if (above === null) continue
-      // The body face is taller than the full face (its labels counter-scaled up): where the full face does not fit even at the body
-      // band's floor, neither does the body face, so the line face is next. The line face is shorter than the body face: always drawn once.
-      const whole = frameFor(above, pane, free, hi)
-      if (whole === null) return null
-      if (r === 'body' && whole.zoom < lo) continue
-      return atZoom(above, pane, free, r === 'body' ? Math.min(hi, BODY_PROBE) : hi)
-    }
-    const v = frameFor(s.nodes, pane, free, hi)
-    if (v !== null && v.zoom >= lo) return v
-    above = s.nodes
+  const full = snaps.full
+  if (full === undefined) {
+    const last = snaps.body ?? snaps.line
+    return last === undefined ? null : atZoom(last.nodes, pane, free, 1)
   }
-  const last = snaps.line ?? snaps.body ?? snaps.full
-  return last === undefined ? null : frameFor(last.nodes, pane, free, FACE_RANGE.line[1])
+  const whole = frameFor(full.nodes, pane, free)
+  if (whole === null || whole.zoom >= READABLE_WHOLE_ZOOM) return whole
+  // A large model overflows at reading size. Keep the framing question and aims in view; pan for the rest.
+  const opening = full.nodes.filter((n) => n.id === QUESTION || ['goal', 'limit'].includes((n.data.card as { family?: string } | undefined)?.family ?? ''))
+  return atZoom(opening.length > 0 ? opening : full.nodes, pane, free, 1)
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
