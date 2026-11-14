@@ -95,7 +95,8 @@ describe('DL j3: a selected option shows core\'s own working for what it moves, 
     return render(<SelectionPill after={selectedRename} />).container
   }
   it('J3-2 on the served twin no option takes a record of its own in core\'s working, so no option claims it (CONTRAST)', () => {
-    for (const o of TWIN.model!.cards.filter((c) => c.family === 'option')) { expect(selectIn(TWIN, o.id).querySelector('[data-view$=".worked"]')).toBeNull(); cleanup() }
+    // DL 08:58Z: the path now draws the measure the aim reads, with core's working, for every option; none of its steps is marked as the option's.
+    for (const o of TWIN.model!.cards.filter((c) => c.family === 'option')) { expect(selectIn(TWIN, o.id).querySelector('[data-view*=".worked"] [data-step-own]')).toBeNull(); cleanup() }
   })
   it('J3-2 where core\'s working takes a different record for an option, selecting it draws that step with the option\'s own figure, marked as its own', () => {
     // The served twin View with ONE of core's per-option rows pointed at the option's own record (the shape core sends when an option sets

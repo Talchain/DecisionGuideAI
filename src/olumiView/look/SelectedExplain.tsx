@@ -4,11 +4,12 @@
  *  - what the option changes: its `sets[]` (the figure each lever takes with this option, and whose that figure is);
  *  - what it rests on: its `premises[]` (core's glyph and words; core's source on hover);
  *  - how the figure it moves is worked out: the steps (look/WorkedSteps.tsx) of each card a `through` link from this option, or from a figure
- *    it sets, leads into; this option's own terms are marked. The View does not project the relation's form (sum, product, stock), so the
- *    steps are the base and the terms the View gives, never a formula.
+ *    it sets, leads into; this option's own terms are marked; how they combine comes from core's form, sign and power (WorkedSteps joinOf);
+ *  - DL 08:58Z: the option's path from each setting to the measure the aim reads, and where it breaks (look/OptionPath.tsx).
  */
 import type { View, ViewCard } from '../client'
-import { movedByWorked, WorkedSteps, workedStepsOf } from './WorkedSteps'
+import { movedByWorked, WORKED_OUT, WorkedSteps, workedStepsOf } from './WorkedSteps'
+import { OptionPathView, optionPathOf, SetReads } from './OptionPath'
 
 /** The cards this option moves through a sized term: `through` links from the option or a figure it sets, into a card worked out. */
 export function movedBy(view: View, option: ViewCard): string[] {
@@ -21,7 +22,7 @@ export function movedBy(view: View, option: ViewCard): string[] {
 export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.Element | null {
   const card = view.model?.cards.find((c) => c.id === id) ?? null
   if (card === null || card.family !== 'option') return null
-  const sets = card.sets ?? [], premises = card.premises ?? [], moved = movedBy(view, card)
+  const sets = card.sets ?? [], premises = card.premises ?? [], path = optionPathOf(view, id), moved = movedBy(view, card)
   const own = new Set([card.id, ...sets.map((s) => s.id)])
   if (sets.length === 0 && premises.length === 0 && moved.length === 0) return null
   return (
@@ -33,10 +34,13 @@ export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.E
             <li key={s.id} data-view={`${id}.sets.${i}`}>
               <span>{s.label}</span>{' '}<b title={s.figure?.title ?? undefined} data-view={`${id}.sets.${i}.figure.text`}>{s.figure?.text ?? ''}</b>
               {s.author == null || s.author === '' ? null : <span className={s.whose === 'olumi' ? 'ok-by-olumi' : 'ok-by'}> · {s.author}</span>}
+              {path === null ? null : <SetReads path={path} index={i} />}
             </li>
           ))}</ul>
         </section>
       )}
+      {/* DL 08:58Z: the measure's working is drawn once: on the path, unless this option moves it (then below, its own terms marked). */}
+      {path === null ? null : <OptionPathView path={path} head={WORKED_OUT} drawn={moved} />}
       {premises.length === 0 ? null : (
         <section data-testid="selected-explain-premises">
           <p className="ok-explain-head">Rests on</p>
