@@ -226,7 +226,14 @@ export function ViewConversation({ chat, moves = false, me }: { chat: View['chat
  * (`turn.words`) as a status, with the seconds since core accepted it (`started`, so a reload counts from the same moment). A failed or lost
  * turn shows core's plain reason and Try again (the same words, a new op). No word here is the page's own but the Try again control.
  */
-export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me: string | null }) {
+/** A completed job may also be the newest saved chat row. Match exact fields, never infer failure from prose. */
+export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
+  const turn = view.turn, last = view.chat[view.chat.length - 1]
+  return turn != null && turn.status !== 'answering' && last != null && last.answer === null &&
+    last.by_id === turn.by_id && last.said === turn.said && last.problem === turn.words
+}
+
+export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean }) {
   const running = turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -235,13 +242,13 @@ export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status}>
       <li className="space-y-1">
-        {turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>}
-        {turn.said === null ? null : <div className={styles.messageBubbleUser}><p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
-        <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
+        {shown || turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>}
+        {shown || turn.said === null ? null : <div className={styles.messageBubbleUser}><p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
+        {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
           {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
-        </p>
+        </p>}
         {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
@@ -1191,7 +1198,7 @@ export function ViewChat() {
             {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
-            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
                 questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
                 first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
