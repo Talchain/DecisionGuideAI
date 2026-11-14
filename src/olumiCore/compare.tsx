@@ -166,7 +166,9 @@ export type Since = NonNullable<ViewRun['since']>
  */
 /** `movedFirst` (DL journey 4, under a save's receipt): the lines whose reading moved come first, so the chance that moved is read first in a
  *  short thread; each keeps its place in core's list as its id (`run.since.lines.<i>`). Core's words are unchanged. */
-export function SinceVersion({ since, movedFirst = false }: { since: Since; movedFirst?: boolean }): JSX.Element | null {
+/** `dense`: core's lines in the meta size, for the thread's foot under a save's receipt (DL journey 4: at 1128 the moved line ran past the
+ *  thread's foot at the reading size). */
+export function SinceVersion({ since, movedFirst = false, dense = false }: { since: Since; movedFirst?: boolean; dense?: boolean }): JSX.Element | null {
   if (since.lines.length === 0 && since.changed.length === 0) return null
   const names = { first: since.from.label, second: since.to.label }
   const tracked = since.lines.some((l) => markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
@@ -176,7 +178,7 @@ export function SinceVersion({ since, movedFirst = false }: { since: Since; move
       {since.lines.length === 0 ? null : (
         <ul className="m-0 grid list-none gap-2 p-0">
           {since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0)).map(({ l, i }) => (
-            <li key={`${l.option}:${l.aim}`} className={BODY} data-since-line={`${l.option}:${l.aim}`}>
+            <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
               <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
               <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} />
             </li>

@@ -1304,7 +1304,7 @@ function ModelNoticeLine() {
   return (
     <div className="space-y-2" data-testid="view-model-notice-block">
       <p role="status" className={`${typography.viewPanelMeta} text-text-header`} data-testid="view-model-notice" data-notice={notice.kind}>{noticeWords(notice)}</p>
-      {since === null || since.to.n !== notice.n ? null : <SinceVersion since={since} movedFirst />}
+      {since === null || since.to.n !== notice.n ? null : <SinceVersion since={since} movedFirst dense />}
     </div>
   )
 }

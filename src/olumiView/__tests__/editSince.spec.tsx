@@ -43,6 +43,8 @@ describe('a saved figure says what it changed (journey 4)', () => {
     useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } })
     const drawn = [...render(<ViewChat />).container.querySelectorAll('[data-testid="view-model-notice-block"] [data-view^="run.since.lines."]')].map((n) => n.getAttribute('data-view'))
     expect(drawn).toEqual(['run.since.lines.1.line', 'run.since.lines.0.line'])
+    // in the meta size at the thread's foot (the Compare tab keeps the reading size)
+    expect(document.querySelector('[data-testid="view-model-notice-block"] [data-since-line]')!.className).toContain('text-[12px]')
   })
 
   it('S2 CONTRAST: a receipt for another version draws no comparison (core\'s since is of version 2 only)', () => {
