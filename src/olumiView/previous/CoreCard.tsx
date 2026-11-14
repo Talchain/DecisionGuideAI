@@ -30,6 +30,7 @@ import { Badge } from '../Badge'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
+import { targetCardOf } from '../model/targets'
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
@@ -292,11 +293,19 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {estimate && !olumi ? <Glyph at={`${id}.olumi`} mark={card.olumi} className="ok-mark" /> : null}{trail}</p>
       </div>
     )
-    if (card.bound != null && lead === card.bound.text) return (
-      <div data-core-lead={id} data-ok-face="target" title={hover}>
-        <p className="ok-target line-clamp-3"><span data-core-lead-clamp={id}>{lead}</span>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
-      </div>
-    )
+    if (card.bound != null && lead === card.bound.text) {
+      // DL 06:57Z (1): the aim's question ("What target would you set …?", core's bound) opens its target figure's own editor, found by
+      // core's `target` line (targets.ts), the same editor and the same write as the target card's ✎; nothing where core offers no edit.
+      const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
+      const words = <span data-core-lead-clamp={id}>{lead}</span>
+      return (
+        <div data-core-lead={id} data-ok-face="target" title={hover} className={target === null ? undefined : 'relative'}>
+          {target === null
+            ? <p className="ok-target line-clamp-3">{words}{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
+            : <div className="ok-target line-clamp-3"><FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</div>}
+        </div>
+      )
+    }
     return (
       <div data-core-lead={id} data-ok-face="line" title={hover} className="ok-by">
         <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>{trail}

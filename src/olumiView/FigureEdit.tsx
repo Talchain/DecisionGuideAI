@@ -92,7 +92,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set' }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try' }): JSX.Element | null {
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -144,6 +144,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     } finally { setTrying(false) }
   }
 
+  // DL 06:57Z (1): another card's own words open this figure's editor (the aim's question opens its target's), the words as the button.
+  const panel = place === 'view-figure' || opener !== undefined
+  if (!open && opener !== undefined) {
+    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} title={edit.ask} className="nodrag cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header">{opener}</button>
+  }
   if (!open) {
     return (
       glyph === undefined
@@ -160,7 +165,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   return (
     // D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
     // flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place.
-    <form className={`nodrag nopan grid gap-1 ${place === 'view-figure' ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-xl border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={place === 'view-figure' ? id : undefined} data-testid={`${place}-form-${id}`}
+    <form className={`nodrag nopan grid gap-1 ${panel ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-xl border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={panel ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}
