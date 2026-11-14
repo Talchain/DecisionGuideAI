@@ -10,7 +10,7 @@
  * closing the dock loses neither (review 00052).
  */
 import { create } from 'zustand'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
@@ -31,6 +31,7 @@ import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
 import { FigureEdit } from './FigureEdit'
+import { readingsRest, restTop } from './readingsRest'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { endRing, pointRing, restRing } from './ring'
 import { Button } from '../components/ui/Button'
@@ -372,6 +373,34 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const onlyReadings = readingIds.flatMap((id) => (choice[id] === 'use' ? [id] : []))
   const refuseReadings = readingIds.flatMap((id) => (choice[id] === 'keep' ? [id] : []))
   const you = useViewStore((s) => s.view?.you ?? null)
+  // PL-1083 (3): where core serves the same explanation under every reading (its `title`), it is drawn once above them, so each row is its
+  // own words and its two choices; a reading whose explanation differs keeps its own beneath it.
+  const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
+  const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
+  const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
+  // PL-1083 (1): at rest the reading rows sit wholly above the pinned actions (./readingsRest.ts), placed once per held proposal and again only
+  // while the person has not scrolled the box themselves (a resize, the dock opening, a font arriving).
+  const root = useRef<HTMLDivElement>(null)
+  const restKey = `${p.id}:${readingIds.join(',')}`
+  useLayoutEffect(() => {
+    const el = root.current, box = el?.closest<HTMLElement>('.ok-pinned') ?? null
+    if (el === null || box === null || readingIds.length === 0) return
+    let placed = -1
+    const land = () => {
+      const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
+      if (foot === null || (placed >= 0 && Math.abs(box.scrollTop - placed) > 1)) return
+      const range = readingsRest(box, el, foot)
+      if (range === null) return
+      box.scrollTop = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
+      placed = box.scrollTop
+    }
+    land()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(land)
+    observer.observe(box)
+    for (const row of Array.from(el.querySelectorAll('[data-reading-row]'))) observer.observe(row)
+    return () => observer.disconnect()
+  }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
   // choices and approve again.
@@ -388,7 +417,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
     void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
   }
   return (
-    <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
+    <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {from === null ? null : (
@@ -403,6 +432,8 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
         const id = m.reading?.id
         if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
+        const shared = sharedTitle !== null && j === firstReading
+          ? <p key={`t${j}`} className="m-0 text-text-light" data-testid="view-readings-title" data-view={`proposal.marks.${j}.title`}>{sharedTitle}</p> : null
         const choose = (on: boolean) => { setRefused(false); setChoice((c) => ({ ...c, [id]: on ? 'use' : 'keep' })) }
         const option = (on: boolean) => (
           <label className="inline-flex min-h-[24px] cursor-pointer items-center gap-1">
@@ -411,11 +442,11 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
           </label>
         )
         return (
-          <fieldset key={j} className="m-0 grid min-w-0 gap-1 border-0 p-0" data-testid={`view-reading-${j}`}>
+          [shared, <fieldset key={j} className="m-0 grid min-w-0 gap-1 border-0 p-0" data-testid={`view-reading-${j}`} data-reading-row="">
             <legend className="p-0">{words}</legend>
-            {m.title === '' ? null : <p className="m-0 text-text-light" data-view={`proposal.marks.${j}.title`}>{m.title}</p>}
+            {m.title === '' || sharedTitle !== null ? null : <p className="m-0 text-text-light" data-view={`proposal.marks.${j}.title`}>{m.title}</p>}
             <div className="flex flex-wrap gap-x-4 gap-y-1">{option(false)}{option(true)}</div>
-          </fieldset>
+          </fieldset>]
         )
       })}
       {changes.length === 0 ? null : groups === null
@@ -453,8 +484,10 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       )}
       {readingIds.length === 0 || verdict?.supported === false ? null : (
         <p className="text-text-light" data-testid="view-readings-approve-says">
-          {onlyReadings.length === 0 ? 'Approve keeps the original for every reading.' : `Approve uses Olumi’s reading for ${onlyReadings.length} of ${readingIds.length} and keeps the original for the rest.`}
-          {' '}Approving records {you === null || you === '' ? 'you' : you} as the person who approved, never as the author of what Olumi read or proposed.
+          {/* PL-1083 (2): no sentence here says what Approve keeps or uses: core may refuse an approval that leaves a reading's companions
+              without it (409, 12:08Z click-through), and the View does not say which lines go with which reading, so any such claim could be
+              false. Core's own words say it when it refuses. */}
+          Approving records {you === null || you === '' ? 'you' : you} as the person who approved, never as the author of what Olumi read or proposed.
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
@@ -463,7 +496,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked changes · {chosen}</button>
         )}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
