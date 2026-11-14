@@ -91,6 +91,16 @@ export function clearOf(card: Rect, r: Regions): { dx: number; dy: number } {
 }
 
 /**
+ * DL 06:57Z (1): `clearOf` for a card with its figure editor open. The editor is a panel under the card, out of flow; it is also kept above
+ * the window's foot (at 1232 it opened partly below it), never at the cost of the card's top going under the head band.
+ */
+export function openClearOf(box: Rect, panel: Rect | undefined, r: Regions): { dx: number; dy: number } {
+  const c = clearOf(box, r)
+  const over = panel === undefined ? 0 : panel.bottom + c.dy - (r.dock.bottom - REGION_GAP)
+  return over > 0 ? { dx: c.dx, dy: Math.trunc(c.dy - Math.min(over, Math.max(0, box.top + c.dy - r.head.bottom))) } : c
+}
+
+/**
  * The z-order rule's mechanism: when focus enters a canvas card (opening it, or its editor), once the card has kept its size for a frame the
  * board moves by `clearOf`. Nothing moves when it is clear; nothing zooms.
  */
@@ -114,7 +124,7 @@ export function useCardClearOfRegions(): void {
         if (!card.isConnected || ticks > 40) { clearInterval(t!); t = null; return }
         if (here !== last) { last = here; return }
         clearInterval(t!); t = null
-        const { dx, dy } = clearOf(b, regionsOf())
+        const { dx, dy } = openClearOf(b, p, regionsOf())
         if (dx === 0 && dy === 0) return
         const v = getViewport(), still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
         void setViewport({ ...v, x: v.x + dx, y: v.y + dy }, { duration: still ? 0 : 200 })

@@ -26,6 +26,7 @@ import { optionBands, ViewDriverBadge, ViewOptionBand, ViewValuesBand } from '..
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
+import { targetCardOf } from '../model/targets'
 import { Badge } from '../Badge'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
@@ -163,6 +164,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The reading of this aim over its window (R19, DL P1 10 Nov: said once, on the aim's own card), and the core marks on the face.
   const reading = card === null || model === null ? null : readingOf(model, id)
   const edit = card === null || card.figure === null ? null : card.figure.edit ?? keptEdit
+  // DL 06:57Z (1): the aim's target figure, by core's `target` line, where core offers its edit now (no proposal held).
+  const aimTarget = card === null || model === null || model.edit_base === null || card.bound == null || lead !== card.bound.text ? null : targetCardOf(model, card)
   // An option's outcome band, every option on one axis: cards and aim from the ONE model read above (inventory G21b: never two stores).
   const band = useMemo(() => (card?.family === 'option' && model !== null ? optionBands(model.cards, model.aim ?? null).get(id) ?? null : null), [card, model, id])
   const restsInk = restsOn === null ? '' : restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'
@@ -208,10 +211,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {lead === null ? null : (
             // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
-            <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
+            <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'} ${aimTarget === null ? '' : 'relative'}`} data-core-lead={id}
               title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
               {/* Conditions and names remain whole on the reading face. */}
-              <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>
+              {aimTarget === null ? <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>
+                // DL 06:57Z (1): the aim's question (core's bound) opens its target figure's own editor, found by core's `target` line.
+                : <FigureEdit id={aimTarget.id} edit={aimTarget.figure!.edit ?? null} place="view-aim" opener={<span className="block break-words" data-core-lead-clamp={id}>{lead}</span>} />}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
               {changeOn === 'lead' ? changeMark : null}
