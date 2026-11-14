@@ -457,7 +457,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked changes · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
         <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
