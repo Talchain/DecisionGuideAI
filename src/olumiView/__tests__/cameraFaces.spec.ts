@@ -52,3 +52,16 @@ describe('DL 05:04Z: a board wider than the stage opens at the stage\'s left edg
     })
   }
 })
+
+describe('DL 04:44Z fault 2 at 2000 (served :4161, 05:50Z): a board that fits across but not down opens with every card clear of the panel', () => {
+  it('OL2 the whole board is centred across, not its opening cards: no card runs under the dock', () => {
+    const box = (id: string, x: number, y: number, family?: string): Node => ({ id, position: { x, y }, data: family ? { card: { family } } : {}, measured: { width: 250, height: 180 } })
+    const nodes = [box('page:question', 0, 0), box('aim', 300, 0, 'goal'), ...[0, 1, 2, 3, 4].map((i) => box(`opt${i}`, i * 300, 260)),
+      ...Array.from({ length: 12 }, (_, i) => box(`f${i}`, (i % 4) * 300, 520 + Math.floor(i / 4) * 260))]
+    const pane = { width: 2000, height: 1200 }, free = { top: 104, right: 2000 - 1640, bottom: 26, left: 45 }
+    const v = cameraFrame({ full: { zoom: 1, nodes } }, pane, free)!
+    expect(v.zoom).toBe(1)
+    const out = nodes.filter((n) => n.position.x * v.zoom + v.x < free.left - 0.5 || (n.position.x + 250) * v.zoom + v.x > pane.width - free.right + 0.5).map((n) => n.id)
+    expect(out).toEqual([])
+  })
+})

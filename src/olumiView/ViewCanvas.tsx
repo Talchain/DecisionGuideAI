@@ -134,7 +134,8 @@ function atZoom(nodes: readonly Node[], pane: { width: number; height: number },
   // DL 05:04Z (port of the new look's 36d84040): a board wider than the free canvas at this zoom starts at the stage's left edge, never
   // centred on its opening cards with the options running under the panel.
   const whole = getNodesBounds(board as Node[])
-  const x = whole.width * zoom > freeW ? insets.left - whole.x * zoom : insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom
+  // A board that fits across is centred as a whole (centring only its opening cards ran the options under the panel at 2000).
+  const x = whole.width * zoom > freeW ? insets.left - whole.x * zoom : insets.left + freeW / 2 - (whole.x + whole.width / 2) * zoom
   return { zoom, x, y: insets.top - bounds.y * zoom }
 }
 
