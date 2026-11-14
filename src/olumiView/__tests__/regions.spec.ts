@@ -3,7 +3,7 @@
  * buttons at y 618-680 over x 66-240, the zoom row at x 15-170, y 626-662. The served board is asserted by the journey suite (step 2).
  */
 import { describe, expect, it } from 'vitest'
-import { BAND_GAP, REGION_GAP, clearOf, headHeightOf, type Regions } from '../regions'
+import { BAND_GAP, REGION_GAP, clearOf, footNotchOf, headHeightOf, type Regions } from '../regions'
 
 const R: Regions = {
   head: { left: 0, right: 925, top: 0, bottom: 104 },
@@ -43,5 +43,18 @@ describe('link words keep clear of the words of the links before them (railBoxes
     expect(wordsBefore(boxes, 0).list).toEqual([])
     expect(wordsBefore({ ...boxes, 5: b(90) }, 3).key).toBe(wordsBefore(boxes, 3).key)
     expect(wordsBefore({ ...boxes, 2: b(31) }, 3).key).not.toBe(wordsBefore(boxes, 3).key)
+  })
+})
+
+describe('DL 06:57Z (3): the board never draws under the foot controls', () => {
+  // Measured on the twin at 1232x704 (14 Nov): the zoom row x 15–170, the "13 more cards below" control x 184–350, both y 627–663; the
+  // view canvas's renderer is the window's canvas box (0,0)–(1232,704).
+  const zoom = { left: 15, right: 170, top: 627, bottom: 663 }, cue = { left: 184, right: 350, top: 627, bottom: 663 }, area = { left: 0, right: 1232, top: 0, bottom: 704 }
+  it('FN1 the notch spans both controls plus the gap each way, from the canvas foot: nothing of a card is drawn there', () => {
+    expect(footNotchOf([zoom, cue], area)).toBe(`polygon(0 0, 100% 0, 100% 100%, ${350 + REGION_GAP}px 100%, ${350 + REGION_GAP}px calc(100% - ${704 - (627 - REGION_GAP)}px), 0 calc(100% - ${704 - (627 - REGION_GAP)}px))`)
+  })
+  it('FN1 CONTRAST: with no foot control drawn there is no notch; the zoom row alone notches only its own span', () => {
+    expect(footNotchOf([], area)).toBeNull()
+    expect(footNotchOf([zoom], area)).toContain(`${170 + REGION_GAP}px 100%`)
   })
 })
