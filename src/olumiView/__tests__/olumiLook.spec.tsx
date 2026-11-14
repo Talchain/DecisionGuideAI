@@ -14,7 +14,7 @@ import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { CoreCard, farChanceOf } from '../previous/CoreCard'
-import { isWorkedOut, workedStepsOf } from '../look/WorkedSteps'
+import { isWorkedOut, joinOf, workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const RUN2 = load('live-v51-run2-approved.view.json'), RUN1 = load('live-v51-run1-pending.view.json')
@@ -172,5 +172,33 @@ describe('DL j3: core\'s own working (card.worked) is drawn verbatim where core 
     const el = draw(RUN2, card)
     expect(el.querySelector(`[data-view="${card.id}.worked"]`)).toBeNull()
     expect(el.querySelector(`[data-view^="${card.id}.worked."]`)).not.toBeNull()
+  })
+})
+
+describe('DL 09:00Z item 1: "How it is worked out" says how the figures combine, from core\'s form and each step\'s sign or power only', () => {
+  // The served View of my copy of the cd6305e5 run store (s_49a808d28e8a, pending first model), read on my :4051 with AI off (0 calls), 14 Nov.
+  const STORE = load('live-cd6305e5-store-pending.view.json')
+  const joins = (el: HTMLElement, id: string, n: number) => Array.from({ length: n }, (_, i) => el.querySelector(`[data-view="${id}.worked.steps.${i}"] > [data-step-join]`)?.getAttribute('data-step-join') ?? null)
+  it('WJ1 a product: the second part is "divided by" where core serves power -1 (runway = cash divided by monthly spending), bound by step', () => {
+    const card = cardOf(STORE, (c) => c.id === 'months_of_runway_left')
+    expect([card.worked!.form, card.worked!.steps.map((s) => s.power)]).toEqual(['product', [1, -1]])
+    const el = draw(STORE, card)
+    expect(joins(el, card.id, 2)).toEqual([null, 'divided by'])
+    expect(el.querySelector(`[data-view="${card.id}.worked.steps.1"] .ok-step-name`)?.textContent).toBe(card.worked!.steps[1]!.label)
+  })
+  it('WJ2 a sum: each part after the first is "plus" where core serves sign 1 (funding = angels plus grants or loans plus firms)', () => {
+    const card = cardOf(STORE, (c) => c.id === 'total_funding_secured_within_2_months')
+    expect([card.worked!.form, card.worked!.steps.map((s) => s.sign)]).toEqual(['sum', [1, 1, 1]])
+    expect(joins(draw(STORE, card), card.id, 3)).toEqual([null, 'plus', 'plus'])
+  })
+  it('WJ3 the joining word comes only from the served field: a part taken away is "minus"; a step missing its sign or power gets no word', () => {
+    const [a, b] = cardOf(STORE, (c) => c.id === 'total_funding_secured_within_2_months').worked!.steps
+    expect([joinOf('sum', { ...b!, sign: -1 }, false), joinOf('sum', { ...a!, sign: -1 }, true), joinOf('product', { ...b!, power: undefined }, false), joinOf('sum', { ...b!, sign: undefined }, false)])
+      .toEqual(['minus', 'minus', null, null])
+  })
+  it('WJ4 an event (a risk) carries no working in this View: core serves no chance, amount or timing for it, so nothing is drawn as steps', () => {
+    const events = STORE.model!.cards.filter((c) => c.family === 'risk' && c.figure == null)
+    expect(events.map((c) => c.id)).toEqual(['one_approached_angel_commits_a_cheque', 'one_grant_or_loan_application_is_approved'])
+    for (const c of events) expect([c.worked ?? null, draw(STORE, c).querySelector('[data-step-join]'), (cleanup(), null)]).toEqual([null, null, null])
   })
 })

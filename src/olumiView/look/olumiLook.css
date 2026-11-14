@@ -145,6 +145,7 @@
 .olumi-look .ok-steps li { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); }
 .olumi-look .ok-steps li b { font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-step-name { color: var(--o-light); }
+.olumi-look .ok-step-join { color: var(--o-body); font-weight: 600; }
 
 /* An option's limits (slice 3): in the aim's own structure, one quiet line each under the headline. */
 .olumi-look .ok-limits { display: grid; gap: calc(3px * var(--o-s)); border-top: 1px solid var(--o-border); padding-top: calc(4px * var(--o-s)); }
