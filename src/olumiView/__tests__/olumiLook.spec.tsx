@@ -14,6 +14,7 @@ import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { CoreCard, farChanceOf } from '../previous/CoreCard'
+import { workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const RUN2 = load('live-v51-run2-approved.view.json'), RUN1 = load('live-v51-run1-pending.view.json')
@@ -70,3 +71,23 @@ describe('slice (1): the option card shows its headline as the View serves it', 
   })
 })
 
+describe('slice (2): how a worked-out figure is worked out, step by step, from the View\'s structure', () => {
+  const D = cardOf(RUN2, (c) => workedStepsOf(RUN2, c.id).length > 0)
+
+  it('W1 the derived card lists one step per link into it that carries the relation: the base with its figure, each option\'s term with core\'s effect words', () => {
+    const [w] = workedStepsOf(RUN2, D.id)
+    const links = RUN2.model!.links.filter((l) => l.to === D.id && (l.records ?? []).includes(w!.relation.id))
+    const el = draw(RUN2, D)
+    const steps = [...el.querySelectorAll(`[data-view="${D.id}.worked.${w!.relation.id}"] li`)]
+    expect(steps.map((s) => s.getAttribute('data-step-from'))).toEqual(links.map((l) => l.from))
+    const base = links.find((l) => l.kind === 'plain')!, from = RUN2.model!.cards.find((c) => c.id === base.from)!
+    expect(steps.find((s) => s.getAttribute('data-step') === 'base')!.querySelector('b')!.textContent).toBe(from.figure!.text)
+    for (const l of links.filter((x) => x.kind === 'through')) expect(steps.find((s) => s.getAttribute('data-step-from') === l.from)!.querySelector('b')!.textContent).toBe((l as { effect: { text: string } }).effect.text)
+  })
+
+  it('W2 CONTRAST: a relation in words (no sized term) is not a calculation and shows no steps; a card with none draws none', () => {
+    const inWords = RUN2.model!.cards.filter((c) => RUN2.model!.links.some((l) => l.to === c.id && (l.records ?? []).length > 0 && (l as { effect?: unknown }).effect == null) && workedStepsOf(RUN2, c.id).length === 0)
+    expect(inWords.length, 'precondition: a card a relation in words points into').toBeGreaterThan(0)
+    for (const c of inWords) expect(draw(RUN2, c).querySelector('.ok-steps'), c.id).toBeNull()
+  })
+})

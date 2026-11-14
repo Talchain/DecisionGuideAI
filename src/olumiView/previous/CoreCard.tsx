@@ -29,6 +29,7 @@ import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
+import { WorkedSteps } from '../look/WorkedSteps'
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
@@ -172,6 +173,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const preMortem = usePreMortemOf(id), tried = useTriedOn(id)
   const tryOn = useTryOn(card)
   const versionN = useViewStore((s) => s.view?.version?.n ?? null)
+  const viewNow = useViewStore((s) => s.view)
   // The figure's own edit (R25, as the lane's card): wherever core offers one, the ✎ is on the figure's line, and core takes the figure
   // through its own route as the person's. While a proposal is held core offers none; the ✎ then offers to set the proposal aside first.
   const keptEdit = useOpenFigureEdits((o) => o.open.get(id) ?? null)
@@ -281,6 +283,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               </p>
             ))}
           </> : null}
+          {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}
           {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
           {card.unused == null || card.unused === '' ? null : <p className="ok-qual" data-view={`${id}.unused`}>{card.unused}</p>}
           {tryOn?.kind !== 'tried' ? null : (

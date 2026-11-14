@@ -126,3 +126,13 @@
 /* The goal and the question keep their full width for core's words (the previous frame reserved a rail beside an anchor card's body). */
 .olumi-look .react-flow__node [data-testid="anchor-body-rail-beside"]:has(> .ok-face) { padding-right: 0 !important; }
 
+/* Worked steps (slice 2): closed by default, so a card's height on the board is unchanged; each step one line of core's words. */
+.olumi-look .ok-steps > summary {
+  list-style: none; cursor: pointer; color: var(--o-info); font-size: calc(11.5px * var(--o-s)); line-height: 1.45;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.olumi-look .ok-steps > summary::-webkit-details-marker { display: none; }
+.olumi-look .ok-steps > ol { margin-top: calc(4px * var(--o-s)); display: grid; gap: calc(3px * var(--o-s)); border-left: 3px solid var(--o-track); padding-left: calc(8px * var(--o-s)); }
+.olumi-look .ok-steps li { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); }
+.olumi-look .ok-steps li b { font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
+.olumi-look .ok-step-name { color: var(--o-light); }
