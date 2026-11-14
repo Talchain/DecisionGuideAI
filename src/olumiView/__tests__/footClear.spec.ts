@@ -45,6 +45,26 @@ describe('the primary aim is the goal the options are read against', () => {
   })
 })
 
+describe('a fractional card top (zoom 0.92, as at 1232 after an edit, 14 Nov) still lets the row go wholly below the fold', () => {
+  it('FC6 the row at 567.6 px is pushed to the fold, not half a pixel short of it', () => {
+    const z = 0.920507, rows = [box('q', 0, 0, 98), ...[0, 1, 2, 3].map((i) => box(`o${i}`, i * 223, 162, 267)), ...[0, 1, 2, 3].map((i) => box(`f${i}}`, i * 223, 493.6, 177))]
+    const v = restClearOfFoot({ x: 0, y: 113.2, zoom: z }, rows, H, TOP)
+    expect(rows.every((n) => n.position.y * z + v.y >= H - 0.5 || n.position.y * z + v.y + Math.min(n.measured!.height!, LABEL_FIGURE_H) * z <= G + 0.5)).toBe(true)
+    expect(v.y).toBeGreaterThan(113.2)
+  })
+})
+
+describe('at rest nothing is pushed out of view to pass the rule', () => {
+  it('FC5 where only a big move would clear the foot, the frame is left as the fit made it; the board never empties', () => {
+    // A board whose rows are 60 px apart: every move that clears one row puts the next in the gutter, until all are below the fold.
+    const dense = Array.from({ length: 12 }, (_, i) => box(`r${i}`, 0, i * 60, 180))
+    const v0 = { x: 0, y: TOP, zoom: 1 }
+    const v = restClearOfFoot(v0, dense, H, TOP)
+    expect(Math.abs(v.y - v0.y)).toBeLessThanOrEqual(FOOT_GUTTER + LABEL_FIGURE_H)
+    expect(dense.some((n) => n.position.y + v.y < G)).toBe(true)
+  })
+})
+
 describe('(camera, PL-1040) only the first approval brings the aim into view', () => {
   const V0 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-4352bfa3-twin-cut13-v1.view.json'), 'utf8')) as View
   const at = (n: number | null, held: boolean) => ({ ...V0, version: n === null ? null : { ...(V0.version ?? {}), n }, proposal: held ? ({ id: 1 } as never) : null }) as View
