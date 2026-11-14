@@ -46,7 +46,7 @@ export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.E
       )}
       {moved.length === 0 ? null : (
         <section data-testid="selected-explain-steps">
-          {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} />)}
+          {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} option={card.id} />)}
         </section>
       )}
     </div>

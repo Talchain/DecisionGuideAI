@@ -1,0 +1,9 @@
+# 4 — Selected card to calculation and authorship
+
+PASSED on both saved funding states at 2000 / 1128 / 133%. All six `04-explanation/*-calculation.png` images were opened, plus `approved-1128-selected.png`. The pointer selects an option, exposes its complete condition and premises, opens the calculation, scrolls to its final operand and returns to the conversation. Seven operands are drawn for the approved model and eleven for the pending model. Every displayed figure, unit and author line is the View's own field. Methods map the typed form enum; coefficients are explicit operands, not inferred from links or text. An absent author is explicitly unrecorded. No calculation is inferred for an older View with no worked definition.
+
+The explanation temporarily becomes the panel's reading surface, with Back to conversation. The board and selected option remain visible; no tab redesign. Unknown setting authorship or unavailable editing is not replaced with the general operand's author/edit offer.
+
+Dependency: the additive View schema at upstream local head `a4ecada53048ab457e8d1f270766d1d915b8d120` (d-words-night) is vendored with generated types. The isolated evidence server reads that source without modifying its checkout. This is a producer dependency, not an engine change shipped from this UI branch. The same unmodified funding-store copies are read through that View producer; no AI or new simulation is invoked by these reads.
+
+Verification: 16 focused card/explanation contract tests pass via heavy.sh with env-file loading disabled. Application tsc exits 2 with 2698 diagnostic lines repo-wide; no diagnostic is in src/olumiView or the changed OutputsDock.tsx. This is not a green full repository typecheck. Side-by-side sheets are adjacent to every capture. Raw View payloads and readback results are in the evidence folder.

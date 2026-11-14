@@ -372,7 +372,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <div className="ok-row">
               {card.bound?.olumi == null ? null : <p className="ok-by ok-by-olumi" data-view={`${id}.bound.olumi.title`}><Glyph at={`${id}.bound.foot`} mark={card.bound.olumi} /> {card.bound.olumi.title}</p>}
               {olumi ? <div className="ok-by ok-by-olumi" data-core-author={id}><span title={card.author!.title}>{card.olumi?.glyph ? `${card.olumi.glyph} ` : ''}{card.author!.text}</span>{changeOn === 'author' ? changeMark : null}{cueOnAuthor ? <>{' '}{editCue}</> : null}</div>
-              : card.author != null && card.author.text !== '' ? <p className="ok-by" data-core-author={id} title={card.author.title || undefined}>{card.author.text}</p> : null}
+              : card.author != null && card.author.text !== '' ? <p className="ok-by" data-core-author={id} title={card.author.title || undefined}>{card.author.text}</p> : <p className="ok-by" data-core-author={id}>Authorship not recorded</p>}
               {badgeLine}{viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}</div>
           </div>
         </div>

@@ -18,6 +18,8 @@ import { isWorkedOut, workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const RUN2 = load('live-v51-run2-approved.view.json'), RUN1 = load('live-v51-run1-pending.view.json')
+const notes = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/night-worked-notes.json'), 'utf8'))
+for (const c of RUN2.model!.cards) if (notes[c.id]) c.worked = notes[c.id]
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
 const draw = (view: View, card: ViewCard, width?: number): HTMLElement => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
@@ -50,9 +52,8 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect(el.querySelector(`[data-view="${o.id}.headline.why"] p`)?.textContent).toBe(o.headline!.why)
     const next = el.querySelectorAll(`[data-view="${o.id}.headline.add"]`)
     expect([next.length, next[0]?.textContent, next[0]?.className.includes('ok-next')]).toEqual([1, o.headline!.add, true])
-    // DL 04:59Z (4): on the card the next step is at most two lines (ok-next-card); its whole sentence stays in the DOM and on hover, and is
-    // drawn whole in the panel once selected (selectedExplain.spec E-add). The 1128 fault (1) stays closed: the pinned box is never cut.
-    expect([next[0]!.className.split(/\s+/).includes('ok-next-card'), next[0]!.getAttribute('title')]).toEqual([true, o.headline!.add])
+    expect(next[0]!.closest('details')?.querySelector('summary')?.textContent).toBe('Next step')
+    expect(next[0]!.className).not.toMatch(/line-clamp/)
   })
 
   it('L3 a fixed result is said as fixed, in core\'s words, never as a chance', () => {
@@ -82,21 +83,21 @@ describe('slice (1): the option card shows its headline as the View serves it', 
 describe('slice (2): how a worked-out figure is worked out, step by step, from the View\'s structure', () => {
   const D = cardOf(RUN2, (c) => workedStepsOf(RUN2, c.id).length > 0)
 
-  it('W1 the derived card lists one step per link into it that carries the relation: the base with its figure, each option\'s term with core\'s effect words', () => {
-    const [w] = workedStepsOf(RUN2, D.id)
-    const links = RUN2.model!.links.filter((l) => l.to === D.id && (l.records ?? []).includes(w!.relation.id))
-    const el = draw(RUN2, D)
-    const steps = [...el.querySelectorAll(`[data-view="${D.id}.worked.${w!.relation.id}"] li`)]
-    expect(steps.map((s) => s.getAttribute('data-step-from'))).toEqual(links.map((l) => l.from))
-    const base = links.find((l) => l.kind === 'plain')!, from = RUN2.model!.cards.find((c) => c.id === base.from)!
-    expect(steps.find((s) => s.getAttribute('data-step') === 'base')!.querySelector('b')!.textContent).toBe(from.figure!.text)
-    for (const l of links.filter((x) => x.kind === 'through')) expect(steps.find((s) => s.getAttribute('data-step-from') === l.from)!.querySelector('b')!.textContent).toBe((l as { effect: { text: string } }).effect.text)
+  it('W1 draws the View definition, coefficients and author words without inferring a calculation from links', () => {
+    const el = draw(RUN2, D), w = D.worked!
+    expect(el.querySelector('[data-form]')?.getAttribute('data-form')).toBe(w.form)
+    const steps = [...el.querySelectorAll(`[data-view="${D.id}.worked"] li[data-step]`)]
+    expect(steps.map(s => s.getAttribute('data-step-from'))).toEqual(w.steps.map(s => s.id))
+    w.steps.forEach(step => {
+      expect(el.querySelector(`[data-operand="${step.id}"]`)?.textContent).toContain(step.figure.text)
+      if (step.coefficient) expect(el.querySelector(`[data-operand="${step.coefficient.id}"]`)?.textContent).toContain(step.coefficient.figure.text)
+    })
   })
-
-  it('W2 CONTRAST: a relation in words (no sized term) is not a calculation and shows no steps; a card with none draws none', () => {
-    const inWords = RUN2.model!.cards.filter((c) => RUN2.model!.links.some((l) => l.to === c.id && (l.records ?? []).length > 0 && (l as { effect?: unknown }).effect == null) && workedStepsOf(RUN2, c.id).length === 0)
-    expect(inWords.length, 'precondition: a card a relation in words points into').toBeGreaterThan(0)
-    for (const c of inWords) expect(draw(RUN2, c).querySelector('.ok-steps'), c.id).toBeNull()
+  it('W2 an older View with identical drawing links supplies no calculation definition', () => {
+    const older = structuredClone(RUN2)
+    for (const c of older.model!.cards) delete c.worked
+    expect(older.model!.links).toEqual(RUN2.model!.links)
+    expect(draw(older, older.model!.cards.find(c => c.id === D.id)!).querySelector('.ok-steps')).toBeNull()
   })
 })
 

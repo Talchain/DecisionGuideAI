@@ -9,6 +9,7 @@ import type { ReactNode } from 'react'
 import { Rename } from './Rename'
 import { useViewStore } from './store'
 import { typography } from '../styles/typography'
+import { useCanvasStore } from '../canvas/store'
 import { SelectedExplain } from './look/SelectedExplain'
 
 function SelectedRename({ id }: { id: string }): JSX.Element | null {
@@ -27,8 +28,9 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // in Olumi's blue (blue is Olumi's alone); its source on hover. Nothing is said for a card core gives no author.
   return (
     <>
+      <button type="button" className="ok-selection-back" data-testid="selected-back" onClick={() => useCanvasStore.getState().clearSelection()}>Back to conversation</button>
       <Rename key={id} id={id} heading={heading} shown />
-      {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
+      {author === null ? <span data-testid="selected-author">Authorship not recorded</span> : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
       {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={`${id}.headline.title`} data-testid="selected-headline-title">{said}</p>}
       {add === null || add === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-ink`} data-testid="selected-headline-add">{add}</p>}
       {/* DL journey 3: a selected option's explanation, from core's fields (look/SelectedExplain.tsx). */}

@@ -1,0 +1,666 @@
+{
+  "time_from_now_until_funding_is_secured_counted_as_a_signed_commi": {
+    "form": "effect",
+    "steps": [
+      {
+        "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+        "label": "Time from now until funding is secured, counted as a signed commitment or money received now",
+        "figure": {
+          "text": "5 months",
+          "title": "5 months",
+          "options": [
+            {
+              "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+              "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+              "text": "5 months",
+              "title": "5 months",
+              "author": {
+                "by": "person",
+                "text": "Your figure",
+                "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+                "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "approach_angel_investors_for_quicker_small_funding",
+              "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+              "text": "5 months",
+              "title": "5 months",
+              "author": {
+                "by": "person",
+                "text": "Your figure",
+                "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+                "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+              "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+              "text": "5 months",
+              "title": "5 months",
+              "author": {
+                "by": "person",
+                "text": "Your figure",
+                "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+                "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "cut_monthly_spending_to_stretch_the_runway",
+              "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+              "text": "5 months",
+              "title": "5 months",
+              "author": {
+                "by": "person",
+                "text": "Your figure",
+                "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+                "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "seek_a_small_grant_or_short_bridging_loan",
+              "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_5",
+              "text": "5 months",
+              "title": "5 months",
+              "author": {
+                "by": "person",
+                "text": "Your figure",
+                "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+                "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+              }
+            }
+          ]
+        },
+        "author": {
+          "by": "person",
+          "text": "Your figure",
+          "title": "Set \"Time from now until funding is secured, counted as a signed commitment or money received now\" to 5 months."
+        },
+        "edit": {
+          "prompt": "New figure for \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d (months): one number, or a range like 150 to 400",
+          "ask": "For \u201cTime from now until funding is secured, counted as a signed commitment or money received now\u201d, type one number, or a range like 150 to 400."
+        },
+        "role": "base"
+      },
+      {
+        "id": "founder_time_spent_on_angel_outreach",
+        "label": "Founder time spent on angel outreach added",
+        "figure": {
+          "text": "none added without an option",
+          "title": "None added without an option.",
+          "options": [
+            {
+              "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+              "id": "founder_time_spent_on_angel_outreach",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cFounder time spent on angel outreach added\u201d (hours/week): one number, or a range like 150 to 400",
+                "ask": "For \u201cFounder time spent on angel outreach added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "approach_angel_investors_for_quicker_small_funding",
+              "id": "founder_time_spent_on_angel_outreach_added_approach_angel_invest",
+              "text": "3 to 15 hours/week",
+              "title": "Plausible range: 3 to 15 hours/week",
+              "author": {
+                "by": "olumi",
+                "text": "Olumi\u2019s estimate",
+                "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+              },
+              "edit": {
+                "prompt": "How many hours a week could you realistically add for angel outreach? New figure for \u201cFounder time spent on angel outreach with \u201cApproach angel investors for quicker small funding\u201d\u201d (hours/week): one number, or a range like 150 to 400",
+                "ask": "How many hours a week could you realistically add for angel outreach?"
+              }
+            },
+            {
+              "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+              "id": "founder_time_spent_on_angel_outreach",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cFounder time spent on angel outreach added\u201d (hours/week): one number, or a range like 150 to 400",
+                "ask": "For \u201cFounder time spent on angel outreach added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "cut_monthly_spending_to_stretch_the_runway",
+              "id": "founder_time_spent_on_angel_outreach",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cFounder time spent on angel outreach added\u201d (hours/week): one number, or a range like 150 to 400",
+                "ask": "For \u201cFounder time spent on angel outreach added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "seek_a_small_grant_or_short_bridging_loan",
+              "id": "founder_time_spent_on_angel_outreach",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cFounder time spent on angel outreach added\u201d (hours/week): one number, or a range like 150 to 400",
+                "ask": "For \u201cFounder time spent on angel outreach added\u201d, type one number, or a range like 150 to 400."
+              }
+            }
+          ]
+        },
+        "author": {
+          "by": "olumi",
+          "text": "Proposed by Olumi",
+          "title": "Proposed by Olumi: Angel outreach for a small founder team usually takes from a few hours a week of emails and intros up to a good part of two working days when meetings are being held. This is my own trial figure, so please give the hours you could really spare in its place."
+        },
+        "edit": {
+          "prompt": "New figure for \u201cFounder time spent on angel outreach added\u201d (hours/week): one number, or a range like 150 to 400",
+          "ask": "For \u201cFounder time spent on angel outreach added\u201d, type one number, or a range like 150 to 400."
+        },
+        "role": "term",
+        "coefficient": {
+          "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+          "label": "Effect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received",
+          "figure": {
+            "text": "\u22120.05 to 0 months per extra hour/week",
+            "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+            "options": [
+              {
+                "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+                "text": "\u22120.05 to 0 months per extra hour/week",
+                "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "approach_angel_investors_for_quicker_small_funding",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+                "text": "\u22120.05 to 0 months per extra hour/week",
+                "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+                "text": "\u22120.05 to 0 months per extra hour/week",
+                "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "cut_monthly_spending_to_stretch_the_runway",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+                "text": "\u22120.05 to 0 months per extra hour/week",
+                "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "seek_a_small_grant_or_short_bridging_loan",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_2",
+                "text": "\u22120.05 to 0 months per extra hour/week",
+                "title": "Plausible range: \u22120.05 to 0 months per extra hour/week",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              }
+            ]
+          },
+          "author": {
+            "by": "olumi",
+            "text": "Olumi\u2019s estimate",
+            "title": "Proposed by Olumi: More outreach hours probably shorten the wait only slightly per extra weekly hour, since investor decision times set most of the pace. This is my own assumption of a small negative effect, so please replace it with your own view if you have one."
+          },
+          "edit": {
+            "prompt": "New figure for \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per extra hour/week): one number, or a range like 150 to 400",
+            "ask": "For \u201cEffect of each extra hours/week on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+          }
+        }
+      },
+      {
+        "id": "monthly_spending",
+        "label": "Monthly spending",
+        "figure": {
+          "text": "none removed without an option",
+          "title": "None removed without an option.",
+          "options": [
+            {
+              "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+              "id": "monthly_spending",
+              "text": "none removed without an option",
+              "title": "None removed without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cMonthly spending\u201d (GBP/month): one number, or a range like 150 to 400",
+                "ask": "For \u201cMonthly spending\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "approach_angel_investors_for_quicker_small_funding",
+              "id": "monthly_spending",
+              "text": "none removed without an option",
+              "title": "None removed without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cMonthly spending\u201d (GBP/month): one number, or a range like 150 to 400",
+                "ask": "For \u201cMonthly spending\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+              "id": "monthly_spending",
+              "text": "none removed without an option",
+              "title": "None removed without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cMonthly spending\u201d (GBP/month): one number, or a range like 150 to 400",
+                "ask": "For \u201cMonthly spending\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "cut_monthly_spending_to_stretch_the_runway",
+              "id": "monthly_spending_removed_cut_monthly_spending_to_stretch_the_run",
+              "text": "not given yet",
+              "title": "How much would \"Cut monthly spending to stretch the runway\" change \"Secure funding within 2 months\"? Olumi could not work this out: \"Monthly spending removed: Cut monthly spending to stretch the runway\" is not measured: no supported estimate could be given.",
+              "author": {
+                "by": "olumi",
+                "text": "Olumi\u2019s question, not yet sized",
+                "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+              },
+              "edit": null
+            },
+            {
+              "option": "seek_a_small_grant_or_short_bridging_loan",
+              "id": "monthly_spending",
+              "text": "none removed without an option",
+              "title": "None removed without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cMonthly spending\u201d (GBP/month): one number, or a range like 150 to 400",
+                "ask": "For \u201cMonthly spending\u201d, type one number, or a range like 150 to 400."
+              }
+            }
+          ]
+        },
+        "author": {
+          "by": "olumi",
+          "text": "Proposed by Olumi",
+          "title": "Proposed by Olumi: Cutting spending acts directly on the monthly outgoings."
+        },
+        "edit": {
+          "prompt": "New figure for \u201cMonthly spending\u201d (GBP/month): one number, or a range like 150 to 400",
+          "ask": "For \u201cMonthly spending\u201d, type one number, or a range like 150 to 400."
+        },
+        "role": "term",
+        "coefficient": {
+          "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+          "label": "Effect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received",
+          "figure": {
+            "text": "\u22120.00001 to 0 months per GBP/month removed",
+            "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+            "options": [
+              {
+                "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+                "text": "\u22120.00001 to 0 months per GBP/month removed",
+                "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "approach_angel_investors_for_quicker_small_funding",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+                "text": "\u22120.00001 to 0 months per GBP/month removed",
+                "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+                "text": "\u22120.00001 to 0 months per GBP/month removed",
+                "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "cut_monthly_spending_to_stretch_the_runway",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+                "text": "\u22120.00001 to 0 months per GBP/month removed",
+                "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "seek_a_small_grant_or_short_bridging_loan",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_3",
+                "text": "\u22120.00001 to 0 months per GBP/month removed",
+                "title": "Plausible range: \u22120.00001 to 0 months per GBP/month removed",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              }
+            ]
+          },
+          "author": {
+            "by": "olumi",
+            "text": "Olumi\u2019s estimate",
+            "title": "Proposed by Olumi: Cutting spending does not speed up investors, so any effect on time to funding is likely nil or tiny, mainly by easing pressure to accept a rushed deal. This is my own assumption, so please replace it with your own view if you have one."
+          },
+          "edit": {
+            "prompt": "New figure for \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months per GBP/month removed): one number, or a range like 150 to 400",
+            "ask": "For \u201cEffect of each GBP/month removed on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+          }
+        }
+      },
+      {
+        "id": "grant_or_bridging_loan_secured",
+        "label": "Grant or bridging loan secured added",
+        "figure": {
+          "text": "none added without an option",
+          "title": "None added without an option.",
+          "options": [
+            {
+              "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+              "id": "grant_or_bridging_loan_secured",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cGrant or bridging loan secured added\u201d (GBP): one number, or a range like 150 to 400",
+                "ask": "For \u201cGrant or bridging loan secured added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "approach_angel_investors_for_quicker_small_funding",
+              "id": "grant_or_bridging_loan_secured",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cGrant or bridging loan secured added\u201d (GBP): one number, or a range like 150 to 400",
+                "ask": "For \u201cGrant or bridging loan secured added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+              "id": "grant_or_bridging_loan_secured",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cGrant or bridging loan secured added\u201d (GBP): one number, or a range like 150 to 400",
+                "ask": "For \u201cGrant or bridging loan secured added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "cut_monthly_spending_to_stretch_the_runway",
+              "id": "grant_or_bridging_loan_secured",
+              "text": "none added without an option",
+              "title": "None added without an option.",
+              "author": {
+                "by": "olumi",
+                "text": "Proposed by Olumi",
+                "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+              },
+              "edit": {
+                "prompt": "New figure for \u201cGrant or bridging loan secured added\u201d (GBP): one number, or a range like 150 to 400",
+                "ask": "For \u201cGrant or bridging loan secured added\u201d, type one number, or a range like 150 to 400."
+              }
+            },
+            {
+              "option": "seek_a_small_grant_or_short_bridging_loan",
+              "id": "grant_or_bridging_loan_secured_added_seek_a_small_grant_or_short",
+              "text": "\u00a310,000 to \u00a3150,000",
+              "title": "Plausible range: \u00a310,000 to \u00a3150,000",
+              "author": {
+                "by": "olumi",
+                "text": "Olumi\u2019s estimate",
+                "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+              },
+              "edit": {
+                "prompt": "How much (in GBP) could a grant or bridging loan realistically add for you? New figure for \u201cGrant or bridging loan secured added: Seek a small grant or short bridging loan\u201d (GBP): one number, or a range like 150 to 400",
+                "ask": "How much (in GBP) could a grant or bridging loan realistically add for you?"
+              }
+            }
+          ]
+        },
+        "author": {
+          "by": "olumi",
+          "text": "Proposed by Olumi",
+          "title": "Proposed by Olumi: Small innovation grants and short bridging loans for early-stage UK companies commonly fall between ten thousand and about one hundred and fifty thousand pounds. This is my own trial range, so please give the amount you think you could actually secure in its place."
+        },
+        "edit": {
+          "prompt": "New figure for \u201cGrant or bridging loan secured added\u201d (GBP): one number, or a range like 150 to 400",
+          "ask": "For \u201cGrant or bridging loan secured added\u201d, type one number, or a range like 150 to 400."
+        },
+        "role": "term",
+        "coefficient": {
+          "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+          "label": "Effect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received",
+          "figure": {
+            "text": "\u22120.00005 to 0 months/GBP",
+            "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+            "options": [
+              {
+                "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+                "text": "\u22120.00005 to 0 months/GBP",
+                "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "approach_angel_investors_for_quicker_small_funding",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+                "text": "\u22120.00005 to 0 months/GBP",
+                "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "widen_targeting_to_smaller_cheque_and_non_uk_investors",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+                "text": "\u22120.00005 to 0 months/GBP",
+                "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "cut_monthly_spending_to_stretch_the_runway",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+                "text": "\u22120.00005 to 0 months/GBP",
+                "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              },
+              {
+                "option": "seek_a_small_grant_or_short_bridging_loan",
+                "id": "time_from_now_until_funding_is_secured_counted_as_a_signed_commi_4",
+                "text": "\u22120.00005 to 0 months/GBP",
+                "title": "Plausible range: \u22120.00005 to 0 months/GBP",
+                "author": {
+                  "by": "olumi",
+                  "text": "Olumi\u2019s estimate",
+                  "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+                },
+                "edit": {
+                  "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+                  "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+                }
+              }
+            ]
+          },
+          "author": {
+            "by": "olumi",
+            "text": "Olumi\u2019s estimate",
+            "title": "Proposed by Olumi: Smaller sums such as grants or angel cheques tend to close faster than a large round, so each extra pound of quick money may trim the time slightly, though the effect is small per pound. This is my own assumption, so please replace it with your own view if you have one."
+          },
+          "edit": {
+            "prompt": "New figure for \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d (months/GBP): one number, or a range like 150 to 400",
+            "ask": "For \u201cEffect of each extra GBP on Time from now until funding is secured, counted as a signed commitment or money received\u201d, type one number, or a range like 150 to 400."
+          }
+        }
+      }
+    ]
+  }
+}

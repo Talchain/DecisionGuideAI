@@ -1,16 +1,16 @@
 // Isolated evidence server. No provider adapters, keys, environment files or prompt files are loaded.
 import http from 'node:http'
-import { Store } from '/Users/paulslee/olumi-work/worktrees/ui-v51-core/src/store/store.ts'
-import { Service } from '/Users/paulslee/olumi-work/worktrees/ui-v51-core/src/app/service.ts'
-import { createApp } from '/Users/paulslee/olumi-work/worktrees/ui-v51-core/src/server/app.ts'
-import { uiFrom } from '/Users/paulslee/olumi-work/worktrees/ui-v51-core/src/server/ui.ts'
+import { Store } from '/Users/paulslee/olumi-work/worktrees/d-words-night/src/store/store.ts'
+import { Service } from '/Users/paulslee/olumi-work/worktrees/d-words-night/src/app/service.ts'
+import { createApp } from '/Users/paulslee/olumi-work/worktrees/d-words-night/src/server/app.ts'
+import { uiFrom } from '/Users/paulslee/olumi-work/worktrees/d-words-night/src/server/ui.ts'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
-const core = execFileSync('git', ['-C', '/Users/paulslee/olumi-work/worktrees/ui-v51-core', 'rev-parse', 'HEAD'], {encoding:'utf8'}).trim()
+const core = execFileSync('git', ['-C', '/Users/paulslee/olumi-work/worktrees/d-words-night', 'rev-parse', 'HEAD'], {encoding:'utf8'}).trim()
 const apps = new Map(), stores = new Map()
 let selected = 'approved', calls = 0
 function app(tag: string) {
-  if (!/^(approved|pending|approve-(?:2000|1128|133)|discard-(?:2000|1128|133)|pair)$/.test(tag)) throw new Error('Unknown evidence copy')
+  if (!/^(approved|pending|approve-(?:2000|1128|133)|discard-(?:2000|1128|133)|pair|edit-(?:2000|1128|133))$/.test(tag)) throw new Error('Unknown evidence copy')
   if (!apps.has(tag)) {
     const store = new Store(resolve('.night-data', tag, 'olumi.db')); stores.set(tag, store)
     const service = new Service(store, { prompts: {} as never, flags: [], today: () => '2026-11-14', commit: core,

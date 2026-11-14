@@ -283,3 +283,16 @@
 .ok-pinned .ok-actions { position: static; flex-shrink: 0; margin-top: 0 !important; }
 
 .ok-pinned { min-height: 200px !important; flex-shrink: 0; }
+
+.ok-selection-back { color: #126474; text-decoration: underline; min-height: 32px; font-size: 12px; flex-basis: 100%; text-align: left; }
+.ok-worked-content { margin-top: 8px; display: grid; gap: 8px; color: #3d5256; }
+.ok-worked-method { color: #213238; font-weight: 600; }
+.ok-worked-content ol { display: grid; gap: 12px; }
+.ok-worked-content li { border-top: 1px solid #e8e5de; padding-top: 8px; }
+.ok-operand { line-height: 1.55; }
+.ok-step-operation { color: #126474; font-weight: 600; }
+.ok-coefficient { display: flex; gap: 8px; margin: 6px 0 0 12px; padding-left: 8px; border-left: 2px solid #e8e5de; }
+.olumi-look .ok-steps[open] > .ok-worked-content { position: absolute; z-index: 40; top: 100%; left: 0; width: 360px; max-height: 50vh; overflow-y: auto; background: #fefefe; padding: 12px; border: 1px solid #d9d8d0; border-radius: 13px; }
+/* A selected explanation is the active reading surface. Return is explicit; the board remains oriented. */
+.olumi-look-dock:has([data-testid='selected-explain']) [data-testid='view-chat'] { display: none; }
+.olumi-look-dock:has([data-testid='selected-explain']) .ok-selected { flex: 1; min-height: 0; max-height: calc(100vh - 150px); }

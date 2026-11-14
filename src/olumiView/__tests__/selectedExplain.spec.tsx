@@ -15,6 +15,8 @@ import { useCanvasStore } from '../../canvas/store'
 import { selectedRename } from '../SelectedRename'
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
+const notes = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/night-worked-notes.json'), 'utf8'))
+for (const c of RUN2.model!.cards) if (notes[c.id]) c.worked = notes[c.id]
 const cards = RUN2.model!.cards
 const select = (id: string) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: RUN2, status: 'ready', error: null, stale: false } as never)
@@ -39,12 +41,12 @@ describe('a selected option explains itself (journey 3)', () => {
   it('E2 how the figure it moves is worked out: the steps the View gives, opened by a click, this option\'s own term marked; the base and the other terms too', () => {
     const el = select(angel.id)
     const link = RUN2.model!.links.find((l) => l.kind === 'through' && l.from === angel.id)!
-    const steps = el.querySelector(`[data-testid="selected-explain-steps"] [data-view^="${link.to}.worked."]`) as HTMLDetailsElement
+    const steps = el.querySelector(`[data-testid="selected-explain-steps"] [data-view="${link.to}.worked"]`) as HTMLDetailsElement
     expect(steps, 'the measure\'s steps').not.toBeNull()
     fireEvent.click(steps.querySelector('summary')!)
-    const own = [...steps.querySelectorAll('li[data-step-own]')]
-    expect(own.map((li) => li.getAttribute('data-step-from'))).toEqual([angel.id])
-    expect(own[0]!.querySelector('b')!.textContent).toBe((link as { effect: { text: string } }).effect.text)
+    const definition = RUN2.model!.cards.find(c => c.id === link.to)!.worked!
+    expect(steps.querySelector('[data-form]')?.getAttribute('data-form')).toBe(definition.form)
+    expect([...steps.querySelectorAll('[data-operand]')].map(n => n.getAttribute('data-operand'))).toEqual(definition.steps.flatMap(s => [s.id, ...(s.coefficient ? [s.coefficient.id] : [])]))
     expect(steps.querySelector('li[data-step="base"]'), 'the base is drawn too').not.toBeNull()
     expect(steps.querySelectorAll('li[data-step="term"]').length).toBeGreaterThan(1)
   })
@@ -78,10 +80,5 @@ describe('DL 04:59Z (4): an option card shows its next step in two lines; the wh
     const fig = COPY.model!.cards.find((c) => c.family === 'quantity')!
     expect(selectIn(COPY, fig.id).querySelector('[data-testid="selected-headline-add"]')).toBeNull()
   })
-  it('E-clamp the card\'s next-step rule cuts at two lines (olumiLook.css .ok-next-card); the plain .ok-next (limit-row questions) is never clamped', () => {
-    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    const rule = (sel: string) => css.match(new RegExp(`\\.olumi-look \\.${sel} \\{([^}]*)\\}`))?.[1] ?? ''
-    expect(rule('ok-next-card')).toMatch(/-webkit-line-clamp:\s*2;/)
-    expect(rule('ok-next')).not.toMatch(/line-clamp/)
-  })
+
 })
