@@ -312,6 +312,8 @@ export const READINGS_NOTE = 'Choose for each one. Nothing is saved until you pr
 export const READING_KEEP = 'Keep the original'
 export const READING_USE = 'Use Olumi’s reading'
 export const APPROVE_WORD = 'Approve'
+/** The keys that scroll a box when pressed outside a field (the held proposal's placing stops once the person scrolls it themselves). */
+const SCROLL_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '])
 /** An approval with readings that did not go through may still have been saved: a different selection is never sent in its place. */
 export const READINGS_CHANGED = 'Your choices changed after an approval that did not go through, so nothing was sent. That approval may have been saved: reload the page to see what the model holds, or put the choices back as they were and press Approve again.'
 
@@ -378,34 +380,50 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
   const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
   const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
-  // PL-1083 (1): at rest the reading rows sit wholly above the pinned actions (./readingsRest.ts), placed once per held proposal and again only
-  // while the person has not scrolled the box themselves (a resize, the dock opening, a font arriving).
+  // PL-1083 (1): at rest the reading rows sit wholly above the pinned actions (./readingsRest.ts). Placed when the proposal is held, and again
+  // whenever the box, a row or the actions change size (a resize, the dock opening, a font arriving, a label wrapping), until the person
+  // scrolls the box themselves.
   const root = useRef<HTMLDivElement>(null)
   const restKey = `${p.id}:${readingIds.join(',')}`
   useLayoutEffect(() => {
     const el = root.current, box = el?.closest<HTMLElement>('.ok-pinned') ?? null
     if (el === null || box === null || readingIds.length === 0) return
-    let placed = -1
+    // Codex 13:33Z (1): only the person's own scrolling stops the placing: a wheel, a touch, a scroll key outside a field, or a press on the
+    // box's own scrollbar. A scroll the browser makes itself when the box is resized (its scrollTop clamped) never does.
+    let theirs = false
+    const scrolled = () => { theirs = true }
+    const pressed = (e: Event) => { if (e.target === box) theirs = true }
+    const keyed = (e: KeyboardEvent) => { if (SCROLL_KEYS.has(e.key) && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLButtonElement || e.target instanceof HTMLTextAreaElement)) theirs = true }
     const land = () => {
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
-      if (foot === null || (placed >= 0 && Math.abs(box.scrollTop - placed) > 1)) return
+      if (foot === null || theirs) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
-      // cannot give that much it shrinks rather than run past the composer, and the first row's top is shown.
+      // cannot give that much it shrinks rather than run past the composer, and the first row's top is shown. Measured afresh each time
+      // from the stylesheet's own cap, so the box is never left taller than the rows now need.
+      box.style.maxHeight = ''
       const first = readingsRest(box, el, foot)
       if (first === null) return
       const short = first.low - first.high
-      if (short > 0) { const want = Math.ceil(box.getBoundingClientRect().height + short); if ((parseFloat(box.style.maxHeight) || 0) < want) box.style.maxHeight = `${want}px` }
+      if (short > 0) box.style.maxHeight = `${Math.ceil(box.getBoundingClientRect().height + short)}px`
       const range = readingsRest(box, el, foot)
       if (range === null) return
       box.scrollTop = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
-      placed = box.scrollTop
     }
     land()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(land)
-    observer.observe(box)
-    for (const row of Array.from(el.querySelectorAll('[data-reading-row]'))) observer.observe(row)
-    return () => { observer.disconnect(); box.style.maxHeight = '' }
+    box.addEventListener('wheel', scrolled, { passive: true }); box.addEventListener('touchmove', scrolled, { passive: true })
+    box.addEventListener('pointerdown', pressed); box.addEventListener('keydown', keyed)
+    // Codex 13:33Z (2): the actions are watched too, so a label that wraps onto another row places the rows again.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(land)
+    if (observer !== null) {
+      observer.observe(box)
+      for (const part of Array.from(el.querySelectorAll('[data-reading-row], [data-testid="view-proposal-actions"]'))) observer.observe(part)
+    }
+    return () => {
+      observer?.disconnect()
+      box.removeEventListener('wheel', scrolled); box.removeEventListener('touchmove', scrolled)
+      box.removeEventListener('pointerdown', pressed); box.removeEventListener('keydown', keyed)
+      box.style.maxHeight = ''
+    }
   }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
