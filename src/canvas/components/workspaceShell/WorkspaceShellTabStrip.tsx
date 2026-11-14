@@ -310,6 +310,10 @@ function TabStripOverflowMenu({
   )
 }
 
+/** DL 05:04Z: the core lane's six names need 339 px with 6 px between them; from this dock width they get it (1232: 347), below it (1128:
+ * 317) they keep the measured one-row fit, since the extra spacing would push Team out of the row. */
+export const LANE_TAB_ROOM_PX = 340
+
 export function WorkspaceShellTabStrip({
   surfaces,
   activeTab,
@@ -532,7 +536,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative ${coreLane ? 'flex-none' : 'flex-auto'} ${coreLane ? 'whitespace-nowrap' : surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-[3px]' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative ${coreLane ? 'flex-none' : 'flex-auto'} ${coreLane ? 'whitespace-nowrap' : surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? (width >= LANE_TAB_ROOM_PX ? 'px-[3px]' : 'px-0') : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive

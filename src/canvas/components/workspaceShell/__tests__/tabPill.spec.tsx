@@ -18,8 +18,8 @@ const surfaces: WorkspaceSurfaceDescriptor[] = [
   { id: 'results', label: 'Analysis', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
   { id: 'compare' as WorkspaceSurfaceDescriptor['id'], label: 'Compare', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
 ]
-const draw = () => render(
-  <PanelWidthProvider value={{ width: 347, contentWidth: 321 }}>
+const draw = (width = 347) => render(
+  <PanelWidthProvider value={{ width, contentWidth: width - 26 }}>
     <WorkspaceShellTabStrip surfaces={surfaces} activeTab="results" onTabClick={vi.fn()} isOpen onToggleOpen={vi.fn()} expertMode={false}
       onToggleExpertMode={vi.fn()} showResultsFreshnessIcon={false} resultsStale={false} factorsToVerify={0} />
   </PanelWidthProvider>,
@@ -54,8 +54,12 @@ describe('DL 05:04Z: on the core lane the dock tab names never touch', () => {
     draw()
     for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).toContain('px-[3px]')
   })
-  it('TS1 contrast: no core-lane tab is drawn with zero horizontal padding', () => {
+  it('TS1 contrast: no core-lane tab is drawn with zero horizontal padding at the 1232 dock', () => {
     draw()
     for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).not.toContain('px-0')
+  })
+  it('TS2: at the 1128 dock (317 px) the tabs keep their one-row fit (measured: spacing there pushes Team 19 px out of the row)', () => {
+    draw(317)
+    for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).not.toContain('px-[3px]')
   })
 })
