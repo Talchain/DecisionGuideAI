@@ -5,7 +5,9 @@
  * approved board only, the person's own page, the live version. Only a card of core's model is renamed here (the question is renamed
  * elsewhere); a link's selection offers none.
  */
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { useModelNotice, noticeWords } from './notice'
+import { SinceVersion } from '../olumiCore/compare'
 import { Rename } from './Rename'
 import { useViewStore } from './store'
 import { typography } from '../styles/typography'
@@ -22,6 +24,9 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // DL 04:59Z (4): an option's next step (core's `headline.add`) is cut to two lines on the card; here it is whole, verbatim.
   const add = useViewStore((s) => { const c = s.view?.model?.cards.find((x) => x.id === id); return c?.family === 'option' ? c.headline?.add ?? null : null })
   const view = useViewStore((s) => s.view)
+  const notice = useModelNotice(s => s.notice)
+  const currentNotice = notice != null && notice.sid === view?.id && notice.n === view?.version?.n ? notice : null
+  useEffect(() => { if (currentNotice) document.querySelector('[data-testid="selected-model-change"]')?.scrollIntoView({block:'nearest'}) }, [currentNotice?.n])
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
   // UI restore 11 Nov (R12, DL PL-100): whose figure it is, core's words verbatim, once the card is selected: the person's neutral, Olumi's
@@ -29,6 +34,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   return (
     <>
       <button type="button" className="ok-selection-back" data-testid="selected-back" onClick={() => useCanvasStore.getState().clearSelection()}>Back to conversation</button>
+      {currentNotice == null ? null : <section className="ok-selected-receipt basis-full" data-testid="selected-model-change"><p role="status">{noticeWords(currentNotice)}</p>{view?.model?.run?.since?.to.n !== currentNotice.n ? null : <SinceVersion since={view.model.run.since} movedFirst dense />}</section>}
       <Rename key={id} id={id} heading={heading} shown />
       {author === null ? <span data-testid="selected-author">Authorship not recorded</span> : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
       {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={`${id}.headline.title`} data-testid="selected-headline-title">{said}</p>}

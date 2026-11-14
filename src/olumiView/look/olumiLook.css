@@ -296,3 +296,5 @@
 /* A selected explanation is the active reading surface. Return is explicit; the board remains oriented. */
 .olumi-look-dock:has([data-testid='selected-explain']) [data-testid='view-chat'] { display: none; }
 .olumi-look-dock:has([data-testid='selected-explain']) .ok-selected { flex: 1; min-height: 0; max-height: calc(100vh - 150px); }
+
+.ok-selected-receipt { padding: 10px; border: 1px solid #1b7b88; border-radius: 9px; background: #fefefe; color: #213238; font-size: 12px; line-height: 1.5; }
