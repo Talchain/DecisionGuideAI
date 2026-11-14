@@ -1159,8 +1159,10 @@ export function ViewChat() {
     const prop = step?.dataset['step'] === 'approve' ? step.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]') : null
     const row = prop?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]') ?? null
     if (step !== null && prop != null && row !== null) top = Math.max(top, Math.min(step.offsetTop - 16, prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
-    // PL-1083 (1): while the proposal holds Olumi's readings, the thread rests where every reading row is whole above the sticky foot
-    // (./readingsRest.ts), past the step's top if it must; where they cannot all fit, at the first row's top.
+    // PL-1083 (1): while the proposal holds Olumi's readings, the thread rests where the most leading reading rows are whole above the
+    // sticky foot (./readingsRest.ts), past the step's top if it must. This is part of the thread's own resting rule and keeps its terms:
+    // it is measured from the thread's standard resting place (the same result every time the layout is the same), and, as for every
+    // other rest of this thread, someone who has scrolled away to read is not moved (`follows`, above; pre-screen 4b92d394 row 14).
     const rest = prop != null && row !== null ? readingsRest(el, prop, row) : null
     if (rest !== null) top = restTop(top, rest, maxScroll)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
@@ -1184,7 +1186,13 @@ export function ViewChat() {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
     const observer = new ResizeObserver(followNewest)
     observer.observe(content.current)
-    return () => observer.disconnect()
+    // PL-1083 (1), Codex 14:3xZ: the thread's own height changes too (the composer grows, the window is resized) without its content
+    // changing size. While a proposal holds Olumi's readings the thread then rests again, so the rows are not left under the actions.
+    // With no reading held this does nothing: the thread behaves exactly as before.
+    const box = scroll.current
+    const held = box === null ? null : new ResizeObserver(() => { if (box.querySelector('[data-reading-row]') !== null) followNewest() })
+    if (box !== null) held?.observe(box)
+    return () => { observer.disconnect(); held?.disconnect() }
   }, [followNewest, floating])
   // Return focus to the pop-out control after docking (A2 stop/float, DL 10 Nov).
   const wasFloating = useRef(floating)
