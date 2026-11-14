@@ -89,7 +89,7 @@ export function revealFocusTarget(a: { card: Box; chipH: number; pane: { w: numb
  * The free canvas, as the board's own framing reads it: the pane less what covers it (the outputs dock, the header: computeFitPadding),
  * and less any part of the pane outside the window, so "centred" is where the person can see it.
  */
-function freePane(pane: Element): { size: { w: number; h: number }; inset: Inset } {
+export function freePane(pane: Element): { size: { w: number; h: number }; inset: Inset } {
   const p = pane.getBoundingClientRect(), pad = computeFitPadding(pane)
   const num = (v: string | number) => (typeof v === 'number' ? v : parseFloat(v) || 0)
   const W = typeof window === 'undefined' ? p.right : window.innerWidth, H = typeof window === 'undefined' ? p.bottom : window.innerHeight

@@ -11,6 +11,7 @@ import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
 import { packRows } from '../canvas/utils/packRows'
+import { ascending, leftToRight } from './geometry/rowOrder'
 import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
@@ -198,7 +199,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  */
 function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { cardW: number; gapX: number; perRow?: number }): void {
   const aims = new Set(aimsOf(model))
-  const ys = [...new Set([...packed].filter(([id]) => id !== QUESTION).map(([, p]) => p.y))].sort((a, b) => a - b)
+  const ys = ascending([...new Set([...packed].filter(([id]) => id !== QUESTION).map(([, p]) => p.y))])
   if (ys.length < 3) return
   const last = ys[ys.length - 1]!, above = ys[ys.length - 2]!
   const foot = [...packed].filter(([id, p]) => id !== QUESTION && p.y === last).map(([id]) => id)
@@ -207,7 +208,7 @@ function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: 
   // Only where the row has room for them within the stage's count (DL 1232 fault 3); else the aims keep their own row.
   if (beside.length === 0 || (row.perRow !== undefined && beside.length + foot.length > Math.max(row.perRow, allOptionCards(model).length))) return
   let x = Math.max(...beside.map(([, p]) => p.x)) + row.cardW + row.gapX
-  for (const id of foot.sort((a, b) => packed.get(a)!.x - packed.get(b)!.x)) { packed.set(id, { x, y: above }); x += row.cardW + row.gapX }
+  for (const id of leftToRight(foot, packed)) { packed.set(id, { x, y: above }); x += row.cardW + row.gapX }
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X

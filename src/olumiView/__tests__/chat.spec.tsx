@@ -251,7 +251,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
     })
 
-    it('while a brief drafts (core API v1.26), the board says so once in core\'s words with the seconds since core accepted it; the composer holds the sent brief without its instructions and takes no second Send; a message says Olumi is thinking in the composer (PL 4 Nov; Paul 7 Nov)', async () => {
+    it('while a brief drafts (core API v1.26), the board says so once in core\'s words with the seconds since core accepted it; the composer holds the sent brief without its instructions and stays usable (a Send is a message, not a second scenario); a message says Olumi is thinking in the composer (PL 4 Nov; Paul 7 Nov)', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
       vi.setSystemTime(Date.parse('2026-11-08T15:00:05.000Z'))
       try {
@@ -269,8 +269,9 @@ describe('the writes go straight to core, and the View is read again', () => {
         expect(c.querySelector('[data-testid="view-chat-working"]')).toBeNull() // said once, on the board
         expect(c.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
         expect(c.querySelector('#view-chat-text')?.hasAttribute('aria-describedby')).toBe(false)
-        expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).disabled).toBe(true)
-        expect((c.querySelector('[data-testid="view-composer-send"]') as HTMLButtonElement).disabled).toBe(true) // no second scenario
+        // 14 Nov (supersedes "takes no second Send"): the composer stays usable while the first model builds; a Send is a message to THIS scenario, never a second one (floorChat.spec).
+        expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).disabled).toBe(false)
+        expect((c.querySelector('[data-testid="view-composer-send"]') as HTMLButtonElement).disabled).toBe(false)
         c.remove()
         useViewChat.setState({ text: '', busy: true })
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })

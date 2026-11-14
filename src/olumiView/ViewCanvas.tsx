@@ -43,6 +43,7 @@ import { useViewStore } from './store'
 import type { View } from './client'
 import { FOOT_GUTTER, restClearOfFoot } from './footClear'
 import { CoreCard } from './previous/CoreCard'
+import { useReplyInView, type Activity } from './replyInView'
 import { RootLinkEdge } from './previous/RootLinkEdge'
 import { LodSync } from '../canvas/components/LodSync'
 import { CanvasLabelScaleSync } from '../canvas/components/CanvasLabelScaleSync'
@@ -177,7 +178,9 @@ function atZoom(nodes: readonly Node[], pane: { width: number; height: number },
 export function primaryAimOf(view: View | null): string | null {
   const cards = view?.model?.cards ?? [], count = new Map<string, number>()
   for (const c of cards) { const a = c.family === 'option' ? c.headline?.aim_id ?? null : null; if (a !== null) count.set(a, (count.get(a) ?? 0) + 1) }
-  const top = [...count.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+  // The aim read most often; the first counted wins a tie. Counted, not ordered.
+  let top: string | null = null, most = 0
+  for (const [aim, n] of count) if (n > most) { top = aim; most = n }
   return top !== null && cards.some((c) => c.id === top) ? top : cards.find((c) => c.family === 'goal')?.id ?? null
 }
 
@@ -261,12 +264,16 @@ function ViewFlow() {
   const userMoved = useRef(false)
   // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
   const movedAt = useRef(0)
+  // When the person last moved the camera and whether a drag is under way (replyInView.ts: a reply never moves the board under their hand).
+  const activity = useRef<Activity>({ at: 0, active: false })
   const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
   // P1 (DL 10 Nov): the dock lands on the contested card's panel, once per reveal (./revealLanding.ts).
   useRevealLanding()
   useOpenInView(movedAt)
+  // AI and canvas as one partner: a new reply that points at cards brings them into view and pulses their ring once (./replyInView.ts).
+  useReplyInView(movedAt, activity)
   useTryInView(movedAt)
   // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
   useCardClearOfRegions()
@@ -326,7 +333,8 @@ function ViewFlow() {
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
-  const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1 } }
+  const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
+  const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
     <>
       <ReactFlow
@@ -347,7 +355,7 @@ function ViewFlow() {
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
         onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
-        onMoveStart={mine} selectionOnDrag={tool === 'select'} panOnDrag={tool === 'select' ? SELECT_PAN_BUTTONS : PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
+        onMoveStart={mine} onMoveEnd={mineEnd} selectionOnDrag={tool === 'select'} panOnDrag={tool === 'select' ? SELECT_PAN_BUTTONS : PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
@@ -356,10 +364,13 @@ function ViewFlow() {
         <LodSync /><CanvasLabelScaleSync />
       </ReactFlow>
       <CanvasViewportControls
-        onZoomIn={() => { userMoved.current = true; void zoomIn({ duration: 200 }) }}
-        onZoomOut={() => { userMoved.current = true; void zoomOut({ duration: 200 }) }}
-        onZoomReset={() => { userMoved.current = true; void zoomTo(1, { duration: 200 }) }}
-        onFitView={() => { userMoved.current = false; fit() }}
+        onZoomIn={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomIn({ duration: 200 }) }}
+        onZoomOut={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomOut({ duration: 200 }) }}
+        onZoomReset={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomTo(1, { duration: 200 }) }}
+        // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
+        // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
+        // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
+        onFitView={() => { userMoved.current = false; movedAt.current += 1; activity.current = { at: Date.now(), active: false }; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
