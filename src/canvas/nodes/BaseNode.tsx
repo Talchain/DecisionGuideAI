@@ -1543,7 +1543,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * can therefore never rise above the body's top, and the title keeps the
    * card's full measure at every scale.
    */
-  const anchorRailBeside = isAnchorCard && showQuickActions
+  const anchorRailBeside = isAnchorCard && !isCoreCard && showQuickActions
   /**
    * The anchor body's box beside its rail — drawn wherever the rail is beside it,
    * and DECLARED on the body at every rung (`NODE_BODY_BOUND_STYLE_ATTR`) so the
@@ -1551,7 +1551,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * rung). Without it a layout run zoomed out reserved the Question 73 at 0.4
    * while it drew 75, and 97 at landing (Canvas Browser Gate `heightVsZoom`).
    */
-  const anchorBodyBox = isAnchorCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
+  const anchorBodyBox = isAnchorCard && !isCoreCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
   /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
   const quickActionsInset = anchorRailBeside || atNormalZoom
   /**
@@ -1568,7 +1568,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     const actionsAtRung = normal || showQuickActions
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
-    const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
+    const bandReservedAtRung = actionsAtRung && normal && (!isAnchorCard || isCoreCard)
     const band = padAdj === 0
       ? NODE_QUICK_ACTION_BAND_CSS
       : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`

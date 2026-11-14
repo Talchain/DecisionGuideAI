@@ -121,7 +121,7 @@ export const QUESTION = 'page:question'
  *  layout places it, at the top. */
 export function questionPlace(model: ViewModel): { width: number } {
   // UI restore stage 1: the question is the previous product's decision card, at the width its layout places it (solveLayoutCardWidths).
-  return { width: solveLayoutCardWidths(engineNodes(model, (_id, w, h) => ({ width: w, height: h })), { preserveLocked: false }).decision ?? QUESTION_W }
+  return { width: aimsOf(model).length > 0 ? QUESTION_FLANKED_W : solveLayoutCardWidths(engineNodes(model, (_id, w, h) => ({ width: w, height: h })), { preserveLocked: false }).decision ?? QUESTION_W }
 }
 /** The question's width on the prototype's board (J1 gate). */
 export const QUESTION_W = W
@@ -160,10 +160,8 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
 /**
  * THE PREVIOUS PRODUCT'S GRAPH FOR CORE'S MODEL (UI restore stage 1, rows 5 and 6; DL ruling 10 Nov on Paul's test: "so much worse than it
  * used to be"). Each View card as its kind and each View link as an edge, placed by the previous product's own layout (`layoutGraph`,
- * canvas/utils/layout.ts) and by nothing else: one layered layout, top to bottom by default, its direction and spacing the ones the
- * layout store holds. No family rows, no four-card wrap, no left column of routes, no aims beside the question laid over it (the
- * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
- * core's is read or written here.
+ * canvas/utils/layout.ts): one layered causal layout. For the downward opening, the question and aims share a row above it, aligned
+ * with the first option. `size` is each card as the canvas measured it (else core's height). Positions only: no word of core's is changed.
  */
 export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
@@ -171,7 +169,22 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const direction = options.direction ?? 'DOWN'
   const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
-  return direction === 'DOWN' || direction === 'UP' ? packRows(places, QUESTION, W, ROW_GAP_X) : places
+  const packed = direction === 'DOWN' || direction === 'UP' ? packRows(places, QUESTION, W, ROW_GAP_X) : places
+  if (direction !== 'DOWN') return packed
+  // Keep the aim beside the framing question; the causal graph continues below this opening row.
+  const aims = aimsOf(model)
+  if (aims.length === 0) return packed
+  const at = (id: string) => nodes.find((n) => n.id === id)!.measured!
+  const head = new Set([QUESTION, ...aims]), rest = [...packed].filter(([id]) => !head.has(id))
+  const headHeight = Math.max(...[...head].map((id) => at(id).height ?? 0))
+  const first = Math.min(...rest.map(([, p]) => p.y))
+  const optionXs = model.cards.filter((c) => c.family === 'option').flatMap((c) => { const p = packed.get(c.id); return p ? [p.x] : [] })
+  const left = optionXs.length > 0 ? Math.min(...optionXs) : 0
+  for (const [id, p] of rest) packed.set(id, { x: p.x - left, y: p.y - first + headHeight + ROW_GAP_X })
+  packed.set(QUESTION, { x: 0, y: 0 })
+  let x = (at(QUESTION).width ?? QUESTION_FLANKED_W) + HEAD_GAP
+  for (const id of aims) { packed.set(id, { x, y: 0 }); x += (at(id).width ?? W) + HEAD_GAP }
+  return packed
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
