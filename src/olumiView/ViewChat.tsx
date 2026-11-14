@@ -391,7 +391,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       <div className="ok-proposal-heading"><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
-        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
+        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}
+        <button type="button" className="ok-ask-change" disabled={busy} data-testid="view-proposal-change" onClick={() => { document.getElementById('view-chat-text')?.focus() }}>Ask for a change</button></div>
+      <div className="ok-proposal-body">
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
           {from.by === null ? null : <p>Asked by: <span data-view="proposal.from.by">{from.by}</span></p>}
@@ -459,7 +461,8 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
-      {/* DL-538: pinned above the composer, the actions stay in view at the card's foot however long its list (olumiLook.css). */}
+      </div>
+      {/* Heading, body and actions are separate flex regions; no sticky element covers a review control. */}
       <div className="ok-actions flex flex-wrap gap-2" data-testid="view-proposal-actions">
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || chosen === 0 || verdict?.supported === false ? null : (
@@ -1226,7 +1229,7 @@ export function ViewChat() {
         </button>
       </div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
-      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(38vh,280px)]' : 'min-h-0'} flex-col`}>
+      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(24vh,160px)]' : 'min-h-0'} flex-col`}>
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}

@@ -10,7 +10,7 @@ const core = execFileSync('git', ['-C', '/Users/paulslee/olumi-work/worktrees/ui
 const apps = new Map(), stores = new Map()
 let selected = 'approved', calls = 0
 function app(tag: string) {
-  if (!/^(approved|pending|approve|discard|pair)$/.test(tag)) throw new Error('Unknown evidence copy')
+  if (!/^(approved|pending|approve-(?:2000|1128|133)|discard-(?:2000|1128|133)|pair)$/.test(tag)) throw new Error('Unknown evidence copy')
   if (!apps.has(tag)) {
     const store = new Store(resolve('.night-data', tag, 'olumi.db')); stores.set(tag, store)
     const service = new Service(store, { prompts: {} as never, flags: [], today: () => '2026-11-14', commit: core,
