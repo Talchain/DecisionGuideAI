@@ -320,12 +320,12 @@ describe('choose per reading', () => {
       fireEvent.click(radio(0, 'use')); expect(noClaim(says())).toBe(true)
       expect(says().textContent).not.toMatch(/keeps the original|uses Olumi/)
     })
-    it('(5) the ticked count says what it counts: ticked changes, never the readings chosen', () => {
+    it('(5) DL 12:5xZ: the short label stays, so the actions keep to their rows; it counts ticked change lines, not the readings chosen', () => {
       show(withMarks(held, 'Paul'))
       fireEvent.click(radio(0, 'use')); fireEvent.click(radio(1, 'use'))
-      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked changes · 0')
+      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked · 0')
       fireEvent.click(screen.getByTestId('view-change-tick-1'))
-      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked changes · 1')
+      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked · 1')
     })
   })
 })

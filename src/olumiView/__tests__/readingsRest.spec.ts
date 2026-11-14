@@ -44,3 +44,17 @@ describe('readingsRest', () => {
     expect(restTop(0, { low: -40, high: -8 }, 420)).toBe(0)
   })
 })
+
+describe('PL-1083 (1), new look, DL 12:5xZ (A): what yields while the proposal holds readings', async () => {
+  const { readFileSync } = await import('node:fs')
+  const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const rule = (sel: string) => { const i = css.indexOf(sel + ' {'); return i < 0 ? null : css.slice(i, css.indexOf('}', i) + 1) }
+  it('first More ways hides', () => expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/))
+  it('then the thread may shrink below its floor', () => expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0/))
+  it('the box shrinks rather than run past the composer', () => expect(rule('.ok-pinned:has([data-reading-row])')).toMatch(/flex-shrink: 1/))
+  it('CONTRAST: every such rule is keyed on a held reading row, so nothing changes when none is held', () => {
+    const lines = css.split('\n').filter((l) => /view-more-ways|data-thread-wrap/.test(l) && l.includes('{'))
+    expect(lines.length).toBeGreaterThan(0)
+    for (const line of lines) expect(line).toContain(':has(.ok-pinned [data-reading-row])')
+  })
+})

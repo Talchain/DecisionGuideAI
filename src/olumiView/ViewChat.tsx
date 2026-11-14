@@ -389,6 +389,12 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
     const land = () => {
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null || (placed >= 0 && Math.abs(box.scrollTop - placed) > 1)) return
+      // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
+      // cannot give that much it shrinks rather than run past the composer, and the first row's top is shown.
+      const first = readingsRest(box, el, foot)
+      if (first === null) return
+      const short = first.low - first.high
+      if (short > 0) { const want = Math.ceil(box.getBoundingClientRect().height + short); if ((parseFloat(box.style.maxHeight) || 0) < want) box.style.maxHeight = `${want}px` }
       const range = readingsRest(box, el, foot)
       if (range === null) return
       box.scrollTop = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
@@ -399,7 +405,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
     const observer = new ResizeObserver(land)
     observer.observe(box)
     for (const row of Array.from(el.querySelectorAll('[data-reading-row]'))) observer.observe(row)
-    return () => observer.disconnect()
+    return () => { observer.disconnect(); box.style.maxHeight = '' }
   }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
@@ -496,7 +502,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked changes · {chosen}</button>
+            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
@@ -1259,7 +1265,7 @@ export function ViewChat() {
       </div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
       {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
-      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`}>
+      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}

@@ -224,9 +224,13 @@
    proposal's heading and the actions keep their height, so the step is read whole above Approve at 1232 and 1128. */
 .ok-pinned { display: flex; flex-direction: column; max-height: 62%; }
 .ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
-/* PL-1083 (1): while the proposal holds Olumi's readings the box may take more of the panel, so its reading rows can rest whole above the
-   actions at 1232 and 1128 (ViewChat Proposal places them there, ./readingsRest.ts). */
-.ok-pinned:has([data-reading-row]) { max-height: 72%; }
+/* PL-1083 (1), DL 12:5xZ (A): while the proposal holds Olumi's readings, its reading rows and actions never go under anything. What yields,
+   in order: More ways hides; then the thread may shrink below its floor (its newest message keeps its start in view while space allows);
+   the box grows to hold the rows and the actions (ViewChat Proposal sizes it, ./readingsRest.ts) and shrinks rather than run past the
+   composer. Nothing held: exactly as before. */
+[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
+[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap] { min-height: 0; }
+.ok-pinned:has([data-reading-row]) { flex-shrink: 1; }
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
