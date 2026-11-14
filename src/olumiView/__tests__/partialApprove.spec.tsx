@@ -145,8 +145,11 @@ describe('DL 06:57Z (4), old look: Approve and Set aside are reached without scr
   it('SA1 the proposal\'s actions are one sticky foot, inside the thread\'s scroll, holding Approve and Set aside (bound by test id)', () => {
     show(golden)
     const row = screen.getByTestId('view-proposal-actions')
-    // DL 07:48Z: opaque, over the thread's 16 px foot padding, a rule at its top and a fade above it (no half-lines either side).
-    expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['sticky', 'bottom-[-16px]', 'bg-panel', 'border-t', 'before:bg-gradient-to-t', 'before:from-panel']))
+    // DL 07:48Z: opaque, over the thread's 16 px foot padding, a visible rule at its top and no fade (no ghosted lines); the resting scroll
+    // keeps any line from being cut by the rule (footCut.spec FK1-FK4).
+    const cls = row.className.split(/\s+/)
+    expect(cls).toEqual(expect.arrayContaining(['sticky', 'bottom-[-16px]', 'bg-panel', 'border-t', 'border-border-emphasis']))
+    expect(cls.filter((c) => c.startsWith('before:'))).toEqual([])
     expect([!!row.querySelector('[data-testid="view-approve"]'), !!row.querySelector('[data-testid="view-set-aside"]'), !!row.closest('[data-testid="view-next-step"]')]).toEqual([true, true, true])
   })
 })

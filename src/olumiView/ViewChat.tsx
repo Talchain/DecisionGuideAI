@@ -42,6 +42,7 @@ import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, His
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
+import { lineBoxesNear, lineCutShift } from './footCut'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -440,9 +441,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
       {/* DL 06:57Z (4), old look: the actions are a sticky foot of the proposal, held at the thread's foot while the proposal's top is in view,
           so Approve and Set aside are reached without scrolling at 1232 and 1128 (the new look pins the whole proposal). */}
-      {/* DL 07:48Z: an opaque foot with a clean cut: it covers the thread's foot padding (nothing shows below it), a rule marks its top and the
-          lines just above fade into it, so no half-line shows on either side. */}
-      <div className="sticky bottom-[-16px] z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg border-t border-panel-border bg-panel px-3 pb-3 pt-2 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-panel before:to-transparent before:content-['']" data-testid="view-proposal-actions">
+      {/* DL 07:48Z: an opaque foot with a clean cut: it covers the thread's foot padding (nothing shows below it) and a rule marks its top;
+          at rest the thread lands so no line is cut by the rule (followNewest, ./footCut.ts), so no half-line shows. */}
+      <div className="sticky bottom-[-16px] z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg border-t border-border-emphasis bg-panel px-3 pb-3 pt-2" data-testid="view-proposal-actions">
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
@@ -1149,6 +1150,15 @@ export function ViewChat() {
     const row = prop?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]') ?? null
     if (step !== null && prop != null && row !== null) top = Math.max(top, Math.min(step.offsetTop - 16, prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
+    // DL 07:48Z (4): no half-line at the foot's rule at rest: move the least that leaves each line wholly above the rule or under the foot,
+    // never so far back that the foot loses its room, nor on past the step's top.
+    if (step !== null && prop != null && row !== null) {
+      const now = el.scrollTop
+      const upRoom = Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
+      const downRoom = Math.min(maxScroll - now, step.offsetTop - 16 - now)
+      const shift = lineCutShift(lineBoxesNear(el, row, row.getBoundingClientRect().top), row.getBoundingClientRect().top, upRoom, downRoom)
+      if (shift !== 0) el.scrollTop = now + shift
+    }
     followedTop.current = el.scrollTop
     setAway(false)
   }, [])
