@@ -7,6 +7,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-build-id" content="%BUILD_ID%" />
+    <!-- Enforced by the browser, whatever the app's code does (Codex 14 Nov: a build-time monitoring id would add a remote script that no
+         fetch replacement sees). Scripts, connections, frames and workers: this origin only. The one outside host allowed is the font
+         stylesheet every page of the app asks for, and its font files. A refusal is listed by the isolation (./isolate.ts). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'" />
     <title>Olumi: saved Views</title>
   </head>
   <body>
