@@ -11,3 +11,5 @@ Only this worktree and local branch; no push, no provider calls. Evidence: `/Use
 4. Tabs: `before-approved-1128-board.png` has two tab rows. Keep the core-lane tab labels at natural width in one scrollable row. Keyboard focus scrolls its tab into view; header controls retain their separate row. No secondary tab content changed.
 
 5. Opening zoom: approved and pending before pictures at 1128 and 133% settle at 0.415667, despite available room for readable faces. Fit the measured full faces when that remains readable; otherwise use 100%, centred on the question and aims. Pan overflow. Do not infer or remove any model element.
+
+6. Conditions and names: `before-pending-2000-board.png` clips both assumption names and option names. Remove reading-face title/lead clamps; preserve the complete chance line even in the far-face input (remove punctuation parsing). The existing server finding title is reachable in a native Details disclosure, without hover. No condition or uncertainty is rewritten.

@@ -275,31 +275,31 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
   })
 
   // ORDER-UI-NEXT (DL, 13 Nov): three lines, as every other card: at two, the chance line's assumption name was cut ("…for 'Weeks until first…").
-  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is clamped to three lines, core\'s words whole on hover', () => {
+  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is whole without hover', () => {
     const opt = EU.model!.cards.find((c) => c.family === 'option')!
     const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
     const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([clamp?.className.includes('line-clamp-3'), clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, false, long, true])
+    expect([clamp?.className.includes('line-clamp-3'), clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([false, false, long, true])
   })
 
-  it('FT14 (DL, A13f: a challenge\'s paragraph ran ~15 lines on its face): any card\'s face line is clamped to three lines, core\'s words whole on hover', () => {
+  it('FT14 (DL, A13f: a challenge\'s paragraph ran ~15 lines on its face): any card\'s face line is whole without hover', () => {
     const chal = EU.model!.cards.find((c) => c.family !== 'option' && c.figure === null && c.bound == null)!
     const para = 'A larger pre-seed round may raise the bar for the next raise: later investors expect progress in line with the money raised, so missing milestones could make follow-on funding harder. '.repeat(3).trim()
     const v = withCard(EU, chal.id, (c) => ({ ...c, face: { ...(c.face ?? {}), line: { text: para, words: 'olumi' } } as never }))
     const lead = draw(v, chal.id).querySelector<HTMLElement>(`[data-core-lead="${chal.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([clamp?.className, clamp?.textContent, lead.title.startsWith(para)]).toEqual(['line-clamp-3', para, true])
+    expect([clamp?.className, clamp?.textContent, lead.title.startsWith(para)]).toEqual(['block break-words', para, true])
   })
 
-  it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the title is three lines on the face, the whole heading its hover; core\'s words unchanged', () => {
+  it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the whole title is readable on the face; core\'s words unchanged', () => {
     const c0 = EU.model!.cards.find((c) => c.family === 'condition') ?? EU.model!.cards[0]!
     const long = ('A different view comes from later investors: a larger pre-seed round raises the bar for the next raise, because they expect progress in line with the money raised. ').repeat(2).trim()
     expect(long.length).toBeGreaterThan(200)
     const v = withCard(EU, c0.id, (c) => ({ ...c, heading: long, face: { ...(c.face ?? {}), title: null, line: null } as never }))
     const t = draw(v, c0.id).querySelector<HTMLElement>('[data-testid="node-title"]')!
-    expect([t.className.includes('line-clamp-3'), t.title, t.textContent!.includes(long)]).toEqual([true, long, true])
+    expect([t.className.includes('line-clamp-3'), t.title, t.textContent!.includes(long)]).toEqual([false, long, true])
   })
 
   it('FT7 the opened card\'s words (a person\'s author, a route\'s own line, status, reason) are the card\'s hover, never a line on its face', () => {

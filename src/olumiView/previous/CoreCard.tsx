@@ -94,16 +94,9 @@ export function farLineOf(card: ViewCard): string | null {
   return leadLineOf(card) ?? (card.figure !== null && card.figure.text !== '' ? card.figure.text : null)
 }
 
-/**
- * DL-424 (13 Nov, 1128 whole board): on the one-line far face a chance is never cut mid-word ("about 3% chance, on Ol…"). Core makes the chance
- * line in one place (core src/view/run-lines.ts chanceFace: `${bare} chance` then its clauses, each after ", "): the far line is core's chance
- * words up to the first of those clauses, whole; what it rests on is the far mark beside it (`farMarkOf`) and core's full sentence is on the
- * hover and the opened card. A line that is not in that shape is drawn as core sent it. No words of the UI's own.
- */
+/** Core's complete chance line, including its condition; never split a finding by punctuation. */
 export function farChanceOf(card: ViewCard): string | null {
-  if (card.family !== 'option' || card.headline?.state !== 'chance') return null
-  const t = card.headline.text, cut = t.indexOf(', ')
-  return cut > 0 && t.slice(0, cut).endsWith(' chance') ? t.slice(0, cut) : null
+  return card.family === 'option' && card.headline?.state === 'chance' ? card.headline.text : null
 }
 
 /** The far face's Olumi mark for a chance resting on Olumi's assumption (DL-424): core's own glyph for Olumi's figure it rests on (that card's
@@ -217,18 +210,18 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
             <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'}`} data-core-lead={id}
               title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
-              {/* An option's line is core's, whole, but at most two lines on the face; the rest on hover (DL, live draft: a setting question
-                  made one option card twice its neighbours' height). */}
-              {/* Every card's face line is core's, whole on hover, but a few lines on the face (DL, A13f: a challenge's paragraph ran about 15
-                  lines, taller than the rest of the board): three. An option's was two until ORDER-UI-NEXT (13 Nov): its chance line names
-                  the assumption it rests on, and two lines cut that name ("on Olumi's assumption for 'Weeks until first…"). */}
-              <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>
+              {/* Conditions and names remain whole on the reading face. */}
+              <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
               {card.bound != null && lead === card.bound.text ? <>{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} /></> : null}
               {changeOn === 'lead' ? changeMark : null}
               {cueOnLead ? <>{' '}{editCue}</> : null}
             </div>
           )}
+          {card.headline?.title && card.headline.title !== lead ? <details className="nodrag nopan" data-core-finding-details={id} onClick={(e) => e.stopPropagation()}>
+            <summary className={`${typography.nodeLabel} min-h-[24px] cursor-pointer text-text-body`}>Details</summary>
+            <p className={`${typography.nodeLabel} whitespace-pre-wrap break-words text-text-body`}>{card.headline.title}</p>
+          </details> : null}
           {reading === null ? null : <p className={`${typography.nodeLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />

@@ -989,9 +989,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // A core card (olumiView/previous/CoreCard.tsx): what is missing is said by core, in the card's body, never by this frame's own rule; and
   // its name is core's, drawn whole at full size (nothing of core's is cut; only the zoomed-out face shows less, and says so).
   const isCoreCard = (data as { core?: boolean } | undefined)?.core === true
-  // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line): three lines on the face, the whole
-  // heading as the title's hover; the card's accessible name keeps it whole (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
-  const titleClamp = isCoreCard ? 'line-clamp-3' : 'line-clamp-2'
+  // Core names stay whole on the reading face; overflow is reached by panning the board.
+  const titleClamp = isCoreCard ? '' : 'line-clamp-2'
   const isIncomplete = isCoreCard ? false : (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
