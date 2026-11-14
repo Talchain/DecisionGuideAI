@@ -49,9 +49,10 @@ describe('the Reveal panel, as the comp draws it', () => {
       expect(row.textContent!.startsWith(line.by)).toBe(true)
     }
   })
-  it('RD4 catch: "Bring evidence" and "Keep it open" are 44 px targets', () => {
+  it('RD4 Bring evidence is a 44 px target; a missing difference never offers a pretend save', () => {
     open()
-    for (const id of ['reveal-dock-bring-evidence', 'reveal-dock-keep-open']) expect(screen.getByTestId(id).className.split(/\s+/)).toContain('min-h-[44px]')
+    expect(screen.getByTestId('reveal-dock-bring-evidence').className.split(/\s+/)).toContain('min-h-[44px]')
+    expect(screen.queryByTestId('reveal-dock-keep-open')).toBeNull()
   })
   it('RD5 a chip\'s words on the rail wrap in balanced lines, never one word alone on the last line', () => {
     useViewStore.setState({ view, sid: view.id, at: null })

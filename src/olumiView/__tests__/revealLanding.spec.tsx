@@ -14,7 +14,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { revealOf, useReveal } from '../reveal'
 import { landingChipOf, resetRevealLanding, useRevealLanding } from '../revealLanding'
-import { composerStepsAside, forgetLanded, returnFromLanded } from '../revealReturn'
+import { composerStepsAside, forgetLanded, registerRevealReturnCamera, returnFromLanded } from '../revealReturn'
 import { openView } from '../RevealMarks'
 import { ViewLensBar } from '../ViewLensBar'
 
@@ -87,12 +87,15 @@ describe('a landed panel hands the dock back (V11 lane 10 Nov: journey 6.3 and t
     act(() => { useReveal.getState().select(null); expect(returnFromLanded(chip)).toBe(true) })
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
-  it('RL10 must not change: a panel the person opened from a chip closes back to Team, as before', () => {
+  it('RL10 a panel opened from a chip returns to the originating tab and camera', () => {
     useViewStore.setState({ view, sid: view.id, at: null })
     const c = landingChipOf(revealOf(view))!
+    const restore = vi.fn(), unregister = registerRevealReturnCamera(() => restore)
     act(() => { openView(c.views[0]!, c.card, c.key) })
-    act(() => { useReveal.getState().select(null); expect(returnFromLanded(c.key)).toBe(false) })
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
+    act(() => { useReveal.getState().select(null); expect(returnFromLanded(c.key)).toBe(true) })
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    expect(restore).toHaveBeenCalledOnce()
+    unregister()
   })
   it('RL11 catch: pressing Team on the canvas while the landed panel is open shows Team itself: the panel steps aside', () => {
     act(() => { land(view) })
@@ -113,4 +116,15 @@ describe('P1c: the composer steps aside for the reveal panel (the approved Revea
   it('RL13 must not change: with the panel closed, on another tab, or on the legacy lane, the composer stays', () => {
     expect([composerStepsAside(true, false, 'team'), composerStepsAside(true, true, 'olumi'), composerStepsAside(false, true, 'team')]).toEqual([false, false, false])
   })
+})
+
+
+it('a page reload does not land the same revealed views again for this person', () => {
+  act(() => { land(view) })
+  expect(useReveal.getState().selected).not.toBeNull()
+  cleanup(); closed(); forgetLanded(); resetRevealLanding(false)
+  useUIStore.setState({ activeOutputTab: 'olumi' })
+  act(() => { render(<Host />) })
+  expect(useReveal.getState().selected).toBeNull()
+  expect(useUIStore.getState().activeOutputTab).toBe('olumi')
 })

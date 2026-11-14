@@ -1,7 +1,7 @@
 /**
  * V11: the revealed views on one card, opened from its chip on the canvas (./RevealMarks.tsx), in the dock, as Paul approved (7 Nov v2.1):
  * the people's views first, in their own words with a stance word; Olumi's reading, unconfirmed and correctable; Olumi's one question at
- * the foot with one primary action and a quiet "Keep it open". Every model word and value is core's, drawn as given.
+ * the foot with Bring evidence and the existing action to keep a supported disagreement. Every model word and value is core's, drawn as given.
  *
  * "What matters next" is core's requested `collab.next` (./reveal.ts nextOf); until core sends it, core's current most-likely line for the
  * model (`model.run.most_likely.text`), which is the line core has today that says what the result rests on.
@@ -10,7 +10,7 @@
  * figures do to their chance (`marks[].options`, ./RevealMarks.tsx OptionMarkLine). The panel does not repeat it, and holds no try of its
  * own: one primary action and a quiet second one (approved v2.1).
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Eye, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
@@ -20,12 +20,15 @@ import type { View } from './client'
 import { effectHeadingsOf, effectsOf } from './standin'
 import { chipOf, nextOf, openChipOf, revealOf, stanceOf, useReveal, type CardChip, type Shared } from './reveal'
 import { useViewStore } from './store'
-import { returnFromLanded } from './revealReturn'
+import { forgetLanded, returnFromLanded } from './revealReturn'
 import { otherViewsOn, withEffects } from './layout'
 import { StrategyHerePill, StrategyViewLines } from './strategy/StrategyViewLines'
 import { viewLinesOf } from './strategy/strategy'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { drawKindOf } from './layout'
+import { differencesKey, readDifferences, stepDifference, useDifferences } from '../olumiCore/team/differences'
+import { runWrite } from '../olumiCore/team/writes'
+import { TeamApiError } from '../olumiCore/team/api'
 
 const initial = (by: string) => (Array.from(by)[0] ?? '').toUpperCase()
 
@@ -158,10 +161,15 @@ function bringEvidence(close: () => void): void {
 /**
  * The panel Paul approved (7 Nov, v2.1): the card's heading and "Revealed together"; the people's views first, each in their own words with
  * a stance word; then Olumi's reading, unconfirmed and correctable; then Olumi's one question, with one primary action ("Bring evidence")
- * and a quiet "Keep it open". Opened from a chip, it leads with every person that chip gathers; from initials, with that one person.
+ * and the existing disagreement action where the server offers it. Opened from a chip, it leads with every person that chip gathers; from initials, with that one person.
  */
 export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const open = useReveal((s) => s)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const key = differencesKey(view.id, view)
+  const differences = useDifferences((s) => s.sid === view.id ? s.data : null)
+  useEffect(() => { void readDifferences(view.id, key) }, [view.id, key])
   const selected = open.selected
   const select = open.select
   const head = useRef<HTMLHeadingElement>(null)
@@ -171,8 +179,8 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const r = revealOf(view)
   const v = r?.views.find((x) => x.id === selected) ?? null
   if (r === null || v === null) return null
-  // A panel that landed by itself hands the dock back as it was (revealReturn); one the person opened closes back to Team.
-  const close = () => returning(() => { const c = open.chip; select(null); returnFromLanded(c) })
+  // Both automatic and manual opens return to the tab and camera they interrupted.
+  const close = () => returning(() => { const c = open.chip ?? `view:${selected}`; select(null); returnFromLanded(c) })
   const chip = openChipOf(r, open)
   const lead = chip === null ? [v] : chip.views.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   // Others whose view also sits on this card, after Olumi's reading.
@@ -180,14 +188,26 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
   const others = here.flatMap((id) => { const x = r.views.find((y) => y.id === id); return x === undefined ? [] : [x] })
   const model = view.model
   const shown = chip === null ? undefined : model?.cards.find((c) => c.id === chip.card)
-  const heading = chip === null ? view.collab.heading : shown?.heading ?? view.collab.heading
+  const difference = chip === null ? undefined : differences?.differences.find((d) => d.record === chip.record)
+  const recordLabel = chip === null ? null : lead.flatMap((v) => v.figures).find((f) => f.quantity === chip.record)?.label
+  const heading = difference?.label ?? recordLabel ?? (chip === null ? view.collab.heading : shown?.heading ?? view.collab.heading)
+  const kept = difference?.steps.some((s) => s.step === 'dissent' && s.by_id === view.you_id) === true
+  const keep = async () => {
+    if (!difference || busy || kept) return
+    setBusy(true); setError(null)
+    try {
+      await runWrite(`${view.id}:difference:${difference.record}:dissent`, { op: true }, { record: difference.record, step: 'dissent' }, () => stepDifference(view.id, difference.record, 'dissent'))
+      await readDifferences(view.id, key)
+    } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') }
+    finally { setBusy(false) }
+  }
   return (
     <section data-testid="reveal-dock" aria-label={heading} className="flex min-h-full flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
         <div className="grid gap-0.5">
           <h2 ref={head} tabIndex={-1} className={`${H} flex items-center gap-2 outline-none`} data-testid="reveal-dock-heading">
             {/* The comp's panel: the card's own shape before its name, so the panel reads as that card's. */}
-            {shown === undefined || model == null ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} size={12} /></span>}
+            {shown === undefined || model == null || (chip?.record !== undefined && chip.record !== shown.id) ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} size={12} /></span>}
             {heading}
           </h2>
           <p className={`${META} flex items-center gap-1.5`}><Eye aria-hidden="true" className="h-3 w-3" />{view.reveal_words.revealedTogether}</p>
@@ -201,6 +221,11 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
       <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
 
       <Reading view={view} chip={chip} lead={lead} />
+      {difference?.steps.length ? <div role="status" className="grid gap-1" data-testid="reveal-dock-kept">
+        <p className={META}>{differences?.headings.steps}</p>
+        {difference.steps.map((s) => <p key={s.id} className={`${BODY} break-words`} data-step={s.step}>{s.text}</p>)}
+      </div> : null}
+      {error && <p role="alert" className={BODY} data-testid="reveal-dock-error">{error}</p>}
 
       {others.length === 0 ? null : <div className="grid gap-4" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}
 
@@ -211,10 +236,10 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         <div className="grid gap-2 rounded-2xl bg-panel-hover p-3" data-testid="reveal-dock-foot">
           <Next view={view} chip={chip} />
           {/* One row, as the comp: the primary action and the quiet one side by side. */}
-          <div className="flex flex-nowrap items-center gap-2">
-            <Button size="sm" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => select(null))}>{view.reveal_words.bringEvidence}</Button>
-            <button type="button" data-testid="reveal-dock-keep-open" onClick={close}
-              className={`${BODY} inline-flex min-h-[44px] cursor-pointer items-center rounded-full px-3 text-text-body hover:text-text-header`}>{view.reveal_words.keepOpen}</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => { select(null); forgetLanded() })}>{view.reveal_words.bringEvidence}</Button>
+            {difference && difference.status !== 'pending' ? <button type="button" data-testid="reveal-dock-keep-open" onClick={() => void keep()} disabled={busy || kept} aria-pressed={kept}
+              className={`${BODY} inline-flex min-h-[44px] cursor-pointer items-center rounded-full px-3 text-text-body hover:text-text-header disabled:opacity-60`}>{differences?.headings.dissent}</button> : null}
           </div>
         </div>
       </div>

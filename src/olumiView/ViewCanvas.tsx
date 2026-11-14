@@ -58,6 +58,7 @@ import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
+import { registerRevealReturnCamera } from './revealReturn'
 import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
@@ -234,7 +235,11 @@ function ViewFlow() {
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
-  const { setCenter, getZoom, getInternalNode } = useReactFlow()
+  const { setCenter, getZoom, getInternalNode, getViewport, setViewport } = useReactFlow()
+  useEffect(() => registerRevealReturnCamera(() => {
+    const before = getViewport()
+    return () => { userMoved.current = true; void setViewport(before, { duration: 0 }) }
+  }), [getViewport, setViewport])
   const focusCall = useRef(0)
   useEffect(() => () => { focusCall.current += 1 }, [])
   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).

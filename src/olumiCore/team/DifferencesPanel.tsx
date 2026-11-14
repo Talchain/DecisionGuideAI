@@ -96,6 +96,16 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }
         </button>
       ) : <p className={`${BODY} break-words text-text-header`}><span data-testid={`${at}-label`}>{d.label}</span></p>}
 
+      {d.steps.length > 0 && (
+        <div className="grid gap-1" data-testid={`${at}-steps`}>
+          <p className={META}>{h.steps}</p>
+          <ul className="m-0 grid list-none gap-1 p-0">
+            {d.steps.map((s) => <li key={s.id} className={`${BODY} break-words`} data-step={s.step} data-step-by={s.by_id}>{s.text}</li>)}
+          </ul>
+        </div>
+      )}
+
+
       {sidesSaid ? null : <div className="grid gap-1" data-testid={`${at}-sides`}>
         <p className={META}>{d.sides_heading ?? h.sides}</p>
         <ul className="m-0 grid list-none gap-1 p-0">
@@ -153,15 +163,6 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }
           <p className={META}>{h.settle}</p>
           <ul className="m-0 grid list-disc gap-1 pl-4">
             {d.settle.map((s, i) => <li key={i} className={`${BODY} break-words`} data-settle={s.kind}>{s.text}</li>)}
-          </ul>
-        </div>
-      )}
-
-      {d.steps.length > 0 && (
-        <div className="grid gap-1" data-testid={`${at}-steps`}>
-          <p className={META}>{h.steps}</p>
-          <ul className="m-0 grid list-none gap-1 p-0">
-            {d.steps.map((s) => <li key={s.id} className={`${BODY} break-words`} data-step={s.step} data-step-by={s.by_id}>{s.text}</li>)}
           </ul>
         </div>
       )}
