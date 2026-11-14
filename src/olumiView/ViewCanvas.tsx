@@ -40,6 +40,7 @@ import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, 
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
+import type { View } from './client'
 import { FOOT_GUTTER, restClearOfFoot } from './footClear'
 import { CoreCard } from './previous/CoreCard'
 import { RootLinkEdge } from './previous/RootLinkEdge'
@@ -172,6 +173,23 @@ function atZoom(nodes: readonly Node[], pane: { width: number; height: number },
  * across a frame (a measured signal; bounded). A new zoom can re-draw the cards' heights, so it frames again if the settled board
  * changed, at most `MAX_FITS` times; a pan or zoom by the person ends it.
  */
+/** The primary aim: the goal card the options' headlines are read against most often (core's `headline.aim_id`), else the first goal. */
+export function primaryAimOf(view: View | null): string | null {
+  const cards = view?.model?.cards ?? [], count = new Map<string, number>()
+  for (const c of cards) { const a = c.family === 'option' ? c.headline?.aim_id ?? null : null; if (a !== null) count.set(a, (count.get(a) ?? 0) + 1) }
+  const top = [...count.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+  return top !== null && cards.some((c) => c.id === top) ? top : cards.find((c) => c.family === 'goal')?.id ?? null
+}
+
+/** What the camera remembers of the board it last framed: a proposal held, and the version. */
+export type BoardSeen = { held: boolean; n: number | null }
+export const boardSeenOf = (view: View | null): BoardSeen => ({ held: view?.proposal != null, n: typeof view?.version?.n === 'number' ? view.version.n : null })
+/** The aim to bring into view: only on the FIRST approval (a first model held, no version; now version 1, nothing held). */
+export function aimAfterFirstApproval(was: BoardSeen | null, now: View | null): string | null {
+  const n = boardSeenOf(now)
+  return was !== null && was.held && was.n === null && n.n === 1 && !n.held ? primaryAimOf(now) : null
+}
+
 function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   const { getNodes, getViewport, setViewport } = useReactFlow()
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
@@ -179,10 +197,14 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   pane.current = { width, height }
   // The board as last drawn with each face (`cameraFrame`); cleared per version.
   const snaps = useRef<Partial<Record<FaceRegime, FaceSnap>>>({})
+  // DL 07:48Z / PL-1040: after the FIRST approval (a first model held, then version 1 with nothing held) the camera brings the primary aim
+  // into view, its question readable without panning; never on a later approval, never on a reload (no held first model seen before).
+  const seen = useRef<{ held: boolean; n: number | null } | null>(null)
+  const aim = useRef<string | null>(null)
   const fit = useCallback(() => {
     const drawn = viewNodes(getNodes()), zoom = getViewport().zoom
     if (drawn.length > 0) snaps.current = { ...snaps.current, [faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
-    const v = cameraFrame(snaps.current, pane.current)
+    const v = cameraFrame(snaps.current, pane.current, undefined, aim.current)
     if (v) void setViewport(v, { duration: DURATION })
   }, [getNodes, getViewport, setViewport])
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
@@ -191,6 +213,9 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     if (version === '') return
     userMoved.current = false
     snaps.current = {}
+    const now = useViewStore.getState().view
+    aim.current = aimAfterFirstApproval(seen.current, now)
+    seen.current = boardSeenOf(now)
     let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
     const tick = () => {
       if (userMoved.current) return

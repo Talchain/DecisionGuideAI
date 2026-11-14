@@ -4,8 +4,12 @@
  * rows 285 px apart, the foot controls' gutter the bottom 88 px of the 704 px window.
  */
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import type { Node } from '@xyflow/react'
 import { FOOT_GUTTER, LABEL_FIGURE_H, restClearOfFoot } from '../footClear'
+import { aimAfterFirstApproval, boardSeenOf, primaryAimOf } from '../ViewCanvas'
+import type { View } from '../client'
 
 const box = (id: string, x: number, y: number, h = 180): Node => ({ id, position: { x, y }, data: {}, measured: { width: 248, height: h } })
 const H = 704, TOP = 104, G = H - FOOT_GUTTER
@@ -32,3 +36,25 @@ describe('at rest the board keeps every card\'s label and figure clear of the fo
   })
 })
 
+describe('the primary aim is the goal the options are read against', () => {
+  const V = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-4352bfa3-twin-cut13-v1.view.json'), 'utf8')) as View
+  it('FC3 on the served twin it is the aim the options\' headlines name (core\'s aim_id), a goal card', () => {
+    const id = primaryAimOf(V)
+    const named = V.model!.cards.filter((c) => c.family === 'option').map((c) => c.headline?.aim_id).filter(Boolean)
+    expect([V.model!.cards.find((c) => c.id === id)?.family, named.includes(id!)]).toEqual(['goal', true])
+  })
+})
+
+describe('(camera, PL-1040) only the first approval brings the aim into view', () => {
+  const V0 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-4352bfa3-twin-cut13-v1.view.json'), 'utf8')) as View
+  const at = (n: number | null, held: boolean) => ({ ...V0, version: n === null ? null : { ...(V0.version ?? {}), n }, proposal: held ? ({ id: 1 } as never) : null }) as View
+  it('FC4 a held first model, then version 1 with nothing held: the primary aim', () => {
+    expect(aimAfterFirstApproval(boardSeenOf(at(null, true)), at(1, false))).toBe(primaryAimOf(V0))
+  })
+  it('FC4 CONTRAST: on version 1 the camera framing again (a badge opened or closed re-keys it) does not bring the aim back', () => {
+    expect(aimAfterFirstApproval(boardSeenOf(at(1, false)), at(1, false))).toBeNull()
+  })
+  it('FC4 CONTRAST: a later approval, a reload (nothing seen before) and a first model still held bring nothing', () => {
+    expect([aimAfterFirstApproval(boardSeenOf(at(1, true)), at(2, false)), aimAfterFirstApproval(null, at(1, false)), aimAfterFirstApproval(boardSeenOf(at(null, true)), at(null, true))]).toEqual([null, null, null])
+  })
+})
