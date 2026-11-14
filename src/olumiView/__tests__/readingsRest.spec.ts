@@ -18,7 +18,7 @@ const setup = (scrollTop: number, rows: Array<[number, number]>) => {
 describe('readingsRest', () => {
   it('both rows whole above the actions: the range runs from the last row clear of the foot to the first row\'s top', () => {
     const { box, root, foot } = setup(0, [[300, 100], [408, 90]])
-    expect(readingsRest(box, root, foot)).toEqual({ low: 498 + 8 + 116 - 348, high: 292 })
+    expect(readingsRest(box, root, foot)).toEqual({ low: 498 + 8 + 116 - 348, high: 292, rows: 2, short: -18 })
     expect(restTop(0, readingsRest(box, root, foot)!, 900)).toBe(274) // the least move from rest that clears the foot
   })
   it('the range does not depend on where the box is scrolled now', () => {
@@ -29,10 +29,22 @@ describe('readingsRest', () => {
     const { box, root, foot } = setup(0, [[300, 100], [408, 90]])
     expect(restTop(280, readingsRest(box, root, foot)!, 900)).toBe(280)
   })
-  it('rows taller than the room: the first row\'s top, never past it', () => {
+  it('13:50Z on 7163b55b, long words: the second row does not fit, so the first rests whole above the actions; `short` is what all would need', () => {
+    const { box, root, foot } = setup(0, [[300, 200], [508, 215]])
+    const r = readingsRest(box, root, foot)!
+    expect(r).toEqual({ low: 500 + 8 + 116 - 348, high: 292, rows: 1, short: 723 + 8 + 116 - 348 - 292 })
+    expect(restTop(0, r, 900)).toBe(276)
+  })
+  it('the first row fits only without its gap: it gives the gap up and still rests whole', () => {
+    const { box, root, foot } = setup(0, [[300, 228], [536, 100]])
+    const r = readingsRest(box, root, foot)!
+    expect([r.low, r.high, r.rows]).toEqual([528 + 116 - 348, 300, 1])
+  })
+  it('not even the first row fits: the first row\'s top, never past it; no row is said to rest whole', () => {
     const { box, root, foot } = setup(0, [[300, 238], [546, 215]])
     const r = readingsRest(box, root, foot)!
-    expect(r.low).toBeGreaterThan(r.high)
+    expect([r.low, r.high, r.rows]).toEqual([292, 292, 0])
+    expect(r.short).toBeGreaterThan(0)
     expect(restTop(0, r, 900)).toBe(292)
   })
   it('CONTRAST: no reading row held: nothing to place', () => {

@@ -22,10 +22,11 @@ const held = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtu
 const PLAIN: Mark = { what: 'Budget', status: 'not yet confirmed', title: 'A figure of Olumi’s' }
 
 // The stubbed layout. Rows are given in the box's scroll coordinates; on screen they sit at the box's top + y - scrollTop.
-const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
-let footH = 116
+const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, SHORT_ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
+// `panelMax`: the most the dock's column can give the box (the thread squeezed to nothing).
+let footH = 116, panelMax = 620, ROWS = SHORT_ROWS
 const boxOf = () => document.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')
-const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : Math.min(parseFloat(b.style.maxHeight), 620))
+const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : Math.min(parseFloat(b.style.maxHeight), panelMax))
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
 const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
 let observers: Array<{ fire: () => void; seen: Element[] }> = []
@@ -36,7 +37,7 @@ const show = (marks: Mark[]) => {
   return render(<ViewChat />)
 }
 beforeEach(() => {
-  footH = 116; observers = []
+  footH = 116; panelMax = 620; ROWS = SHORT_ROWS; observers = []
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
@@ -60,7 +61,8 @@ afterEach(() => {
 })
 // The one observer that watches the pinned box (the proposal's), and whether both rows are whole above the actions as the stub lays them out.
 const placer = () => observers.find((o) => o.seen.includes(boxOf()!))!
-const whole = () => { const b = boxOf()!, top = BOX_TOP, foot = BOX_TOP + boxH(b) - footH; return Object.values(ROWS).every(([y, h]) => BOX_TOP + y - b.scrollTop >= top && BOX_TOP + y + h - b.scrollTop <= foot) }
+const wholeRow = (id: string) => { const b = boxOf()!, foot = BOX_TOP + boxH(b) - footH, [y, h] = ROWS[id]!; return BOX_TOP + y - b.scrollTop >= BOX_TOP && BOX_TOP + y + h - b.scrollTop <= foot }
+const whole = () => Object.keys(ROWS).every(wholeRow)
 
 describe('PL-1083 (1): placing the held reading rows', () => {
   it('on arrival the box is grown by what the rows lack and scrolled so both rows rest whole above the actions', () => {
@@ -78,26 +80,52 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(b.scrollTop).toBe(0)
     expect(observers.some((o) => o.seen.includes(b))).toBe(false)
   })
-  it('Codex (1): a scroll the browser made itself (the box resized, its scrollTop clamped) is put right at the next resize', () => {
+  it('Codex (1): a scroll the browser made itself (the box resized, its scrollTop clamped: a scroll event with no input) is put right at the next resize', () => {
     show(held)
     const b = boxOf()!
-    b.scrollTop = 120 // not the person: no wheel, touch, key or scrollbar press
+    b.scrollTop = 120; fireEvent.scroll(b) // not the person: no wheel, touch, key or scrollbar press before it
     expect(whole()).toBe(false)
     placer().fire()
     expect(b.scrollTop).toBe(292)
     expect(whole()).toBe(true)
   })
-  it('Codex (1) CONTRAST: once the person scrolls the box themselves (a wheel), a later resize leaves it where they put it', () => {
+  it('Codex (1) CONTRAST: once the person scrolls the box themselves (a wheel, then the box scrolls), a later resize leaves it where they put it', () => {
     show(held)
     const b = boxOf()!
-    fireEvent.wheel(b); b.scrollTop = 40
+    fireEvent.wheel(b); b.scrollTop = 40; fireEvent.scroll(b)
     placer().fire()
     expect(b.scrollTop).toBe(40)
   })
-  it('choosing a reading with the keyboard or the pointer is not a scroll: the rows are still placed afterwards', () => {
+  it('the same for a scroll key and for a press held on the box\'s own scrollbar', () => {
+    for (const input of [(b: HTMLElement) => fireEvent.keyDown(b, { key: 'PageDown' }), (b: HTMLElement) => fireEvent.pointerDown(b)]) {
+      const r = show(held)
+      const b = boxOf()!
+      input(b); b.scrollTop = 60; fireEvent.scroll(b)
+      placer().fire()
+      expect(b.scrollTop).toBe(60)
+      r.unmount(); observers = []
+    }
+  })
+  it('Codex 13:50Z: input that scrolls nothing never stops the placing (a wheel the list takes, a sideways wheel, a press on the padding)', () => {
+    show(held)
+    const b = boxOf()!
+    fireEvent.wheel(b); fireEvent.wheel(b, { deltaX: 40 }); fireEvent.pointerDown(b); fireEvent.pointerUp(b) // no scroll of the box follows
+    footH = 168
+    placer().fire()
+    expect(b.style.maxHeight).toBe('458px')
+    expect(whole()).toBe(true)
+  })
+  it('our own placing is not taken for the person\'s: the scroll event it causes, even just after their wheel, stops nothing', () => {
+    show(held)
+    const b = boxOf()!
+    fireEvent.wheel(b); fireEvent.scroll(b) // the event for the position we set (292): ours
+    b.scrollTop = 120; placer().fire()
+    expect(b.scrollTop).toBe(292)
+  })
+  it('choosing a reading with the pointer or the keyboard is not a scroll: the rows are still placed afterwards', () => {
     show(held)
     const b = boxOf()!, use = screen.getByTestId('view-reading-0-use')
-    fireEvent.pointerDown(use); fireEvent.click(use); fireEvent.keyDown(use, { key: 'ArrowDown' })
+    fireEvent.pointerDown(use); fireEvent.pointerUp(use); fireEvent.click(use)
     b.scrollTop = 120
     placer().fire()
     expect(b.scrollTop).toBe(292)
@@ -106,6 +134,7 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     show(held)
     const b = boxOf()!
     expect(placer().seen).toContain(screen.getByTestId('view-proposal-actions'))
+    expect(placer().seen).toEqual(expect.arrayContaining([screen.getByTestId('view-reading-0'), screen.getByTestId('view-reading-1')])) // each row is watched
     footH = 168
     expect(whole()).toBe(false)
     placer().fire()
@@ -126,5 +155,30 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     useViewStore.setState({ view: { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks: [PLAIN] } } })
     r.rerender(<ViewChat />)
     expect(boxOf()!.style.maxHeight).toBe('')
+  })
+  it('Codex 13:50Z: rows that are replaced (the marks shift, the same reading ids) are watched again', () => {
+    const r = show(held)
+    useViewStore.setState({ view: { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks: [PLAIN, ...held] } } })
+    r.rerender(<ViewChat />)
+    expect(placer().seen).toEqual(expect.arrayContaining([screen.getByTestId('view-reading-1'), screen.getByTestId('view-reading-2')]))
+  })
+  it('13:50Z on 7163b55b, long words (rows of 352 and 215 px) in a panel that can give 505 px: the box takes what there is, the first row rests whole above the actions, the second is reached by scrolling', () => {
+    ROWS = { 'view-reading-0': [300, 352], 'view-reading-1': [660, 215] }; panelMax = 505
+    show(held)
+    const b = boxOf()!
+    expect(boxH(b)).toBe(505)
+    expect(wholeRow('view-reading-0')).toBe(true)
+    expect(wholeRow('view-reading-1')).toBe(false)
+    expect(b.scrollTop).toBe(652 + 8 + 116 - 503) // the first row's foot just clear of the actions
+  })
+})
+
+describe('PL-1083 (1): a thread squeezed to nothing is clipped, never drawn over the box', () => {
+  const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  it('while readings are held the thread\'s wrapper has no floor and hides what overflows it', () => {
+    const sel = "[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap] {"
+    const i = css.indexOf(sel)
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(css.slice(i, css.indexOf('}', i))).toMatch(/min-height: 0;\s*overflow: hidden/)
   })
 })

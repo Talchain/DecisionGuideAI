@@ -227,9 +227,10 @@
 /* PL-1083 (1), DL 12:5xZ (A): while the proposal holds Olumi's readings, its reading rows and actions never go under anything. What yields,
    in order: More ways hides; then the thread may shrink below its floor (its newest message keeps its start in view while space allows);
    the box grows to hold the rows and the actions (ViewChat Proposal sizes it, ./readingsRest.ts) and shrinks rather than run past the
-   composer. Nothing held: exactly as before. */
+   composer. A thread squeezed to nothing is clipped, never drawn over the box (13:50Z on 7163b55b: its padding overlapped the first row).
+   Nothing held: exactly as before. */
 [data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
-[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap] { min-height: 0; }
+[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }
 .ok-pinned:has([data-reading-row]) { flex-shrink: 1; }
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
