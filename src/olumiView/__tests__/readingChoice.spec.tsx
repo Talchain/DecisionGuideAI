@@ -270,4 +270,19 @@ describe('choose per reading', () => {
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p0.base })
   })
+
+  // DL journey (2): Set aside sends the readings the person kept the original for, so a reading carried from an earlier message is settled
+  // (core answers 409 to a discard that leaves it unsettled). CONTRAST: none chosen sends none (an unanswered reading is not a refusal).
+  it('Set aside with "Keep the original" chosen for one reading sends that reading as refused, and only it; none chosen sends none', async () => {
+    show(withMarks([ADA, PLAIN, CAL]))
+    fireEvent.click(radio(0, 'keep'))
+    fireEvent.click(screen.getByTestId('view-set-aside'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ path: `/api/proposals/${p0.id}/discard`, body: { refuse_readings: ['rd_ada'] } })
+    cleanup(); posts = []; useViewChat.setState({ busy: false, said: null })
+    show(withMarks([ADA, PLAIN, CAL]))
+    fireEvent.click(screen.getByTestId('view-set-aside'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({})
+  })
 })

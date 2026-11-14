@@ -447,7 +447,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
+            an earlier message is settled only by an explicit refusal, else core answers 409). */}
+        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>
       </div>
     </div>
   )
