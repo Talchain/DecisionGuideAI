@@ -178,7 +178,9 @@ function atZoom(nodes: readonly Node[], pane: { width: number; height: number },
 export function primaryAimOf(view: View | null): string | null {
   const cards = view?.model?.cards ?? [], count = new Map<string, number>()
   for (const c of cards) { const a = c.family === 'option' ? c.headline?.aim_id ?? null : null; if (a !== null) count.set(a, (count.get(a) ?? 0) + 1) }
-  const top = [...count.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+  // The aim read most often; the first counted wins a tie. Counted, not ordered.
+  let top: string | null = null, most = 0
+  for (const [aim, n] of count) if (n > most) { top = aim; most = n }
   return top !== null && cards.some((c) => c.id === top) ? top : cards.find((c) => c.family === 'goal')?.id ?? null
 }
 
@@ -365,7 +367,10 @@ function ViewFlow() {
         onZoomIn={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomIn({ duration: 200 }) }}
         onZoomOut={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomOut({ duration: 200 }) }}
         onZoomReset={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomTo(1, { duration: 200 }) }}
-        onFitView={() => { userMoved.current = false; fit() }}
+        // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
+        // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
+        // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
+        onFitView={() => { userMoved.current = false; movedAt.current += 1; activity.current = { at: Date.now(), active: false }; fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}

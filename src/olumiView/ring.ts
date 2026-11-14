@@ -63,8 +63,9 @@ export function attCards(ids: readonly string[]): void { tab = ids; watch(); pai
 /** A new reply has brought its cards into view: each card's ring pulses once (index.css / olumiLook.css `.v10-pulse`, none under prefers-reduced-motion).
  *  The class is removed when the animation ends, or after `PULSE_MS` where none runs, so the same cards can pulse for the next reply. */
 export const PULSE_MS = 900
-export function pulseCards(ids: readonly string[]): void {
-  if (typeof document === 'undefined') return
+export function pulseCards(ids: readonly string[]): () => void {
+  const undo: Array<() => void> = []
+  if (typeof document === 'undefined') return () => {}
   for (const id of ids) {
     const el = nodeOf(id)
     if (el === null) continue
@@ -73,6 +74,9 @@ export function pulseCards(ids: readonly string[]): void {
     el.classList.add('v10-pulse')
     const done = () => el.classList.remove('v10-pulse')
     el.addEventListener('animationend', done, { once: true })
-    setTimeout(done, PULSE_MS)
+    const timer = setTimeout(done, PULSE_MS)
+    undo.push(() => { clearTimeout(timer); el.removeEventListener('animationend', done); done() })
   }
+  // Calling this ends the pulses now and clears their timers: a reply that is no longer the latest, another scenario, or an unmount.
+  return () => { for (const u of undo) u() }
 }

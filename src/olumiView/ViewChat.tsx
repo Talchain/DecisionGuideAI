@@ -45,6 +45,7 @@ import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
 import { earlyOf, floorShown, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
 import { EarlyAnswer } from './EarlyAnswer'
+import { ResultReceipts } from './ResultReceipts'
 import { SinceVersion } from '../olumiCore/compare'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
@@ -192,6 +193,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
+      <ResultReceipts claims={t.answer.claims} />
       <Stories answer={t.answer} at={at} />
     </div>
   )
@@ -206,7 +208,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
       {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
-      {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Reply while the model was being built</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+      {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
@@ -232,7 +234,7 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
  */
 export const retriedAt = (chat: View['chat'], i: number): boolean => {
   const t = chat[i], next = chat[i + 1]
-  return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && next.by_id === t.by_id && next.said === t.said
+  return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && !!t.by_id && next.by_id === t.by_id && next.said === t.said
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
@@ -253,15 +255,20 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
   const entries = entriesOf(draft)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
+  // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
+  let newestSaved: number | null = null
+  for (let i = rows.length - 1; i >= 0 && newestSaved === null; i--) newestSaved = rows[i]!.index
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
         if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
         const t = chat[row.index]!
-        // Older projections have no accepted job identities and retain their existing retry display.
-        if (entries === null && retriedAt(chat, row.index)) return null
-        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latest} moves={latest && moves} primary={primary} me={me} />
+        const next = rows[position + 1]
+        // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
+        if (next?.index === row.index + 1 && row.floor === null && earlyOf(t) === null && retriedAt(chat, row.index)) return null
+        const latestAnswer = row.index === newestSaved
+        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} />
       })}
     </ol>
   )
@@ -1250,7 +1257,7 @@ export function ViewChat() {
     // A job the saved row already draws (its message and failure; only Try again added) is not the newest message: his message is
     // (DL 1128 fault 3: following the job's Try again scrolled his own message out of view above the pinned proposal).
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"], [data-latest-floor]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the

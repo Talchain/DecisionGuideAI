@@ -97,6 +97,76 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
       cleanup()
     }
   })
+  it('keeps the latest saved turn available when a newer floor reply follows', () => {
+    const g = golden('whatif'), turn = g.chat.find(t => t.answer !== null)!
+    const c = show({ ...g, chat: [turn], floor: [{ ...floorRow, job: turn.id + 8 }] } as unknown as View, <ViewChat />)
+    expect(c.querySelector('[data-testid="view-chat-latest"]')?.getAttribute('data-view-turn')).toBe('chat.0')
+    expect(c.querySelector('[data-latest-floor]')?.textContent).toContain(SAID)
+  })
+  it('keeps a floor reply ahead of a later chat, including with an unfamiliar entry or an absent optional id', () => {
+    const g = golden('whatif'), turn = { ...g.chat[0]!, by_id: '7', id: 90 }
+    const conversation = [
+      { seq: 10, kind: 'brief', job: 9, by_id: '7' },
+      { seq: 15, kind: 'future-kind' },
+      { seq: 20, kind: 'turn', by_id: '7', proposal: 90 },
+    ]
+    const c = show({ ...g, chat: [turn], floor: [floorRow], draft: { ...draft('failed'), conversation } } as unknown as View, <ViewChat />)
+    const rows = c.querySelectorAll('[data-testid="view-chat-turns"] > li')
+    expect(rows[0]?.getAttribute('data-floor-job')).toBe('9')
+    expect(rows[1]?.getAttribute('data-view-turn')).toBe('chat.0')
+  })
+  it('collapses a failed retry with accepted IDs while retaining distinct earlier replies', () => {
+    const g = golden('whatif'), ok = { ...g.chat.find(t => t.answer !== null)!, by_id: '7', said: SAID, id: 50 }
+    const failed = { ...ok, id: 40, answer: null, problem: 'The reply failed.' }
+    const conversation = [ { seq: 15, kind: 'turn', job: 15, proposal: 40, by_id: '7' },
+      { seq: 20, kind: 'turn', job: 20, proposal: 50, by_id: '7' } ]
+    const view = { ...g, chat: [failed, ok], draft: { ...draft('failed'), conversation }, floor: [] }
+    const c = show(view as unknown as View, <ViewChat />)
+    expect(c.querySelector('[data-view-turn="chat.0"]')).toBeNull()
+    expect(c.querySelector('[data-view-turn="chat.1"]')).not.toBeNull()
+    cleanup()
+    const other = { ...floorRow, job: 15, by_id: '8', by: 'Another person' }
+    const mismatch = show({ ...view, floor: [other] } as unknown as View, <ViewChat />)
+    expect(mismatch.querySelector('[data-testid="view-floor-turn"]')?.textContent).toContain('Another person')
+    expect(mismatch.querySelector('[data-view-turn="chat.1"] [data-floor-job="15"]')).toBeNull()
+    cleanup()
+    const distinct = show({ ...view, floor: [{ ...floorRow, job: 15 }] } as unknown as View, <ViewChat />)
+    expect(distinct.querySelector('[data-view-turn="chat.0"] [data-floor-job="15"]')).not.toBeNull()
+  })
+  it('orders a newer kind by acceptance and groups its two replies only by their matching ids and author', () => {
+    const g = golden('whatif'), saved = g.chat.find(t => t.answer !== null)!
+    const chat = [
+      { ...saved, id: 35, by_id: '8', said: SAID },
+      { ...saved, id: 90, by_id: '7', said: SAID, early: { text: EARLY },
+        answer: { ...saved.answer!, next: { ...saved.answer!.next, newest: true, move: 'ask:challenge' } } },
+    ]
+    // The second proposal was accepted first. Its two equally worded replies may only be coalesced for a known brief.
+    const conversation = [
+      { seq: 10, kind: 'future-kind', job: 50, proposal: 90, by_id: '7' },
+      { seq: 20, kind: 'turn', job: 31, proposal: 35, by_id: '8' },
+    ]
+    const view = { ...g, chat, floor: [{ ...floorRow, job: 50, text: EARLY }], draft: { ...draft('failed'), conversation } }
+    const c = show(view as unknown as View, <ViewChat />)
+    const rows = c.querySelectorAll('[data-testid="view-chat-turns"] > li')
+    expect([...rows].map(r => r.getAttribute('data-view-turn'))).toEqual(['chat.1', 'chat.0'])
+    expect(rows[0]!.querySelector('[data-testid="view-chat-early"]')?.textContent).toContain('Start with the shortest route.')
+    expect(rows[0]!.querySelector('[data-floor-job="50"]')?.textContent).toContain('Start with the shortest route.')
+    expect(rows[0]!.querySelectorAll('[data-testid="view-chat-said-bubble"]')).toHaveLength(1)
+    expect(rows[1]!.getAttribute('data-testid')).toBe('view-chat-latest')
+    expect(rows[0]!.querySelector('button[data-move="ask:challenge"]')).not.toBeNull()
+    expect(rows[1]!.querySelector('button[data-move]')).toBeNull()
+  })
+  it('keeps a failed attempt with its early answer and preserves two legacy contributions whose author is unknown', () => {
+    const g = golden('whatif'), ok = { ...g.chat.find(t => t.answer !== null)!, by_id: '7', said: SAID }
+    const failed = { ...ok, id: 40, answer: null, problem: 'The reply failed.' }
+    const view = { ...g, chat: [{ ...failed, early: { text: EARLY } }, { ...ok, id: 50 }] }
+    const c = show(view as unknown as View, <ViewChat />)
+    expect(c.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-early"]')?.textContent).toContain('Start with the shortest route.')
+    expect(c.querySelector('[data-view-turn="chat.1"] [data-testid="view-chat-answer"]')).not.toBeNull()
+    cleanup()
+    const legacy = show({ ...g, chat: [{ ...failed, by_id: null }, { ...ok, id: 50, by_id: null }] }, <ViewChat />)
+    expect(legacy.querySelectorAll('[data-testid="view-chat-said-bubble"]')).toHaveLength(2)
+  })
   it('without accepted ids, keeps saved chat and floor order and never swallows a separate job with the same words', () => {
     const g = golden('whatif')
     const a = { ...floorRow, job: 18, said: 'FIRST SENT' }, b = { ...floorRow, job: 6, said: 'SECOND SENT' }

@@ -2,7 +2,8 @@
  * AI and canvas as one partner: when a NEW reply arrives that points at cards (core's `chat[].answer.next.about`, and `next.at` where it is
  * a card), the board moves so those cards are in view (panned; zoomed out only as far as needed, never in) and their ring pulses once.
  * Never on a reload or a reopened scenario (the first View seen for a scenario is the baseline), never while the person is dragging, and
- * never within `QUIET_MS` of their own pan or zoom, or if they move during the settle. Reduced motion: it jumps, no animation.
+ * never within `QUIET_MS` of their own pan, zoom or Fit, or if they move (or press Fit) during the settle or the delay before the pulse. A reply that
+ * arrives while the person holds the camera leaves the board where it is (deliberate: it is not retried when the quiet time ends). Reduced motion: it jumps, no animation.
  * Nothing is written and no words are added: the cards are the ones the reply's ring already lights (ring.ts).
  */
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
@@ -30,7 +31,9 @@ export function newestReplyOf(view: View | null): { id: number; cards: readonly 
   const on = new Set((view?.model?.cards ?? []).map((c) => c.id))
   const at = best.answer.next.at
   const ids = [...nextCardsOf(best.answer.next), ...(at == null ? [] : [at])]
-  return { id: best.id, cards: [...new Set(ids)].filter((id) => on.has(id)) }
+  const cards: string[] = []
+  for (const id of new Set(ids)) if (on.has(id)) cards.push(id)
+  return { id: best.id, cards }
 }
 
 /**
@@ -58,23 +61,34 @@ export function useReplyInView(movedAt: MutableRefObject<number>, activity: Muta
   const { getViewport, setViewport, getInternalNode } = useReactFlow()
   const seen = useRef<ReplySeen | null>(null)
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
-  // One arrival per new reply, held apart from the polled View so a later poll does not cancel the settle below.
-  const [arrival, setArrival] = useState<{ n: number; ids: readonly string[] } | null>(null)
+  // One arrival per new reply, held apart from the polled View so a later poll does not cancel the settle below. It names its scenario, and a
+  // reply that points at no card still replaces it: the newest reply is the only one that may move the board.
+  const [arrival, setArrival] = useState<{ n: number; sid: string; ids: readonly string[] } | null>(null)
   useEffect(() => {
-    const r = replyArrival(seen.current, sid, view)
+    const before = seen.current
+    const r = replyArrival(before, sid, view)
     seen.current = r.seen
-    if (r.cards.length > 0) setArrival((a) => ({ n: (a?.n ?? 0) + 1, ids: r.cards }))
+    if (r.seen === before) return
+    // A newer reply in the scenario already being watched is an arrival (its cards may be none); a first View or another scenario is only a baseline.
+    const fresh = sid !== null && before !== null && before.sid === sid
+    setArrival((a) => (fresh ? { n: (a?.n ?? 0) + 1, sid, ids: r.cards } : a === null ? a : null))
   }, [view, sid])
+  // A reply's arrival belongs to the scenario it came in; on ANY change of scenario (A to B, and back to A before B's View has loaded) it is let go,
+  // so a reply already acted on is never replayed on a reopened scenario.
+  useEffect(() => { setArrival((a) => (a !== null && a.sid !== sid ? null : a)) }, [sid])
   useEffect(() => {
-    if (arrival === null) return
+    // Another scenario's reply never moves this one (the effect that ran for it has been cleaned up by the `sid` dependency).
+    if (arrival === null || arrival.sid !== sid || arrival.ids.length === 0) return
     const ids = arrival.ids
     // The person has the camera (mid-drag, or panned or zoomed a moment ago): the reply's ring still shows, the board stays put.
     if (!cameraMayMove(activity.current, Date.now())) return
-    const moves = movedAt.current
-    let ticks = 0, last = ''
+    const moves = movedAt.current, touched = activity.current.at
+    // The person's own hand since this reply arrived: a pan, zoom or drag (movedAt), a drag held now, or any zoom-button press (activity.at).
+    const handMoved = () => moves !== movedAt.current || activity.current.active || activity.current.at !== touched
+    let ticks = 0, last = '', pulse: ReturnType<typeof setTimeout> | null = null, unpulse: (() => void) | null = null
     const t = setInterval(() => {
       ticks += 1
-      if (moves !== movedAt.current || activity.current.active || ticks > MAX_TICKS) return clearInterval(t)
+      if (handMoved() || ticks > MAX_TICKS) return clearInterval(t)
       const pane = document.querySelector('.react-flow')
       if (pane === null || viewLaying()) return
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
@@ -91,10 +105,12 @@ export function useReplyInView(movedAt: MutableRefObject<number>, activity: Muta
       const { size, inset } = freePane(pane)
       const to = replyViewTarget({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, size, inset, vp)
       const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
-      if (to === null) { pulseCards(ids); return }
+      if (to === null) { unpulse = pulseCards(ids); return }
       void setViewport(to, { duration: still ? 0 : 300 })
-      setTimeout(() => pulseCards(ids), still ? 0 : 320)
+      // The ring pulses once the move has landed, unless the person has taken the camera in that moment.
+      pulse = setTimeout(() => { pulse = null; if (!handMoved()) unpulse = pulseCards(ids) }, still ? 0 : 320)
     }, TICK)
-    return () => clearInterval(t)
-  }, [arrival, movedAt, activity, getViewport, setViewport, getInternalNode])
+    // A different reply or scenario, a manual move noticed by the next run, or unmount: no tick, no delayed pulse and no pulse in progress outlives this.
+    return () => { clearInterval(t); if (pulse !== null) clearTimeout(pulse); unpulse?.() }
+  }, [arrival, sid, movedAt, activity, getViewport, setViewport, getInternalNode])
 }

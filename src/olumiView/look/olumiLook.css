@@ -202,6 +202,7 @@
 .olumi-look .ok-share-bar > i { display: block; height: 100%; }
 .olumi-look .ok-share-olumi { background: var(--o-info); }
 .olumi-look .ok-share-person { background: var(--o-ink); }
+.olumi-look .ok-share-unassigned { background: var(--o-light); opacity: 0.45; }
 @keyframes ok-ring-pulse { from { outline-width: 8px; } to { outline-width: 4px; } }
 [data-presentation="v10"] .react-flow__node.v10-pulse { animation: ok-ring-pulse 700ms ease-out 1; }
 @media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }

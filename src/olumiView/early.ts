@@ -57,13 +57,19 @@ export const onFloor = (view: Holder & object | null): boolean => {
 }
 
 /** The conversation sequence is the acceptance row id. floor.job and chat.id identify its replies. */
-type Entry = { seq: number; kind: 'brief' | 'turn'; by_id: string; job: number | null; proposal: number | null }
+type Entry = { seq: number; kind: string; by_id: string; job: number | null; proposal: number | null }
 export function entriesOf(draft: unknown): Entry[] | null {
   const entries = (draft as { conversation?: unknown } | null)?.conversation
   if (!Array.isArray(entries) || entries.length === 0) return null
-  return entries.every((e) => e != null && Number.isSafeInteger(e.seq) && (e.kind === 'brief' || e.kind === 'turn') &&
-    typeof e.by_id === 'string' && (e.job === null || Number.isSafeInteger(e.job)) && (e.proposal === null || Number.isSafeInteger(e.proposal)))
-    ? entries : null
+  const known: Entry[] = []
+  for (const e of entries) {
+    if (e == null || !Number.isSafeInteger(e.seq) || typeof e.kind !== 'string' || !e.kind.trim() || typeof e.by_id !== 'string' || !e.by_id.trim()) continue
+    // The ordering and identity fields also apply to a newer kind. Only a known brief shares its first answer with the drafting board.
+    if (e.job == null && e.proposal == null) continue
+    if ((e.job != null && !Number.isSafeInteger(e.job)) || (e.proposal != null && !Number.isSafeInteger(e.proposal))) continue
+    known.push({ seq: e.seq, kind: e.kind, by_id: e.by_id, job: e.job ?? null, proposal: e.proposal ?? null })
+  }
+  return known.length ? known : null
 }
 
 /** The board draws the brief's early answer. Only its actual job can refer to that same brief. */

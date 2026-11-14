@@ -37,31 +37,44 @@ export function chanceAtOf(card: ViewCard): number | null {
   return typeof row?.chance === 'number' && row.chance >= 0 && row.chance <= 1 ? row.chance : null
 }
 
-export type RestsShare = { readonly id: string; readonly olumi: number; readonly person: number; readonly line: string; readonly hover: string }
-/** Below this a served share is numerical dust (core serves 5.5e-16 for "none"): drawn as none. */
+export type RestsShare = { readonly id: string; readonly olumi: number; readonly person: number; readonly unassigned: number; readonly line: string; readonly hover: string }
+/** Below this a served share is numerical dust (core serves 5.5e-16 for "none"): drawn as a zero-width bar. It sets bar widths ONLY, never a word. */
 export const SHARE_FLOOR = 0.005
 
-/** Core's `run.rests[]` entry for THIS option's chance of meeting THIS aim (never another option's, never a limit's); null when none is served. */
+/**
+ * Core's `run.rests[]` entry for THIS option's chance of meeting THIS aim: the first entry of kind 'goal' with this option and this aim (never another
+ * option's, never another aim's). Entries of kind 'limit' are deliberately not drawn on the card, and a second goal entry for the same option and
+ * aim is not read. null only when no such entry is served. A share that is not a finite number is a bar of no width (0), never a reason to
+ * hide the entry: the words are core's own line, whatever the shares.
+ */
 export function restsShareOf(model: ViewModel | null, card: ViewCard): RestsShare | null {
   const aim = card.headline?.aim_id ?? null
   if (model === null || card.family !== 'option' || aim === null) return null
   const r = (model.run?.rests ?? []).find((x) => x.kind === 'goal' && x.option === card.id && x.aim === aim)
-  if (r === undefined || !(Number.isFinite(r.olumi_share) && Number.isFinite(r.person_share))) return null
-  return { id: r.id, olumi: r.olumi_share, person: r.person_share, line: r.line, hover: r.hover }
+  if (r === undefined) return null
+  const share = (n: number): number => (Number.isFinite(n) ? n : 0)
+  return { id: r.id, olumi: share(r.olumi_share), person: share(r.person_share), unassigned: share(r.unassigned), line: r.line, hover: r.hover }
 }
 
-/** The plain words for how much of the result rests on Olumi's own estimates; null when neither side carries anything. */
-export function sharedWords(s: RestsShare): string | null {
-  if (s.olumi < SHARE_FLOOR && s.person < SHARE_FLOOR) return null
-  if (s.olumi >= 0.5) return "Rests mostly on Olumi's estimates: check these"
-  if (s.olumi >= 0.05) return "Rests partly on Olumi's estimates: check these"
-  return 'Rests on your own figures, not on Olumi’s estimates'
-}
+/** Shown only where core serves no line for the entry: credits neither Olumi nor any person, and says nothing about the split. */
+export const NEUTRAL_REST_WORDS = 'See what this result rests on'
+export type RestWords = { readonly basis: 'line' | 'neutral'; readonly words: string }
+
+/**
+ * The words on the button come from the served entry (`run.rests[]`) and from nothing else: core's own scoped line for the entry, for every split
+ * (all unassigned, equal halves, many people's figures alike). Shares never choose or write a word here: whether the result rests "mostly" on
+ * anyone, or on "your" figures, is core's to say in its line (`person_share` is every person's figures together, so no reader is told they are
+ * "own"). Where the line is blank, a neutral label that links to the same details.
+ */
+export const restWordsOf = (s: RestsShare): RestWords =>
+  s.line.trim() === '' ? { basis: 'neutral', words: NEUTRAL_REST_WORDS } : { basis: 'line', words: s.line.trim() }
 
 /** The served share as a width in percent: each side as served (never derived from the other), kept inside the track together. */
-export function shareWidths(s: RestsShare): { olumi: number; person: number } {
+export function shareWidths(s: RestsShare): { olumi: number; person: number; unassigned: number } {
   const o = s.olumi < SHARE_FLOOR ? 0 : Math.min(1, Math.max(0, s.olumi)), p = s.person < SHARE_FLOOR ? 0 : Math.min(1, Math.max(0, s.person))
-  const total = o + p
+  // Core's own unassigned share, its own segment (never added to the person's): kept to what the two others leave of the track.
+  const u = s.unassigned < SHARE_FLOOR ? 0 : Math.min(1, Math.max(0, s.unassigned))
+  const total = o + p + u
   const k = total > 1 ? 1 / total : 1
-  return { olumi: o * k * 100, person: p * k * 100 }
+  return { olumi: o * k * 100, person: p * k * 100, unassigned: u * k * 100 }
 }
