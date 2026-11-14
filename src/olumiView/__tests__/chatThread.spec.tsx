@@ -267,6 +267,26 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(684) // the question's top (700 - 16), not the step's (744)
   })
 
+  it('CT8d (DL 06:57Z (4), old look): with a proposal waiting, the thread moves on only as far as the actions need to be in view; never past the step\'s top', () => {
+    const at: Record<string, number> = { 'view-model-question': 600, 'view-next-step': 700, 'view-chat-proposal': 900 }, tall: Record<string, number> = { 'view-model-question': 50, 'view-next-step': 400, 'view-proposal-actions': 116 }
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return at[this.dataset.testid ?? ''] ?? 500 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return tall[this.dataset.testid ?? ''] ?? 0 })
+    const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
+    show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
+    const scroll = render(<ViewChat />).getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 2600, configurable: true }, clientHeight: { value: 330, configurable: true } })
+    act(() => show(asked))
+    // The question's top would be 584; the actions need 900 + 116 + 16 - 330 = 702; the step's top caps it at 684.
+    expect(scroll.scrollTop).toBe(684)
+    cleanup()
+    show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
+    const roomy = render(<ViewChat />).getByTestId('view-chat-scroll')
+    Object.defineProperties(roomy, { scrollHeight: { value: 2600, configurable: true }, clientHeight: { value: 460, configurable: true } })
+    act(() => show(asked))
+    // Where the actions already fit with the question at the top (900 + 116 + 16 - 460 = 572 < 584), the question's top is kept (CT8c's rule).
+    expect(roomy.scrollTop).toBe(584)
+  })
+
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
   it('CT9 observes content growth while following, preserves a scrolled-back position and disconnects', () => {
     let resize: ResizeObserverCallback = () => undefined

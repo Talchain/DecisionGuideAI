@@ -140,3 +140,12 @@ describe('a figure and the line that reads it are ticked together', () => {
     expect(ticks()).toEqual([false, false, true])
   })
 })
+
+describe('DL 06:57Z (4), old look: Approve and Set aside are reached without scrolling the thread', () => {
+  it('SA1 the proposal\'s actions are one sticky foot, inside the thread\'s scroll, holding Approve and Set aside (bound by test id)', () => {
+    show(golden)
+    const row = screen.getByTestId('view-proposal-actions')
+    expect(row.className.split(/\s+/)).toEqual(expect.arrayContaining(['sticky', 'bottom-0', 'bg-panel']))
+    expect([!!row.querySelector('[data-testid="view-approve"]'), !!row.querySelector('[data-testid="view-set-aside"]'), !!row.closest('[data-testid="view-next-step"]')]).toEqual([true, true, true])
+  })
+})

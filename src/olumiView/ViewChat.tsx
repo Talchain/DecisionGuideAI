@@ -438,13 +438,15 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
-      <div className="flex flex-wrap gap-2">
+      {/* DL 06:57Z (4), old look: the actions are a sticky foot of the proposal, held at the thread's foot while the proposal's top is in view,
+          so Approve and Set aside are reached without scrolling at 1232 and 1128 (the new look pins the whole proposal). */}
+      <div className="sticky bottom-0 z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg bg-panel px-3 pb-3 pt-2 shadow-[0_-8px_8px_-8px_rgba(30,49,50,0.12)]" data-testid="view-proposal-actions">
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
       </div>
     </div>
   )
@@ -1139,6 +1141,11 @@ export function ViewChat() {
     const asked = step === null ? null : el.querySelector<HTMLElement>('[data-testid="view-model-question"]')
     const from = asked?.offsetTop ?? step?.offsetTop ?? 0
     if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
+    // DL 06:57Z (4), old look: while a proposal waits, its actions (a sticky foot) must have room at the thread's foot: where the block above
+    // leaves too little, the thread moves on only as far as that needs (Olumi's question keeps what room is left; never past the step's top).
+    const prop = step?.dataset['step'] === 'approve' ? step.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]') : null
+    const row = prop?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]') ?? null
+    if (step !== null && prop != null && row !== null) top = Math.max(top, Math.min(step.offsetTop - 16, prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)
