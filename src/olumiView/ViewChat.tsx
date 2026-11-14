@@ -1184,15 +1184,18 @@ export function ViewChat() {
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
-    const observer = new ResizeObserver(followNewest)
-    observer.observe(content.current)
     // PL-1083 (1), Codex 14:3xZ: the thread's own height changes too (the composer grows, the window is resized) without its content
     // changing size. While a proposal holds Olumi's readings the thread then rests again, so the rows are not left under the actions.
-    // With no reading held this does nothing: the thread behaves exactly as before.
+    // With no reading held a change of the thread's own height alone does nothing: the thread behaves exactly as before. One observer
+    // for both: a change of the content always rests the thread, as it did.
     const box = scroll.current
-    const held = box === null ? null : new ResizeObserver(() => { if (box.querySelector('[data-reading-row]') !== null) followNewest() })
-    if (box !== null) held?.observe(box)
-    return () => { observer.disconnect(); held?.disconnect() }
+    const observer = new ResizeObserver((entries) => {
+      const boxOnly = entries.length > 0 && entries.every((e) => e.target === box)
+      if (!boxOnly || box?.querySelector('[data-reading-row]') != null) followNewest()
+    })
+    observer.observe(content.current)
+    if (box !== null) observer.observe(box)
+    return () => observer.disconnect()
   }, [followNewest, floating])
   // Return focus to the pop-out control after docking (A2 stop/float, DL 10 Nov).
   const wasFloating = useRef(floating)

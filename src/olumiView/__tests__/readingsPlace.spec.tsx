@@ -26,9 +26,9 @@ let ROWS = SHORT_ROWS, H = 473
 const thread = () => document.querySelector<HTMLElement>('[data-testid="view-chat-scroll"]')!
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
 const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
-let observers: Array<{ fire: () => void; seen: Element[] }> = []
+let observers: Array<{ fire: (e: Element) => void; seen: Element[] }> = []
 // A size change of ONE element, as the browser reports it: only the observers watching that element hear of it.
-const resized = (e: Element) => { const heard = observers.filter((o) => o.seen.includes(e)); for (const o of heard) o.fire(); return heard.length }
+const resized = (e: Element) => { const heard = observers.filter((o) => o.seen.includes(e)); for (const o of heard) o.fire(e); return heard.length }
 
 const show = (marks: Mark[]) => {
   const view: View = { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks } }
@@ -37,7 +37,7 @@ const show = (marks: Mark[]) => {
 }
 beforeEach(() => {
   ROWS = SHORT_ROWS; H = 473; observers = []
-  globalThis.ResizeObserver = class { private o: { fire: () => void; seen: Element[] }; constructor(cb: ResizeObserverCallback) { this.o = { fire: () => cb([], this as unknown as ResizeObserver), seen: [] }; observers.push(this.o) } observe(e: Element) { this.o.seen.push(e) } unobserve() {} disconnect() { this.o.seen = [] } } as unknown as typeof ResizeObserver
+  globalThis.ResizeObserver = class { private o: { fire: (e: Element) => void; seen: Element[] }; constructor(cb: ResizeObserverCallback) { this.o = { fire: (e) => cb([{ target: e } as ResizeObserverEntry], this as unknown as ResizeObserver), seen: [] }; observers.push(this.o) } observe(e: Element) { this.o.seen.push(e) } unobserve() {} disconnect() { this.o.seen = [] } } as unknown as typeof ResizeObserver
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
