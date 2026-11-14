@@ -441,3 +441,13 @@ describe('DL-538: Olumi\'s reply carries Olumi\'s mark', () => {
     expect(render(<ViewChat />).container.querySelector('[data-view="chat.0.answer.mark"]')).toBeNull()
   })
 })
+
+describe('DL 06:57Z (2): the pinned proposal reads its step whole above its buttons', () => {
+  it('NS1 the box is a column whose only shrinking part is the list of changes; the step, the heading and the actions keep their height', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const rule = (sel: string) => [...css.matchAll(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'g'))].map((m) => m[2]).join(';')
+    expect(rule('.ok-pinned')).toMatch(/display: flex; flex-direction: column/)
+    expect(rule(".ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > *")).toMatch(/flex: none/)
+    expect(rule(".ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes']")).toMatch(/flex: 0 1 auto; min-height: 0; overflow-y: auto/)
+  })
+})

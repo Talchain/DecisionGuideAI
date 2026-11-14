@@ -219,6 +219,11 @@
   box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08);
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
+/* DL 06:57Z (2): the box is a column whose only shrinking part is the list of changes (it scrolls on its own); the step's words, the
+   proposal's heading and the actions keep their height, so the step is read whole above Approve at 1232 and 1128. */
+.ok-pinned { display: flex; flex-direction: column; max-height: 62%; }
+.ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
+.ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
 .ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }

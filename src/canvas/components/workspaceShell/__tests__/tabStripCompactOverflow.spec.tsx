@@ -13,7 +13,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-import { WorkspaceShellTabStrip } from '../WorkspaceShellTabStrip'
+import { LANE_ONE_ROW_BELOW_PX, WorkspaceShellTabStrip } from '../WorkspaceShellTabStrip'
 // The lane is pinned per row: these rows are the flush dock's (every lane but olumi-core's, whose dock is a fixed 300 px card: the last
 // describe). Without the pin a run with VITE_OLUMI_CORE=1 in its environment would read the other lane's rule.
 const lane = vi.hoisted(() => ({ core: false }))
@@ -193,13 +193,16 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
   it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; 44 px tabs that wrap, never cut (T3)', () => {
     lane.core = true
     draw(300)
-    // T3 (DL 11 Nov): below the compact width the lane's tabs still wrap, so a label takes a second row rather than "Anal…"; where the labels
-    // fit (the 1232 dock) flex-wrap leaves them on one row (seen on the served crops, which jsdom cannot measure).
+    // T3 (DL 11 Nov) said: a label is never cut, so below the compact width the lane's tabs wrapped to a second row. DL 06:57Z (2) replaced
+    // the second row (at 1128 it hid the Next step's words): a label is still never cut, but on a narrow lane dock the row stays ONE row and
+    // scrolls sideways where the names do not fit (a deliberate overflow): no wrap, every tab its full width (shrink-0), the nav scrolls.
     expect(SHELL_TABSTRIP_COMPACT_BELOW_PX).toBeGreaterThan(300)
-    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-wrap\b/)
-    expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bflex-nowrap\b/)
-    // On one row (jsdom: every tab's top is 0) the tabs fill it with their dividers, as at 1232.
-    for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).not.toMatch(/(^|\s)before:hidden(\s|$)/) }
+    expect(300).toBeLessThan(LANE_ONE_ROW_BELOW_PX)
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bflex-nowrap\b/)
+    expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bflex-wrap\b/)
+    expect(screen.getByTestId('outputs-dock-tablist').closest('nav')!.className).toMatch(/\boverflow-x-auto\b/)
+    // On one row the tabs fill it with their dividers, as at 1232, and none can shrink below its label.
+    for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).toMatch(/\bshrink-0\b/); expect(tab.className).not.toMatch(/(^|\s)before:hidden(\s|$)/) }
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
     for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     cleanup(); lane.core = false

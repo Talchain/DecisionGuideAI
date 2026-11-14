@@ -18,8 +18,8 @@ const surfaces: WorkspaceSurfaceDescriptor[] = [
   { id: 'results', label: 'Analysis', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
   { id: 'compare' as WorkspaceSurfaceDescriptor['id'], label: 'Compare', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
 ]
-const draw = () => render(
-  <PanelWidthProvider value={{ width: 347, contentWidth: 321 }}>
+const draw = (width = 347) => render(
+  <PanelWidthProvider value={{ width, contentWidth: width - 26 }}>
     <WorkspaceShellTabStrip surfaces={surfaces} activeTab="results" onTabClick={vi.fn()} isOpen onToggleOpen={vi.fn()} expertMode={false}
       onToggleExpertMode={vi.fn()} showResultsFreshnessIcon={false} resultsStale={false} factorsToVerify={0} />
   </PanelWidthProvider>,
@@ -46,5 +46,21 @@ describe('the selected dock tab is the comp\'s pill', () => {
     lane.core = false
     draw()
     expect(pillOf(screen.getByTestId('outputs-dock-tab-results'))).toBeNull()
+  })
+})
+
+describe('DL 06:57Z (2): on the narrow lane dock (1128: 317 px) the tabs keep one row, every name whole', () => {
+  it('TR1 at 317 px: one row (no wrap), each tab its full width, the row scrolls sideways where they do not fit; the pills tighten', () => {
+    draw(317)
+    const list = screen.getByTestId('outputs-dock-tablist')
+    expect([cls(list).includes('flex-nowrap'), cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, false, 'one'])
+    for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).toContain('shrink-0')
+    expect(cls(pillOf(screen.getByTestId('outputs-dock-tab-results')))).toContain('px-0.5')
+  })
+  it('TR1 CONTRAST: at the 1232 dock (347 px) the row is as before (it fits one row there; no forced scroll)', () => {
+    draw(347)
+    const list = screen.getByTestId('outputs-dock-tablist')
+    expect([cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, null])
+    expect(cls(pillOf(screen.getByTestId('outputs-dock-tab-results')))).not.toContain('px-0.5')
   })
 })

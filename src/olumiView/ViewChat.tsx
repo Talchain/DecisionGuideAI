@@ -1225,7 +1225,8 @@ export function ViewChat() {
         </button>
       </div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
-      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(38vh,280px)]' : 'min-h-0'} flex-col`}>
+      {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
+      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`}>
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
@@ -1275,7 +1276,7 @@ export function ViewChat() {
       </div>
       {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
           buried under a long reply; it scrolls on its own when taller than half the panel. */}
-      {view === null || !pinned ? null : <div className="ok-pinned min-h-[112px] flex-initial overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
+      {view === null || !pinned ? null : <div className="ok-pinned min-h-[112px] shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
       {session === null && tucked === null && !methods ? null : (
         <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>
