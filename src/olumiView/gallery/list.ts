@@ -29,7 +29,7 @@ export const frameUrlOf = (view: SavedView, key: string): string => `${window.lo
 
 export async function drawList(root: HTMLElement | null): Promise<void> {
   if (root === null) return
-  root.setAttribute('style', 'font: 14px/1.45 system-ui, sans-serif; padding: 16px; color: #1c1c1c; background: #fff; min-height: 100vh')
+  root.setAttribute('style', 'font: 14px/1.45 system-ui, sans-serif; padding: 16px; color: CanvasText; background: Canvas; min-height: 100vh')
   root.append(
     el('h1', 'Saved Views, drawn by the real page', { style: 'font-size: 18px; margin: 0 0 4px' }),
     el('p', 'Read-only: no engine and no AI, and nothing is sent or saved. Each frame is the real scenario page reading one saved View. '
@@ -47,14 +47,16 @@ export async function drawList(root: HTMLElement | null): Promise<void> {
     window.clearInterval(watch)
     const scale = Math.min(1, (window.innerWidth - 32) / w)
     const frame = el('iframe', '', { src: frameUrlOf(row.view, row.key), width: String(w), height: String(h), title: `${row.key} at ${w} by ${h}`,
-      'data-testid': 'gallery-frame', style: `border: 1px solid #999; transform-origin: 0 0; transform: scale(${scale})` })
+      'data-testid': 'gallery-frame', style: `border: 1px solid GrayText; transform-origin: 0 0; transform: scale(${scale})` })
     const box = el('div', '', { style: `width: ${Math.ceil(w * scale)}px; height: ${Math.ceil(h * scale)}px; overflow: hidden` })
     box.append(frame)
     const held = el('pre', '', { 'data-testid': 'gallery-held', style: 'white-space: pre-wrap; margin: 8px 0 0; font-size: 12px' })
     stage.replaceChildren(el('p', `${row.key} · ${w} by ${h}${scale < 1 ? ` (shown at ${Math.round(scale * 100)}%)` : ''}`, { style: 'margin: 0 0 6px; font-weight: 600' }), box, held)
     // What the page asked for that the saved View could not answer, and what was refused: read from the frame's own isolation.
     watch = window.setInterval(() => {
-      const g = (frame.contentWindow as (Window & { __gallery?: GalleryState }) | null)?.__gallery
+      let g: GalleryState | undefined
+      // A frame that has left this origin cannot be read; the page policy stops it leaving, and this never throws if it did.
+      try { g = (frame.contentWindow as (Window & { __gallery?: GalleryState }) | null)?.__gallery } catch { g = undefined }
       if (g === undefined) return
       const lines = (name: string, list: GalleryState['refused']) => [`${name}: ${list.length}`, ...list.map((x) => `  ${x.method} ${x.url} (${x.why})`)]
       held.textContent = [...lines('Asked for, not in this saved View', g.unanswered), ...lines('Refused', g.refused)].join('\n')

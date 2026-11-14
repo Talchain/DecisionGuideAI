@@ -27,4 +27,5 @@ async function start(): Promise<void> {
   isolate(window, key, answerOf(view))
   await import('../../main')
 }
-void start()
+// A saved file or the app's own boot that will not load is said on the page, never left as a blank frame.
+start().catch((e: unknown) => say(`This frame could not be loaded: ${e instanceof Error ? e.message : String(e)}`))
