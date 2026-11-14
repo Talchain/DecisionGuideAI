@@ -223,3 +223,5 @@
 }
 .ok-selected > span:first-child { flex-basis: 100%; font-size: 10.5px !important; letter-spacing: 0.08em; text-transform: uppercase; color: #687879; }
 .ok-selected [data-testid='selected-headline-title'] { color: #3d5256; line-height: 1.5; }
+/* A long headline sentence scrolls inside the card, so the thread keeps its room at 1128. */
+.ok-selected { max-height: 32vh; overflow-y: auto; }
