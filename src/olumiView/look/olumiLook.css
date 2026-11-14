@@ -230,3 +230,15 @@
 .ok-selected [data-testid='selected-headline-title'] { color: #3d5256; line-height: 1.5; }
 /* A long headline sentence scrolls inside the card, so the thread keeps its room at 1128. */
 .ok-selected { max-height: 24vh; overflow-y: auto; }
+/* A selected option's explanation (journey 3): what it changes, what it rests on, how the figure it moves is worked out. */
+.ok-explain { display: grid; gap: 8px; margin-top: 6px; font-size: 12px; color: #3d5256; line-height: 1.5; }
+.ok-explain ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 3px; }
+.ok-explain-head { margin: 0 0 2px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #687879; }
+.ok-explain-glyph { color: #687879; }
+.ok-explain b { color: #213238; font-weight: 600; }
+.ok-explain .ok-by-olumi { color: #1b7b88; }
+.ok-explain .ok-steps > summary { color: #126474; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.ok-explain .ok-steps[open] > ol { position: static; margin: 4px 0 0; padding-left: 16px; }
+.ok-step-own { background: #fef9f3; border-radius: 4px; }
+/* With an option's explanation in it, the selected card takes more of the panel (it still scrolls inside itself). */
+.ok-selected:has([data-testid='selected-explain']) { max-height: 45vh; }

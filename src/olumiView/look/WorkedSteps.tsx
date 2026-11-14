@@ -44,7 +44,8 @@ export function isWorkedOut(view: View, id: string): boolean {
 
 const whose = (c: ViewCard | null) => (c?.author == null || c.author.text === '' ? null : { text: c.author.text, olumi: c.author.by === 'olumi' })
 
-export function WorkedSteps({ view, id }: { view: View; id: string }): JSX.Element | null {
+/** `mine`: the cards whose terms are marked as this option's (SelectedExplain); none on a card's own face. */
+export function WorkedSteps({ view, id, mine }: { view: View; id: string; mine?: ReadonlySet<string> }): JSX.Element | null {
   const worked = workedStepsOf(view, id)
   if (worked.length === 0) return null
   return (
@@ -60,7 +61,7 @@ export function WorkedSteps({ view, id }: { view: View; id: string }): JSX.Eleme
               const mark = whose(own)
               const edit = own?.figure?.edit ?? null
               return (
-                <li key={`${link.from}:${i}`} title={link.title} data-step={base ? 'base' : 'term'} data-step-from={link.from}>
+                <li key={`${link.from}:${i}`} title={link.title} data-step={base ? 'base' : 'term'} data-step-from={link.from} data-step-own={mine?.has(link.from) ? '' : undefined} className={mine?.has(link.from) ? 'ok-step-own' : undefined}>
                   <span className="ok-step-name">{from?.heading ?? link.from}</span>{' '}
                   <b>{base ? from?.figure?.text ?? '' : effect?.text ?? ''}</b>
                   {mark === null ? null : <span className={`ok-step-by ${mark.olumi ? 'ok-by-olumi' : ''}`}> · {mark.text}</span>}
