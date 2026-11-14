@@ -214,3 +214,4 @@
   border: 1.5px solid #1b7b88 !important; border-radius: 13px !important; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08) !important;
   --tw-ring-shadow: 0 0 #0000 !important; background: #fefefe !important;
 }
+.ok-pinned [data-testid='view-approve'] { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }

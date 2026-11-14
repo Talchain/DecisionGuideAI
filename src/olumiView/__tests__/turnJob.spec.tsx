@@ -62,7 +62,9 @@ describe('a turn answered in core', () => {
     expect(status.getAttribute('aria-live')).toBe('polite')
     expect(mine.querySelector('[data-view="turn.words"]')?.textContent).toBe('Olumi is answering.')
     expect(mine.querySelector('[data-testid="view-chat-turn-seconds"]')?.textContent).toBe(' 6 s')
-    expect(mine.querySelector('[data-view="turn.by"]')).toBeNull()
+    // DL-538: the bubble names whose words it holds, the viewer's own quieter (this row replaced "mine names no one")
+    const by = mine.querySelector('[data-view="turn.by"]')!
+    expect([by.textContent, by.parentElement === mine.querySelector('[data-view="turn.said"]')!.parentElement, by.classList.contains('text-text-light')]).toEqual([turnOf().by, true, true])
     cleanup()
     const theirs = render(<TurnInFlight turn={turnOf({ by: 'Sam', by_id: '9', status: 'failed', words: 'the model changed while Olumi was working; send your message again' })} me="7" />).container
     expect(theirs.querySelector('[data-view="turn.by"]')?.textContent).toBe('Sam')
