@@ -18,7 +18,7 @@ import { takesBrief, ViewComposer } from './ViewChat'
  *  one with no model and no proposal. Decided only once the View store is the scenario on screen's, never while another's View is held
  *  (a cold reload decides nothing until then). */
 export const awaitsBriefOf = (s: { uuid: string | null; sid: string | null; view: View | null }, onScreen: string | null): boolean =>
-  s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null))
+  s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null && takesBrief(s.sid, s.view) && boardDraftOf(s.view) === null))
 
 /** The canvas's words while a scenario's model is being read, and when a failed read gave no reason of its own. */
 export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Olumi could not open this scenario just now.'
@@ -26,7 +26,7 @@ export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Ol
 /** Whether the welcome (and so its composer) is wanted for the scenario on screen. */
 function useWelcomeWanted(): boolean {
   const onScreen = useCanvasStore((s) => s.currentScenarioId ?? null)
-  return useViewStore((s) => s.at === null && awaitsBriefOf(s, onScreen) && takesBrief(s.sid, s.view) && boardDraftOf(s.view) === null)
+  return useViewStore((s) => s.at === null && awaitsBriefOf(s, onScreen))
 }
 /** True while a welcome is MOUNTED and showing its composer (set by it, so a dock drawn without a welcome keeps its own composer). */
 const useWelcomeUp = create<{ up: boolean }>(() => ({ up: false }))

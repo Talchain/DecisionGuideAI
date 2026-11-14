@@ -29,6 +29,7 @@ import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStor
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
+import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { FigureEdit } from './FigureEdit'
 import { readingsRest, restTop } from './readingsRest'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
@@ -645,6 +646,9 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
   setCurrentScenarioId(derived)
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
+  // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
+  const opened = useViewStore.getState()
+  if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && opened.view?.draft?.status === 'drafting') revealOlumiSurface()
 }
 
 /** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
