@@ -14,6 +14,8 @@ import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { useViewStore } from './store'
 import type { View } from './client'
+import { EARLY_FAILED, earlyOf } from './early'
+import { EarlyAnswer } from './EarlyAnswer'
 
 type Draft = NonNullable<View['draft']>
 
@@ -30,27 +32,32 @@ export function DraftingBoard(): JSX.Element | null {
 }
 
 function Drafting({ draft }: { draft: Draft }): JSX.Element {
+  const brief = useViewStore((s) => s.view?.brief ?? null)
   const running = draft.status === 'drafting'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
   const [right, setRight] = useState(0)
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
   useLayoutEffect(() => { const measure = () => setRight(measureDockInset()); measure(); window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure) }, [])
+  const early = earlyOf(draft)
   const from = draft.started === undefined ? Number.NaN : Date.parse(draft.started)
   const s = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
   return (
     <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-drafting-board" data-draft={draft.status}>
-      <div role="status" aria-live="polite" className="pointer-events-auto max-w-[420px] space-y-2 rounded-lg border border-border bg-panel px-6 py-5 text-center shadow-sm">
+      <div role="status" aria-live="polite" className={`pointer-events-auto space-y-2 rounded-lg border border-border bg-panel px-6 py-5 text-center shadow-sm ${early === null ? 'max-w-[420px]' : 'max-h-[80vh] max-w-[560px] overflow-y-auto'}`}>
         <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
           {running ? <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-info motion-safe:animate-pulse" /> : null}
           <span data-view="draft.words" data-testid="view-drafting-words">{draft.words}</span>
         </p>
+        {early === null ? null : <EarlyAnswer text={early} testid="view-drafting-early" />}
+        {early === null || running ? null : <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-drafting-early-failed">{EARLY_FAILED}</p>}
         {running && s !== null ? <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p> : null}
         {running
           ? (draft.stop == null ? null : <button type="button" disabled={busy} title={draft.stop.title} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
               className="min-h-[44px] rounded-md border border-border px-4 text-text-body hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">{draft.stop.label}</button>)
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
               className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+        {running || typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-info">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
       </div>
     </div>
   )

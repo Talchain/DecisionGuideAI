@@ -59,3 +59,20 @@ export function endRing(): void { pointed = null; watch(); paint() }
 /** Independent slots: neither chat nor Reasoning clears the other. */
 export function ringCards(ids: readonly string[]): void { direct = ids; watch(); paint() }
 export function attCards(ids: readonly string[]): void { tab = ids; watch(); paint() }
+
+/** A new reply has brought its cards into view: each card's ring pulses once (index.css / olumiLook.css `.v10-pulse`, none under prefers-reduced-motion).
+ *  The class is removed when the animation ends, or after `PULSE_MS` where none runs, so the same cards can pulse for the next reply. */
+export const PULSE_MS = 900
+export function pulseCards(ids: readonly string[]): void {
+  if (typeof document === 'undefined') return
+  for (const id of ids) {
+    const el = nodeOf(id)
+    if (el === null) continue
+    el.classList.remove('v10-pulse')
+    void (el as HTMLElement).offsetWidth
+    el.classList.add('v10-pulse')
+    const done = () => el.classList.remove('v10-pulse')
+    el.addEventListener('animationend', done, { once: true })
+    setTimeout(done, PULSE_MS)
+  }
+}
