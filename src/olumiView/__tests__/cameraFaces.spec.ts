@@ -46,6 +46,10 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     expect(v.zoom).toBeGreaterThanOrEqual(FACE_RANGE.full[0])
     const top = Math.min(...F.w2000.full.nodes.map((b: Box) => b.y))
     expect(top * v.zoom + v.y, 'the board\'s top sits at the free canvas\'s top (the rest is panned to)').toBeGreaterThanOrEqual(FREE_1128.top - 1)
+    // DL-538: and wider than the free canvas, it starts at the free canvas's left edge (never centred, its first card under the toolbar)
+    const left = Math.min(...F.w2000.full.nodes.map((b: Box) => b.x)), right = Math.max(...F.w2000.full.nodes.map((b: Box) => b.x + b.w))
+    expect((right - left) * v.zoom, 'precondition: wider than the free canvas').toBeGreaterThan(pane.width - FREE_1128.left - FREE_1128.right)
+    expect(left * v.zoom + v.x).toBeCloseTo(FREE_1128.left, 3)
   })
 
   it('no frame ever opens a reduced face: each measured face alone or together', () => {

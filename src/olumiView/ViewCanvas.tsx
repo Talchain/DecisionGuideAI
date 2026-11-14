@@ -150,7 +150,10 @@ function atZoom(nodes: readonly Node[], pane: { width: number; height: number },
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   const insets = { ...raw, top: frameTop(raw.top) }, freeW = Math.max(1, pane.width - insets.left - insets.right)
-  return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
+  // DL-538: a board wider than the free canvas at this zoom starts at its left edge (the question bar and the first option readable; the
+  // rest is panned to), never centred with its first card under the left toolbar.
+  const x = bounds.width * zoom > freeW ? insets.left - bounds.x * zoom : insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom
+  return { zoom, x, y: insets.top - bounds.y * zoom }
 }
 
 /**
