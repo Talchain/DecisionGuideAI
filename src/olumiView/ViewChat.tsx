@@ -406,11 +406,13 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       if (to !== box.scrollTop) box.scrollTop = to
     }
     land()
-    // Codex 13:33Z (2): the actions are watched too, so a label that wraps onto another row places the rows again.
+    // Codex 13:33Z (2), 14:3xZ: every block of the step and of the proposal is watched (the rows, the actions, and what stands above,
+    // between and below them: the step's words, the heading, the note, the list of changes), so whichever of them changes size, the rows
+    // are placed again. The two wrappers are `display: contents` (olumiLook.css), so these blocks are the box's own layout.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(land)
     if (observer !== null) {
       observer.observe(box)
-      for (const part of Array.from(el.querySelectorAll('[data-reading-row], [data-testid="view-proposal-actions"]'))) observer.observe(part)
+      for (const part of Array.from(box.querySelectorAll('[data-testid="view-next-step"] > *, [data-testid="view-chat-proposal"] > *'))) observer.observe(part)
     }
     return () => { observer?.disconnect(); box.style.maxHeight = '' }
   }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps

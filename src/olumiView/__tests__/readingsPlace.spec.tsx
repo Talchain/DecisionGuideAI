@@ -61,6 +61,8 @@ afterEach(() => {
 })
 // The one observer that watches the pinned box (the proposal's), and whether both rows are whole above the actions as the stub lays them out.
 const placer = () => observers.find((o) => o.seen.includes(boxOf()!))!
+// A size change of ONE element, as the browser reports it: only the observers watching that element hear of it (Codex 14:3xZ).
+const resized = (e: Element) => { const heard = observers.filter((o) => o.seen.includes(e)); for (const o of heard) o.fire(); return heard.length }
 const wholeRow = (id: string) => { const b = boxOf()!, foot = BOX_TOP + boxH(b) - footH, [y, h] = ROWS[id]!; return BOX_TOP + y - b.scrollTop >= BOX_TOP && BOX_TOP + y + h - b.scrollTop <= foot }
 const whole = () => Object.keys(ROWS).every(wholeRow)
 
@@ -113,9 +115,34 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(placer().seen).toEqual(expect.arrayContaining([screen.getByTestId('view-reading-0'), screen.getByTestId('view-reading-1')])) // each row is watched
     footH = 168
     expect(whole()).toBe(false)
-    placer().fire()
+    expect(resized(screen.getByTestId('view-proposal-actions'))).toBe(1)
     expect(b.style.maxHeight).toBe('458px')
     expect(whole()).toBe(true)
+  })
+  it('Codex 14:3xZ: a row that grows, and a block ABOVE the rows that grows (the proposal\'s heading), each place the rows again', () => {
+    show(held)
+    const b = boxOf()!
+    ROWS = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 160] } // the second row grew
+    expect(whole()).toBe(false)
+    expect(resized(screen.getByTestId('view-reading-1'))).toBe(1)
+    expect(whole()).toBe(true)
+    ROWS = { 'view-reading-0': [340, 143], 'view-reading-1': [491, 160] } // the heading above grew by 40 px: the rows moved down
+    expect(whole()).toBe(false)
+    const heading = document.querySelector('[data-view="proposal.heading"]')!.parentElement!
+    expect(resized(heading)).toBe(1)
+    expect(whole()).toBe(true)
+    expect(b.scrollTop).toBe(332)
+  })
+  it('Codex 14:3xZ: the least move is from where the box IS: a place inside the range is left exactly where it is', () => {
+    panelMax = 700; footH = 60 // room to spare: the range has an inside
+    show(held)
+    const b = boxOf()!
+    const low = b.scrollTop
+    b.scrollTop = low + 0; expect(whole()).toBe(true)
+    ROWS = { 'view-reading-0': [300, 100], 'view-reading-1': [408, 90] } // the rows shrank: now any scrollTop from 218 to 292 shows both whole
+    b.scrollTop = 250
+    resized(b)
+    expect(b.scrollTop).toBe(250)
   })
   it('the height is measured afresh each time: when the actions shrink back, the box gives the room back', () => {
     show(held)
