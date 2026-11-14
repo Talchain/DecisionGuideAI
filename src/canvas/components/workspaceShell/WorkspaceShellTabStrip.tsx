@@ -29,7 +29,7 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
@@ -329,15 +329,13 @@ export function WorkspaceShellTabStrip({
   // strip goes compact rather than wrapping into a 2×2 grid.
   const { width } = usePanelWidth()
   const isCompact = width < SHELL_TABSTRIP_COMPACT_BELOW_PX
-  // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
-  // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
+  // The core lane keeps full labels on one row; compact spacing fits the 317px dock, with horizontal scrolling for narrower widths.
   const coreLane = isOlumiCoreLane()
   // UI restore, 11 Nov: the canvas no longer has Model · Explore · Team buttons (Paul withdrew them), so Model and Team are tabs again on
   // the olumi-core lane, as shellContract.ts defines them: every surface is a tab, one entry point each.
   const shown = surfaces
-  // On the olumi-core lane a label is never cut, at any width: the tabs wrap to a second row (T3, DL 11 Nov: at 900 px the compact rule had
-  // switched wrapping off on the lane too, cutting every label to "Anal…", "Reaso…").
-  const wrapTabs = coreLane || !isCompact
+  // On the core lane labels keep their natural width in one horizontally scrollable row.
+  const wrapTabs = !coreLane && !isCompact
   // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
   // four tabs, never floating over its end; elsewhere they stay in the row.
   const wrapHead = (c: JSX.Element) => coreLane
@@ -368,16 +366,6 @@ export function WorkspaceShellTabStrip({
   // or the user's focus is left on a tab that is no longer selected and the
   // next arrow key steps from the wrong place.
   const tabRefs = useRef(new Map<OutputTab, HTMLButtonElement | null>())
-  // Where the lane's tabs have wrapped onto two rows (measured: the tabs' tops differ), each is its own width with no dividers, so the second
-  // row is plain tabs, not stretched ones behind a stray rule; on one row (the 1232 dock) they fill it with their dividers as before. Stable
-  // both ways: own-width tabs that wrapped still wrap, and own-width tabs that fit one row fill it.
-  const [laneTwoRows, setLaneTwoRows] = useState(false)
-  useLayoutEffect(() => {
-    if (!coreLane) return
-    const two = new Set([...tabRefs.current.values()].flatMap((el) => (el ? [el.offsetTop] : []))).size > 1
-    if (two !== laneTwoRows) setLaneTwoRows(two)
-  })
-  const laneWrapped = coreLane && laneTwoRows
   const handleTabKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
       const next = nextTabForKey(shown, activeTab, event.key)
@@ -412,7 +400,7 @@ export function WorkspaceShellTabStrip({
       // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
       // The olumi-core lane's six tabs at the dock's 360 px ceiling (DL, 12 Nov: "cramped against the corner" at 2000; measured 345 px of
       // labels in 344): the row keeps 12 px from the dock's edges and each pill 6 px a side, so the six fit with room between them.
-      className={`flex items-center ${coreLane ? 'flex-wrap gap-x-2 px-3' : isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
+      className={`flex items-center ${coreLane ? `flex-wrap gap-x-2 ${isCompact ? 'px-1' : 'px-3'}` : isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
       style={coreLane ? { minHeight: SHELL_TABSTRIP_HEIGHT_PX } : { height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
@@ -434,7 +422,7 @@ export function WorkspaceShellTabStrip({
           `<nav>` says "this region is how you move around the dock", the
           tablist says "these three controls are a tab set". Both are true, and
           nesting them keeps every existing binding working. */}
-      <nav className="flex flex-1 min-w-0" aria-label={DOCK_TABLIST_LABEL}>
+      <nav className={`flex flex-1 min-w-0 ${coreLane ? 'overflow-x-auto' : ''}`} aria-label={DOCK_TABLIST_LABEL}>
       {/* ⭐ `flex-wrap` IS THE FLOOR UNDER LABEL LEGIBILITY, AND IT IS NOT
           SUFFICIENT ON ITS OWN — the two changes here are load-bearing
           together and were measured separately on deployed staging
@@ -466,7 +454,7 @@ export function WorkspaceShellTabStrip({
       <div
         // gap-0 in both modes: the spacing now lives inside each `flex-auto` tab,
         // so the divider at a tab's edge sits midway between two labels.
-        className={`flex flex-1 min-w-0 ${laneWrapped ? 'gap-x-2' : 'gap-0'} ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
+        className={`flex ${coreLane ? 'min-w-max flex-none' : 'flex-1 min-w-0'} gap-0 ${wrapTabs ? 'flex-wrap' : 'flex-nowrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -544,7 +532,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative ${laneWrapped ? 'flex-none before:hidden' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative ${coreLane ? 'flex-none' : 'flex-auto'} ${coreLane ? 'whitespace-nowrap' : surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
@@ -561,7 +549,7 @@ export function WorkspaceShellTabStrip({
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
                   surface.id === 'results' && resultsStale ? ' text-warning' : ''
-                }${coreLane ? ` h-8 rounded-full ${isCompact ? 'px-1' : 'px-1.5'} transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
+                }${coreLane ? ` h-8 rounded-full ${isCompact ? 'px-0.5' : 'px-1.5'} transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
                 data-tab-pill={coreLane ? (isActive ? 'on' : '') : undefined}
               >
                 {/* Only the LABEL truncates. The affordances after it are
@@ -571,7 +559,7 @@ export function WorkspaceShellTabStrip({
                   // mark that reads as a slab; elsewhere the mark alone (vision spec §3).
                   <>
                     <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
-                    {coreLane ? <span className="truncate tracking-tight">{surface.label}</span> : null}
+                    {coreLane ? <span className="whitespace-nowrap tracking-tight">{surface.label}</span> : null}
                   </>
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
