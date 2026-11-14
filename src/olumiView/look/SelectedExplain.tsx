@@ -3,9 +3,8 @@
  * Every word is core's; nothing is inferred from words:
  *  - what the option changes: its `sets[]` (the figure each lever takes with this option, and whose that figure is);
  *  - what it rests on: its `premises[]` (core's glyph and words; core's source on hover);
- *  - how the figure it moves is worked out: the steps (look/WorkedSteps.tsx) of each card a `through` link from this option, or from a figure
- *    it sets, leads into; this option's own terms are marked. The View does not project the relation's form (sum, product, stock), so the
- *    steps are the base and the terms the View gives, never a formula.
+ *  - how the figure it moves is worked out: navigate through the View's typed through links, then read that card's worked definition.
+ * The form, signed operands, coefficients, option settings and their authorship come from card.worked. Drawing links never supply a formula.
  */
 import type { View, ViewCard } from '../client'
 import { WorkedSteps, workedStepsOf } from './WorkedSteps'

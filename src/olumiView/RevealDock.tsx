@@ -218,13 +218,15 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         </button>
       </div>
 
-      <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
-
-      <Reading view={view} chip={chip} lead={lead} />
-      {difference?.steps.length ? <div role="status" className="grid gap-1" data-testid="reveal-dock-kept">
+      {difference?.steps.length ? <div role="status" className="grid gap-1 rounded-lg border border-border p-3" data-testid="reveal-dock-kept">
         <p className={META}>{differences?.headings.steps}</p>
         {difference.steps.map((s) => <p key={s.id} className={`${BODY} break-words`} data-step={s.step}>{s.text}</p>)}
       </div> : null}
+
+      <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>
+
+      <Reading view={view} chip={chip} lead={lead} />
+
       {error && <p role="alert" className={BODY} data-testid="reveal-dock-error">{error}</p>}
 
       {others.length === 0 ? null : <div className="grid gap-4" data-testid="reveal-dock-others">{others.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>}

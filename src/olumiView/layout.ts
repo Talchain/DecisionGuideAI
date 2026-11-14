@@ -1134,8 +1134,8 @@ export function tryOnCardOf(variant: WhatIfVariant, quantity: string, typed: str
 export const sizeLinesOf = <T extends { option: string; line: string }>(size: readonly T[] | undefined, option: string): { s: T; k: number }[] =>
   (size ?? []).map((s, k) => ({ s, k })).filter(({ s }) => s.option === option && s.line !== '')
 
-/** The narrowest a card is drawn when the stage is narrow (DL-538: the target at 1128 draws five options across at about 145px). */
-export const CARD_MIN_W = 164
+/** Preserve readable complete headline fields; overflow pans instead of making long conditions into thin columns. */
+export const CARD_MIN_W = 224
 /** The readable floor the row is sized for (camera.ts READABLE_WHOLE_ZOOM: 11px text over 12px), kept here so layout does not import the camera. */
 const READABLE_FLOOR = 11 / 12
 /**
@@ -1146,8 +1146,7 @@ const READABLE_FLOOR = 11 / 12
  */
 export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number; perRow?: number } {
   const n = Math.max(1, allOptionCards(model).length), room = roomW / READABLE_FLOOR
-  // perRow (DL 1232 fault 3): how many cards of this width fit across the stage, so every other row wraps at that count and the board is
-  // never wider than the stage but for an options row that cannot fit (that one pans, with the "more to the right" cue).
+  // perRow caps the question to the visible stage. Model rows retain one bounded pan span; cards never shrink below their readable floor.
   const fit = (w: number, g: number) => Math.max(1, Math.floor((room + g) / (w + g)))
   if (roomW <= 0) return { cardW: W, gapX: ROW_GAP_X }
   if (n * W + (n - 1) * ROW_GAP_X <= room) return { cardW: W, gapX: ROW_GAP_X, perRow: fit(W, ROW_GAP_X) }

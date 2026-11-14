@@ -31,15 +31,14 @@ afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view
 const cardOf = (v: View, pick: (c: ViewCard) => boolean) => v.model!.cards.find(pick)!
 
 describe('slice (1): the option card shows its headline as the View serves it', () => {
-  it('L1 a chance: core\'s words up to core\'s own first clause are the one headline; the clause is the qualifier under it, never cut into the headline', () => {
+  it('L1 preserves the whole View chance headline without extracting a clause from its prose', () => {
     const o = cardOf(RUN1, (c) => c.family === 'option' && c.headline?.state === 'chance')
     const head = farChanceOf(o)!
-    expect(head, 'precondition: core\'s chance line has its clause').not.toBe(o.headline!.text)
+    expect(head).toBe(o.headline!.text)
     const el = draw(RUN1, o)
-    expect([el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)?.textContent])
-      .toEqual([head, o.headline!.text.slice(head.length + 2)])
-    // DL-543: the qualifier is the chance's condition and is never cut to shorten the card
-    expect(el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)!.className).not.toMatch(/line-clamp/)
+    expect(el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent).toBe(o.headline!.text)
+    expect(el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)).toBeNull()
+    expect(el.querySelector('.ok-chance')!.className).not.toMatch(/line-clamp/)
     // the track is core's number at true scale (rows[].chance), bound by the headline's aim
     const row = o.rows.find((r) => r.kind === 'chance' && r.aim_id === o.headline!.aim_id) as { chance: number }
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)

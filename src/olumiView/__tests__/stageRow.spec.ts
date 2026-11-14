@@ -20,7 +20,7 @@ describe('the options row is sized to the stage (DL-538)', () => {
   for (const [name, view] of Object.entries(BOARDS)) {
     const model = view.model!, ids = allOptionCards(model).map((c) => c.id)
 
-    it(`${name} at 1128: the ${ids.length} options, packed at the stage's width and gap, span no more than the free canvas at the readable floor`, async () => {
+    it(`${name} at 1128: options stay in one readable row, overflow pans and the question stays within the stage`, async () => {
       const row = stageRow(model, FREE_1128)
       expect(row.cardW, 'narrower than the full card').toBeLessThan(CARD_WIDTH)
       const size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
@@ -30,10 +30,11 @@ describe('the options row is sized to the stage (DL-538)', () => {
       expect(new Set(xs.map((p) => p.y)).size, 'one row').toBe(1)
       const span = Math.max(...xs.map((p) => p.x)) + row.cardW - Math.min(...xs.map((p) => p.x))
       expect(span).toBe(ids.length * row.cardW + (ids.length - 1) * row.gapX)
-      if (ids.length <= 5) expect(span * READABLE_WHOLE_ZOOM).toBeLessThanOrEqual(FREE_1128 + 0.5)
+      expect(row.cardW).toBeGreaterThanOrEqual(224)
       // the question bar starts where the options row starts and spans it
       expect(places.get(QUESTION)!.x).toBe(Math.min(...xs.map((p) => p.x)))
-      expect(questionBarWidth(model, row)).toBe(ids.length * row.cardW + (ids.length - 1) * row.gapX)
+      expect(questionBarWidth(model, row) * READABLE_WHOLE_ZOOM).toBeLessThanOrEqual(FREE_1128 + 0.5)
+      expect(questionBarWidth(model, row)).toBeLessThan(span)
     })
 
     it(`${name} at 2000: the full card and gap where they fit (CONTRAST: the stage does not shrink a board that fits)`, () => {
@@ -60,25 +61,36 @@ describe('the options row is sized to the stage (DL-538)', () => {
   }
 
   for (const [name, view] of Object.entries(BOARDS)) {
-    it(`${name} at 1128 (DL 1232 fault 3): every row but the options is no wider than the stage at the readable floor (it wraps at the count that fits)`, async () => {
+    it(`${name} at 1128: lower rows align with the options and remain within the same bounded pan span`, async () => {
       const model = view.model!, row = stageRow(model, FREE_1128), opts = new Set(allOptionCards(model).map((c) => c.id))
       const size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
       const places = await causalPlaces(model, size, { row })
       const rows = new Map<number, number[]>()
       for (const [id, p] of places) if (id !== QUESTION && !opts.has(id)) rows.set(p.y, [...(rows.get(p.y) ?? []), p.x])
-      for (const [y, xs] of rows) expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, `row at y ${y}`).toBeLessThanOrEqual(FREE_1128 + 0.5)
+      const left = Math.min(...[...opts].map(id => places.get(id)!.x))
+      const span = Math.max(...[...opts].map(id => places.get(id)!.x)) + row.cardW - left
+      for (const [y, xs] of rows) {
+        expect(Math.min(...xs), `aligned row at y ${y}`).toBe(left)
+        expect(Math.max(...xs) + row.cardW - left, `bounded row at y ${y}`).toBeLessThanOrEqual(span)
+      }
     })
   }
 
-  it('the joined run\'s copy at 1232 (4352bfa3, s_8ade64308cc5 v5; DL 1232 fault 3): its four options fit across, and so does every other row', async () => {
+  it('the joined copy at 1232 keeps readable cards aligned within one bounded horizontal pan span', async () => {
     const view = load('live-4352bfa3-copy-v5.view.json'), model = view.model!, FREE_1232 = 885 - 45 // the dock from x 885 at 1232 (4162-1232-a-open.png)
     const row = stageRow(model, FREE_1232), size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
     const places = await causalPlaces(model, size, { row })
     const rows = new Map<number, number[]>()
-    for (const [id, p] of places) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), p.x])
-    for (const [y, xs] of rows) expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, `row at y ${y}`).toBeLessThanOrEqual(FREE_1232 + 0.5)
-    // and the board as a whole (its rows start together), so nothing is cut at the panel's edge on open
-    const xs = [...places].filter(([id]) => id !== QUESTION).map(([, p]) => p.x)
-    expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, 'the whole board').toBeLessThanOrEqual(FREE_1232 + 0.5)
+    const opts = new Set(allOptionCards(model).map(c => c.id))
+    for (const [id, p] of places) if (id !== QUESTION && !opts.has(id)) rows.set(p.y, [...(rows.get(p.y) ?? []), p.x])
+    const left = Math.min(...[...opts].map(id => places.get(id)!.x))
+    const span = Math.max(...[...opts].map(id => places.get(id)!.x)) + row.cardW - left
+    for (const [y, xs] of rows) {
+      expect(Math.min(...xs), `aligned row at y ${y}`).toBe(left)
+      expect(Math.max(...xs) + row.cardW - left, `bounded row at y ${y}`).toBeLessThanOrEqual(span)
+    }
+    expect(new Set([...opts].map(id => places.get(id)!.y)).size).toBe(1)
+    expect(row.cardW).toBeGreaterThanOrEqual(224)
+    expect(questionBarWidth(model, row) * READABLE_WHOLE_ZOOM).toBeLessThanOrEqual(FREE_1232 + 0.5)
   })
 })

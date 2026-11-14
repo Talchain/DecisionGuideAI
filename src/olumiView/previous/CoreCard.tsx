@@ -95,16 +95,10 @@ export function farLineOf(card: ViewCard): string | null {
   return leadLineOf(card) ?? (card.figure !== null && card.figure.text !== '' ? card.figure.text : null)
 }
 
-/**
- * DL-424 (13 Nov, 1128 whole board): on the one-line far face a chance is never cut mid-word ("about 3% chance, on Ol…"). Core makes the chance
- * line in one place (core src/view/run-lines.ts chanceFace: `${bare} chance` then its clauses, each after ", "): the far line is core's chance
- * words up to the first of those clauses, whole; what it rests on is the far mark beside it (`farMarkOf`) and core's full sentence is on the
- * hover and the opened card. A line that is not in that shape is drawn as core sent it. No words of the UI's own.
- */
+/** The chance headline is the complete View field. Never infer display structure from punctuation or sentence meaning. */
 export function farChanceOf(card: ViewCard): string | null {
   if (card.family !== 'option' || card.headline?.state !== 'chance') return null
-  const t = card.headline.text, cut = t.indexOf(', ')
-  return cut > 0 && t.slice(0, cut).endsWith(' chance') ? t.slice(0, cut) : null
+  return card.headline.text
 }
 
 /** The far face's Olumi mark for a chance resting on Olumi's assumption (DL-424): core's own glyph for Olumi's figure it rests on (that card's
@@ -253,18 +247,16 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     const trail = <>{changeOn === 'lead' ? changeMark : null}{cueOnLead ? <>{' '}{editCue}</> : null}</>
     const h = card.family === 'option' ? card.headline ?? null : null
     if (h !== null && h.state === 'chance') {
-      const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null; rests_on_text?: string | null } | undefined
       const at = typeof row?.chance === 'number' && row.chance >= 0 && row.chance <= 1 ? row.chance : null
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
-          <p className="ok-chance line-clamp-3"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
+          <p className="ok-chance" data-long-headline={h.text.length > 40 ? '' : undefined}><span data-core-lead-clamp={id}>{h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
           {at === null ? null : <span className="ok-track" aria-hidden="true" data-view={`${id}.chance.track`}><span style={{ width: `${at * 100}%` }} /></span>}
           {row?.rests_on_text ? <p className="ok-qual" data-view={`${id}.headline.rests`}>{row.rests_on_text}</p> : null}
           <details className="ok-condition nodrag nowheel" data-testid="option-condition"><summary>Condition and uncertainty</summary><p>{h.title}</p>{h.range ? <p>{h.range}</p> : null}</details>
-          {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
           {h.add == null ? null : <details className="ok-condition nodrag nowheel" data-testid="option-next-step"><summary>Next step</summary><p className="ok-next" data-view={`${id}.headline.add`}>{h.add}</p></details>}
         </div>
       )
@@ -285,7 +277,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // line, core's words (the sheet's "worked out but waiting"); the person's and Olumi's own figures keep the headline figure.
     if (card.figure !== null && lead === card.figure.text && viewNow !== null && isWorkedOut(viewNow, id)) return (
       <div data-core-lead={id} data-ok-face="worked" title={hover}>
-        <p className="ok-status line-clamp-3"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
+        <p className="ok-status"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
       </div>
     )
     if (card.figure !== null && lead === card.figure.text) return (

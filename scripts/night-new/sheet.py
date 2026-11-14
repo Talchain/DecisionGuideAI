@@ -6,7 +6,7 @@ item=sys.argv[1]
 files=[p for p in (root/item).glob('*.png') if not p.name.startswith('SHEET')]
 for f in files:
  if f.name.startswith('SHEET'):continue
- narrow='-1128-' in f.name
+ narrow='-1128-' in f.name or '1128' in f.parts
  target=Path('/Users/paulslee/olumi-work/ui-evidence/design-20261113')/('after-1128x707.png' if narrow else 'after-2000x1200.png')
  a=Image.open(target).convert('RGB');b=Image.open(f).convert('RGB')
  # Full resolution, same scale: owner can zoom the side-by-side without losing type.

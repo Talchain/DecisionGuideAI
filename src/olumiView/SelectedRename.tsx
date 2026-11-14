@@ -21,12 +21,12 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // selected: on the card it was reachable only by hover, so a chance resting on Olumi's assumption never said so where a person reads.
   // Verbatim; nothing is drawn for a card core gives no headline.
   const said = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.headline?.title ?? null)
-  // DL 04:59Z (4): an option's next step (core's `headline.add`) is cut to two lines on the card; here it is whole, verbatim.
+  // The full next step is also shown in the selected explanation; its card keeps it in an explicit disclosure.
   const add = useViewStore((s) => { const c = s.view?.model?.cards.find((x) => x.id === id); return c?.family === 'option' ? c.headline?.add ?? null : null })
   const view = useViewStore((s) => s.view)
   const notice = useModelNotice(s => s.notice)
   const currentNotice = notice != null && notice.sid === view?.id && notice.n === view?.version?.n ? notice : null
-  useEffect(() => { if (currentNotice) document.querySelector('[data-testid="selected-model-change"]')?.scrollIntoView({block:'nearest'}) }, [currentNotice?.n])
+  useEffect(() => { if (currentNotice) document.querySelector('[data-testid="selected-model-change"]')?.scrollIntoView({block:'nearest'}) }, [currentNotice?.n, currentNotice?.sid])
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
   // UI restore 11 Nov (R12, DL PL-100): whose figure it is, core's words verbatim, once the card is selected: the person's neutral, Olumi's
