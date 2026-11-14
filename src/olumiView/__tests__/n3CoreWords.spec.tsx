@@ -85,7 +85,9 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect(rd.textContent).toContain('‹revealed together›')
     expect(within(rd).getByTestId('reveal-dock-close').getAttribute('aria-label')).toBe('‹reveal close›')
     expect(within(rd).getByTestId('reveal-dock-bring-evidence').textContent).toBe('‹bring evidence›')
-    expect(within(rd).getByTestId('reveal-dock-keep-open').textContent).toBe('‹keep open›')
+    // DL journey (6), Codex 085d4c57e: the dock's keep is core's differences action, offered only where core holds the difference (its words
+    // are the differences heading); with none read, no pretend save is drawn.
+    expect(within(rd).queryByTestId('reveal-dock-keep-open')).toBeNull()
     cleanup()
     // Team presence, for the viewer by id; the lens bar.
     render(<><TeamPresence /><ViewLensBar /></>)

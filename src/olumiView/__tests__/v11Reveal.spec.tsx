@@ -109,11 +109,15 @@ describe('core’s per-card marks (real View, core wip/debate-r2 5a61369a)', () 
     useViewStore.setState({ view: marked })
     useReveal.setState({ selected: id('Priya'), card: DIAG, evidence: null })
     render(<RevealDock view={marked} />)
-    expect(screen.getByTestId('reveal-dock-heading').textContent).toBe(marked.model!.cards.find((c) => c.id === DIAG)!.heading)
+    // DL journey (6), Codex 085d4c57e: the heading names the record the people disagree on (its label in their views), not the card it is
+    // drawn on (this row replaced "the heading is the host card's").
+    const label = (marked.collab as unknown as { shared: { figures: { quantity: string; label: string }[] }[] }).shared.flatMap((v) => v.figures).find((f) => f.quantity === rec)?.label
+    expect(label, 'precondition: the record has a label in the views').toBeTruthy()
+    expect(screen.getByTestId('reveal-dock-heading').textContent).toBe(label)
     expect([...screen.getByTestId('reveal-dock').querySelectorAll('[data-testid^="reveal-dock-view-"]')].map((e) => e.getAttribute('data-testid'))).toEqual([`reveal-dock-view-${id('Priya')}`, `reveal-dock-view-${id('Tom')}`])
     expect(screen.getByTestId('reveal-dock-next').textContent).toBe((marked.collab as unknown as { next: { text: string } }).next.text)
     expect(screen.getByTestId('reveal-dock-bring-evidence')).toHaveTextContent('Bring evidence')
-    fireEvent.click(screen.getByTestId('reveal-dock-keep-open'))
+    fireEvent.click(screen.getByTestId('reveal-dock-close'))
     expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
   })
   it('while a chip is open, an option card shows core’s words for it from the mark (REQUESTED-FIELD FIXTURE); none when closed', () => {
@@ -164,7 +168,7 @@ describe('on the canvas and in the dock', () => {
     expect(consequence).toHaveTextContent(real.collab.effect_headings.moves)
     expect(consequence).toHaveTextContent(run.gap_text!)
     expect(within(dock).getByTestId('reveal-dock-next').textContent).toBe(real.model!.run!.most_likely!.text)
-    fireEvent.click(within(dock).getByTestId('reveal-dock-keep-open'))
+    fireEvent.click(within(dock).getByTestId('reveal-dock-close'))
     expect(useReveal.getState().selected).toBeNull()
   })
 })
@@ -214,7 +218,8 @@ describe('core’s marks with stance, reading, options and evidence (real View, 
     expect(screen.getByTestId('reveal-dock-reading-note').textContent).toBe(differ.reading!.note)
     expect(screen.getByTestId('reveal-dock-next').textContent).toBe((st.collab as unknown as { next: { text: string } }).next.text)
     expect(screen.queryByTestId('reveal-dock-try')).toBeNull()
-    expect(screen.getByTestId('reveal-dock').querySelectorAll('button')).toHaveLength(3)
+    // Close and Bring evidence; core's keep appears only where core's differences hold this record (revealKeep K1). Was 3 with a pretend keep.
+    expect(screen.getByTestId('reveal-dock').querySelectorAll('button')).toHaveLength(2)
   })
 
   it('while the disagreement is open, each option card shows core’s words for it; the evidence chip open shows none', () => {
@@ -236,7 +241,7 @@ describe('core’s marks with stance, reading, options and evidence (real View, 
     chip.focus()
     fireEvent.click(chip)
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('reveal-dock-heading')))
-    fireEvent.click(screen.getByTestId('reveal-dock-keep-open'))
+    fireEvent.click(screen.getByTestId('reveal-dock-close'))
     await waitFor(() => expect(document.activeElement).toBe(chip))
   })
 

@@ -71,6 +71,8 @@ export function coreMarksOf(view: View): readonly CoreMark[] | undefined {
 
 /** Core's mark drawn as one chip under a card: its words, its views (in core's order) and their people. */
 export interface CardChip {
+  /** The original record, before mapping it onto a summary card. */
+  readonly record: string
   /** Which mark this is, stable across reads: core's record id and the mark's kind (core gives one mark per record and kind). */
   readonly key: string
   readonly card: string
@@ -181,7 +183,7 @@ function readReveal(view: View): Reveal | null {
     if (people.length === 0) continue
     const key = `${cm.card}:${cm.kind}`
     if ((cardChips.get(card) ?? []).some((c) => c.key === key)) continue
-    const chip: CardChip = { key, card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading ?? null, question: cm.question ?? null, options: cm.options ?? [], title: cm.title, label: cm.label }
+    const chip: CardChip = { key, card, record: cm.card, kind: cm.kind, text: cm.text, views: cm.kind === 'evidence' ? [] : people.map((p) => p.id), evidence: cm.kind === 'evidence' ? people.map((p) => p.id) : [], people, reading: cm.reading ?? null, question: cm.question ?? null, options: cm.options ?? [], title: cm.title, label: cm.label }
     cardChips.set(card, [...(cardChips.get(card) ?? []), chip])
   }
   // A view is drawn as a chip on a card when core's mark there gathers it; otherwise it is initials in the card.

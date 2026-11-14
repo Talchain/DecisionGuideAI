@@ -12,6 +12,7 @@ import { useCanvasStore } from '../canvas/store'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { CARD_WIDTH, cardLinkMarksOf, evidenceOffChips, unmarkedDiffers } from './layout'
+import { noteLanded } from './revealReturn'
 import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } from './reveal'
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
@@ -32,6 +33,7 @@ function selectCard(card: string | null): void {
 /** Open one view in the dock (and, from a chip, the card it concerns and which of its chips: its ring is the one selection ring). */
 export function openView(id: number, card: string | null = null, chip: string | null = null): void {
   if (onEarlier()) return
+  noteLanded(chip ?? `view:${id}`, useUIStore.getState().activeOutputTab)
   useReveal.getState().select(id, card, chip)
   selectCard(card)
   useUIStore.getState().forceActivateOutputTab('team')
