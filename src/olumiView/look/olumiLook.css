@@ -110,6 +110,9 @@
   border-left: 3px solid var(--o-info); padding: calc(2px * var(--o-s)) 0 calc(2px * var(--o-s)) calc(8px * var(--o-s));
   font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-ink);
 }
+/* DL 04:59Z (4): on the option card, core's next step (headline.add) is at most two lines; the whole sentence is in the panel once the card is
+ * selected (SelectedRename: selected-headline-add) and on hover. Names, titles and limit-row questions are never clamped. */
+.olumi-look .ok-next-card { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 /* A factor's figure: Olumi's estimate is underlined dotted in Olumi's blue, and that underline means nothing else; the person's is solid. */
 .olumi-look .ok-fig { font-size: calc(15px * var(--o-s)); line-height: 1.25; font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-fig-olumi { text-decoration: underline dotted var(--o-info); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }

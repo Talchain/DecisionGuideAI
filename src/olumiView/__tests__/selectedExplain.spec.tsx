@@ -56,3 +56,32 @@ describe('a selected option explains itself (journey 3)', () => {
     expect(select(fig.id).querySelector('[data-testid="selected-explain"]')).toBeNull()
   })
 })
+
+describe('DL 04:59Z (4): an option card shows its next step in two lines; the whole sentence is in the panel once selected', () => {
+  // The joined copies' own served View (engine 4352bfa3, v5): its "no chance yet" options carry core's 228–432 character next steps.
+  const COPY = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-4352bfa3-copy-v5.view.json'), 'utf8')) as View
+  const selectIn = (v: View, id: string) => {
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: v.id, view: v, status: 'ready', error: null, stale: false } as never)
+    useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: v.model!.cards.find((c) => c.id === id)!.heading } }] as never, edges: [] as never,
+      selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null } } as never)
+    return render(<SelectionPill after={selectedRename} />).container
+  }
+  const longs = COPY.model!.cards.filter((c) => c.family === 'option' && c.headline?.state === 'none' && (c.headline.add ?? '').length > 200)
+
+  it('E-add every selected option with a long next step shows it whole and verbatim in the panel', () => {
+    expect(longs.length).toBeGreaterThan(1)
+    for (const o of longs) { expect(selectIn(COPY, o.id).querySelector('[data-testid="selected-headline-add"]')?.textContent).toBe(o.headline!.add); cleanup() }
+  })
+  it('E-add CONTRAST: an option with no next step, and a figure card, draw no next-step line in the panel', () => {
+    const none = COPY.model!.cards.find((c) => c.family === 'option' && (c.headline?.add ?? '') === '')!
+    expect(selectIn(COPY, none.id).querySelector('[data-testid="selected-headline-add"]')).toBeNull(); cleanup()
+    const fig = COPY.model!.cards.find((c) => c.family === 'quantity')!
+    expect(selectIn(COPY, fig.id).querySelector('[data-testid="selected-headline-add"]')).toBeNull()
+  })
+  it('E-clamp the card\'s next-step rule cuts at two lines (olumiLook.css .ok-next-card); the plain .ok-next (limit-row questions) is never clamped', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const rule = (sel: string) => css.match(new RegExp(`\\.olumi-look \\.${sel} \\{([^}]*)\\}`))?.[1] ?? ''
+    expect(rule('ok-next-card')).toMatch(/-webkit-line-clamp:\s*2;/)
+    expect(rule('ok-next')).not.toMatch(/line-clamp/)
+  })
+})

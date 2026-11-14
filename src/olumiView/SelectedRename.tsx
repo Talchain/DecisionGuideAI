@@ -18,6 +18,8 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // selected: on the card it was reachable only by hover, so a chance resting on Olumi's assumption never said so where a person reads.
   // Verbatim; nothing is drawn for a card core gives no headline.
   const said = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.headline?.title ?? null)
+  // DL 04:59Z (4): an option's next step (core's `headline.add`) is cut to two lines on the card; here it is whole, verbatim.
+  const add = useViewStore((s) => { const c = s.view?.model?.cards.find((x) => x.id === id); return c?.family === 'option' ? c.headline?.add ?? null : null })
   const view = useViewStore((s) => s.view)
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
@@ -28,6 +30,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
       <Rename key={id} id={id} heading={heading} shown />
       {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
       {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={`${id}.headline.title`} data-testid="selected-headline-title">{said}</p>}
+      {add === null || add === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-ink`} data-testid="selected-headline-add">{add}</p>}
       {/* DL journey 3: a selected option's explanation, from core's fields (look/SelectedExplain.tsx). */}
       {view === null ? null : <SelectedExplain view={view} id={id} />}
     </>
