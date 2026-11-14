@@ -176,6 +176,16 @@ describe('PL-1083 (1): placing the held reading rows', () => {
   })
 })
 
+describe('PL-1083 (1): a first row taller than the box can ever be', () => {
+  it('15:12Z: both its choices rest just above the actions, its top is cut (a short window: 352 px of row, a panel that can give 420)', () => {
+    ROWS = { 'view-reading-0': [300, 352], 'view-reading-1': [660, 215] }; panelMax = 420
+    show(held)
+    const b = boxOf()!, footTop = BOX_TOP + boxH(b) - footH
+    expect(BOX_TOP + 300 + 352 - b.scrollTop).toBe(footTop - 2) // the row's foot at the actions' top (2 px of the box's border in the stub)
+    expect(BOX_TOP + 300 - b.scrollTop).toBeLessThan(BOX_TOP)
+  })
+})
+
 describe('PL-1083 (1): a thread squeezed to nothing is clipped, never drawn over the box', () => {
   const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   it('while readings are held the thread\'s wrapper has no floor and hides what overflows it', () => {

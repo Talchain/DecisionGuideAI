@@ -44,12 +44,12 @@ describe('readingsRest', () => {
     const { box, root, foot } = setup(0, [[300, 228]])
     expect(readingsRest(box, root, foot)).toEqual({ low: 528 + 116 - 348, high: 300, rows: 1, short: 528 + 8 + 116 - 348 - 292 })
   })
-  it('not even the first row fits: the first row\'s top, never past it; no row is said to rest whole', () => {
+  it('not even the first row fits: its foot (both its choices) rests just above the actions and its top is cut; no row is said to rest whole', () => {
     const { box, root, foot } = setup(0, [[300, 238], [546, 215]])
     const r = readingsRest(box, root, foot)!
-    expect([r.low, r.high, r.rows]).toEqual([292, 292, 0])
+    expect([r.low, r.high, r.rows]).toEqual([538 + 116 - 348, 538 + 116 - 348, 0])
     expect(r.short).toBeGreaterThan(0)
-    expect(restTop(0, r, 900)).toBe(292)
+    expect(restTop(0, r, 900)).toBe(306) // the row's foot at 538 sits exactly at the top of the actions (348 - 116 = 232 px down the box)
   })
   it('CONTRAST: no reading row held: nothing to place', () => {
     const { box, root, foot } = setup(0, [])
