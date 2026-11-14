@@ -75,4 +75,11 @@ describe('one option\'s path, setting → what reads it → the measure the aim 
     expect([el.querySelector(`[data-path="set"][data-path-from="${set.id}"] [data-path="break"]`), el.querySelector(`[data-path="set"][data-path-from="${set.id}"] [data-path="reads"]`)?.getAttribute('data-path-to'),
       el.querySelector('[data-testid="selected-explain-path"]')?.hasAttribute('data-path-broken')]).toEqual([null, `${aim.quantity}.worked.steps.1`, false])
   })
+  it('P6 DL 09:21Z: the box opens on the path: the explanation comes before core\'s headline sentence and next step (placement only)', () => {
+    const el = select(STORE, GRANTS)
+    const order = [...el.querySelectorAll('[data-testid="selected-explain"], [data-testid="selected-headline-title"], [data-testid="selected-headline-add"]')].map((e) => e.getAttribute('data-testid'))
+    expect([order[0], order.includes('selected-headline-title')]).toEqual(['selected-explain', true])
+    expect(order.slice(1).every((t) => t !== 'selected-explain')).toBe(true)
+    expect(el.querySelector('[data-testid="selected-explain"] [data-testid="selected-explain-sets"] [data-path="break"]')).not.toBeNull()
+  })
 })
