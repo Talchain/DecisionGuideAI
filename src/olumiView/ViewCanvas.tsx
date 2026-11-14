@@ -123,15 +123,19 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
   if (whole === null || whole.zoom >= READABLE_WHOLE_ZOOM) return whole
   // A large model overflows at reading size. Keep the framing question and aims in view; pan for the rest.
   const opening = full.nodes.filter((n) => n.id === QUESTION || ['goal', 'limit'].includes((n.data.card as { family?: string } | undefined)?.family ?? ''))
-  return atZoom(opening.length > 0 ? opening : full.nodes, pane, free, 1)
+  return atZoom(opening.length > 0 ? opening : full.nodes, pane, free, 1, full.nodes)
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
-function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number): Viewport | null {
+function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number, board: readonly Node[] = nodes): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   const insets = { ...raw, top: frameTop(raw.top) }, freeW = Math.max(1, pane.width - insets.left - insets.right)
-  return { zoom, x: insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom, y: insets.top - bounds.y * zoom }
+  // DL 05:04Z (port of the new look's 36d84040): a board wider than the free canvas at this zoom starts at the stage's left edge, never
+  // centred on its opening cards with the options running under the panel.
+  const whole = getNodesBounds(board as Node[])
+  const x = whole.width * zoom > freeW ? insets.left - whole.x * zoom : insets.left + freeW / 2 - (bounds.x + bounds.width / 2) * zoom
+  return { zoom, x, y: insets.top - bounds.y * zoom }
 }
 
 /**

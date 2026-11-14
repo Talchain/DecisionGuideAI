@@ -39,3 +39,16 @@ describe('the opening uses readable faces and pans overflow', () => {
     expect(inside(F.w2000.full.nodes, v, pane, FREE_2000)).toEqual([])
   })
 })
+
+describe('DL 05:04Z: a board wider than the stage opens at the stage\'s left edge (old look port of 36d84040)', () => {
+  // The served old look at 1232 (copy :4161, 14 Nov) centred the opening cards and ran the third option under the panel.
+  for (const [w, h, dockX] of [[1128, 707, 811], [1232, 704, 885]] as const) {
+    it(`OL1 ${w}: the board's leftmost card starts at the free canvas's left edge, not centred on the opening cards`, () => {
+      const full = snap(F.w2000.full), free = { top: 104, right: w - dockX, bottom: 26, left: 45 }
+      const v = cameraFrame({ full }, { width: w, height: h }, free)!
+      expect(v.zoom).toBe(1)
+      const left = Math.min(...full.nodes.map((n) => n.position.x)) * v.zoom + v.x
+      expect(left).toBeCloseTo(free.left, 3)
+    })
+  }
+})

@@ -48,3 +48,14 @@ describe('the selected dock tab is the comp\'s pill', () => {
     expect(pillOf(screen.getByTestId('outputs-dock-tab-results'))).toBeNull()
   })
 })
+
+describe('DL 05:04Z: on the core lane the dock tab names never touch', () => {
+  it('TS1: every core-lane tab button keeps horizontal padding on both sides, so neighbouring names are apart (served 1232 had none)', () => {
+    draw()
+    for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).toContain('px-[3px]')
+  })
+  it('TS1 contrast: no core-lane tab is drawn with zero horizontal padding', () => {
+    draw()
+    for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).not.toContain('px-0')
+  })
+})
