@@ -18,25 +18,32 @@ export const earlyOf = (holder: unknown): string | null => {
 /** Paragraphs and "- " list lines of a plain text, in order: `{ list: false, lines: [...] }` or `{ list: true, lines: [...items] }`. */
 export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] => {
   const out: { list: boolean; lines: string[] }[] = []
+  let breakBefore = true
   for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
-    if (raw.trim() === '') { out.push({ list: false, lines: [] }); continue }
+    if (raw.trim() === '') { breakBefore = true; continue }
     const item = /^\s*- (.*)$/.exec(raw), last = out[out.length - 1]
     const list = item !== null, line = item === null ? raw : item[1]!
-    if (last !== undefined && last.lines.length > 0 && last.list === list) last.lines.push(line); else out.push({ list, lines: [line] })
+    if (!breakBefore && last !== undefined && last.list === list) last.lines.push(line); else out.push({ list, lines: [line] })
+    breakBefore = false
   }
-  return out.filter((b) => b.lines.length > 0)
+  return out
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
 export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string }
 
 /** The model-less conversation (`view.floor`, additive, read defensively like `early`): well-formed entries only, in core's order; none where absent. */
-export const floorOf = (view: unknown): FloorTurn[] => {
+export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; text: string }): FloorTurn[] => {
   const f = typeof view === 'object' && view !== null ? (view as { floor?: unknown }).floor : undefined
   if (!Array.isArray(f)) return []
-  return f.filter((x): x is FloorTurn => typeof x === 'object' && x !== null && typeof (x as FloorTurn).text === 'string' && (x as FloorTurn).text.trim() !== '' && typeof (x as FloorTurn).said === 'string'
-    && typeof (x as FloorTurn).job === 'number' && typeof (x as FloorTurn).at === 'string')
-    .map((x) => ({ job: x.job, at: x.at, by: typeof x.by === 'string' ? x.by : '', by_id: typeof x.by_id === 'string' ? x.by_id : '', said: x.said, text: x.text }))
+  const rows: FloorTurn[] = []
+  for (const row of f) {
+    if (row === null || typeof row !== 'object' || typeof row.text !== 'string' || !row.text.trim() ||
+      typeof row.said !== 'string' || typeof row.job !== 'number' || typeof row.at !== 'string') continue
+    if (alreadyShown && row.job === alreadyShown.job && row.text === alreadyShown.text) continue
+    rows.push({ job: row.job, at: row.at, by: typeof row.by === 'string' ? row.by : '', by_id: typeof row.by_id === 'string' ? row.by_id : '', said: row.said, text: row.text })
+  }
+  return rows
 }
 
 type Holder = { version?: unknown; proposal?: unknown; brief?: unknown; draft?: { status?: unknown } | null } | null
@@ -74,11 +81,10 @@ export function entriesOf(draft: unknown): Entry[] | null {
 
 /** The board draws the brief's early answer. Only its actual job can refer to that same brief. */
 export const floorShown = (view: { draft?: unknown } | null): FloorTurn[] => {
-  const floor = floorOf(view)
   const boardAnswer = earlyOf(view?.draft)
-  if (boardAnswer === null) return floor
+  if (boardAnswer === null) return floorOf(view)
   const briefJob = entriesOf(view?.draft)?.find(e => e.kind === 'brief')?.job ?? (view?.draft as { job?: number } | null)?.job
-  return floor.filter(f => f.job !== briefJob || f.text !== boardAnswer)
+  return floorOf(view, { job: briefJob, text: boardAnswer })
 }
 
 type ThreadRow = { seq: number; index: number | null; floor: FloorTurn | null }

@@ -401,11 +401,11 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     // DERIVED: core's trial_questions item shape and words as core's own row serves them (rebuild-journey.test.ts:1571/1608 at 13bd106e),
     // on a figure of this real View with its own edit; the id is the figure's, the edit the one its card offers.
     const QN = 'How far along are your funding conversations: when would the first money arrive, as things stand?'
-    const view = { ...real, model: { ...real.model!, trial_questions: [{ id: card.id, text: `‘${card.heading}’`, title: QN, answer: true, unknown: null, edit: card.figure!.edit! }] } } as View
+    const view = { ...real, model: { ...real.model!, trial_questions: [{ id: 'blank-row', text: '', title: '', answer: true, unknown: null, edit: null }, { id: card.id, text: `‘${card.heading}’`, title: QN, answer: true, unknown: null, edit: card.figure!.edit! }] } } as View
     show(view)
     const { getByTestId, queryByTestId } = render(<ViewChat />)
     const first = getByTestId('view-model-question-text')
-    expect([first.textContent, first.getAttribute('data-question-id')]).toEqual([QN, card.id])
+    expect([first.textContent, first.getAttribute('data-question-id'), first.getAttribute('data-view')]).toEqual([QN, card.id, 'model.trial_questions.1.title'])
     const link = getByTestId(`view-question-edit-${card.id}`)
     expect(link.tagName).toBe('BUTTON')
     fireEvent.click(link)

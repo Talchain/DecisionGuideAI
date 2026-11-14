@@ -167,6 +167,15 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     const legacy = show({ ...g, chat: [{ ...failed, by_id: null }, { ...ok, id: 50, by_id: null }] }, <ViewChat />)
     expect(legacy.querySelectorAll('[data-testid="view-chat-said-bubble"]')).toHaveLength(2)
   })
+  it('merges unpaired floor jobs in acceptance order when their outcomes completed in reverse', () => {
+    const g = golden('whatif'), saved = { ...g.chat[0]!, id: 90, by_id: '7' }
+    const conversation = [{ seq: 20, kind: 'turn', job: 20, proposal: 90, by_id: '7' }]
+    const late = { ...floorRow, job: 30, text: 'A. Completed first.' }
+    const early = { ...floorRow, job: 10, text: 'Z. Completed last.' }
+    const c = show({ ...g, chat: [saved], floor: [late, early], draft: { ...draft('failed'), conversation } } as unknown as View, <ViewChat />)
+    const rows = c.querySelectorAll('[data-testid="view-chat-turns"] > li')
+    expect([...rows].map(r => r.getAttribute('data-floor-job') ?? r.getAttribute('data-view-turn'))).toEqual(['10', 'chat.0', '30'])
+  })
   it('without accepted ids, keeps saved chat and floor order and never swallows a separate job with the same words', () => {
     const g = golden('whatif')
     const a = { ...floorRow, job: 18, said: 'FIRST SENT' }, b = { ...floorRow, job: 6, said: 'SECOND SENT' }

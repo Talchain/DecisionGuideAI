@@ -17,9 +17,8 @@ import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type View
 import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
-import { questionsOf } from './journey'
 import { usePreMortemGate, useViewLens } from './lens'
-import { figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { chatQuestionsOf, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -98,14 +97,16 @@ export function Blocks({ parts, at, first = 1 }: { parts: Said; at: string; firs
   const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
   // Group: blank lines end a paragraph; consecutive "- " lines make one list.
   const groups: { list: boolean; lines: Piece[][] }[] = []
+  let breakBefore = true
   for (const line of lines) {
-    if (line.length === 0) { groups.push({ list: false, lines: [] }); continue }
+    if (line.length === 0) { breakBefore = true; continue }
     const list = isItem(line), last = groups[groups.length - 1]
-    if (last && last.lines.length > 0 && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+    if (!breakBefore && last && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+    breakBefore = false
   }
   return (
     <>
-      {groups.filter((g) => g.lines.length > 0).map((g, gi) => (g.list
+      {groups.map((g, gi) => (g.list
         ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => <li key={li}>{draw(l, true)}</li>)}</ul>
         : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
     </>
@@ -414,9 +415,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const you = useViewStore((s) => s.view?.you ?? null)
   // PL-1083 (3): where core serves the same explanation under every reading (its `title`), it is drawn once above them, so each row is its
   // own words and its two choices; a reading whose explanation differs keeps its own beneath it.
-  const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
-  const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
-  const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
+  const { sharedTitle, firstReading } = readingHeadingOf(p.marks, readingIds)
   // PL-1083 (1): at rest the reading rows sit wholly above the pinned actions (./readingsRest.ts). Placed when the proposal is held, and again
   // whenever the box, a row or the actions change size (a resize, the dock opening, a font arriving, a label wrapping), until the person
   // scrolls the box themselves.
@@ -1339,9 +1338,7 @@ export function ViewChat() {
                 held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
                 An older core sends no trial_questions: as before. */}
             {(() => {
-              const trial = (view?.model?.trial_questions ?? []).filter((t) => t.title !== '').map((t, at) => ({ key: `t:${t.id}`, view: `model.trial_questions.${at}.title`, text: t.title, id: t.id, edit: t.edit }))
-              const words = view === null ? [] : questionsOf(view).filter((q) => q.text !== '').map((q) => ({ key: `c:${q.at}`, view: `model.coaching_questions.${q.at}`, text: q.text, id: null, edit: null }))
-              const qs = [...trial, ...words].slice(0, 3)
+              const qs = chatQuestionsOf(view?.model)
               if (qs.length === 0) return null
               const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
               const body = (q: (typeof qs)[number]) => <QuestionLine text={q.text} id={q.id} edit={q.edit} />
