@@ -25,7 +25,7 @@ describe('the view gallery isolation', () => {
   it('G3: every write is refused in words and listed, on the View\'s own scenario too', () => {
     const a = answerOf(VIEW)
     for (const [method, path] of [['POST', '/api/proposals/18/approve'], ['POST', '/api/scenarios/s_0123456789ab/messages'], ['PUT', '/api/me'], ['DELETE', '/api/scenarios/s_0123456789ab']] as const) {
-      expect(decide(method, at(path), ORIGIN, a)).toEqual({ kind: 'answer', status: 409, body: { error: 'The gallery is read-only: nothing is sent or saved.' }, list: 'refused', why: 'write' })
+      expect(decide(method, at(path), ORIGIN, a)).toEqual({ kind: 'answer', status: 405, body: { error: 'The gallery is read-only: nothing is sent or saved.' }, list: 'refused', why: 'write' })
     }
   })
   it('G4: another origin fails like a dead network, and a same-origin path outside /api is listed as unexpected', () => {
@@ -45,7 +45,7 @@ describe('the view gallery isolation', () => {
     expect(me.status).toBe(200)
     expect(await me.json()).toEqual({ me: { id: 'p_ada', name: 'Ada' } })
     const saved = await win.fetch('/api/proposals/18/approve', { method: 'POST', body: '{}' })
-    expect(saved.status).toBe(409)
+    expect(saved.status).toBe(405)
     expect(await saved.json()).toEqual({ error: READ_ONLY })
     expect((await win.fetch('/api/scenarios/s_0123456789ab/summary')).status).toBe(404)
     await expect(win.fetch('https://elsewhere.test/x')).rejects.toThrow('Refused by the view gallery.')
@@ -58,8 +58,8 @@ describe('the view gallery isolation', () => {
     const win = { location: { origin: ORIGIN, href: `${ORIGIN}/view-gallery.html` }, fetch: () => Promise.reject(new Error('network')), XMLHttpRequest: { prototype: {} }, navigator: {} } as unknown as Parameters<typeof isolate>[0]
     const state = isolate(win, 'fixtures/x.view3.json', answerOf(VIEW))
     // A write carried by a Request object, to a path the View can answer as a read: refused, never answered.
-    expect((await win.fetch(new Request(`${ORIGIN}/api/me`, { method: 'POST', body: '{}' }))).status).toBe(409)
-    expect((await win.fetch('/api/me', { method: 'post' })).status).toBe(409)
+    expect((await win.fetch(new Request(`${ORIGIN}/api/me`, { method: 'POST', body: '{}' }))).status).toBe(405)
+    expect((await win.fetch('/api/me', { method: 'post' })).status).toBe(405)
     expect((await win.fetch(new URL('/api/me', ORIGIN))).status).toBe(200)
     const head = await win.fetch('/api/me', { method: 'head' })
     expect([head.status, await head.text()]).toEqual([200, ''])
@@ -75,7 +75,7 @@ describe('the view gallery isolation', () => {
     expect(state.refused.map((x) => `${x.method} ${x.url} ${x.why}`)).toEqual(['EventSource /api/stream unexpected', 'XHR GET /api/me unexpected', 'beacon https://elsewhere.test/b unexpected'])
   })
   it('G9: a saved View that does not say who it is for answers that nobody is, and never invents a person', () => {
-    for (const view of [{ id: 's_0123456789ab' }, { id: 's_0123456789ab', you: 'Ada' }, { id: 's_0123456789ab', you: 'Ada', you_id: 7 }]) {
+    for (const view of [{ id: 's_0123456789ab' }, { id: 's_0123456789ab', you: 'Ada' }, { id: 's_0123456789ab', you: 'Ada', you_id: 7 }, { id: 's_0123456789ab', you_id: 'p_ada' }, { id: 's_0123456789ab', you: 7, you_id: 'p_ada' }]) {
       expect(decide('GET', at('/api/me'), ORIGIN, answerOf(view))).toEqual({ kind: 'answer', status: 200, body: { me: null } })
     }
     expect([READ_ONLY, NOT_SAVED_HERE]).toEqual(['The gallery is read-only: nothing is sent or saved.', 'Not in this saved View.'])
