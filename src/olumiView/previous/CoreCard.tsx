@@ -236,7 +236,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
             <span className="ok-limit-name">{nameOf(r.aim_id!)}</span>
             {r.text == null || r.text === '' ? null : <details className="ok-why nodrag" data-view={`${id}.rows.${i}.why`}><summary>Why not</summary><p>{r.text}</p></details>}
-            {r.question == null || r.question === '' ? null : <p className="ok-next line-clamp-2" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
+            {r.question == null || r.question === '' ? null : <p className="ok-next" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
           </div>
         ) : (
           <p key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
@@ -263,7 +263,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
           {at === null ? null : <span className="ok-track" aria-hidden="true" data-view={`${id}.chance.track`}><span style={{ width: `${at * 100}%` }} /></span>}
           {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
-          {h.add == null ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+          {h.add == null ? null : <p className="ok-next" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
         </div>
       )
     }
@@ -276,7 +276,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id}>{h.text}</span>{trail}</span>
           {h.why == null || h.why === '' ? null : <details className="ok-why nodrag nowheel" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>}
         </div>
-        {h.add == null || h.add === '' ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+        {h.add == null || h.add === '' ? null : <p className="ok-next" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
       </div>
     )
     // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status

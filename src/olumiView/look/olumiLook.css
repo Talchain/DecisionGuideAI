@@ -98,7 +98,7 @@
 .olumi-look .ok-pill {
   display: inline-flex; align-self: flex-start; align-items: center; border: 1px solid var(--o-border-emph); border-radius: 999px;
   padding: calc(1px * var(--o-s)) calc(8px * var(--o-s)); font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body);
-  background: var(--o-panel);
+  background: var(--o-panel); white-space: nowrap; flex-shrink: 0;
 }
 .olumi-look .ok-why > summary {
   list-style: none; cursor: pointer; width: max-content; color: var(--o-info); font-size: calc(11.5px * var(--o-s)); line-height: 1.45;

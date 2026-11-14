@@ -258,7 +258,7 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
   const from = Date.parse(turn.started), secs = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
   return (
-    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status}>
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status} data-shown={shown ? '' : undefined}>
       <li className="space-y-1">
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
         {shown ? null : turn.said === null
@@ -1153,7 +1153,9 @@ export function ViewChat() {
     const el = scroll.current
     if (el === null) return
     if (!follows.current) { setAway(true); return }
-    const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]')
+    // A job the saved row already draws (its message and failure; only Try again added) is not the newest message: his message is
+    // (DL 1128 fault 3: following the job's Try again scrolled his own message out of view above the pinned proposal).
+    const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
     const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
@@ -1223,7 +1225,7 @@ export function ViewChat() {
         </button>
       </div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
-      <div className={`relative flex flex-1 ${pinned ? 'min-h-[96px]' : 'min-h-0'} flex-col`}>
+      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(38vh,280px)]' : 'min-h-0'} flex-col`}>
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}

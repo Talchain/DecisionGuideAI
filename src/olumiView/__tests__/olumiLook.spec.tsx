@@ -50,6 +50,8 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect(el.querySelector(`[data-view="${o.id}.headline.why"] p`)?.textContent).toBe(o.headline!.why)
     const next = el.querySelectorAll(`[data-view="${o.id}.headline.add"]`)
     expect([next.length, next[0]?.textContent, next[0]?.className.includes('ok-next')]).toEqual([1, o.headline!.add, true])
+    // DL 1128 fault (1): the ONE next step is never cut
+    expect(next[0]!.className).not.toMatch(/line-clamp/)
   })
 
   it('L3 a fixed result is said as fixed, in core\'s words, never as a chance', () => {

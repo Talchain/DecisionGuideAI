@@ -31,3 +31,16 @@ describe('the "more cards below" cue (DL-538)', () => {
     expect(cardsBelowOf(tall, TY - panUpOf(tall, TY, ZOOM, H), ZOOM, H)).toBe(0)
   })
 })
+
+describe('the "more cards to the right" cue (DL 1128 fault 4)', () => {
+  // The served 1128 approved board (g18): five options at 140px from x 70 at zoom 0.917, the free canvas ending at x 811 (the dock).
+  const row = [0, 1, 2, 3, 4].map((i) => ({ x: i * 164, w: 140 })), TX = 70, Z = 0.917, RIGHT = 811
+  it('R1 a card cut by the panel edge counts; one press brings the board\'s right edge into view; CONTRAST: a row that fits counts none', async () => {
+    const { cardsRightOf, panLeftOf } = await import('../BelowCue')
+    const cut = [...row.slice(0, 4), { x: 740, w: 140 }] // the fifth card cut by the edge: its left inside, its right outside
+    expect(cardsRightOf(cut, TX, Z, RIGHT)).toBe(1)
+    const after = TX - panLeftOf(cut, TX, Z, RIGHT)
+    expect(cardsRightOf(cut, after, Z, RIGHT)).toBe(0)
+    expect(cardsRightOf(row, TX, Z, RIGHT), 'CONTRAST').toBe(0)
+  })
+})
