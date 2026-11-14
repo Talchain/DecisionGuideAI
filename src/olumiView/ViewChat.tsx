@@ -219,12 +219,21 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
 }
 
 /** Preserve the conversation's sequence and paths (UI recovery witness row 11, DL 10 Nov). */
+/**
+ * DL journey (5): a message that failed and was sent again (Try again sends the same words) is one message in the thread: a saved row with
+ * no answer and core's failure (`problem`) is drawn only when the next row is not the same person's same words. Matched by fields, never
+ * by prose; the attempt that stands (the newest) keeps its own failure or its answer.
+ */
+export const retriedAt = (chat: View['chat'], i: number): boolean => {
+  const t = chat[i], next = chat[i + 1]
+  return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && next.by_id === t.by_id && next.said === t.said
+}
 export function ViewConversation({ chat, moves = false, me }: { chat: View['chat']; moves?: boolean; me?: string | null }) {
   if (chat.length === 0) return null
   const last = chat.length - 1
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
-      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} me={me} />)}
+      {chat.map((t, i) => (retriedAt(chat, i) ? null : <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} me={me} />))}
     </ol>
   )
 }

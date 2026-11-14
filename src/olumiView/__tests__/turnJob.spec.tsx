@@ -15,7 +15,7 @@ import { useMe } from '../../olumiCore/me'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { DRAFT_POLL_MS, POLL_MS, useViewPoll } from '../poll'
-import { TurnInFlight, ViewConversation, turnAlreadyShown, ViewComposer, isAnswering, pendingTurn, useViewChat } from '../ViewChat'
+import { TurnInFlight, ViewConversation, retriedAt, turnAlreadyShown, ViewComposer, isAnswering, pendingTurn, useViewChat } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -175,5 +175,25 @@ describe('the saved failed reply and its job share one notice', () => {
     expect(turnAlreadyShown({ ...state, turn: { ...failed, status: 'answering' } })).toBe(false)
     expect(turnAlreadyShown({ ...state, turn: { ...failed, by_id: '9' } })).toBe(false)
     expect(turnAlreadyShown({ ...state, turn: { ...failed, said: 'something else' } })).toBe(false)
+  })
+})
+
+// DL journey (5), driven at 04:30Z on run 1 pending: Try again on the zero-call server failed again, and the thread drew the message and the
+// failure twice (one saved row per attempt). The same person's same words sent again are one message; the newest attempt stands.
+describe('a message sent again is one message in the thread', () => {
+  const failed = turnOf({ status: 'failed', words: 'Olumi could not finish its reply.' })
+  const row = (id: number, over: Partial<View['chat'][number]> = {}): View['chat'][number] => ({ id, by: 'Paul', by_id: failed.by_id, version: 'version 1', earlier: false, status: null, answer: null, said: failed.said!, broke: null, problem: failed.words, marks: [], choice: null, ...over })
+  it('two failed attempts of the same words: one message, one failure, bound to the newest row', () => {
+    const chat = [row(31), row(33)]
+    const c = render(<><ViewConversation chat={chat} me="7" /><TurnInFlight turn={failed} me="7" shown={turnAlreadyShown({ chat, turn: failed })} /></>).container
+    expect(c.textContent!.split(failed.words!)).toHaveLength(2)
+    expect(c.textContent!.split(failed.said!)).toHaveLength(2)
+    expect(c.querySelector('[data-view-turn="chat.1"]')).not.toBeNull()
+    expect(c.querySelector('[data-view-turn="chat.0"]')).toBeNull()
+    expect(c.querySelectorAll('[data-testid="view-chat-turn-again"]')).toHaveLength(1)
+  })
+  it('CONTRAST: a different message after a failure keeps both; an answered row is never folded', () => {
+    expect(retriedAt([row(31), row(33, { said: 'Another question' })], 0)).toBe(false)
+    expect(retriedAt([row(31, { problem: null }), row(33)], 0)).toBe(false)
   })
 })
