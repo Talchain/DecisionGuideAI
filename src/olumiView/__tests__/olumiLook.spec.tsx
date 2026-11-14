@@ -19,10 +19,10 @@ import { isWorkedOut, workedStepsOf } from '../look/WorkedSteps'
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const RUN2 = load('live-v51-run2-approved.view.json'), RUN1 = load('live-v51-run1-pending.view.json')
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
-const draw = (view: View, card: ViewCard): HTMLElement => {
+const draw = (view: View, card: ViewCard, width?: number): HTMLElement => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
-  return render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+  return render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card, label: card.heading, ...(width === undefined ? {} : { width }) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
@@ -125,5 +125,17 @@ describe('a figure worked out from others is a quiet status line, never a headli
     const a = draw(WS, d)
     expect([a.querySelector(`[data-core-lead="${d.id}"]`)?.getAttribute('data-ok-face'), a.querySelector(`[data-core-lead="${d.id}"] .ok-status [data-core-lead-clamp]`)?.textContent]).toEqual(['worked', d.figure!.text]); cleanup()
     expect(draw(RUN2, own).querySelector(`[data-core-lead="${own.id}"]`)?.getAttribute('data-ok-face')).toBe('figure')
+  })
+})
+
+describe('DL-538: a card drawn at the stage\'s width', () => {
+  it('S1 the card is drawn at exactly the width the layout placed it at, its floor included (a wider floor drew each card over its neighbour)', () => {
+    const o = cardOf(RUN2, (c) => c.family === 'option')
+    const g = draw(RUN2, o, 140).querySelector('[role="group"][aria-label]') as HTMLElement
+    expect([g.style.width, g.style.maxWidth, g.style.minWidth]).toEqual(['140px', '140px', '140px'])
+    cleanup()
+    // CONTRAST: at the full card's width the floor is the layout floor, unchanged
+    const full = draw(RUN2, o).querySelector('[role="group"][aria-label]') as HTMLElement
+    expect(parseFloat(full.style.minWidth)).toBeLessThanOrEqual(parseFloat(full.style.width))
   })
 })

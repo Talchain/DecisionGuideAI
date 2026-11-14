@@ -11,7 +11,7 @@ import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
 import { packRows } from '../canvas/utils/packRows'
-import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 
@@ -165,13 +165,21 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
  * core's is read or written here.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number } } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
-  const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false })
+  // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
+  // previous layout's own cap.
+  const maxPerRow = Math.max(MAX_CARDS_PER_ROW, allOptionCards(model).length)
+  const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
-  return direction === 'DOWN' || direction === 'UP' ? packRows(places, QUESTION, W, ROW_GAP_X) : places
+  if (direction !== 'DOWN' && direction !== 'UP') return places
+  const packed = packRows(places, QUESTION, options.row?.cardW ?? W, options.row?.gapX ?? ROW_GAP_X)
+  // DL-538: the question bar spans the options row (questionBarWidth), so it starts where the row starts.
+  const opts = allOptionCards(model).map((c) => packed.get(c.id)).filter((p): p is { x: number; y: number } => p !== undefined), q = packed.get(QUESTION)
+  if (options.row !== undefined && q !== undefined && opts.length > 0) packed.set(QUESTION, { x: Math.min(...opts.map((p) => p.x)), y: q.y })
+  return packed
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
@@ -1097,3 +1105,21 @@ export function tryOnCardOf(variant: WhatIfVariant, quantity: string, typed: str
  *  no words. Picking by the option's id only: the lines are drawn verbatim, nothing in them is read. */
 export const sizeLinesOf = <T extends { option: string; line: string }>(size: readonly T[] | undefined, option: string): { s: T; k: number }[] =>
   (size ?? []).map((s, k) => ({ s, k })).filter(({ s }) => s.option === option && s.line !== '')
+
+/** The narrowest a card is drawn when the stage is narrow (DL-538: the target at 1128 draws five options across at about 145px). */
+export const CARD_MIN_W = 140
+/** The readable floor the row is sized for (camera.ts READABLE_WHOLE_ZOOM: 11px text over 12px), kept here so layout does not import the camera. */
+const READABLE_FLOOR = 11 / 12
+/**
+ * DL-538 (14 Nov, the target screen): the board's rows are sized to the stage. The card width (and the row gap) are the ones at which the
+ * widest row of options fits the free canvas across (`roomW`, ViewCanvas's insets) at the readable floor: the full card and the full gap
+ * where they fit, else the layout's node gap and a card between CARD_MIN_W and the full card. The question bar spans that row. A stage
+ * too narrow even at CARD_MIN_W pans (the camera never shrinks the board to a zoomed-out face).
+ */
+export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number } {
+  const n = Math.max(1, allOptionCards(model).length), room = roomW / READABLE_FLOOR
+  if (roomW <= 0 || n * W + (n - 1) * ROW_GAP_X <= room) return { cardW: W, gapX: ROW_GAP_X }
+  return { cardW: Math.max(CARD_MIN_W, Math.min(W, Math.floor((room - (n - 1) * LAYOUT_NODE_GAP) / n))), gapX: LAYOUT_NODE_GAP }
+}
+/** The question bar's width over a row of options: the whole row. */
+export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number }): number => { const n = Math.max(1, allOptionCards(model).length); return n * row.cardW + (n - 1) * row.gapX }

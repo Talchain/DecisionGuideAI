@@ -8,7 +8,7 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
@@ -58,8 +58,12 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; row: { cardW: number; gapX: number } }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing, opts.row])
+/** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
+// Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
+let row: { cardW: number; gapX: number } = { cardW: 0, gapX: 0 }
+export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
   if (typeof window === 'undefined') return { h: 0, w: 0 }
@@ -87,13 +91,14 @@ const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().
  *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
-  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing })
+  row = stageRow(model, roomOf().w)
+  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing, row })
   if (causal?.key === key) return causal.places
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
+  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, row) : row.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
   laying += 1
   try {
-    const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing })
+    const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing, row })
     causal = { key, places }
     return places
   } finally {
@@ -108,8 +113,9 @@ async function causalFor(model: ViewModel): Promise<Map<string, At>> {
 export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
-  const heights = drawnHeights(store.nodes), q = questionPlace(model)
-  const box = (id: string, p: At) => ({ ...p, w: id === QUESTION ? q.width : CARD_WIDTH, h: heights.get(id) ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
+  if (row.cardW === 0) row = stageRow(model, roomOf().w)
+  const heights = drawnHeights(store.nodes), q = { width: questionBarWidth(model, row) }
+  const box = (id: string, p: At) => ({ ...p, w: id === QUESTION ? q.width : row.cardW, h: heights.get(id) ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
   const ids = [QUESTION, ...model.cards.map((c) => c.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : VIEW_CARD)
   const movedTo = (id: string) => { const n = held.get(id); return n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
   // What the person moved stays; every other card goes to its causal place, below any moved card it would sit on (review 00063 #1).
@@ -133,7 +139,7 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>
   const nodes = [
     { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: placeOf(QUESTION), ...kept(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
-    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading }, position: placeOf(card.id), ...kept(card.id) })),
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading, width: row.cardW }, position: placeOf(card.id), ...kept(card.id) })),
   ]
   // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
   const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title,

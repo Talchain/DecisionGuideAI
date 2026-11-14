@@ -2095,7 +2095,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         // go red when they stopped agreeing (CLAUDE.md trap 12). It is now one
         // number, and it carries the label counter-scale with it — see the
         // header of `nodeLayoutConstants.ts`.
-        minWidth: `${NODE_LAYOUT_MIN_W}px`,
+        // ...bounded by the width the card is drawn at, as the title's measure floor is (DL-538: the core lane sizes its cards to the stage,
+        // and a floor wider than the box ELK placed the card in drew each card over its neighbour).
+        minWidth: `${Math.min(NODE_LAYOUT_MIN_W, renderedCardW)}px`,
         // Width policy:
         //  - Non-expanded: use caller's maxWidth if given, else the last layout's
         //    width, else fall back to NODE_CARD_MAX_W so rendered width matches ELK.

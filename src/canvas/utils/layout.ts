@@ -114,6 +114,8 @@ interface LayoutOptions {
    * canvas draws them in. The returned nodes keep the engine's kind, so the store never holds the drawing.
    */
   livingOutcomeIds?: ReadonlySet<string>
+  /** The most cards a tier holds before it wraps (default MAX_CARDS_PER_ROW). The core lane keeps its options in one row (DL-538). */
+  maxPerRow?: number
 }
 
 type LayoutDirection = NonNullable<LayoutOptions['direction']>
@@ -1000,7 +1002,7 @@ async function layoutModel(
   const splitterCreatedTiers = new Set<number>()
 
   if (isDownLayout) {
-    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers, inTierCausalDepth(tierAssignments, edges))
+    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, options.maxPerRow ?? MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers, inTierCausalDepth(tierAssignments, edges))
     normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, splitterCreatedTiers, promptRowFloorByTier)
     placeTierRowsOnSpine(positionMap, sizeMap, unlocked, tierAssignments, fallbackBoxW, gap, promptSlotByTier)
     // X is final only now, so this is the first point the consequence row can be
