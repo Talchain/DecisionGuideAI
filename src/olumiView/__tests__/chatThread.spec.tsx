@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { ViewChat, ViewComposer, ViewConversation, useViewChat } from '../ViewChat'
+import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))

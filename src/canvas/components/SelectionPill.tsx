@@ -103,7 +103,8 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
   const meta: 'viewPanelMeta' | 'panelMeta' = isOlumiCoreLane() ? 'viewPanelMeta' : 'panelMeta'
   return (
     <div
-      className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
+      // DL-538 (the target's selected card): on the olumi-core lane the row is drawn as a card (olumiLook.css `.ok-selected`).
+      className={`px-3 py-1 flex items-center gap-1.5 flex-wrap${isOlumiCoreLane() ? ' ok-selected' : ''}`}
       data-testid="ai-panel-selection-pill"
       data-selection-kind={selection.kind}
       data-selection-actionable={canAsk ? 'true' : 'false'}

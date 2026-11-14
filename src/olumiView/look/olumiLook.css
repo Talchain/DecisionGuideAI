@@ -215,3 +215,11 @@
   --tw-ring-shadow: 0 0 #0000 !important; background: #fefefe !important;
 }
 .ok-pinned [data-testid='view-approve'] { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }
+/* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
+   whose it is, and core's sentence for its headline. */
+.ok-selected {
+  margin: 4px 12px 8px; padding: 12px 14px !important; border: 1px solid #d9d8d0; border-radius: 13px; background: #fefefe;
+  box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08), 0 1px 3px rgba(30, 49, 50, 0.045); row-gap: 4px !important;
+}
+.ok-selected > span:first-child { flex-basis: 100%; font-size: 10.5px !important; letter-spacing: 0.08em; text-transform: uppercase; color: #687879; }
+.ok-selected [data-testid='selected-headline-title'] { color: #3d5256; line-height: 1.5; }
