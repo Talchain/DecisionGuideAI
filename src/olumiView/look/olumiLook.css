@@ -255,3 +255,6 @@
 .ok-explain .ok-path { margin: 2px 0 0; padding-left: 12px; list-style: none; display: grid; gap: 2px; }
 .ok-explain .ok-path ul { margin: 2px 0 0; padding-left: 12px; list-style: none; }
 .ok-explain .ok-path-break { color: #8a3b12; }
+/* On the path the measure's working is open and its steps are the path: no second "How it is worked out" toggle, no marker. */
+.ok-explain .ok-path .ok-steps > summary { display: none; }
+.ok-explain .ok-path .ok-steps[open] > ol { margin-top: 2px; }

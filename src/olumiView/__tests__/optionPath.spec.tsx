@@ -41,6 +41,7 @@ describe('one option\'s path, setting → what reads it → the measure the aim 
   it('P2 the measure the aim reads (model.aim.quantity), worked out as core serves it, for this option, then the aim with core\'s link words', () => {
     const el = select(STORE, GRANTS), w = card(aim.quantity).worked!
     expect(el.querySelector('[data-path="measure"]')?.getAttribute('data-path-from')).toBe(aim.quantity)
+    expect((el.querySelector(`[data-path="measure"] [data-view="${aim.quantity}.worked"]`) as HTMLDetailsElement | null)?.open).toBe(true)
     const steps = [...el.querySelectorAll(`[data-path="measure"] [data-view^="${aim.quantity}.worked.steps."]`)]
     expect(steps.map((li) => [li.querySelector(':scope > [data-step-join]')?.textContent ?? null, li.querySelector('.ok-step-name')?.textContent, li.querySelector('b')?.textContent]))
       .toEqual(w.steps.map((s, i) => [i === 0 ? null : 'plus', s.label, s.figure.options.find((o) => o.option === GRANTS)!.text]))

@@ -90,7 +90,7 @@ export function OptionPathView({ path, head, drawn = [] }: { path: OptionPath; h
         {measure === null ? null : (
           <li data-path="measure" data-path-from={measure.id}>
             <span>{measure.heading}</span>
-            {drawn.includes(measure.id) ? null : <WorkedSteps view={path.view} id={measure.id} option={option.id} />}
+            {drawn.includes(measure.id) ? null : <WorkedSteps view={path.view} id={measure.id} option={option.id} open />}
             {events.length === 0 ? null : (
               <ul>{events.map((e) => (
                 <li key={e.card.id} data-path="event" data-path-from={e.card.id} data-path-missing="occurrence severity reads via" title={e.link.title}>

@@ -69,10 +69,10 @@ export function joinOf(form: CoreWorkedOf['form'], step: CoreStep, first: boolea
  * first is joined by a plain word read from them (joinOf: plus, minus, times, divided by), never from a label; `power`/`sign` also stay as
  * data attributes. Where core sends no `worked`, the link derivation below stays in force.
  */
-function CoreWorked({ card, worked, option, mine }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string> }): JSX.Element {
+function CoreWorked({ card, worked, option, mine, open }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string>; open?: boolean }): JSX.Element {
   const figureOf = (s: Omit<CoreStep, 'role'>) => (option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null) ?? s.figure
   return (
-    <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form}>
+    <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
       <summary title={WORKED_OUT}><span className="line-clamp-1">{WORKED_OUT}</span></summary>
       <ol>
         {worked.steps.map((s, i) => {
@@ -102,15 +102,16 @@ export function movedByWorked(view: View, option: string): string[] {
 }
 
 /** `mine`: the cards whose terms are marked as this option's (SelectedExplain); none on a card's own face. `option`: the selected option. */
-export function WorkedSteps({ view, id, mine, option }: { view: View; id: string; mine?: ReadonlySet<string>; option?: string }): JSX.Element | null {
+/** `open`: drawn open (a selected option's path, DL 08:58Z), where the steps are the path itself. */
+export function WorkedSteps({ view, id, mine, option, open }: { view: View; id: string; mine?: ReadonlySet<string>; option?: string; open?: boolean }): JSX.Element | null {
   const card = view.model?.cards.find((c) => c.id === id) ?? null
-  if (card?.worked != null) return <CoreWorked card={card} worked={card.worked} option={option} mine={mine} />
+  if (card?.worked != null) return <CoreWorked card={card} worked={card.worked} option={option} mine={mine} open={open} />
   const worked = workedStepsOf(view, id)
   if (worked.length === 0) return null
   return (
     <>
       {worked.map(({ relation, steps }) => (
-        <details key={relation.id} className="ok-steps nodrag nowheel" data-view={`${id}.worked.${relation.id}`}>
+        <details key={relation.id} className="ok-steps nodrag nowheel" data-view={`${id}.worked.${relation.id}`} open={open}>
           <summary title={relation.label}><span className="line-clamp-1">{relation.label}</span></summary>
           <ol>
             {steps.map(({ link, from, effectCard }, i) => {
