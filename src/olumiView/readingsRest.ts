@@ -6,8 +6,9 @@
  * `readingsRest` gives the scrollTop range of the scroll box `box` that shows the MOST leading rows marked `data-reading-row` under `root`
  * whole above `foot`: at `low` the last of those rows sits just above the actions, at `high` the first row's top is just inside the box.
  * Where the words are long (13:50Z on 7163b55b: a first row of 352 px) not every row fits: then as many leading rows as do; the first row
- * alone may give up its gap to fit; and where even that cannot, the first row's top. `rows` says how many rest whole (0 = not even the
- * first). `short` is how many more pixels of height the box would need to hold EVERY row with its gap above and below (<= 0 when they all
+ * alone may give up its gap to fit; and where even that cannot (15:12Z on 7163b55b, old look at 1128: a first row of 374 px in 359 px of
+ * room, its second choice under the actions), the first row's FOOT rests just above the actions, so both its choices are in view and its
+ * top is cut. `rows` says how many rest whole (0 = not even the first). `short` is how many more pixels of height the box would need to hold EVERY row with its gap above and below (<= 0 when they all
  * fit with their gaps; it can be a few pixels above 0 while `rows` counts them all, when a sole row fits only without its gap). Positions come from
  * layout and are taken in the box's own scroll coordinates, so they do not depend on where it is scrolled now. null where no row is held.
  */
@@ -27,7 +28,8 @@ export function readingsRest(box: HTMLElement, root: HTMLElement, foot: HTMLElem
   }
   const tight = bottoms[0]! - room
   if (tight <= top) return { low: tight, high: top, rows: 1, short }
-  return { low: top - gap, high: top - gap, rows: 0, short }
+  // Not even the first row fits: its foot (its two choices, what the person has to reach) rests just above the actions; its top is cut.
+  return { low: tight, high: tight, rows: 0, short }
 }
 
 /** The rest scrollTop: the least move from `now` into the range, within 0..`max`. */

@@ -104,4 +104,12 @@ describe('PL-1083 (1), old look: where the thread rests while a proposal holds r
     resized(thread())
     expect(thread().scrollTop).toBe(77)
   })
+  it('15:12Z on 7163b55b at 1128: a first row taller than the room (374 px in 359): both its choices rest just above the actions, its top is cut', () => {
+    H = 476; ROWS = { 'view-reading-0': [2500, 374], 'view-reading-1': [2882, 238] }
+    show(held)
+    const st = thread().scrollTop, footTop = TOP + H - FOOT
+    expect(st).toBe(2500 + 374 + FOOT - 476)
+    expect(TOP + 2500 + 374 - st).toBe(footTop) // the row's foot, where its two choices are, sits exactly on the actions' top
+    expect(TOP + 2500 - st).toBeLessThan(TOP)   // and its first lines are above the thread's top
+  })
 })
