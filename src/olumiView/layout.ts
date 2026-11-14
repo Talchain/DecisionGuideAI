@@ -179,7 +179,26 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   // DL-538: the question bar spans the options row (questionBarWidth), so it starts where the row starts.
   const opts = allOptionCards(model).map((c) => packed.get(c.id)).filter((p): p is { x: number; y: number } => p !== undefined), q = packed.get(QUESTION)
   if (options.row !== undefined && q !== undefined && opts.length > 0) packed.set(QUESTION, { x: Math.min(...opts.map((p) => p.x)), y: q.y })
+  if (options.row !== undefined && direction === 'DOWN') besideTheMeasure(model, packed, options.row)
   return packed
+}
+
+/**
+ * DL-538 (the target's stage): the aims close the board beside what they measure. Where the aims stand in a row of their own at the foot
+ * (the layout's last layer: the measure links into them), they move up into the row above, to the right of its last card, so the board
+ * reads options, figures, then the measure and the goal side by side, one row shorter. Geometry only; nothing else moves.
+ */
+function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { cardW: number; gapX: number }): void {
+  const aims = new Set(aimsOf(model))
+  const ys = [...new Set([...packed].filter(([id]) => id !== QUESTION).map(([, p]) => p.y))].sort((a, b) => a - b)
+  if (ys.length < 3) return
+  const last = ys[ys.length - 1]!, above = ys[ys.length - 2]!
+  const foot = [...packed].filter(([id, p]) => id !== QUESTION && p.y === last).map(([id]) => id)
+  if (foot.length === 0 || foot.some((id) => !aims.has(id))) return
+  const beside = [...packed].filter(([id, p]) => id !== QUESTION && p.y === above)
+  if (beside.length === 0) return
+  let x = Math.max(...beside.map(([, p]) => p.x)) + row.cardW + row.gapX
+  for (const id of foot.sort((a, b) => packed.get(a)!.x - packed.get(b)!.x)) { packed.set(id, { x, y: above }); x += row.cardW + row.gapX }
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X

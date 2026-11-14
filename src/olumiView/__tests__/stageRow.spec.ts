@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
 import { READABLE_WHOLE_ZOOM } from '../camera'
-import { allOptionCards, CARD_WIDTH, CARD_MIN_W, causalPlaces, QUESTION, questionBarWidth, ROW_GAP_X, stageRow } from '../layout'
+import { aimsOf, allOptionCards, CARD_WIDTH, CARD_MIN_W, causalPlaces, QUESTION, questionBarWidth, ROW_GAP_X, stageRow } from '../layout'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const BOARDS = { run2: load('live-v51-run2-approved.view.json'), run1: load('live-v51-run1-pending.view.json') }
@@ -44,4 +44,18 @@ describe('the options row is sized to the stage (DL-538)', () => {
   it('a stage too narrow for the row keeps the card at its floor (the rest pans)', () => {
     expect(stageRow(BOARDS.run1.model!, 300).cardW).toBe(CARD_MIN_W)
   })
+
+  for (const [name, view] of Object.entries(BOARDS)) {
+    it(`${name}: the goal closes the board beside the measure it is measured by (the target's last row); CONTRAST: the previous layout alone keeps it a row below`, async () => {
+      const model = view.model!, row = stageRow(model, FREE_1128), goal = aimsOf(model)[0]!
+      const size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
+      const into = model.links.filter((l) => l.to === goal).map((l) => l.from)
+      const staged = await causalPlaces(model, size, { row }), plain = await causalPlaces(model, size)
+      const measure = into.map((id) => staged.get(id)!).filter((p) => p.y === staged.get(goal)!.y)
+      expect(measure.length, 'a card linking into the goal shares its row').toBeGreaterThan(0)
+      expect(staged.get(goal)!.x).toBeGreaterThan(Math.max(...measure.map((p) => p.x)))
+      expect(Math.max(...[...staged.values()].map((p) => p.y)), 'one row shorter').toBeLessThan(Math.max(...[...plain.values()].map((p) => p.y)))
+      expect(into.some((id) => plain.get(id)!.y === plain.get(goal)!.y), 'CONTRAST: without the stage, below it').toBe(false)
+    })
+  }
 })
