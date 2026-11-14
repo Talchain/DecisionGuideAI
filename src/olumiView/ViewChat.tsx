@@ -440,7 +440,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
       {/* DL 06:57Z (4), old look: the actions are a sticky foot of the proposal, held at the thread's foot while the proposal's top is in view,
           so Approve and Set aside are reached without scrolling at 1232 and 1128 (the new look pins the whole proposal). */}
-      <div className="sticky bottom-0 z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg bg-panel px-3 pb-3 pt-2 shadow-[0_-8px_8px_-8px_rgba(30,49,50,0.12)]" data-testid="view-proposal-actions">
+      {/* DL 07:48Z: an opaque foot with a clean cut: it covers the thread's foot padding (nothing shows below it), a rule marks its top and the
+          lines just above fade into it, so no half-line shows on either side. */}
+      <div className="sticky bottom-[-16px] z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg border-t border-panel-border bg-panel px-3 pb-3 pt-2 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-gradient-to-t before:from-panel before:to-transparent before:content-['']" data-testid="view-proposal-actions">
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
