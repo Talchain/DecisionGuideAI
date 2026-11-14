@@ -43,7 +43,7 @@ import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, His
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, floorShown, onFloor, orderOf, type FloorTurn } from './early'
+import { earlyOf, floorShown, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
 import { EarlyAnswer } from './EarlyAnswer'
 import { SinceVersion } from '../olumiCore/compare'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
@@ -146,7 +146,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 const NO_CARDS: readonly string[] = []
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
-function Turn({ t, at, latest = false, moves = false, primary = false, me }: { t: ViewTurn; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
+function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const lit = useRef(false)
@@ -205,7 +205,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me }: { t
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
-      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}{answer}{stamp}
+      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+      {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Reply while the model was being built</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+      {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
@@ -234,10 +236,10 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
-function FloorLine({ f, me }: { f: FloorTurn; me?: string | null }) {
+function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   return (
-    <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
+    <li data-testid="view-floor-turn" data-latest-floor={latest ? '' : undefined} data-floor-job={f.job} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">
         {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`}>{f.by}</p>}
         <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
@@ -246,22 +248,20 @@ function FloorLine({ f, me }: { f: FloorTurn; me?: string | null }) {
     </li>
   )
 }
-/** The thread: the saved turns and the floor's exchanges in the order the service sends (`order` when every row has it; else the array order, turns first). */
-export function ViewConversation({ chat, floor = [], moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; moves?: boolean; primary?: boolean; me?: string | null }) {
-  if (chat.length === 0 && floor.length === 0) return null
-  const last = chat.length - 1
-  // Only the service's own order: `order` on every row, else the array order it sent (turns, then floor). `chat[i].at` is not served: never read.
-  const all = [
-    ...chat.map((t, i) => ({ o: orderOf(t), seq: 0, i, f: null as FloorTurn | null })),
-    ...floor.map((f, i) => ({ o: orderOf(f), seq: 1, i, f: f as FloorTurn | null })),
-  ]
-  const rows = all.every((r) => r.o !== null) ? [...all].sort((a, b) => a.o! - b.o! || a.seq - b.seq || a.i - b.i) : all
+/** One row per accepted contribution, with its immediate and model-grounded replies together. */
+export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
+  const entries = entriesOf(draft)
+  const rows = threadRows(chat, floor, entries)
+  if (!rows.length) return null
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
-      {rows.map((r) => {
-        if (r.f !== null) return <FloorLine key={`floor:${r.f.job}:${r.i}`} f={r.f} me={me} />
-        const t = chat[r.i]!
-        return retriedAt(chat, r.i) ? null : <Turn key={t.id} t={t} at={`chat.${r.i}`} latest={r.i === last} moves={r.i === last && moves} primary={primary} me={me} />
+      {rows.map((row, position) => {
+        const latest = position === rows.length - 1
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
+        const t = chat[row.index]!
+        // Older projections have no accepted job identities and retain their existing retry display.
+        if (entries === null && retriedAt(chat, row.index)) return null
+        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latest} moves={latest && moves} primary={primary} me={me} />
       })}
     </ol>
   )
@@ -1250,7 +1250,7 @@ export function ViewChat() {
     // A job the saved row already draws (its message and failure; only Try again added) is not the newest message: his message is
     // (DL 1128 fault 3: following the job's Try again scrolled his own message out of view above the pinned proposal).
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"], [data-latest-floor]')
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
@@ -1321,7 +1321,7 @@ export function ViewChat() {
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
-            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} moves primary={!pinned} me={view.you_id} />}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}

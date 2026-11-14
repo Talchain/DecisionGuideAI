@@ -1,3 +1,5 @@
+import type { ViewTurn } from './client'
+
 /**
  * Olumi's early answer (shared contract with core, 14 Nov): `view.draft.early` while a first draft builds or after it failed, and
  * `view.chat[i].early` on a turn, each `{ text }` in plain text: a blank line is a new paragraph, a line starting "- " is a list item.
@@ -26,7 +28,7 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; order?: number }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string }
 
 /** The model-less conversation (`view.floor`, additive, read defensively like `early`): well-formed entries only, in core's order; none where absent. */
 export const floorOf = (view: unknown): FloorTurn[] => {
@@ -34,7 +36,7 @@ export const floorOf = (view: unknown): FloorTurn[] => {
   if (!Array.isArray(f)) return []
   return f.filter((x): x is FloorTurn => typeof x === 'object' && x !== null && typeof (x as FloorTurn).text === 'string' && (x as FloorTurn).text.trim() !== '' && typeof (x as FloorTurn).said === 'string'
     && typeof (x as FloorTurn).job === 'number' && typeof (x as FloorTurn).at === 'string')
-    .map((x) => ({ job: x.job, at: x.at, by: typeof x.by === 'string' ? x.by : '', by_id: typeof x.by_id === 'string' ? x.by_id : '', said: x.said, text: x.text, ...(orderOf(x) === null ? {} : { order: orderOf(x)! }) }))
+    .map((x) => ({ job: x.job, at: x.at, by: typeof x.by === 'string' ? x.by : '', by_id: typeof x.by_id === 'string' ? x.by_id : '', said: x.said, text: x.text }))
 }
 
 type Holder = { version?: unknown; proposal?: unknown; brief?: unknown; draft?: { status?: unknown } | null } | null
@@ -54,26 +56,45 @@ export const onFloor = (view: Holder & object | null): boolean => {
   return (s === 'failed' || s === 'lost' || s === 'stopped') && (hasBrief || earlyOf(view.draft) !== null || floorOf(view).length > 0)
 }
 
-/**
- * Ordering of the conversation: only from what the service sends. Core names (core builder, 14 Nov; read defensively, absent = today's rendering):
- * `order` a finite number on a chat turn or a floor entry (acceptance order of the brief and each contributor's turn), and `job` the job or
- * proposal identity a later reply belongs to. NAMES ARE ASSUMED until core's handoff lists them: change them here only.
- * `chat[i].at` is not served and is never read. Without `order` on every row the array order the service sent stands (turns, then floor).
- */
-export const orderOf = (x: unknown): number | null => {
-  const o = typeof x === 'object' && x !== null ? (x as { order?: unknown }).order : undefined
-  return typeof o === 'number' && Number.isFinite(o) ? o : null
-}
-export const jobOf = (x: unknown): number | null => {
-  const j = typeof x === 'object' && x !== null ? (x as { job?: unknown }).job : undefined
-  return typeof j === 'number' && Number.isFinite(j) ? j : null
+/** The conversation sequence is the acceptance row id. floor.job and chat.id identify its replies. */
+type Entry = { seq: number; kind: 'brief' | 'turn'; by_id: string; job: number | null; proposal: number | null }
+export function entriesOf(draft: unknown): Entry[] | null {
+  const entries = (draft as { conversation?: unknown } | null)?.conversation
+  if (!Array.isArray(entries) || entries.length === 0) return null
+  return entries.every((e) => e != null && Number.isSafeInteger(e.seq) && (e.kind === 'brief' || e.kind === 'turn') &&
+    typeof e.by_id === 'string' && (e.job === null || Number.isSafeInteger(e.job)) && (e.proposal === null || Number.isSafeInteger(e.proposal)))
+    ? entries : null
 }
 
-/** The floor's replies that are not already drawn elsewhere: not the brief's own answer when the board draws it (`draft.early`, same words)
- *  or when the model's first turn carries it (the brief's turn exists). Order kept. */
-export const floorShown = (view: { brief?: unknown; chat?: unknown; draft?: unknown } | null): FloorTurn[] => {
-  if (view === null) return []
-  const board = earlyOf(view.draft), chat = Array.isArray(view.chat) ? view.chat as { first?: unknown }[] : []
-  const hasBriefTurn = chat.some((t) => t?.first === true)
-  return floorOf(view).filter((f) => f.text !== board && !(hasBriefTurn && f.said === view.brief))
+/** The board draws the brief's early answer. Only its actual job can refer to that same brief. */
+export const floorShown = (view: { draft?: unknown } | null): FloorTurn[] => {
+  const floor = floorOf(view)
+  const boardAnswer = earlyOf(view?.draft)
+  if (boardAnswer === null) return floor
+  const briefJob = entriesOf(view?.draft)?.find(e => e.kind === 'brief')?.job ?? (view?.draft as { job?: number } | null)?.job
+  return floor.filter(f => f.job !== briefJob || f.text !== boardAnswer)
+}
+
+type ThreadRow = { seq: number; index: number | null; floor: FloorTurn | null }
+
+/** Edits saved directly on the canvas have a chat row but no turn job. Their own row id orders the edit among accepted contributions. */
+export function threadRows(chat: readonly ViewTurn[], floors: readonly FloorTurn[], entries: readonly Entry[] | null): ThreadRow[] {
+  const saved = chat.map((t, index) => ({ seq: t.id, index, floor: null }))
+  const plain = floors.map(floor => ({ seq: floor.job, index: null, floor }))
+  if (entries === null) return [...saved, ...plain]
+  const byProposal = new Map(saved.map(row => [row.seq, row]))
+  const byJob = new Map(plain.map(row => [row.seq, row]))
+  const rows: ThreadRow[] = []
+  for (const entry of entries) {
+    const savedRow = entry.proposal === null ? undefined : byProposal.get(entry.proposal)
+    const floorRow = entry.job === null ? undefined : byJob.get(entry.job)
+    const t = savedRow && chat[savedRow.index]!.by_id === entry.by_id ? savedRow : undefined
+    const f = floorRow && floorRow.floor.by_id === entry.by_id ? floorRow : undefined
+    if (!t && !f) continue
+    if (t) byProposal.delete(t.seq)
+    if (f) byJob.delete(f.seq)
+    // A saved brief's early answer is already projected inside its chat turn. A follow-up's floor reply is a distinct stage of its job.
+    rows.push({ seq: entry.seq, index: t?.index ?? null, floor: entry.kind === 'brief' && t && f && earlyOf(chat[t.index]) === f.floor.text ? null : f?.floor ?? null })
+  }
+  return [...rows, ...byProposal.values(), ...byJob.values()].sort((a, b) => a.seq - b.seq)
 }

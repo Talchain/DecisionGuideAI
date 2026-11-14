@@ -50,7 +50,7 @@ const send = async (c: HTMLElement) => { await act(async () => { fireEvent.click
 
 describe('view.floor is drawn as an ordinary conversation where the chat is', () => {
   it('after a failed build: the person\'s words and Olumi\'s reply, as paragraphs and list items, no label; the brief\'s own answer is not drawn twice', () => {
-    const view = noModel({ draft: draft('failed', EARLY), floor: [{ job: 8, at: AT, by: 'Paul', by_id: '7', said: BRIEF, text: EARLY }, floorRow] })
+    const view = noModel({ draft: draft('failed', EARLY), floor: [{ job: 7, at: AT, by: 'Paul', by_id: '7', said: BRIEF, text: EARLY }, floorRow] })
     const c = show(view, <ViewChat />)
     const turns = [...c.querySelectorAll('[data-testid="view-floor-turn"]')]
     expect(turns).toHaveLength(1) // the brief's reply equals draft.early (the board draws it): once
@@ -62,7 +62,7 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     expect(turns[0]!.getAttribute('data-floor-job')).toBe('9')
   })
   it('contrast: with no early on the board the brief\'s reply IS drawn, in order, before the later exchange; absent field = today\'s empty thread', () => {
-    const first = { job: 8, at: AT, by: 'Paul', by_id: '7', said: BRIEF, text: EARLY }
+    const first = { job: 7, at: AT, by: 'Paul', by_id: '7', said: BRIEF, text: EARLY }
     const c = show(noModel({ draft: draft('failed'), floor: [first, floorRow] }), <ViewChat />)
     expect([...c.querySelectorAll('[data-testid="view-floor-said"]')].map((p) => p.textContent)).toEqual([BRIEF, SAID])
     cleanup()
@@ -70,32 +70,59 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     expect(none.querySelector('[data-testid="view-floor-turn"]')).toBeNull()
     expect(none.querySelector('[data-testid="view-chat-turns"]')).toBeNull()
   })
-  it('ordering uses only what the service sends: `order` on every row places a floor reply among saved turns', () => {
+  it('groups the projected brief, correction and authoritative reply by identity, including after reopening', () => {
+    // Projected field names and accepted row ids from the Nov 14 preview. The second member is the same-words control.
+    const g = golden('whatif'), saved = g.chat.find(t => t.answer !== null)!
+    const other = { job: 47, at: AT, by: 'Jordan', by_id: '50', said: SAID, text: FLOOR_REPLY }
+    const accepted = { seq: 28, kind: 'turn', job: 28, by_id: '7', ask: 'message', proposal: 41, discussion: false, state: 'applied' }
+    const projection = { ...g, you_id: '7', draft: { ...draft('drafting'), status: 'done', job: 13, early: null, conversation: [
+      { seq: 11, kind: 'brief', job: 13, by_id: '7', ask: null, proposal: 40, discussion: null, state: null },
+      accepted,
+      { ...accepted, seq: 47, job: 47, by_id: '50', proposal: null, discussion: null, state: null },
+    ] }, floor: [other, { ...floorRow, job: 28 }], chat: [
+      { ...saved, id: 40, by: 'Paul', by_id: '7', said: BRIEF, early: { text: EARLY } },
+      { ...saved, id: 41, by: 'Paul', by_id: '7', said: SAID },
+      { ...saved, id: 46, by: 'Paul', by_id: '7', said: 'Renamed the aim on the canvas' },
+    ] } as unknown as View
+    for (const view of [projection, JSON.parse(JSON.stringify(projection)) as View]) {
+      const c = show(view, <ViewChat />)
+      const rows = [...c.querySelectorAll('[data-testid="view-chat-turns"] > li')]
+      expect(rows.map(r => r.querySelector('[data-view$=".said"],[data-testid="view-floor-said"]')?.textContent)).toEqual([BRIEF, SAID, 'Renamed the aim on the canvas', SAID])
+      expect(rows[0]!.querySelectorAll('[data-testid="view-chat-early"]')).toHaveLength(1)
+      expect(rows[1]!.querySelector('[data-floor-job="28"] [data-testid="view-floor-reply-text"]')).not.toBeNull()
+      expect(rows[1]!.querySelector('[data-testid="view-chat-answer"]')).not.toBeNull()
+      expect(rows[1]!.querySelector('[data-view$=".by"]')?.textContent).toBe('Paul')
+      expect(rows[3]!.querySelector('[data-testid="view-floor-said-bubble"]')?.textContent).toContain('Jordan')
+      expect(rows[3]!.hasAttribute('data-latest-floor')).toBe(true)
+      cleanup()
+    }
+  })
+  it('without accepted ids, keeps saved chat and floor order and never swallows a separate job with the same words', () => {
     const g = golden('whatif')
-    const base = { ...g, chat: g.chat.map((t, i) => ({ ...t, order: (i + 1) * 10 })) } as unknown as View
-    const early = { ...floorRow, job: 1, order: 5, said: 'EARLIER' }, late = { ...floorRow, job: 2, order: (base.chat.length + 1) * 10, said: 'LATER' }
-    const c = show({ ...base, floor: [late, early] } as unknown as View, <ViewChat />)
-    const order = [...c.querySelectorAll('[data-view-turn], [data-testid="view-floor-turn"]')].map((e) => e.getAttribute('data-view-turn') ?? e.querySelector('[data-testid="view-floor-said"]')!.textContent)
-    expect(order[0]).toBe('EARLIER')
-    expect(order[order.length - 1]).toBe('LATER')
-    expect(order.slice(1, -1)).toEqual(base.chat.map((_, i) => `chat.${i}`))
-  })
-  it('contrast: with no `order` (and a `chat[i].at` the service does not serve) the array order sent stands: turns, then the floor as sent; `at` is never read', () => {
-    const g = golden('whatif'), T0 = Date.parse(AT)
-    // a stray `at` on the turns, which would reorder them if read, is ignored
-    const base = { ...g, chat: g.chat.map((t, i) => ({ ...t, at: new Date(T0 + (g.chat.length - i) * 60_000).toISOString() })) } as unknown as View
-    const a = { ...floorRow, job: 1, said: 'FIRST SENT' }, b = { ...floorRow, job: 2, said: 'SECOND SENT' }
-    const c = show({ ...base, floor: [a, b] } as unknown as View, <ViewChat />)
-    const order = [...c.querySelectorAll('[data-view-turn], [data-testid="view-floor-turn"]')].map((e) => e.getAttribute('data-view-turn') ?? e.querySelector('[data-testid="view-floor-said"]')!.textContent)
-    expect(order).toEqual([...base.chat.map((_, i) => `chat.${i}`), 'FIRST SENT', 'SECOND SENT'])
-  })
-  it('one row without `order` drops the whole thread back to the array order sent (no partial guess)', () => {
-    const a = { ...floorRow, job: 1, order: 9, said: 'A SENT FIRST' }, b = { ...floorRow, job: 2, order: 1, said: 'B SENT SECOND' }, c2 = { ...floorRow, job: 3, said: 'C NO ORDER' }
-    const c = show(noModel({ draft: draft('failed'), floor: [a, b, c2] }), <ViewChat />)
-    expect([...c.querySelectorAll('[data-testid="view-floor-said"]')].map((p) => p.textContent)).toEqual(['A SENT FIRST', 'B SENT SECOND', 'C NO ORDER'])
+    const a = { ...floorRow, job: 18, said: 'FIRST SENT' }, b = { ...floorRow, job: 6, said: 'SECOND SENT' }
+    const c = show({ ...g, floor: [a, b] } as unknown as View, <ViewChat />)
+    const order = [...c.querySelectorAll('[data-view-turn], [data-testid="view-floor-turn"]')].map(e => e.getAttribute('data-view-turn') ?? e.querySelector('[data-testid="view-floor-said"]')!.textContent)
+    expect(order).toEqual([...g.chat.map((_, i) => `chat.${i}`), 'FIRST SENT', 'SECOND SENT'])
     cleanup()
-    const d = show(noModel({ draft: draft('failed'), floor: [a, b] }), <ViewChat />)
-    expect([...d.querySelectorAll('[data-testid="view-floor-said"]')].map((p) => p.textContent)).toEqual(['B SENT SECOND', 'A SENT FIRST'])
+    const later = { ...floorRow, job: 10, said: BRIEF, text: EARLY }
+    const same = show(noModel({ draft: draft('failed', EARLY), floor: [later] }), <ViewChat />)
+    expect(same.querySelector('[data-testid="view-floor-said"]')?.textContent).toBe(BRIEF)
+  })
+  it('retains distinct answers across draft retries, including a brief floor that disagrees with the answer on the board', () => {
+    const original = { ...floorRow, job: 7, said: BRIEF, text: EARLY }
+    const retryAnswer = 'A later draft attempt found a different issue.'
+    const sameJobDifferentReply = show(noModel({ draft: draft('failed', retryAnswer), floor: [original] }), <ViewChat />)
+    expect(sameJobDifferentReply.querySelector('[data-testid="view-floor-reply"]')?.textContent).toContain('A month is tight')
+    cleanup()
+    const first = { seq: 2, kind: 'brief', job: 7, by_id: '7', proposal: 40, ask: null, discussion: null, state: null }
+    const saved = { ...golden('whatif').chat[0]!, id: 40, by: 'Paul', by_id: '7', said: BRIEF, early: { text: retryAnswer } }
+    const newerDraft = { ...draft('failed'), job: 19, conversation: [first] }
+    const v = { ...golden('whatif'), chat: [saved], floor: [original], draft: newerDraft } as unknown as View
+    const c = show(v, <ViewChat />)
+    const row = c.querySelector('[data-testid="view-chat-turns"] > li')!
+    expect(row.querySelector('[data-testid="view-chat-early"]')?.textContent).toContain(retryAnswer)
+    expect(row.querySelector('[data-testid="view-floor-reply-text"]')?.textContent).toContain('A month is tight')
+    expect(row.querySelectorAll('[data-testid="view-chat-said-bubble"]')).toHaveLength(1)
   })
   it('readers: malformed floor entries are dropped, absent is none, onFloor needs no model and a build that is running or kept something', () => {
     expect(floorOf({ floor: [{ job: 1, at: AT, by: 'a', by_id: 'b', said: 's', text: 't' }, { job: 'x' }, null, { job: 2, at: AT, said: 's', text: ' ' }] })).toHaveLength(1)

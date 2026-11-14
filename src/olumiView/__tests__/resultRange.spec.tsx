@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
-import type { View, ViewCard } from '../client'
+import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useViewLens } from '../lens'
 import { useCanvasStore } from '../../canvas/store'
@@ -33,7 +33,7 @@ function draw(view: View, id: string) {
     olumi: q(`[data-share-olumi="${id}"]`), person: q(`[data-share-person="${id}"]`), track: q(`[data-view="${id}.chance.track"]`) }
 }
 const pct = (el: HTMLElement | null, prop: 'left' | 'width') => parseFloat(el!.style[prop])
-const withRests = (view: View, patch: (r: NonNullable<View['model']>['run']['rests'][number]) => void, option: string): View => {
+const withRests = (view: View, patch: (r: NonNullable<NonNullable<View['model']>['run']>['rests'][number]) => void, option: string): View => {
   const v = structuredClone(view); for (const r of v.model!.run!.rests) if (r.option === option && r.kind === 'goal') patch(r); return v
 }
 

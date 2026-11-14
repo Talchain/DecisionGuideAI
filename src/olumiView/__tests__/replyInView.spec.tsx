@@ -120,6 +120,11 @@ describe('the board is left alone when it is not the reply\'s to move', () => {
     store(before); mount(); act(() => { store(after) }); tick(6)
     expect(set).not.toHaveBeenCalled(); expect(pulsing()).toEqual([])
   })
+  it('N2b catch: a drag that begins while the reply settles stops it', () => {
+    store(before); mount(); act(() => { store(after) }); tick(1)
+    activity.current = { at: Date.now(), active: true }
+    tick(6); expect(set).not.toHaveBeenCalled(); expect(pulsing()).toEqual([])
+  })
   it('N3 catch: a pan or zoom of the person\'s own a moment ago keeps the board where it is; after the quiet time the next reply moves it', () => {
     activity.current = { at: Date.now() - (QUIET_MS - 1000), active: false }
     store(before); mount(); act(() => { store(after) }); tick(6)

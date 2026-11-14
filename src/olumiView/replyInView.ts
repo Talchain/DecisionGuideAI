@@ -46,7 +46,7 @@ export function replyArrival(seen: ReplySeen | null, sid: string | null, view: V
 }
 
 /** May the camera move now: not while a drag is under way, and not within QUIET_MS of the person's own pan or zoom. */
-export const cameraMayMove = (a: Activity, now: number): boolean => now - a.at >= QUIET_MS
+export const cameraMayMove = (a: Activity, now: number): boolean => !a.active && now - a.at >= QUIET_MS
 
 type Box = { x: number; y: number; w: number; h: number }
 /** Where the camera goes so every one of `box` is in the free canvas: null when it all is already (nothing moves). */
