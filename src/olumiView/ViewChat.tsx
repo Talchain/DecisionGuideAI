@@ -234,7 +234,15 @@ export function ViewConversation({ chat, moves = false, me }: { chat: View['chat
  * (`turn.words`) as a status, with the seconds since core accepted it (`started`, so a reload counts from the same moment). A failed or lost
  * turn shows core's plain reason and Try again (the same words, a new op). No word here is the page's own but the Try again control.
  */
-export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me: string | null }) {
+/** A completed job may also be the newest saved chat row (Codex d9d66e579, ported): match exact fields, never infer failure from prose. */
+export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
+  const turn = view.turn, last = view.chat[view.chat.length - 1]
+  return turn != null && turn.status !== 'answering' && last != null && last.answer === null &&
+    last.by_id === turn.by_id && last.said === turn.said && last.problem === turn.words
+}
+
+/** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
+export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean }) {
   const running = turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -244,14 +252,14 @@ export function TurnInFlight({ turn, me }: { turn: NonNullable<View['turn']>; me
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status}>
       <li className="space-y-1">
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
-        {turn.said === null
+        {shown ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
           : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
-        <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
+        {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
           {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
-        </p>
+        </p>}
         {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
@@ -1214,7 +1222,7 @@ export function ViewChat() {
             {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
                 behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
             {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
-            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} />}
+            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />

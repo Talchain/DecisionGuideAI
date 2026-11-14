@@ -15,7 +15,7 @@ import { useMe } from '../../olumiCore/me'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { DRAFT_POLL_MS, POLL_MS, useViewPoll } from '../poll'
-import { TurnInFlight, ViewComposer, isAnswering, pendingTurn, useViewChat } from '../ViewChat'
+import { TurnInFlight, ViewConversation, turnAlreadyShown, ViewComposer, isAnswering, pendingTurn, useViewChat } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -159,5 +159,21 @@ describe('a turn answered in core', () => {
     await act(async () => { fireEvent.click(third.querySelector('[data-testid="view-composer-send"]')!) })
     await tick(0)
     expect(posts[2]!.body).toEqual({ text: 'What if demand falls?', op: 'op-same-words-0001' })
+  })
+})
+
+// Codex d9d66e579 (old look, 14 Nov), ported to the new look for DL journey (5): the saved failed reply and its job share one notice.
+describe('the saved failed reply and its job share one notice', () => {
+  it('keeps the saved row and gives it one retry without repeating the message or failure', () => {
+    const failed = turnOf({ status: 'failed', words: 'Olumi could not finish its reply.' })
+    const last: View['chat'][number] = { id: 32, by: 'Paul', by_id: failed.by_id, version: 'version 1', earlier: false, status: null, answer: null, said: failed.said!, broke: null, problem: failed.words, marks: [], choice: null }
+    const state = { chat: [last], turn: failed }
+    const c = render(<><ViewConversation chat={state.chat} me="7" /><TurnInFlight turn={failed} me="7" shown={turnAlreadyShown(state)} /></>).container
+    expect(c.textContent!.split(failed.words!)).toHaveLength(2)
+    expect(c.textContent!.split(failed.said!)).toHaveLength(2)
+    expect(c.querySelectorAll('[data-testid="view-chat-turn-again"]')).toHaveLength(1)
+    expect(turnAlreadyShown({ ...state, turn: { ...failed, status: 'answering' } })).toBe(false)
+    expect(turnAlreadyShown({ ...state, turn: { ...failed, by_id: '9' } })).toBe(false)
+    expect(turnAlreadyShown({ ...state, turn: { ...failed, said: 'something else' } })).toBe(false)
   })
 })
