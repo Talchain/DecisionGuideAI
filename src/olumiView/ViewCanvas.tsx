@@ -37,7 +37,7 @@ import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { drawKindOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, reducedFaceSize, wholeAtTopViewport } from './camera'
-import { LABEL_LEGIBLE_ZOOM, LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
+import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import { CoreCard } from './previous/CoreCard'
@@ -110,8 +110,6 @@ const EPS = 0.001
 export const FACE_RANGE: Record<FaceRegime, readonly [number, number]> = {
   full: [READABLE_WHOLE_ZOOM, 1], body: [LOD_BODY_RESTORED_ZOOM, READABLE_WHOLE_ZOOM - EPS], line: [CORE_LANE_FIT_FLOOR, LOD_BODY_HIDDEN_ZOOM - EPS],
 }
-/** Where a reduced face with its body is tallest: its labels' counter-scale is at its cap here and below (zoomLegibility LABEL_LEGIBLE_ZOOM). */
-const BODY_PROBE = LABEL_LEGIBLE_ZOOM
 /** The board as last drawn with each face: its places and heights, and the zoom it was drawn at. */
 export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] }
 
@@ -126,24 +124,25 @@ export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] 
  * The heights a frame is computed from are the heights it draws, so it never swings back; a board too large for the floor opens at it.
  */
 export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
-  let above: readonly Node[] | null = null
-  for (const r of ['full', 'body', 'line'] as const) {
-    const [lo, hi] = FACE_RANGE[r], s = snaps[r]
-    if (s === undefined) {
-      if (above === null) continue
-      // The body face is taller than the full face (its labels counter-scaled up): where the full face does not fit even at the body
-      // band's floor, neither does the body face, so the line face is next. The line face is shorter than the body face: always drawn once.
-      const whole = frameFor(above, pane, free, hi)
-      if (whole === null) return null
-      if (r === 'body' && whole.zoom < lo) continue
-      return atZoom(above, pane, free, r === 'body' ? Math.min(hi, BODY_PROBE) : hi)
-    }
-    const v = frameFor(s.nodes, pane, free, hi)
-    if (v !== null && v.zoom >= lo) return v
-    above = s.nodes
+  // DL-538 (14 Nov, the target screen): the board OPENS on its readable full face, never on a zoomed-out face. Until the full face has been
+  // drawn, it is drawn once at the top of its band to measure it. Then: the whole board where it fits in the full band; else the full face
+  // as wide as the stage allows (within the band), its top under the free canvas's top; what does not fit is panned to, never shrunk.
+  const full = snaps.full
+  if (full === undefined) {
+    const drawn = snaps.body ?? snaps.line
+    return drawn === undefined ? null : atZoom(drawn.nodes, pane, free, FACE_RANGE.full[1])
   }
-  const last = snaps.line ?? snaps.body ?? snaps.full
-  return last === undefined ? null : frameFor(last.nodes, pane, free, FACE_RANGE.line[1])
+  const [lo, hi] = FACE_RANGE.full
+  const whole = frameFor(full.nodes, pane, free, hi)
+  if (whole !== null && whole.zoom >= lo) return whole
+  return atZoom(full.nodes, pane, free, Math.max(lo, Math.min(hi, acrossZoom(full.nodes, pane, free))))
+}
+
+/** The zoom at which the board's width fills the free canvas across (its height not considered: what is below is panned to). */
+function acrossZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined): number {
+  if (nodes.length === 0 || pane.width === 0) return 1
+  const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
+  return Math.max(1, pane.width - raw.left - raw.right) / Math.max(1, bounds.width)
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */

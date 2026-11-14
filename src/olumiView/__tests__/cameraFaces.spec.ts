@@ -33,26 +33,25 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     expect(inside(F.w1128.body.nodes, old, pane, FREE_1128), 'and at that zoom the body face does not fit').toContain(GOAL)
   })
 
-  it('1128: with the body face measured and not fitting in its band, the line face is drawn once at the top of its band', () => {
-    const v = cameraFrame({ body }, pane, FREE_1128)!
-    expect(v.zoom).toBe(FACE_RANGE.line[1])
+  // DL-538 (14 Nov): the board OPENS on its readable full face, never on a zoomed-out face; what does not fit is panned to. The two rows
+  // below replaced "1128: … the line face is drawn once at the top of its band" and "1128: … the frame is the line face".
+  it('1128 (DL-538): a board measured only on a reduced face is drawn once on the full face (the top of its band), to measure it', () => {
+    for (const s of [{ body }, { line }, { body, line }]) expect(cameraFrame(s, pane, FREE_1128)!.zoom).toBe(FACE_RANGE.full[1])
   })
 
-  it('1128: with both measured, the frame is the line face, inside its band, every card and the goal inside the free canvas', () => {
-    const v = cameraFrame({ body, line }, pane, FREE_1128)!
-    expect(faceRegimeOf(v.zoom)).toBe('line')
-    expect(v.zoom).toBeGreaterThanOrEqual(FACE_RANGE.line[0])
-    expect(v.zoom).toBeLessThanOrEqual(FACE_RANGE.line[1])
-    expect(inside(F.w1128.line.nodes, v, pane, FREE_1128), 'cards outside the free canvas').toEqual([])
+  it('1128 (DL-538): with the full face measured and too large to fit whole, the frame stays in the full band, its top under the free canvas\'s top', () => {
+    const full = snap(F.w2000.full)
+    const v = cameraFrame({ full, body, line }, pane, FREE_1128)!
+    expect(faceRegimeOf(v.zoom)).toBe('full')
+    expect(v.zoom).toBeGreaterThanOrEqual(FACE_RANGE.full[0])
+    const top = Math.min(...F.w2000.full.nodes.map((b: Box) => b.y))
+    expect(top * v.zoom + v.y, 'the board\'s top sits at the free canvas\'s top (the rest is panned to)').toBeGreaterThanOrEqual(FREE_1128.top - 1)
   })
 
-  it('every frame stays in the band of the heights it was computed from (no swing): each measured face alone', () => {
-    for (const [r, s] of [['body', body], ['line', line]] as [FaceRegime, FaceSnap][]) {
-      const v = cameraFrame({ [r]: s }, pane, FREE_1128)!
-      const landed = faceRegimeOf(v.zoom)
-      // a face it has not measured is only ever DRAWN to measure it (the next band down), never framed on another face's heights
-      expect(landed === r || (r === 'body' && landed === 'line' && v.zoom === FACE_RANGE.line[1]), `${r} → ${v.zoom}`).toBe(true)
-    }
+  it('no frame ever opens a reduced face: each measured face alone or together', () => {
+    const full = snap(F.w2000.full)
+    for (const s of [{ body }, { line }, { full }, { full, body }, { full, line }, { full, body, line }] as Partial<Record<FaceRegime, FaceSnap>>[])
+      expect(faceRegimeOf(cameraFrame(s, pane, FREE_1128)!.zoom), JSON.stringify(Object.keys(s))).toBe('full')
   })
 
   it('2000: the full face, measured, fits whole at the readable zoom or more: framed there, every card and the goal inside', () => {
