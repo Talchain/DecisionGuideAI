@@ -29,7 +29,7 @@ import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
-import { WorkedSteps } from '../look/WorkedSteps'
+import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
@@ -245,6 +245,13 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id}>{h.text}</span>{trail}</span>
         {h.why == null || h.why === '' ? null : <details className="ok-why nodrag" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>}
         {h.add == null || h.add === '' ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+      </div>
+    )
+    // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status
+    // line, core's words (the sheet's "worked out but waiting"); the person's and Olumi's own figures keep the headline figure.
+    if (card.figure !== null && lead === card.figure.text && viewNow !== null && isWorkedOut(viewNow, id)) return (
+      <div data-core-lead={id} data-ok-face="worked" title={hover}>
+        <p className="ok-status line-clamp-3"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
       </div>
     )
     if (card.figure !== null && lead === card.figure.text) return (

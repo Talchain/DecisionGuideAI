@@ -11,6 +11,9 @@
 import type { View, ViewCard, ViewLink } from '../client'
 import { FigureEdit } from '../FigureEdit'
 
+/** The product's own words for the steps' heading where core sends the relation no label (a pending first model). */
+export const WORKED_OUT = 'How it is worked out'
+
 type Step = { link: ViewLink; from: ViewCard | null; effectCard: ViewCard | null }
 
 /** The relation records that work this card out, and their steps, in the View's own link order. Empty where none. */
@@ -22,8 +25,8 @@ export function workedStepsOf(view: View, id: string): { relation: { id: string;
   const by = new Map<string, Step[]>()
   for (const link of model.links) {
     if (link.to !== id || link.kind === 'reason') continue
+    // A pending first model has no approved records yet (collab.records is empty), so the relation is known by the id the link carries.
     for (const rid of link.records ?? []) {
-      if (!relations.has(rid)) continue
       const effect = (link as { effect?: { figure?: string | null } | null }).effect ?? null
       by.set(rid, [...(by.get(rid) ?? []), { link, from: cardOf(link.from), effectCard: cardOf(effect?.figure ?? null) }])
     }
@@ -31,7 +34,12 @@ export function workedStepsOf(view: View, id: string): { relation: { id: string;
   // A relation worked out in figures carries at least one sized term (`effect`); a relation in words (a claim drawn as a link) has none and
   // is not a calculation, so it is not shown as steps.
   return [...by.entries()].filter(([, steps]) => steps.some((s) => (s.link as { effect?: unknown }).effect != null))
-    .map(([rid, steps]) => ({ relation: { id: rid, label: relations.get(rid)! }, steps }))
+    .map(([rid, steps]) => ({ relation: { id: rid, label: relations.get(rid) ?? WORKED_OUT }, steps }))
+}
+
+/** Whether this card's figure is worked out from others, by the View's structure (a relation with a sized term into it), never its words. */
+export function isWorkedOut(view: View, id: string): boolean {
+  return workedStepsOf(view, id).length > 0
 }
 
 const whose = (c: ViewCard | null) => (c?.author == null || c.author.text === '' ? null : { text: c.author.text, olumi: c.author.by === 'olumi' })

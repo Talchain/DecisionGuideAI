@@ -14,7 +14,7 @@ import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { CoreCard, farChanceOf } from '../previous/CoreCard'
-import { workedStepsOf } from '../look/WorkedSteps'
+import { isWorkedOut, workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const RUN2 = load('live-v51-run2-approved.view.json'), RUN1 = load('live-v51-run1-pending.view.json')
@@ -89,5 +89,17 @@ describe('slice (2): how a worked-out figure is worked out, step by step, from t
     const inWords = RUN2.model!.cards.filter((c) => RUN2.model!.links.some((l) => l.to === c.id && (l.records ?? []).length > 0 && (l as { effect?: unknown }).effect == null) && workedStepsOf(RUN2, c.id).length === 0)
     expect(inWords.length, 'precondition: a card a relation in words points into').toBeGreaterThan(0)
     for (const c of inWords) expect(draw(RUN2, c).querySelector('.ok-steps'), c.id).toBeNull()
+  })
+})
+
+describe('a figure worked out from others is a quiet status line, never a headline figure', () => {
+  it('L6 by the View\'s structure (a relation link into the card): the derived card\'s words as a status line; CONTRAST: the person\'s figure keeps the headline figure', () => {
+    // The loop11 workshop's "Change in extra spend" (worked out, waiting): one value, so its words are the face's lead line.
+    const WS = load('live-loop11-workshop-r3-pending.view.json')
+    const d = cardOf(WS, (c) => (c.figure?.text ?? '') !== '' && (c.values?.length ?? 0) <= 1 && isWorkedOut(WS, c.id))
+    const own = cardOf(RUN2, (c) => (c.figure?.text ?? '') !== '' && c.author?.by === 'person' && !isWorkedOut(RUN2, c.id))
+    const a = draw(WS, d)
+    expect([a.querySelector(`[data-core-lead="${d.id}"]`)?.getAttribute('data-ok-face'), a.querySelector(`[data-core-lead="${d.id}"] .ok-status [data-core-lead-clamp]`)?.textContent]).toEqual(['worked', d.figure!.text]); cleanup()
+    expect(draw(RUN2, own).querySelector(`[data-core-lead="${own.id}"]`)?.getAttribute('data-ok-face')).toBe('figure')
   })
 })

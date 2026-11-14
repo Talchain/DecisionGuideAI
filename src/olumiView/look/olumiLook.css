@@ -79,7 +79,12 @@
 }
 
 /* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
-.olumi-look .ok-face { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--o-body); }
+.olumi-look .ok-face {
+  display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--o-body);
+  font-size: calc(12.5px * var(--o-s)); line-height: 1.5;
+}
+/* A figure stated beside a worked-out one (StatedFigure): a quiet status line, as the worked-out value is. */
+.olumi-look .ok-face [data-stated-figure] { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-light); border-left: 3px solid var(--o-track); padding-left: calc(8px * var(--o-s)); }
 /* The one headline: an option's chance. */
 .olumi-look .ok-chance {
   font-size: calc(19px * var(--o-s)); line-height: 1.15; font-weight: 600; color: var(--o-ink);
@@ -136,3 +141,4 @@
 .olumi-look .ok-steps li { font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); }
 .olumi-look .ok-steps li b { font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-step-name { color: var(--o-light); }
+
