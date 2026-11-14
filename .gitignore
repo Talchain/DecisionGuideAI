@@ -85,3 +85,7 @@ storybook-static
 # Mutation-isolation sentinel — written to prove a throwaway tree is not hard-linked
 # to its source (CLAUDE.md trap 9g). It must never reach a branch; it did once.
 .iso-sentinel
+
+# Local overnight evidence runtime, never scenario data in git
+.night-data/
+.night-vite.config.ts

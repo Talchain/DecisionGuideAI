@@ -254,7 +254,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     const h = card.family === 'option' ? card.headline ?? null : null
     if (h !== null && h.state === 'chance') {
       const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
-      const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
+      const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null; rests_on_text?: string | null } | undefined
       const at = typeof row?.chance === 'number' && row.chance >= 0 && row.chance <= 1 ? row.chance : null
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
@@ -262,13 +262,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
           {at === null ? null : <span className="ok-track" aria-hidden="true" data-view={`${id}.chance.track`}><span style={{ width: `${at * 100}%` }} /></span>}
+          {row?.rests_on_text ? <p className="ok-qual" data-view={`${id}.headline.rests`}>{row.rests_on_text}</p> : null}
+          <details className="ok-condition nodrag nowheel" data-testid="option-condition"><summary>Condition and uncertainty</summary><p>{h.title}</p>{h.range ? <p>{h.range}</p> : null}</details>
           {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
-          {h.add == null ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+          {h.add == null ? null : <details className="ok-condition nodrag nowheel" data-testid="option-next-step"><summary>Next step</summary><p className="ok-next" data-view={`${id}.headline.add`}>{h.add}</p></details>}
         </div>
       )
     }
     if (h !== null && h.state === 'fixed') return (
-      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed line-clamp-3"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
+      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p><details className="ok-condition nodrag nowheel"><summary>What this rests on</summary><p>{h.title}</p></details></div>
     )
     if (h !== null && h.state === 'none') return (
       <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
@@ -276,7 +278,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id}>{h.text}</span>{trail}</span>
           {h.why == null || h.why === '' ? null : <details className="ok-why nodrag nowheel" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>}
         </div>
-        {h.add == null || h.add === '' ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+        {h.add == null || h.add === '' ? null : <details className="ok-condition nodrag nowheel" data-testid="option-next-step"><summary>Next step</summary><p className="ok-next" data-view={`${id}.headline.add`}>{h.add}</p></details>}
       </div>
     )
     // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status

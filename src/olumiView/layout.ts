@@ -1135,7 +1135,7 @@ export const sizeLinesOf = <T extends { option: string; line: string }>(size: re
   (size ?? []).map((s, k) => ({ s, k })).filter(({ s }) => s.option === option && s.line !== '')
 
 /** The narrowest a card is drawn when the stage is narrow (DL-538: the target at 1128 draws five options across at about 145px). */
-export const CARD_MIN_W = 140
+export const CARD_MIN_W = 164
 /** The readable floor the row is sized for (camera.ts READABLE_WHOLE_ZOOM: 11px text over 12px), kept here so layout does not import the camera. */
 const READABLE_FLOOR = 11 / 12
 /**
@@ -1155,4 +1155,4 @@ export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX
   return { cardW, gapX: LAYOUT_NODE_GAP, perRow: fit(cardW, LAYOUT_NODE_GAP) }
 }
 /** The question bar's width over a row of options: the whole row. */
-export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number }): number => { const n = Math.max(1, allOptionCards(model).length); return n * row.cardW + (n - 1) * row.gapX }
+export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number }): number => { const n = Math.max(1, Math.min(allOptionCards(model).length, row.perRow ?? Infinity)); return n * row.cardW + (n - 1) * row.gapX }
