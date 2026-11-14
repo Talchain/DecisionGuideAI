@@ -1,0 +1,5 @@
+# 2 — Structured panel
+
+The core lane gets a wider reading column at large sizes. The person's bubble remains named. Olumi's full reply preserves the View's own paragraphs, lists and citation positions inside a labelled reading area; Why, next action and model questions remain separate. The proposal is its own bordered scrolling card, with sticky heading and action row. Approve ticked appears after a meaningful selection, so a disabled secondary action cannot crowd Approve / Set aside. The selected card is distinct and carries full attribution and conditions.
+
+Inspected all six opening states in `02-panel-final`, plus `approved-1128-selected.png`. Corresponding full-resolution side-by-side sheets have `SHEET-` prefixes. No page errors or attempted mutations. Pending screenshot at 1128 still loses the proposal heading when the short scroll region is scrolled to its foot: this is NOT a pass for the entire panel item yet; item 3 will fix it. Reply prose remains dense when the View supplies one unstructured paragraph; no semantic headings are invented. Secondary tabs retain the existing wrapping presentation.

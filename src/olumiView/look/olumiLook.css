@@ -251,3 +251,19 @@
 .olumi-look .ok-condition > summary { cursor: pointer; }
 .olumi-look .ok-condition > p { color: var(--o-body); line-height: 1.5; margin-top: 6px; }
 .olumi-look .ok-fixed, .olumi-look .ok-chance { display: block; -webkit-line-clamp: unset; overflow: visible; }
+
+/* One bounded conversation presentation. Source boundaries come from View parts, never inferred prose. */
+.olumi-look-dock .ok-popout-row { height: 28px; position: relative; }
+.olumi-look-dock [data-testid='view-chat-popout'] { position: absolute; right: 4px; top: -6px; }
+.ok-reply [data-reply-para] + [data-reply-para] { margin-top: 14px; }
+.ok-reply [data-reply-para] { line-height: 1.65; }
+.ok-pinned .ok-proposal-heading { position: sticky; top: -12px; z-index: 2; background: #fefefe; padding: 6px 0; box-shadow: 0 5px 8px -8px #213238; }
+.ok-pinned { scroll-padding-block: 40px 56px; }
+@media (max-height: 800px) {
+  .ok-pinned { max-height: 42%; }
+}
+
+/* A long unstructured reply remains whole in a labelled reading area; it cannot bury the next action. */
+.ok-answer-body { max-height: 42vh; overflow-y: auto; padding-right: 6px; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.ok-answer-body:focus-visible { outline: 2px solid #1b7b88; outline-offset: 3px; }
+.ok-answer-body > * + * { margin-top: 12px; }

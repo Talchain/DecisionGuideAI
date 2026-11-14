@@ -22,6 +22,14 @@ for (const tag of ['approved','pending']) {
    controls:[...document.querySelectorAll('button')].map(n=>({text:n.innerText,test:n.dataset.testid,title:n.title,aria:n.getAttribute('aria-label')}))}))
   const view=await p.evaluate(async s=>(await fetch(`/api/scenarios/${s}/view?schema=3`)).json(),sid)
   writeFileSync(`${out}/${item}/${tag}-view.json`,JSON.stringify(view))
+  if (process.env.DETAIL === '1') {
+   const option=view.model?.cards.find(c=>c.family==='option' && c.headline?.state==='chance')
+   if(option) {
+    const card=p.locator(`.react-flow__node[data-id="${option.id}"] [role="group"]`).first()
+    await card.click({position:{x:30,y:12}});await p.waitForTimeout(700)
+    await p.screenshot({path:`${out}/${item}/${tag}-${label}-selected.png`})
+   }
+  }
   // Prove overflow remains reachable using the served page's own pan cue.
   const cue=p.locator('[data-testid="view-below-cue"] button').first()
   if(await cue.count()){await cue.click();await p.waitForTimeout(800);await p.screenshot({path:`${out}/${item}/${tag}-${label}-pan.png`})}

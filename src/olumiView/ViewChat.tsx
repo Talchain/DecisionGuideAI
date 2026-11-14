@@ -177,7 +177,8 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
   )) : (
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
-      <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} />
+      <p className="ok-explain-head">Olumi’s reply</p>
+      <div className="ok-answer-body" tabIndex={0} aria-label="Olumi’s full reply"><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} /></div>
       {t.answer.why.length === 0 ? null : (
         <details>
           <summary>Why</summary>
@@ -389,7 +390,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   }
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
-      <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+      <div className="ok-proposal-heading"><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
@@ -461,7 +462,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
       {/* DL-538: pinned above the composer, the actions stay in view at the card's foot however long its list (olumiLook.css). */}
       <div className="ok-actions flex flex-wrap gap-2" data-testid="view-proposal-actions">
         {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
-        {!tickable || verdict?.supported === false ? null : (
+        {!tickable || chosen === 0 || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
@@ -983,8 +984,8 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   if (step === null) return null
   return (
     <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
-      <p className={typography.panelHeader}>Next step</p>
-      {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
+      {step.kind === 'approve' ? null : <p className={typography.panelHeader}>Next step</p>}
+      {step.kind === 'figure' || step.kind === 'approve' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
       {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
@@ -1218,7 +1219,7 @@ export function ViewChat() {
   const pinned = view !== null && nextStepOf(view)?.kind === 'approve'
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
-      {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
+      {floating ? null : <div className="ok-popout-row flex shrink-0 justify-end px-2 pt-1">
         <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE}
           className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
           <ExternalLink size={14} aria-hidden="true" />

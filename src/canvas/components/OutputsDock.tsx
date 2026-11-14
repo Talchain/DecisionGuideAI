@@ -2810,7 +2810,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       // whether an analysis exists — see the deleted
       // `resolveDockWidthForAnalysisState` note above, and the mounted pins in
       // `OutputsDock.dockWidth.dom.spec.tsx`.
-      root.style.setProperty('--dock-right-expanded', `${resolveDockWidth(viewportWidth, stored)}px`)
+      const width = isOlumiCoreLane() && stored === null ? Math.min(500, Math.max(336, viewportWidth * 0.25)) : resolveDockWidth(viewportWidth, stored)
+      root.style.setProperty('--dock-right-expanded', `${width}px`)
     }
 
     apply()
@@ -3268,7 +3269,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       />
     <aside
       ref={shellRef}
-      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
+      className={`${isOlumiCoreLane() ? 'olumi-look-dock ' : ''}${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
