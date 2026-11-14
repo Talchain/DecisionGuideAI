@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- The view gallery's own page (src/olumiView/gallery/boot.ts). It is an input of the gallery build only (vite.gallery.config.ts): the
+     product build starts from index.html and never reaches this page or the saved Views it draws. No inline script, by design: nothing
+     may ask for anything before the gallery's isolation is in place. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-build-id" content="%BUILD_ID%" />
+    <title>Olumi: saved Views</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/olumiView/gallery/boot.ts"></script>
+  </body>
+</html>
