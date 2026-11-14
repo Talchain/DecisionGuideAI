@@ -111,9 +111,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const sending = useWriteSending(key)
   // Row 6: an open card editor is on record while it is open, so its card keeps it when core stops offering the edit.
   useEffect(() => { if (place !== 'view-figure') return; keepOpen(id, open ? edit : null); return () => { if (!open) keepOpen(id, null) } }, [place, id, open, edit])
-  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return null
+  // DL 09:50Z (1): another card's words that open this editor (`opener`, the aim's question) are that card's own words: where no editor is
+  // offered here (not this person's page, no version, no edit), they are drawn as plain words, never dropped.
+  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
-  if (live === null && !open) return null
+  if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
   const base = (open && opened !== null ? opened : live) ?? 0
   const openNow = () => { setOpened(live); setOpen(true) }
@@ -163,8 +165,11 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     )
   }
   return (
-    // D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
-    // flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place.
+    <>
+    {/* DL 09:50Z (2): while the editor it opened is open, the opener's words stay on their card, plain (the panel floats below). */}
+    {opener ?? null}
+    {/* D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
+        flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place. */}
     <form className={`nodrag nopan grid gap-1 ${panel ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-xl border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={panel ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
@@ -194,5 +199,6 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </form>
+    </>
   )
 }

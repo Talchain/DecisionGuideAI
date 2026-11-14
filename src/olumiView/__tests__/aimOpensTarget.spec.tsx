@@ -81,3 +81,19 @@ describe('an open figure editor stays above the window\'s foot', () => {
     expect(openClearOf({ left: 300, right: 500, top: 600, bottom: 700 }, undefined, R)).toEqual({ dx: 0, dy: 0 })
   })
 })
+
+describe('DL 09:50Z: the aim\'s question words are never dropped', () => {
+  const aim = aimOf(V1), target = targetOf(V1, aim)
+  it('AO1 on a page that is not this person\'s (you_id differs from me), the question is drawn as plain words, with no button', () => {
+    use(V1); useMe.setState({ me: { id: `${V1.you_id}-someone-else`, name: 'Someone else' }, status: 'ready' })
+    const el = draw(V1, aim)
+    expect([el.querySelector(`[data-core-lead-clamp="${aim.id}"]`)?.textContent ?? null, screen.queryByTestId(`view-aim-edit-${target.id}`), el.querySelector(`[data-core-lead-clamp="${aim.id}"]`)?.closest('button') ?? null])
+      .toEqual([aim.bound!.text, null, null])
+  })
+  it('AO2 while the editor the question opened is open, the question stays readable on the aim card, outside the editor', () => {
+    use(V1); const el = draw(V1, aim)
+    fireEvent.click(screen.getByTestId(`view-aim-edit-${target.id}`))
+    const form = screen.getByTestId(`view-aim-form-${target.id}`), words = el.querySelector(`[data-core-lead-clamp="${aim.id}"]`)
+    expect([words?.textContent ?? null, words !== null && form.contains(words), words?.closest('button') ?? null]).toEqual([aim.bound!.text, false, null])
+  })
+})
