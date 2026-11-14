@@ -92,6 +92,27 @@ describe('slice (2): how a worked-out figure is worked out, step by step, from t
   })
 })
 
+describe('slice (3): an option\'s limits are drawn in the same structure as its aim', () => {
+  const WS = load('live-loop11-workshop-r3-pending.view.json')
+  const limitRows = (c: ViewCard) => c.rows.map((r, i) => ({ r: r as { kind: string; aim_id?: string | null; value?: string | null; text?: string | null }, i })).filter(({ r }) => r.aim_id != null && r.aim_id !== c.headline?.aim_id)
+
+  it('M1 a worked-out limit: core\'s row value under the headline, bound by the row; the headline\'s own aim is not drawn twice', () => {
+    const o = cardOf(WS, (c) => c.family === 'option' && limitRows(c).some(({ r }) => r.kind === 'limit'))
+    const { r, i } = limitRows(o).find(({ r }) => r.kind === 'limit')!
+    const el = draw(WS, o)
+    expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)?.textContent).toBe(r.value)
+    expect(el.querySelectorAll(`[data-ok-limit="${o.headline!.aim_id}"]`).length, 'CONTRAST: the aim stays the headline').toBe(0)
+  })
+
+  it('M2 a limit not worked out: core\'s reason behind "Why not", as the aim\'s is; never a value', () => {
+    const o = cardOf(WS, (c) => c.family === 'option' && limitRows(c).some(({ r }) => r.kind === 'none'))
+    const { r, i } = limitRows(o).find(({ r }) => r.kind === 'none')!
+    const el = draw(WS, o)
+    expect(el.querySelector(`[data-view="${o.id}.rows.${i}.why"] p`)?.textContent).toBe(r.text)
+    expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)).toBeNull()
+  })
+})
+
 describe('a figure worked out from others is a quiet status line, never a headline figure', () => {
   it('L6 by the View\'s structure (a relation link into the card): the derived card\'s words as a status line; CONTRAST: the person\'s figure keeps the headline figure', () => {
     // The loop11 workshop's "Change in extra spend" (worked out, waiting): one value, so its words are the face's lead line.

@@ -219,6 +219,34 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   //  - a figure: Olumi's estimate underlined in Olumi's blue, the person's solid, ✎ on its line; each option's value as quiet status lines;
   //  - an aim or limit: its target with core's mark; whose the target and the aim are, on the foot;
   //  - anything else: core's line, three lines at most, whole on hover.
+  // DL-529 slice (3): an option's LIMITS, drawn in the same structure as its aim's headline, from core's rows for every aim but the one the
+  // headline is about (rows[].aim_id): a worked-out value (core's row value, its marks, its title on hover); not worked out (core's reason
+  // behind "Why not", and core's question for the figure it waits on as the one next step). Core sends a limit no short state words of its
+  // own (the aim's "No chance yet"), so none are made up here; named in the channel with DL-525's unification.
+  const limitsOf = (): JSX.Element | null => {
+    if (card === null || card.family !== 'option') return null
+    const aim = card.headline?.aim_id ?? null
+    const rows = card.rows.map((r, i) => ({ r: r as { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string; text?: string | null; question?: string | null; olumi?: { glyph: string; title: string } | null }, i }))
+      .filter(({ r }) => r.aim_id != null && r.aim_id !== aim)
+    if (rows.length === 0) return null
+    const nameOf = (aid: string) => model?.cards.find((c) => c.id === aid)?.heading ?? aid
+    return (
+      <div className="ok-limits" data-view={`${id}.limits`}>
+        {rows.map(({ r, i }) => r.kind === 'none' ? (
+          <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
+            <span className="ok-limit-name">{nameOf(r.aim_id!)}</span>
+            {r.text == null || r.text === '' ? null : <details className="ok-why nodrag" data-view={`${id}.rows.${i}.why`}><summary>Why not</summary><p>{r.text}</p></details>}
+            {r.question == null || r.question === '' ? null : <p className="ok-next line-clamp-2" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
+          </div>
+        ) : (
+          <p key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
+            <span className="ok-limit-name">{r.aim ?? nameOf(r.aim_id!)}</span>{' '}<b data-view={`${id}.rows.${i}.value`}>{r.value}</b>
+            {r.olumi == null ? null : <Glyph at={`${id}.rows.${i}.olumi`} mark={r.olumi} className="ok-mark" />}
+          </p>
+        ))}
+      </div>
+    )
+  }
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
     const hover = [lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined
@@ -280,6 +308,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {faceOf()}
+          {limitsOf()}
           {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />
