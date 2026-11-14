@@ -36,6 +36,8 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     const el = draw(RUN1, o)
     expect([el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)?.textContent])
       .toEqual([head, o.headline!.text.slice(head.length + 2)])
+    // DL-543: the qualifier is the chance's condition and is never cut to shorten the card
+    expect(el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)!.className).not.toMatch(/line-clamp/)
     // the track is core's number at true scale (rows[].chance), bound by the headline's aim
     const row = o.rows.find((r) => r.kind === 'chance' && r.aim_id === o.headline!.aim_id) as { chance: number }
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)

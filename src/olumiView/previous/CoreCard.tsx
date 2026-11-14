@@ -262,7 +262,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
           {at === null ? null : <span className="ok-track" aria-hidden="true" data-view={`${id}.chance.track`}><span style={{ width: `${at * 100}%` }} /></span>}
-          {qual === null || qual === '' ? null : <p className="ok-qual line-clamp-2" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
+          {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
           {h.add == null ? null : <p className="ok-next line-clamp-2" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
         </div>
       )

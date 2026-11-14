@@ -165,9 +165,9 @@
   padding: calc(8px * var(--o-s)) calc(10px * var(--o-s));
 }
 
-/* The aim and the question are never clipped (DL-529): their names whole on the face, at every zoom. */
-.olumi-look .react-flow__node:has([data-ok-family='aim']) [data-testid='node-title'],
-.olumi-look .react-flow__node:has([data-ok-family='question']) [data-testid='node-title'] {
+/* No card's name is clipped (DL-529 for the aim and the question; DL-538 for every card, now the stage narrows the cards: the target
+   wraps each name whole at about 145px). */
+.olumi-look .react-flow__node [data-testid='node-title'] {
   display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important;
 }
 
@@ -208,13 +208,17 @@
 }
 .ok-reply sup { color: #687879; font-size: 0.72em; margin-left: 1px; }
 .ok-reply details > summary { color: #687879; cursor: pointer; }
-/* Olumi's proposal, pinned above the composer: one bordered card in Olumi's blue. */
-.ok-pinned { max-height: 50%; }
-.ok-pinned [data-testid='view-next-step'] {
-  border: 1.5px solid #1b7b88 !important; border-radius: 13px !important; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08) !important;
-  --tw-ring-shadow: 0 0 #0000 !important; background: #fefefe !important;
+/* Olumi's proposal, pinned above the composer: one bordered card in Olumi's blue. The pinned box is the card (its inner section and the
+   proposal are laid out as its own contents), so the actions' sticky foot is held by the box's own scroll and Approve stays in view
+   however short the panel. */
+.ok-pinned {
+  max-height: 50%; margin: 0 12px 8px; padding: 12px 12px 0; border: 1.5px solid #1b7b88; border-radius: 13px; background: #fefefe;
+  box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08);
 }
+.ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
+.ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 .ok-pinned [data-testid='view-approve'] { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }
+.ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: #fefefe; padding: 8px 0 12px; box-shadow: 0 -8px 8px -8px rgba(30, 49, 50, 0.12); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */
 .ok-selected {
@@ -224,4 +228,4 @@
 .ok-selected > span:first-child { flex-basis: 100%; font-size: 10.5px !important; letter-spacing: 0.08em; text-transform: uppercase; color: #687879; }
 .ok-selected [data-testid='selected-headline-title'] { color: #3d5256; line-height: 1.5; }
 /* A long headline sentence scrolls inside the card, so the thread keeps its room at 1128. */
-.ok-selected { max-height: 32vh; overflow-y: auto; }
+.ok-selected { max-height: 24vh; overflow-y: auto; }
