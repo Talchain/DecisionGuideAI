@@ -44,3 +44,13 @@ describe('readingsRest', () => {
     expect(restTop(0, { low: -40, high: -8 }, 420)).toBe(0)
   })
 })
+
+describe('PL-1083 (1), new look: the pinned box may grow while it holds readings', async () => {
+  const { readFileSync } = await import('node:fs')
+  const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8')
+  it('a rule keyed on a held reading row raises the box above its resting 62%', () => {
+    const m = css.match(/\.ok-pinned:has\(\[data-reading-row\]\)\s*\{\s*max-height:\s*(\d+)%;\s*\}/)
+    expect(m, 'the rule').not.toBeNull()
+    expect(Number(m![1])).toBeGreaterThan(62)
+  })
+})

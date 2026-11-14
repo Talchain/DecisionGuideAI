@@ -224,9 +224,9 @@
    proposal's heading and the actions keep their height, so the step is read whole above Approve at 1232 and 1128. */
 .ok-pinned { display: flex; flex-direction: column; max-height: 62%; }
 .ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
-/* PL-1083 (1): while the proposal holds Olumi's readings the box may take more of the panel, so its reading rows can rest whole above the
-   actions at 1232 and 1128 (ViewChat Proposal places them there, ./readingsRest.ts). */
-.ok-pinned:has([data-reading-row]) { max-height: 72%; }
+/* PL-1083 (1): while the proposal holds Olumi's readings the box may take more of the panel (85%: two rows of the 452caf7a cut13 proposal
+   with its three-row actions need about 440 px at 1232 and 1128), so its reading rows can rest whole above the actions (ViewChat Proposal places them there, ./readingsRest.ts). */
+.ok-pinned:has([data-reading-row]) { max-height: 85%; }
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
