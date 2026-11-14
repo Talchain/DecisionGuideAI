@@ -21,7 +21,8 @@ const held = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtu
 const PLAIN: Mark = { what: 'Budget', status: 'not yet confirmed', title: 'A figure of Olumi’s' }
 
 // Rows are given in the thread's scroll coordinates; on screen they sit at the thread's top + y - scrollTop.
-const TOP = 121, H = 473, SCROLL_H = 4242, FOOT = 117, ROWS: Record<string, [number, number]> = { 'view-reading-0': [2500, 143], 'view-reading-1': [2651, 121] }
+const TOP = 121, H = 473, SCROLL_H = 4242, FOOT = 117, SHORT_ROWS: Record<string, [number, number]> = { 'view-reading-0': [2500, 143], 'view-reading-1': [2651, 121] }
+let ROWS = SHORT_ROWS
 const thread = () => document.querySelector<HTMLElement>('[data-testid="view-chat-scroll"]')!
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
 const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight') }
@@ -32,6 +33,7 @@ const show = (marks: Mark[]) => {
   return render(<ViewChat />)
 }
 beforeEach(() => {
+  ROWS = SHORT_ROWS
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
@@ -51,7 +53,8 @@ afterEach(() => {
   if (real.sh) Object.defineProperty(Element.prototype, 'scrollHeight', real.sh)
   useViewChat.setState({ busy: false, said: null }); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null })
 })
-const whole = () => { const st = thread().scrollTop, foot = TOP + H - FOOT; return Object.values(ROWS).every(([y, h]) => TOP + y - st >= TOP && TOP + y + h - st <= foot) }
+const wholeRow = (id: string) => { const st = thread().scrollTop, foot = TOP + H - FOOT, [y, h] = ROWS[id]!; return TOP + y - st >= TOP && TOP + y + h - st <= foot }
+const whole = () => Object.keys(ROWS).every(wholeRow)
 
 describe('PL-1083 (1), old look: where the thread rests while a proposal holds readings', () => {
   it('at rest both reading rows are whole above the proposal\'s actions: the last row just clear of them', () => {
@@ -63,5 +66,12 @@ describe('PL-1083 (1), old look: where the thread rests while a proposal holds r
   it('CONTRAST: a proposal with no reading rests where it did before (the readings rule moves nothing)', () => {
     show([PLAIN])
     expect(thread().scrollTop).toBe(0)
+  })
+  it('13:50Z on 7163b55b, long words (rows of 352 and 215 px; 356 px of thread above the actions): the first row rests whole, giving up its gap; the second is reached by scrolling', () => {
+    ROWS = { 'view-reading-0': [2500, 352], 'view-reading-1': [2860, 215] }
+    show(held)
+    expect(thread().scrollTop).toBe(2500 + 352 + FOOT - H)
+    expect(wholeRow('view-reading-0')).toBe(true)
+    expect(wholeRow('view-reading-1')).toBe(false)
   })
 })
