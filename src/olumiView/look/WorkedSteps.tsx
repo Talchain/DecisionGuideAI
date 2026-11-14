@@ -69,25 +69,40 @@ export function joinOf(form: CoreWorkedOf['form'], step: CoreStep, first: boolea
  * first is joined by a plain word read from them (joinOf: plus, minus, times, divided by), never from a label; `power`/`sign` also stay as
  * data attributes. Where core sends no `worked`, the link derivation below stays in force.
  */
+/**
+ * ONE OPERAND AS CORE SERVES IT, FOR THE SELECTED OPTION: its label, its figure (this option's row where core gives one), whose it is and
+ * its ✎ where core offers one, each read from that operand's own row. A driver and its coefficient are two operands, each credited to its
+ * own author (DL 09:30Z, PL-1056.3: a person's driver times Olumi's coefficient was credited only "Your figure").
+ */
+function Operand({ s, option, coefficient = false }: { s: Omit<CoreStep, 'role'>; option?: string; coefficient?: boolean }): JSX.Element {
+  const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
+  const fig = row ?? s.figure, author = row === null ? s.author : row.author, edit = row === null ? s.edit : row.edit, editId = row?.id ?? s.id
+  return (
+    <>
+      <span className="ok-step-name" data-step-coefficient={coefficient ? editId : undefined}>{s.label}</span>{' '}
+      <b data-step-coefficient-figure={coefficient ? '' : undefined} title={coefficient ? fig.title : undefined}>{fig.text}</b>
+      {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title} data-step-by={author.by}> · {author.text}</span>}
+      {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></>}
+    </>
+  )
+}
+
 function CoreWorked({ card, worked, option, mine, open }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string>; open?: boolean }): JSX.Element {
-  const figureOf = (s: Omit<CoreStep, 'role'>) => (option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null) ?? s.figure
   return (
     <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
       <summary title={WORKED_OUT}><span className="line-clamp-1">{WORKED_OUT}</span></summary>
       <ol>
         {worked.steps.map((s, i) => {
           const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
-          const fig = row ?? s.figure, author = row?.author ?? s.author, edit = row?.edit ?? s.edit, editId = row?.id ?? s.id
+          const fig = row ?? s.figure, editId = row?.id ?? s.id
           const own = mine?.has(editId) ?? false
           const join = joinOf(worked.form, s, i === 0), coefficient = worked.form === 'effect' ? s.coefficient ?? null : null
           return (
             <li key={`${s.id}:${i}`} title={fig.title} data-view={`${card.id}.worked.steps.${i}`} data-step={s.role} data-step-from={editId}
               data-step-sign={s.sign} data-step-power={s.power} data-step-own={own ? '' : undefined} className={own ? 'ok-step-own' : undefined}>
               {join === null ? null : <><span className="ok-step-join" data-step-join={join}>{join}</span>{' '}</>}
-              <span className="ok-step-name">{s.label}</span>{' '}<b>{fig.text}</b>
-              {coefficient === null ? null : <>{' '}<span className="ok-step-join" data-step-join="times">times</span>{' '}<span className="ok-step-name" data-step-coefficient={coefficient.id}>{coefficient.label}</span>{' '}<b data-step-coefficient-figure="">{figureOf(coefficient).text}</b></>}
-              {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title}> · {author.text}</span>}
-              {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></>}
+              <Operand s={s} option={option} />
+              {coefficient === null ? null : <>{' '}<span className="ok-step-join" data-step-join="times">times</span>{' '}<Operand s={coefficient} option={option} coefficient /></>}
             </li>
           )
         })}
