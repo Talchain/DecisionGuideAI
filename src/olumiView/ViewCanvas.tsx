@@ -50,7 +50,7 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
 import { ViewZoomNotice } from './ViewZoomNotice'
-import { frameTop, useCardClearOfRegions } from './regions'
+import { frameTop, useCardClearOfRegions, useFootNotch } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
@@ -217,6 +217,7 @@ function ViewFlow() {
   useTryInView(movedAt)
   // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
   useCardClearOfRegions()
+  useFootNotch()
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
