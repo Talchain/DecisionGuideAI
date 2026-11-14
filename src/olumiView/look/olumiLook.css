@@ -38,10 +38,11 @@
   box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08), 0 1px 3px rgba(30, 49, 50, 0.045) !important;
   transition: background-color 120ms ease;
 }
-/* Family lives in the border (never a fill): option, factor, aim; the question 1.5px Olumi blue. A provisional card keeps its dashes. */
-.olumi-look .react-flow__node:has([data-ok-family='option']) [role='group'][aria-label] { border-color: var(--o-fam-option) !important; }
-.olumi-look .react-flow__node:has([data-ok-family='factor']) [role='group'][aria-label] { border-color: var(--o-fam-factor) !important; }
-.olumi-look .react-flow__node:has([data-ok-family='aim']) [role='group'][aria-label] { border-color: var(--o-fam-aim) !important; }
+/* Family lives in the border (never a fill): option, factor, aim; the question 1.5px Olumi blue. The card's own frame wins where it says
+   something (CoreCard: Olumi's blue = Olumi proposes it, orange = challenged; dashes = provisional), so no meaning is painted over. */
+.olumi-look .react-flow__node:has([data-ok-family='option']) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--o-fam-option) !important; }
+.olumi-look .react-flow__node:has([data-ok-family='factor']) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--o-fam-factor) !important; }
+.olumi-look .react-flow__node:has([data-ok-family='aim']) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--o-fam-aim) !important; }
 .olumi-look .react-flow__node:has([data-ok-family='question']) [role='group'][aria-label] {
   border-color: var(--o-info) !important;
   border-width: 1.5px !important;
@@ -148,3 +149,39 @@
 .olumi-look p.ok-limit { display: block; }
 .olumi-look .ok-limit b { font-weight: 600; color: var(--o-ink); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-limit-name { color: var(--o-light); }
+
+/* Height (DL-529, the first open at 2000 must stay on the full face): things that can share a line do. */
+.olumi-look .ok-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: calc(10px * var(--o-s)); row-gap: calc(2px * var(--o-s)); }
+.olumi-look .ok-row:empty { display: none; }
+.olumi-look .ok-row > .ok-count, .olumi-look .ok-row > p { margin: 0; }
+.olumi-look .ok-status { border-left-width: 2px; padding-left: calc(6px * var(--o-s)); }
+/* "Why not" and the worked steps open OUTSIDE the card's flow, under their summary (as the figure editor does, D2): the card's height and
+   the board never change when one opens. */
+.olumi-look .ok-why, .olumi-look .ok-steps { position: relative; }
+.olumi-look .ok-why[open] > p, .olumi-look .ok-steps[open] > ol {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 40; width: calc(280px * var(--o-s)); margin: 0;
+  background: var(--o-panel); border: 1px solid var(--o-border-emph); border-radius: 13px;
+  box-shadow: 0 7px 20px rgba(30, 49, 50, 0.12), 0 1px 3px rgba(30, 49, 50, 0.06);
+  padding: calc(8px * var(--o-s)) calc(10px * var(--o-s));
+}
+
+/* The aim and the question are never clipped (DL-529): their names whole on the face, at every zoom. */
+.olumi-look .react-flow__node:has([data-ok-family='aim']) [data-testid='node-title'],
+.olumi-look .react-flow__node:has([data-ok-family='question']) [data-testid='node-title'] {
+  display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important;
+}
+
+/* The card's quick actions (the previous frame's rail at the foot, "ask Olumi about this") show on hover, focus or selection, over the
+   foot's right end, instead of reserving a row on every card at rest (31px x every band of the board). */
+.olumi-look .react-flow__node [role='group'][aria-label] { padding-bottom: calc(12px * var(--o-s)) !important; }
+.olumi-look .react-flow__node [data-testid^='node-card-rail-'] { opacity: 0; transition: opacity 120ms ease; }
+.olumi-look .react-flow__node:hover [data-testid^='node-card-rail-'],
+.olumi-look .react-flow__node:focus-within [data-testid^='node-card-rail-'],
+.olumi-look .react-flow__node.selected [data-testid^='node-card-rail-'] { opacity: 1; }
+/* Each option's worked-out value: one quiet line, no rule (the card's status line keeps the rule). */
+.olumi-look .ok-face [data-core-value] { border-left: 0; padding-left: 0; }
+/* A card that carries marks at its foot (the What would change driver, a goal's marks) keeps their row, so no mark sits on its words. */
+.olumi-look .react-flow__node [role='group'][aria-label]:has(> [data-testid*='-bottom-marks-'] > *) { padding-bottom: calc(31px * var(--o-s)) !important; }
+/* An option's chance at true scale: core's number (rows[].chance), no multiplier, no marker, no leader styling. */
+.olumi-look .ok-track { display: block; height: 3px; border-radius: 3px; background: var(--o-track); margin: calc(3px * var(--o-s)) 0 calc(2px * var(--o-s)); overflow: hidden; }
+.olumi-look .ok-track > span { display: block; height: 100%; background: var(--o-option); border-radius: 3px; }
