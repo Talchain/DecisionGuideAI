@@ -44,8 +44,46 @@ export function isWorkedOut(view: View, id: string): boolean {
 
 const whose = (c: ViewCard | null) => (c?.author == null || c.author.text === '' ? null : { text: c.author.text, olumi: c.author.by === 'olumi' })
 
-/** `mine`: the cards whose terms are marked as this option's (SelectedExplain); none on a card's own face. */
-export function WorkedSteps({ view, id, mine }: { view: View; id: string; mine?: ReadonlySet<string> }): JSX.Element | null {
+type CoreWorkedOf = NonNullable<ViewCard['worked']>
+
+/**
+ * CORE'S OWN WORKING (`card.worked`, core 4352bfa3 efa47179; DL j3, 14 Nov): where core projects how a figure is worked out, its steps are
+ * drawn verbatim, one per step, in core's order: the step's label, its figure (this option's where one is selected and core gives a row for
+ * it), whose it is, and its ✎ where core offers one. `form`, `role`, `sign` and `power` are structure, kept as data attributes only: core
+ * sends no words for them, so no operator or formula is drawn. Where core sends no `worked`, the link derivation below stays in force.
+ */
+function CoreWorked({ card, worked, option, mine }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string> }): JSX.Element {
+  return (
+    <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form}>
+      <summary title={WORKED_OUT}><span className="line-clamp-1">{WORKED_OUT}</span></summary>
+      <ol>
+        {worked.steps.map((s, i) => {
+          const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
+          const fig = row ?? s.figure, author = row?.author ?? s.author, edit = row?.edit ?? s.edit, editId = row?.id ?? s.id
+          const own = mine?.has(editId) ?? false
+          return (
+            <li key={`${s.id}:${i}`} title={fig.title} data-view={`${card.id}.worked.steps.${i}`} data-step={s.role} data-step-from={editId}
+              data-step-sign={s.sign} data-step-power={s.power} data-step-own={own ? '' : undefined} className={own ? 'ok-step-own' : undefined}>
+              <span className="ok-step-name">{s.label}</span>{' '}<b>{fig.text}</b>
+              {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title}> · {author.text}</span>}
+              {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></>}
+            </li>
+          )
+        })}
+      </ol>
+    </details>
+  )
+}
+
+/** The cards an option moves through core's own working: a step whose figure, for this option, is a different record (the option sets it). */
+export function movedByWorked(view: View, option: string): string[] {
+  return (view.model?.cards ?? []).filter((c) => (c.worked?.steps ?? []).some((s) => s.figure.options.some((o) => o.option === option && o.id !== s.id))).map((c) => c.id)
+}
+
+/** `mine`: the cards whose terms are marked as this option's (SelectedExplain); none on a card's own face. `option`: the selected option. */
+export function WorkedSteps({ view, id, mine, option }: { view: View; id: string; mine?: ReadonlySet<string>; option?: string }): JSX.Element | null {
+  const card = view.model?.cards.find((c) => c.id === id) ?? null
+  if (card?.worked != null) return <CoreWorked card={card} worked={card.worked} option={option} mine={mine} />
   const worked = workedStepsOf(view, id)
   if (worked.length === 0) return null
   return (

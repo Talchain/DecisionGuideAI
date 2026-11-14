@@ -82,6 +82,7 @@ export type View = {
             ask: string
           }>
         } | null
+        state?: "waits"
       } | null
       premises: Array<{
         glyph: string
@@ -155,6 +156,7 @@ export type View = {
         aim: string
         aim_id: string
         title: string
+        state_text?: string
         estimate: string | null
       } | {
         kind: "none"
@@ -168,6 +170,7 @@ export type View = {
         revision?: number | null
         unaffected?: true
         chance?: null
+        state_text?: string
       }>
       driver: {
         text: string
@@ -213,6 +216,120 @@ export type View = {
           title: string
         } | null
       }> | null
+      worked?: {
+        form: "sum" | "product" | "stock" | "effect"
+        steps: Array<{
+          id: string
+          label: string
+          figure: {
+            text: string
+            title: string
+            options: Array<{
+              option: string
+              id: string
+              text: string
+              title: string
+              author: {
+                by: "person" | "brief" | "olumi" | "mixed"
+                text: string
+                title: string
+              } | null
+              edit: {
+                prompt: string
+                ask: string
+              } | {
+                prompt: string
+                ask: string
+                route: "size"
+                record: string
+                note: string | null
+                fields: Array<{
+                  key: "typed" | "chance" | "change"
+                  prompt: string
+                  ask: string
+                }>
+              } | null
+            }>
+          }
+          author: {
+            by: "person" | "brief" | "olumi" | "mixed"
+            text: string
+            title: string
+          } | null
+          edit: {
+            prompt: string
+            ask: string
+          } | {
+            prompt: string
+            ask: string
+            route: "size"
+            record: string
+            note: string | null
+            fields: Array<{
+              key: "typed" | "chance" | "change"
+              prompt: string
+              ask: string
+            }>
+          } | null
+          role: "base" | "term" | "in" | "out"
+          sign?: 1 | -1
+          power?: 1 | -1
+          coefficient?: {
+            id: string
+            label: string
+            figure: {
+              text: string
+              title: string
+              options: Array<{
+                option: string
+                id: string
+                text: string
+                title: string
+                author: {
+                  by: "person" | "brief" | "olumi" | "mixed"
+                  text: string
+                  title: string
+                } | null
+                edit: {
+                  prompt: string
+                  ask: string
+                } | {
+                  prompt: string
+                  ask: string
+                  route: "size"
+                  record: string
+                  note: string | null
+                  fields: Array<{
+                    key: "typed" | "chance" | "change"
+                    prompt: string
+                    ask: string
+                  }>
+                } | null
+              }>
+            }
+            author: {
+              by: "person" | "brief" | "olumi" | "mixed"
+              text: string
+              title: string
+            } | null
+            edit: {
+              prompt: string
+              ask: string
+            } | {
+              prompt: string
+              ask: string
+              route: "size"
+              record: string
+              note: string | null
+              fields: Array<{
+                key: "typed" | "chance" | "change"
+                prompt: string
+                ask: string
+              }>
+            } | null
+          }
+        }>
+      }
       rests_on: Array<{
         id: string
         whose: "theirs" | "olumi" | "mixed"

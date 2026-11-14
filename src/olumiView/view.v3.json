@@ -388,6 +388,10 @@
                 "type": "null"
                }
               ]
+             },
+             "state": {
+              "type": "string",
+              "const": "waits"
              }
             },
             "required": [
@@ -794,6 +798,9 @@
               "title": {
                "type": "string"
               },
+              "state_text": {
+               "type": "string"
+              },
               "estimate": {
                "type": [
                 "string",
@@ -863,6 +870,9 @@
               },
               "chance": {
                "type": "null"
+              },
+              "state_text": {
+               "type": "string"
               }
              },
              "required": [
@@ -1122,6 +1132,666 @@
             "type": "null"
            }
           ]
+         },
+         "worked": {
+          "type": "object",
+          "properties": {
+           "form": {
+            "type": "string",
+            "enum": [
+             "sum",
+             "product",
+             "stock",
+             "effect"
+            ]
+           },
+           "steps": {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "id": {
+               "type": "string"
+              },
+              "label": {
+               "type": "string"
+              },
+              "figure": {
+               "type": "object",
+               "properties": {
+                "text": {
+                 "type": "string"
+                },
+                "title": {
+                 "type": "string"
+                },
+                "options": {
+                 "type": "array",
+                 "items": {
+                  "type": "object",
+                  "properties": {
+                   "option": {
+                    "type": "string"
+                   },
+                   "id": {
+                    "type": "string"
+                   },
+                   "text": {
+                    "type": "string"
+                   },
+                   "title": {
+                    "type": "string"
+                   },
+                   "author": {
+                    "anyOf": [
+                     {
+                      "type": "object",
+                      "properties": {
+                       "by": {
+                        "type": "string",
+                        "enum": [
+                         "person",
+                         "brief",
+                         "olumi",
+                         "mixed"
+                        ]
+                       },
+                       "text": {
+                        "type": "string"
+                       },
+                       "title": {
+                        "type": "string"
+                       }
+                      },
+                      "required": [
+                       "by",
+                       "text",
+                       "title"
+                      ],
+                      "additionalProperties": false
+                     },
+                     {
+                      "type": "null"
+                     }
+                    ]
+                   },
+                   "edit": {
+                    "anyOf": [
+                     {
+                      "anyOf": [
+                       {
+                        "type": "object",
+                        "properties": {
+                         "prompt": {
+                          "type": "string"
+                         },
+                         "ask": {
+                          "type": "string"
+                         }
+                        },
+                        "required": [
+                         "prompt",
+                         "ask"
+                        ],
+                        "additionalProperties": false
+                       },
+                       {
+                        "type": "object",
+                        "properties": {
+                         "prompt": {
+                          "type": "string"
+                         },
+                         "ask": {
+                          "type": "string"
+                         },
+                         "route": {
+                          "type": "string",
+                          "const": "size"
+                         },
+                         "record": {
+                          "type": "string"
+                         },
+                         "note": {
+                          "type": [
+                           "string",
+                           "null"
+                          ]
+                         },
+                         "fields": {
+                          "type": "array",
+                          "items": {
+                           "type": "object",
+                           "properties": {
+                            "key": {
+                             "type": "string",
+                             "enum": [
+                              "typed",
+                              "chance",
+                              "change"
+                             ]
+                            },
+                            "prompt": {
+                             "type": "string"
+                            },
+                            "ask": {
+                             "type": "string"
+                            }
+                           },
+                           "required": [
+                            "key",
+                            "prompt",
+                            "ask"
+                           ],
+                           "additionalProperties": false
+                          }
+                         }
+                        },
+                        "required": [
+                         "prompt",
+                         "ask",
+                         "route",
+                         "record",
+                         "note",
+                         "fields"
+                        ],
+                        "additionalProperties": false
+                       }
+                      ]
+                     },
+                     {
+                      "type": "null"
+                     }
+                    ]
+                   }
+                  },
+                  "required": [
+                   "option",
+                   "id",
+                   "text",
+                   "title",
+                   "author",
+                   "edit"
+                  ],
+                  "additionalProperties": false
+                 }
+                }
+               },
+               "required": [
+                "text",
+                "title",
+                "options"
+               ],
+               "additionalProperties": false
+              },
+              "author": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "by": {
+                   "type": "string",
+                   "enum": [
+                    "person",
+                    "brief",
+                    "olumi",
+                    "mixed"
+                   ]
+                  },
+                  "text": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "by",
+                  "text",
+                  "title"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
+              "edit": {
+               "anyOf": [
+                {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "prompt": {
+                     "type": "string"
+                    },
+                    "ask": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "prompt",
+                    "ask"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "object",
+                   "properties": {
+                    "prompt": {
+                     "type": "string"
+                    },
+                    "ask": {
+                     "type": "string"
+                    },
+                    "route": {
+                     "type": "string",
+                     "const": "size"
+                    },
+                    "record": {
+                     "type": "string"
+                    },
+                    "note": {
+                     "type": [
+                      "string",
+                      "null"
+                     ]
+                    },
+                    "fields": {
+                     "type": "array",
+                     "items": {
+                      "type": "object",
+                      "properties": {
+                       "key": {
+                        "type": "string",
+                        "enum": [
+                         "typed",
+                         "chance",
+                         "change"
+                        ]
+                       },
+                       "prompt": {
+                        "type": "string"
+                       },
+                       "ask": {
+                        "type": "string"
+                       }
+                      },
+                      "required": [
+                       "key",
+                       "prompt",
+                       "ask"
+                      ],
+                      "additionalProperties": false
+                     }
+                    }
+                   },
+                   "required": [
+                    "prompt",
+                    "ask",
+                    "route",
+                    "record",
+                    "note",
+                    "fields"
+                   ],
+                   "additionalProperties": false
+                  }
+                 ]
+                },
+                {
+                 "type": "null"
+                }
+               ]
+              },
+              "role": {
+               "type": "string",
+               "enum": [
+                "base",
+                "term",
+                "in",
+                "out"
+               ]
+              },
+              "sign": {
+               "type": "number",
+               "enum": [
+                1,
+                -1
+               ]
+              },
+              "power": {
+               "type": "number",
+               "enum": [
+                1,
+                -1
+               ]
+              },
+              "coefficient": {
+               "type": "object",
+               "properties": {
+                "id": {
+                 "type": "string"
+                },
+                "label": {
+                 "type": "string"
+                },
+                "figure": {
+                 "type": "object",
+                 "properties": {
+                  "text": {
+                   "type": "string"
+                  },
+                  "title": {
+                   "type": "string"
+                  },
+                  "options": {
+                   "type": "array",
+                   "items": {
+                    "type": "object",
+                    "properties": {
+                     "option": {
+                      "type": "string"
+                     },
+                     "id": {
+                      "type": "string"
+                     },
+                     "text": {
+                      "type": "string"
+                     },
+                     "title": {
+                      "type": "string"
+                     },
+                     "author": {
+                      "anyOf": [
+                       {
+                        "type": "object",
+                        "properties": {
+                         "by": {
+                          "type": "string",
+                          "enum": [
+                           "person",
+                           "brief",
+                           "olumi",
+                           "mixed"
+                          ]
+                         },
+                         "text": {
+                          "type": "string"
+                         },
+                         "title": {
+                          "type": "string"
+                         }
+                        },
+                        "required": [
+                         "by",
+                         "text",
+                         "title"
+                        ],
+                        "additionalProperties": false
+                       },
+                       {
+                        "type": "null"
+                       }
+                      ]
+                     },
+                     "edit": {
+                      "anyOf": [
+                       {
+                        "anyOf": [
+                         {
+                          "type": "object",
+                          "properties": {
+                           "prompt": {
+                            "type": "string"
+                           },
+                           "ask": {
+                            "type": "string"
+                           }
+                          },
+                          "required": [
+                           "prompt",
+                           "ask"
+                          ],
+                          "additionalProperties": false
+                         },
+                         {
+                          "type": "object",
+                          "properties": {
+                           "prompt": {
+                            "type": "string"
+                           },
+                           "ask": {
+                            "type": "string"
+                           },
+                           "route": {
+                            "type": "string",
+                            "const": "size"
+                           },
+                           "record": {
+                            "type": "string"
+                           },
+                           "note": {
+                            "type": [
+                             "string",
+                             "null"
+                            ]
+                           },
+                           "fields": {
+                            "type": "array",
+                            "items": {
+                             "type": "object",
+                             "properties": {
+                              "key": {
+                               "type": "string",
+                               "enum": [
+                                "typed",
+                                "chance",
+                                "change"
+                               ]
+                              },
+                              "prompt": {
+                               "type": "string"
+                              },
+                              "ask": {
+                               "type": "string"
+                              }
+                             },
+                             "required": [
+                              "key",
+                              "prompt",
+                              "ask"
+                             ],
+                             "additionalProperties": false
+                            }
+                           }
+                          },
+                          "required": [
+                           "prompt",
+                           "ask",
+                           "route",
+                           "record",
+                           "note",
+                           "fields"
+                          ],
+                          "additionalProperties": false
+                         }
+                        ]
+                       },
+                       {
+                        "type": "null"
+                       }
+                      ]
+                     }
+                    },
+                    "required": [
+                     "option",
+                     "id",
+                     "text",
+                     "title",
+                     "author",
+                     "edit"
+                    ],
+                    "additionalProperties": false
+                   }
+                  }
+                 },
+                 "required": [
+                  "text",
+                  "title",
+                  "options"
+                 ],
+                 "additionalProperties": false
+                },
+                "author": {
+                 "anyOf": [
+                  {
+                   "type": "object",
+                   "properties": {
+                    "by": {
+                     "type": "string",
+                     "enum": [
+                      "person",
+                      "brief",
+                      "olumi",
+                      "mixed"
+                     ]
+                    },
+                    "text": {
+                     "type": "string"
+                    },
+                    "title": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "by",
+                    "text",
+                    "title"
+                   ],
+                   "additionalProperties": false
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                },
+                "edit": {
+                 "anyOf": [
+                  {
+                   "anyOf": [
+                    {
+                     "type": "object",
+                     "properties": {
+                      "prompt": {
+                       "type": "string"
+                      },
+                      "ask": {
+                       "type": "string"
+                      }
+                     },
+                     "required": [
+                      "prompt",
+                      "ask"
+                     ],
+                     "additionalProperties": false
+                    },
+                    {
+                     "type": "object",
+                     "properties": {
+                      "prompt": {
+                       "type": "string"
+                      },
+                      "ask": {
+                       "type": "string"
+                      },
+                      "route": {
+                       "type": "string",
+                       "const": "size"
+                      },
+                      "record": {
+                       "type": "string"
+                      },
+                      "note": {
+                       "type": [
+                        "string",
+                        "null"
+                       ]
+                      },
+                      "fields": {
+                       "type": "array",
+                       "items": {
+                        "type": "object",
+                        "properties": {
+                         "key": {
+                          "type": "string",
+                          "enum": [
+                           "typed",
+                           "chance",
+                           "change"
+                          ]
+                         },
+                         "prompt": {
+                          "type": "string"
+                         },
+                         "ask": {
+                          "type": "string"
+                         }
+                        },
+                        "required": [
+                         "key",
+                         "prompt",
+                         "ask"
+                        ],
+                        "additionalProperties": false
+                       }
+                      }
+                     },
+                     "required": [
+                      "prompt",
+                      "ask",
+                      "route",
+                      "record",
+                      "note",
+                      "fields"
+                     ],
+                     "additionalProperties": false
+                    }
+                   ]
+                  },
+                  {
+                   "type": "null"
+                  }
+                 ]
+                }
+               },
+               "required": [
+                "id",
+                "label",
+                "figure",
+                "author",
+                "edit"
+               ],
+               "additionalProperties": false
+              }
+             },
+             "required": [
+              "id",
+              "label",
+              "figure",
+              "author",
+              "edit",
+              "role"
+             ],
+             "additionalProperties": false
+            }
+           }
+          },
+          "required": [
+           "form",
+           "steps"
+          ],
+          "additionalProperties": false
          },
          "rests_on": {
           "type": "array",

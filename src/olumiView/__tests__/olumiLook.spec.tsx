@@ -144,3 +144,33 @@ describe('DL-538: a card drawn at the stage\'s width', () => {
     expect(parseFloat(full.style.minWidth)).toBeLessThanOrEqual(parseFloat(full.style.width))
   })
 })
+
+describe('DL j3: core\'s own working (card.worked) is drawn verbatim where core sends it', () => {
+  // The served View of a twin of Paul's copy (engine 4352bfa3, seed cut13-draft-only, approved and the target set: version 2), read on my
+  // :4051 with AI off (0 calls), 14 Nov. Core 4352bfa3 projects `worked` on the one derived card it can work out.
+  const TWIN = load('live-4352bfa3-twin-cut13-v2.view.json')
+  it('J3-1 every step of core\'s working: its role, its record, core\'s label, core\'s figure and whose it is, in core\'s order, bound by step', () => {
+    const card = cardOf(TWIN, (c) => c.worked != null)
+    const el = draw(TWIN, card)
+    expect(el.querySelector(`[data-view="${card.id}.worked"]`)?.getAttribute('data-worked-form')).toBe(card.worked!.form)
+    card.worked!.steps.forEach((s, i) => {
+      const li = el.querySelector(`[data-view="${card.id}.worked.steps.${i}"]`)!
+      expect([li.getAttribute('data-step'), li.getAttribute('data-step-from'), li.querySelector('.ok-step-name')?.textContent, li.querySelector('b')?.textContent, li.querySelector('.ok-step-by')?.textContent])
+        .toEqual([s.role, s.id, s.label, s.figure.text, ` · ${s.author!.text}`])
+    })
+    expect(el.querySelectorAll(`[data-view^="${card.id}.worked.steps."]`).length).toBe(card.worked!.steps.length)
+  })
+  it('J3-1 its ✎ is core\'s own edit for that step\'s record; the card\'s face is not turned into a worked-out status line by it', () => {
+    const card = cardOf(TWIN, (c) => c.worked != null && c.worked.steps.some((s) => s.edit != null))
+    const el = draw(TWIN, card), s = card.worked!.steps.findIndex((x) => x.edit != null)
+    expect(el.querySelector(`[data-view="${card.id}.worked.steps.${s}"] [data-figure-edit-wrap]`)).not.toBeNull()
+    expect(isWorkedOut(TWIN, card.id)).toBe(workedStepsOf(TWIN, card.id).length > 0)
+  })
+  it('J3-1 CONTRAST: on core f6447f70 (no `worked`), no card draws core\'s working and the link derivation is unchanged', () => {
+    expect(RUN2.model!.cards.some((c) => c.worked != null)).toBe(false)
+    const card = cardOf(RUN2, (c) => isWorkedOut(RUN2, c.id))
+    const el = draw(RUN2, card)
+    expect(el.querySelector(`[data-view="${card.id}.worked"]`)).toBeNull()
+    expect(el.querySelector(`[data-view^="${card.id}.worked."]`)).not.toBeNull()
+  })
+})

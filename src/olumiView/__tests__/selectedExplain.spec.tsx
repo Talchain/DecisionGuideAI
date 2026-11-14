@@ -85,3 +85,26 @@ describe('DL 04:59Z (4): an option card shows its next step in two lines; the wh
     expect(rule('ok-next')).not.toMatch(/line-clamp/)
   })
 })
+
+describe('DL j3: a selected option shows core\'s own working for what it moves, with its own figure', () => {
+  const TWIN = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-4352bfa3-twin-cut13-v2.view.json'), 'utf8')) as View
+  const selectIn = (v: View, id: string) => {
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: v.id, view: v, status: 'ready', error: null, stale: false } as never)
+    useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: v.model!.cards.find((c) => c.id === id)!.heading } }] as never, edges: [] as never,
+      selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null } } as never)
+    return render(<SelectionPill after={selectedRename} />).container
+  }
+  it('J3-2 on the served twin no option takes a record of its own in core\'s working, so no option claims it (CONTRAST)', () => {
+    for (const o of TWIN.model!.cards.filter((c) => c.family === 'option')) { expect(selectIn(TWIN, o.id).querySelector('[data-view$=".worked"]')).toBeNull(); cleanup() }
+  })
+  it('J3-2 where core\'s working takes a different record for an option, selecting it draws that step with the option\'s own figure, marked as its own', () => {
+    // The served twin View with ONE of core's per-option rows pointed at the option's own record (the shape core sends when an option sets
+    // a step's input, worked.ts figure.options[].id): everything drawn is still core's row.
+    const v = structuredClone(TWIN) as View, card = v.model!.cards.find((c) => c.worked != null)!, s = card.worked!.steps[0]!
+    const opt = v.model!.cards.find((c) => c.family === 'option' && s.figure.options.some((o) => o.option === c.id))!
+    const row = s.figure.options.find((o) => o.option === opt.id)!
+    row.id = opt.id; row.text = `${row.text} (with ${opt.id})`
+    const el = selectIn(v, opt.id), li = el.querySelector(`[data-view="${card.id}.worked.steps.0"]`)!
+    expect([li.querySelector('b')?.textContent, li.getAttribute('data-step-from'), li.hasAttribute('data-step-own')]).toEqual([row.text, opt.id, true])
+  })
+})

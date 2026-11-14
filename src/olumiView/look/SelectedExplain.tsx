@@ -8,13 +8,14 @@
  *    steps are the base and the terms the View gives, never a formula.
  */
 import type { View, ViewCard } from '../client'
-import { WorkedSteps, workedStepsOf } from './WorkedSteps'
+import { movedByWorked, WorkedSteps, workedStepsOf } from './WorkedSteps'
 
 /** The cards this option moves through a sized term: `through` links from the option or a figure it sets, into a card worked out. */
 export function movedBy(view: View, option: ViewCard): string[] {
   const from = new Set([option.id, ...(option.sets ?? []).map((s) => s.id)])
   const into = (view.model?.links ?? []).filter((l) => l.kind === 'through' && from.has(l.from)).map((l) => l.to)
-  return [...new Set(into)].filter((id) => workedStepsOf(view, id).length > 0)
+  // DL j3: and every card core's own working (`card.worked`) says this option moves, by a step that takes a different record for it.
+  return [...new Set([...into.filter((id) => workedStepsOf(view, id).length > 0), ...movedByWorked(view, option.id)])]
 }
 
 export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.Element | null {
@@ -46,7 +47,7 @@ export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.E
       )}
       {moved.length === 0 ? null : (
         <section data-testid="selected-explain-steps">
-          {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} />)}
+          {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} option={card.id} />)}
         </section>
       )}
     </div>
