@@ -25,10 +25,17 @@ export function restClearOfFoot(v: Viewport, nodes: readonly Node[], paneH: numb
   const cards: Card[] = nodes.map((n) => { const h = n.measured?.height ?? n.height ?? 0; return { id: n.id, top: n.position.y * z + v.y, lf: Math.min(h, LABEL_FIGURE_H) * z, h: h * z } })
   const a = anchor == null ? null : cards.find((c) => c.id === anchor) ?? null
   const topmost = Math.min(...cards.map((c) => c.top))
-  const clear = (dy: number) => cards.every((c) => c.top + dy >= paneH || c.top + dy + c.lf <= G)
-  const held = (dy: number) => (a === null ? topmost + dy >= freeTop - 0.5 : a.top + dy >= freeTop - 0.5 && a.top + dy + a.h <= G + 0.5)
+  const clear = (dy: number) => cards.every((c) => c.top + dy >= paneH - 0.5 || c.top + dy + c.lf <= G + 0.5)
+  // At rest never a big move: at most the gutter and one card's label and figure, and the board's top card stays read (label above the
+  // gutter). The first-approval anchor may move further: bringing the aim into view is the point.
+  const most = FOOT_GUTTER + LABEL_FIGURE_H * z
+  const top = cards.reduce((t, c) => (c.top < t.top ? c : t), cards[0]!)
+  const held = (dy: number) => (a === null
+    ? Math.abs(dy) <= most && topmost + dy >= freeTop - 0.5 && top.top + dy + top.lf <= G + 0.5
+    : a.top + dy >= freeTop - 0.5 && a.top + dy + a.h <= G + 0.5)
   const moves = [0, ...cards.flatMap((c) => [paneH - c.top, G - (c.top + c.lf)]), ...(a === null ? [] : [G - (a.top + a.h), freeTop - a.top])]
-    .map((d) => Math.round(d)).sort((x, y) => Math.abs(x) - Math.abs(y))
+    .sort((x, y) => Math.abs(x) - Math.abs(y)) // unrounded: a fractional card top must not leave a pushed row half a pixel above the fold
   const best = moves.find((d) => held(d) && clear(d)) ?? (a === null ? 0 : moves.find((d) => held(d)) ?? 0)
-  return best === 0 ? v : { ...v, y: v.y + best }
+  // (where no bounded move clears the foot, the frame is left as the fit made it: nothing is ever pushed out of view to pass the rule)
+  return best === 0 ? v : { ...v, y: v.y + Math.ceil(best) }
 }
