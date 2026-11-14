@@ -40,6 +40,10 @@ describe('readingsRest', () => {
     const r = readingsRest(box, root, foot)!
     expect([r.low, r.high, r.rows]).toEqual([528 + 116 - 348, 300, 1])
   })
+  it('a sole row that fits only without its gap: it rests whole (rows 1) and `short` is the 12 px its two gaps would still need', () => {
+    const { box, root, foot } = setup(0, [[300, 228]])
+    expect(readingsRest(box, root, foot)).toEqual({ low: 528 + 116 - 348, high: 300, rows: 1, short: 528 + 8 + 116 - 348 - 292 })
+  })
   it('not even the first row fits: the first row\'s top, never past it; no row is said to rest whole', () => {
     const { box, root, foot } = setup(0, [[300, 238], [546, 215]])
     const r = readingsRest(box, root, foot)!

@@ -25,7 +25,8 @@ const TOP = 121, H = 473, SCROLL_H = 4242, FOOT = 117, SHORT_ROWS: Record<string
 let ROWS = SHORT_ROWS
 const thread = () => document.querySelector<HTMLElement>('[data-testid="view-chat-scroll"]')!
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
-const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight') }
+const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
+let observers: Array<() => void> = []
 
 const show = (marks: Mark[]) => {
   const view: View = { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks } }
@@ -33,7 +34,8 @@ const show = (marks: Mark[]) => {
   return render(<ViewChat />)
 }
 beforeEach(() => {
-  ROWS = SHORT_ROWS
+  ROWS = SHORT_ROWS; observers = []
+  globalThis.ResizeObserver = class { constructor(cb: ResizeObserverCallback) { observers.push(() => cb([], this as unknown as ResizeObserver)) } observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
@@ -51,6 +53,7 @@ afterEach(() => {
   HTMLElement.prototype.getBoundingClientRect = real.rect
   if (real.ch) Object.defineProperty(Element.prototype, 'clientHeight', real.ch)
   if (real.sh) Object.defineProperty(Element.prototype, 'scrollHeight', real.sh)
+  globalThis.ResizeObserver = real.ro
   useViewChat.setState({ busy: false, said: null }); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null })
 })
 const wholeRow = (id: string) => { const st = thread().scrollTop, foot = TOP + H - FOOT, [y, h] = ROWS[id]!; return TOP + y - st >= TOP && TOP + y + h - st <= foot }
@@ -73,5 +76,14 @@ describe('PL-1083 (1), old look: where the thread rests while a proposal holds r
     expect(thread().scrollTop).toBe(2500 + 352 + FOOT - H)
     expect(wholeRow('view-reading-0')).toBe(true)
     expect(wholeRow('view-reading-1')).toBe(false)
+  })
+  it('Codex 14:1xZ: when the thread\'s content changes size (the words grow), the thread rests again by the same rule', () => {
+    show(held)
+    expect(thread().scrollTop).toBe(2424)
+    ROWS = { 'view-reading-0': [2500, 352], 'view-reading-1': [2860, 215] }
+    expect(wholeRow('view-reading-0')).toBe(false)
+    for (const fire of observers) fire()
+    expect(thread().scrollTop).toBe(2500 + 352 + FOOT - H)
+    expect(wholeRow('view-reading-0')).toBe(true)
   })
 })
