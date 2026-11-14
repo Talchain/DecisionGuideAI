@@ -165,13 +165,13 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
  * core's is read or written here.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number } } = {}): Promise<Map<string, { x: number; y: number }>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number } } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
   // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
   // previous layout's own cap.
-  const maxPerRow = Math.max(MAX_CARDS_PER_ROW, allOptionCards(model).length)
+  const maxPerRow = Math.max(options.row?.perRow ?? MAX_CARDS_PER_ROW, allOptionCards(model).length)
   const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   if (direction !== 'DOWN' && direction !== 'UP') return places
@@ -180,6 +180,14 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const opts = allOptionCards(model).map((c) => packed.get(c.id)).filter((p): p is { x: number; y: number } => p !== undefined), q = packed.get(QUESTION)
   if (options.row !== undefined && q !== undefined && opts.length > 0) packed.set(QUESTION, { x: Math.min(...opts.map((p) => p.x)), y: q.y })
   if (options.row !== undefined && direction === 'DOWN') besideTheMeasure(model, packed, options.row)
+  // DL 1232 fault 3: on a stage-sized board every row starts where the options row starts (each row was closed up about its own centre, so
+  // rows of the same count drifted apart and the board grew wider than the stage). Order across is kept.
+  if (options.row !== undefined && opts.length > 0) {
+    const left = Math.min(...allOptionCards(model).map((c) => packed.get(c.id)?.x ?? Infinity))
+    const rows = new Map<number, string[]>()
+    for (const [id, p] of packed) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
+    for (const ids of rows.values()) { const shift = left - Math.min(...ids.map((id) => packed.get(id)!.x)); for (const id of ids) { const p = packed.get(id)!; packed.set(id, { x: p.x + shift, y: p.y }) } }
+  }
   return packed
 }
 
@@ -188,7 +196,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  * (the layout's last layer: the measure links into them), they move up into the row above, to the right of its last card, so the board
  * reads options, figures, then the measure and the goal side by side, one row shorter. Geometry only; nothing else moves.
  */
-function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { cardW: number; gapX: number }): void {
+function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { cardW: number; gapX: number; perRow?: number }): void {
   const aims = new Set(aimsOf(model))
   const ys = [...new Set([...packed].filter(([id]) => id !== QUESTION).map(([, p]) => p.y))].sort((a, b) => a - b)
   if (ys.length < 3) return
@@ -196,7 +204,8 @@ function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: 
   const foot = [...packed].filter(([id, p]) => id !== QUESTION && p.y === last).map(([id]) => id)
   if (foot.length === 0 || foot.some((id) => !aims.has(id))) return
   const beside = [...packed].filter(([id, p]) => id !== QUESTION && p.y === above)
-  if (beside.length === 0) return
+  // Only where the row has room for them within the stage's count (DL 1232 fault 3); else the aims keep their own row.
+  if (beside.length === 0 || (row.perRow !== undefined && beside.length + foot.length > Math.max(row.perRow, allOptionCards(model).length))) return
   let x = Math.max(...beside.map(([, p]) => p.x)) + row.cardW + row.gapX
   for (const id of foot.sort((a, b) => packed.get(a)!.x - packed.get(b)!.x)) { packed.set(id, { x, y: above }); x += row.cardW + row.gapX }
 }
@@ -1135,10 +1144,15 @@ const READABLE_FLOOR = 11 / 12
  * where they fit, else the layout's node gap and a card between CARD_MIN_W and the full card. The question bar spans that row. A stage
  * too narrow even at CARD_MIN_W pans (the camera never shrinks the board to a zoomed-out face).
  */
-export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number } {
+export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number; perRow?: number } {
   const n = Math.max(1, allOptionCards(model).length), room = roomW / READABLE_FLOOR
-  if (roomW <= 0 || n * W + (n - 1) * ROW_GAP_X <= room) return { cardW: W, gapX: ROW_GAP_X }
-  return { cardW: Math.max(CARD_MIN_W, Math.min(W, Math.floor((room - (n - 1) * LAYOUT_NODE_GAP) / n))), gapX: LAYOUT_NODE_GAP }
+  // perRow (DL 1232 fault 3): how many cards of this width fit across the stage, so every other row wraps at that count and the board is
+  // never wider than the stage but for an options row that cannot fit (that one pans, with the "more to the right" cue).
+  const fit = (w: number, g: number) => Math.max(1, Math.floor((room + g) / (w + g)))
+  if (roomW <= 0) return { cardW: W, gapX: ROW_GAP_X }
+  if (n * W + (n - 1) * ROW_GAP_X <= room) return { cardW: W, gapX: ROW_GAP_X, perRow: fit(W, ROW_GAP_X) }
+  const cardW = Math.max(CARD_MIN_W, Math.min(W, Math.floor((room - (n - 1) * LAYOUT_NODE_GAP) / n)))
+  return { cardW, gapX: LAYOUT_NODE_GAP, perRow: fit(cardW, LAYOUT_NODE_GAP) }
 }
 /** The question bar's width over a row of options: the whole row. */
-export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number }): number => { const n = Math.max(1, allOptionCards(model).length); return n * row.cardW + (n - 1) * row.gapX }
+export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number }): number => { const n = Math.max(1, allOptionCards(model).length); return n * row.cardW + (n - 1) * row.gapX }

@@ -58,11 +58,11 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; row: { cardW: number; gapX: number } }) =>
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number } }) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing, opts.row])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
-let row: { cardW: number; gapX: number } = { cardW: 0, gapX: 0 }
+let row: { cardW: number; gapX: number; perRow?: number } = { cardW: 0, gapX: 0 }
 export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {

@@ -37,7 +37,7 @@ describe('the options row is sized to the stage (DL-538)', () => {
     })
 
     it(`${name} at 2000: the full card and gap where they fit (CONTRAST: the stage does not shrink a board that fits)`, () => {
-      expect(stageRow(model, FREE_2000)).toEqual({ cardW: CARD_WIDTH, gapX: ROW_GAP_X })
+      expect(stageRow(model, FREE_2000)).toMatchObject({ cardW: CARD_WIDTH, gapX: ROW_GAP_X })
     })
   }
 
@@ -58,4 +58,27 @@ describe('the options row is sized to the stage (DL-538)', () => {
       expect(into.some((id) => plain.get(id)!.y === plain.get(goal)!.y), 'CONTRAST: without the stage, below it').toBe(false)
     })
   }
+
+  for (const [name, view] of Object.entries(BOARDS)) {
+    it(`${name} at 1128 (DL 1232 fault 3): every row but the options is no wider than the stage at the readable floor (it wraps at the count that fits)`, async () => {
+      const model = view.model!, row = stageRow(model, FREE_1128), opts = new Set(allOptionCards(model).map((c) => c.id))
+      const size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
+      const places = await causalPlaces(model, size, { row })
+      const rows = new Map<number, number[]>()
+      for (const [id, p] of places) if (id !== QUESTION && !opts.has(id)) rows.set(p.y, [...(rows.get(p.y) ?? []), p.x])
+      for (const [y, xs] of rows) expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, `row at y ${y}`).toBeLessThanOrEqual(FREE_1128 + 0.5)
+    })
+  }
+
+  it('the joined run\'s copy at 1232 (4352bfa3, s_8ade64308cc5 v5; DL 1232 fault 3): its four options fit across, and so does every other row', async () => {
+    const view = load('live-4352bfa3-copy-v5.view.json'), model = view.model!, FREE_1232 = 885 - 45 // the dock from x 885 at 1232 (4162-1232-a-open.png)
+    const row = stageRow(model, FREE_1232), size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
+    const places = await causalPlaces(model, size, { row })
+    const rows = new Map<number, number[]>()
+    for (const [id, p] of places) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), p.x])
+    for (const [y, xs] of rows) expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, `row at y ${y}`).toBeLessThanOrEqual(FREE_1232 + 0.5)
+    // and the board as a whole (its rows start together), so nothing is cut at the panel's edge on open
+    const xs = [...places].filter(([id]) => id !== QUESTION).map(([, p]) => p.x)
+    expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, 'the whole board').toBeLessThanOrEqual(FREE_1232 + 0.5)
+  })
 })

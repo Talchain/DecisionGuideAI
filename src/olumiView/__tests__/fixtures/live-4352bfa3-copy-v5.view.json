@@ -1,0 +1,3579 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_8ade64308cc5",
+ "title": "Accelerating funding within two months",
+ "commit": "4352bfa33e67b644857d414e5fff4b29c16afbef",
+ "signature": "[44,null,[[12,\"superseded\"],[15,\"approved\"],[18,\"discussion\"],[21,\"discussion\"],[24,\"discussion\"],[27,\"discussion\"],[30,\"approved\"],[39,\"approved\"],[41,\"approved\"],[43,\"approved\"]],[],[\"Paul\"],[],[\"1\"]][\"answered\",[30]]",
+ "you": "Paul",
+ "you_id": "1",
+ "members": [
+  {
+   "id": "1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 44,
+  "n": 5,
+  "label": "Version 5",
+  "changed": [
+   "secure_funding_within_the_next_2_months_target"
+  ],
+  "at": "2026-11-14T04:54:53.465Z",
+  "at_text": "14 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "How can we secure funding faster, within the next 2 months, before the money runs out?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": {
+    "records": [
+     "open_question_1_changed",
+     "overhead_of_pursuing_angel_investors_may_not_be_worth_it"
+    ],
+    "text": "1 figure, 1 claim",
+    "title": "Figure: Open question 1\nclaim: Overhead of pursuing angel investors may not be worth it",
+    "label": "Show 2 notes behind this",
+    "open": false,
+    "proposed": false,
+    "change": "",
+    "words": "1 figure, 1 claim",
+    "face": "1 figure, 1 claim",
+    "icon": ""
+   }
+  },
+  "whole": true,
+  "cards": [
+   {
+    "id": "size_of_deals_done_by_the_investment_firms_targeted",
+    "family": "left_out",
+    "glyph": "○",
+    "heading": "Size of deals done by the investment firms targeted",
+    "typed": true,
+    "detail": "Size of deals done by the investment firms targeted: £1m to £2m · left out · You said: “investment firms that do deals between £1-2 million” · Kept as you said it; not used in the working-out.",
+    "col": 0,
+    "h": 140,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "Size of deals done by the investment firms targeted: £1m to £2m",
+    "badge": {
+     "records": [
+      "taking_angel_money_first_could_change_how_later_investment_firms"
+     ],
+     "text": "1 challenge",
+     "title": "challenge: Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted.",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 challenge",
+     "face": "1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Size of deals done by the investment firms targeted",
+      "whole": true,
+      "words": "olumi"
+     },
+     "line": {
+      "text": "investment firms that do deals between £1-2 million",
+      "words": "theirs"
+     }
+    },
+    "author": {
+     "by": "person",
+     "text": "Your figure",
+     "title": "You said: “investment firms that do deals between £1-2 million”"
+    },
+    "failed": []
+   },
+   {
+    "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Keep sending cold emails and seeking warm connections",
+    "typed": false,
+    "detail": "Keep sending cold emails and seeking warm connections · option · You said: “We'll keep sending cold emails and trying to find warm connections”",
+    "col": 0,
+    "h": 98,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "always met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Secure funding within the next 2 months",
+      "aim_id": "secure_funding_within_the_next_2_months",
+      "title": "With the model's figures, 'Keep sending cold emails and seeking warm connections' always meets 'Secure funding within the next 2 months': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed.",
+      "chance": 1,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 14,
+       "median": 14,
+       "high": 14,
+       "unit": "weeks",
+       "text": "14 weeks",
+       "title": "Under 'Keep sending cold emails and seeking warm connections', 'Time from now until the first funds arrive in the company's account' is this in at least 8 times in 10. It rests on Olumi's reading of the aim, not yet confirmed."
+      },
+      "driver": null,
+      "text": "With the model's figures, 'Keep sending cold emails and seeking warm connections' always meets 'Secure funding within the next 2 months': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim.",
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [
+     {
+      "id": "secure_funding_within_the_next_2_months_target",
+      "whose": "theirs",
+      "label": "The target for 'Secure funding within the next 2 months'",
+      "author": "Your figure"
+     },
+     {
+      "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+      "whose": "theirs",
+      "label": "Time from now until the first funds arrive in the company's account now",
+      "author": "Your figure"
+     }
+    ],
+    "sets": [],
+    "face": {
+     "title": {
+      "text": "Keep sending cold emails and seeking warm connections",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "You stated this",
+     "title": "You said: “We'll keep sending cold emails and trying to find warm connections”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding_within_the_next_2_months",
+     "state": "fixed",
+     "text": "always met in this model",
+     "title": "With the model's figures, 'Keep sending cold emails and seeking warm connections' always meets 'Secure funding within the next 2 months': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    }
+   },
+   {
+    "id": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Approach angel investors for a small, quicker amount of funding",
+    "typed": false,
+    "detail": "Approach angel investors for a small, quicker amount of funding · option · You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”",
+    "col": 0,
+    "h": 166,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "Whether the angel route is worth it depends on whether the overhead is worth it.",
+      "title": "Whether the angel route is worth it depends on whether the overhead is worth it. · prerequisite · Theirs: “we would need to decide whether the overhead would be worth it” (Paul)",
+      "id": "whether_the_angel_route_is_worth_it_depends_on_whether_the_overh",
+      "olumi": null
+     },
+     {
+      "glyph": "!",
+      "text": "A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do.",
+      "title": "A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do. · challenge · Proposed by Olumi: Tests the assumption that a small, quicker sum is worth the effort.",
+      "id": "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Tests the assumption that a small, quicker sum is worth the effort."
+      }
+     },
+     {
+      "glyph": "!",
+      "text": "Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted.",
+      "title": "Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted. · challenge · Proposed by Olumi: Adds a viewpoint of the later investors, whom nobody has yet spoken for.",
+      "id": "taking_angel_money_first_could_change_how_later_investment_firms",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Adds a viewpoint of the later investors, whom nobody has yet spoken for."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "secure_funding_within_the_next_2_months",
+      "text": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open; the link ‘Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months’ is in words, not a figure.",
+      "title": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open; the link ‘Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months’ is in words, not a figure."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "founder_hours_spent_on_angel_outreach_added_approach_angel_inves",
+      "open_question_1_changed_approach_angel_investors_for_a_small_qui",
+      "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi",
+      "i_want_to_explore_alternatives_to_support_the_funding_process",
+      "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+      "taking_angel_money_first_could_change_how_later_investment_firms",
+      "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w"
+     ],
+     "text": "2 figures, 2 claims, 3 challenges",
+     "title": "Figure: Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”\nFigure: Open question about 'Approach angel investors for a small, quicker amount of funding'\nclaim: Angel investors might be able to provide a small amount of funding quicker, buying more time.\nclaim: I want to explore alternatives to support the funding process\nchallenge: A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do.\nchallenge: Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted.\nchallenge: The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.",
+     "label": "Show 7 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 figures, 2 claims, 3 challenges",
+     "face": "3 challenges and 4 more",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "founder_hours_spent_on_angel_outreach_added_approach_angel_inves",
+      "lever": "founder_hours_spent_on_angel_outreach",
+      "label": "Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”",
+      "figure": {
+       "text": "4 to 15 hours/week",
+       "title": "Plausible range: 4 to 15 hours/week"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     },
+     {
+      "id": "open_question_1_changed_approach_angel_investors_for_a_small_qui",
+      "lever": "open_question_1_changed",
+      "label": "Open question about 'Approach angel investors for a small, quicker amount of funding'",
+      "figure": {
+       "text": "not given yet",
+       "title": "How much would \"Approach angel investors for a small, quicker amount of funding\" change \"Secure funding within the next 2 months\"? You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s question, not yet sized"
+     }
+    ],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "You stated this",
+     "title": "You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding_within_the_next_2_months",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open; the link ‘Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months’ is in words, not a figure.",
+     "range": null,
+     "why": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open; the link ‘Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months’ is in words, not a figure.",
+     "add": "Still to clarify: How much would \"Approach angel investors for a small, quicker amount of funding\" change \"Secure funding within the next 2 months\"? You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”",
+     "shared": false
+    }
+   },
+   {
+    "id": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+    "family": "relation",
+    "glyph": "↝",
+    "heading": "Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months",
+    "typed": true,
+    "detail": "Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months · relation · You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": "angel investors might be able to provide a small amount of funding quicker to buy us more time",
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "You stated this",
+     "title": "You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
+    },
+    "failed": []
+   },
+   {
+    "id": "cut_monthly_spending_to_stretch_the_runway",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Cut monthly spending to stretch the runway",
+    "typed": false,
+    "detail": "Cut monthly spending to stretch the runway · option · Proposed by Olumi: Lowering the cash going out each month buys time without needing any investor to say yes, so it is a different lever from raising money faster.",
+    "col": 0,
+    "h": 130,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Lowering the cash going out each month buys time without needing any investor to say yes, so it is a different lever from raising money faster."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.",
+      "title": "The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline. · challenge · Proposed by Olumi: Names an assumption in how the choice is framed.",
+      "id": "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Names an assumption in how the choice is framed."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "secure_funding_within_the_next_2_months",
+      "text": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open.",
+      "title": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "monthly_cash_spend_removed_cut_monthly_spending_to_stretch_the_r",
+      "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w"
+     ],
+     "text": "1 figure, 1 challenge",
+     "title": "Figure: Open question about 'Cut monthly spending to stretch the runway'\nchallenge: The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 1 challenge",
+     "face": "1 figure, 1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "monthly_cash_spend_removed_cut_monthly_spending_to_stretch_the_r",
+      "lever": "monthly_cash_spend",
+      "label": "Open question about 'Cut monthly spending to stretch the runway'",
+      "figure": {
+       "text": "not given yet",
+       "title": "How much would \"Cut monthly spending to stretch the runway\" change \"Secure funding within the next 2 months\"? Olumi could not work this out: \"Monthly cash spend removed: Cut monthly spending to stretch the runway\" is not measured: How much could be cut depends on the company's own monthly spending, which only its own accounts hold, and nothing given says how large that spending is or how much of it is flexible."
+      },
+      "whose": "olumi",
+      "author": "Olumi’s question, not yet sized"
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Cut monthly spending to stretch the runway",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Lowering the cash going out each month buys time without needing any investor to say yes, so it is a different lever from raising money faster."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding_within_the_next_2_months",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open.",
+     "range": null,
+     "why": "Can't yet say if this reaches 'Secure funding within the next 2 months': a question about this option is still open.",
+     "add": "Still to clarify: How much would \"Cut monthly spending to stretch the runway\" change \"Secure funding within the next 2 months\"? Olumi could not work this out: \"Monthly cash spend removed: Cut monthly spending to stretch the runway\" is not measured: How much could be cut depends on the company's own monthly spending, which only its own accounts hold, and nothing given says how large that spending is or how much of it is flexible.",
+     "shared": false
+    }
+   },
+   {
+    "id": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance",
+    "typed": false,
+    "detail": "Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance · option · Proposed by Olumi: Some sources of short-term money run on different timelines and processes from equity rounds, so they could bridge the gap while the main raise continues.",
+    "col": 0,
+    "h": 130,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Some sources of short-term money run on different timelines and processes from equity rounds, so they could bridge the gap while the main raise continues."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "!",
+      "text": "The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.",
+      "title": "The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline. · challenge · Proposed by Olumi: Names an assumption in how the choice is framed.",
+      "id": "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Names an assumption in how the choice is framed."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "secure_funding_within_the_next_2_months",
+      "text": "The chance that 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' meets 'Secure funding within the next 2 months' is not worked out: the measure, 'Time from now until the first funds arrive in the company's account', is worked out from 'Time from now until the first funds arrive in the company's account now', and the model has no quantified path from 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' to that measure (its recorded changes are 'Bridge finance applications submitted added'). To compare it, add to the model how 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' changes 'Time from now until the first funds arrive in the company's account', or measure 'Secure funding within the next 2 months' so it counts this route too.",
+      "title": "The chance that 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' meets 'Secure funding within the next 2 months' is not worked out: the measure, 'Time from now until the first funds arrive in the company's account', is worked out from 'Time from now until the first funds arrive in the company's account now', and the model has no quantified path from 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' to that measure (its recorded changes are 'Bridge finance applications submitted added'). To compare it, add to the model how 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' changes 'Time from now until the first funds arrive in the company's account', or measure 'Secure funding within the next 2 months' so it counts this route too."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "bridge_finance_applications_submitted_added_explore_non_dilutive",
+      "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w"
+     ],
+     "text": "1 figure, 1 challenge",
+     "title": "Figure: Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”\nchallenge: The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 1 challenge",
+     "face": "1 figure, 1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "bridge_finance_applications_submitted_added_explore_non_dilutive",
+      "lever": "bridge_finance_applications_submitted",
+      "label": "Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”",
+      "figure": {
+       "text": "2 to 8 applications",
+       "title": "Plausible range: 2 to 8 applications"
+      },
+      "whose": "olumi",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: Some sources of short-term money run on different timelines and processes from equity rounds, so they could bridge the gap while the main raise continues."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "secure_funding_within_the_next_2_months",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance that 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' meets 'Secure funding within the next 2 months' is not worked out: the measure, 'Time from now until the first funds arrive in the company's account', is worked out from 'Time from now until the first funds arrive in the company's account now', and the model has no quantified path from 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' to that measure (its recorded changes are 'Bridge finance applications submitted added'). To compare it, add to the model how 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' changes 'Time from now until the first funds arrive in the company's account', or measure 'Secure funding within the next 2 months' so it counts this route too.",
+     "range": null,
+     "why": "The chance that 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' meets 'Secure funding within the next 2 months' is not worked out: the measure, 'Time from now until the first funds arrive in the company's account', is worked out from 'Time from now until the first funds arrive in the company's account now', and the model has no quantified path from 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' to that measure (its recorded changes are 'Bridge finance applications submitted added'). To compare it, add to the model how 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' changes 'Time from now until the first funds arrive in the company's account', or measure 'Secure funding within the next 2 months' so it counts this route too.",
+     "add": "Add how ‘Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance’ changes ‘Time from now until the first funds arrive in the company's account’, or change the aim’s measure to include its route.",
+     "shared": false
+    }
+   },
+   {
+    "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time from now until the first funds arrive in the company's account",
+    "typed": false,
+    "detail": "Time from now until the first funds arrive in the company's account · quantity · Proposed by Olumi: This is Olumi's reading of 'secure': money received rather than promised, so the group may want to say whether a signed commitment would count instead. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: This is Olumi's reading of 'secure': money received rather than promised, so the group may want to say whether a signed commitment would count instead."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Keep sending cold emails and seeking warm connections: 14 weeks",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. Keep sending cold emails and seeking warm connections: 14 weeks. Not worked out under Approach angel investors for a small, quicker amount of funding, Cut monthly spending to stretch the runway, Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_3"
+     ],
+     "text": "1 calculation",
+     "title": "How Time from now until the first funds arrive in the company's account is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "values": [
+     {
+      "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+      "text": "14 weeks",
+      "p10": 14,
+      "p50": 14,
+      "p90": 14,
+      "if_absent": [],
+      "olumi": false,
+      "if_approved": null
+     }
+    ],
+    "worked": {
+     "form": "effect",
+     "steps": [
+      {
+       "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+       "label": "Time from now until the first funds arrive in the company's account now",
+       "figure": {
+        "text": "14 weeks",
+        "title": "14 weeks",
+        "options": [
+         {
+          "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+          "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+          "text": "14 weeks",
+          "title": "14 weeks",
+          "author": {
+           "by": "person",
+           "text": "Your figure",
+           "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+          },
+          "edit": {
+           "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+           "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+          }
+         },
+         {
+          "option": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+          "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+          "text": "14 weeks",
+          "title": "14 weeks",
+          "author": {
+           "by": "person",
+           "text": "Your figure",
+           "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+          },
+          "edit": {
+           "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+           "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+          }
+         },
+         {
+          "option": "cut_monthly_spending_to_stretch_the_runway",
+          "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+          "text": "14 weeks",
+          "title": "14 weeks",
+          "author": {
+           "by": "person",
+           "text": "Your figure",
+           "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+          },
+          "edit": {
+           "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+           "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+          }
+         },
+         {
+          "option": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+          "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+          "text": "14 weeks",
+          "title": "14 weeks",
+          "author": {
+           "by": "person",
+           "text": "Your figure",
+           "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+          },
+          "edit": {
+           "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+           "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+          }
+         }
+        ]
+       },
+       "author": {
+        "by": "person",
+        "text": "Your figure",
+        "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+       },
+       "edit": {
+        "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+        "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+       },
+       "role": "base"
+      }
+     ]
+    },
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: This is Olumi's reading of 'secure': money received rather than promised, so the group may want to say whether a signed commitment would count instead."
+    },
+    "failed": []
+   },
+   {
+    "id": "secure_funding_within_the_next_2_months_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "The target for 'Secure funding within the next 2 months'",
+    "typed": false,
+    "detail": "The target for 'Secure funding within the next 2 months' · quantity · You said: “Set \"Target: Secure funding within the next 2 months\" to 22.5 weeks.” · 22.5 weeks",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "22.5 weeks",
+     "title": "22.5 weeks",
+     "edit": {
+      "prompt": "New figure for “The target for 'Secure funding within the next 2 months'” (weeks): one number, or a range like 150 to 400",
+      "ask": "For “The target for 'Secure funding within the next 2 months'”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "The target for 'Secure funding within the next 2 months'",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Your figure",
+     "title": "Set \"Target: Secure funding within the next 2 months\" to 22.5 weeks."
+    },
+    "failed": []
+   },
+   {
+    "id": "secure_funding_within_the_next_2_months",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Secure funding within the next 2 months",
+    "typed": false,
+    "detail": "Secure funding within the next 2 months · goal · You said: “I need to accelerate securing funding within the next 2 months.”",
+    "col": 3,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most 22.5 weeks",
+     "title": "at most 22.5 weeks",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Olumi’s proposal, for you to vet"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": {
+     "records": [
+      "the_money_will_run_out_soon",
+      "the_aim_says_secure_funding_but_it_is_not_settled_whether_that_m"
+     ],
+     "text": "1 claim, 1 challenge",
+     "title": "claim: The money will run out soon.\nchallenge: The aim says 'secure funding', but it is not settled whether that means a signed commitment or cash received, and the two can differ by weeks, so an option could look quick on one reading and slow on the other.",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 claim, 1 challenge",
+     "face": "1 claim, 1 challenge",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Secure funding within the next 2 months",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "You stated this",
+     "title": "You said: “I need to accelerate securing funding within the next 2 months.”"
+    },
+    "failed": []
+   },
+   {
+    "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time from now until the first funds arrive in the company's account now",
+    "typed": false,
+    "detail": "Time from now until the first funds arrive in the company's account now · quantity · You said: “Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks.” · 14 weeks",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "14 weeks",
+     "title": "14 weeks",
+     "edit": {
+      "prompt": "New figure for “Time from now until the first funds arrive in the company's account now” (weeks): one number, or a range like 150 to 400",
+      "ask": "For “Time from now until the first funds arrive in the company's account now”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": null,
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Your figure",
+     "title": "Set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks."
+    },
+    "failed": []
+   },
+   {
+    "id": "founder_hours_left_for_the_main_investment_firm_raise",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Founder hours left for the main investment-firm raise",
+    "typed": false,
+    "detail": "Founder hours left for the main investment-firm raise · quantity · Proposed by Olumi: Time spent on any side route usually comes out of the time available for the cold emails and warm introductions already under way. · not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Time spent on any side route usually comes out of the time available for the cold emails and warm introductions already under way."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+     "edit": {
+      "prompt": "New figure for “Founder hours left for the main investment-firm raise” (hours/week): one number, or a range like 150 to 400",
+      "ask": "For “Founder hours left for the main investment-firm raise”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "founder_hours_spent_on_angel_outreach",
+      "founder_hours_spent_on_angel_outreach_added_to_funding_committed",
+      "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef",
+      "founder_hours_left_for_the_main_investment_firm_raise_to_total_f"
+     ],
+     "text": "1 figure, 3 links",
+     "title": "Figure: Founder hours spent on angel outreach added\nLink: Founder hours spent on angel outreach added → Funding committed by angel investors\nLink: Founder hours spent on angel outreach added → Founder hours left for the main investment-firm raise\nLink: Founder hours left for the main investment-firm raise → Total funding secured",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 3 links",
+     "face": "1 figure, 3 links",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Founder hours left for the main investment-firm raise",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi, not yet sized",
+     "title": "Proposed by Olumi: Time spent on any side route usually comes out of the time available for the cold emails and warm introductions already under way."
+    },
+    "failed": []
+   },
+   {
+    "id": "funding_committed_by_angel_investors",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Funding committed by angel investors",
+    "typed": false,
+    "detail": "Funding committed by angel investors · quantity · Proposed by Olumi: This is the small, quicker amount the angel route is meant to deliver, and it begins at nothing until someone commits. · not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: This is the small, quicker amount the angel route is meant to deliver, and it begins at nothing until someone commits."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+     "edit": {
+      "prompt": "New figure for “Funding committed by angel investors” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Funding committed by angel investors”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "founder_hours_spent_on_angel_outreach",
+      "founder_hours_spent_on_angel_outreach_added_to_funding_committed",
+      "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+      "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef"
+     ],
+     "text": "1 figure, 3 links",
+     "title": "Figure: Founder hours spent on angel outreach added\nLink: Founder hours spent on angel outreach added → Funding committed by angel investors\nLink: Funding committed by angel investors → Time until the first funds arrive\nLink: Founder hours spent on angel outreach added → Founder hours left for the main investment-firm raise",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 3 links",
+     "face": "1 figure, 3 links",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Funding committed by angel investors",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi, not yet sized",
+     "title": "Proposed by Olumi: This is the small, quicker amount the angel route is meant to deliver, and it begins at nothing until someone commits."
+    },
+    "failed": []
+   },
+   {
+    "id": "time_until_the_first_funds_arrive",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Time until the first funds arrive",
+    "typed": false,
+    "detail": "Time until the first funds arrive · quantity · Proposed by Olumi: The aim is about securing funding within a fixed window, so how long money takes to arrive from the moment of starting is what shows whether it fits. · not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The aim is about securing funding within a fixed window, so how long money takes to arrive from the moment of starting is what shows whether it fits."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+     "edit": {
+      "prompt": "New figure for “Time until the first funds arrive” (weeks): one number, or a range like 150 to 400",
+      "ask": "For “Time until the first funds arrive”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+      "total_funding_secured_to_time_until_the_first_funds_arrive"
+     ],
+     "text": "2 links",
+     "title": "Link: Funding committed by angel investors → Time until the first funds arrive\nLink: Total funding secured → Time until the first funds arrive",
+     "label": "Show 2 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "2 links",
+     "face": "2 links",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Time until the first funds arrive",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi, not yet sized",
+     "title": "Proposed by Olumi: The aim is about securing funding within a fixed window, so how long money takes to arrive from the moment of starting is what shows whether it fits."
+    },
+    "failed": []
+   },
+   {
+    "id": "total_funding_secured",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Total funding secured",
+    "typed": false,
+    "detail": "Total funding secured · quantity · Proposed by Olumi: This is the outcome the funding aim looks at, combining whatever comes from investment firms, angels and any bridge sources. · not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: This is the outcome the funding aim looks at, combining whatever comes from investment firms, angels and any bridge sources."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+     "edit": {
+      "prompt": "New figure for “Total funding secured” (GBP): one number, or a range like 150 to 400",
+      "ask": "For “Total funding secured”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "bridge_finance_applications_submitted",
+      "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+      "bridge_finance_applications_submitted_added_to_total_funding_sec",
+      "total_funding_secured_to_time_until_the_first_funds_arrive"
+     ],
+     "text": "1 figure, 3 links",
+     "title": "Figure: Bridge finance applications submitted added\nLink: Founder hours left for the main investment-firm raise → Total funding secured\nLink: Bridge finance applications submitted added → Total funding secured\nLink: Total funding secured → Time until the first funds arrive",
+     "label": "Show 4 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 3 links",
+     "face": "1 figure, 3 links",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Total funding secured",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi, not yet sized",
+     "title": "Proposed by Olumi: This is the outcome the funding aim looks at, combining whatever comes from investment firms, angels and any bridge sources."
+    },
+    "failed": []
+   },
+   {
+    "id": "cash_runway_remaining",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Cash runway remaining",
+    "typed": false,
+    "detail": "Cash runway remaining · quantity · Proposed by Olumi: Paul says the money will run out soon, so how many months the company can keep going is what determines how much time the search has. · not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+    "col": 1,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Paul says the money will run out soon, so how many months the company can keep going is what determines how much time the search has."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "",
+     "title": "not sized yet · Olumi suggests this factor. Nothing in the model sizes it yet.",
+     "edit": {
+      "prompt": "New figure for “Cash runway remaining” (months): one number, or a range like 150 to 400",
+      "ask": "For “Cash runway remaining”, type one number, or a range like 150 to 400."
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "monthly_cash_spend",
+      "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+      "monthly_cash_spend_removed_to_cash_runway_remaining"
+     ],
+     "text": "1 figure, 1 challenge, 1 link",
+     "title": "Figure: Monthly cash spend\nchallenge: A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do.\nLink: Monthly cash spend → Cash runway remaining",
+     "label": "Show 3 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure, 1 challenge, 1 link",
+     "face": "1 figure and 2 more",
+     "icon": ""
+    },
+    "unused": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cash runway remaining",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi, not yet sized",
+     "title": "Proposed by Olumi: Paul says the money will run out soon, so how many months the company can keep going is what determines how much time the search has."
+    },
+    "failed": []
+   },
+   {
+    "id": "cost_cuts_reduce_fundraising_capacity",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Cost cuts reduce fundraising capacity",
+    "typed": false,
+    "detail": "Cost cuts reduce fundraising capacity · risk · Proposed by Olumi: If cuts fall on people or tools used for outreach and follow-up, the main raise may have less support.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: If cuts fall on people or tools used for outreach and follow-up, the main raise may have less support."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Cost cuts reduce fundraising capacity’ to happen at least once over the period this model covers? If ‘Cost cuts reduce fundraising capacity’ happens, by how much does ‘Founder hours left for the main investment-firm raise’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Cost cuts reduce fundraising capacity’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "cost_cuts_reduce_fundraising_capacity",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Cost cuts reduce fundraising capacity’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Cost cuts reduce fundraising capacity’ happens, by how much does ‘Founder hours left for the main investment-firm raise’ change?",
+        "ask": "A change in hours/week. Use a minus sign: you said it lowers it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cost cuts reduce fundraising capacity",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: If cuts fall on people or tools used for outreach and follow-up, the main raise may have less support."
+    },
+    "failed": []
+   },
+   {
+    "id": "bridge_sources_too_slow",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Bridge sources too slow",
+    "typed": false,
+    "detail": "Bridge sources too slow · risk · Proposed by Olumi: Grants and some forms of debt often have application and approval processes that can run beyond two months, so funds may arrive after the money runs out.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Grants and some forms of debt often have application and approval processes that can run beyond two months, so funds may arrive after the money runs out."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Bridge sources too slow’ to happen at least once over the period this model covers? If ‘Bridge sources too slow’ happens, by how much does ‘Time until the first funds arrive’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Bridge sources too slow’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "bridge_sources_too_slow",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Bridge sources too slow’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Bridge sources too slow’ happens, by how much does ‘Time until the first funds arrive’ change?",
+        "ask": "A change in weeks. You said it raises it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Bridge sources too slow",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Grants and some forms of debt often have application and approval processes that can run beyond two months, so funds may arrive after the money runs out."
+    },
+    "failed": []
+   },
+   {
+    "id": "angel_commitments_land_late_or_small",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Angel commitments land late or small",
+    "typed": false,
+    "detail": "Angel commitments land late or small · risk · Proposed by Olumi: If angels take longer to decide than expected, or commit less than hoped, the bridge may add little runway before the main raise concludes.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: If angels take longer to decide than expected, or commit less than hoped, the bridge may add little runway before the main raise concludes."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Angel commitments land late or small’ to happen at least once over the period this model covers? If ‘Angel commitments land late or small’ happens, by how much does ‘Funding committed by angel investors’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Angel commitments land late or small’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "angel_commitments_land_late_or_small",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Angel commitments land late or small’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Angel commitments land late or small’ happens, by how much does ‘Funding committed by angel investors’ change?",
+        "ask": "A change in GBP. Use a minus sign: you said it lowers it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Angel commitments land late or small",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: If angels take longer to decide than expected, or commit less than hoped, the bridge may add little runway before the main raise concludes."
+    },
+    "failed": []
+   },
+   {
+    "id": "main_raise_slower_than_two_months",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Main raise slower than two months",
+    "typed": false,
+    "detail": "Main raise slower than two months · risk · Proposed by Olumi: Cold emails and warm introductions to firms doing £1-2 million deals can take several rounds of meetings and diligence, so if responses stay slow the first funds may arrive after the two-month mark.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: Cold emails and warm introductions to firms doing £1-2 million deals can take several rounds of meetings and diligence, so if responses stay slow the first funds may arrive after the two-month mark."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Main raise slower than two months’ to happen at least once over the period this model covers? If ‘Main raise slower than two months’ happens, by how much does ‘Time until the first funds arrive’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Main raise slower than two months’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "main_raise_slower_than_two_months",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Main raise slower than two months’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Main raise slower than two months’ happens, by how much does ‘Time until the first funds arrive’ change?",
+        "ask": "A change in weeks. You said it raises it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Main raise slower than two months",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: Cold emails and warm introductions to firms doing £1-2 million deals can take several rounds of meetings and diligence, so if responses stay slow the first funds may arrive after the two-month mark."
+    },
+    "failed": []
+   },
+   {
+    "id": "cash_runs_out_before_funds_arrive",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Cash runs out before funds arrive",
+    "typed": false,
+    "detail": "Cash runs out before funds arrive · risk · Proposed by Olumi: If the remaining runway is shorter than the time any funding takes to reach the account, the company could be forced into rushed or unfavourable terms.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: If the remaining runway is shorter than the time any funding takes to reach the account, the company could be forced into rushed or unfavourable terms."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Cash runs out before funds arrive’ to happen at least once over the period this model covers? If ‘Cash runs out before funds arrive’ happens, by how much does ‘Cash runway remaining’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Cash runs out before funds arrive’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "cash_runs_out_before_funds_arrive",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Cash runs out before funds arrive’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Cash runs out before funds arrive’ happens, by how much does ‘Cash runway remaining’ change?",
+        "ask": "A change in months. Use a minus sign: you said it lowers it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cash runs out before funds arrive",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: If the remaining runway is shorter than the time any funding takes to reach the account, the company could be forced into rushed or unfavourable terms."
+    },
+    "failed": []
+   },
+   {
+    "id": "debt_repayments_eat_into_cash",
+    "family": "risk",
+    "glyph": "△",
+    "heading": "Debt repayments eat into cash",
+    "typed": false,
+    "detail": "Debt repayments eat into cash · risk · Proposed by Olumi: If venture debt or revenue-based finance is used, repayments start soon after the money arrives and can shorten the runway the bridge was meant to extend.",
+    "col": 0,
+    "h": 102,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: If venture debt or revenue-based finance is used, repayments start soon after the money arrives and can shorten the runway the bridge was meant to extend."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": true,
+    "figure": {
+     "text": "no size yet",
+     "title": "How likely is ‘Debt repayments eat into cash’ to happen at least once over the period this model covers? If ‘Debt repayments eat into cash’ happens, by how much does ‘Cash runway remaining’ change? Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+     "edit": {
+      "prompt": "How likely is ‘Debt repayments eat into cash’ to happen at least once over the period this model covers?",
+      "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30.",
+      "route": "size",
+      "record": "debt_repayments_eat_into_cash",
+      "note": "Your figures let the calculation draw this risk, so the chances can count it. They are yours: you can change them any time.",
+      "fields": [
+       {
+        "key": "chance",
+        "prompt": "How likely is ‘Debt repayments eat into cash’ to happen at least once over the period this model covers?",
+        "ask": "A percentage, or \"1 in 5\", or a range like 10 to 30."
+       },
+       {
+        "key": "change",
+        "prompt": "If ‘Debt repayments eat into cash’ happens, by how much does ‘Cash runway remaining’ change?",
+        "ask": "A change in months. Use a minus sign: you said it lowers it."
+       }
+      ]
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Debt repayments eat into cash",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi inferred",
+     "title": "Proposed by Olumi: If venture debt or revenue-based finance is used, repayments start soon after the money arrives and can shorten the runway the bridge was meant to extend."
+    },
+    "failed": []
+   }
+  ],
+  "links": [
+   {
+    "from": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+    "to": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "base · Proposed by Olumi: What each option changes, times how far each one moves this measure, added up.",
+    "records": [
+     "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_3"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "secure_funding_within_the_next_2_months",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: depends on conditions, unsure; angel investors might be able to provide a small amount of funding quicker to buy us more time · Theirs: “angel investors might be able to provide a small amount of funding quicker to buy us more time” (Paul)",
+    "records": [
+     "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+     "part": null
+    },
+    "holds": {
+     "record": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+     "part": null
+    },
+    "size": {
+     "record": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+     "text": "stays a claim in words",
+     "title": "‘Approach angel investors for a small, quicker amount of funding’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+     "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "choosing_from",
+     "target": "secure_funding_within_the_next_2_months",
+     "disputed": false,
+     "author": {
+      "by": "person",
+      "text": "You stated this",
+      "title": "You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”"
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way choosing 'Approach angel investors for a small, quicker amount of funding' moves 'Secure funding within the next 2 months' is not settled. It stays a claim in words: nothing is worked out from it."
+    }
+   },
+   {
+    "from": "funding_committed_by_angel_investors",
+    "to": "time_until_the_first_funds_arrive",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: not known, unsure · Proposed by Olumi: Outreach effort can turn into a small angel commitment, and if angels decide faster than investment firms, money arrives sooner, which is the route Paul describes.",
+    "records": [
+     "funding_committed_by_angel_investors_to_time_until_the_first_fun"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+     "part": null
+    },
+    "holds": {
+     "record": "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+     "part": null
+    },
+    "size": {
+     "record": "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+     "text": "stays a claim in words",
+     "title": "‘Funding committed by angel investors’ has no figure yet, so there is no level to measure the link from. Give its figure first; until then the link stays a claim in words.",
+     "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "more_of_from",
+     "target": "time_until_the_first_funds_arrive",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Outreach effort can turn into a small angel commitment, and if angels decide faster than investment firms, money arrives sooner, which is the route Paul describes."
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way a rise in 'Funding committed by angel investors' moves 'Time until the first funds arrive' is not settled. It stays a claim in words: nothing is worked out from it."
+    }
+   },
+   {
+    "from": "founder_hours_left_for_the_main_investment_firm_raise",
+    "to": "total_funding_secured",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: not known, unsure · Proposed by Olumi: Hours spent on angels usually come out of the hours available for the main raise, which could lower the amount secured from investment firms.",
+    "records": [
+     "founder_hours_left_for_the_main_investment_firm_raise_to_total_f"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+     "part": null
+    },
+    "holds": {
+     "record": "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+     "part": null
+    },
+    "size": {
+     "record": "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+     "text": "stays a claim in words",
+     "title": "The units of ‘Founder hours left for the main investment-firm raise’ and ‘Total funding secured’ cannot be combined into a strength per unit. The link stays a claim in words.",
+     "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "more_of_from",
+     "target": "total_funding_secured",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Hours spent on angels usually come out of the hours available for the main raise, which could lower the amount secured from investment firms."
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way a rise in 'Founder hours left for the main investment-firm raise' moves 'Total funding secured' is not settled. It stays a claim in words: nothing is worked out from it."
+    }
+   },
+   {
+    "from": "total_funding_secured",
+    "to": "time_until_the_first_funds_arrive",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "link in words: not known, unsure · Proposed by Olumi: More applications to non-equity sources give more chances of a short-term injection, which adds to total funding and may shorten the wait for the first funds.",
+    "records": [
+     "total_funding_secured_to_time_until_the_first_funds_arrive"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "total_funding_secured_to_time_until_the_first_funds_arrive",
+     "part": null
+    },
+    "holds": {
+     "record": "total_funding_secured_to_time_until_the_first_funds_arrive",
+     "part": null
+    },
+    "size": {
+     "record": "total_funding_secured_to_time_until_the_first_funds_arrive",
+     "text": "stays a claim in words",
+     "title": "‘Total funding secured’ has no figure yet, so there is no level to measure the link from. Give its figure first; until then the link stays a claim in words.",
+     "edit": null
+    },
+    "causal": {
+     "sign": "unknown",
+     "of": "more_of_from",
+     "target": "time_until_the_first_funds_arrive",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: More applications to non-equity sources give more chances of a short-term injection, which adds to total funding and may shorten the wait for the first funds."
+     },
+     "strength": {
+      "state": "in_words",
+      "figure": null,
+      "low": null,
+      "likely": null,
+      "high": null,
+      "unit": null,
+      "per": null,
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, which way a rise in 'Total funding secured' moves 'Time until the first funds arrive' is not settled. It stays a claim in words: nothing is worked out from it."
+    }
+   },
+   {
+    "from": "size_of_deals_done_by_the_investment_firms_targeted",
+    "to": "page:question",
+    "kind": "reason",
+    "label": "○",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "left out: Size of deals done by the investment firms targeted: £1m to £2m",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "funding_committed_by_angel_investors",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”, Founder hours spent on angel outreach added · Proposed by Olumi: Outreach effort can turn into a small angel commitment, and if angels decide faster than investment firms, money arrives sooner, which is the route Paul describes.",
+    "records": [
+     "founder_hours_spent_on_angel_outreach_added_to_funding_committed"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "founder_hours_spent_on_angel_outreach_added_to_funding_committed",
+     "part": null
+    },
+    "causal": null
+   },
+   {
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "founder_hours_left_for_the_main_investment_firm_raise",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”, Founder hours spent on angel outreach added · Proposed by Olumi: Hours spent on angels usually come out of the hours available for the main raise, which could lower the amount secured from investment firms.",
+    "records": [
+     "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef",
+     "part": null
+    },
+    "causal": null
+   },
+   {
+    "from": "cut_monthly_spending_to_stretch_the_runway",
+    "to": "cash_runway_remaining",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Open question about 'Cut monthly spending to stretch the runway', Monthly cash spend · Proposed by Olumi: Lower monthly spend lengthens the runway, which gives more time to close funding, though it does not bring any money in itself.",
+    "records": [
+     "monthly_cash_spend_removed_to_cash_runway_remaining"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "monthly_cash_spend_removed_to_cash_runway_remaining",
+     "part": null
+    },
+    "causal": null
+   },
+   {
+    "from": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+    "to": "total_funding_secured",
+    "kind": "through",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”, Bridge finance applications submitted added · Proposed by Olumi: More applications to non-equity sources give more chances of a short-term injection, which adds to total funding and may shorten the wait for the first funds.",
+    "records": [
+     "bridge_finance_applications_submitted_added_to_total_funding_sec"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": {
+     "record": "bridge_finance_applications_submitted_added_to_total_funding_sec",
+     "part": null
+    },
+    "causal": null
+   },
+   {
+    "from": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco",
+    "to": "secure_funding_within_the_next_2_months",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "secure_funding_within_the_next_2_months_target",
+    "to": "secure_funding_within_the_next_2_months",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+    "to": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+    "to": "secure_funding_within_the_next_2_months",
+    "kind": "reason",
+    "label": "↝",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "relation: Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "cost_cuts_reduce_fundraising_capacity",
+    "to": "founder_hours_left_for_the_main_investment_firm_raise",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "bridge_sources_too_slow",
+    "to": "time_until_the_first_funds_arrive",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "angel_commitments_land_late_or_small",
+    "to": "funding_committed_by_angel_investors",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "main_raise_slower_than_two_months",
+    "to": "time_until_the_first_funds_arrive",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "cash_runs_out_before_funds_arrive",
+    "to": "cash_runway_remaining",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   },
+   {
+    "from": "debt_repayments_eat_into_cash",
+    "to": "cash_runway_remaining",
+    "kind": "plain",
+    "label": "",
+    "doubt": true,
+    "alert": false,
+    "proposed": false,
+    "title": "may change",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Secure funding within the next 2 months’",
+   "lead": "Chance of ‘Secure funding within the next 2 months’, in this model on current information",
+   "all_withheld": false,
+   "coverage": [
+    {
+     "aim_id": "secure_funding_within_the_next_2_months",
+     "option": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+     "text": "The chance that 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' meets 'Secure funding within the next 2 months' is not worked out: the measure, 'Time from now until the first funds arrive in the company's account', is worked out from 'Time from now until the first funds arrive in the company's account now', and the model has no quantified path from 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' to that measure (its recorded changes are 'Bridge finance applications submitted added'). To compare it, add to the model how 'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' changes 'Time from now until the first funds arrive in the company's account', or measure 'Secure funding within the next 2 months' so it counts this route too."
+    }
+   ],
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Related records:",
+    "text": "4 related model records",
+    "items": [
+     {
+      "id": "whether_the_angel_route_is_worth_it_depends_on_whether_the_overh",
+      "text": "‘Whether the angel route is worth it depends on whether the overhead is worth it.’",
+      "title": "Whether the angel route is worth it depends on whether the overhead is worth it.",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "open_question_1_changed_approach_angel_investors_for_a_small_qui",
+      "text": "How much would \"Approach angel investors for a small, quicker amount of funding\" change \"Secure funding within the next 2 months\"? You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”",
+      "title": "How much would \"Approach angel investors for a small, quicker amount of funding\" change \"Secure funding within the next 2 months\"? You said: “angel investors might be able to provide a small amount of funding quicker to buy us more time”",
+      "answer": true,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+      "text": "‘Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months’",
+      "title": "Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months",
+      "answer": false,
+      "unknown": null,
+      "edit": null,
+      "stays_in_words": "‘Approach angel investors for a small, quicker amount of funding’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words."
+     },
+     {
+      "id": "monthly_cash_spend_removed_cut_monthly_spending_to_stretch_the_r",
+      "text": "How much would \"Cut monthly spending to stretch the runway\" change \"Secure funding within the next 2 months\"? Olumi could not work this out: \"Monthly cash spend removed: Cut monthly spending to stretch the runway\" is not measured: How much could be cut depends on the company's own monthly spending, which only its own accounts hold, and nothing given says how large that spending is or how much of it is flexible.",
+      "title": "How much would \"Cut monthly spending to stretch the runway\" change \"Secure funding within the next 2 months\"? Olumi could not work this out: \"Monthly cash spend removed: Cut monthly spending to stretch the runway\" is not measured: How much could be cut depends on the company's own monthly spending, which only its own accounts hold, and nothing given says how large that spending is or how much of it is flexible.",
+      "answer": true,
+      "unknown": null,
+      "edit": null
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    },
+    {
+     "text": "Olumi's what-if for 'Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”': 4 to 15 hours/week. Basis: Running an angel round alongside an existing investor search usually takes a few hours a week for introductions, emails and meetings, rising towards a part-time load when meetings cluster. This is my own trial figure; please give your own in its place.",
+     "title": "Olumi's what-if for 'Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”': 4 to 15 hours/week. Basis: Running an angel round alongside an existing investor search usually takes a few hours a week for introductions, emails and meetings, rising towards a part-time load when meetings cluster. This is my own trial figure; please give your own in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F1",
+      "range": true
+     }
+    },
+    {
+     "text": "Olumi's what-if for 'Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”': 2 to 8 applications. Basis: A small team can usually prepare a handful of grant, venture debt or revenue-based finance applications in a couple of months, as each takes real writing time. This is my own trial figure; please give your own in its place.",
+     "title": "Olumi's what-if for 'Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”': 2 to 8 applications. Basis: A small team can usually prepare a handful of grant, venture debt or revenue-based finance applications in a couple of months, as each takes real writing time. This is my own trial figure; please give your own in its place.",
+     "about": {
+      "kind": "input",
+      "olumi": true,
+      "fact": "F2",
+      "range": true
+     }
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F10",
+     "kind": "middle",
+     "line": "'Keep sending cold emails and seeking warm connections' · aim 'Secure funding within the next 2 months': 14 weeks, meets it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Keep sending cold emails and seeking warm connections', for 'Secure funding within the next 2 months': 'Time from now until the first funds arrive in the company's account' 14 weeks, against a target of at most 22.5 weeks: meets it. It rests on Olumi's reading of the aim, not yet confirmed.",
+     "aim": "secure_funding_within_the_next_2_months",
+     "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+     "versus": null,
+     "status": "met",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "secure_funding_within_the_next_2_months",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": "chance",
+       "reason": "no_figure",
+       "text": "nothing uncertain under 'Keep sending cold emails and seeking warm connections' alone is drawn for 'Secure funding within the next 2 months', so no figure can turn its chance",
+       "line": "Nothing uncertain under 'Keep sending cold emails and seeking warm connections' alone is drawn for 'Secure funding within the next 2 months', so no figure can turn its chance.",
+       "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+       "tested": []
+      },
+      {
+       "crossing": null,
+       "reason": "not_worked_out",
+       "text": "the chance of 'Secure funding within the next 2 months' is not worked out for two options, so there is no lead to test",
+       "line": "The chance of 'Secure funding within the next 2 months' is not worked out for two options, so there is no lead to test."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "since": {
+    "heading": "Since the version before",
+    "from": {
+     "n": 4,
+     "label": "version 4"
+    },
+    "to": {
+     "n": 5,
+     "label": "version 5"
+    },
+    "changed": [
+     {
+      "id": "secure_funding_within_the_next_2_months_target",
+      "label": "The target for 'Secure funding within the next 2 months'",
+      "whose": "theirs",
+      "was": "theirs"
+     }
+    ],
+    "sole": "secure_funding_within_the_next_2_months_target",
+    "lines": [
+     {
+      "option": "keep_sending_cold_emails_and_seeking_warm_connections",
+      "aim": "secure_funding_within_the_next_2_months",
+      "from": 1,
+      "to": 1,
+      "from_text": "always met in this model",
+      "to_text": "always met in this model",
+      "line": "Between version 4 and version 5 the only change to the model was 'The target for 'Secure funding within the next 2 months'' (a person's figure). The chance that 'Keep sending cold emails and seeking warm connections' meets 'Secure funding within the next 2 months' reads always met in this model in both."
+     }
+    ]
+   },
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Secure funding within the next 2 months’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Secure funding within the next 2 months’ is likely to be (8 times in 10)."
+    }
+   ]
+  },
+  "edit_base": 44,
+  "holdable": [
+   {
+    "link": {
+     "record": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+     "part": null
+    },
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "secure_funding_within_the_next_2_months",
+    "text": "'Approach angel investors for a small, quicker amount of funding' → 'Secure funding within the next 2 months'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+     "part": null
+    },
+    "from": "funding_committed_by_angel_investors",
+    "to": "time_until_the_first_funds_arrive",
+    "text": "'Funding committed by angel investors' → 'Time until the first funds arrive'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+     "part": null
+    },
+    "from": "founder_hours_left_for_the_main_investment_firm_raise",
+    "to": "total_funding_secured",
+    "text": "'Founder hours left for the main investment-firm raise' → 'Total funding secured'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "total_funding_secured_to_time_until_the_first_funds_arrive",
+     "part": null
+    },
+    "from": "total_funding_secured",
+    "to": "time_until_the_first_funds_arrive",
+    "text": "'Total funding secured' → 'Time until the first funds arrive'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "founder_hours_spent_on_angel_outreach_added_to_funding_committed",
+     "part": null
+    },
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "funding_committed_by_angel_investors",
+    "text": "'Approach angel investors for a small, quicker amount of funding' → 'Funding committed by angel investors'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef",
+     "part": null
+    },
+    "from": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "to": "founder_hours_left_for_the_main_investment_firm_raise",
+    "text": "'Approach angel investors for a small, quicker amount of funding' → 'Founder hours left for the main investment-firm raise'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "monthly_cash_spend_removed_to_cash_runway_remaining",
+     "part": null
+    },
+    "from": "cut_monthly_spending_to_stretch_the_runway",
+    "to": "cash_runway_remaining",
+    "text": "'Cut monthly spending to stretch the runway' → 'Cash runway remaining'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "bridge_finance_applications_submitted_added_to_total_funding_sec",
+     "part": null
+    },
+    "from": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+    "to": "total_funding_secured",
+    "text": "'Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance' → 'Total funding secured'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "partly_olumi",
+    "glyph": "◐",
+    "text": "partly Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   }
+  ],
+  "coaching_questions": [
+   "How much runway is left before the money runs out?",
+   "How much overhead would pursuing angel investors involve, and how much funding might they provide?"
+  ],
+  "trial_questions": [
+   {
+    "id": "founder_hours_spent_on_angel_outreach_added_approach_angel_inves",
+    "text": "‘Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”’",
+    "title": "How many extra hours a week could the founders realistically give to angel outreach?",
+    "answer": true,
+    "unknown": null,
+    "edit": {
+     "prompt": "How many extra hours a week could the founders realistically give to angel outreach? New figure for “Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”” (hours/week): one number, or a range like 150 to 400",
+     "ask": "How many extra hours a week could the founders realistically give to angel outreach?"
+    }
+   },
+   {
+    "id": "bridge_finance_applications_submitted_added_explore_non_dilutive",
+    "text": "‘Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”’",
+    "title": "How many bridge finance applications could you realistically submit in the next two months?",
+    "answer": true,
+    "unknown": null,
+    "edit": {
+     "prompt": "How many bridge finance applications could you realistically submit in the next two months? New figure for “Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”” (applications): one number, or a range like 150 to 400",
+     "ask": "How many bridge finance applications could you realistically submit in the next two months?"
+    }
+   }
+  ],
+  "removed": [],
+  "aim": {
+   "quantity": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco",
+   "value": 22.5,
+   "unit": "weeks",
+   "text": "at most 22.5 weeks",
+   "title": "22.5 weeks",
+   "side": "at_most"
+  },
+  "sharpen": []
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "size_of_deals_done_by_the_investment_firms_targeted",
+    "family": "left_out",
+    "label": "Size of deals done by the investment firms targeted: £1m to £2m",
+    "why": "Kept as you said it; not used in the working-out.",
+    "quote": "investment firms that do deals between £1-2 million"
+   },
+   {
+    "id": "founder_hours_spent_on_angel_outreach",
+    "family": "quantity",
+    "label": "Founder hours spent on angel outreach added"
+   },
+   {
+    "id": "founder_hours_spent_on_angel_outreach_added_approach_angel_inves",
+    "family": "quantity",
+    "label": "Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”"
+   },
+   {
+    "id": "open_question_1_changed",
+    "family": "quantity",
+    "label": "Open question 1"
+   },
+   {
+    "id": "open_question_1_changed_approach_angel_investors_for_a_small_qui",
+    "family": "quantity",
+    "label": "Open question about 'Approach angel investors for a small, quicker amount of funding'"
+   },
+   {
+    "id": "monthly_cash_spend",
+    "family": "quantity",
+    "label": "Monthly cash spend"
+   },
+   {
+    "id": "monthly_cash_spend_removed_cut_monthly_spending_to_stretch_the_r",
+    "family": "quantity",
+    "label": "Open question about 'Cut monthly spending to stretch the runway'"
+   },
+   {
+    "id": "bridge_finance_applications_submitted",
+    "family": "quantity",
+    "label": "Bridge finance applications submitted added"
+   },
+   {
+    "id": "bridge_finance_applications_submitted_added_explore_non_dilutive",
+    "family": "quantity",
+    "label": "Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”"
+   },
+   {
+    "id": "keep_sending_cold_emails_and_seeking_warm_connections",
+    "family": "option",
+    "label": "Keep sending cold emails and seeking warm connections"
+   },
+   {
+    "id": "approach_angel_investors_for_a_small_quicker_amount_of_funding",
+    "family": "option",
+    "label": "Approach angel investors for a small, quicker amount of funding"
+   },
+   {
+    "id": "cut_monthly_spending_to_stretch_the_runway",
+    "family": "option",
+    "label": "Cut monthly spending to stretch the runway"
+   },
+   {
+    "id": "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt",
+    "family": "option",
+    "label": "Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance"
+   },
+   {
+    "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco",
+    "family": "quantity",
+    "label": "Time from now until the first funds arrive in the company's account"
+   },
+   {
+    "id": "secure_funding_within_the_next_2_months_target",
+    "family": "quantity",
+    "label": "The target for 'Secure funding within the next 2 months'"
+   },
+   {
+    "id": "secure_funding_within_the_next_2_months",
+    "family": "goal",
+    "label": "Secure funding within the next 2 months"
+   },
+   {
+    "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2",
+    "family": "quantity",
+    "label": "Time from now until the first funds arrive in the company's account now"
+   },
+   {
+    "id": "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_3",
+    "family": "relation",
+    "label": "how Time from now until the first funds arrive in the company's account is worked out"
+   },
+   {
+    "id": "overhead_of_pursuing_angel_investors_may_not_be_worth_it",
+    "family": "claim",
+    "label": "Overhead of pursuing angel investors may not be worth it"
+   },
+   {
+    "id": "founder_hours_left_for_the_main_investment_firm_raise",
+    "family": "quantity",
+    "label": "Founder hours left for the main investment-firm raise"
+   },
+   {
+    "id": "funding_committed_by_angel_investors",
+    "family": "quantity",
+    "label": "Funding committed by angel investors"
+   },
+   {
+    "id": "time_until_the_first_funds_arrive",
+    "family": "quantity",
+    "label": "Time until the first funds arrive"
+   },
+   {
+    "id": "total_funding_secured",
+    "family": "quantity",
+    "label": "Total funding secured"
+   },
+   {
+    "id": "cash_runway_remaining",
+    "family": "quantity",
+    "label": "Cash runway remaining"
+   },
+   {
+    "id": "the_money_will_run_out_soon",
+    "family": "claim",
+    "label": "The money will run out soon."
+   },
+   {
+    "id": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi",
+    "family": "claim",
+    "label": "Angel investors might be able to provide a small amount of funding quicker, buying more time."
+   },
+   {
+    "id": "whether_the_angel_route_is_worth_it_depends_on_whether_the_overh",
+    "family": "condition",
+    "label": "Whether the angel route is worth it depends on whether the overhead is worth it."
+   },
+   {
+    "id": "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2",
+    "family": "relation",
+    "label": "Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months"
+   },
+   {
+    "id": "i_want_to_explore_alternatives_to_support_the_funding_process",
+    "family": "claim",
+    "label": "I want to explore alternatives to support the funding process"
+   },
+   {
+    "id": "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+    "family": "condition",
+    "label": "A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do."
+   },
+   {
+    "id": "taking_angel_money_first_could_change_how_later_investment_firms",
+    "family": "condition",
+    "label": "Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted."
+   },
+   {
+    "id": "the_aim_says_secure_funding_but_it_is_not_settled_whether_that_m",
+    "family": "condition",
+    "label": "The aim says 'secure funding', but it is not settled whether that means a signed commitment or cash received, and the two can differ by weeks, so an option could look quick on one reading and slow on the other."
+   },
+   {
+    "id": "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w",
+    "family": "condition",
+    "label": "The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline."
+   },
+   {
+    "id": "founder_hours_spent_on_angel_outreach_added_to_funding_committed",
+    "family": "relation",
+    "label": "Founder hours spent on angel outreach added → Funding committed by angel investors"
+   },
+   {
+    "id": "funding_committed_by_angel_investors_to_time_until_the_first_fun",
+    "family": "relation",
+    "label": "Funding committed by angel investors → Time until the first funds arrive"
+   },
+   {
+    "id": "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef",
+    "family": "relation",
+    "label": "Founder hours spent on angel outreach added → Founder hours left for the main investment-firm raise"
+   },
+   {
+    "id": "founder_hours_left_for_the_main_investment_firm_raise_to_total_f",
+    "family": "relation",
+    "label": "Founder hours left for the main investment-firm raise → Total funding secured"
+   },
+   {
+    "id": "monthly_cash_spend_removed_to_cash_runway_remaining",
+    "family": "relation",
+    "label": "Monthly cash spend → Cash runway remaining"
+   },
+   {
+    "id": "bridge_finance_applications_submitted_added_to_total_funding_sec",
+    "family": "relation",
+    "label": "Bridge finance applications submitted added → Total funding secured"
+   },
+   {
+    "id": "total_funding_secured_to_time_until_the_first_funds_arrive",
+    "family": "relation",
+    "label": "Total funding secured → Time until the first funds arrive"
+   },
+   {
+    "id": "cost_cuts_reduce_fundraising_capacity",
+    "family": "risk",
+    "label": "Cost cuts reduce fundraising capacity"
+   },
+   {
+    "id": "bridge_sources_too_slow",
+    "family": "risk",
+    "label": "Bridge sources too slow"
+   },
+   {
+    "id": "angel_commitments_land_late_or_small",
+    "family": "risk",
+    "label": "Angel commitments land late or small"
+   },
+   {
+    "id": "main_raise_slower_than_two_months",
+    "family": "risk",
+    "label": "Main raise slower than two months"
+   },
+   {
+    "id": "cash_runs_out_before_funds_arrive",
+    "family": "risk",
+    "label": "Cash runs out before funds arrive"
+   },
+   {
+    "id": "debt_repayments_eat_into_cash",
+    "family": "risk",
+    "label": "Debt repayments eat into cash"
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "founder_hours_spent_on_angel_outreach",
+    "label": "Founder hours spent on angel outreach added",
+    "prompt": "New figure for “Founder hours spent on angel outreach added” (hours/week): one number, or a range like 150 to 400"
+   },
+   {
+    "id": "founder_hours_spent_on_angel_outreach_added_approach_angel_inves",
+    "label": "Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding”",
+    "prompt": "New figure for “Founder hours spent on angel outreach added: Approach angel investors for a small, quicker amount of funding” (hours/week): one number, or a range like 150 to 400"
+   },
+   {
+    "id": "monthly_cash_spend",
+    "label": "Monthly cash spend",
+    "prompt": "New figure for “Monthly cash spend removed” (GBP/month): one number, or a range like 150 to 400"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [
+  {
+   "id": 12,
+   "by": "Paul",
+   "version": "Suggested, not yet accepted",
+   "earlier": true,
+   "status": "replaced by a later proposal",
+   "said": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it. ",
+   "answer": {
+    "answer": [
+     {
+      "text": "The model cannot yet say whether any option meets your aim of securing funding within the next 2 months: no chance is worked out for any option "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ", mainly because the target is not set and the angel route's effect is still an open question "
+     },
+     {
+      "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+     },
+     {
+      "text": ". What it does show is Olumi's assumption that first cash from the main raise lands 8 to 30 weeks from now "
+     },
+     {
+      "cite": "Olumi's assumption for 'Time from now until the first funds arrive in the company's account now', for you to check: 8 to 30 weeks. Basis: A priced round of £1-2 million from UK investors typically takes several months from first contact to cash, and the cold outreach already under way may have shortened that somewhat. I have assumed they are early in conversations with nothing yet at term sheet, which is my assumption; please give your own timing in its place."
+     },
+     {
+      "text": ", which you should check against where your conversations really are. Your two months is roughly 8 to 9 weeks, so the main raise could land near the edge of your window or well after it, and cash runway is the other unknown. The routes below are general knowledge, unverified and not checked for your case.\n\n- Angels: often faster than a £1-2 million institutional round (weeks to a couple of months is common), but small cheques mean many conversations. Trade-off: founder hours, which Olumi's what-if puts at 4 to 15 hours/week and which come out of the main raise. Worth pursuing if a few warm angels can say yes or no within a few weeks. Sign to stop: no term interest after the first handful of meetings, or cheques too small to add meaningful months of runway.\n- Non-dilutive bridge finance (grants, venture debt, revenue-based finance): no equity given up, but approvals can run beyond two months, and Olumi's what-if is 2 to 8 applications applications. Worth pursuing if a lender or fund confirms a decision timeline inside your runway and you qualify. Sign to stop: timelines or eligibility that clearly miss the date money runs out.\n- Cutting monthly spending: needs no investor to say yes, so it buys time rather than bringing in money. Its size depends on your accounts, which the model lacks "
+     },
+     {
+      "cite": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly cash spend removed: Cut monthly spending to stretch the runway\"; it waits on the answers to: 'Monthly cash spend removed: Cut monthly spending to stretch the runway'."
+     },
+     {
+      "text": ". Worth pursuing if cuts can be made without hurting outreach. Sign to stop: cuts that remove people or tools used for the raise.\n\nThe two readings of 'secure' (signed commitment or cash received) can differ by weeks, so settle which you mean.\n\nOne question: how many months of runway do you have, and does that exceed your 8 to 30 week estimate for the main raise?"
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Olumi's challenge says a small angel amount only helps if it is large enough relative to monthly spend and angels move faster than the firms, and neither is sized in the model."
+      }
+     ],
+     [
+      {
+       "text": "The target is unset and 'secure' is ambiguous between a signed commitment and cash received, so no option's chance can be worked out "
+      },
+      {
+       "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+      },
+      {
+       "text": "."
+      }
+     ]
+    ],
+    "next": {
+     "label": "",
+     "text": [],
+     "about": [],
+     "at": null,
+     "newest": false,
+     "move": ""
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 15,
+   "by": "Paul",
+   "version": "approved in part",
+   "earlier": true,
+   "status": null,
+   "said": "In this scenario, why are there no risks? What risks should we consider? ",
+   "answer": {
+    "answer": [
+     {
+      "text": "There are risks in the model, but none has been sized, so they don't show up in any result. Olumi has proposed four more, and they join the model only when you press \"Approve\" in the panel. They are Olumi's provisional thinking, not findings.\n- Angel commitments land late or small: if angels decide slowly or commit little, the bridge adds little runway. It would not hold if angels turn out to decide faster than the investment firms and the amount is large relative to monthly spend.\n- Main raise slower than two months: Olumi's assumption is that first cash lands 8 to 30 weeks from now 8 to 30 weeks, and your two months is roughly 8 to 9 weeks. It would not hold if you already have term sheets or firm interest.\n- Cash runs out before funds arrive: runway remaining is unknown, so this is the gap that matters most. It would not hold if your accounts show runway comfortably longer than the slowest plausible route.\n- Debt repayments eat into cash: venture debt or revenue-based finance repayments can shorten the runway the bridge was meant to extend. It would not hold if you only pursue grants.\nThree risks Olumi had already added: Founder time stretched thin, Cost cuts reduce fundraising capacity, and Bridge sources too slow. None has an occurrence or severity yet, which is why they affect no result. No chance can be worked out for any option yet "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ", mainly because the target is not set."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Several risks hit the same place: how long cash lasts versus when funds arrive. Runway remaining has no figure yet, so you can't tell which risk bites."
+      }
+     ],
+     [
+      {
+       "text": "Your own claim that overhead may not be worth it matters because founder time stretched thin could slow the main raise as well as add angel work."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What could go wrong?",
+     "text": [
+      {
+       "text": "Suppose it is eight weeks from now and the money has run out with no funds in the account. What happened first, and which of these risks does your story lean on? Then check your accounts for the real runway figure, so the story can be tested against it."
+      }
+     ],
+     "about": [
+      "cash_runway_remaining",
+      "cash_runs_out_before_funds_arrive"
+     ],
+     "at": "cash_runway_remaining",
+     "newest": false,
+     "move": "pre_mortem"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 18,
+   "by": "Paul",
+   "version": "Suggested, not yet accepted",
+   "earlier": true,
+   "status": null,
+   "said": "These questions are good questions, but I'm looking for you to provide insights into these questions or give me clarity on how to answer them. Just asking the questions isn't that helpful in and of itself. ",
+   "answer": {
+    "answer": [
+     {
+      "text": "Fair point, so here is a worked way to answer them. The risks in the model are named but not sized, so none shows in any result, and no option has a calculated chance yet "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ". Think of each risk as a way the two-month aim fails, then ask which is most likely to bite first. Olumi's assumption is that first cash from the main raise lands 8 to 30 weeks from now "
+     },
+     {
+      "cite": "Olumi's assumption for 'Time from now until the first funds arrive in the company's account now', for you to check: 8 to 30 weeks. Basis: A priced round of £1-2 million from UK investors typically takes several months from first contact to cash, and the cold outreach already under way may have shortened that somewhat. I have assumed they are early in conversations with nothing yet at term sheet, which is my assumption; please give your own timing in its place."
+     },
+     {
+      "text": ". Your two months is about 8 to 9 weeks, so the main raise sits at the edge of your window or past it. That makes 'Main raise slower than two months' and 'Cash runs out before funds arrive' the two risks to size first, because they decide whether the side routes are needed at all. Check F3 against where your conversations really are.\n\nHow to rank the rest (general knowledge, unverified and not checked for your case):\n- Founder time stretched thin: angel outreach costs Olumi's what-if of 4 to 15 hours a week "
+     },
+     {
+      "cite": "Olumi's what-if for 'Founder hours spent on angel outreach added: Approach angel investors for a small, quicker amount of funding': 4 to 15 hours/week. Basis: Running an angel round alongside an existing investor search usually takes a few hours a week for introductions, emails and meetings, rising towards a part-time load when meetings cluster. This is my own trial figure; please give your own in its place."
+     },
+     {
+      "text": ", and that time probably comes out of the main raise. It bites if the same two or three people do both jobs, and eases if someone else can take angel intros.\n- Angel commitments late or small: angels often decide faster than funds, but a small cheque only helps if it adds real months at your monthly spend. Fast but tiny is the typical failure.\n- Bridge sources too slow and debt repayments: grants and some debt can take longer than two months, and repayments start soon after cash arrives. Olumi's trial figure is 2 to 8 applications "
+     },
+     {
+      "cite": "Olumi's what-if for 'Bridge finance applications submitted added: Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance': 2 to 8 applications. Basis: A small team can usually prepare a handful of grant, venture debt or revenue-based finance applications in a couple of months, as each takes real writing time. This is my own trial figure; please give your own in its place."
+     },
+     {
+      "text": ".\n- Signalling to later investors: taking angel money first can help or hurt the £1-2 million deals, depending on terms.\n\nA point to decide by: get your real runway in weeks. If it is shorter than the fast end of F3, treat cost cuts and quick bridge money as urgent. If it is longer, the main raise has room and angels are optional."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Your runway is unknown, and it decides whether the 8 to 30 week assumption "
+      },
+      {
+       "cite": "Olumi's assumption for 'Time from now until the first funds arrive in the company's account now', for you to check: 8 to 30 weeks. Basis: A priced round of £1-2 million from UK investors typically takes several months from first contact to cash, and the cold outreach already under way may have shortened that somewhat. I have assumed they are early in conversations with nothing yet at term sheet, which is my assumption; please give your own timing in its place."
+      },
+      {
+       "text": " leaves any slack, so it ranks every risk."
+      }
+     ],
+     [
+      {
+       "text": "The angel risks only matter if the cheque is large against monthly spend, which the model holds only in words "
+      },
+      {
+       "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+      },
+      {
+       "text": "."
+      }
+     ]
+    ],
+    "next": {
+     "label": "",
+     "text": [],
+     "about": [],
+     "at": null,
+     "newest": false,
+     "move": ""
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 21,
+   "by": "Paul",
+   "version": "Suggested, not yet accepted",
+   "earlier": true,
+   "status": null,
+   "said": "I feel like you've almost given me the same response again, although your point about turning my request into a model change doesn't make sense. I'm asking you to provide me with advice and guidance on what questions I should be asking and what things I should be confirming. You've said that I need to answer when the money is going to arrive, but that's the actual core of the problem. I don't know that. That's the challenge I've got. ",
+   "answer": {
+    "answer": [
+     {
+      "text": "You're right, and I'll stop asking you for the arrival date. You can't know it, so the useful move is to work around it: find the signals that tell you early, and a date to decide by. Here is a way to do that.\n\n**1. Replace 'when will money arrive' with 'where does each conversation stand'.** Olumi's assumption is that first cash lands 8 to 30 weeks from now 8 to 30 weeks. That is a wide range, and it is an assumption to check, not a finding. Raises like this usually move in stages: first meeting, follow-up, partner meeting, diligence, term sheet, legal, cash. Count your live conversations at each stage. If none is past a second meeting, the 8 week end of that range is unlikely. This is general knowledge, unverified and not checked for your case.\n\n**2. Check the runway separately.** The only figure you can know for certain is how many weeks of cash you have. Compare that with the range 8 to 30 weeks. If runway is shorter than the fast end, a bridge becomes necessary. If it is longer than the slow end, it is optional.\n\n**3. Set tripwires.** Pick a date, say 3 to 4 weeks out, by which you want at least one investor at partner meeting or term sheet stage. If that hasn't happened, start bridge routes in earnest. Starting angels, bridge finance or cost cuts only after the tripwire leaves little time, because each needs weeks to produce cash.\n\n**4. Confirm these things with the people involved.**\n- Ask investors in live conversations what their usual time from first meeting to cash is, and what would slow it.\n- Ask a few angels or founders who have raised from them how long a small cheque took.\n- Check how bridge sources like grants or venture debt treat a company mid-raise.\n\nThe model cannot yet give any option a chance of meeting your aim "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ". It waits on a target and on your inputs. The risks are named but unsized, so none affects a result yet."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Your uncertainty about arrival timing is the core problem, so the model's 8 to 30 week assumption 8 to 30 weeks needs checking against stage by stage evidence rather than a single date."
+      }
+     ],
+     [
+      {
+       "text": "Olumi's challenge says a small angel amount only helps if it is large relative to monthly spend and angels decide faster than the firms. That is a possibility to test, not a finding."
+      }
+     ]
+    ],
+    "next": {
+     "label": "",
+     "text": [],
+     "about": [],
+     "at": null,
+     "newest": false,
+     "move": ""
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 24,
+   "by": "Paul",
+   "version": "Suggested, not yet accepted",
+   "earlier": true,
+   "status": null,
+   "said": "Can't you assess some industry benchmarks or make some educated assumptions so we can update the model and explore it, with the caveat that the data still hasn't been validated? ",
+   "answer": {
+    "answer": [
+     {
+      "text": "Yes, and some of that is already done. Olumi has put forward what-ifs for the figures it can reasonably bracket: 4 to 15 hours/week for angel outreach hours, 2 to 8 applications for bridge applications, and 8 to 30 weeks for when first cash lands. They are Olumi's unverified assumptions, general knowledge and not checked for your case, so use them to explore, not as findings. The model is still not ready to give a chance for any option, for two reasons it cannot fill with a benchmark. First, the target is yours to set: it depends on whether 'secure' means cash received or a signed commitment. Second, cutting spend and the angel effect depend on your own accounts and conversations, so any industry figure there would be a guess dressed up as data. If Olumi's estimates hold, the main raise sits at the edge of your window or well past it, which is why the side routes matter. If you want to move forward, you can accept or refuse the proposals in the panel, put in your own target, and treat any rough runway number as a placeholder. Then the model can start comparing options, with the caveat that it rests on unvalidated inputs."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Your target is the missing piece for every option's chance "
+      },
+      {
+       "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+      },
+      {
+       "text": ", and it is a choice about what counts as secured, not something an industry benchmark can supply."
+      }
+     ],
+     [
+      {
+       "text": "Angel and spending effects ("
+      },
+      {
+       "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+      },
+      {
+       "text": ", "
+      },
+      {
+       "cite": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly cash spend removed: Cut monthly spending to stretch the runway\"; it waits on the answers to: 'Monthly cash spend removed: Cut monthly spending to stretch the runway'."
+      },
+      {
+       "text": ") turn on your monthly spend and how fast angels decide compared with firms, which only your own accounts and conversations hold."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What counts as success?",
+     "text": [
+      {
+       "text": "Decide what counts as secured for you: cash in the account or a signed commitment, and by which week. Then try a rough placeholder target and see which options the model can start to compare."
+      }
+     ],
+     "about": [
+      "secure_funding_within_the_next_2_months_target"
+     ],
+     "at": "secure_funding_within_the_next_2_months_target",
+     "newest": false,
+     "move": "define_success"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 27,
+   "by": "Paul",
+   "version": "Suggested, not yet accepted",
+   "earlier": true,
+   "status": null,
+   "said": "Why can't you add them for me? ",
+   "answer": {
+    "answer": [
+     {
+      "text": "Olumi can add them, and has already proposed them. Olumi changes your model only by proposing, so nothing joins it until you press \"Approve\" in the panel. The figures proposed so far are Olumi's what-ifs, for you to check: 4 to 15 hours/week for angel outreach hours, 2 to 8 applications for bridge applications and 8 to 30 weeks for when first cash lands. If \"them\" means the risks, they are in the proposal as named risks, but none has a size yet, so they don't change any result. Some things Olumi cannot fill in with a benchmark. The target for \"Secure funding within the next 2 months\" is yours to set, because it depends on whether secure means cash received or a signed commitment. The angel effect and the amount you could cut from spending depend on your own accounts and conversations, so Olumi has no basis for a figure. That is why "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ", "
+     },
+     {
+      "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+     },
+     {
+      "text": " and "
+     },
+     {
+      "cite": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly cash spend removed: Cut monthly spending to stretch the runway\"; it waits on the answers to: 'Monthly cash spend removed: Cut monthly spending to stretch the runway'."
+     },
+     {
+      "text": " still cannot be worked out. A placeholder you give Olumi would let the comparison start, and you could then refine it."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Without a target, no option's chance can be worked out, however many what-ifs are approved."
+      }
+     ],
+     [
+      {
+       "text": "The angel effect and the spending cut rest on your own accounts and conversations, which Olumi has no basis to estimate."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What counts as success?",
+     "text": [
+      {
+       "text": "Decide whether secure means cash in the account or a signed commitment, and by which week. A rough placeholder is enough to let the options start to be compared."
+      }
+     ],
+     "about": [
+      "secure_funding_within_the_next_2_months"
+     ],
+     "at": "secure_funding_within_the_next_2_months",
+     "newest": false,
+     "move": "define_success"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 30,
+   "by": "Paul",
+   "version": "earlier: version 2",
+   "earlier": true,
+   "status": null,
+   "said": "You set \"Time from now until the first funds arrive in the company's account now\" to 14 weeks.",
+   "answer": {
+    "answer": [
+     {
+      "text": "You've set the time until the first funds arrive to 14 weeks 14 weeks. That is your figure and it replaces Olumi's earlier 8 to 30 week what-if. On your own number the main raise lands well after your two months, which is roughly 8 to 9 weeks. Still, no option has a calculated chance "
+     },
+     {
+      "cite": "No option's chance of 'Secure funding within the next 2 months' can be worked out yet: the model cannot yet put a figure on everything the calculation needs."
+     },
+     {
+      "text": ", because the target for 'Secure funding within the next 2 months' is not set and the angel effect is still an open question "
+     },
+     {
+      "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+     },
+     {
+      "text": ". So 14 weeks is a starting estimate, not a result. The aim itself is yours: you want funding secured within two months, and Olumi's reading is cash received rather than a promise, so tell us if a signed commitment would count. If cash is what counts, the gap between 14 weeks and about 8 or 9 weeks is the problem the side routes must close, and they work in different ways. Three routes matter here, with general knowledge that is unverified and not checked for your case. Angels often decide faster than institutions, but amounts are small and outreach takes founder hours 4 to 15 hours/week. Bridge finance such as grants or revenue-based finance can run on different timelines, but approvals often take weeks and debt repayments can eat into runway. Cutting spend brings in no money, but it lengthens runway without anyone saying yes. What would make each worth pursuing: for angels, early meetings that turn into commitments within a few weeks; for bridge finance, a lender or fund giving a decision date inside your window; for cuts, savings that do not hit your outreach. A sign to stop: angels taking as long as the firms, or bridge decisions landing after cash runs out."
+     }
+    ],
+    "why": [
+     [
+      {
+       "text": "Your 14 weeks 14 weeks sits beyond the two month window, so the question becomes how to bridge the gap, not just how to speed up the raise."
+      }
+     ],
+     [
+      {
+       "text": "The angel and cost cutting chances still wait on unanswered inputs "
+      },
+      {
+       "cite": "The chance for 'Approach angel investors for a small, quicker amount of funding' cannot be worked out yet: rests on \"Open question 1 changed: Approach angel investors for a small, quicker amount of funding\", which is not measured: Olumi asked this about the option; it is still open."
+      },
+      {
+       "text": ", "
+      },
+      {
+       "cite": "The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly cash spend removed: Cut monthly spending to stretch the runway\"; it waits on the answers to: 'Monthly cash spend removed: Cut monthly spending to stretch the runway'."
+      },
+      {
+       "text": ", so no option can be compared on likelihood yet."
+      }
+     ]
+    ],
+    "next": {
+     "label": "What could go wrong?",
+     "text": [
+      {
+       "text": "Suppose the angel route was tried and failed to buy meaningful time. Write the story of what happened, and say whether it was the amount, the speed or the founder hours, since that shows what the plan quietly relies on."
+      }
+     ],
+     "about": [
+      "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+      "approach_angel_investors_for_a_small_quicker_amount_of_funding"
+     ],
+     "at": "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati",
+     "newest": false,
+     "move": "pre_mortem"
+    },
+    "stories": [],
+    "stories_heading": null
+   },
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 39,
+   "by": "Paul",
+   "version": "earlier: version 3",
+   "earlier": true,
+   "status": null,
+   "said": "You set \"Target: Secure funding within the next 2 months\" to 10 weeks.",
+   "answer": null,
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 41,
+   "by": "Paul",
+   "version": "earlier: version 4",
+   "earlier": true,
+   "status": null,
+   "said": "You set \"Target: Secure funding within the next 2 months\" to 15 weeks.",
+   "answer": null,
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  },
+  {
+   "id": 43,
+   "by": "Paul",
+   "version": "version 5",
+   "earlier": false,
+   "status": null,
+   "said": "You set \"Target: Secure funding within the next 2 months\" to 22.5 weeks.",
+   "answer": null,
+   "broke": null,
+   "problem": null,
+   "marks": [],
+   "by_id": "1",
+   "choice": null
+  }
+ ],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "size_of_deals_done_by_the_investment_firms_targeted": "Please change “Size of deals done by the investment firms targeted: £1m to £2m”: ",
+   "founder_hours_spent_on_angel_outreach": "Please change “Founder hours spent on angel outreach added”: ",
+   "founder_hours_spent_on_angel_outreach_added_approach_angel_inves": "Please change “Founder hours spent on angel outreach with “Approach angel investors for a small, quicker amount of funding””: ",
+   "open_question_1_changed": "Please change “Open question 1”: ",
+   "open_question_1_changed_approach_angel_investors_for_a_small_qui": "Please change “Open question about 'Approach angel investors for a small, quicker amount of funding'”: ",
+   "monthly_cash_spend": "Please change “Monthly cash spend”: ",
+   "monthly_cash_spend_removed_cut_monthly_spending_to_stretch_the_r": "Please change “Open question about 'Cut monthly spending to stretch the runway'”: ",
+   "bridge_finance_applications_submitted": "Please change “Bridge finance applications submitted added”: ",
+   "bridge_finance_applications_submitted_added_explore_non_dilutive": "Please change “Bridge finance applications submitted with “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance””: ",
+   "keep_sending_cold_emails_and_seeking_warm_connections": "Please change “Keep sending cold emails and seeking warm connections”: ",
+   "approach_angel_investors_for_a_small_quicker_amount_of_funding": "Please change “Approach angel investors for a small, quicker amount of funding”: ",
+   "cut_monthly_spending_to_stretch_the_runway": "Please change “Cut monthly spending to stretch the runway”: ",
+   "explore_non_dilutive_bridge_finance_such_as_grants_venture_debt": "Please change “Explore non-dilutive bridge finance such as grants, venture debt or revenue-based finance”: ",
+   "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco": "Please change “Time from now until the first funds arrive in the company's account”: ",
+   "secure_funding_within_the_next_2_months_target": "Please change “The target for 'Secure funding within the next 2 months'”: ",
+   "secure_funding_within_the_next_2_months": "Please change “Secure funding within the next 2 months”: ",
+   "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_2": "Please change “Time from now until the first funds arrive in the company's account now”: ",
+   "time_from_now_until_the_first_funds_arrive_in_the_company_s_acco_3": "Please change “how Time from now until the first funds arrive in the company's account is worked out”: ",
+   "overhead_of_pursuing_angel_investors_may_not_be_worth_it": "Please change “Overhead of pursuing angel investors may not be worth it”: ",
+   "founder_hours_left_for_the_main_investment_firm_raise": "Please change “Founder hours left for the main investment-firm raise”: ",
+   "funding_committed_by_angel_investors": "Please change “Funding committed by angel investors”: ",
+   "time_until_the_first_funds_arrive": "Please change “Time until the first funds arrive”: ",
+   "total_funding_secured": "Please change “Total funding secured”: ",
+   "cash_runway_remaining": "Please change “Cash runway remaining”: ",
+   "the_money_will_run_out_soon": "Please change “The money will run out soon.”: ",
+   "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi": "Please change “Angel investors might be able to provide a small amount of funding quicker, buying more time.”: ",
+   "whether_the_angel_route_is_worth_it_depends_on_whether_the_overh": "Please change “Whether the angel route is worth it depends on whether the overhead is worth it.”: ",
+   "angel_investors_might_be_able_to_provide_a_small_amount_of_fundi_2": "Please change “Approach angel investors for a small, quicker amount of funding → Secure funding within the next 2 months”: ",
+   "i_want_to_explore_alternatives_to_support_the_funding_process": "Please change “I want to explore alternatives to support the funding process”: ",
+   "a_small_angel_amount_only_buys_time_if_it_is_large_enough_relati": "Please change “A small angel amount only buys time if it is large enough, relative to what the company spends each month, to add meaningful months of runway, and if angels decide faster than the investment firms do.”: ",
+   "taking_angel_money_first_could_change_how_later_investment_firms": "Please change “Taking angel money first could change how later investment firms see the company, depending on the terms agreed and how the round is structured, which might help or hinder the £1-2 million deals being targeted.”: ",
+   "the_aim_says_secure_funding_but_it_is_not_settled_whether_that_m": "Please change “The aim says 'secure funding', but it is not settled whether that means a signed commitment or cash received, and the two can differ by weeks, so an option could look quick on one reading and slow on the other.”: ",
+   "the_question_is_framed_as_whether_angel_overhead_is_worthwhile_w": "Please change “The question is framed as whether angel overhead is worthwhile, which takes for granted that the main constraint is the speed of finding funders rather than how long the money lasts; extending runway through lower spending or other bridge sources might reduce the pressure from the two-month deadline.”: ",
+   "founder_hours_spent_on_angel_outreach_added_to_funding_committed": "Please change “Founder hours spent on angel outreach added → Funding committed by angel investors”: ",
+   "funding_committed_by_angel_investors_to_time_until_the_first_fun": "Please change “Funding committed by angel investors → Time until the first funds arrive”: ",
+   "founder_hours_spent_on_angel_outreach_added_to_founder_hours_lef": "Please change “Founder hours spent on angel outreach added → Founder hours left for the main investment-firm raise”: ",
+   "founder_hours_left_for_the_main_investment_firm_raise_to_total_f": "Please change “Founder hours left for the main investment-firm raise → Total funding secured”: ",
+   "monthly_cash_spend_removed_to_cash_runway_remaining": "Please change “Monthly cash spend → Cash runway remaining”: ",
+   "bridge_finance_applications_submitted_added_to_total_funding_sec": "Please change “Bridge finance applications submitted added → Total funding secured”: ",
+   "total_funding_secured_to_time_until_the_first_funds_arrive": "Please change “Total funding secured → Time until the first funds arrive”: ",
+   "cost_cuts_reduce_fundraising_capacity": "Please change “Cost cuts reduce fundraising capacity”: ",
+   "bridge_sources_too_slow": "Please change “Bridge sources too slow”: ",
+   "angel_commitments_land_late_or_small": "Please change “Angel commitments land late or small”: ",
+   "main_raise_slower_than_two_months": "Please change “Main raise slower than two months”: ",
+   "cash_runs_out_before_funds_arrive": "Please change “Cash runs out before funds arrive”: ",
+   "debt_repayments_eat_into_cash": "Please change “Debt repayments eat into cash”: "
+  }
+ },
+ "brief": "I need to accelerate securing funding within the next 2 months. We've been focused on investment firms that do deals between £1-2 million, mostly based in the UK. We'll keep sending cold emails and trying to find warm connections, but I want to explore alternatives to support the funding process, as we'll run out of money soon. For example, angel investors might be able to provide a small amount of funding quicker to buy us more time, but we would need to decide whether the overhead would be worth it. ",
+ "gated": false,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": {
+   "state": "closed",
+   "held": false,
+   "heading": "If it failed: your reasons first",
+   "gate": "Write your own reasons it could fail first; Olumi's stories show after yours.",
+   "question": "Imagine it is a year from now and this has failed. What went wrong? Write each reason you can think of, in your own words.",
+   "show": "Show me Olumi's now",
+   "after": "Olumi's stories are shown after yours, marked as Olumi's. Yours stay yours.",
+   "held_text": "Olumi's reply about how this could fail is shown once you have written your own reasons it could fail, or chosen to see Olumi's now.",
+   "max_reasons": 5,
+   "max_chars": 400,
+   "mine": []
+  }
+ },
+ "draft": {
+  "status": "done",
+  "reason": null,
+  "at": "2026-11-14T03:43:02.657Z",
+  "job": 4,
+  "stage": "analysing",
+  "words": null,
+  "started": "2026-11-14T03:41:50.369Z",
+  "stop": null
+ },
+ "turn": null,
+ "reply": null,
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 11 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this",
+   "earlier": "Written before this round began: it stays private to you and is not part of this round’s reveal.",
+   "reuse": "Use these words in this round"
+  }
+ }
+}
