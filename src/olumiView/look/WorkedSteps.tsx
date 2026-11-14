@@ -45,14 +45,32 @@ export function isWorkedOut(view: View, id: string): boolean {
 const whose = (c: ViewCard | null) => (c?.author == null || c.author.text === '' ? null : { text: c.author.text, olumi: c.author.by === 'olumi' })
 
 type CoreWorkedOf = NonNullable<ViewCard['worked']>
+type CoreStep = CoreWorkedOf['steps'][number]
+
+/**
+ * HOW THE STEPS COMBINE (DL 09:00Z item 1, the lead's PL-1035.5): the joining word before each step, read only from what core serves on
+ * `card.worked`: its `form` and each step's `role`, `sign` (a sum's part added or taken away) or `power` (a product's part multiplied or
+ * divided by). An effect's term is its driver times its own coefficient (core's `coefficient` operand). Where the field the form needs is
+ * not served, no word is drawn: nothing is inferred from labels. Null: the step opens the working (nothing joins it).
+ */
+export function joinOf(form: CoreWorkedOf['form'], step: CoreStep, first: boolean): string | null {
+  switch (form) {
+    case 'sum': return step.sign === -1 ? 'minus' : step.sign === 1 ? (first ? null : 'plus') : null
+    case 'product': return step.power === -1 ? (first ? '1 divided by' : 'divided by') : step.power === 1 ? (first ? null : 'times') : null
+    case 'stock': return step.role === 'in' ? 'plus' : step.role === 'out' ? 'minus' : null
+    case 'effect': return step.role === 'term' ? 'plus' : null
+  }
+}
 
 /**
  * CORE'S OWN WORKING (`card.worked`, core 4352bfa3 efa47179; DL j3, 14 Nov): where core projects how a figure is worked out, its steps are
  * drawn verbatim, one per step, in core's order: the step's label, its figure (this option's where one is selected and core gives a row for
- * it), whose it is, and its ✎ where core offers one. `form`, `role`, `sign` and `power` are structure, kept as data attributes only: core
- * sends no words for them, so no operator or formula is drawn. Where core sends no `worked`, the link derivation below stays in force.
+ * it), whose it is, and its ✎ where core offers one. `form`, `role`, `sign` and `power` say how the steps combine: each step after the
+ * first is joined by a plain word read from them (joinOf: plus, minus, times, divided by), never from a label; `power`/`sign` also stay as
+ * data attributes. Where core sends no `worked`, the link derivation below stays in force.
  */
 function CoreWorked({ card, worked, option, mine }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string> }): JSX.Element {
+  const figureOf = (s: Omit<CoreStep, 'role'>) => (option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null) ?? s.figure
   return (
     <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form}>
       <summary title={WORKED_OUT}><span className="line-clamp-1">{WORKED_OUT}</span></summary>
@@ -61,10 +79,13 @@ function CoreWorked({ card, worked, option, mine }: { card: ViewCard; worked: Co
           const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
           const fig = row ?? s.figure, author = row?.author ?? s.author, edit = row?.edit ?? s.edit, editId = row?.id ?? s.id
           const own = mine?.has(editId) ?? false
+          const join = joinOf(worked.form, s, i === 0), coefficient = worked.form === 'effect' ? s.coefficient ?? null : null
           return (
             <li key={`${s.id}:${i}`} title={fig.title} data-view={`${card.id}.worked.steps.${i}`} data-step={s.role} data-step-from={editId}
               data-step-sign={s.sign} data-step-power={s.power} data-step-own={own ? '' : undefined} className={own ? 'ok-step-own' : undefined}>
+              {join === null ? null : <><span className="ok-step-join" data-step-join={join}>{join}</span>{' '}</>}
               <span className="ok-step-name">{s.label}</span>{' '}<b>{fig.text}</b>
+              {coefficient === null ? null : <>{' '}<span className="ok-step-join" data-step-join="times">times</span>{' '}<span className="ok-step-name" data-step-coefficient={coefficient.id}>{coefficient.label}</span>{' '}<b data-step-coefficient-figure="">{figureOf(coefficient).text}</b></>}
               {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title}> · {author.text}</span>}
               {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></>}
             </li>
