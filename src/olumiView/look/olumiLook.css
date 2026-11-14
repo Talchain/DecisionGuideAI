@@ -185,3 +185,32 @@
 /* An option's chance at true scale: core's number (rows[].chance), no multiplier, no marker, no leader styling. */
 .olumi-look .ok-track { display: block; height: 3px; border-radius: 3px; background: var(--o-track); margin: calc(3px * var(--o-s)) 0 calc(2px * var(--o-s)); overflow: hidden; }
 .olumi-look .ok-track > span { display: block; height: 100%; background: var(--o-option); border-radius: 3px; }
+
+/* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
+/* His message: a warm bubble with his name inside it. */
+.ok-said {
+  background: #fef9f3 !important; /* --o-panel-hover */
+  border: 1px solid #eee6d8 !important; /* --o-track */
+  border-radius: 13px !important;
+  padding: 10px 14px !important;
+}
+.ok-said-by { margin: 0 0 2px; font-size: 11.5px; }
+/* Olumi's reply: Olumi's mark in the margin, its paragraphs and lists set as type, its cites small and quiet. */
+.ok-reply { position: relative; padding-left: 26px; color: #213238; }
+.ok-reply-mark {
+  position: absolute; left: 0; top: 2px; display: inline-grid; place-items: center; width: 18px; height: 18px;
+  border: 1px solid #1b7b88; border-radius: 999px; color: #1b7b88; font-size: 9px; line-height: 1;
+}
+.ok-reply [data-reply-list] { list-style: none; padding-left: 14px; }
+.ok-reply [data-reply-list] > li { position: relative; margin-bottom: 0.6em; }
+.ok-reply [data-reply-list] > li::before {
+  content: ''; position: absolute; left: -12px; top: 0.7em; width: 4px; height: 4px; border-radius: 999px; background: #aab2ae;
+}
+.ok-reply sup { color: #687879; font-size: 0.72em; margin-left: 1px; }
+.ok-reply details > summary { color: #687879; cursor: pointer; }
+/* Olumi's proposal, pinned above the composer: one bordered card in Olumi's blue. */
+.ok-pinned { max-height: 50%; }
+.ok-pinned [data-testid='view-next-step'] {
+  border: 1.5px solid #1b7b88 !important; border-radius: 13px !important; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.08) !important;
+  --tw-ring-shadow: 0 0 #0000 !important; background: #fefefe !important;
+}

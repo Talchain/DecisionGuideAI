@@ -41,6 +41,7 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
+import './look/olumiLook.css'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
@@ -158,7 +159,14 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
     return () => restRing(NO_CARDS)
   }, [latest, restKey])
-  const said = <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
+  // DL-538 (the target panel): the bubble names whose words it holds, inside it (core's `by`): another person's name in ink, the viewer's own
+  // quieter. A turn core names no one for has none.
+  const other = me !== undefined && t.by_id !== null && t.by_id !== me
+  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`}>{t.by}</p>
+  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}<p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
+  // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
+  const model = useViewStore((st) => st.view?.model ?? null)
+  const olumi = model === null ? null : olumiKey(model)
   // Each block's first cite number, in the reply's order: its answer, each Why line, its next step.
   const whyFirst: number[] = []
   let nextFirst = 1
@@ -166,7 +174,8 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
   const answer = t.answer === null ? (reply === null ? null : (
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
-    <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-chat-answer">
+    <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-chat-answer">
+      {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} />
       {t.answer.why.length === 0 ? null : (
         <details>
@@ -185,14 +194,12 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
   const stamp = (
     <div className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
       <History size={12} aria-hidden="true" />
-      <span><span data-view={`${at}.by`}>{t.by}</span> · <span data-view={`${at}.version`}>{t.version}</span>
+      <span><span data-view={`${at}.version`}>{t.version}</span>
         {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
     </div>
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
-      {/* Name another person's words before their bubble (pre-screen 4b92d394 row 23). */}
-      {me !== undefined && t.by_id !== null && t.by_id !== me ? <p className={`${typography.viewPanelMeta} text-text-body`} data-view={`${at}.by`}>{t.by}</p> : null}
       {said}{answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
@@ -1174,6 +1181,7 @@ export function ViewChat() {
   const methods = view !== null && !held && !takesBrief(sid, view)
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
+  const pinned = view !== null && nextStepOf(view)?.kind === 'approve'
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
@@ -1218,7 +1226,7 @@ export function ViewChat() {
                 </section>
               )
             })()}
-            {view === null ? null : <NextStepCard view={view} busy={busy} />}
+            {view === null || pinned ? null : <NextStepCard view={view} busy={busy} />}
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
             {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
@@ -1228,6 +1236,9 @@ export function ViewChat() {
         </div>
         {away ? <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} absolute bottom-2 right-4 inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button> : null}
       </div>
+      {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
+          buried under a long reply; it scrolls on its own when taller than half the panel. */}
+      {view === null || !pinned ? null : <div className="ok-pinned shrink-0 overflow-y-auto px-3 pb-2" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
       {session === null && tucked === null && !methods ? null : (
         <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>

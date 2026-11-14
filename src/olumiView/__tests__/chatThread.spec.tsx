@@ -236,35 +236,30 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(550)
   })
 
-  it('CT8b (DL-183, Paul\'s 1.33 scale): with a Next step card below the newest reply, following brings the card whole into view, or its top when taller; CONTRAST: no card, the reply\'s start', () => {
-    // The step alone: the question above it is CT8c's.
+  // DL-538 (14 Nov, the target panel): Olumi's proposal with Approve / Set aside is pinned between the thread and the composer, never buried.
+  // These two rows replaced CT8b "following brings the card whole into view" and CT8c "the block runs from the question's top": the card is
+  // no longer in the thread to be scrolled to.
+  it('CT8b (DL-538): a held proposal\'s Next step card is pinned outside the thread\'s scroll, above the composer; the thread follows the newest reply\'s start', () => {
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })
-    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
     show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
-    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    const { getByTestId } = render(<ViewChat />)
     const scroll = getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
     act(() => show(bare))
-    expect(queryByTestId('view-next-step'), 'precondition: core asks for a next step on a held proposal').not.toBeNull()
-    expect(scroll.scrollTop).toBe(666) // 700 + 150 + 16 - 200: the card whole, its foot 16 px above the thread's
-    cleanup()
-    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
-    const short = render(<ViewChat />).getByTestId('view-chat-scroll')
-    Object.defineProperties(short, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 100, configurable: true } })
-    act(() => show(bare))
-    expect(short.scrollTop).toBe(684) // taller than the thread: its top
+    const step = getByTestId('view-next-step')
+    expect(step.closest('[data-testid="view-chat-pinned"]'), 'pinned').not.toBeNull()
+    expect(scroll.contains(step), 'not in the thread').toBe(false)
+    expect(step.querySelector('[data-testid="view-approve"]'), 'Approve is on the pinned card').not.toBeNull()
+    expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
   })
 
-  it('CT8c (DL, 12 Nov): Olumi\'s question above the Next step comes into view with it: the block runs from the question\'s top when the two are taller than the thread', () => {
-    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 760 : this.dataset.testid === 'view-model-question' ? 700 : 600 })
-    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : this.dataset.testid === 'view-model-question' ? 50 : 0 })
+  it('CT8c (DL-538): Olumi\'s question stays in the thread, above the pinned proposal', () => {
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
-    show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
-    const scroll = render(<ViewChat />).getByTestId('view-chat-scroll')
-    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 120, configurable: true } })
-    act(() => show(asked))
-    expect(scroll.scrollTop).toBe(684) // the question's top (700 - 16), not the step's (744)
+    show(asked)
+    const { getByTestId } = render(<ViewChat />)
+    expect(getByTestId('view-chat-scroll').contains(getByTestId('view-model-question'))).toBe(true)
+    follows(getByTestId('view-model-question'), getByTestId('view-chat-pinned'))
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
@@ -332,24 +327,24 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(posts).toHaveLength(1)
   })
 
-  // Distinguish another person's contribution before reading it (pre-screen 4b92d394 row 23).
-  it('CT11 another person has an ink author line at their path above the bubble; own and anonymous turns do not', () => {
+  // Distinguish another person's contribution before reading it (pre-screen 4b92d394 row 23); DL-538 (the target panel): every named
+  // bubble carries its author inside it. This row replaced CT11 "an ink author line above the bubble; own and anonymous turns do not".
+  it('CT11 (DL-538) each named turn\'s bubble opens with its author line at its path, another person\'s in ink and the viewer\'s quieter; an anonymous turn has none', () => {
     const other = failed.chat[0]!
     expect(other.by_id).toBeTruthy()
     const view = { ...fixture, you_id: 'viewer', chat: [other, { ...other, id: other.id + 1000, by_id: 'viewer' }, { ...other, id: other.id + 2000, by_id: null }] }
     show(view)
-    const { getByTestId, rerender } = render(<ViewChat />)
-    const turns = getByTestId('view-chat-turns').children
-    const author = turns[0]!.firstElementChild!
-    expect(author.getAttribute('data-view')).toBe('chat.0.by')
-    expect(author.textContent).toBe(other.by)
-    expect(author).toHaveClass('text-[12px]', 'text-text-body')
-    expect(author).not.toHaveClass('text-info')
-    expect(author.nextElementSibling).toBe(turns[0]!.querySelector('[data-testid="view-chat-said-bubble"]'))
-    expect(turns[1]!.firstElementChild).toHaveAttribute('data-testid', 'view-chat-said-bubble')
-    expect(turns[2]!.firstElementChild).toHaveAttribute('data-testid', 'view-chat-said-bubble')
-    rerender(<ViewConversation chat={view.chat} />)
-    for (const turn of getByTestId('view-chat-turns').children) expect(turn.firstElementChild).toHaveAttribute('data-testid', 'view-chat-said-bubble')
+    const { getByTestId } = render(<ViewChat />)
+    const turns = [...getByTestId('view-chat-turns').children]
+    for (const turn of turns) expect(turn.firstElementChild).toHaveAttribute('data-testid', 'view-chat-said-bubble')
+    const author = (i: number) => turns[i]!.firstElementChild!.querySelector(`[data-view="chat.${i}.by"]`)
+    expect(author(0)?.textContent).toBe(other.by)
+    expect(author(0)).toBe(turns[0]!.firstElementChild!.firstElementChild)
+    expect(author(0)).toHaveClass('text-text-body')
+    expect(author(0)).not.toHaveClass('text-info')
+    expect(author(1)?.textContent).toBe(other.by)
+    expect(author(1)).toHaveClass('text-text-light')
+    expect(author(2), 'anonymous: no author').toBeNull()
   })
 })
 
@@ -431,5 +426,18 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     act(() => show(older))
     expect(queryByTestId('view-model-question')).toBeNull()
     expect(posts).toEqual([])
+  })
+})
+
+describe('DL-538: Olumi\'s reply carries Olumi\'s mark', () => {
+  it('CT12 each reply opens with core\'s glyph for Olumi (model.key, by id), named in core\'s words; CONTRAST: a model with no Olumi key item draws none', () => {
+    const k = fixture.model!.key.find((x) => x.id === 'olumi')!
+    show(fixture)
+    const first = render(<ViewChat />).getByTestId('view-chat-turns').children[0]!
+    const mark = first.querySelector('[data-testid="view-chat-answer"] [data-view="chat.0.answer.mark"]')
+    expect([mark?.textContent, mark?.getAttribute('aria-label')]).toEqual([k.glyph, k.text])
+    cleanup()
+    show({ ...fixture, model: { ...fixture.model!, key: fixture.model!.key.filter((x) => x.id !== 'olumi') } } as View)
+    expect(render(<ViewChat />).container.querySelector('[data-view="chat.0.answer.mark"]')).toBeNull()
   })
 })
