@@ -135,37 +135,3 @@ export function useCardClearOfRegions(): void {
   }, [getViewport, setViewport])
 }
 
-/**
- * DL 06:57Z (3): the board never draws under the foot controls (the zoom row and the "N more cards below" control beside it). The canvas's
- * drawing (React Flow's renderer: cards and links; never the controls, which sit outside it) is cut by a notch at the bottom-left, the
- * controls' span plus REGION_GAP each way: a card reaching into it ends at the notch's top, whole words above, nothing under a control.
- * Null where no foot control is drawn. `area` is the renderer's own box (the notch is in its coordinates).
- */
-export function footNotchOf(foot: readonly Rect[], area: Rect): string | null {
-  if (foot.length === 0) return null
-  const w = Math.min(area.right, Math.max(...foot.map((f) => f.right)) + REGION_GAP) - area.left
-  const h = area.bottom - Math.max(area.top, Math.min(...foot.map((f) => f.top)) - REGION_GAP)
-  if (w <= 0 || h <= 0) return null
-  const W = Math.round(w), H = Math.round(h)
-  return `polygon(0 0, 100% 0, 100% 100%, ${W}px 100%, ${W}px calc(100% - ${H}px), 0 calc(100% - ${H}px))`
-}
-
-/** Keeps the notch on the view canvas's renderer as the controls appear, move and go (the cue's count changes, the window resizes). */
-export function useFootNotch(): void {
-  useEffect(() => {
-    let raf = 0
-    const apply = () => {
-      raf = 0
-      const el = document.querySelector<HTMLElement>('[data-testid="view-canvas"] .react-flow__renderer')
-      if (el === null) return
-      const v = footNotchOf(rectsOf(FOOT_CONTROLS), el.getBoundingClientRect()) ?? ''
-      if (el.style.clipPath !== v) { el.style.clipPath = v; el.dataset['footNotch'] = v === '' ? '' : 'on' }
-    }
-    const kick = () => { if (raf === 0) raf = requestAnimationFrame(apply) }
-    const mo = new MutationObserver(kick)
-    mo.observe(document.body, { childList: true, subtree: true, characterData: true })
-    window.addEventListener('resize', kick)
-    kick()
-    return () => { mo.disconnect(); window.removeEventListener('resize', kick); if (raf !== 0) cancelAnimationFrame(raf) }
-  }, [])
-}

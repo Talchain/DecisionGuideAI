@@ -38,6 +38,7 @@ import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, 
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
+import { FOOT_GUTTER, restClearOfFoot } from './footClear'
 import { CoreCard } from './previous/CoreCard'
 import { RootLinkEdge } from './previous/RootLinkEdge'
 import { LodSync } from '../canvas/components/LodSync'
@@ -50,7 +51,7 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
 import { ViewZoomNotice } from './ViewZoomNotice'
-import { frameTop, useCardClearOfRegions, useFootNotch } from './regions'
+import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
@@ -93,7 +94,8 @@ export function frameFor(nodes: readonly Node[], pane: { width: number; height: 
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
-  const insets = { ...raw, top: frameTop(raw.top) }
+  // DL 07:48Z (3): the whole board fits above the foot controls' gutter, never under them.
+  const insets = { ...raw, top: frameTop(raw.top), bottom: Math.max(raw.bottom, FOOT_GUTTER) }
   const whole = wholeAtTopViewport(bounds, pane, insets, maxZoom, CORE_LANE_FIT_FLOOR)
   // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
   return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, maxZoom, CORE_LANE_FIT_FLOOR)
@@ -114,6 +116,14 @@ export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] 
 
 /** Fit the measured full faces when readable; otherwise keep them at reading size and let the board pan. */
 export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
+  const v = frameOf(snaps, pane, free)
+  // DL 07:48Z (3), by layout: at rest no card's label or figure is under the foot controls (footClear.ts, as in the new look).
+  const nodes = (snaps.full ?? snaps.body ?? snaps.line)?.nodes
+  if (v === null || nodes === undefined) return v
+  return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top))
+}
+
+function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
   const full = snaps.full
   if (full === undefined) {
     const last = snaps.body ?? snaps.line
@@ -217,7 +227,6 @@ function ViewFlow() {
   useTryInView(movedAt)
   // The z-order rule (./regions.ts): an opened card, its editor included, is moved clear of the head band, the foot controls and the dock.
   useCardClearOfRegions()
-  useFootNotch()
   // A Model tab row puts its card in front (`focusNodeById`): selected, and the camera centred on it at the zoom the person has. Only the
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
