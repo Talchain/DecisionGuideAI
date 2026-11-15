@@ -301,8 +301,8 @@
 /* UI-BRIEF-20261115 s3: the shared chance rail on the question bar (ChanceRail.tsx). One scale for every option; neutral ink, one accent. */
 .olumi-look .ok-rail { display: grid; gap: calc(6px * var(--o-s)); margin-top: calc(8px * var(--o-s)); }
 .olumi-look .ok-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 1.1fr); column-gap: calc(14px * var(--o-s)); row-gap: calc(4px * var(--o-s)); align-items: center; }
-.olumi-look .ok-rail-label { grid-column: 1; margin: 0; font-size: calc(12px * var(--o-s)); line-height: 1.35; color: var(--o-body); }
-.olumi-look .ok-rail-fig { font-weight: 600; color: var(--o-ink); white-space: nowrap; }
+.olumi-look .ok-rail-label { grid-column: 1; min-width: 0; overflow-wrap: anywhere; margin: 0; font-size: calc(12px * var(--o-s)); line-height: 1.35; color: var(--o-body); }
+.olumi-look .ok-rail-fig { font-weight: 600; color: var(--o-ink); }
 .olumi-look .ok-rail-track { grid-column: 2; position: relative; align-self: stretch; min-height: calc(18px * var(--o-s)); }
 .olumi-look .ok-rail-axis { position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-left: 1px solid var(--o-border-emph); border-right: 1px solid var(--o-border-emph); }
 .olumi-look .ok-rail-tick { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--o-border-emph); }

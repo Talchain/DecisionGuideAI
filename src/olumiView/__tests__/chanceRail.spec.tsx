@@ -16,6 +16,9 @@ import { useMe } from '../../olumiCore/me'
 import { CoreCard } from '../previous/CoreCard'
 import { QUESTION } from '../layout'
 import { chanceRailOf } from '../railRows'
+const CSS = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+/** The look's rule for one selector, its declarations only. */
+const ruleOf = (sel: string): string => { const i = CSS.indexOf(`${sel} {`); return i < 0 ? '' : CSS.slice(i, CSS.indexOf('}', i)) }
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
 const SEEK = 'seek_a_small_grant_or_short_bridging_loan', KEEP = 'keep_sending_cold_emails_and_seeking_warm_connections'
@@ -62,5 +65,13 @@ describe('the shared chance rail', () => {
     const glyph = RUN2.model!.key.find((k) => k.id === 'challenge')!.glyph
     expect([...rest.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.getAttribute('data-rail-challenge'), b.textContent])).toEqual([[ANGEL, glyph], [WIDEN, glyph]])
     for (const c of RUN2.model!.cards.filter((x) => x.badge != null)) for (const w of [c.badge!.text, (c.badge as { face?: string }).face ?? '']) if (w !== '') expect(rest.textContent, w).not.toContain(w)
+  })
+  it('R3 a long figure line wraps inside the text column and never runs under the rail (DL 15 Nov, a narrow question bar): the label column may shrink and breaks long words, and no rail text is held to one line', () => {
+    const label = ruleOf('.olumi-look .ok-rail-label'), fig = ruleOf('.olumi-look .ok-rail-fig'), grid = ruleOf('.olumi-look .ok-rail-grid')
+    expect(label, 'precondition: the label rule is in the look').not.toBe('')
+    expect(label).toMatch(/min-width:\s*0/)
+    expect(label).toMatch(/overflow-wrap:\s*anywhere/)
+    expect(grid, 'the text column is its own grid column').toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+    for (const [sel, rule] of [['label', label], ['fig', fig]] as const) expect(rule, sel).not.toMatch(/white-space:\s*nowrap|text-overflow|line-clamp/)
   })
 })
