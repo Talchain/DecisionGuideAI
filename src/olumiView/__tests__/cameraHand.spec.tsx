@@ -20,6 +20,8 @@ import { causalPlaces } from '../layout'
 import { replyViewTarget } from '../replyInView'
 import { CANVAS_LOD_NOTICE_TESTID } from '../../canvas/components/CanvasLodNotice'
 import { noteLanded, returnFromLanded } from '../revealReturn'
+import { FOOT_BAND, FREE_TOP } from '../BelowCue'
+import { CORE_LANE_FIT_FLOOR } from '../camera'
 
 const refs = vi.hoisted(() => ({ moved: null as { current: number } | null, activity: null as { current: { at: number; active: boolean } } | null }))
 vi.mock('../replyInView', async (orig) => {
@@ -34,6 +36,12 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
+/** CH2's board: the golden board with every card TALL_H high, so it is too tall for the free canvas even at the smallest face's floor
+ *  (CORE_LANE_FIT_FLOOR) in React Flow's jsdom pane (JSDOM_PANE: React Flow stands in 500 for a zero size) and its foot is below the window
+ *  whatever the camera frames. The camera now shows the whole model where it fits (Paul's rule since 10 Nov, replacing DL-538's "pan, never
+ *  shrink"), so the golden board itself no longer opens with cards below. */
+const TALL_H = 600, JSDOM_PANE = 500
+const tall: View = { ...golden, model: { ...golden.model!, cards: golden.model!.cards.map((c) => ({ ...c, h: TALL_H })) } }
 beforeEach(() => {
   refs.moved = null; refs.activity = null
   useViewStore.setState({ uuid: 'u', sid: golden.id, view: golden, status: 'ready', error: null, stale: false, at: null })
@@ -60,12 +68,15 @@ describe('the person\'s own camera controls on the real canvas', () => {
     expect(refs.activity!.current).toEqual({ at: Date.now(), active: false })
   })
   it('CH2 catch: "N more cards below" counts as the person\'s move (movedAt rises by one) and stamps the activity as no drag', async () => {
-    const model = currentModel({ view: golden, error: null, stale: false })!
+    useViewStore.setState({ sid: tall.id, view: tall })
+    const model = currentModel({ view: tall, error: null, stale: false })!
     const places = await causalPlaces(model, new Map())
+    const ys = model.cards.map((c) => places.get(c.id)!.y)
+    expect((Math.max(...ys) - Math.min(...ys)) * CORE_LANE_FIT_FLOOR, 'precondition: the board\'s last row starts below the free canvas even at the floor').toBeGreaterThan(JSDOM_PANE - FREE_TOP - FOOT_BAND)
     act(() => { drawViewCanvas(model, places) })
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-15T01:00:00Z'))
     mount()
-    const cue = screen.getByTestId('view-below-cue').querySelector('button')!
+    const cue = screen.getByRole('button', { name: /more cards? below/ })
     expect(cue.textContent, 'the cue counts cards below the window\'s foot').toMatch(/more cards? below/)
     const moves = refs.moved!.current
     fireEvent.click(cue)
