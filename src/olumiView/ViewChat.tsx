@@ -1190,6 +1190,9 @@ export function ViewChat() {
   const content = useRef<HTMLDivElement>(null)
   const follows = useRef(true)
   const followedTop = useRef<number | null>(null)
+  // Contract 3 (Codex 15 Nov): where the person last scrolled the thread themselves. The thread at rest is never moved above it, on this or
+  // any later rest (a reply growing, the row opening), until they scroll again; null until they first do.
+  const readerTop = useRef<number | null>(null)
   const [away, setAway] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const readScroll = useCallback(() => {
@@ -1198,6 +1201,7 @@ export function ViewChat() {
     // An automatic scroll to a long reply's start still follows it (pre-screen 4b92d394 row 14).
     if (follows.current && el.scrollTop === followedTop.current) return
     followedTop.current = null
+    readerTop.current = el.scrollTop
     const gap = el.scrollHeight - el.clientHeight - el.scrollTop
     follows.current = gap <= 80
     setAway(gap > 80)
@@ -1240,16 +1244,17 @@ export function ViewChat() {
     if (rest !== null) top = restTop(top, rest, maxScroll)
     // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"): at rest the thread never goes past the newest reply's (or
     // job's) first line; what follows it (the proposal's row, Olumi's question) is reached by reading on. Someone who has scrolled on
-    // themselves since the last rest (followedTop is cleared by their scroll) is never pulled back up by it (opening the row grows the thread).
+    // themselves (readerTop, kept across rests) is never pulled back above where they scrolled (opening the row grows the thread).
     const cap = newest === null ? Infinity : newest.offsetTop - 16
     top = Math.min(top, cap)
-    if (followedTop.current === null) top = Math.max(top, el.scrollTop)
+    const floor = readerTop.current ?? -Infinity
+    top = Math.max(top, floor)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     // DL 07:48Z (4): no half-line at the foot's rule at rest: move the least that leaves each line wholly above the rule or under the foot,
     // never so far back that the foot loses its room, nor on past the step's top.
     if (step !== null && prop != null && row !== null) {
       const now = el.scrollTop
-      const upRoom = Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight), rest === null ? Infinity : now - rest.low)
+      const upRoom = Math.max(0, Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight), rest === null ? Infinity : now - rest.low, now - floor))
       const downRoom = Math.min(rest === null ? Math.min(maxScroll - now, step.offsetTop - 16 - now) : Math.min(maxScroll - now, rest.high - now), Math.max(0, cap - now))
       const shift = lineCutShift(lineBoxesNear(el, row, row.getBoundingClientRect().top), row.getBoundingClientRect().top, upRoom, downRoom)
       if (shift !== 0) el.scrollTop = now + shift
