@@ -177,15 +177,23 @@ export const settledBoardKey = (drawn: readonly Node[]): string => `${drawnHeigh
 /** The settle loop stops BEFORE framing again when the settled board is the one it last framed, or after MAX_FITS (useViewCamera; the
  *  spec runs these same steps: Codex 15 Nov, round 3). */
 export const settleDone = (board: string, fitted: string, fits: number, drawnCount: number): boolean => drawnCount === 0 || board === fitted || fits >= MAX_FITS
-/** One settle of useViewCamera's loop, once the board has settled: stop (false), or frame (`frame` says whether that was a measuring hop)
- *  and go on. After a measuring hop the board is framed again even if it looks unchanged: its new face may not have redrawn by the next
- *  settle. The hook and the spec run this same step. */
-export function settleTick(loop: { fitted: string; fits: number }, board: string, drawnCount: number, frame: () => boolean): boolean {
-  if (settleDone(board, loop.fitted, loop.fits, drawnCount)) return false
+/** The settle loop's state: the board last framed, how many frames, and the board a measuring hop was worked out from (null: none pending). */
+export type SettleLoop = { fitted: string; fits: number; hopFrom: string | null }
+/**
+ * One settle of useViewCamera's loop, once the board has settled: 'stop', 'wait', or 'framed' (`frame` frames it and says whether that was
+ * a measuring hop). After a measuring hop, a settled board that is still the one the hop was worked out from is NOT taken as the new face's
+ * (its face may not have redrawn yet: Codex 15 Nov, round 4): the loop waits for the board to change, or for FRAME_WAIT_MS since the hop
+ * (`timedOut`), when the faces are taken to draw the same. The hook and the spec run this same step.
+ */
+export function settleTick(loop: SettleLoop, board: string, drawnCount: number, timedOut: boolean, frame: () => boolean): 'stop' | 'wait' | 'framed' {
+  if (loop.hopFrom !== null && board === loop.hopFrom && !timedOut && drawnCount > 0 && loop.fits < MAX_FITS) return 'wait'
+  if (loop.hopFrom === null && settleDone(board, loop.fitted, loop.fits, drawnCount)) return 'stop'
+  if (loop.hopFrom !== null && (drawnCount === 0 || loop.fits >= MAX_FITS)) return 'stop'
   const hop = frame()
   loop.fits += 1
-  loop.fitted = hop ? '' : board
-  return true
+  loop.fitted = board
+  loop.hopFrom = hop ? board : null
+  return 'framed'
 }
 /**
  * One framing (useViewCamera's fit): the board as drawn at `zoom` is kept as the face that zoom draws, and the frame is worked out from the
@@ -237,7 +245,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     userMoved.current = false
     snaps.current = {}
     let raf = 0, since = performance.now(), last = ''
-    const loop = { fitted: '', fits: 0 }
+    const loop: SettleLoop = { fitted: '', fits: 0, hopFrom: null }
     const tick = () => {
       if (userMoved.current) return
       const cards = useViewStore.getState().view?.model?.cards ?? []
@@ -248,7 +256,9 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
       const settled = drawn.length === ids.size && now === last && !viewLaying()
       last = now
       if (!frameDue(settled, performance.now() - since)) { raf = requestAnimationFrame(tick); return }
-      if (!settleTick(loop, board, drawn.length, fit)) return
+      const step = settleTick(loop, board, drawn.length, performance.now() - since >= FRAME_WAIT_MS, fit)
+      if (step === 'stop') return
+      if (step === 'wait') { last = ''; raf = requestAnimationFrame(tick); return }
       since = performance.now()
       last = ''
       raf = requestAnimationFrame(tick)
