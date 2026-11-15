@@ -1058,12 +1058,16 @@ export type NextStep = { readonly kind: 'approve' } | { readonly kind: 'figure';
 /**
  * The one thing for the person to do next (lane C, Paul 3 Nov: a first-time person knows what to do within a minute), chosen from what
  * the View already states, in this order: a proposal Olumi holds is checked first (nothing is kept until it is approved); then the
- * first figure the chances wait on that core lets them type; then, while they are the only member, bringing a colleague in. Else
- * nothing: the conversation is the next step.
+ * figure the chances wait on that core lets them type, the one the newest reply is about when it names records (`next.about`, `next.at`), by the figure's id or the record its edit sizes;
+ * a reply that names records none of which is such a figure sends them to no other figure (its own move, under it, is the step), and
+ * only a reply naming none leaves the first one; then, while they are the only member, bringing a colleague in. Else nothing: the
+ * conversation is the next step.
  */
 export function nextStepOf(view: View): NextStep | null {
   if (view.proposal !== null) return { kind: 'approve' }
-  const item = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
+  const named = newestNextOf(view.chat)?.next, targets = named === undefined ? [] : [...named.about, ...(named.at === null ? [] : [named.at])]
+  const typeable = view.model?.edit_base == null ? [] : view.model.run?.waits_on?.items.filter((i) => i.edit !== null) ?? []
+  const item = targets.length === 0 ? typeable[0] : typeable.find((i) => targets.includes(i.id) || (i.edit !== null && 'record' in i.edit && targets.includes(i.edit.record)))
   if (item) return { kind: 'figure', item: item as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
   if (view.version !== null && view.collab.alone && !replyHasNext(view)) return { kind: 'invite' }
   return null

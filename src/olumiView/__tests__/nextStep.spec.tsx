@@ -166,3 +166,51 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
   })
 })
+
+describe('the figure step follows the newest reply\'s target (reviewer, 15 Nov: a question about one aim must not send the person to another aim\'s clock)', () => {
+  // Bakery's one typeable figure plus a second, so the choice between two typeable figures is bound by record id, not by order.
+  const two = (): View => {
+    const b = golden('bakery'), run = b.model!.run!, w = run.waits_on!, first = w.items[0]!
+    const second = { ...first, id: 'fitting', text: '‘fitting’' }
+    return { ...b, model: { ...b.model!, run: { ...run, waits_on: { ...w, items: [first, second] } } } }
+  }
+  // The newest reply, grafted from core's own reply golden with the targets under test.
+  const replying = (view: View, next: Partial<NonNullable<View['chat'][number]['answer']>['next']>): View => {
+    const turn = golden('s_ce285b3617bb').chat.at(-1)!
+    return { ...view, chat: [{ ...turn, answer: { ...turn.answer!, next: { ...turn.answer!.next, newest: true, ...next } } }] }
+  }
+  const moves = (el: Element | null) => (el === null ? [] : [...el.querySelectorAll('[data-testid="view-next-move"]')])
+  const figureOf = (v: View) => { const s = nextStepOf(v); return s?.kind === 'figure' ? s.item.id : s?.kind ?? null }
+
+  it('catch: a reply about the second figure targets it, not the first one core lists', () => {
+    const v = two()
+    expect(figureOf(v)).toBe('oven_price') // precondition: with no reply the first stands
+    expect(figureOf(replying(v, { about: ['fitting'], at: 'fitting' }))).toBe('fitting')
+  })
+  it('control: a reply about another aim targets its own clock, found by the record its edit sizes, whatever the clock\'s id', () => {
+    const v = two(), w = v.model!.run!.waits_on!, first = w.items[0]!
+    const clock = { ...first, id: 'clock_b', edit: { prompt: 'p', ask: 'a', route: 'size' as const, record: 'aim_b_clock', note: null, fields: [] } }
+    const withClock: View = { ...v, model: { ...v.model!, run: { ...v.model!.run!, waits_on: { ...w, items: [first, clock] } } } }
+    expect(figureOf(replying(withClock, { about: ['aim_b_clock'], at: null }))).toBe('clock_b')
+    expect(figureOf(replying(withClock, { about: ['oven_price'], at: null }))).toBe('oven_price')
+  })
+  it('control: a reply about the first figure targets the first, and the card says that figure', () => {
+    const v = replying(two(), { about: ['oven_price'], at: 'oven_price' })
+    expect(figureOf(v)).toBe('oven_price')
+    expect(step(show(v))?.querySelector('[data-view="run.waits_on.items.0.text"]')).not.toBeNull()
+  })
+  it('catch: a reply that names only records that are no figure the chances wait on sends the person to no unrelated figure', () => {
+    const v = replying(two(), { about: ['sell_360'], at: null })
+    expect(figureOf(v)).not.toBe('oven_price')
+    expect(figureOf(v)).not.toBe('fitting')
+    expect(nextStepOf(v)?.kind).not.toBe('figure')
+    expect(step(show(v))?.getAttribute('data-step')).not.toBe('figure')
+    // The reply's own move stays under the reply (it is the step), so the person is not left with nothing.
+    expect(moves(show(v).querySelector('[data-testid="view-chat-latest"]')), 'the reply keeps its own move').toHaveLength(1)
+  })
+  it('must not change: a reply that names no record leaves the first figure, and a held proposal still comes first', () => {
+    const v = replying(two(), { about: [], at: null })
+    expect(figureOf(v)).toBe('oven_price')
+    expect(nextStepOf({ ...replying(two(), { about: ['fitting'], at: 'fitting' }), proposal: golden('proposal').proposal })?.kind).toBe('approve')
+  })
+})
