@@ -47,6 +47,7 @@ import { ResultReceipts } from './ResultReceipts'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 import { lineBoxesNear, lineCutShift } from './footCut'
 import { readingsRest, restTop } from './readingsRest'
+import { clearTicks, setTicks, ticksFor, useReviewTicks } from './reviewTicks'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -379,13 +380,20 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   const changes = p.changes ?? [], groups = p.groups ?? null
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
   const tickable = changes.length > 1
-  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
-  // ⛔ NEVER ORPHAN OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with
-  // them (the records named in its `together.ids`), so a tick can never leave the figure without the line that reads it.
-  const withPartners = (c: Change): Change[] => { const ids = c.together?.ids ?? []; return [c, ...changes.flatMap((o) => (!o.top && ids.includes(o.id) ? [o] : []))] }
-  const set = (n: Set<string>, cs: readonly Change[], on: boolean) => { for (const x of cs) { if (on) n.add(keyOf(x)); else n.delete(keyOf(x)) } }
-  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t); set(n, withPartners(c), !n.has(keyOf(c))); return n })
-  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, withPartners(c), on) } return n })
+  // The ticks are shared with the cards' "Olumi's suggestion" chips (reviewTicks.ts): one set of choices, one commit. ⛔ NEVER ORPHAN
+  // OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with them.
+  const root = useRef<HTMLDivElement>(null)
+  const shared = useReviewTicks(), mine = ticksFor(shared, p.id), ticked = mine.ticked, rejected = mine.rejected
+  const toggle = (c: Change) => setTicks(p.id, changes, [c], !ticked.has(keyOf(c)))
+  const toggleGroup = (lines: number[], on: boolean) => setTicks(p.id, changes, lines.flatMap((i) => (changes[i] ? [changes[i]!] : [])), on)
+  // A chip's Review: the review opens (its row, a <details>) and Approve ticked comes into view, one tap from any card.
+  const reviewAsk = useRef(shared.review)
+  useEffect(() => {
+    if (shared.review === reviewAsk.current) return
+    reviewAsk.current = shared.review
+    const d = root.current?.closest('details'); if (d) d.open = true
+    root.current?.querySelector<HTMLElement>('[data-testid="view-approve-ticked"]')?.scrollIntoView?.({ block: 'nearest' })
+  }, [shared.review])
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
@@ -420,10 +428,10 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
     if (unsure.current !== null && unsure.current !== sent && (/"(only|refuse)_readings"/.test(unsure.current) || withReadings)) { setRefused(true); return }
     setRefused(false)
     // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
-    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
+    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); clearTicks(); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
   }
   return (
-    <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
+    <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       {inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
         : <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
           {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
@@ -503,7 +511,8 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
       {/* DL 07:48Z: an opaque foot with a clean cut: it covers the thread's foot padding (nothing shows below it) and a rule marks its top;
           at rest the thread lands so no line is cut by the rule (followNewest, ./footCut.ts), so no half-line shows. */}
       <div className="sticky bottom-[-16px] z-[1] -mx-3 -mb-3 flex flex-wrap gap-2 rounded-b-lg border-t border-border-emphasis bg-panel px-3 pb-3 pt-2" data-testid="view-proposal-actions">
-        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
+        {/* A change rejected from its card is held out of the plain Approve (which keeps every line): only Approve ticked keeps the choices. */}
+        {verdict?.supported === false ? null : <button type="button" disabled={busy || rejected.size > 0} title={rejected.size > 0 ? 'You rejected a change: Approve ticked keeps only what you accepted' : undefined} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
         {!tickable || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>

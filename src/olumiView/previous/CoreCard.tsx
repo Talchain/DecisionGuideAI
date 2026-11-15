@@ -29,6 +29,7 @@ import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
 import { Badge } from '../Badge'
 import { StatedFigure } from '../StatedFigure'
+import { SuggestionChip } from './SuggestionChip'
 import { nodeColors } from '../../canvas/nodes/colors'
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
@@ -250,6 +251,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <summary className={`${typography.nodeLabel} min-h-[24px] cursor-pointer text-text-body`}>Details</summary>
             <p className={`${typography.nodeLabel} whitespace-pre-wrap break-words text-text-body`}>{card.headline.title}</p>
           </details> : null}
+          <SuggestionChip id={id} name={label} />
           {reading === null ? null : <p className={`${typography.nodeLabel} ${reading.source === 'proposal' ? 'text-info' : 'text-text-light'}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />
