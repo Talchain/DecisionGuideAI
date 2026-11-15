@@ -37,7 +37,7 @@ const served = boards.flatMap(([, v]) => v.model!.cards.filter((c) => c.family =
 const worstExtra = Math.max(...served.map(({ v, c }) => extraOf(v, c)))
 const longestLine = Math.max(...boards.flatMap(([, v]) => (v.model!.run?.rests ?? []).map((r) => r.line.trim().length)))
 
-async function frameWith(view: View, extra: number) {
+async function frameWith(view: View, extra: number, held?: { zoom: number; x: number; y: number }) {
   const m = view.model!
   const grown = (c: (typeof m.cards)[number]) => (c.family === 'option' && c.headline?.state === 'chance' ? c.h + extra : c.h)
   const size = new Map(m.cards.map((c) => [c.id, { width: CARD_WIDTH, height: grown(c) }]))
@@ -45,12 +45,13 @@ async function frameWith(view: View, extra: number) {
   const q = places.get(QUESTION)!
   const nodes: Node[] = [{ id: QUESTION, position: q, data: {}, measured: { width: questionPlace(m).width, height: 85 } },
     ...m.cards.map((c) => ({ id: c.id, position: places.get(c.id)!, data: {}, measured: { width: CARD_WIDTH, height: grown(c) } }))]
-  const v = cameraFrame({ full: { zoom: 1, nodes } }, pane, free)!
+  // `held`: the frame is not worked out again but kept (F2's control: the detector below, on a camera that does not respond).
+  const v = held ?? cameraFrame({ full: { zoom: 1, nodes } }, pane, free)!
   const out = nodes.filter((n) => m.cards.find((c) => c.id === n.id)?.family === 'option').filter((n) => {
     const l = n.position.x * v.zoom + v.x, t = n.position.y * v.zoom + v.y
     return !(l >= free.left - 0.5 && t >= free.top - 0.5 && l + n.measured!.width! * v.zoom <= pane.width - free.right + 0.5 && t + n.measured!.height! * v.zoom <= pane.height - free.bottom + 0.5)
   }).map((n) => n.id)
-  return { zoom: v.zoom, out }
+  return { zoom: v.zoom, out, v }
 }
 
 describe('the opening frame at 1232 x 704 with taller option cards', () => {
@@ -72,9 +73,15 @@ describe('the opening frame at 1232 x 704 with taller option cards', () => {
       }
     }
   })
-  it('F2 catch: the control is live: with 400 px more per option, some board does push an option out of the free canvas', async () => {
-    let pushed = 0
-    for (const [, v] of boards) { const base = await frameWith(v, 0), t = await frameWith(v, 400); pushed += t.out.filter((id) => !base.out.includes(id)).length }
-    expect(pushed).toBeGreaterThan(0)
+  it('F2 catch: the control is live: with 400 px more per option, held at today\'s frame, some board does push an option out of the free canvas (the detector sees a push-out), and on that board the camera instead frames lower (the whole model in view: it shrinks, never pans)', async () => {
+    let pushed = 0, shrunk = 0
+    for (const [, v] of boards) {
+      const base = await frameWith(v, 0), held = await frameWith(v, 400, base.v), t = await frameWith(v, 400)
+      const out = held.out.filter((id) => !base.out.includes(id)).length
+      pushed += out
+      if (out > 0 && t.zoom < base.zoom - 1e-9) shrunk += 1
+    }
+    expect(pushed, 'held at today\'s frame, +400px pushes some option out').toBeGreaterThan(0)
+    expect(shrunk, 'where it does, the camera frames lower instead').toBeGreaterThan(0)
   })
 })
