@@ -1280,6 +1280,9 @@ export function ViewChat() {
   const content = useRef<HTMLDivElement>(null)
   const follows = useRef(true)
   const followedTop = useRef<number | null>(null)
+  // Contract 3 (Codex 15 Nov): where the person last scrolled the thread themselves. The thread at rest is never moved above it, on this or
+  // any later rest (a reply growing, a step drawn), until they scroll again; null until they first do.
+  const readerTop = useRef<number | null>(null)
   const [away, setAway] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const readScroll = useCallback(() => {
@@ -1288,6 +1291,7 @@ export function ViewChat() {
     // An automatic scroll to a long reply's start still follows it (pre-screen 4b92d394 row 14).
     if (follows.current && el.scrollTop === followedTop.current) return
     followedTop.current = null
+    readerTop.current = el.scrollTop
     const gap = el.scrollHeight - el.clientHeight - el.scrollTop
     follows.current = gap <= 80
     setAway(gap > 80)
@@ -1321,11 +1325,17 @@ export function ViewChat() {
     const asked = step === null ? null : el.querySelector<HTMLElement>('[data-testid="view-model-question"]')
     const from = asked?.offsetTop ?? step?.offsetTop ?? 0
     if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
+    // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"; as the old look): the step and Olumi's question below the
+    // newest reply never carry the thread past that reply's (or job's) first line; they are reached by reading on. The person's own save
+    // (below) still wins: its receipt is what they look for.
+    if (newest !== null) top = Math.min(top, newest.offsetTop - 16)
     // DL journey (4): a save's receipt and what it changed (ModelNoticeLine, after the newest line) come into view as the step does: whole,
     // or from its top where it is taller than the thread.
     const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
     // It wins over the Next step below it (the person's own save is what they look for); the step stays a scroll away.
     if (saved !== null) top = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
+    // Someone who has scrolled on themselves (readerTop, contract 3) is never pulled back above where they scrolled.
+    top = Math.max(top, readerTop.current ?? -Infinity)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)

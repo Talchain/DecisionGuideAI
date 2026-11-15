@@ -302,6 +302,22 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     act(() => resize([], {} as ResizeObserver)) // the thread's content grew: the browser reports it, the thread rests again
     expect(scroll.scrollTop).toBe(984) // 1000 - 16; the comma query took the early reply: 700 - 16 = 684
   })
+  it('CT8g CATCH (contract 3 on the redesign, 15 Nov): a figure step below a long newest reply does not carry the thread past the reply\'s first line', () => {
+    // A View whose next step is a figure the person can type (core's bakery golden) with a conversation in it.
+    const bakery: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+    const asked = { ...bakery, chat: fixture.chat } as View
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 900 : this.dataset.testid === 'view-chat-answer' ? 600 : 0 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
+    show({ ...asked, chat: asked.chat.slice(0, 1) })
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    act(() => show(asked))
+    expect(getByTestId('view-next-step').getAttribute('data-step'), 'precondition: the step is a figure, drawn in the thread').toBe('figure')
+    expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
+    // CATCH: the step rule alone brings the step whole into view (900 + 150 + 16 - 200 = 866), the reply's first line above the thread.
+    expect(scroll.scrollTop).toBe(584) // 600 - 16
+  })
 
   it('CT8b (DL-538): a held proposal\'s Next step card is pinned outside the thread\'s scroll, above the composer; the thread follows the newest reply\'s start', () => {
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
