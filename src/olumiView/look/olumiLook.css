@@ -199,10 +199,10 @@
 .olumi-look .ok-track[tabindex] { cursor: help; outline: none; }
 .olumi-look .ok-track[tabindex]::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
 .olumi-look .ok-track[tabindex]:focus-visible { box-shadow: 0 0 0 2px var(--o-panel), 0 0 0 4px var(--o-info); }
-.olumi-look .ok-range-tip { display: none; position: absolute; left: 0; top: calc(100% + 9px); z-index: 40; width: calc(240px * var(--o-s)); max-width: 100%;
+.olumi-look .ok-track > .ok-range-tip { display: none; position: absolute; left: 0; top: calc(100% + 9px); z-index: 40; width: calc(240px * var(--o-s)); max-width: 100%;
   background: var(--o-panel); border: 1px solid var(--o-border-emph); border-radius: 10px; padding: calc(6px * var(--o-s)) calc(8px * var(--o-s));
   font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); white-space: normal; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.12); }
-.olumi-look .ok-track[tabindex]:hover > .ok-range-tip, .olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip { display: block; }
+.olumi-look .ok-track[tabindex]:hover > .ok-range-tip, .olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip { display: block !important; }
 .olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--o-ink); border-radius: 1px; }
 /* How much of the result rests on Olumi's estimates against the person's own figures: Olumi's blue, the ink, the rest left as the track. */
 .olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--o-s)); max-width: 100%; text-align: left; font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
@@ -291,8 +291,9 @@
 .ok-selected:has([data-testid='selected-explain']) { max-height: 45vh; }
 
 /* QUIET (DL 02:1xZ, UI-BRIEF-20261115): the lens bar's words as plain words, an underline on the active one; no pills, no icons beside a
-   shown word (a compact bar, whose words are screen-reader only, keeps its icons). The canvas head band sits under the bar. */
-[data-testid='lens-bar'][role='radiogroup'] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
-[data-testid='lens-bar'][role='radiogroup'] [role='radio'] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
-[data-testid='lens-bar'][role='radiogroup'] [role='radio']:has(> [data-lens-label]:not(.sr-only)) > svg { display: none; }
-[data-testid='lens-bar'][role='radiogroup'] [role='radio'][aria-checked='true'] [data-lens-label] { color: #213238; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+   shown word (a compact bar, whose words are screen-reader only, keeps its icons). The canvas head band sits under the bar. Only the
+   lane's bar (ViewLensBar: its labels carry data-lens-label); the legacy LensBar shares the testid and role and is not touched. */
+[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) { background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
+[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio'] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio']:has(> [data-lens-label]:not(.sr-only)) > svg { display: none; }
+[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio'][aria-checked='true'] [data-lens-label] { color: #213238; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }

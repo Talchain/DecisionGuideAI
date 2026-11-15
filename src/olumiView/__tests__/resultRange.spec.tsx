@@ -38,8 +38,10 @@ const pct = (el: HTMLElement | null, prop: 'left' | 'width') => parseFloat(el!.s
  *  byte: the tip INSIDE the focusable track (shown on hover and keyboard focus) and the track's accessible name; never a caption on the face. */
 const rangeIsTheTrack = (d: ReturnType<typeof draw>) =>
   [d.caption!.textContent, d.track!.contains(d.caption), d.track!.getAttribute('tabindex'), d.track!.getAttribute('role'), d.track!.getAttribute('aria-label'),
-   d.caption!.closest('.ok-qual'), d.root.querySelectorAll('.ok-qual[data-range-caption], p[data-range-caption]').length]
-const AT_TRACK = (words: string) => [words, true, '0', 'img', words, null, 0]
+   d.caption!.closest('.ok-qual'), d.root.querySelectorAll('.ok-qual[data-range-caption], p[data-range-caption]').length,
+   // at rest it is NOT on the face, in the DOM itself (whatever the cascade), and it is not a span the fill's `.ok-track > span` rule could reach
+   (d.caption as HTMLElement).hidden, d.caption!.tagName]
+const AT_TRACK = (words: string) => [words, true, '0', 'img', words, null, 0, true, 'SMALL']
 const withRests = (view: View, patch: (r: NonNullable<NonNullable<View['model']>['run']>['rests'][number]) => void, option: string): View => {
   const v = structuredClone(view); for (const r of v.model!.run!.rests) if (r.option === option && r.kind === 'goal') patch(r); return v
 }
@@ -232,5 +234,23 @@ describe('the card keeps its height', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     expect(css).toMatch(/\.olumi-look \.ok-track \{[^}]*height: 3px;[^}]*margin: calc\(3px \* var\(--o-s\)\) 0 calc\(2px \* var\(--o-s\)\);/)
     for (const sel of ['.ok-band', '.ok-mark-chance']) expect(css).toMatch(new RegExp(`\\.ok-track > \\${sel} \\{[^}]*position: absolute;`))
+  })
+})
+
+/** The CSS that reveals the tip and keeps the quiet lens rules on the lane's bar only (Codex 02:2xZ): read as text, rule by rule. */
+describe('the tip shows on hover and on keyboard focus only; the quiet lens rules touch only the lane\'s bar', () => {
+  const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1]!.trim(), body: m[2]! }))
+  it('C1 the tip is hidden at rest and shown, over the [hidden] default, exactly while its focusable track is hovered or keyboard-focused', () => {
+    const show = rules.filter((r) => /\.ok-range-tip/.test(r.sel) && /display:\s*block\s*!important/.test(r.body))
+    expect(show.length).toBe(1)
+    expect(show[0]!.sel.split(',').map((x) => x.trim()).sort()).toEqual([
+      '.olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip', '.olumi-look .ok-track[tabindex]:hover > .ok-range-tip'])
+    expect(rules.filter((r) => /\.ok-range-tip/.test(r.sel) && /display:\s*(?!none\b)[a-z]/.test(r.body)).length, 'no other rule shows it').toBe(1)
+  })
+  it('C2 every quiet lens rule is scoped to the bar whose labels carry data-lens-label (ViewLensBar), never the legacy LensBar', () => {
+    const lens = rules.filter((r) => r.sel.includes("[data-testid='lens-bar']"))
+    expect(lens.length).toBeGreaterThan(0)
+    for (const r of lens) for (const one of r.sel.split(',')) expect(one, one).toContain(":has([data-lens-label])")
   })
 })

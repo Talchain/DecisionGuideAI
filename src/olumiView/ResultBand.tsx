@@ -27,7 +27,9 @@ export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
       <i className="ok-tick" style={{ left: '50%' }} aria-hidden="true" />
       <i className="ok-tick" style={{ left: '75%' }} aria-hidden="true" />
       <i className="ok-mark-chance" data-chance-mark={id} style={{ left: `${at * 100}%` }} />
-      {words === null ? null : <span className="ok-range-tip" aria-hidden="true" data-view={`${id}.headline.range`} data-range-caption={id}>{words}</span>}
+      {/* `hidden` at rest (never on the card face, whatever the cascade); olumiLook.css shows it while the track is hovered or focused. Not a
+          span, so the track's `> span` (the fill) rule can never reach it. */}
+      {words === null ? null : <small className="ok-range-tip" hidden aria-hidden="true" data-view={`${id}.headline.range`} data-range-caption={id}>{words}</small>}
     </span>
   )
 }
