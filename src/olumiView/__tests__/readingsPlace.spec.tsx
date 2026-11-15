@@ -217,6 +217,31 @@ describe('PL-1083 (1): a first row taller than the box can ever be', () => {
     expect(BOX_TOP + 300 + 352 - b.scrollTop).toBe(footTop - 2) // the row's foot at the actions' top (2 px of the box's border in the stub)
     expect(BOX_TOP + 300 - b.scrollTop).toBeLessThan(BOX_TOP)
   })
+  it('the same under the review\'s sticky row (Codex 15 Nov round 2): the row\'s foot still rests just above the actions', () => {
+    ROWS = { 'view-reading-0': [300, 352], 'view-reading-1': [660, 215] }; panelMax = 420; rowH = 44
+    show(held)
+    const b = boxOf()!, footTop = BOX_TOP + boxH(b) - footH
+    expect(BOX_TOP + 300 + 352 - b.scrollTop).toBe(footTop - 2)
+  })
+})
+
+describe('contract 3 on the redesign: the sticky row across closing and opening (Codex 15 Nov round 2)', () => {
+  it('a row that wraps to two lines places the rows again below its new foot; closed, the box keeps no height of ours; reopened, the rows are placed again', () => {
+    rowH = 44
+    show(held)
+    const b = boxOf()!, review = screen.getByTestId('view-proposal-review'), row = screen.getByTestId('view-proposal-row')
+    expect(b.scrollTop).toBe(248)
+    rowH = 68 // the heading wraps to a second line
+    expect(resized(row)).toBe(1)
+    expect(BOX_TOP + ROWS['view-reading-0']![0] - b.scrollTop).toBeGreaterThanOrEqual(BOX_TOP + 68)
+    setOpen(review, false); for (const o of observers) if (o.seen.length > 0) o.fire()
+    expect(isOpen(review)).toBe(false)
+    expect(b.style.maxHeight).toBe('')
+    b.scrollTop = 0
+    setOpen(review, true); for (const o of observers) if (o.seen.length > 0) o.fire()
+    expect(BOX_TOP + ROWS['view-reading-0']![0] - b.scrollTop).toBeGreaterThanOrEqual(BOX_TOP + 68)
+    expect(BOX_TOP + ROWS['view-reading-1']![0] + ROWS['view-reading-1']![1] - b.scrollTop).toBeLessThanOrEqual(BOX_TOP + boxH(b) - footH)
+  })
 })
 
 describe('PL-1083 (1): a thread squeezed to nothing is clipped, never drawn over the box', () => {

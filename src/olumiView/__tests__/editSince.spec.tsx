@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useModelNotice } from '../notice'
@@ -81,6 +81,22 @@ describe('a saved figure says what it changed (journey 4)', () => {
     Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
     expect(scroll.scrollTop).toBe(616) // the receipt whole: its foot 16 px above the thread's foot (700 + 200 + 16 - 300), not the step (1300)
+    top.mockRestore(); tall.mockRestore()
+  })
+
+  it('S5 CATCH (contract 3, Codex 15 Nov round 2): someone who scrolled on near the foot, then saves, still gets the receipt in view', () => {
+    const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 700 : this.dataset.testid === 'view-next-step' ? 1300 : 600 })
+    const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : this.dataset.testid === 'view-next-step' ? 150 : 0 })
+    useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+    const edited = { ...RUN2, collab: { ...RUN2.collab, alone: true }, chat: [...RUN2.chat, { ...RUN2.chat.at(-1)!, id: RUN2.chat.at(-1)!.id + 1, answer: null }] } as View
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: edited, status: 'ready', error: null, stale: false } as never)
+    const el = render(<ViewChat />).container
+    const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
+    Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
+    // They scroll on to 1650 themselves: 50 px from the foot, so the thread still follows (within 80 px), and 1650 is where they put it.
+    scroll.scrollTop = 1650; fireEvent.scroll(scroll)
+    act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
+    expect(scroll.scrollTop).toBe(616) // the receipt whole; held at where they scrolled: 1650, the receipt (700..900) out of view above
     top.mockRestore(); tall.mockRestore()
   })
 })

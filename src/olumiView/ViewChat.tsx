@@ -1349,6 +1349,9 @@ export function ViewChat() {
   const floorKey = floorShown(view).map((f) => f.job).join(',') + '|' + (earlyOf(view?.draft) === null ? 0 : 1) + (view?.draft?.status ?? '')
   const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
   const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
+  // The person's own save is what they look for (DL journey (4)): a fresh receipt clears where they last scrolled, so the rest below brings it
+  // into view (Codex 15 Nov, round 2: a reader near the foot who then saved was held below the receipt). Declared first: it runs first.
+  useEffect(() => { readerTop.current = null }, [noticeKey])
   useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, sinceTo, floorKey])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
