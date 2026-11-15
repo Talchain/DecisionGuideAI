@@ -73,15 +73,16 @@ describe('the opening frame at 1232 x 704 with taller option cards', () => {
       }
     }
   })
-  it('F2 catch: the control is live: with 400 px more per option, held at today\'s frame, some board does push an option out of the free canvas (the detector sees a push-out), and on that board the camera instead frames lower (the whole model in view: it shrinks, never pans)', async () => {
+  it('F2 catch: the control is live: an option grown by more than the pane\'s height at today\'s zoom, held at today\'s frame, is pushed out of the free canvas (the detector sees a push-out), and reframed the camera instead frames lower (the whole model in view: it shrinks, never pans)', async () => {
     let pushed = 0, shrunk = 0
     for (const [, v] of boards) {
-      const base = await frameWith(v, 0), held = await frameWith(v, 400, base.v), t = await frameWith(v, 400)
+      const base = await frameWith(v, 0), grow = Math.ceil(pane.height / base.zoom)
+      const held = await frameWith(v, grow, base.v), t = await frameWith(v, grow)
       const out = held.out.filter((id) => !base.out.includes(id)).length
       pushed += out
       if (out > 0 && t.zoom < base.zoom - 1e-9) shrunk += 1
     }
-    expect(pushed, 'held at today\'s frame, +400px pushes some option out').toBeGreaterThan(0)
-    expect(shrunk, 'where it does, the camera frames lower instead').toBeGreaterThan(0)
+    expect(pushed, 'held at today\'s frame, the grown options are pushed out').toBeGreaterThan(0)
+    expect(shrunk, 'where they are, the camera frames lower instead').toBeGreaterThan(0)
   })
 })
