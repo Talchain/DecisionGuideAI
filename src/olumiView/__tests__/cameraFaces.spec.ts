@@ -10,7 +10,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node, Viewport } from '@xyflow/react'
-import { FACE_RANGE, cameraFrame, faceRegimeOf, type FaceRegime, type FaceSnap } from '../ViewCanvas'
+import { FACE_RANGE, bandOf, cameraFrame, faceRegimeOf, type FaceRegime, type FaceSnap } from '../ViewCanvas'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
@@ -23,29 +23,37 @@ const inside = (bx: Box[], v: Viewport, pane: { width: number; height: number },
 // Old look, 15 Nov (Paul's standing ruling, the whole model at first open; DL-support: "first view and Fit must use the canvas area LEFT of
 // the side panel and show the whole model, at all three sizes"). This replaces the 13 Nov rule bound here before ("a model that cannot fit
 // at reading size stays at 100%" and "opens at the stage's left edge"): the board is framed whole, with the face that zoom draws.
-describe('the opening frames the whole model, down the faces, never swinging back', () => {
+describe('the opening frames the whole model, down the faces, never back up into a larger face', () => {
   it('a model that cannot fit at reading size is framed whole (full faces until a reduced face is drawn), every card inside the free canvas', () => {
     const full = snap(F.w2000.full)
     const v = cameraFrame({ full }, { width: 1128, height: 707 }, FREE_1128)!
     expect(v.zoom).toBeLessThan(FACE_RANGE.full[0])
     expect(inside(F.w2000.full.nodes, v, { width: 1128, height: 707 }, FREE_1128)).toEqual([])
   })
-  it('DL-408 catch, on the measured faces at 1128 (served build 1bc4c78e): the frame steps down the faces and settles in the band of the face it measured; no step goes back up', () => {
-    const pane = F.w1128.pane, measured: Partial<Record<FaceRegime, FaceSnap>> = { body: snap(F.w1128.body), line: snap(F.w1128.line) }
-    const snaps: Partial<Record<FaceRegime, FaceSnap>> = { full: snap(F.w2000.full) }
-    const zooms: number[] = []
-    for (let fit = 0; fit < 5; fit += 1) { // the settle loop's MAX_FITS: each fit draws the face its zoom lands in, then frames again
-      const v = cameraFrame(snaps, pane, FREE_1128)!
-      zooms.push(v.zoom)
-      const r = faceRegimeOf(v.zoom)
-      if (snaps[r] !== undefined) break
-      snaps[r] = measured[r]
+  it('DL-408 catch, on the measured faces at 1128 (served build 1bc4c78e), through the settle loop as useViewCamera runs it: the frame never goes back up into a larger face\'s band, and rests inside the band of the face drawn there with every card inside', () => {
+    const pane = F.w1128.pane
+    // What the canvas draws at a zoom: the face that zoom draws (faceRegimeOf), as measured on the served build (body 0.503, line 0.314).
+    const drawnAt = (z: number): FaceSnap => { const r = faceRegimeOf(z); return r === 'full' ? snap(F.w2000.full) : snap(F.w1128[r]) }
+    const snaps: Partial<Record<FaceRegime, FaceSnap>> = {}, order: FaceRegime[] = ['full', 'body', 'line'], seen: number[] = []
+    let zoom = 1, v: Viewport | null = null
+    for (let fit = 0; fit < 5; fit += 1) { // MAX_FITS; before each fit the hook re-snaps the board as drawn at the current zoom
+      snaps[faceRegimeOf(zoom)] = drawnAt(zoom)
+      v = cameraFrame(snaps, pane, FREE_1128)!
+      seen.push(v.zoom)
+      if (faceRegimeOf(v.zoom) === faceRegimeOf(zoom) && Math.abs(v.zoom - zoom) < 1e-9) break // the same board drawn again: the hook stops
+      zoom = v.zoom
     }
-    const last = zooms[zooms.length - 1]!, face = faceRegimeOf(last)
-    for (let i = 1; i < zooms.length; i += 1) expect(zooms[i]!, `fit ${i}: ${zooms.join(' → ')}`).toBeLessThanOrEqual(zooms[i - 1]! + 1e-9)
-    expect(last).toBeGreaterThanOrEqual(FACE_RANGE[face][0] - 0.001)
-    expect(last).toBeLessThanOrEqual(FACE_RANGE[face][1] + 0.001)
-    expect(inside(F.w1128[face].nodes, cameraFrame(snaps, pane, FREE_1128)!, pane, FREE_1128)).toEqual([])
+    const bands = seen.map((z) => order.indexOf(bandOf(z)))
+    for (let i = 1; i < bands.length; i += 1) expect(bands[i]!, `fit ${i}: ${seen.join(' → ')}`).toBeGreaterThanOrEqual(bands[i - 1]!)
+    const last = v!, face = faceRegimeOf(last.zoom)
+    expect(bandOf(last.zoom), 'the face drawn there is the face framed for').toBe(face)
+    expect(last.zoom).toBeGreaterThanOrEqual(FACE_RANGE[face][0] - 0.001)
+    expect(last.zoom).toBeLessThanOrEqual(FACE_RANGE[face][1] + 0.001)
+    expect(inside(face === 'full' ? F.w2000.full.nodes : F.w1128[face].nodes, last, pane, FREE_1128)).toEqual([])
+  })
+  it('the band gap (Codex 15 Nov): a frame never rests between the body face\'s drawing threshold and its framing band', () => {
+    for (const z of [0.42, 0.43, 0.44, 0.449]) expect(bandOf(z), String(z)).toBe('line')
+    expect(bandOf(FACE_RANGE.body[0])).toBe('body')
   })
   it('a reduced snapshot first draws full faces to measure, rather than fitting smaller faces', () => {
     expect(cameraFrame({ line: snap(F.w1128.line) }, { width: 1128, height: 707 }, FREE_1128)!.zoom).toBe(1)
