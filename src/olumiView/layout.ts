@@ -228,6 +228,31 @@ export function rowsInRoom(packed: Map<string, { x: number; y: number }>, ids: r
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
+/** The width a row of k of the old look's cards takes, a row gap apart. */
+export const rowWidthOf = (k: number): number => k * W + (k - 1) * ROW_GAP_X
+/** The board's extent at full size: its right and bottom edges from (0, 0) (every place is at or right of 0 after causalPlaces). */
+export function boardExtent(places: ReadonlyMap<string, { x: number; y: number }>, widthOf: (id: string) => number, heightOf: (id: string) => number): { w: number; h: number } {
+  let w = 0, h = 0
+  for (const [id, p] of places) { w = Math.max(w, p.x + widthOf(id)); h = Math.max(h, p.y + heightOf(id)) }
+  return { w, h }
+}
+/**
+ * THE WHOLE MODEL AT FIRST OPEN (Paul's standing ruling, 10 Nov; DL-support 15 Nov: "first view and Fit must use the canvas area LEFT of
+ * the side panel and show the whole model, at all three sizes"). Of the board's layouts with k cards across (k = 5 down to 1, causalPlaces
+ * with that row width), the one the free canvas (`room`, at full size) shows whole at the largest zoom, never above 1; where two show it
+ * equally large, the wider. A room unknown (0) keeps the previous layout. Geometry only: no word is read.
+ */
+export async function stagePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number }, room: { w: number; h: number }, widthOf: (id: string) => number, heightOf: (id: string) => number): Promise<Map<string, { x: number; y: number }>> {
+  if (room.w <= 0 || room.h <= 0) return causalPlaces(model, size, options)
+  let best: Map<string, { x: number; y: number }> | null = null, bestZoom = -1
+  for (let k = MAX_CARDS_PER_ROW; k >= 1; k -= 1) {
+    const places = await causalPlaces(model, size, { ...options, roomW: rowWidthOf(k) })
+    const b = boardExtent(places, widthOf, heightOf)
+    const zoom = Math.min(1, room.w / Math.max(1, b.w), room.h / Math.max(1, b.h))
+    if (zoom > bestZoom + 1e-9) { best = places; bestZoom = zoom }
+  }
+  return best!
+}
 /**
  * J1 step 1 (Codex's order, DL 8 Nov: "one readable path"): a relation core draws as a card, whose reason links name the two drawn cards
  * of a link between them, is that link: the board draws the link and not the card ("Visits revenue" and "Reminded" were cards sitting

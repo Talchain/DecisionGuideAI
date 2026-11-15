@@ -8,7 +8,7 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, stagePlaces, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION, questionPlace } from './layout'
 import { useViewStore } from './store'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
@@ -58,7 +58,7 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; roomW: number }) =>
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; roomW: string }) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing, opts.roomW])
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
@@ -84,19 +84,21 @@ export const railedOf = (view: View | null): ReadonlySet<string> =>
 const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().view)
 
 /** The previous product's places for the model (layout.ts causalPlaces), at the cards' drawn heights (else core's), worked out once per
- *  model, set of heights, layout setting and stage width. The one viewport input is the free canvas's width (roomOf): every row wraps at
- *  what fits it (old look, 15 Nov: the third and fourth options stood behind the side panel). It is read when the board is laid out, so a
- *  window resized later keeps its board until the next View or a card's height changes. */
+ *  model, set of heights, layout setting and free canvas. The one viewport input is the free canvas left of the side panel (roomOf): of the
+ *  board's layouts k cards across, the one shown whole there at the largest zoom (layout.ts stagePlaces; old look, 15 Nov: the third and
+ *  fourth options stood behind the side panel, and the whole model was not in view at 1232 and 1500). It is read when the board is laid
+ *  out, so a window resized, or the dock changed, later keeps its board until the next View or a card's height changes. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
-  const roomW = roomOf().w
-  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing, roomW })
+  const room = roomOf(), roomW = room.w
+  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing, roomW: `${room.w}x${room.h}` })
   if (causal?.key === key) return causal.places
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
   const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionPlace(model).width : CARD_WIDTH, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
   laying += 1
   try {
-    const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing, roomW })
+    const qw = questionPlace(model).width, heightOf = (id: string) => size.get(id)?.height ?? model.cards.find((c) => c.id === id)?.h ?? 0
+    const places = await stagePlaces(model, size, { direction, spacing: nodeSpacing }, { w: roomW, h: room.h }, (id) => (id === QUESTION ? qw : CARD_WIDTH), heightOf)
     causal = { key, places }
     return places
   } finally {

@@ -144,10 +144,13 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   }
   const whole = frameFor(full.nodes, pane, free)
   if (whole === null || whole.zoom >= READABLE_WHOLE_ZOOM) return whole
-  // A large model overflows at reading size. Keep the framing question and aims in view; pan for the rest.
-  const opening: Node[] = []
-  for (const n of full.nodes) if (n.id === QUESTION || ['goal', 'limit'].includes((n.data.card as { family?: string } | undefined)?.family ?? '')) opening.push(n)
-  return atZoom(opening.length > 0 ? opening : full.nodes, pane, free, 1, full.nodes)
+  // THE WHOLE MODEL AT FIRST OPEN (Paul's standing ruling, 10 Nov; DL-support 15 Nov): a model that does not fit at reading size is framed
+  // whole in the free canvas left of the side panel, never opened at full size with the rest panned to under the panel. Zoomed out, each
+  // card draws its reduced face; the frame is worked out from the faces that zoom draws (FACE_RANGE), so the heights it rests on are the
+  // ones on screen. Until that face has been drawn and measured, the full faces' frame stands, and the settle loop frames again.
+  const regime = faceRegimeOf(whole.zoom), drawn = snaps[regime]
+  if (drawn === undefined) return whole
+  return frameFor(drawn.nodes, pane, free, FACE_RANGE[regime][1]) ?? whole
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
