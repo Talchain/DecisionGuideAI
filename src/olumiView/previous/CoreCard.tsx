@@ -22,6 +22,7 @@ import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } fro
 import { failedOf, failedReasonOf } from '../k5'
 import { clearWhatIf } from '../whatif'
 import { ChanceBand, RestsShareFill } from '../ResultBand'
+import { ChanceRail } from '../ChanceRail'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge, ViewValuesBand } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
@@ -336,7 +337,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
-      {card === null ? <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}</div> : (
+      {card === null ? <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div> : (
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {faceOf()}
