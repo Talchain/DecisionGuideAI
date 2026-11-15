@@ -61,7 +61,9 @@ describe('the person\'s own camera controls on the real canvas', () => {
   })
   it('CH2 catch: "N more cards below" counts as the person\'s move (movedAt rises by one) and stamps the activity as no drag', async () => {
     const model = currentModel({ view: golden, error: null, stale: false })!
-    const places = await causalPlaces(model, new Map())
+    // A board too tall to show whole even at the lane's floor zoom (each row 12 times as far down), so cards stand below the window's foot
+    // after the opening frame: the whole model at first open (15 Nov) leaves none below on the golden board as laid out.
+    const places = new Map([...(await causalPlaces(model, new Map()))].map(([id, p]) => [id, { ...p, y: p.y * 12 }]))
     act(() => { drawViewCanvas(model, places) })
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-15T01:00:00Z'))
     mount()
