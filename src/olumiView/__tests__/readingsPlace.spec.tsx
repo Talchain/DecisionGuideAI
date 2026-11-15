@@ -118,6 +118,9 @@ describe('PL-1083 (1), old look, under Contract 3: where the thread rests while 
     openRow()
     // Before this change the rest rule ran from the reply's first line (1984) and moved the thread to the range's low (2424), not leaving them where they read.
     expect(thread().scrollTop).toBe(3719)
+    // CATCH (Codex 15 Nov): and on the NEXT rest too (the content grows again), never back up to the reply's first line (1984).
+    expect(resized(thread().firstElementChild!)).toBeGreaterThan(0)
+    expect(thread().scrollTop).toBe(3719)
   })
   it('CONTRAST: a proposal with no reading rests where it did before (the readings rule moves nothing)', () => {
     show([PLAIN])

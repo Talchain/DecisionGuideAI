@@ -343,6 +343,9 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     open(read); grow()
     // CATCH: the old product put the thread at 684, clamped to the thread's end (670), up to nothing the reader asked for.
     expect(read.scrollTop).toBe(600)
+    // CATCH (Codex 15 Nov): on the next rest as well (the thread grows again), they stay where they scrolled.
+    grow()
+    expect(read.scrollTop).toBe(600)
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
