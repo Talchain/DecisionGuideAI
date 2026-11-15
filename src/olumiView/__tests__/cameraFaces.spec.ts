@@ -68,15 +68,24 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     const order: Record<FaceRegime, number> = { full: 0, body: 1, line: 2 }
     let snaps: Partial<Record<FaceRegime, FaceSnap>> = {}, zoom = 1, v: Viewport | null = null
     const faces: FaceRegime[] = [], loop = { fitted: '', fits: 0 }
+    // As on the page: right after a measuring hop the cards have not redrawn yet, so the FIRST settle sees the previous face's board,
+    // unchanged; only the next shows the new face. The loop must frame again through that unchanged board (Codex 02:2xZ, item 4).
+    let shown: FaceRegime = 'full', hopped = false, framedThroughUnchanged = 0
     for (let i = 0; i < 12; i += 1) {
-      const drawn = nodesOf(boxes[faceRegimeOf(zoom)])
+      const stale = hopped
+      if (!stale) shown = faceRegimeOf(zoom)
+      hopped = false
+      const drawn = nodesOf(boxes[shown])
       const going = settleTick(loop, settledBoardKey(drawn), drawn.length, () => {
         const st = frameStep(snaps, drawn, zoom, pane, FREE_1128)
         snaps = st.snaps; v = st.v; zoom = v!.zoom; faces.push(faceRegimeOf(zoom))
+        hopped = st.measuring
         return st.measuring
       })
+      if (going && stale) framedThroughUnchanged += 1
       if (!going) break
     }
+    expect(framedThroughUnchanged, 'after a hop, an unchanged board did not stop the loop').toBeGreaterThan(0)
     expect(faces.length, 'it framed').toBeGreaterThan(0)
     for (let i = 1; i < faces.length; i += 1) expect(order[faces[i]!] >= order[faces[i - 1]!], `down only: ${faces.join(' → ')}`).toBe(true)
     const last = faceRegimeOf(v!.zoom)
