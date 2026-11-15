@@ -25,7 +25,7 @@ const PLAIN: Mark = { what: 'Budget', status: 'not yet confirmed', title: 'A fig
 // The stubbed layout. Rows are given in the box's scroll coordinates; on screen they sit at the box's top + y - scrollTop.
 const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, SHORT_ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
 // `panelMax`: the most the dock's column can give the box (the thread squeezed to nothing).
-let footH = 116, panelMax = 620, ROWS = SHORT_ROWS
+let footH = 116, panelMax = 620, ROWS = SHORT_ROWS, rowH = 0
 const boxOf = () => document.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')
 const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : Math.min(parseFloat(b.style.maxHeight), panelMax))
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
@@ -44,13 +44,14 @@ const show = (marks: Mark[], open = true) => {
   return r
 }
 beforeEach(() => {
-  footH = 116; panelMax = 620; ROWS = SHORT_ROWS; observers = []
+  footH = 116; panelMax = 620; ROWS = SHORT_ROWS; rowH = 0; observers = []
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
     const id = this.getAttribute('data-testid') ?? '', b = boxOf()
     if (id === 'view-chat-pinned') return rect(BOX_TOP, boxH(this))
     if (id === 'view-proposal-actions') return rect(0, footH)
+    if (id === 'view-proposal-row') return rect(BOX_TOP, rowH) // the review's sticky row, held at the box's top
     if (ROWS[id] !== undefined && b !== null) return rect(BOX_TOP + ROWS[id]![0] - b.scrollTop, ROWS[id]![1])
     return rect(0, 0)
   }
@@ -188,6 +189,23 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(wholeRow('view-reading-0')).toBe(true)
     expect(wholeRow('view-reading-1')).toBe(false)
     expect(b.scrollTop).toBe(652 + 8 + 116 - 503) // the first row's foot just clear of the actions
+  })
+})
+
+describe('contract 3 on the redesign (Codex 15 Nov): the review\'s sticky row holds the box\'s top', () => {
+  it('CATCH: the rows rest whole BETWEEN the row\'s foot and the actions\' top, the box grown by the row\'s height too', () => {
+    rowH = 44
+    show(held)
+    const b = boxOf()!, row = screen.getByTestId('view-proposal-row')
+    // Needed: rows 300..572 with 8 px either side (288), the actions (116) and the row (44) = 448 px of inner height; the box gives 348.
+    expect(b.style.maxHeight).toBe('450px')
+    expect(b.scrollTop).toBe(248) // the first row 8 px under the row's foot; ignoring the row: 292, the first row 8 px under the box's top, behind it
+    const rowFoot = row.getBoundingClientRect().bottom, actionsTop = BOX_TOP + boxH(b) - footH
+    for (const [id, [y, h]] of Object.entries(ROWS)) {
+      const on = BOX_TOP + y - b.scrollTop
+      expect(on, `${id} below the row`).toBeGreaterThanOrEqual(rowFoot)
+      expect(on + h, `${id} above the actions`).toBeLessThanOrEqual(actionsTop)
+    }
   })
 })
 

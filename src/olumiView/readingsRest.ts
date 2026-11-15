@@ -14,12 +14,17 @@
  */
 export type ReadingsRange = { readonly low: number; readonly high: number; readonly rows: number; readonly short: number }
 
-export function readingsRest(box: HTMLElement, root: HTMLElement, foot: HTMLElement, gap = 8): ReadingsRange | null {
+/**
+ * `head` (contract 3, Codex 15 Nov on the redesign): a block held at the box's TOP while it scrolls (the one-row review's sticky row). The
+ * rows rest below it as they rest above the actions: the box's own view runs from the head's foot to the actions' top.
+ */
+export function readingsRest(box: HTMLElement, root: HTMLElement, foot: HTMLElement, gap = 8, head: HTMLElement | null = null): ReadingsRange | null {
   const rows = Array.from(root.querySelectorAll<HTMLElement>('[data-reading-row]'))
   if (rows.length === 0) return null
   const origin = box.getBoundingClientRect().top + box.clientTop - box.scrollTop
   const room = box.clientHeight - foot.getBoundingClientRect().height
-  const top = rows[0]!.getBoundingClientRect().top - origin
+  const held = head === null ? 0 : head.getBoundingClientRect().height
+  const top = rows[0]!.getBoundingClientRect().top - origin - held
   const bottoms = rows.map((r) => r.getBoundingClientRect().bottom - origin)
   const short = bottoms[bottoms.length - 1]! + gap - room - (top - gap)
   for (let k = rows.length; k >= 1; k--) {

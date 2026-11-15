@@ -447,10 +447,13 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
       // cannot give that much it shrinks rather than run past the composer, and as many leading rows as fit are shown whole. Measured
       // afresh each time from the stylesheet's own cap, so the box is never left taller than the rows now need.
       box.style.maxHeight = ''
-      const first = readingsRest(box, el, foot)
+      // Contract 3 (Codex 15 Nov on the redesign): the review's row stays at the box's top as its header (sticky, olumiLook.css); the rows
+      // rest below it, never behind it.
+      const head = box.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')
+      const first = readingsRest(box, el, foot, 8, head)
       if (first === null) return
       if (first.short > 0) box.style.maxHeight = `${Math.ceil(box.getBoundingClientRect().height + first.short)}px`
-      const range = readingsRest(box, el, foot)
+      const range = readingsRest(box, el, foot, 8, head)
       if (range === null) return
       const to = restTop(box.scrollTop, range, box.scrollHeight - box.clientHeight)
       if (to !== box.scrollTop) box.scrollTop = to
