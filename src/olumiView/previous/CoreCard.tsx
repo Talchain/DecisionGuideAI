@@ -221,7 +221,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'} ${aimTarget === null ? '' : 'relative'}`} data-core-lead={id}
               title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x, i, all) => x != null && x !== '' && all.indexOf(x) === i).join(' · ') || undefined}>
               {/* Conditions and names remain whole on the reading face. */}
-              {aimTarget === null ? <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>
+              {/* Contract 3: a withheld chance leads with core's reason, which can run to a paragraph; as in the new look's pill it is held to
+                  three lines on the card (the whole sentence is the lead's hover, above), so one reason does not make the board tall. */}
+              {aimTarget === null ? <span className={`block break-words ${card.family === 'option' && card.headline?.state === 'none' ? 'line-clamp-3' : ''}`} data-core-lead-clamp={id}>{lead}</span>
                 // DL 06:57Z (1): the aim's question (core's bound) opens its target figure's own editor, found by core's `target` line.
                 : <FigureEdit id={aimTarget.id} edit={aimTarget.figure!.edit ?? null} place="view-aim" opener={<span className="block break-words" data-core-lead-clamp={id}>{lead}</span>} />}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}

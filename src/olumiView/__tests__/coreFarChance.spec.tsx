@@ -78,8 +78,17 @@ describe('the far face draws a chance whole (DL-424)', () => {
       const { card, c } = far('cut_monthly_spending_to_stretch_the_runway', h, 'full')
       const lead = c.querySelector<HTMLElement>(`[data-core-lead="${card.id}"]`)!
       expect(lead.getAttribute('title'), JSON.stringify(h)).toBe(card.headline!.title)
+      // Held to three lines on the card (its whole sentence is the hover above). CATCH: before, the reason would have run whole down the card.
+      expect(lead.querySelector(`[data-core-lead-clamp="${card.id}"]`)!.classList.contains('line-clamp-3'), JSON.stringify(h)).toBe(true)
       cleanup()
     }
+  })
+
+  it('CONTRAST: a served chance\'s lead is not clamped', () => {
+    const { card, c } = far('keep_sending_cold_emails_and_seeking_warm_connections', undefined, 'full')
+    const clamp = c.querySelector(`[data-core-lead="${card.id}"] [data-core-lead-clamp="${card.id}"]`)
+    expect(clamp, 'precondition: the reading face draws the lead').not.toBeNull()
+    expect(clamp!.classList.contains('line-clamp-3')).toBe(false)
   })
 
   // CONTRAST: a chance that IS served (state 'chance') keeps core's chance words whole even though core also sends a title.
