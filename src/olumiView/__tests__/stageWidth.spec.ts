@@ -11,10 +11,11 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
-import { currentModel } from '../store'
-import { CARD_WIDTH, QUESTION, aimsOf, causalPlaces, headLines, perRowOf, rowsInRoom } from '../layout'
+import { CARD_WIDTH, QUESTION, aimsOf, causalPlaces, drawnModelOf, headLines, perRowOf, rowsInRoom } from '../layout'
 
 const core = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-652ef452', `${n}.view3.json`), 'utf8'))
+/** The model the canvas draws (canvas.ts useViewCanvas: drawnModelOf(view.model)), a proposal waiting or not (Codex layout read 15 Nov, blocking 1). */
+const drawn = (n: string) => drawnModelOf(core(n).model!)
 /** The free canvas at Paul's two narrower sizes, as the gallery measured it (pane less the left tools and the side panel), at full size. */
 const ROOM_1232 = 821, ROOM_1500 = 1070
 
@@ -47,7 +48,7 @@ describe('core 652ef452\'s own Views, laid out for the stage', () => {
   for (const roomW of [ROOM_1232, ROOM_1500]) {
     it(`catch at ${roomW}: on every View, every card and the question stand inside the free canvas (none under the side panel)`, async () => {
       for (const n of NAMES) {
-        const model = currentModel({ view: core(n), error: null, stale: false })!
+        const model = drawn(n)
         const places = await causalPlaces(model, new Map(), { roomW })
         const ids = [QUESTION, ...model.cards.map((c) => c.id)]
         expect(ids.every((id) => places.has(id)), n).toBe(true)
@@ -58,14 +59,24 @@ describe('core 652ef452\'s own Views, laid out for the stage', () => {
   it('contrast: without the room (the layout before this change), the same Views run past the 1232 stage', async () => {
     let past = 0
     for (const n of NAMES) {
-      const model = currentModel({ view: core(n), error: null, stale: false })!
+      const model = drawn(n)
       const places = await causalPlaces(model, new Map())
       past += outside(places, [QUESTION, ...model.cards.map((c) => c.id)], ROOM_1232, (id) => (id === QUESTION ? 272 : CARD_WIDTH)).length
     }
     expect(past).toBeGreaterThan(0)
   })
+  it('the measured question (272 wide) and a taller aim: the head line holds exactly what fits, and the options start below its tallest card', async () => {
+    const model = drawn('app-launch'), aims = aimsOf(model)
+    expect(aims.length, 'precondition: three aims').toBeGreaterThanOrEqual(2)
+    const size = new Map([[QUESTION, { width: 272, height: 120 }], [aims[0]!, { width: CARD_WIDTH, height: 300 }]])
+    // 272 + 16 + 248 + 16 + 248 = 800: the question and two aims fit a room of exactly 800 on one line, and not a room of 799.
+    const at800 = await causalPlaces(model, size, { roomW: 800 }), at799 = await causalPlaces(model, size, { roomW: 799 })
+    expect([at800.get(aims[0]!)!.y, at800.get(aims[1]!)!.y]).toEqual([0, 0])
+    expect(at799.get(aims[1]!)!.y).toBeGreaterThan(0)
+    for (const c of model.cards) if (c.family === 'option') expect(at800.get(c.id)!.y, c.id).toBeGreaterThanOrEqual(300 + 48)
+  })
   it('must not change: the question first at the top left, the aims after it in the View\'s order, and the options below the head', async () => {
-    const model = currentModel({ view: core('app-launch'), error: null, stale: false })!
+    const model = drawn('app-launch')
     const places = await causalPlaces(model, new Map(), { roomW: ROOM_1232 })
     expect(places.get(QUESTION)).toEqual({ x: 0, y: 0 })
     const aims = aimsOf(model), headFoot = Math.max(...[QUESTION, ...aims].map((id) => places.get(id)!.y))
