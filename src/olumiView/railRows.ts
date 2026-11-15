@@ -34,16 +34,15 @@ const rowAt = (card: ViewCard): number | null => {
 
 export function chanceRailOf(model: ViewModel | null): ChanceRailT | null {
   if (model === null) return null
-  const options = model.cards.filter((c) => c.family === 'option' && c.headline != null)
   const rows: RailRow[] = [], rest: RailRest[] = []
-  for (const c of options) {
-    const h = c.headline!, at = rowAt(c)
+  for (const c of model.cards) {
+    if (c.family !== 'option' || c.headline == null) continue
+    const h = c.headline, at = rowAt(c)
     if (at !== null) rows.push({ id: c.id, name: c.heading, text: h.text, title: h.title, range: h.range ?? null, at, band: h.state === 'chance' ? rangeBandOf(h.range) : null, challenge: challengeOf(model, c) })
     else rest.push({ id: c.id, name: c.heading, text: h.text, title: h.title, challenge: challengeOf(model, c) })
   }
   if (rows.length === 0 && rest.length === 0) return null
-  // Highest saved chance first; equal chances keep core's order.
-  rows.sort((a, b) => b.at - a.at)
+  // In the View's own order (the pairing gate: the UI never reorders View values; an order by chance would be core's to serve).
   const words = new Set(rest.map((r) => r.text))
   const caption = rest.length > 0 && words.size === 1 && rest[0]!.text !== '' ? rest[0]!.text : null
   return { rows, rest, caption }

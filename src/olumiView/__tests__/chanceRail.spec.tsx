@@ -1,6 +1,6 @@
 /**
  * UI-BRIEF-20261115 section 3: every option with a worked-out result on ONE shared 0..100% rail (its dot at core's served chance row, core's
- * range sentence as its whisker), highest first; the options with no result yet in one group with no rail, under core's own words; core's
+ * range sentence as its whisker), in the View's order; the options with no result yet in one group with no rail, under core's own words; core's
  * badge kept where it names a challenge. Bound by option id on the run-2 funding View (live, approved): one chance (0.1842, range "under 1%
  * … about 51%"), one fixed result (row 0, "never met in this model"), three with "No chance yet".
  */
@@ -30,11 +30,11 @@ const drawQuestion = (view: View): HTMLElement => {
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('the shared chance rail', () => {
-  it('R1 the rail holds the worked-out options, highest saved chance first, each at its served row and core\'s range; the rest are grouped under core\'s words', () => {
+  it('R1 the rail holds the worked-out options, in the View\'s own order, each at its served row and core\'s range; the rest are grouped under core\'s words', () => {
     const rail = chanceRailOf(RUN2.model)!
     expect(rail.rows.map((r) => [r.id, r.at, r.text, r.band === null ? null : [r.band.from, r.band.to]])).toEqual([
-      [SEEK, 0.1842, 'about 18% chance', [0, 51]],
       [KEEP, 0, 'never met in this model', null],
+      [SEEK, 0.1842, 'about 18% chance', [0, 51]],
     ])
     expect(rail.rest.map((r) => r.id)).toEqual([ANGEL, WIDEN, CUT])
     expect(rail.caption).toBe('No chance yet')
@@ -50,7 +50,7 @@ describe('the shared chance rail', () => {
     const tracks = rail.querySelectorAll('[data-chance-rail-track]')
     expect(tracks.length).toBe(1)
     const track = tracks[0]!
-    expect([...track.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[SEEK, '18.42%'], [KEEP, '0%']])
+    expect([...track.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
     expect([...track.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
     expect([...track.querySelectorAll<HTMLElement>('.ok-rail-tick')].map((t) => t.style.left)).toEqual(['25%', '50%', '75%'])
     expect(track.getAttribute('aria-label')).toContain(RUN2.model!.cards.find((c) => c.id === SEEK)!.headline!.range!)
