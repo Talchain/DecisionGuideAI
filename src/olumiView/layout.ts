@@ -11,7 +11,7 @@ import { nonEmpty, type TippingLine } from './tipping'
 import { COMPARED_KINDS, comparedHeadingOf, groupOf, type ComparedGroup, type ComparedLine } from './compared'
 import { layoutGraph, solveLayoutCardWidths } from '../canvas/utils/layout'
 import { packRows } from '../canvas/utils/packRows'
-import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 
@@ -163,11 +163,16 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * canvas/utils/layout.ts): one layered causal layout. For the downward opening, the question and aims share a row above it, aligned
  * with the first option. `size` is each card as the canvas measured it (else core's height). Positions only: no word of core's is changed.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; /** The free canvas's width at full size (canvas.ts roomOf), 0 where unknown. */ roomW?: number } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
-  const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false })
+  // THE STAGE'S WIDTH (old look, DL-support 15 Nov 00:40Z: "third and fourth options behind the side panel"; DL-support 14 Nov 17:59Z
+  // default "one stage layout"). Every row wraps at the count of the old look's cards that stand across the free canvas, never past the
+  // previous layout's own cap; the card keeps its width. Where the room is unknown (0), the previous layout's rule stands unchanged.
+  const roomW = options.roomW ?? 0
+  const maxPerRow = roomW > 0 ? Math.min(MAX_CARDS_PER_ROW, perRowOf(roomW)) : MAX_CARDS_PER_ROW
+  const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   const packed = direction === 'DOWN' || direction === 'UP' ? packRows(places, QUESTION, W, ROW_GAP_X) : places
   if (direction !== 'DOWN') return packed
@@ -176,15 +181,50 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   if (aims.length === 0) return packed
   const at = (id: string) => nodes.find((n) => n.id === id)!.measured!
   const head = new Set([QUESTION, ...aims]), rest = [...packed].filter(([id]) => !head.has(id))
-  const headHeight = Math.max(...[...head].map((id) => at(id).height ?? 0))
+  // The question and the aims across the top, in the View's order: a line holds what fits the stage, the next starts under it at the left.
+  const widthOf = (id: string) => at(id).width ?? (id === QUESTION ? QUESTION_FLANKED_W : W)
+  let headHeight = 0
+  for (const line of headLines([QUESTION, ...aims], widthOf, roomW)) {
+    let x = 0, tall = 0
+    for (const id of line) { packed.set(id, { x, y: headHeight }); x += widthOf(id) + HEAD_GAP; tall = Math.max(tall, at(id).height ?? 0) }
+    headHeight += tall + HEAD_GAP
+  }
+  headHeight -= HEAD_GAP
   const first = Math.min(...rest.map(([, p]) => p.y))
   const optionXs = model.cards.filter((c) => c.family === 'option').flatMap((c) => { const p = packed.get(c.id); return p ? [p.x] : [] })
   const left = optionXs.length > 0 ? Math.min(...optionXs) : 0
   for (const [id, p] of rest) packed.set(id, { x: p.x - left, y: p.y - first + headHeight + ROW_GAP_X })
-  packed.set(QUESTION, { x: 0, y: 0 })
-  let x = (at(QUESTION).width ?? QUESTION_FLANKED_W) + HEAD_GAP
-  for (const id of aims) { packed.set(id, { x, y: 0 }); x += (at(id).width ?? W) + HEAD_GAP }
+  if (roomW > 0) rowsInRoom(packed, rest.map(([id]) => id), roomW)
   return packed
+}
+/** How many of the old look's cards stand across `roomW` (flow units at full size), a row gap apart; at least one. */
+export const perRowOf = (roomW: number): number => Math.max(1, Math.floor((roomW + ROW_GAP_X) / (W + ROW_GAP_X)))
+/** The head's lines: the ids in their order, a new line wherever the next would pass `roomW` (one line where the room is unknown, 0). */
+export function headLines(ids: readonly string[], widthOf: (id: string) => number, roomW: number): string[][] {
+  const lines: string[][] = []
+  let line: string[] = [], x = 0
+  for (const id of ids) {
+    const w = widthOf(id)
+    if (roomW > 0 && line.length > 0 && x + w > roomW) { lines.push(line); line = []; x = 0 }
+    line.push(id); x += w + HEAD_GAP
+  }
+  if (line.length > 0) lines.push(line)
+  return lines
+}
+/**
+ * Each row of the board below the head (the cards at one height) is moved across, as a whole and only as far as it must, so that it stands
+ * inside [0, roomW]: rows were each closed up about their own centre, so a row could run past the stage's right edge (under the side
+ * panel) or left of the options. A row wider than the room (one card wider than the stage) starts at the left edge. Order is kept.
+ */
+export function rowsInRoom(packed: Map<string, { x: number; y: number }>, ids: readonly string[], roomW: number): void {
+  const rows = new Map<number, string[]>()
+  for (const id of ids) { const p = packed.get(id); if (p !== undefined) rows.set(p.y, [...(rows.get(p.y) ?? []), id]) }
+  for (const row of rows.values()) {
+    let lo = Infinity, hi = -Infinity
+    for (const id of row) { const p = packed.get(id)!; lo = Math.min(lo, p.x); hi = Math.max(hi, p.x + W) }
+    const shift = hi - lo > roomW || lo < 0 ? -lo : hi > roomW ? roomW - hi : 0
+    if (shift !== 0) for (const id of row) { const p = packed.get(id)!; packed.set(id, { x: p.x + shift, y: p.y }) }
+  }
 }
 /** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
 export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
