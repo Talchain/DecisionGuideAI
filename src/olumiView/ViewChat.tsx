@@ -240,10 +240,12 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   return (
-    <li data-testid="view-floor-turn" data-latest-floor={latest ? '' : undefined} data-floor-job={f.job} className="space-y-2">
+    <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
       {other && f.by !== '' ? <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-by">{f.by}</p> : null}
       <div className={styles.messageBubbleUser} data-testid="view-floor-said-bubble"><p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p></div>
-      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-floor-reply"><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
+      {/* Contract 3 (as the new look, Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the
+          reply's first line, never on a long brief drawn above it in the same exchange. */}
+      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
     </li>
   )
 }
@@ -1219,7 +1221,10 @@ export function ViewChat() {
     if (el === null) return
     if (!follows.current) { setAway(true); return }
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    // Contract 3 (as the new look, Codex 15 Nov): the newest REPLY's first line, never the person's message drawn above it in the same turn:
+    // the answer first, the early reply only where there is no answer yet (one query each; a comma list would take DOM order).
+    const latest = el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-early"]') ?? latest
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the

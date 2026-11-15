@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import path from 'node:path'
-import { cleanup, render, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
@@ -80,6 +80,12 @@ describe('the far face draws a chance whole (DL-424)', () => {
       expect(lead.getAttribute('title'), JSON.stringify(h)).toBe(card.headline!.title)
       // Held to three lines on the card (its whole sentence is the hover above). CATCH: before, the reason would have run whole down the card.
       expect(lead.querySelector(`[data-core-lead-clamp="${card.id}"]`)!.classList.contains('line-clamp-3'), JSON.stringify(h)).toBe(true)
+      // CATCH (as the new look, held 329): pressed, the reason opens whole in place, and closes again.
+      const open = c.querySelector<HTMLButtonElement>(`[data-testid="${card.id}-withheld-words"]`)!
+      fireEvent.click(open)
+      expect([open.getAttribute('aria-expanded'), lead.querySelector(`[data-core-lead-clamp="${card.id}"]`)!.classList.contains('line-clamp-3')], JSON.stringify(h)).toEqual(['true', false])
+      fireEvent.click(open)
+      expect(lead.querySelector(`[data-core-lead-clamp="${card.id}"]`)!.classList.contains('line-clamp-3')).toBe(true)
       cleanup()
     }
   })

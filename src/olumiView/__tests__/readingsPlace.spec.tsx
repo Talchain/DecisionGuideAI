@@ -7,7 +7,7 @@
  * Contract 3 (15 Nov) supersedes this as an AT-REST rule: Olumi's waiting proposal is ONE row (a <details data-testid="view-next-step">, closed at
  * rest), and the readings rule applies only while that row is OPEN; and the thread never rests past the newest reply's first line
  * (top = min(top, newest.offsetTop - 16)). jsdom has no layout, so the newest reply's offsetTop is stubbed (NEWEST); the golden proposal View's
- * newest chat turn is `view-chat-latest`. The reply sits ABOVE the proposal's readings on the page, so there the cap decides and the rule can
+ * newest reply is the answer in `view-chat-latest` (the thread rests on its first line). The reply sits ABOVE the proposal's readings on the page, so there the cap decides and the rule can
  * only bring the thread back UP to the first row (its `high`); a layout whose reply starts below the readings (NEWEST 3000) is the one where
  * the rule, not the cap, decides, and the rows bind it there.
  */
@@ -49,7 +49,8 @@ const show = (marks: Mark[]) => {
 }
 beforeEach(() => {
   ROWS = SHORT_ROWS; H = 473; NEWEST = null; observers = []
-  vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.getAttribute('data-testid') === 'view-chat-latest' && NEWEST !== null ? NEWEST : 0 })
+  // The newest reply is the newest turn's answer (contract 3: the thread rests on the reply's first line, not the turn's top).
+  vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return NEWEST !== null && this.getAttribute('data-testid') === 'view-chat-answer' && this.closest('[data-testid="view-chat-latest"]') !== null ? NEWEST : 0 })
   globalThis.ResizeObserver = class { private o: { fire: (e: Element) => void; seen: Element[] }; constructor(cb: ResizeObserverCallback) { this.o = { fire: (e) => cb([{ target: e } as ResizeObserverEntry], this as unknown as ResizeObserver), seen: [] }; observers.push(this.o) } observe(e: Element) { this.o.seen.push(e) } unobserve() {} disconnect() { this.o.seen = [] } } as unknown as typeof ResizeObserver
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)

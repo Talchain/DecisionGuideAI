@@ -250,6 +250,54 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(550)
   })
 
+  it('CT8r CATCH (contract 3, Codex 15 Nov): the thread rests on the newest REPLY\'s first line, not on the person\'s message drawn above it in the same turn', () => {
+    const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
+    // The newest turn: the person's message from 600, Olumi's reply below it from 900 (a tall message).
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-chat-answer' ? 900 : this.dataset.testid === 'view-chat-latest' ? 600 : 0 })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    act(() => show(bare))
+    expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
+    expect(scroll.scrollTop).toBe(884) // 900 - 16; before: the turn's own top, 600 - 16 = 584, with the reply below the clipped thread
+  })
+
+  it('CT8s CATCH (Codex 15 Nov, round 2): where the early reply and the answer are both drawn, the thread rests on the ANSWER\'s first line', () => {
+    let resize: ResizeObserverCallback = () => undefined
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: ResizeObserverCallback) { resize = cb } observe = vi.fn(); disconnect = vi.fn() })
+    const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-chat-answer' ? 1000 : this.dataset.testid === 'view-chat-early' ? 700 : this.dataset.testid === 'view-chat-latest' ? 600 : 0 })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    const latest = () => getByTestId('view-chat-latest')
+    act(() => show(bare))
+    // An early reply drawn above the answer in the newest turn, as ViewChat draws one (the DOM order the old comma query took first).
+    const early = document.createElement('div'); early.dataset.testid = 'view-chat-early'
+    latest().insertBefore(early, latest().querySelector('[data-testid="view-chat-answer"]'))
+    act(() => resize([], {} as ResizeObserver)) // the thread's content grew: the browser reports it, the thread rests again
+    expect(scroll.scrollTop).toBe(984) // 1000 - 16; the comma query took the early reply: 700 - 16 = 684
+  })
+
+  it('CT8f CATCH (contract 3, Codex 15 Nov): a long brief before Olumi\'s first reply: the thread rests on the REPLY\'s first line, and the floor marker is the reply container', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.testid === 'view-floor-reply' ? 900 : this.dataset.testid === 'view-floor-turn' ? 600 : 0
+    })
+    show(fixture)
+    const { getByTestId, container } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600 }, clientHeight: { value: 200 } })
+    const brief = 'A long brief. '.repeat(60).trim()
+    const floor = [{ job: 101, at: '2026-11-14T08:00:00Z', by: 'Alex', by_id: '101', said: brief, text: 'Here is a first reading of your situation.' }]
+    act(() => show({ ...fixture, floor } as unknown as View))
+    const marker = container.querySelector<HTMLElement>('[data-latest-floor]')!
+    expect(marker.getAttribute('data-testid')).toBe('view-floor-reply')
+    expect(marker.textContent).not.toContain('A long brief')
+    expect(scroll.scrollTop).toBe(884) // 900 - 16; with the marker on the whole exchange it rested on the brief: 600 - 16 = 584
+  })
+
   it('CT8b (contract 3, 15 Nov; supersedes DL-183): Olumi\'s waiting proposal is ONE closed row in core\'s words, and at rest the thread stays on the newest reply\'s first line, not brought down to the card', () => {
     // The step alone: the question above it is CT8c's.
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
