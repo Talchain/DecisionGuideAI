@@ -23,5 +23,6 @@ export function isSavedView(doc: unknown): doc is SavedView {
 /** The scenario's address on the real page (src/olumiCore/team/sid.ts `derivedUuidOf`, repeated here so no app module loads before the isolation). */
 export const frameHashOf = (view: SavedView, key: string): string => `#/scenario/00000000-0000-4000-8000-${view.id.slice(2)}?gf=${encodeURIComponent(key)}`
 
-/** The three sizes Paul reads at: wide, his usual window, and the layout of his 1.33 scale (2000x1200 at 133%; the scale itself is not reproduced). */
-export const SIZES: readonly (readonly [number, number])[] = [[2000, 1200], [1232, 704], [1500, 904]]
+/** The three sizes Paul reads at (.ux-profile.md): wide, his usual window, and his own window, which is 1500x904 at device scale 1.33. A frame
+ *  has that layout; the scale itself is the browser's, so a picture at his scale is taken by opening the frame alone at that scale. */
+export const SIZES: readonly (readonly [number, number])[] = [[2000, 1205], [1232, 704], [1500, 904]]
