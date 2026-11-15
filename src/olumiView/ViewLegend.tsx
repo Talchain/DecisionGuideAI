@@ -11,6 +11,13 @@ type Props = { open: boolean; onOpenChange: (open: boolean) => void }
 
 export function ViewLegend({ open, onOpenChange }: Props) {
   const key = useViewStore((s) => s.view?.model?.key ?? null)
+  // The chance rail's band (CoreCard ChanceRail, UI-BRIEF-20261115 §3), in core's own line on what every driver low/high is, said once here
+  // where the board's marks are read; only when some option card draws a band.
+  const sensitivity = useViewStore((s) => {
+    const m = s.view?.model ?? null
+    const banded = (m?.cards ?? []).some((c) => c.family === 'option' && c.rows.some((r) => r.kind === 'chance' && (r as { driver?: unknown }).driver != null))
+    return banded ? m?.run?.sensitivity ?? null : null
+  })
   const wrap = useRef<HTMLDivElement>(null)
   // Escape or a press outside closes it, as the legacy key does.
   useEffect(() => {
@@ -34,6 +41,12 @@ export function ViewLegend({ open, onOpenChange }: Props) {
             </li>
           ))}
         </ul>
+        {sensitivity === null ? null : (
+          <p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap-1.5`} title={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
+            <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(130,120,187,0.55)] bg-[rgba(130,120,187,0.18)]" />
+            <span>{sensitivity.text}</span>
+          </p>
+        )}
       </div>
     </div>
   )
