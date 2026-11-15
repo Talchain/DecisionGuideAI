@@ -458,11 +458,13 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
     land()
     // Codex 13:33Z (2), 14:3xZ: every block of the step and of the proposal is watched (the rows, the actions, and what stands above,
     // between and below them: the step's words, the heading, the note, the list of changes), so whichever of them changes size, the rows
-    // are placed again. The two wrappers are `display: contents` (olumiLook.css), so these blocks are the box's own layout.
+    // are placed again. The two wrappers are `display: contents` (olumiLook.css), so these blocks are the box's own layout. Contract 3: the
+    // one-row review's wrapper and its open body are `display: contents` too, so its own blocks (the row with the heading, the step's words)
+    // are watched by themselves; a wrapper with no box of its own reports no size.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(land)
     if (observer !== null) {
       observer.observe(box)
-      for (const part of Array.from(box.querySelectorAll('[data-testid="view-next-step"] > *, [data-testid="view-chat-proposal"] > *'))) observer.observe(part)
+      for (const part of Array.from(box.querySelectorAll('[data-testid="view-next-step"] > *, [data-testid="view-chat-proposal"] > *, [data-testid="view-proposal-review"] > *, [data-review-body] > *'))) observer.observe(part)
     }
     return () => { observer?.disconnect(); box.style.maxHeight = '' }
   }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
