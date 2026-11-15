@@ -2,8 +2,8 @@
  * The option card's range caption and rests-on label add lines to a card (the track itself adds none: resultRange.spec H1). Adding height has
  * broken the opening zoom before (the 31 px foot), so this pins the opening frame at Paul's 1232 x 704 (dock from x 869, top bar to y 68:
  * camera.spec.ts's derived insets) on SERVED boards (fixtures/real and the goldens, laid out by the lane's own layout from each card's served height) with every
- * option card taller by 0, 32 and the worst case DERIVED from the longest served caption and rests line (worstExtra below): each is held to two lines
- * (ResultBand.tsx: line-clamp-2 on both), so the bound is two lines of each plus the label's bar and gaps. jsdom cannot measure the real heights, so
+ * option card taller by 0, 32 and by ITS OWN served caption and rests line, drawn whole (DL 15 Nov polish: no sentence is cut on a card face, so
+ * each card grows by its own wrapped lines; extraOf below), plus the label's bar and gaps. jsdom cannot measure the real heights, so
  * the pixel amount is a stated bound (LINE_PX per line, GLYPH_PX per character), not a measurement. Bound by option id: each option must be wholly in the free canvas, clear of
  * the dock on the right, as it is today.
  */
@@ -26,7 +26,7 @@ const boards = [...readdirSync(dir).filter((f) => f.endsWith('.view3.json')).map
 /** Stated bounds (jsdom cannot measure): one line of the card's 11.5 px text, one character of it, the card's side padding, and the label's bar, gaps and margins. */
 const LINE_PX = 16, GLYPH_PX = 6, PAD_PX = 24, FIXED_PX = 8
 const perLine = Math.floor((CARD_WIDTH - PAD_PX) / GLYPH_PX)
-const clamped = (text: string | null | undefined): number => (text == null || text.trim() === '' ? 0 : Math.min(2, Math.ceil(text.trim().length / perLine)))
+const clamped = (text: string | null | undefined): number => (text == null || text.trim() === '' ? 0 : Math.ceil(text.trim().length / perLine)) // whole: every wrapped line
 /** Per option card with a chance: its served caption and its served rests line (the goal entry for the option and its headline aim), as lines on the card. */
 const extraOf = (v: View, c: NonNullable<View['model']>['cards'][number]): number => {
   const rest = v.model!.run?.rests.find((r) => r.kind === 'goal' && r.option === c.id && r.aim === c.headline?.aim_id)
@@ -37,9 +37,9 @@ const served = boards.flatMap(([, v]) => v.model!.cards.filter((c) => c.family =
 const worstExtra = Math.max(...served.map(({ v, c }) => extraOf(v, c)))
 const longestLine = Math.max(...boards.flatMap(([, v]) => (v.model!.run?.rests ?? []).map((r) => r.line.trim().length)))
 
-async function frameWith(view: View, extra: number) {
+async function frameWith(view: View, extra: number | 'own') {
   const m = view.model!
-  const grown = (c: (typeof m.cards)[number]) => (c.family === 'option' && c.headline?.state === 'chance' ? c.h + extra : c.h)
+  const grown = (c: (typeof m.cards)[number]) => (c.family === 'option' && c.headline?.state === 'chance' ? c.h + (extra === 'own' ? extraOf(view, c) : extra) : c.h)
   const size = new Map(m.cards.map((c) => [c.id, { width: CARD_WIDTH, height: grown(c) }]))
   const places = await causalPlaces(m, size)
   const q = places.get(QUESTION)!
@@ -58,14 +58,14 @@ describe('the opening frame at 1232 x 704 with taller option cards', () => {
     expect(boards.length).toBeGreaterThan(3)
     expect(boards.filter(([, v]) => v.model!.cards.some((c) => c.family === 'option' && c.headline?.state === 'chance')).length).toBeGreaterThan(2)
   })
-  it('F0b the worst case is derived from what core serves: its longest rests line needs more than the two lines the card allows, so the clamp is what bounds it, and the derived worst case lies above two lines and within four lines and the label\'s bar', () => {
+  it('F0b the growth is derived from what core serves: its longest rests line runs past two lines at the card\'s width and is drawn whole', () => {
     expect(longestLine, 'the longest served rests line runs past two lines at the card\'s width').toBeGreaterThan(2 * perLine)
-    expect(worstExtra).toBeGreaterThan(2 * LINE_PX); expect(worstExtra).toBeLessThanOrEqual(4 * LINE_PX + FIXED_PX)
+    expect(worstExtra).toBeGreaterThan(2 * LINE_PX)
   })
-  it('F1 catch: on every served board, an option wholly in the free canvas today stays wholly in it with 32 px and the derived worst case (worstExtra) more, and the zoom never rises', async () => {
+  it('F1 catch: on every served board, an option wholly in the free canvas today stays wholly in it with 32 px more and with its own whole lines, and the zoom never rises', async () => {
     for (const [name, v] of boards) {
       const base = await frameWith(v, 0)
-      for (const extra of [32, worstExtra]) {
+      for (const extra of [32, 'own'] as const) {
         const t = await frameWith(v, extra)
         expect(t.out.filter((id) => !base.out.includes(id)), `${name} +${extra}px: options pushed out`).toEqual([])
         expect(t.zoom, `${name} +${extra}px`).toBeLessThanOrEqual(base.zoom + 1e-9)

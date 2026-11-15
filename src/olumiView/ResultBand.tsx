@@ -48,10 +48,10 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
         <i className="ok-share-person" data-share-person={card.id} style={{ width: `${w.person}%` }} />
         <i className="ok-share-unassigned" data-share-unassigned={card.id} style={{ width: `${w.unassigned}%` }} />
       </span>
-      {/* The card holds core's line to two lines so the card keeps a bounded height; the WHOLE line stays reachable: it is the button's title, and pressing the
-          button opens Rests on, which draws every entry's full line (restsOf). Only the line is a View string; the neutral label is the UI's. */}
+      {/* Core's line, whole and wrapped (DL 15 Nov polish, Paul's fast track: no sentence is cut on a card face; the new look stays readable and
+          scrolls rather than fitting to zoom). Pressing the button opens Rests on (restsOf). Only the line is a View string; the neutral label is the UI's. */}
       {said.basis === 'line'
-        ? <span className="line-clamp-2" data-view={`${card.id}.rests.line`}>{said.words}</span>
+        ? <span className="break-words" data-view={`${card.id}.rests.line`}>{said.words}</span>
         : <span data-rests-neutral={card.id}>{said.words}</span>}
     </button>
   )

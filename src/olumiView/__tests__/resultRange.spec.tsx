@@ -151,12 +151,12 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     act(() => { fireEvent.click(d.share!) })
     expect(useViewLens.getState().lens).toBe('rests_on')
   })
-  it('S1b catch: the card holds the line to two lines, and the whole line stays reachable: in the button\'s title, and on pressing it in Rests on, which draws every entry\'s full line', () => {
+  it('S1b catch (DL 15 Nov polish: no sentence cut on a card face): the card draws the line whole, never clamped; it is also the button\'s title, and pressing it opens Rests on, which draws every entry\'s full line', () => {
     const v = golden('pricing'), r = entryOf(v, 'raise_price', 'profit_goal')
     const d = draw(v, 'raise_price')
     const span = d.root.querySelector('[data-view="raise_price.rests.line"]')!
-    expect(span.className).toContain('line-clamp-2')
-    expect(span.textContent, 'the clamp is CSS only: the DOM holds the whole line').toBe(r.line)
+    for (let a: Element | null = span; a !== null && a !== d.root; a = a.parentElement) expect(a.className.toString()).not.toMatch(/line-clamp|truncate/)
+    expect(span.textContent).toBe(r.line)
     expect(d.share!.getAttribute('title')).toBe(r.line)
     expect(restsOf(v.model!.run!)!.lines.map((l) => l.line.line), 'the Rests on view draws the entry\'s full line').toContain(r.line)
   })
