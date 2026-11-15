@@ -19,6 +19,7 @@ import { drawViewCanvas } from '../canvas'
 import { causalPlaces } from '../layout'
 import { replyViewTarget } from '../replyInView'
 import { CANVAS_LOD_NOTICE_TESTID } from '../../canvas/components/CanvasLodNotice'
+import { noteLanded, returnFromLanded } from '../revealReturn'
 
 const refs = vi.hoisted(() => ({ moved: null as { current: number } | null, activity: null as { current: { at: number; active: boolean } } | null }))
 vi.mock('../replyInView', async (orig) => {
@@ -70,6 +71,30 @@ describe('the person\'s own camera controls on the real canvas', () => {
     fireEvent.click(cue)
     expect(refs.moved!.current).toBe(moves + 1)
     expect(refs.activity!.current).toEqual({ at: Date.now(), active: false })
+  })
+})
+
+describe('the zoom buttons and the reveal panel\'s return are the person\'s moves too (Codex delta read 15 Nov, blocking 1 and 2)', () => {
+  it('CH3 catch: the canvas\'s "Zoom in" button raises movedAt by one (so a pending reveal, open or try pan stands down) and stamps the activity', () => {
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-15T01:00:00Z'))
+    mount()
+    const moves = refs.moved!.current
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    expect(refs.moved!.current).toBe(moves + 1)
+    expect(refs.activity!.current).toEqual({ at: Date.now(), active: false })
+  })
+  it('CH4 catch: closing a landed reveal panel returns the camera as the person\'s own move (movedAt rises by one)', () => {
+    mount()
+    act(() => { noteLanded('chip-1', 'olumi') })
+    const moves = refs.moved!.current
+    act(() => { expect(returnFromLanded('chip-1')).toBe(true) })
+    expect(refs.moved!.current).toBe(moves + 1)
+  })
+  it('CH4 contrast: a panel that did not land returns nothing and moves nothing', () => {
+    mount()
+    const moves = refs.moved!.current
+    act(() => { expect(returnFromLanded('never-landed')).toBe(false) })
+    expect(refs.moved!.current).toBe(moves)
   })
 })
 

@@ -84,7 +84,8 @@ export const FRAME_WAIT_MS = 1500
 export const frameDue = (settled: boolean, waitedMs: number): boolean => settled || waitedMs >= FRAME_WAIT_MS
 
 /**
- * The person's own deliberate camera move from a control (Fit, "Zoom in for detail", "N more cards below"): it counts as their move
+ * The person's own deliberate camera move from a control (Fit, the zoom buttons, "Zoom in for detail", "N more cards below", a Model tab
+ * row putting its card in front, the reveal panel's return to where they were): it counts as their move
  * (movedAt), so a pending reveal, open-in-view, try-in-view or reply pan and a reply's pulse stand down, and the camera stays theirs for
  * QUIET_MS (replyInView.ts). A programmatic move fires no event-backed onMoveStart, so each control says so itself (Codex, pairing read
  * 15 Nov, blocking 2: the detail zoom and the below cue moved the camera without it).
@@ -233,6 +234,8 @@ function ViewFlow() {
   const movedAt = useRef(0)
   // When the person last moved the camera and whether a drag is under way (replyInView.ts: a reply never moves the board under their hand).
   const activity = useRef<Activity>({ at: 0, active: false })
+  // Every control the person presses to move the camera says so through this one function (handOf, above).
+  const hand = handOf(movedAt, activity)
   const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
@@ -250,7 +253,7 @@ function ViewFlow() {
   const { setCenter, getZoom, getInternalNode, getViewport, setViewport } = useReactFlow()
   useEffect(() => registerRevealReturnCamera(() => {
     const before = getViewport()
-    return () => { userMoved.current = true; void setViewport(before, { duration: 0 }) }
+    return () => { userMoved.current = true; hand(); void setViewport(before, { duration: 0 }) }
   }), [getViewport, setViewport])
   const focusCall = useRef(0)
   useEffect(() => () => { focusCall.current += 1 }, [])
@@ -293,7 +296,7 @@ function ViewFlow() {
       if (!settled) { if (tries > 0) requestAnimationFrame(() => go(tries - 1)); return }
       useCanvasStore.getState().selectNodeWithoutHistory(id)
       const at = n!.internals.positionAbsolute, w = n!.measured.width ?? 0, h = n!.measured.height ?? 0
-      userMoved.current = true
+      userMoved.current = true; hand()
       void setCenter(at.x + w / 2, at.y + h / 2, { zoom: getZoom(), duration: 300 })
     }
     go(120)
@@ -301,7 +304,6 @@ function ViewFlow() {
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
-  const hand = handOf(movedAt, activity)
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
     <>
@@ -332,9 +334,9 @@ function ViewFlow() {
         <LodSync /><CanvasLabelScaleSync />
       </ReactFlow>
       <CanvasViewportControls
-        onZoomIn={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomIn({ duration: 200 }) }}
-        onZoomOut={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomOut({ duration: 200 }) }}
-        onZoomReset={() => { userMoved.current = true; activity.current = { at: Date.now(), active: false }; void zoomTo(1, { duration: 200 }) }}
+        onZoomIn={() => { userMoved.current = true; hand(); void zoomIn({ duration: 200 }) }}
+        onZoomOut={() => { userMoved.current = true; hand(); void zoomOut({ duration: 200 }) }}
+        onZoomReset={() => { userMoved.current = true; hand(); void zoomTo(1, { duration: 200 }) }}
         // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
         // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
         // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
