@@ -72,22 +72,18 @@ describe('the far face draws a chance whole (DL-424)', () => {
   })
 
   // CATCH (fails before: the pill drew headline.text "No chance yet" and the reason sat behind a closed "Why not" details).
-  it('the full face\'s withheld pill shows core\'s why, named by its data-view path, and "Why not" is not drawn again', () => {
+  it('the full face of a withheld chance is one "Why not" press (DL 15 Nov: the face carries less); it opens core\'s why, named by its data-view path, and its next step, whole', () => {
     const { card, c } = mount('cut_monthly_spending_to_stretch_the_runway', 'full')
     const face = c.querySelector<HTMLElement>(`[data-core-lead="${card.id}"][data-ok-face="none"]`)!
-    const pill = face.querySelector<HTMLElement>('.ok-pill')!
-    const clamp = pill.querySelector<HTMLElement>(`[data-core-lead-clamp="${card.id}"]`)!
-    expect(clamp.textContent).toBe(card.headline!.why)
-    expect(clamp.getAttribute('data-view')).toBe(`${card.id}.headline.why`)
-    // CATCH (Codex 15 Nov, held 329; DL 15 Nov polish): the reason is drawn whole, never cut, with nothing clamped above it; its hover is the whole reason.
-    for (let a: Element | null = clamp; a !== null && a !== face.parentElement; a = a.parentElement) expect(a.className).not.toMatch(/line-clamp|truncate/)
-    expect(pill.getAttribute('title')).toBe(card.headline!.why)
-    // CATCH (Codex 15 Nov): the pill wraps (its words are a whole reason), never the one-line pill that runs out of the card.
-    expect(pill).toHaveClass('ok-pill', 'ok-pill-why')
-    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    expect(css).toMatch(/\.olumi-look \.ok-pill\.ok-pill-why \{ white-space: normal; flex-shrink: 1; min-width: 0; max-width: 100%;/)
-    expect(pill.textContent).not.toContain('No chance yet')
-    expect(face.querySelector('details.ok-why')).toBeNull()
-    expect(face.querySelector(`[data-view="${card.id}.headline.add"]`)!.textContent).toBe(card.headline!.add)
+    const press = face.querySelector<HTMLDetailsElement>('details.ok-why')!
+    expect(press.querySelector('summary')!.textContent).toBe('Why not')
+    const words = press.querySelector<HTMLElement>(`[data-core-lead-clamp="${card.id}"]`)!
+    expect(words.textContent).toBe(card.headline!.why)
+    expect(words.getAttribute('data-view')).toBe(`${card.id}.headline.why`)
+    // CATCH: no reason, next step or "No chance yet" on the face itself; nothing on the face clamps.
+    expect(face.querySelector('.ok-pill')).toBeNull()
+    for (const e of face.querySelectorAll('*')) expect(e.className.toString()).not.toMatch(/line-clamp|truncate/)
+    expect(face.textContent).not.toContain('No chance yet')
+    expect(press.querySelector(`[data-view="${card.id}.headline.add"]`)!.textContent).toBe(card.headline!.add)
   })
 })

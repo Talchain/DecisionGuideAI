@@ -88,11 +88,20 @@ export function withheldWords(h: NonNullable<ViewCard['headline']>): string | nu
 }
 
 /**
- * Contract 3 (Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"; DL 15 Nov polish: no sentence is ever cut on a
- * card face): core's reason, whole, wrapped on the card. Words are core's only.
+ * Contract 3 and DL 15 Nov (Paul: "so much text and busy content"): a withheld chance's face carries no sentence; its "Why not" press opens
+ * core's whole reason (and core's next step for it, where it sends one) beside the card, never cut and never changing the card's height
+ * (olumiLook.css .ok-why). Never "No chance yet" where core gives a reason. Words are core's only.
  */
 export function WithheldWords({ id, h }: { id: string; h: NonNullable<ViewCard['headline']> }): JSX.Element {
-  return <span className="min-w-0 break-words" data-testid={`${id}-withheld-words`} data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
+  // Where core gives no reason (no why, no title), its own short state is the face, whole; there is nothing to open.
+  if (withheldField(h) === 'text') return <span className="ok-status" data-testid={`${id}-withheld-words`} data-core-lead-clamp={id} data-view={`${id}.headline.text`}>{h.text}</span>
+  return (
+    <details className="ok-why nodrag nowheel nopan" data-testid={`${id}-withheld-words`} onClick={(e) => e.stopPropagation()}>
+      <summary>Why not</summary>
+      <p><span data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
+        {h.add == null || h.add === '' ? null : <><br /><span data-view={`${id}.headline.add`}>{h.add}</span></>}</p>
+    </details>
+  )
 }
 
 export function leadLineOf(card: ViewCard): string | null {
@@ -306,7 +315,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <ChanceBand card={card} />
           {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
           <RestsShareFill card={card} />
-          {h.add == null ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
+          {/* DL 15 Nov: core's next step (headline.add) is off the face: the selected card's panel draws it whole (SelectedRename). */}
         </div>
       )
     }
@@ -316,11 +325,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (h !== null && h.state === 'none') return (
       <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
         <div className="ok-row">
-          {/* Contract 3: the pill says why (withheldWords), never the bare "No chance yet" where core sends a reason. Core's why, where it
-              sends one, IS the pill's words, so no "Why not" is drawn to say it again. */}
-          <span className="ok-pill ok-pill-why" title={withheldWords(h) ?? undefined}><WithheldWords id={id} h={h} />{trail}</span>
+          {/* Contract 3 and DL 15 Nov: never the bare "No chance yet" where core sends a reason; the face is the "Why not" press alone. */}
+          <WithheldWords id={id} h={h} />{trail}
         </div>
-        {h.add == null || h.add === '' ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
       </div>
     )
     // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status

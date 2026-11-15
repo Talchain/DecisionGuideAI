@@ -78,10 +78,10 @@ describe('DL 04:59Z (4): an option card shows its next step in two lines; the wh
     const fig = COPY.model!.cards.find((c) => c.family === 'quantity')!
     expect(selectIn(COPY, fig.id).querySelector('[data-testid="selected-headline-add"]')).toBeNull()
   })
-  it('E-clamp the card\'s next-step rule cuts at two lines (olumiLook.css .ok-next-card); the plain .ok-next (limit-row questions) is never clamped', () => {
+  it('E-clamp (DL 15 Nov: no cut text): neither the card\'s next-step rule (.ok-next-card) nor the plain .ok-next (limit-row questions) clamps', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     const rule = (sel: string) => css.match(new RegExp(`\\.olumi-look \\.${sel} \\{([^}]*)\\}`))?.[1] ?? ''
-    expect(rule('ok-next-card')).toMatch(/-webkit-line-clamp:\s*2;/)
+    expect(rule('ok-next-card')).not.toMatch(/line-clamp|ellipsis/)
     expect(rule('ok-next')).not.toMatch(/line-clamp/)
   })
 })

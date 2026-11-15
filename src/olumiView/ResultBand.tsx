@@ -7,7 +7,7 @@
 import type { ViewCard } from './client'
 import { useViewStore } from './store'
 import { useViewLens } from './lens'
-import { chanceAtOf, rangeBandOf, restWordsOf, restsShareOf, shareWidths } from './resultRange'
+import { chanceAtOf, NEUTRAL_REST_WORDS, rangeBandOf, restWordsOf, restsShareOf, shareWidths } from './resultRange'
 
 export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
   const at = chanceAtOf(card)
@@ -48,11 +48,9 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
         <i className="ok-share-person" data-share-person={card.id} style={{ width: `${w.person}%` }} />
         <i className="ok-share-unassigned" data-share-unassigned={card.id} style={{ width: `${w.unassigned}%` }} />
       </span>
-      {/* Core's line, whole and wrapped (DL 15 Nov polish, Paul's fast track: no sentence is cut on a card face; the new look stays readable and
-          scrolls rather than fitting to zoom). Pressing the button opens Rests on (restsOf). Only the line is a View string; the neutral label is the UI's. */}
-      {said.basis === 'line'
-        ? <span className="break-words" data-view={`${card.id}.rests.line`}>{said.words}</span>
-        : <span data-rests-neutral={card.id}>{said.words}</span>}
+      {/* DL 15 Nov (Paul: "so much text and busy content"): core's line is off the card face. The face says only the UI's short label; core's
+          line is the button's title, and pressing it opens Rests on, which draws every entry's line whole (restsOf). */}
+      <span data-rests-neutral={card.id}>{NEUTRAL_REST_WORDS}</span>
     </button>
   )
 }

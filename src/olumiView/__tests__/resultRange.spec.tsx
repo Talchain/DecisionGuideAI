@@ -81,7 +81,7 @@ describe('the range, as a band with the chance marked', () => {
     expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
     expect([d.track!.getAttribute('tabindex'), d.track!.getAttribute('aria-hidden')], 'no words: nothing to reach, as before').toEqual([null, 'true'])
   })
-  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: core\'s why in the pill, contract 3)', () => {
+  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: the "Why not" press opens core\'s why, DL 15 Nov)', () => {
     const fixed = draw(golden('pricing'), 'carry_on')
     expect(fixed.root.querySelector('[data-ok-face="fixed"]')!.textContent).toContain(fixed.card.headline!.text)
     expect([fixed.track, fixed.band, fixed.mark, fixed.share]).toEqual([null, null, null, null])
@@ -89,26 +89,27 @@ describe('the range, as a band with the chance marked', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
     c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', range: null, why: 'Core could not work it out.' }
     const none = draw(v, 'raise_price')
-    const pill = none.root.querySelector('[data-ok-face="none"] .ok-pill')!
-    // Contract 3: the pill is core's `why`, exactly; the bare text is not drawn anywhere on the face.
-    expect(pill.textContent).toBe('Core could not work it out.')
+    const press = none.root.querySelector<HTMLDetailsElement>('[data-ok-face="none"] details.ok-why')!
+    // DL 15 Nov: the face is the "Why not" press alone; it opens core's `why`, exactly; the bare text is not drawn anywhere on the face.
+    expect([press.querySelector('summary')!.textContent, press.querySelector('[data-core-lead-clamp="raise_price"]')!.textContent]).toEqual(['Why not', 'Core could not work it out.'])
     expect(none.root.querySelector('[data-ok-face="none"]')!.textContent).not.toContain('No chance yet')
     expect([none.track, none.band, none.mark, none.caption]).toEqual([null, null, null, null])
   })
   // CATCH (contract 3): on the product before this change the pill drew headline.text ("No chance yet") and a separate "Why not" details carried the why,
   // so the pill's text, its data-view and the absent "Why not" all fail there (old CoreCard line: `{h.text}` in .ok-pill; `<details className="ok-why">` drawn when why is set).
-  it('B6b catch (contract 3): a withheld card\'s pill shows core\'s why, names the field it came from, and "Why not" is not drawn again', () => {
+  it('B6b catch (contract 3, DL 15 Nov): a withheld card\'s face is one "Why not" press that opens core\'s why, naming the field it came from', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
     c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'Every option shares this reason.', range: null, why: 'Core could not work it out.' }
     const d = draw(v, 'raise_price')
     const lead = d.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
     expect(lead.textContent).toBe('Core could not work it out.')
     expect(lead.getAttribute('data-view')).toBe('raise_price.headline.why')
-    expect(d.root.querySelector('[data-ok-face="none"] details.ok-why')).toBeNull()
-    expect(d.root.textContent).not.toContain('Why not')
+    expect(lead.closest('details.ok-why'), 'the reason is behind the press, off the face').not.toBeNull()
+    expect(d.root.querySelectorAll('[data-ok-face="none"] summary')).toHaveLength(1)
+    expect(d.root.querySelector('[data-ok-face="none"] .ok-pill')).toBeNull()
     expect(withheldWords(c.headline)).toBe('Core could not work it out.')
   })
-  it('B6c catch (contract 3): with no why, core\'s title (the reason every option shares) is the pill, whole; with neither, the text stands. Each names its own field', () => {
+  it('B6c catch (contract 3, DL 15 Nov): with no why, core\'s title (the reason every option shares) is behind the press; with neither, core\'s short text is the face, with no press. Each names its own field', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
     c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'The goal has no target yet.', range: null, why: null }
     const t = draw(v, 'raise_price')
@@ -142,8 +143,9 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     const v = golden('pricing'), r = entryOf(v, 'raise_price', 'profit_goal')
     const d = draw(v, 'raise_price')
     expect(pct(d.olumi, 'width')).toBeCloseTo(r.olumi_share * 100, 6); expect(pct(d.person, 'width')).toBe(0)
-    expect(d.share!.textContent).toBe(r.line)
-    expect(d.root.querySelector(`[data-view="raise_price.rests.line"]`)!.textContent).toBe(r.line)
+    // DL 15 Nov (Paul: "so much text"): core's line is off the face; the face says the UI's short label, the line is the button's title.
+    expect(d.share!.textContent).toBe(NEUTRAL_REST_WORDS)
+    expect(d.root.querySelector(`[data-view="raise_price.rests.line"]`)).toBeNull()
     expect(d.share!.getAttribute('data-rests-basis')).toBe('line')
     expect(d.share!.getAttribute('title')).toBe(r.line)
     expect(d.share!.tagName).toBe('BUTTON'); expect(d.share!.className).toContain('nodrag')
@@ -151,12 +153,11 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     act(() => { fireEvent.click(d.share!) })
     expect(useViewLens.getState().lens).toBe('rests_on')
   })
-  it('S1b catch (DL 15 Nov polish: no sentence cut on a card face): the card draws the line whole, never clamped; it is also the button\'s title, and pressing it opens Rests on, which draws every entry\'s full line', () => {
+  it('S1b catch (DL 15 Nov: no sentence cut, and the face carries less): the line is not on the face; it is the button\'s title whole, and pressing it opens Rests on, which draws every entry\'s full line', () => {
     const v = golden('pricing'), r = entryOf(v, 'raise_price', 'profit_goal')
     const d = draw(v, 'raise_price')
-    const span = d.root.querySelector('[data-view="raise_price.rests.line"]')!
-    for (let a: Element | null = span; a !== null && a !== d.root; a = a.parentElement) expect(a.className.toString()).not.toMatch(/line-clamp|truncate/)
-    expect(span.textContent).toBe(r.line)
+    expect(d.root.querySelector('[data-view="raise_price.rests.line"]'), 'off the face').toBeNull()
+    expect(d.share!.textContent).toBe(NEUTRAL_REST_WORDS)
     expect(d.share!.getAttribute('title')).toBe(r.line)
     expect(restsOf(v.model!.run!)!.lines.map((l) => l.line.line), 'the Rests on view draws the entry\'s full line').toContain(r.line)
   })
@@ -167,8 +168,8 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
       r.olumi_share = o; r.person_share = p; r.unassigned = u; r.line = `Entry ${r.id} at ${o}/${p}/${u}: its own scoped line.`
       const d = draw(v, 'second_oven')
       expect(d.share, `${o}/${p}/${u}: drawn`).not.toBeNull()
-      expect(d.share!.textContent, `${o}/${p}/${u}`).toBe(r.line)
-      expect(d.share!.textContent).not.toMatch(CREDIT)
+      expect(d.share!.getAttribute('title'), `${o}/${p}/${u}`).toBe(r.line)
+      expect(d.share!.getAttribute('title')).not.toMatch(CREDIT)
       expect(d.share!.getAttribute('data-rests-basis')).toBe('line')
       const total = Math.max(1, o + p + u) // served shares that run over the whole are scaled to fit (S6); these never meaningfully do
       expect(pct(d.olumi, 'width')).toBeCloseTo((o / total) * 100, 6); expect(pct(d.person, 'width')).toBeCloseTo((p / total) * 100, 6)
@@ -180,13 +181,13 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     const mine = entryOf(base, 'single_country_test', 'reach_customer_target')
     expect(mine.olumi_share, 'precondition: its own share differs from the other options\' and from its own limits\'').not.toBe(entryOf(base, 'broader_entry', 'reach_customer_target').olumi_share)
     const d = draw(base, 'single_country_test')
-    expect(pct(d.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(d.share!.textContent).toBe(mine.line)
+    expect(pct(d.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(d.share!.getAttribute('title')).toBe(mine.line)
     cleanup()
     const swapped = structuredClone(base)
     for (const r of swapped.model!.run!.rests) if (r.id !== mine.id) { r.olumi_share = 0.123; r.person_share = 0.456; r.line = 'NOT THIS CARD' }
     swapped.model!.run!.rests.reverse() // its limits now come before its goal: the entry is found by kind, option and aim, not by position
     const s = draw(swapped, 'single_country_test')
-    expect(pct(s.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(s.share!.textContent).toBe(mine.line)
+    expect(pct(s.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(s.share!.getAttribute('title')).toBe(mine.line)
     cleanup()
     const mutated = structuredClone(base); mutated.model!.run!.rests.find((r) => r.id === mine.id)!.olumi_share = 0.5
     expect(pct(draw(mutated, 'single_country_test').olumi, 'width')).toBe(50)
@@ -196,7 +197,7 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     const v = structuredClone(golden('pricing')), mine = entryOf(v, 'raise_price', 'profit_goal')
     v.model!.run!.rests.unshift({ ...structuredClone(mine), id: 'F_OTHER_AIM', aim: 'some_other_aim', line: 'THE OTHER AIM\'S LINE', hover: 'THE OTHER AIM\'S HOVER', olumi_share: 0.11 })
     const d = draw(v, 'raise_price')
-    expect(d.share!.textContent).toBe(mine.line); expect(d.share!.getAttribute('title')).toBe(mine.line)
+    expect(d.share!.getAttribute('title')).toBe(mine.line); expect(d.share!.getAttribute('title')).toBe(mine.line)
     expect(pct(d.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6)
   })
   it('S4 catch: a share core serves as numerical dust (5.5e-16) draws as a bar of no width; the words are still the entry\'s line and credit nobody', () => {
@@ -204,12 +205,12 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
     const d = draw(v, 'second_oven')
     expect(SHARE_FLOOR).toBeGreaterThan(5.5e-16)
     expect([pct(d.olumi, 'width'), pct(d.person, 'width')]).toEqual([0, 40])
-    expect(d.share!.textContent).toBe(entryOf(v, 'second_oven', 'sell_360').line); expect(d.share!.textContent).not.toMatch(CREDIT)
+    expect(d.share!.getAttribute('title')).toBe(entryOf(v, 'second_oven', 'sell_360').line); expect(d.share!.getAttribute('title')).not.toMatch(CREDIT)
   })
   it('S5 catch: a result that rests wholly on what is unassigned (0, 0, 1) still draws core\'s line and a full unassigned bar; only a missing entry draws nothing', () => {
     const zero = withRests(golden('bakery'), (r) => { r.olumi_share = 0; r.person_share = 0; r.unassigned = 1 }, 'second_oven')
     const z = draw(zero, 'second_oven')
-    expect(z.share).not.toBeNull(); expect(z.share!.textContent).toBe(entryOf(zero, 'second_oven', 'sell_360').line)
+    expect(z.share).not.toBeNull(); expect(z.share!.getAttribute('title')).toBe(entryOf(zero, 'second_oven', 'sell_360').line)
     expect(pct(z.root.querySelector<HTMLElement>('[data-share-unassigned="second_oven"]'), 'width')).toBe(100); cleanup()
     const none = structuredClone(golden('bakery')); none.model!.run!.rests = none.model!.run!.rests.filter((r) => r.option !== 'second_oven')
     expect(draw(none, 'second_oven').share).toBeNull(); cleanup()
@@ -219,7 +220,7 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
   it('S5b catch: shares that are not finite numbers are bars of no width, not a reason to hide the entry: the line is still drawn', () => {
     const v = withRests(golden('bakery'), (r) => { r.olumi_share = Number.NaN; r.person_share = Number.POSITIVE_INFINITY; r.unassigned = Number.NaN }, 'second_oven')
     const d = draw(v, 'second_oven')
-    expect(d.share!.textContent).toBe(entryOf(v, 'second_oven', 'sell_360').line)
+    expect(d.share!.getAttribute('title')).toBe(entryOf(v, 'second_oven', 'sell_360').line)
     expect([pct(d.olumi, 'width'), pct(d.person, 'width')]).toEqual([0, 0])
   })
   it('S6 the fill never overflows its track: shares served as more than the whole are scaled to fit, each keeping its proportion', () => {
@@ -228,9 +229,9 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
   })
   it('S7b catch: the sentence is the entry\'s own, not another option\'s: changing this entry\'s line changes this card\'s words and no other\'s', () => {
     const v = withRests(golden('european'), (r) => { r.olumi_share = 0.1; r.person_share = 0.1; r.unassigned = 0.8; r.line = 'THIS ENTRY ONLY' }, 'single_country_test')
-    expect(draw(v, 'single_country_test').share!.textContent).toBe('THIS ENTRY ONLY')
+    expect(draw(v, 'single_country_test').share!.getAttribute('title')).toBe('THIS ENTRY ONLY')
     cleanup()
-    expect(draw(v, 'broader_entry').share!.textContent).toBe(entryOf(v, 'broader_entry', 'reach_customer_target').line)
+    expect(draw(v, 'broader_entry').share!.getAttribute('title')).toBe(entryOf(v, 'broader_entry', 'reach_customer_target').line)
   })
   it('S8 catch: where core serves no line (blank, or only spaces) the label is the neutral link, whatever the split, and it credits neither Olumi nor any person', () => {
     const splits: Array<[number, number, number]> = [[0.02, 0, 0.98], [0.5, 0.5, 0], [0.04, 0.6, 0.36], [0, 0, 1], [0.01, 0.7, 0.29]]
