@@ -5,7 +5,8 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { NEXT_STEP_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { useUIStore } from '../../stores/uiStore'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))
@@ -264,7 +265,15 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     const step = getByTestId('view-next-step')
     expect(step.closest('[data-testid="view-chat-pinned"]'), 'pinned').not.toBeNull()
     expect(scroll.contains(step), 'not in the thread').toBe(false)
-    expect(step.querySelector('[data-testid="view-approve"]'), 'Approve is on the pinned card').not.toBeNull()
+    // Contract 3: the proposal is one row, closed at rest; Approve is in its body. Open it (what the person does to reach Approve), then the
+    // PL-1083 / DL-538 placement is bound as before: Approve on the pinned card, inside the review, which is inside the pinned box.
+    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    expect(review.open, 'closed at rest').toBe(false)
+    review.open = true
+    const approve = step.querySelector('[data-testid="view-approve"]')
+    expect(approve, 'Approve is on the pinned card').not.toBeNull()
+    expect(review.contains(approve), 'Approve is in the opened review').toBe(true)
+    expect(getByTestId('view-chat-pinned').contains(approve), 'and in the pinned box').toBe(true)
     expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
   })
 
@@ -456,12 +465,180 @@ describe('DL-538: Olumi\'s reply carries Olumi\'s mark', () => {
   })
 })
 
-describe('DL 06:57Z (2): the pinned proposal reads its step whole above its buttons', () => {
-  it('NS1 the box is a column whose only shrinking part is the list of changes; the step, the heading and the actions keep their height', () => {
-    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    const rule = (sel: string) => [...css.matchAll(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'g'))].map((m) => m[2]).join(';')
+describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; opened, it reads its step whole above its buttons (DL 06:57Z (2) still binds the open box)', () => {
+  const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  const rule = (sel: string) => [...css.matchAll(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'g'))].map((m) => m[2]).join(';')
+  const heldWords = () => proposal.proposal!
+  // The held proposal, as the rows below read it (the NS rows read the CSS only).
+  beforeEach(() => { show(proposal) })
+
+  it('NS1 the box is a column whose only shrinking part is the list of changes; the step, the heading and the actions keep their height (the open box, unchanged)', () => {
     expect(rule('.ok-pinned')).toMatch(/display: flex; flex-direction: column/)
     expect(rule(".ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > *")).toMatch(/flex: none/)
     expect(rule(".ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes']")).toMatch(/flex: 0 1 auto; min-height: 0; overflow-y: auto/)
+  })
+
+  // CATCH (fails on the old css: the three :has rules were `.ok-pinned [data-reading-row]` / `.ok-pinned:has([data-reading-row])`, so a CLOSED
+  // review holding reading rows still hid More ways, clipped the thread and let the box shrink). CONTRAST: the old selectors now match nothing.
+  it('NS1b the readings rules apply only while the review is OPEN: More ways hides, the thread yields and the box shrinks only under details[open]', () => {
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
+    expect(rule('.ok-pinned:has(details[open] [data-reading-row])')).toMatch(/flex-shrink: 1/)
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
+    expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')
+    expect(rule('.ok-pinned details.ok-row-review > summary')).toMatch(/padding-bottom: 12px/)
+  })
+
+  // CATCH (fails on the old NextStepCard, which drew a "Next step" header, no review and no row, the proposal's own heading in the open, and
+  // a pinned box with min-h-[112px]).
+  it('C3-1 at rest the pinned box is one closed row: core\'s heading · on, no "Next step" header, the proposal\'s heading not drawn again, no min height', () => {
+    const p = heldWords()
+    const { getByTestId } = render(<ViewChat />)
+    const box = getByTestId('view-chat-pinned')
+    expect(box).toHaveClass('ok-pinned', 'shrink-0', 'overflow-y-auto')
+    expect(box.className).not.toContain('min-h-[112px]')
+    const step = getByTestId('view-next-step')
+    expect([step.tagName, step.getAttribute('data-step'), step.getAttribute('aria-label')]).toEqual(['SECTION', 'approve', 'Next step'])
+    expect(step.className).not.toContain('border-info')
+    expect([...step.querySelectorAll('p')].map((e) => e.textContent), 'no Next step header').not.toContain('Next step')
+    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    expect(review.tagName).toBe('DETAILS')
+    expect(review).toHaveClass('ok-row-review')
+    expect(review.open, 'closed at rest').toBe(false)
+    expect(step.firstElementChild, 'the review is the step\'s only child').toBe(review)
+    const row = getByTestId('view-proposal-row')
+    expect(row.tagName).toBe('SUMMARY')
+    expect(review.firstElementChild).toBe(row)
+    expect(row.textContent).toBe(`${p.heading} · ${p.on}`)
+    expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
+    expect(row.querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
+    // said once: the only heading in the whole step is the row's own
+    expect(step.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
+    expect(step.querySelectorAll('[data-view="proposal.on"]')).toHaveLength(1)
+  })
+
+  it('C3-2 opened, the row\'s body holds core\'s step words for approval and every change with Approve and Set aside; nothing is sent by opening', () => {
+    const { getByTestId } = render(<ViewChat />)
+    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    const body = review.querySelector('summary')!.nextElementSibling as HTMLElement
+    expect(body.querySelector('p')?.textContent).toBe(NEXT_STEP_WORDS.approve)
+    expect(body.contains(getByTestId('view-chat-proposal'))).toBe(true)
+    expect(body.contains(getByTestId('view-approve'))).toBe(true)
+    expect(body.querySelector('[data-testid="view-proposal-actions"]'), 'the actions are in the body').not.toBeNull()
+    const proposalPart = getByTestId('view-chat-proposal')
+    expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal does not draw its heading again').toHaveLength(0)
+    fireEvent.click(review.querySelector('summary')!)
+    expect(review.open, 'pressing the row opens it').toBe(true)
+    expect(posts, 'opening sends nothing').toEqual([])
+  })
+
+  // CATCH (fails on the old `key`-less layout: a proposal always drew open). A NEW proposal starts closed; the same proposal re-shown stays as the person left it.
+  it('C3-3 a new proposal starts closed; the same proposal shown again keeps what the person opened', () => {
+    const { getByTestId } = render(<ViewChat />)
+    const first = getByTestId('view-proposal-review') as HTMLDetailsElement
+    first.open = true
+    act(() => show({ ...proposal, chat: [...proposal.chat] }))
+    expect(first.isConnected, 'same proposal, same row').toBe(true)
+    expect((getByTestId('view-proposal-review') as HTMLDetailsElement).open).toBe(true)
+    act(() => show({ ...proposal, proposal: { ...proposal.proposal!, id: proposal.proposal!.id + 1 } }))
+    const next = getByTestId('view-proposal-review') as HTMLDetailsElement
+    expect(next).not.toBe(first)
+    expect(next.open, 'a new proposal is closed').toBe(false)
+    expect(next.querySelector('summary')!.textContent).toBe(`${proposal.proposal!.heading} · ${proposal.proposal!.on}`)
+  })
+})
+
+// PL-1083 (1) under Contract 3: the reading rows are placed above the actions only while the review is OPEN. The layout is stubbed as in
+// readingsPlace.spec.tsx (the 12:15Z measurement of 452caf7a's held cut13 proposal: the box 350 px at its cap, the actions 116 px, two
+// reading rows 143 and 121 px at 300 and 451 down the box's scroll), so the opened row's numbers are that spec's: the box grown to 406px, scrolled to 292.
+describe('Contract 3: the readings rest moves nothing while the review is closed, and places the rows when the person opens it', () => {
+  type Mark = NonNullable<View['proposal']>['marks'][number]
+  const held = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-452caf7a-cut13-held-marks.json'), 'utf8')) as Mark[]
+  const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, FOOT = 116, ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
+  const boxOf = () => document.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')!
+  const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : Math.min(parseFloat(b.style.maxHeight), 620))
+  const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
+  const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
+  let observers: Array<{ fire: () => void; seen: Element[] }> = []
+  beforeEach(() => {
+    observers = []
+    useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const id = this.getAttribute('data-testid') ?? ''
+      if (id === 'view-chat-pinned') return rect(BOX_TOP, boxH(this))
+      if (id === 'view-proposal-actions') return rect(0, FOOT)
+      if (ROWS[id] !== undefined) return rect(BOX_TOP + ROWS[id]![0] - boxOf().scrollTop, ROWS[id]![1])
+      return rect(0, 0)
+    }
+    Object.defineProperty(Element.prototype, 'clientHeight', { configurable: true, get(this: HTMLElement) { return this.getAttribute('data-testid') === 'view-chat-pinned' ? boxH(this) - 2 : 0 } })
+    Object.defineProperty(Element.prototype, 'scrollHeight', { configurable: true, get(this: HTMLElement) { return this.getAttribute('data-testid') === 'view-chat-pinned' ? SCROLL_H : 0 } })
+    globalThis.ResizeObserver = class { private o: { fire: () => void; seen: Element[] }; constructor(cb: ResizeObserverCallback) { this.o = { fire: () => cb([], this as unknown as ResizeObserver), seen: [] }; observers.push(this.o) } observe(e: Element) { this.o.seen.push(e) } unobserve() {} disconnect() { this.o.seen = [] } } as unknown as typeof ResizeObserver
+    show({ ...proposal, you: 'Paul', proposal: { ...proposal.proposal!, marks: held } } as View)
+  })
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = real.rect
+    if (real.ch) Object.defineProperty(Element.prototype, 'clientHeight', real.ch)
+    if (real.sh) Object.defineProperty(Element.prototype, 'scrollHeight', real.sh)
+    globalThis.ResizeObserver = real.ro
+  })
+  const placer = () => observers.find((o) => o.seen.includes(boxOf()))!
+  const wholeRow = (id: string) => { const b = boxOf(), foot = BOX_TOP + boxH(b) - FOOT, [y, h] = ROWS[id]!; return BOX_TOP + y - b.scrollTop >= BOX_TOP && BOX_TOP + y + h - b.scrollTop <= foot }
+
+  // CATCH (fails on the old land(), which placed on arrival whether or not the rows were on screen: maxHeight '406px' and scrollTop 292 at mount).
+  it('R1 closed at rest: the box keeps its own height and scroll, on arrival and when its parts change size', () => {
+    const { getByTestId } = render(<ViewChat />)
+    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    expect(review.open).toBe(false)
+    expect(review.querySelectorAll('[data-reading-row]').length, 'precondition: the held rows are in the proposal').toBe(2)
+    const b = boxOf()
+    expect([b.style.maxHeight, b.scrollTop], 'on arrival').toEqual(['', 0])
+    expect(placer(), 'the box is still watched, so opening places the rows').toBeDefined()
+    placer().fire()
+    expect([b.style.maxHeight, b.scrollTop], 'a resize while closed').toEqual(['', 0])
+  })
+
+  // The old row's meaning, kept: with the review OPEN the box grows by what the rows lack and is scrolled so both rows rest whole above the actions.
+  it('R2 opened, the box places the rows as PL-1083 (1) says (grown to 406px, scrolled to 292, both rows whole above the actions); closed again, the box lets go of its height', () => {
+    const { getByTestId } = render(<ViewChat />)
+    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    const b = boxOf()
+    review.open = true
+    placer().fire() // the opened body changes the box's size; the browser's observer reports it
+    expect(b.style.maxHeight).toBe('406px')
+    expect(b.scrollTop).toBe(292)
+    expect(Object.keys(ROWS).every(wholeRow)).toBe(true)
+    review.open = false
+    placer().fire()
+    expect(b.style.maxHeight, 'closed again: the box keeps its own height').toBe('')
+  })
+})
+
+describe('Contract 3: a card with no result shows core\'s own reason, never "No chance yet" (leadLineOf / withheldWords; the pill itself is bound in coreFarChance.spec and olumiLook.spec)', () => {
+  const card = (file: string, id: string) => (JSON.parse(readFileSync(path.resolve(file), 'utf8')) as View).model!.cards.find((c) => c.id === id)!
+  // The mock keeps CoreCard's import chain off the real supabase client, as coreFarChance.spec does.
+  afterEach(() => { vi.doUnmock('../../lib/supabase') })
+  const load = async () => { vi.doMock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} })); return import('../previous/CoreCard') }
+
+  // CATCH (fails on the old leadLineOf, which returned card.headline.text for every option card: "No chance yet" / "...: no chance yet").
+  it('P1 core\'s why where it sends one; else its title; else the bare text; the empty string is not a reason; null for a chance', async () => {
+    const { leadLineOf, withheldWords } = await load()
+    const withWhy = card('src/olumiView/fixtures/ed12/app-launch.view3.json', 'option_scheduled')
+    const withTitle = card('src/olumiView/golden/app-launch.view.json', 'option_scheduled')
+    const hw = withWhy.headline!, ht = withTitle.headline!
+    expect([hw.state, ht.state], 'preconditions: both withheld').toEqual(['none', 'none'])
+    expect([hw.why, hw.text === hw.why], 'precondition: core sends a reason apart from the bare words').toEqual([expect.stringContaining('cannot be worked out yet'), false])
+    expect([ht.why ?? null, ht.title === ht.text], 'precondition: core sends a title and no why').toEqual([null, false])
+    expect(withheldWords(hw)).toBe(hw.why)
+    expect(leadLineOf(withWhy)).toBe(hw.why)
+    expect(withheldWords(ht)).toBe(ht.title)
+    expect(leadLineOf(withTitle)).toBe(ht.title)
+    // why wins over title where both differ (derived from the two real headlines)
+    expect(withheldWords({ ...hw, title: ht.title } as typeof hw)).toBe(hw.why)
+    expect(withheldWords({ ...hw, why: '' } as typeof hw)).toBe(hw.title)
+    expect(withheldWords({ ...ht, title: '' } as typeof ht)).toBe(ht.text)
+    expect(leadLineOf({ ...withTitle, headline: { ...ht, title: '' } as typeof ht })).toBe(ht.text)
+    // CONTRAST: a chance is not a withheld card
+    expect(withheldWords({ ...hw, state: 'chance' } as unknown as typeof hw)).toBeNull()
   })
 })
