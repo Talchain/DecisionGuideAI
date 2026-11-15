@@ -18,6 +18,11 @@ const textOf = (ps: Array<{ text?: string; cite?: string }>) => ps.map((p) => p.
 /** An element's words without its numbered cite marks (core's cites are the marks' hover, not words of the line). */
 const wordsOf = (el: Element) => { const c = el.cloneNode(true) as Element; c.querySelectorAll('[data-view-cite]').forEach((x) => x.remove()); return (c.textContent ?? '').replace(/\s+/g, ' ').trim() }
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim()
+/** Every text piece core sent in `parts`, at the exact View path Words/Blocks give it (a part split across lines: `.text` then `.text.<k>`),
+ *  with its exact words; a list line's "- " marker is the only thing Blocks may drop. */
+const piecesOf = (parts: Array<{ text?: string; cite?: string }>, at: string) => parts.flatMap((p, i) => p.text === undefined ? []
+  : p.text.split('\n').flatMap((line, k) => (line === '' ? [] : [{ path: k === 0 ? `${at}.${i}.text` : `${at}.${i}.text.${k}`, words: line }])))
+const drawnAs = (el: Element | null, words: string) => el !== null && (el.textContent === words || el.textContent === words.replace(/^\s*- /, ''))
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('a reply leads with its first Why line; the rest is behind "Why"', () => {
@@ -34,11 +39,18 @@ describe('a reply leads with its first Why line; the rest is behind "Why"', () =
         expect(lead === null ? null : wordsOf(lead), String(t.id)).toBe(norm(textOf(t.answer!.why[0]!)))
         const more = turn.querySelector<HTMLDetailsElement>(`[data-reply-more="chat.${i}"]`)!
         expect([more.open, more.querySelector('summary')?.textContent]).toEqual([false, 'Why'])
-        // the whole answer is kept, inside "Why", never cut: every line of core's answer is in the fold, and none is outside it
-        const inFold = wordsOf(more), outside = wordsOf(turn.querySelector('[data-testid="view-chat-answer"]')!).replace(inFold, '')
-        for (const line of textOf(t.answer!.answer).split('\n').map((l) => norm(l).replace(/^- /, '')).filter((l) => l.length > 12)) {
-          expect(inFold.includes(line.slice(0, 60)), `answer line in Why: ${line.slice(0, 40)}`).toBe(true)
-          expect(outside.includes(line.slice(0, 60)), `answer line outside Why: ${line.slice(0, 40)}`).toBe(false)
+        // the whole answer is kept, inside "Why", never cut: EVERY text piece of core's answer, at its own View path, with its exact words,
+        // is inside the fold; none is drawn outside it
+        const pieces = piecesOf(t.answer!.answer, `chat.${i}.answer.answer`)
+        expect(pieces.length, 'precondition: the answer has words').toBeGreaterThan(0)
+        for (const { path: at, words } of pieces) {
+          const all = turn.querySelectorAll(`[data-view="${at}"]`)
+          expect([all.length, more.contains(all[0] ?? null), drawnAs(all[0] ?? null, words)], at).toEqual([1, true, true])
+        }
+        // and the lead is why[0], piece by piece, exact
+        for (const { path: at, words } of piecesOf(t.answer!.why[0]!, `chat.${i}.answer.why.0`)) {
+          const el = turn.querySelector(`[data-view="${at}"]`)
+          expect([lead!.contains(el), drawnAs(el, words)], at).toEqual([true, true])
         }
         // nothing of the answer is outside "Why"; the lead comes before the next step
         const next = turn.querySelector('[data-testid="view-chat-next"]')!
@@ -55,6 +67,11 @@ describe('a reply leads with its first Why line; the rest is behind "Why"', () =
     const { container } = render(<ViewConversation chat={bare.chat} />)
     const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
     expect([turn.querySelector('[data-reply-lead]'), turn.querySelector('[data-reply-more]')]).toEqual([null, null])
-    expect(turn.querySelector('[data-testid="view-chat-answer"]')!.textContent).toContain(textOf(bare.chat[i]!.answer!.answer).split('\n')[0]!.slice(0, 40))
+    const pieces = piecesOf(bare.chat[i]!.answer!.answer, `chat.${i}.answer.answer`)
+    expect(pieces.length).toBeGreaterThan(0)
+    for (const { path: at, words } of pieces) {
+      const el = turn.querySelector(`[data-view="${at}"]`)
+      expect([drawnAs(el, words), el?.closest('details') ?? null], at).toEqual([true, null])
+    }
   })
 })
