@@ -93,7 +93,8 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
       expect(rows[1]!.querySelector('[data-testid="view-chat-answer"]')).not.toBeNull()
       expect(rows[1]!.querySelector('[data-view$=".by"]')?.textContent).toBe('Paul')
       expect(rows[3]!.querySelector('[data-testid="view-floor-said-bubble"]')?.textContent).toContain('Jordan')
-      expect(rows[3]!.hasAttribute('data-latest-floor')).toBe(true)
+      // Contract 3: the newest floor exchange's marker is Olumi's reply in it, not the whole exchange.
+      expect(rows[3]!.querySelector('[data-latest-floor]')?.getAttribute('data-testid')).toBe('view-floor-reply')
       cleanup()
     }
   })
@@ -101,7 +102,8 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     const g = golden('whatif'), turn = g.chat.find(t => t.answer !== null)!
     const c = show({ ...g, chat: [turn], floor: [{ ...floorRow, job: turn.id + 8 }] } as unknown as View, <ViewChat />)
     expect(c.querySelector('[data-testid="view-chat-latest"]')?.getAttribute('data-view-turn')).toBe('chat.0')
-    expect(c.querySelector('[data-latest-floor]')?.textContent).toContain(SAID)
+    expect(c.querySelector('[data-latest-floor]')?.closest('[data-testid="view-floor-turn"]')?.textContent).toContain(SAID)
+    expect(c.querySelector('[data-latest-floor]')?.getAttribute('data-testid')).toBe('view-floor-reply')
   })
   it('keeps a floor reply ahead of a later chat, including with an unfamiliar entry or an absent optional id', () => {
     const g = golden('whatif'), turn = { ...g.chat[0]!, by_id: '7', id: 90 }

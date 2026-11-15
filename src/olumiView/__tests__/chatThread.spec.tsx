@@ -101,6 +101,23 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
   })
 
+  it('CT8f CATCH (contract 3, Codex 15 Nov): a long brief before Olumi\'s first reply: the thread rests on the REPLY\'s first line, and the floor marker is the reply container', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.testid === 'view-floor-reply' ? 900 : this.dataset.testid === 'view-floor-turn' ? 600 : 0
+    })
+    show(fixture)
+    const { getByTestId, container } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600 }, clientHeight: { value: 200 } })
+    const brief = 'A long brief. '.repeat(60).trim()
+    const floor = [{ job: 101, at: '2026-11-14T08:00:00Z', by: 'Alex', by_id: '101', said: brief, text: 'Here is a first reading of your situation.' }]
+    act(() => show({ ...fixture, floor } as unknown as View))
+    const marker = container.querySelector<HTMLElement>('[data-latest-floor]')!
+    expect(marker.getAttribute('data-testid')).toBe('view-floor-reply')
+    expect(marker.textContent).not.toContain('A long brief')
+    expect(scroll.scrollTop).toBe(884) // 900 - 16; with the marker on the whole exchange it rested on the brief: 600 - 16 = 584
+  })
+
   it('follows the newest floor reply while retaining actions on the most recent saved turn', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) {
       return this.hasAttribute('data-latest-floor') ? 900 : 600

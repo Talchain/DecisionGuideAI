@@ -93,7 +93,7 @@ export function withheldWords(h: NonNullable<ViewCard['headline']>): string | nu
 export function WithheldWords({ id, h }: { id: string; h: NonNullable<ViewCard['headline']> }): JSX.Element {
   const [whole, setWhole] = useState(false)
   return (
-    <button type="button" className="nodrag nowheel min-w-0 cursor-pointer text-left" data-testid={`${id}-withheld-words`} aria-expanded={whole}
+    <button type="button" className="nodrag nowheel nokey nopan min-w-0 cursor-pointer text-left" data-testid={`${id}-withheld-words`} aria-expanded={whole}
       onClick={(e) => { e.stopPropagation(); setWhole((w) => !w) }}>
       <span className={whole ? '' : 'line-clamp-3'} data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
     </button>

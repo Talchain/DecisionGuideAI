@@ -243,12 +243,14 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   return (
-    <li data-testid="view-floor-turn" data-latest-floor={latest ? '' : undefined} data-floor-job={f.job} className="space-y-2">
+    <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">
         {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`}>{f.by}</p>}
         <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
       </div>
-      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-floor-reply"><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
+      {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
+          never on a long brief drawn above it in the same exchange. */}
+      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
     </li>
   )
 }
