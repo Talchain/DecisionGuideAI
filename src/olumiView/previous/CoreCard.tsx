@@ -124,11 +124,13 @@ export function farMarkOf(card: ViewCard, cards: readonly ViewCard[]): { glyph: 
  */
 export function WithheldLead({ id, lead }: { id: string; lead: string | null }): JSX.Element {
   const [whole, setWhole] = useState(false)
+  // The words themselves are the control (a block span, laid out exactly as the plain lead): a <button> sizes to its content, which changed
+  // how the reason wrapped on the reduced faces and kept the opening frame from settling whole (measured 15 Nov at 2000x1205).
+  const toggle = (e: { stopPropagation: () => void }) => { e.stopPropagation(); setWhole((w) => !w) }
   return (
-    <button type="button" className="nodrag nowheel nokey nopan block min-w-0 cursor-pointer text-left" data-testid={`${id}-withheld-words`} aria-expanded={whole}
-      onClick={(e) => { e.stopPropagation(); setWhole((w) => !w) }}>
-      <span className={`block break-words ${whole ? '' : 'line-clamp-3'}`} data-core-lead-clamp={id}>{lead}</span>
-    </button>
+    <span role="button" tabIndex={0} className={`nodrag nowheel nokey nopan block cursor-pointer break-words ${whole ? '' : 'line-clamp-3'}`} data-core-lead-clamp={id}
+      data-testid={`${id}-withheld-words`} aria-expanded={whole} onClick={toggle}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e) } }}>{lead}</span>
   )
 }
 
