@@ -15,7 +15,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { isOpen, setOpen } from './reviewRow'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 type Mark = NonNullable<View['proposal']>['marks'][number]

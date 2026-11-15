@@ -20,11 +20,11 @@ describe('the newest reply\'s next step', () => {
     expect(newestNextOf(golden.chat)?.turn.id).toBe(golden.chat[k]!.id)
   })
   it('CATCH (core delta 5a): a conversational reply (label \'\', no words, no move) offers no step, so nothing is drawn for it', () => {
-    expect(newestNextOf(withNext({ label: '', text: [], move: null, about: ['some_card'], at: null }))).toBeNull()
+    expect(newestNextOf(withNext({ label: '', text: [], move: undefined, about: ['some_card'], at: null }))).toBeNull()
     expect(newestNextOf(withNext({ label: '', text: [{ text: '  ' }], move: '' }))).toBeNull()
   })
   it('CONTRAST: a step with only a label, only words, or only a move is still the newest step', () => {
-    for (const patch of [{ label: 'Check it', text: [], move: null }, { label: '', text: [{ text: 'Check the start date.' }], move: null }, { label: '', text: [], move: 'gather_evidence' }] as Partial<Next>[]) {
+    for (const patch of [{ label: 'Check it', text: [], move: undefined }, { label: '', text: [{ text: 'Check the start date.' }], move: undefined }, { label: '', text: [], move: 'gather_evidence' }] as Partial<Next>[]) {
       expect(newestNextOf(withNext(patch))?.turn.id, JSON.stringify(patch)).toBe(golden.chat[k]!.id)
     }
   })

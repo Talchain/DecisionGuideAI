@@ -14,7 +14,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { isOpen, setOpen } from './reviewRow'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const p = golden.proposal!
@@ -252,7 +252,6 @@ describe('contract 3: a withheld chance says why, in core\'s words', () => {
     const h = card('open_on_sundays').headline!
     expect(withheldWords({ ...h, why: null, title: 'T', text: 'X' })).toBe('T')
     expect(withheldWords({ ...h, why: '', title: 'T', text: 'X' })).toBe('T')
-    expect(withheldWords({ ...h, why: undefined, title: 'T', text: 'X' })).toBe('T')
     expect(withheldWords({ ...h, why: null, title: '', text: 'X' })).toBe('X')
     expect(withheldWords({ ...h, why: 'W', title: 'T', text: 'X' })).toBe('W')
   })
