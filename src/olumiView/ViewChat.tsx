@@ -1311,8 +1311,7 @@ export function ViewChat() {
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-            {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
-                behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
+            {/* The newest reply's own move stays under the reply (14 Nov: not tucked away), as the filled button unless Approve is pinned. */}
             {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it

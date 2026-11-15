@@ -75,7 +75,7 @@ function useBesideZoom(): number {
   return left
 }
 
-export function BelowCue(): JSX.Element | null {
+export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void } = {}): JSX.Element | null {
   const below = useCardsBelow(), right = useCardsRight()
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
@@ -83,8 +83,8 @@ export function BelowCue(): JSX.Element | null {
   // of the board's columns (DL layout pass, 9 Nov). A hook: read before the early return.
   const left = useBesideZoom()
   if (below === 0 && right === 0) return null
-  const pan = () => { const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
-  const up = () => { const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
+  const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
+  const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
   return (
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
       {below === 0 ? null : <>
