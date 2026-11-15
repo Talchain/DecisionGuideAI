@@ -5,8 +5,16 @@
  */
 import { useMemo } from 'react'
 import { useViewStore } from './store'
-import { Badge } from './Badge'
-import { chanceRailOf } from './railRows'
+import { toggleBadge } from './Badge'
+import { chanceRailOf, type RailChallenge } from './railRows'
+
+/** Core's challenge glyph (its key), the badge's words on hover and as its name; pressing it opens what the badge folds, as the badge does. */
+function ChallengeMark({ id, c }: { id: string; c: RailChallenge }): JSX.Element {
+  return (
+    <button type="button" className="ok-rail-challenge nodrag nopan" title={c.title} aria-label={`${c.word}: ${c.title}`} aria-expanded={c.badge.open} data-rail-challenge={id}
+      onClick={(e) => { e.stopPropagation(); void toggleBadge(id, c.badge) }}>{c.glyph}</button>
+  )
+}
 
 export function ChanceRail(): JSX.Element | null {
   const model = useViewStore((s) => s.view?.model ?? null)
@@ -21,7 +29,7 @@ export function ChanceRail(): JSX.Element | null {
             <p key={r.id} className="ok-rail-label" style={{ gridRow: i + 1 }} data-rail-row={r.id}>
               <span className="ok-rail-name" title={r.title} data-view={`${r.id}.heading`}>{r.name}</span>{' '}
               <b className="ok-rail-fig" data-view={`${r.id}.headline.text`}>{r.text}</b>
-              {r.badge == null ? null : <>{' '}<Badge cardId={r.id} badge={r.badge} at={`rail.${r.id}`} /></>}
+              {r.challenge === null ? null : <>{' '}<ChallengeMark id={r.id} c={r.challenge} /></>}
             </p>
           ))}
           {/* ONE rail for every lane: its ticks span them all, so every dot and whisker is read on the same scale. */}
@@ -47,7 +55,7 @@ export function ChanceRail(): JSX.Element | null {
               {i === 0 ? null : ', '}
               <span tabIndex={0} title={r.title} data-view={`${r.id}.heading`}>{r.name}</span>
               {rail.caption === null ? <> <span data-view={`${r.id}.headline.text`}>{r.text}</span></> : null}
-              {r.badge == null ? null : <>{' '}<Badge cardId={r.id} badge={r.badge} at={`rail.${r.id}`} /></>}
+              {r.challenge === null ? null : <>{' '}<ChallengeMark id={r.id} c={r.challenge} /></>}
             </span>
           ))}
         </p>

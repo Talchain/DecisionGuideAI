@@ -9,14 +9,19 @@
 import type { ViewCard, ViewModel } from './client'
 import { rangeBandOf, type RangeBand } from './resultRange'
 
-export type RailRow = { readonly id: string; readonly name: string; readonly text: string; readonly title: string; readonly range: string | null; readonly at: number; readonly band: RangeBand | null; readonly badge: ViewCard['badge'] | null }
-export type RailRest = { readonly id: string; readonly name: string; readonly text: string; readonly title: string; readonly badge: ViewCard['badge'] | null }
+/** Core's challenge mark for an option: the key's own glyph and word for a challenge (`model.key`, by its id), titled with the badge's words. */
+export type RailChallenge = { readonly glyph: string; readonly word: string; readonly title: string; readonly badge: NonNullable<ViewCard['badge']> }
+export type RailRow = { readonly id: string; readonly name: string; readonly text: string; readonly title: string; readonly range: string | null; readonly at: number; readonly band: RangeBand | null; readonly challenge: RailChallenge | null }
+export type RailRest = { readonly id: string; readonly name: string; readonly text: string; readonly title: string; readonly challenge: RailChallenge | null }
 export type ChanceRailT = { readonly rows: readonly RailRow[]; readonly rest: readonly RailRest[]; readonly caption: string | null }
 
-/** Core's badge, kept only where it names a challenge (Olumi's disconfirming claims are the product): its words, else its text. */
-export const challengeBadgeOf = (card: ViewCard): ViewCard['badge'] | null => {
+/** Only where the saved badge names a challenge (Olumi's disconfirming claims are the product), and only core's glyph for it: the badge's
+ *  counts are not drawn on the rail (DL, 15 Nov: they ran into the option names). Null where core's key carries no challenge mark. */
+export const challengeOf = (model: ViewModel, card: ViewCard): RailChallenge | null => {
   const b = card.badge as (ViewCard['badge'] & { readonly words?: string }) | null | undefined
-  return b != null && /challenge/i.test(b.words ?? b.text ?? '') ? b : null
+  const k = (model.key ?? []).find((x) => x.id === 'challenge')
+  if (b == null || k === undefined || k.glyph === '' || !/challenge/i.test(b.words ?? b.text ?? '')) return null
+  return { glyph: k.glyph, word: k.text, title: b.title !== '' ? b.title : (b.words ?? b.text), badge: b }
 }
 
 /** The served row value for the headline's own aim, a fraction 0..1, for a chance or a fixed result; else null. */
@@ -33,8 +38,8 @@ export function chanceRailOf(model: ViewModel | null): ChanceRailT | null {
   const rows: RailRow[] = [], rest: RailRest[] = []
   for (const c of options) {
     const h = c.headline!, at = rowAt(c)
-    if (at !== null) rows.push({ id: c.id, name: c.heading, text: h.text, title: h.title, range: h.range ?? null, at, band: h.state === 'chance' ? rangeBandOf(h.range) : null, badge: challengeBadgeOf(c) })
-    else rest.push({ id: c.id, name: c.heading, text: h.text, title: h.title, badge: challengeBadgeOf(c) })
+    if (at !== null) rows.push({ id: c.id, name: c.heading, text: h.text, title: h.title, range: h.range ?? null, at, band: h.state === 'chance' ? rangeBandOf(h.range) : null, challenge: challengeOf(model, c) })
+    else rest.push({ id: c.id, name: c.heading, text: h.text, title: h.title, challenge: challengeOf(model, c) })
   }
   if (rows.length === 0 && rest.length === 0) return null
   // Highest saved chance first; equal chances keep core's order.

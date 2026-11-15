@@ -312,3 +312,4 @@
 .olumi-look .ok-rail-dot { position: absolute; top: -5px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--o-ink); box-shadow: 0 0 0 2px var(--o-panel); }
 .olumi-look .ok-rail-rest { margin: 0; font-size: calc(12px * var(--o-s)); line-height: 1.35; color: var(--o-light); }
 .olumi-look .ok-rail-caption { font-weight: 600; }
+.olumi-look .ok-rail-challenge { display: inline-flex; align-items: center; justify-content: center; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; border: 1px solid var(--olumi-mark-orange, #c2652a); color: var(--olumi-mark-orange, #c2652a); font-weight: 700; font-size: calc(10px * var(--o-s)); line-height: 1; vertical-align: 1px; cursor: pointer; }

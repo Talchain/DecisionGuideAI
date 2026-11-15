@@ -38,8 +38,10 @@ describe('the shared chance rail', () => {
     ])
     expect(rail.rest.map((r) => r.id)).toEqual([ANGEL, WIDEN, CUT])
     expect(rail.caption).toBe('No chance yet')
-    // Core's badge is kept where it names a challenge, and only there.
-    expect(rail.rest.map((r) => [r.id, r.badge?.text ?? null])).toEqual([[ANGEL, '2 figures, 2 claims, 2 challenges'], [WIDEN, '1 challenge'], [CUT, null]])
+    // Core's challenge glyph (its key's, by id) where the saved badge names a challenge, and only there; titled with the badge's words.
+    const key = RUN2.model!.key.find((k) => k.id === 'challenge')!
+    const badgeTitle = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.badge!.title
+    expect(rail.rest.map((r) => [r.id, r.challenge === null ? null : [r.challenge.glyph, r.challenge.title]])).toEqual([[ANGEL, [key.glyph, badgeTitle(ANGEL)]], [WIDEN, [key.glyph, badgeTitle(WIDEN)]], [CUT, null]])
   })
   it('R2 on the question bar: ONE track carries every dot and whisker on the 0..100 scale with quarter ticks; the unworked group has no track, no dot', () => {
     const el = drawQuestion(RUN2)
@@ -56,7 +58,9 @@ describe('the shared chance rail', () => {
     expect([...rest.querySelectorAll('[data-rail-unworked]')].map((u) => u.getAttribute('data-rail-unworked'))).toEqual([ANGEL, WIDEN, CUT])
     expect(rest.querySelectorAll('[data-chance-rail-track], [data-rail-dot], [data-rail-whisker], .ok-track').length).toBe(0)
     expect(rest.querySelectorAll('[data-rail-caption]').length).toBe(1)
-    expect(rest.querySelector(`[data-rail-unworked="${WIDEN}"] button`)?.textContent).toContain('1 challenge')
-    expect(rest.querySelector(`[data-rail-unworked="${CUT}"] button`)).toBeNull()
+    // The line carries option names and core's challenge glyph only: no badge counts run into the names (DL, 15 Nov).
+    const glyph = RUN2.model!.key.find((k) => k.id === 'challenge')!.glyph
+    expect([...rest.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.getAttribute('data-rail-challenge'), b.textContent])).toEqual([[ANGEL, glyph], [WIDEN, glyph]])
+    for (const c of RUN2.model!.cards.filter((x) => x.badge != null)) for (const w of [c.badge!.text, (c.badge as { face?: string }).face ?? '']) if (w !== '') expect(rest.textContent, w).not.toContain(w)
   })
 })
