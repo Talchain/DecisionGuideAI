@@ -31,16 +31,21 @@ describe('a scenario waiting for its brief', () => {
 import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import { createElement } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 vi.mock('../../lib/supabase', () => ({ supabase: {}, getUserId: async () => null, getSessionIdentity: async () => ({ userId: null, accessToken: null }) }))
 vi.mock('../../lib/posthog', () => ({ trackEvent: () => undefined }))
 import { useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { READING_WORDS, ViewWelcome } from '../ViewWelcome'
+import { VIEW_QUESTION } from '../canvas'
+import { QUESTION } from '../layout'
+
+/** The View's drawing on the canvas, as drawViewCanvas starts it: the question node, by its id and the View's node type. */
+const drawQuestion = () => useCanvasStore.setState({ nodes: [{ id: QUESTION, type: VIEW_QUESTION, position: { x: 0, y: 0 }, data: {} }] } as never)
 
 describe('pre-screen row 9: after Send the canvas is never blank with no words', () => {
   const keep = useViewStore.getState().refresh
-  afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, refresh: keep } as never); useCanvasStore.setState({ currentScenarioId: null } as never) })
+  afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, refresh: keep } as never); useCanvasStore.setState({ currentScenarioId: null, nodes: [] } as never) })
   const put = (s: object) => { useCanvasStore.setState({ currentScenarioId: 'u1' } as never); useViewStore.setState({ uuid: 'u1', at: null, ...s } as never); render(createElement(ViewWelcome)) }
 
   it('core holds the scenario and its View is not read yet: one status line, no composer, no retry', () => {
@@ -56,9 +61,34 @@ describe('pre-screen row 9: after Send the canvas is never blank with no words',
     fireEvent.click(screen.getByTestId('view-reading-again'))
     expect(reads).toBe(1)
   })
-  it('contrast: a scenario whose model is read draws neither', () => {
+  it('contrast: a scenario whose model is read and drawn on the canvas draws neither', () => {
+    drawQuestion()
     put({ sid: held.id, view: held, status: 'ready', error: null })
     expect(screen.queryByTestId('view-reading')).toBeNull()
     expect(screen.queryByTestId('view-welcome')).toBeNull()
+  })
+  it('catch (cold reopen, 14 Nov: the canvas stood empty with no words after the read): the one line stays, the same element, from the read until the model is drawn', () => {
+    put({ sid: held.id, view: null, status: 'loading', error: null })
+    const line = screen.getByTestId('view-reading-words')
+    expect(line).toHaveTextContent(READING_WORDS)
+    // The View is read; nothing of it is on the canvas yet (the layout engine loading, the board being laid out): the same line, unmoved.
+    act(() => { useViewStore.setState({ view: held, status: 'ready' } as never) })
+    expect(screen.getByTestId('view-reading-words')).toBe(line)
+    expect(line).toHaveTextContent(READING_WORDS)
+    expect(screen.queryByTestId('view-reading-again')).toBeNull()
+    expect(screen.queryByTestId('view-welcome')).toBeNull()
+    // The model is drawn: the line goes, and nothing takes its place.
+    act(() => { drawQuestion() })
+    expect(screen.queryByTestId('view-reading')).toBeNull()
+    expect(screen.queryByTestId('view-welcome')).toBeNull()
+  })
+  it('must not change: another scenario\'s View held, or a View with no model, draws no opening line on an empty canvas', () => {
+    useCanvasStore.setState({ currentScenarioId: 'u1' } as never)
+    useViewStore.setState({ uuid: 'u0', sid: held.id, view: held, status: 'ready', error: null, at: null } as never)
+    const { unmount } = render(createElement(ViewWelcome))
+    expect(screen.queryByTestId('view-reading')).toBeNull()
+    unmount()
+    put({ sid: held.id, view: { ...held, model: null }, status: 'ready', error: null })
+    expect(screen.queryByTestId('view-reading')).toBeNull()
   })
 })

@@ -23,6 +23,9 @@ export const ROOT_LINK = 'rootLink'
 /** A card or the question drawn from core's View: it has no store node, so a click selects it (its words show) and opens no inspector,
  *  which could only say it has no editor (4 Nov drive). Its own controls (✎, the Olumi icon) are on the card. */
 export const isViewNode = (node: { type?: string } | null | undefined): boolean => node?.type === VIEW_CARD || node?.type === VIEW_QUESTION
+/** Whether the canvas holds the View's drawing (its question or any card): until it does, a model that has been read is still opening
+ *  (ViewWelcome's opening line stays). */
+export const holdsViewDrawing = (nodes: readonly { type?: string }[]): boolean => holdsViewNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 

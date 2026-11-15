@@ -34,7 +34,7 @@ import { ToastProvider } from '../canvas/ToastContext'
 import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
-import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { focusedCardOf, focusedLinkOf, holdsViewDrawing, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
 import { drawKindOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
@@ -333,6 +333,8 @@ function ViewFlow() {
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
+  // Whether the model read is on the canvas yet: on a cold open the layout engine loads and lays the board out after the View is read.
+  const onCanvas = holdsViewDrawing(stored)
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
@@ -375,8 +377,10 @@ function ViewFlow() {
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
       {hasModel ? null : <DraftingBoard />}
-      {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
-      {hasModel ? null : <ViewWelcome />}
+      {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. Its
+          opening line stays mounted, one element, until the model read is drawn on the canvas, not only until it is read (14 Nov, cold
+          reopen: the canvas stood empty with no words while the board was laid out). */}
+      {hasModel && onCanvas ? null : <ViewWelcome />}
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo={false} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}

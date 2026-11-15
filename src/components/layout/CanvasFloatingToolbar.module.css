@@ -285,6 +285,15 @@
   height: 36px;
 }
 
+/* 14 Nov fault (1232×704 at 133%, a 926×529 window): there the first option cards reach the foot and the row above was drawn over the
+ * first card. In a short pane on the olumi-core lane (`footStackedOf`, olumiView/footPlace.ts, sets this class) the same four 36 px buttons
+ * stand as one column at the same left and foot offset, under the canvas tools, in the gutter the board's framing keeps clear
+ * (computeFitPadding reserves the canvas tools' column). The menu still opens to the right, its foot level with the ⋯ button. The row
+ * rule above is unchanged at 1232×704 and 2000×1205. */
+.viewportControls.footStack .group {
+  flex-direction: column;
+}
+
 /* The core lane's human tools use neutral hover/focus; legacy tools retain their palette. */
 .neutralTools .iconButton:hover {
   background: var(--bg-panel-hover);

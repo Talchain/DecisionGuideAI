@@ -7,12 +7,13 @@
 import { useLayoutEffect, useState } from 'react'
 import { create } from 'zustand'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
-import { useViewStore } from './store'
+import { useViewStore, type ViewStatus } from './store'
 import { typography } from '../styles/typography'
 import { useCanvasStore } from '../canvas/store'
 import type { View } from './client'
 import { boardDraftOf } from './DraftingBoard'
 import { takesBrief, ViewComposer } from './ViewChat'
+import { holdsViewDrawing } from './canvas'
 
 /** Whether the scenario on screen is waiting for its brief: core holds no scenario for it (a new one, not yet named or named), or holds
  *  one with no model and no proposal. Decided only once the View store is the scenario on screen's, never while another's View is held
@@ -20,8 +21,21 @@ import { takesBrief, ViewComposer } from './ViewChat'
 export const awaitsBriefOf = (s: { uuid: string | null; sid: string | null; view: View | null }, onScreen: string | null): boolean =>
   s.uuid === onScreen && (s.sid === null || (s.view !== null && s.view.version === null && s.view.proposal === null && takesBrief(s.sid, s.view) && boardDraftOf(s.view) === null))
 
-/** The canvas's words while a scenario's model is being read, and when a failed read gave no reason of its own. */
+/** The canvas's words while a scenario's model is being read and drawn, and when a failed read gave no reason of its own. */
 export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Olumi could not open this scenario just now.'
+
+/**
+ * What the canvas says while the scenario on screen opens, from the moment core holds it until its model is ON the canvas (14 Nov, cold
+ * reopen: the line left as soon as the View was read, and the canvas then stood empty with no words while the layout engine loaded and the
+ * board was first laid out and drawn). 'reading' while its View is read, and on, once read, until the canvas holds the View's drawing
+ * (`drawn`); 'error' when the read failed with no View. Null for another scenario's View, a past version, a View with no model (a
+ * scenario waiting for its brief, or a draft running: the welcome or the drafting board speak there), and once the model is drawn.
+ */
+const readingOf = (s: { uuid: string | null; sid: string | null; view: View | null; at: number | null; status: ViewStatus }, onScreen: string | null, drawn: boolean): 'reading' | 'error' | null => {
+  if (s.at !== null || s.uuid !== onScreen || s.sid === null) return null
+  if (s.view === null) return s.status === 'error' ? 'error' : 'reading'
+  return (s.view.model?.cards.length ?? 0) > 0 && !drawn ? 'reading' : null
+}
 
 /** Whether the welcome (and so its composer) is wanted for the scenario on screen. */
 function useWelcomeWanted(): boolean {
@@ -49,9 +63,11 @@ export function ViewWelcome(): JSX.Element | null {
     const t = setInterval(measure, 500)
     return () => { clearInterval(t); window.removeEventListener('resize', measure); window.removeEventListener('outputs-dock-opened', measure) }
   }, [])
-  // Pre-screen row 9 (DL 10 Nov): once core holds the scenario and its View is not read yet (right after Send on the brief, or a cold
-  // open), the canvas says so; a read that failed says why, with a retry. Never a blank canvas with no words.
-  const reading = useViewStore((s) => (s.at === null && s.uuid === onScreen && s.sid !== null && s.view === null ? (s.status === 'error' ? 'error' : 'reading') : null))
+  // Pre-screen row 9 (DL 10 Nov): once core holds the scenario and its model is not on the canvas yet (right after Send on the brief, or a
+  // cold open, through the read and then the first drawing), the canvas says so; a read that failed says why, with a retry. Never a blank
+  // canvas with no words. One element throughout: ViewCanvas keeps this mounted until the drawing is on the canvas (readingOf).
+  const drawn = useCanvasStore((s) => holdsViewDrawing(s.nodes))
+  const reading = useViewStore((s) => readingOf(s, onScreen, drawn))
   const error = useViewStore((s) => s.error)
   const [again, setAgain] = useState(false)
   if (reading !== null) return (

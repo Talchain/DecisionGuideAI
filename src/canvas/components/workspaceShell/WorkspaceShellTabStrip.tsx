@@ -313,6 +313,21 @@ function TabStripOverflowMenu({
 /** DL 06:57Z (2): below this dock width the olumi-core lane's tabs keep one row (see narrowLane). The 1232 dock is 347 px, the 1128 dock 317. */
 export const LANE_ONE_ROW_BELOW_PX = 330
 
+/**
+ * 14 Nov fault (1232×704 at 133%: a 926 px window, so the dock's floor, DOCK_MIN_WIDTH 280): the six named tabs need about 291 px and the
+ * row has 272, so the one-row rule's sideways scroll left "Team" cut at the dock's edge, 14.5 of its 34 px in view (visual baseline
+ * d3ec8981). Below this width the row makes room instead: the Olumi tab draws its mark alone, as on every other lane (vision spec §3; "Olumi"
+ * stays its accessible name and its tooltip), which gives back about 36 px; and every tab may shrink, so a label is ellipsised (its full name
+ * in its tooltip) before any tab is cut by the row's edge. The 1128 dock (317), the 1232 dock (347) and the 360 ceiling are above it.
+ */
+export const LANE_FIT_BELOW_PX = 300
+
+/** How the olumi-core lane's tab row holds its tabs at a dock width: wrapped to rows, one row (scrolling where it must), or fitted. */
+export type LaneTabRow = 'wrap' | 'oneRow' | 'fit'
+export function laneTabRowOf(width: number): LaneTabRow {
+  return width < LANE_FIT_BELOW_PX ? 'fit' : width < LANE_ONE_ROW_BELOW_PX ? 'oneRow' : 'wrap'
+}
+
 export function WorkspaceShellTabStrip({
   surfaces,
   activeTab,
@@ -343,6 +358,8 @@ export function WorkspaceShellTabStrip({
   // DL 06:57Z (2): on a narrow lane dock (1128: 317 px) the six names keep one row (the row's side padding narrows); never cut: where they
   // still do not fit, the row scrolls sideways (a deliberate overflow), never a second row.
   const narrowLane = coreLane && width < LANE_ONE_ROW_BELOW_PX
+  // 14 Nov (926 px window, dock 280): below LANE_FIT_BELOW_PX the row is fitted, never scrolled past a tab (laneTabRowOf).
+  const fitLane = coreLane && laneTabRowOf(width) === 'fit'
   const wrapTabs = (coreLane && !narrowLane) || !isCompact
   // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
   // four tabs, never floating over its end; elsewhere they stay in the row.
@@ -440,7 +457,7 @@ export function WorkspaceShellTabStrip({
           `<nav>` says "this region is how you move around the dock", the
           tablist says "these three controls are a tab set". Both are true, and
           nesting them keeps every existing binding working. */}
-      <nav className={`flex flex-1 min-w-0 ${narrowLane ? 'overflow-x-auto' : ''}`} aria-label={DOCK_TABLIST_LABEL} data-lane-row={narrowLane ? 'one' : undefined}>
+      <nav className={`flex flex-1 min-w-0 ${narrowLane ? 'overflow-x-auto' : ''}`} aria-label={DOCK_TABLIST_LABEL} data-lane-row={fitLane ? 'fit' : narrowLane ? 'one' : undefined}>
       {/* ⭐ `flex-wrap` IS THE FLOOR UNDER LABEL LEGIBILITY, AND IT IS NOT
           SUFFICIENT ON ITS OWN — the two changes here are load-bearing
           together and were measured separately on deployed staging
@@ -550,7 +567,8 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative ${laneWrapped ? 'flex-none before:hidden' : narrowLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              // Fitted (fitLane): `flex-auto` shrinks, so the row's edge never cuts a tab; one row above it: each tab its full width.
+              className={`relative ${laneWrapped ? 'flex-none before:hidden' : narrowLane && !fitLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
@@ -577,7 +595,8 @@ export function WorkspaceShellTabStrip({
                   // mark that reads as a slab; elsewhere the mark alone (vision spec §3).
                   <>
                     <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
-                    {coreLane ? <span className="truncate tracking-tight">{surface.label}</span> : null}
+                    {/* Fitted (the dock's floor): the mark alone, so the five other names keep their words; "Olumi" stays the tab's name and tooltip. */}
+                    {coreLane && !fitLane ? <span className="truncate tracking-tight">{surface.label}</span> : null}
                   </>
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all

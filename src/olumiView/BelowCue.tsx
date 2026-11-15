@@ -12,6 +12,8 @@ import { typography } from '../styles/typography'
 import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
+import Tooltip from '../components/Tooltip'
+import { CUE_ROW_BOTTOM, CUE_STACK_GAP, cuePlaceOf, footStackedOf, type CuePlace } from './footPlace'
 
 /** The foot of the free canvas: the window's foot less the foot controls' band (the zoom row and this cue, FOOT_CONTROLS). */
 export const FOOT_BAND = 64
@@ -62,17 +64,45 @@ function useCardsBelow(): number {
   return useStore((s) => cardsBelowOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
 }
 
-/** The cue's left edge: 12 px right of the zoom row, read once it is drawn and again as the window changes. */
-function useBesideZoom(): number {
-  const [left, setLeft] = useState(16)
+/**
+ * The cue's place, from the zoom controls as drawn: 12 px right of the zoom row, or (14 Nov, a short pane: footPlace.ts) above the zoom
+ * column in the left gutter, as the controls say they stand (`data-foot`). Read once they are drawn and again as the window changes.
+ */
+function useFootPlace(): CuePlace & { stacked: boolean } {
+  const [place, setPlace] = useState<CuePlace & { stacked: boolean }>({ left: 16, bottom: CUE_ROW_BOTTOM, stacked: false })
+  // Re-read at once when the pane crosses the short-pane height: the zoom controls change shape in the same commit (a browser zoom to 133%).
+  const short = useStore((s) => footStackedOf(s.height))
   useLayoutEffect(() => {
-    const read = () => { const z = document.querySelector(FOOT_CONTROLS[0])?.getBoundingClientRect(); if (z) setLeft(Math.ceil(z.right + 12)) }
+    const read = () => {
+      const nav = document.querySelector(FOOT_CONTROLS[0])
+      if (!nav) return
+      const stacked = nav.getAttribute('data-foot') === 'stack'
+      const next = { ...cuePlaceOf(nav.getBoundingClientRect(), window.innerHeight, stacked), stacked }
+      setPlace((p) => (p.left === next.left && p.bottom === next.bottom && p.stacked === next.stacked ? p : next))
+    }
     read()
     const t = setInterval(read, 500)
     window.addEventListener('resize', read)
     return () => { clearInterval(t); window.removeEventListener('resize', read) }
-  }, [])
-  return left
+  }, [short])
+  return place
+}
+
+/**
+ * The cue in the left gutter's column (a short pane): its count over its arrow in one 36 px square, as the zoom buttons below it; its words
+ * ("13 more cards below") are its accessible name and its tooltip.
+ */
+function SquareCue({ count, words, onClick, down, testId }: { count: number; words: string; onClick: () => void; down: boolean; testId?: string }) {
+  const Arrow = down ? ChevronDown : ChevronRight
+  return (
+    <Tooltip content={words} asChild>
+      <button type="button" onClick={onClick} aria-label={words} data-testid={testId}
+        className={`${typography.viewPanelMeta} pointer-events-auto inline-flex h-9 w-9 flex-col items-center justify-center rounded-[12px] border border-panel-border bg-panel text-text-body shadow-1 hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${HIT_44}`}>
+        <span aria-hidden="true" className="leading-none">{count}</span>
+        <Arrow aria-hidden="true" className="h-3.5 w-3.5" />
+      </button>
+    </Tooltip>
+  )
 }
 
 export function BelowCue(): JSX.Element | null {
@@ -80,13 +110,23 @@ export function BelowCue(): JSX.Element | null {
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
-  // of the board's columns (DL layout pass, 9 Nov). A hook: read before the early return.
-  const left = useBesideZoom()
+  // of the board's columns (DL layout pass, 9 Nov); in a short pane above the zoom column, in the left gutter (footPlace.ts). A hook: read
+  // before the early return.
+  const { left, bottom, stacked } = useFootPlace()
   if (below === 0 && right === 0) return null
   const pan = () => { const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
+  if (stacked) {
+    // The column, from the zoom controls up: the cards below nearest them, then the cards to the right.
+    return (
+      <div className="pointer-events-none fixed z-[1200] flex flex-col-reverse" style={{ left, bottom, gap: CUE_STACK_GAP }} data-testid="view-below-cue" data-foot="stack">
+        {below === 0 ? null : <SquareCue count={below} words={`${below} more ${below === 1 ? 'card' : 'cards'} below`} onClick={up} down />}
+        {right === 0 ? null : <SquareCue count={right} words={`${right} more ${right === 1 ? 'card' : 'cards'} to the right`} onClick={pan} down={false} testId="view-right-cue" />}
+      </div>
+    )
+  }
   return (
-    <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
+    <div className="pointer-events-none fixed z-[1200] flex gap-2" style={{ left, bottom }} data-testid="view-below-cue">
       {below === 0 ? null : <>
       <button type="button" onClick={up}
         className={`${typography.viewPanelMeta} pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3.5 text-text-body shadow-1 hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${HIT_44}`}>

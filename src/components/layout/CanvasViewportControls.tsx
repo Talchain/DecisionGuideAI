@@ -65,6 +65,7 @@ import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover
 import { useCanvasStore } from '../../canvas/store'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewLegend } from '../../olumiView/ViewLegend'
+import { footStackedOf } from '../../olumiView/footPlace'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import styles from './CanvasFloatingToolbar.module.css'
 
@@ -85,6 +86,10 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 }: CanvasViewportControlsProps) {
   const zoom = useStore(s => s.transform[2])
   const zoomPct = `${Math.round(zoom * 100)}%`
+  // 14 Nov (926×529, 1232×704 at 133%): on the olumi-core lane, in a short pane the tools stand as one column in the left gutter the
+  // board's framing keeps clear, never as a row across the first cards (olumiView/footPlace.ts). Other lanes keep the row.
+  const short = useStore(s => footStackedOf(s.height))
+  const stacked = isOlumiCoreLane() && short
 
   // Standard/Detailed view — read and written exactly as the canvas tools'
   // eye button did before it moved here.
@@ -146,7 +151,12 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   }
 
   return (
-    <nav aria-label="Viewport controls" className={styles.viewportControls}>
+    <nav
+      aria-label="Viewport controls"
+      className={stacked ? `${styles.viewportControls} ${styles.footStack}` : styles.viewportControls}
+      // Read by the "more cards" cue (BelowCue), which stands beside the row or above the column.
+      data-foot={stacked ? 'stack' : 'row'}
+    >
       {/* contract v3.1 `.zoom-tools`: −, +, fit — in that order. */}
       <div className={styles.group}>
         <Tooltip content="Zoom out">
