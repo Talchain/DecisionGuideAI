@@ -882,6 +882,10 @@ export function newestNextOf(chat: readonly ViewTurn[] | null | undefined): { tu
   const k = (chat ?? []).findIndex((t) => t.answer?.next.newest === true)
   if (k < 0) return null
   const turn = chat![k]!, a = turn.answer!
+  // A conversational reply (core delta 5a, 15 Nov: label '', no words, nothing to press) offers no step: nothing is drawn for one, never
+  // an empty "Suggested next step" box or a composer prompt as if Olumi had asked something. Its named cards still come through `about`.
+  const words = a.next.text.map((t) => ('text' in t ? t.text : '')).join('').trim()
+  if (a.next.label === '' && words === '' && (typeof a.next.move !== 'string' || a.next.move === '')) return null
   const cites = [a.answer, ...a.why].flatMap((parts) => parts.flatMap((p) => ('cite' in p ? [p] : []))).length
   return { turn, k, next: a.next, first: 1 + cites }
 }
