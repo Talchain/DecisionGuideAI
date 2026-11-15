@@ -268,6 +268,24 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(884) // 900 - 16; before: the turn's own top, 600 - 16 = 584, with the reply below the clipped thread
   })
 
+  it('CT8s CATCH (Codex 15 Nov, round 2): where the early reply and the answer are both drawn, the thread rests on the ANSWER\'s first line', () => {
+    let resize: ResizeObserverCallback = () => undefined
+    vi.stubGlobal('ResizeObserver', class { constructor(cb: ResizeObserverCallback) { resize = cb } observe = vi.fn(); disconnect = vi.fn() })
+    const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-chat-answer' ? 1000 : this.dataset.testid === 'view-chat-early' ? 700 : this.dataset.testid === 'view-chat-latest' ? 600 : 0 })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    const latest = () => getByTestId('view-chat-latest')
+    act(() => show(bare))
+    // An early reply drawn above the answer in the newest turn, as ViewChat draws one (the DOM order the old comma query took first).
+    const early = document.createElement('div'); early.dataset.testid = 'view-chat-early'
+    latest().insertBefore(early, latest().querySelector('[data-testid="view-chat-answer"]'))
+    act(() => resize([], {} as ResizeObserver)) // the thread's content grew: the browser reports it, the thread rests again
+    expect(scroll.scrollTop).toBe(984) // 1000 - 16; the comma query took the early reply: 700 - 16 = 684
+  })
+
   it('CT8b (DL-538): a held proposal\'s Next step card is pinned outside the thread\'s scroll, above the composer; the thread follows the newest reply\'s start', () => {
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })

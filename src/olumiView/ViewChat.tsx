@@ -1299,7 +1299,9 @@ export function ViewChat() {
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
     // Contract 3 (Codex 15 Nov): the newest REPLY's first line, never the person's message drawn above it in the same turn.
     const latest = el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"], [data-testid="view-chat-early"]') ?? latest
+    // The answer first, the early reply only where there is no answer yet (one query each: a comma list would pick DOM order, and the early
+    // reply is drawn above the answer; Codex 15 Nov, round 2).
+    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-early"]') ?? latest
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
