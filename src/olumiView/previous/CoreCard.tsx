@@ -10,7 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
@@ -118,20 +118,12 @@ export function farMarkOf(card: ViewCard, cards: readonly ViewCard[]): { glyph: 
 /** The hover that goes with `leadLineOf`: core's own title for the same thing (the goal, conditions and precision behind a chance; the bound's and
  *  the figure's own), verbatim. Null where core sends none. */
 /**
- * Contract 3 (as the new look, Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"): core's reason for a withheld
- * chance, held to three lines on the card; pressed (or Enter / Space) it opens whole in place and closes again. Its hover (the lead's title)
- * is the whole reason too. Words are core's only.
+ * Contract 3 (as the new look, Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"; DL 15 Nov polish: no sentence
+ * is ever cut on a card face): core's reason for a withheld chance, drawn whole and wrapped (a block span, laid out exactly as the plain lead).
+ * Its hover (the lead's title) is the whole reason too. Words are core's only.
  */
 export function WithheldLead({ id, lead }: { id: string; lead: string | null }): JSX.Element {
-  const [whole, setWhole] = useState(false)
-  // The words themselves are the control (a block span, laid out exactly as the plain lead): a <button> sizes to its content, which changed
-  // how the reason wrapped on the reduced faces and kept the opening frame from settling whole (measured 15 Nov at 2000x1205).
-  const toggle = (e: { stopPropagation: () => void }) => { e.stopPropagation(); setWhole((w) => !w) }
-  return (
-    <span role="button" tabIndex={0} className={`nodrag nowheel nokey nopan block cursor-pointer break-words ${whole ? '' : 'line-clamp-3'}`} data-core-lead-clamp={id}
-      data-testid={`${id}-withheld-words`} aria-expanded={whole} onClick={toggle}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e) } }}>{lead}</span>
-  )
+  return <span className="block break-words" data-core-lead-clamp={id} data-testid={`${id}-withheld-words`}>{lead}</span>
 }
 
 export function leadTitleOf(card: ViewCard): string | null {
