@@ -34,18 +34,24 @@ function draw(view: View, id: string) {
     olumi: q(`[data-share-olumi="${id}"]`), person: q(`[data-share-person="${id}"]`), track: q(`[data-view="${id}.chance.track"]`) }
 }
 const pct = (el: HTMLElement | null, prop: 'left' | 'width') => parseFloat(el!.style[prop])
+/** UI-BRIEF-20261115 (DL ruling 02:0xZ, a deliberate change of place, not a loosened check): core's range words are the band's own, byte for
+ *  byte: the tip INSIDE the focusable track (shown on hover and keyboard focus) and the track's accessible name; never a caption on the face. */
+const rangeIsTheTrack = (d: ReturnType<typeof draw>) =>
+  [d.caption!.textContent, d.track!.contains(d.caption), d.track!.getAttribute('tabindex'), d.track!.getAttribute('role'), d.track!.getAttribute('aria-label'),
+   d.caption!.closest('.ok-qual'), d.root.querySelectorAll('.ok-qual[data-range-caption], p[data-range-caption]').length]
+const AT_TRACK = (words: string) => [words, true, '0', 'img', words, null, 0]
 const withRests = (view: View, patch: (r: NonNullable<NonNullable<View['model']>['run']>['rests'][number]) => void, option: string): View => {
   const v = structuredClone(view); for (const r of v.model!.run!.rests) if (r.option === option && r.kind === 'goal') patch(r); return v
 }
 
 describe('the range, as a band with the chance marked', () => {
-  it('B1 catch (bakery second_oven): the band runs between the two figures core states, the chance is marked inside it, the caption is core\'s words', () => {
+  it('B1 catch (bakery second_oven): the band runs between the two figures core states, the chance is marked inside it, core\'s words are the track\'s tip on hover and focus', () => {
     const d = draw(golden('bakery'), 'second_oven')
     expect(d.card.headline!.range).toBe("about 53% if 'extra sold per oven' is low, about 81% if it is high")
     expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([53, 28])
     expect(d.band!.hasAttribute('data-open-low') || d.band!.hasAttribute('data-open-high')).toBe(false)
     expect(pct(d.mark, 'left')).toBeCloseTo(71.62, 5)
-    expect(d.caption!.textContent).toBe(d.card.headline!.range)
+    expect(rangeIsTheTrack(d), 'core\'s words are the track\'s tip and name, not a caption').toEqual(AT_TRACK(d.card.headline!.range!))
     expect(pct(d.track!.querySelector('span'), 'width')).toBeCloseTo(71.62, 5)
   })
   it('B2 catch (pricing raise_price): "under" and "over" stay open: the band runs to both ends of the track, not to 1% and 99%', () => {
@@ -54,23 +60,24 @@ describe('the range, as a band with the chance marked', () => {
     expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([0, 100])
     expect(d.band!.hasAttribute('data-open-low') && d.band!.hasAttribute('data-open-high')).toBe(true)
     expect(pct(d.mark, 'left')).toBeCloseTo(49.21, 5)
-    expect(d.caption!.textContent).toBe(d.card.headline!.range)
+    expect(rangeIsTheTrack(d)).toEqual(AT_TRACK(d.card.headline!.range!))
   })
   it('B3 catch: one open end only ("under 1% … about 95%"): the band is 0 to 95 and open only at the low end; the reversed order reads the same', () => {
     expect(rangeBandOf("under 1% if 'x' is low, about 95% if it is high")).toEqual({ from: 0, to: 95, openLow: true, openHigh: false })
     expect(rangeBandOf("about 92% if 'x' is low, under 1% if it is high")).toEqual({ from: 0, to: 92, openLow: true, openHigh: false })
     expect(rangeBandOf("about 4% if 'x' is low, about 97% if it is high")).toEqual({ from: 4, to: 97, openLow: false, openHigh: false })
   })
-  it('B4 must not change: words that are not core\'s two-ended sentence draw no band (the words stay), never a guessed one', () => {
+  it('B4 must not change: words that are not core\'s two-ended sentence draw no band (the words stay, as the track\'s tip), never a guessed one', () => {
     for (const w of ['£2,580/month', 'Outcome range', "under 1% if 'x' is low", "about 4% if 'x' is low, about 140% if it is high", '', null]) expect(rangeBandOf(w), String(w)).toBeNull()
     const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = 'it moves a lot with the oven'
     const d = draw(v, 'second_oven')
-    expect(d.band).toBeNull(); expect(d.caption!.textContent).toBe('it moves a lot with the oven'); expect(d.mark).not.toBeNull()
+    expect(d.band).toBeNull(); expect(rangeIsTheTrack(d)).toEqual(AT_TRACK('it moves a lot with the oven')); expect(d.mark).not.toBeNull()
   })
   it('B5 must not change: a chance with no range words draws the fill and the mark, no band, no caption', () => {
     const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = null
     const d = draw(v, 'second_oven')
     expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
+    expect([d.track!.getAttribute('tabindex'), d.track!.getAttribute('aria-hidden')], 'no words: nothing to reach, as before').toEqual([null, 'true'])
   })
   it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: "No chance yet")', () => {
     const fixed = draw(golden('pricing'), 'carry_on')
