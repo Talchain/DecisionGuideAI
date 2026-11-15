@@ -328,3 +328,10 @@
 .olumi-look .ok-rail-rest { margin: 0; font-size: calc(12px * var(--o-s)); line-height: 1.35; color: var(--o-light); }
 .olumi-look .ok-rail-caption { font-weight: 600; }
 .olumi-look .ok-rail-challenge { display: inline-flex; align-items: center; justify-content: center; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; border: 1px solid var(--olumi-mark-orange, #c2652a); color: var(--olumi-mark-orange, #c2652a); font-weight: 700; font-size: calc(10px * var(--o-s)); line-height: 1; vertical-align: 1px; cursor: pointer; }
+/* DL 15 Nov: what a result rests on, shown whole on press under its label, out of the card's flow (as "Why not"): the card never grows. */
+.olumi-look .ok-share-wrap { position: relative; display: block; max-width: 100%; }
+.olumi-look .ok-share-said {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 40; width: calc(280px * var(--o-s)); margin: 0; white-space: normal;
+  font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); background: var(--o-panel); border: 1px solid var(--o-border-emph);
+  border-radius: 13px; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.12), 0 1px 3px rgba(30, 49, 50, 0.06); padding: calc(8px * var(--o-s)) calc(10px * var(--o-s));
+}

@@ -4,6 +4,7 @@
  * view. Everything is read from the View (resultRange.ts); Olumi's estimates take Olumi's blue, the person's own figures the ink, and what
  * core does not attribute (`unassigned`) its own grey segment, never counted as the person's. The words are core's own line for the entry, whatever the split (restWordsOf), held to two lines on the card with the whole line in the button's title and in the Rests on view, or a neutral link where it serves none; the shares set the bar widths only. Entries of kind 'limit' are deliberately not drawn on the card, and the first goal entry for the option and aim is the one used (restsShareOf). The track keeps its 3 px height and margins: the band and the mark are drawn out of flow.
  */
+import { useState } from 'react'
 import type { ViewCard } from './client'
 import { useViewStore } from './store'
 import { useViewLens } from './lens'
@@ -37,12 +38,17 @@ export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
 export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null {
   const model = useViewStore((s) => s.view?.model ?? null)
   const share = restsShareOf(model, card)
+  const [open, setOpen] = useState(false)
   if (share === null) return null
   const said = restWordsOf(share)
   const w = shareWidths(share)
+  // DL 15 Nov: a title is hover only; pressing the label also shows the whole sentence under it, out of the card's flow (as "Why not"), so
+  // keyboard and touch reach it. Not in the page until pressed: the face keeps only the label.
+  const whole = said.basis === 'line' ? said.words : share.hover
   return (
-    <button type="button" className="ok-share nodrag nopan" data-rests-share={card.id} data-rests-basis={said.basis} title={said.basis === 'line' ? said.words : share.hover}
-      onClick={() => useViewLens.setState({ lens: 'rests_on' })}>
+    <span className="ok-share-wrap" data-rests-wrap={card.id}>
+    <button type="button" className="ok-share nodrag nopan" data-rests-share={card.id} data-rests-basis={said.basis} title={whole} aria-expanded={open}
+      onClick={() => { setOpen((o) => !o); useViewLens.setState({ lens: 'rests_on' }) }}>
       <span className="ok-share-bar" aria-hidden="true">
         <i className="ok-share-olumi" data-share-olumi={card.id} style={{ width: `${w.olumi}%` }} />
         <i className="ok-share-person" data-share-person={card.id} style={{ width: `${w.person}%` }} />
@@ -52,5 +58,7 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
           line is the button's title, and pressing it opens Rests on, which draws every entry's line whole (restsOf). */}
       <span data-rests-neutral={card.id}>{NEUTRAL_REST_WORDS}</span>
     </button>
+    {open && whole ? <p className="ok-share-said nodrag nopan" role="note" data-rests-said={card.id}>{whole}</p> : null}
+    </span>
   )
 }

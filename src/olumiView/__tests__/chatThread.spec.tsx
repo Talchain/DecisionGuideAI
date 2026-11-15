@@ -389,6 +389,9 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     height = 1600; grow()
     expect(scroll.scrollTop).toBe(100)
     expect(getByTestId('view-chat-to-latest').textContent).toBe('Latest')
+    // DL 15 Nov: "Latest" never covers the thread or the review's words at 1232: its own row under the thread, outside the scroller's box.
+    expect(getByTestId('view-chat-to-latest').closest('[data-testid="view-chat-latest-row"]')).not.toBeNull()
+    expect(scroll.parentElement!.contains(getByTestId('view-chat-to-latest')), 'not drawn over the thread').toBe(false)
     fireEvent.click(getByTestId('view-chat-to-latest'))
     expect(scroll.scrollTop).toBe(1400)
     expect(queryByTestId('view-chat-to-latest')).toBeNull()

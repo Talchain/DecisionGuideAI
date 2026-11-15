@@ -1443,8 +1443,13 @@ export function ViewChat() {
             {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
           </div>
         </div>
-        {away ? <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} absolute bottom-2 right-4 inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button> : null}
       </div>
+      {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
+      {away ? (
+        <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
+          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button>
+        </div>
+      ) : null}
       {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
           buried under a long reply; it scrolls on its own when taller than half the panel. */}
       {view === null || !pinned ? null : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
