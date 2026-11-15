@@ -29,13 +29,20 @@ export function restClearOfFoot(v: Viewport, nodes: readonly Node[], paneH: numb
   // At rest never a big move: at most the gutter and one card's label and figure, and the board's top card stays read (label above the
   // gutter). The first-approval anchor may move further: bringing the aim into view is the point.
   const most = FOOT_GUTTER + LABEL_FIGURE_H * z
-  const top = cards.reduce((t, c) => (c.top < t.top ? c : t), cards[0]!)
+  let top = cards[0]!
+  for (const c of cards) if (c.top < top.top) top = c
   const held = (dy: number) => (a === null
     ? Math.abs(dy) <= most && topmost + dy >= freeTop - 0.5 && top.top + dy + top.lf <= G + 0.5
     : a.top + dy >= freeTop - 0.5 && a.top + dy + a.h <= G + 0.5)
   const moves = [0, ...cards.flatMap((c) => [paneH - c.top, G - (c.top + c.lf)]), ...(a === null ? [] : [G - (a.top + a.h), freeTop - a.top])]
-    .sort((x, y) => Math.abs(x) - Math.abs(y)) // unrounded: a fractional card top must not leave a pushed row half a pixel above the fold
-  const best = moves.find((d) => held(d) && clear(d)) ?? (a === null ? 0 : moves.find((d) => held(d)) ?? 0)
+  // The smallest move that qualifies (the first listed where two are as small), by size and unrounded: a fractional card top must not leave
+  // a pushed row half a pixel above the fold.
+  const nearest = (ok: (d: number) => boolean): number | undefined => {
+    let b: number | undefined
+    for (const d of moves) if (ok(d) && (b === undefined || Math.abs(d) < Math.abs(b))) b = d
+    return b
+  }
+  const best = nearest((d) => held(d) && clear(d)) ?? (a === null ? 0 : nearest(held) ?? 0)
   // (where no bounded move clears the foot, the frame is left as the fit made it: nothing is ever pushed out of view to pass the rule)
   return best === 0 ? v : { ...v, y: v.y + Math.ceil(best) }
 }

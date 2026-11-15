@@ -17,9 +17,8 @@ import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type View
 import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
-import { questionsOf } from './journey'
 import { usePreMortemGate, useViewLens } from './lens'
-import { figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { chatQuestionsOf, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -30,6 +29,7 @@ import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStor
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useUIStore } from '../stores/uiStore'
+import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { FigureEdit } from './FigureEdit'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { endRing, pointRing, restRing } from './ring'
@@ -41,6 +41,9 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
+import { earlyOf, floorShown, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
+import { EarlyAnswer } from './EarlyAnswer'
+import { ResultReceipts } from './ResultReceipts'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 import { lineBoxesNear, lineCutShift } from './footCut'
 import { readingsRest, restTop } from './readingsRest'
@@ -94,14 +97,16 @@ export function Blocks({ parts, at, first = 1 }: { parts: Said; at: string; firs
   const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
   // Group: blank lines end a paragraph; consecutive "- " lines make one list.
   const groups: { list: boolean; lines: Piece[][] }[] = []
+  let breakBefore = true
   for (const line of lines) {
-    if (line.length === 0) { groups.push({ list: false, lines: [] }); continue }
+    if (line.length === 0) { breakBefore = true; continue }
     const list = isItem(line), last = groups[groups.length - 1]
-    if (last && last.lines.length > 0 && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+    if (!breakBefore && last && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+    breakBefore = false
   }
   return (
     <>
-      {groups.filter((g) => g.lines.length > 0).map((g, gi) => (g.list
+      {groups.map((g, gi) => (g.list
         ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => <li key={li}>{draw(l, true)}</li>)}</ul>
         : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
     </>
@@ -143,7 +148,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 const NO_CARDS: readonly string[] = []
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
-function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: string; latest?: boolean; moves?: boolean; me?: string | null }) {
+function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside waits beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const lit = useRef(false)
@@ -155,11 +160,17 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
   const restKey = latest ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
   // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
   const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
+  // The next step's label is said once: on the move's button when MoveTap draws one (the same predicate it uses), else as the heading.
+  const sid = useViewStore((st) => st.sid)
+  const gone = useViewChat((st) => st.gone ?? null)
+  const tapDrawn = moves && t.answer !== null && !!t.answer.next.newest && moveShown(sid, gone, t.id, t.answer.next)
   useEffect(() => {
     if (!latest) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
     return () => restRing(NO_CARDS)
   }, [latest, restKey])
+  // Olumi's early answer to this turn (core's `chat[i].early`), read before and apart from the model-grounded reply.
+  const early = earlyOf(t)
   const said = <div className={styles.messageBubbleUser} data-testid="view-chat-said-bubble"><p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
   // Each block's first cite number, in the reply's order: its answer, each Why line, its next step.
   const whyFirst: number[] = []
@@ -178,8 +189,9 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
       )}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
-      {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} /> : null}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}>{tapDrawn ? null : <><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span>{' '}</>}<Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
+      {tapDrawn ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} at={`${at}.answer.next`} /> : null}
+      <ResultReceipts claims={t.answer.claims} />
       <Stories answer={t.answer} at={at} />
     </div>
   )
@@ -195,7 +207,9 @@ function Turn({ t, at, latest = false, moves = false, me }: { t: ViewTurn; at: s
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
       {/* Name another person's words before their bubble (pre-screen 4b92d394 row 23). */}
       {me !== undefined && t.by_id !== null && t.by_id !== me ? <p className={`${typography.viewPanelMeta} text-text-body`} data-view={`${at}.by`}>{t.by}</p> : null}
-      {said}{answer}{stamp}
+      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+      {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+      {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
@@ -212,13 +226,47 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
   )
 }
 
-/** Preserve the conversation's sequence and paths (UI recovery witness row 11, DL 10 Nov). */
-export function ViewConversation({ chat, moves = false, me }: { chat: View['chat']; moves?: boolean; me?: string | null }) {
-  if (chat.length === 0) return null
-  const last = chat.length - 1
+/**
+ * A message that failed and was sent again (Try again sends the same words) is one message in the thread: a saved row with no answer and
+ * core's failure (`problem`) is drawn only when the next row is not the same person's same words. Matched by fields, never by prose; the
+ * attempt that stands (the newest) keeps its own failure or its answer.
+ */
+export const retriedAt = (chat: View['chat'], i: number): boolean => {
+  const t = chat[i], next = chat[i + 1]
+  return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && !!t.by_id && next.by_id === t.by_id && next.said === t.said
+}
+/** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
+ *  no model-grounded parts: there is no model). The words are core's, verbatim. The old look names another person before their bubble, as a turn does. */
+function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
+  const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
+  return (
+    <li data-testid="view-floor-turn" data-latest-floor={latest ? '' : undefined} data-floor-job={f.job} className="space-y-2">
+      {other && f.by !== '' ? <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-by">{f.by}</p> : null}
+      <div className={styles.messageBubbleUser} data-testid="view-floor-said-bubble"><p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p></div>
+      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} space-y-2`} data-testid="view-floor-reply"><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
+    </li>
+  )
+}
+/** One row per accepted contribution, with its immediate and model-grounded replies together, in the service's own order (early.ts threadRows). */
+export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
+  const entries = entriesOf(draft)
+  const rows = threadRows(chat, floor, entries)
+  if (!rows.length) return null
+  // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
+  let newestSaved: number | null = null
+  for (let i = rows.length - 1; i >= 0 && newestSaved === null; i--) newestSaved = rows[i]!.index
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
-      {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} latest={i === last} moves={i === last && moves} me={me} />)}
+      {rows.map((row, position) => {
+        const latest = position === rows.length - 1
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
+        const t = chat[row.index]!
+        const next = rows[position + 1]
+        // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
+        if (next?.index === row.index + 1 && row.floor === null && earlyOf(t) === null && retriedAt(chat, row.index)) return null
+        const latestAnswer = row.index === newestSaved
+        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} />
+      })}
     </ol>
   )
 }
@@ -356,9 +404,7 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   const you = useViewStore((s) => s.view?.you ?? null)
   // PL-1083 (3): where core serves the same explanation under every reading (its `title`), it is drawn once above them, so each row is its
   // own words and its two choices; a reading whose explanation differs keeps its own beneath it.
-  const readingMarks = p.marks.filter((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
-  const sharedTitle = readingMarks.length > 1 && readingMarks[0]!.title !== '' && readingMarks.every((m) => m.title === readingMarks[0]!.title) ? readingMarks[0]!.title : null
-  const firstReading = p.marks.findIndex((m) => m.reading !== undefined && readingIds.includes(m.reading.id))
+  const { sharedTitle, firstReading } = readingHeadingOf(p.marks, readingIds)
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
   // choices and approve again.
@@ -537,6 +583,9 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
   setCurrentScenarioId(derived)
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
+  // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
+  const opened = useViewStore.getState()
+  if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && opened.view?.draft?.status === 'drafting') revealOlumiSurface()
 }
 
 /** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
@@ -648,7 +697,7 @@ export function stopDraft(): Promise<boolean> {
 }
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
-export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null)
+export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view))
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
 
@@ -665,7 +714,7 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
 function say(text: string): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
-  if (isDrafting(view)) return Promise.resolve(false) // its first model is still drafting: a second Send never makes a second scenario
+  // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid))
     : write('message', text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op); dropPendingTurn(op); return r })
 }
@@ -847,17 +896,22 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
+/** Whether a reply's move is drawn as a tap: one predicate for MoveTap and the reply, so the label is said once and the two never disagree. */
+export function moveShown(sid: string | null, gone: string | null, turn: number, next: Next): boolean {
+  return sid !== null && typeof next.move === 'string' && next.move !== '' && gone !== moveKey(sid, turn, next.move)
+}
+
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
-export function MoveTap({ turn, next, arrow = false, at }: { turn: number; next: Next; arrow?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
+export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
-  if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
+  if (!moveShown(sid, gone, turn, next)) return null
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
           className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
-      : <div><Button size="sm" variant="secondary" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
+      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
 
@@ -1144,7 +1198,7 @@ export function ViewChat() {
     if (el === null) return
     if (!follows.current) { setAway(true); return }
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
@@ -1180,7 +1234,9 @@ export function ViewChat() {
   }, [])
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
-  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating])
+  // The model-less floor and the early answer redraw the thread too (14 Nov): a new reply there is followed like a new turn.
+  const floorKey = floorShown(view).map((f) => f.job).join(',') + '|' + (earlyOf(view?.draft) === null ? 0 : 1) + (view?.draft?.status ?? '')
+  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, floorKey])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
@@ -1212,17 +1268,11 @@ export function ViewChat() {
     if (ff?.offer == null) closeFigureFirst()
     else void openFigureFirst()
   }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
-  // The Next step core's View asks for, if any; while it shows, the newest reply's move tap is tucked behind More ways (below).
-  // Tucked only when the step offers this person its control: a figure on someone else's page shows no editor (FigureEdit), so there the
-  // reply's tap stays where it is (checker, slice 1b).
-  const me = useMe((s) => s.me)
-  const step = view === null ? null : nextStepOf(view)
-  const offers = step !== null && (step.kind !== 'figure' || isForThisPage(view!, me))
-  const newest = view === null || view.chat.length === 0 ? null : view.chat[view.chat.length - 1]!
-  const tucked = offers && newest?.answer?.next.newest ? newest : null
+  // While core's Next step is Approve / Set aside, the newest reply's own move is the quiet button beside it, never a second filled one.
+  const approving = view !== null && nextStepOf(view)?.kind === 'approve'
   // The methods, behind More ways (none for a brief, or while a write holds the composer they fill).
   const sid = useViewStore((s) => s.sid)
-  const methods = view !== null && !held && !takesBrief(sid, view)
+  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) // the methods need a model; a model-less conversation has none
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   const chat = (
@@ -1239,9 +1289,8 @@ export function ViewChat() {
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             <ModelNoticeLine />
-            {/* One next move (DL ruling b, Paul 6 Nov: progressive disclosure): while the Next step card shows, the reply's own move tap waits
-                behind "More ways to think about this"; with no Next step, it stays under the reply. Core's words for the move stay in the reply. */}
-            {view === null ? null : <ViewConversation chat={view.chat} moves={!offers} me={view.you_id} />}
+            {/* The newest reply's own move stays under the reply (14 Nov: not tucked away), as the filled button unless Approve waits. */}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!approving} me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
                 questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
@@ -1249,9 +1298,7 @@ export function ViewChat() {
                 held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
                 An older core sends no trial_questions: as before. */}
             {(() => {
-              const trial = (view?.model?.trial_questions ?? []).filter((t) => t.title !== '').map((t, at) => ({ key: `t:${t.id}`, view: `model.trial_questions.${at}.title`, text: t.title, id: t.id, edit: t.edit }))
-              const words = view === null ? [] : questionsOf(view).filter((q) => q.text !== '').map((q) => ({ key: `c:${q.at}`, view: `model.coaching_questions.${q.at}`, text: q.text, id: null, edit: null }))
-              const qs = [...trial, ...words].slice(0, 3)
+              const qs = chatQuestionsOf(view?.model)
               if (qs.length === 0) return null
               const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
               const body = (q: (typeof qs)[number]) => <QuestionLine text={q.text} id={q.id} edit={q.edit} />
@@ -1279,12 +1326,11 @@ export function ViewChat() {
         </div>
         {away ? <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} absolute bottom-2 right-4 inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button> : null}
       </div>
-      {session === null && tucked === null && !methods ? null : (
+      {session === null && !methods ? null : (
         <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>
           {/* Keep room for the thread after choosing a method (pre-screen 4b92d394 row 16). */}
           <div className="max-h-[25vh] overflow-y-auto space-y-4 pb-4" onClick={(e) => { if ((e.target as Element).closest('button')) setMoreOpen(false) }}>
-            {tucked === null ? null : <div data-testid="view-more-ways-move"><MoveTap turn={tucked.id} next={tucked.answer!.next} /></div>}
             {methods ? <MethodChips /> : null}
             {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
           </div>
@@ -1345,7 +1391,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const drafting = isDrafting(view), answering = isAnswering(view)
   // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
   const unknown = sid !== null && view === null
-  const held = busy || past !== null || drafting || unknown
+  const held = busy || past !== null || (drafting && !onFloor(view)) || unknown // a model-less build no longer holds the composer: a message is answered or refused by core
   const box = useRef<HTMLTextAreaElement>(null)
   // Fit up to six lines, including restored text; clearing returns to one (pre-screen 4b92d394 row 13).
   useEffect(() => {
@@ -1378,7 +1424,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // J1 gate: while Olumi's newest answer asks the person something, the box invites the reply (the prototype's words); a run with
   // nothing in it yet is not "the latest analysis".
   const asked = newestNextOf(view?.chat) !== null
-  const placeholder = brief ? BRIEF_EXAMPLE : asked ? 'Reply, or edit the model' : view?.version != null && (view.model?.run?.aim ?? null) !== null ? 'Ask about the latest analysis…' : 'Ask about this model…'
+  const placeholder = brief ? BRIEF_EXAMPLE : onFloor(view) ? 'Reply to Olumi, or ask a follow-up' : asked ? 'Reply, or edit the model' : view?.version != null && (view.model?.run?.aim ?? null) !== null ? 'Ask about the latest analysis…' : 'Ask about this model…'
   return (
     <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}

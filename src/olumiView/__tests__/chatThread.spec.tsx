@@ -99,6 +99,20 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
   })
 
+  it('follows the newest floor reply while retaining actions on the most recent saved turn', () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-latest-floor') ? 900 : 600
+    })
+    show(fixture)
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600 }, clientHeight: { value: 200 } })
+    const floor = [{ job: 101, at: '2026-11-14T08:00:00Z', by: 'Alex', by_id: '101', said: 'A correction', text: 'Understood.' }]
+    act(() => show({ ...fixture, floor } as unknown as View))
+    expect(getByTestId('view-chat-latest')).toBeTruthy()
+    expect(scroll.scrollTop).toBe(884)
+  })
+
   it('CT5 scrolling back shows Latest, preserves the reading position, and resumes following on press', () => {
     // Re-pinned (pre-screen 4b92d394, DL 10 Nov): row 14 short turns still settle at the bottom.
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(1300)
@@ -412,11 +426,11 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     // DERIVED: core's trial_questions item shape and words as core's own row serves them (rebuild-journey.test.ts:1571/1608 at 13bd106e),
     // on a figure of this real View with its own edit; the id is the figure's, the edit the one its card offers.
     const QN = 'How far along are your funding conversations: when would the first money arrive, as things stand?'
-    const view = { ...real, model: { ...real.model!, trial_questions: [{ id: card.id, text: `‘${card.heading}’`, title: QN, answer: true, unknown: null, edit: card.figure!.edit! }] } } as View
+    const view = { ...real, model: { ...real.model!, trial_questions: [{ id: 'blank-row', text: '', title: '', answer: true, unknown: null, edit: null }, { id: card.id, text: `‘${card.heading}’`, title: QN, answer: true, unknown: null, edit: card.figure!.edit! }] } } as View
     show(view)
     const { getByTestId, queryByTestId } = render(<ViewChat />)
     const first = getByTestId('view-model-question-text')
-    expect([first.textContent, first.getAttribute('data-question-id')]).toEqual([QN, card.id])
+    expect([first.textContent, first.getAttribute('data-question-id'), first.getAttribute('data-view')]).toEqual([QN, card.id, 'model.trial_questions.1.title'])
     const link = getByTestId(`view-question-edit-${card.id}`)
     expect(link.tagName).toBe('BUTTON')
     fireEvent.click(link)

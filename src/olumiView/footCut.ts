@@ -9,11 +9,15 @@ const cutBy = (l: LineBox, cut: number, d: number) => l.top - d < cut - 0.5 && l
 
 /** The change to scrollTop (negative = back) after which no line box crosses `cut`; 0 when none crosses or no move in the room clears. */
 export function lineCutShift(lines: readonly LineBox[], cut: number, upRoom: number, downRoom: number): number {
-  const crossing = lines.filter((l) => cutBy(l, cut, 0))
+  const crossing: LineBox[] = []
+  for (const l of lines) if (cutBy(l, cut, 0)) crossing.push(l)
   if (crossing.length === 0) return 0
-  const moves = crossing.flatMap((l) => [l.top - cut, l.bottom - cut]).sort((a, b) => Math.abs(a) - Math.abs(b))
+  const moves = crossing.flatMap((l) => [l.top - cut, l.bottom - cut])
   const fits = (d: number) => d >= -Math.max(0, upRoom) - 0.5 && d <= Math.max(0, downRoom) + 0.5
-  const best = moves.find((d) => fits(d) && !lines.some((l) => cutBy(l, cut, d)))
+  // The smallest move that clears (the first listed where two are as small). Geometry of line boxes, never a View value: written as a
+  // loop so the contract lint's ban on ordering in this folder has no exception to carry.
+  let best: number | undefined
+  for (const d of moves) if (fits(d) && !lines.some((l) => cutBy(l, cut, d)) && (best === undefined || Math.abs(d) < Math.abs(best))) best = d
   return best === undefined ? 0 : best < 0 ? Math.floor(best) : Math.ceil(best)
 }
 

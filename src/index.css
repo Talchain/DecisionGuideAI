@@ -949,6 +949,11 @@
 /* Paul's A11 board (12 Nov): a hard 2px ring read as a selection, so two cards looked selected at rest. Olumi pointing at a card is a soft
    halo in its colour; a selection keeps the card's own lift and border. One look with Olumi's attention ring (BaseNode `isAttended`). */
 [data-presentation="v10"] .react-flow__node.v10-lit { outline: 4px solid color-mix(in srgb, var(--info, #277A9D) 22%, transparent); outline-offset: 2px; border-radius: 12px; }
+/* A new reply has brought its cards into view (replyInView.ts): each card's ring pulses once (ring.ts `pulseCards`). The ring's own width
+   only: no colour, no movement; none under reduced motion. */
+@keyframes v10-ring-pulse { from { outline-width: 8px; } to { outline-width: 4px; } }
+[data-presentation="v10"] .react-flow__node.v10-pulse { animation: v10-ring-pulse 700ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
 /* v10 "Rests on" (#/canvas2): figures are told apart by AUTHOR. Blue is Olumi's only (an unchecked estimate solid, one you
    accepted outlined), ink is the person's, a dash is a figure not set or of unknown origin. Provenance sits on the figure,

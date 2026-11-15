@@ -4,7 +4,7 @@
  * the first-use rail keeps the dock collapsed, as before.
  */
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -30,6 +30,9 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
 import { useViewChat } from '../../../olumiView/ViewChat'
+import { ViewWelcome } from '../../../olumiView/ViewWelcome'
+import type { View } from '../../../olumiView/client'
+import { setPagePerson, setTeamFetch } from '../../../olumiCore/team/api'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { focusDockedOlumi } from '../../conversation/dockedOlumiFocus'
 
@@ -69,6 +72,42 @@ describe('an empty scenario on the lane opens on the brief', () => {
     await dock()
     expect(fronted()).toBe('outputs-dock-tab-olumi')
     expect(screen.getByLabelText('Your brief')).toBe(document.activeElement)
+  })
+
+  it('opens the ordinary follow-up composer from a collapsed dock as soon as a new brief starts drafting', async () => {
+    lane.on = true
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: false, activeTab: 'results' }))
+    useFloatingPanelState.setState({ isOpen: false, isMinimised: false } as never)
+    const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+    const sid = 's_000000000001'
+    const inProgress = { ...view, id: sid, brief: 'Help us plan opening hours', version: null, proposal: null, model: null, chat: [],
+      draft: { status: 'drafting', reason: null, at: '2026-11-14', words: 'Olumi is building the model.', job: 3 } }
+    const posts: string[] = []
+    const before = window.location.href
+    setTeamFetch((async (url: string, init: RequestInit) => {
+      if (url === '/api/me') return new Response(JSON.stringify({ me: { id: view.you_id, name: view.you } }))
+      if (init?.method === 'POST') {
+        posts.push(url)
+        return new Response(JSON.stringify({ scenario: sid, job: 3 }), { status: 202 })
+      }
+      return new Response(JSON.stringify(inProgress), { status: 200 })
+    }) as typeof fetch)
+    try {
+      render(<ConversationProvider><ViewWelcome /><OutputsDock /></ConversationProvider>)
+      expect(fronted()).toBe('outputs-dock-rail-tab-olumi')
+      fireEvent.change(screen.getByLabelText('Your brief'), { target: { value: inProgress.brief } })
+      fireEvent.click(screen.getByTestId('view-composer-send'))
+      await waitFor(() => expect(screen.getByLabelText('Message Olumi')).toBeEnabled())
+      expect(fronted()).toBe('outputs-dock-tab-olumi')
+      expect(screen.queryByTestId('view-welcome')).toBeNull()
+      expect(useViewStore.getState().view?.draft?.status).toBe('drafting')
+      expect(useViewStore.getState().view?.proposal).toBeNull()
+      expect(posts).toHaveLength(1)
+    } finally {
+      setTeamFetch(null)
+      setPagePerson(null)
+      window.history.replaceState(null, '', before)
+    }
   })
 
   it('off the lane: the first-use rail keeps the dock collapsed, as before', async () => {

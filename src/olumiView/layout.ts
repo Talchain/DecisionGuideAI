@@ -1110,3 +1110,24 @@ export function tryOnCardOf(variant: WhatIfVariant, quantity: string, typed: str
  *  no words. Picking by the option's id only: the lines are drawn verbatim, nothing in them is read. */
 export const sizeLinesOf = <T extends { option: string; line: string }>(size: readonly T[] | undefined, option: string): { s: T; k: number }[] =>
   (size ?? []).map((s, k) => ({ s, k })).filter(({ s }) => s.option === option && s.line !== '')
+
+/** A reading explanation is shared only across matching rows with the same non-empty heading. */
+export function readingHeadingOf(marks: NonNullable<View['proposal']>['marks'], ids: readonly string[]) {
+  const selected = marks.filter(m => m.reading !== undefined && ids.includes(m.reading.id))
+  const heading = selected[0]?.title
+  return {
+    sharedTitle: selected.length > 1 && heading && selected.every(m => m.title === heading) ? heading : null,
+    firstReading: selected.length ? marks.indexOf(selected[0]!) : -1,
+  }
+}
+
+/** The three questions shown beside the model keep their exact paths, even when another question is blank. */
+export function chatQuestionsOf(model: ViewModel | null | undefined) {
+  const trial = (model?.trial_questions ?? []).flatMap((t, at) => t.title === '' ? [] : [{
+    key: 't:' + t.id, view: 'model.trial_questions.' + at + '.title', text: t.title, id: t.id, edit: t.edit,
+  }])
+  const coaching = (model?.coaching_questions ?? []).flatMap((text, at) => text === '' ? [] : [{
+    key: 'c:' + at, view: 'model.coaching_questions.' + at, text, id: null, edit: null,
+  }])
+  return [...trial, ...coaching].slice(0, 3)
+}
