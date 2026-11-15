@@ -13,7 +13,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
 import { withheldWords, leadLineOf } from '../previous/CoreCard'
-import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { isOpen, setOpen } from './reviewRow'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))

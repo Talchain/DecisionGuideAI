@@ -13,7 +13,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
-import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { isOpen, rowOf, setOpen } from './reviewRow'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {

@@ -108,7 +108,7 @@ describe('contract 3: the pending review is one row at rest, and a withheld card
     expect(approve).toContain('{NEXT_STEP_WORDS.approve}')
     expect(approve).toContain('inRow')
   })
-  it('CATCH: inside the review the proposal does not draw its own heading again (it is the row's own words)', () => {
+  it('CATCH: inside the review the proposal does not draw its own heading again (it is the row\'s own words)', () => {
     const inRow = chat.indexOf('{inRow ?'), heading = chat.indexOf('data-view="proposal.heading"', inRow)
     expect(inRow).toBeGreaterThan(0)
     const other = chat.indexOf('\n        : <div>', inRow) // the not-inRow branch
