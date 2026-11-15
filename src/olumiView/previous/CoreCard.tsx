@@ -10,7 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
@@ -85,6 +85,20 @@ export function withheldField(h: NonNullable<ViewCard['headline']>): 'why' | 'ti
 export function withheldWords(h: NonNullable<ViewCard['headline']>): string | null {
   const f = withheldField(h)
   return f === null ? null : f === 'why' ? h.why! : h[f]
+}
+
+/**
+ * Contract 3 (Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"): core's reason held to three lines on the card,
+ * and pressed (or Enter / Space) it opens whole in place, and closes again; its hover is the whole reason too. Words are core's only.
+ */
+export function WithheldWords({ id, h }: { id: string; h: NonNullable<ViewCard['headline']> }): JSX.Element {
+  const [whole, setWhole] = useState(false)
+  return (
+    <button type="button" className="nodrag nowheel min-w-0 cursor-pointer text-left" data-testid={`${id}-withheld-words`} aria-expanded={whole}
+      onClick={(e) => { e.stopPropagation(); setWhole((w) => !w) }}>
+      <span className={whole ? '' : 'line-clamp-3'} data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
+    </button>
+  )
 }
 
 export function leadLineOf(card: ViewCard): string | null {
@@ -310,7 +324,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className="ok-row">
           {/* Contract 3: the pill says why (withheldWords), never the bare "No chance yet" where core sends a reason. Core's why, where it
               sends one, IS the pill's words, so no "Why not" is drawn to say it again. */}
-          <span className="ok-pill ok-pill-why" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>{trail}</span>
+          <span className="ok-pill ok-pill-why" title={withheldWords(h) ?? undefined}><WithheldWords id={id} h={h} />{trail}</span>
         </div>
         {h.add == null || h.add === '' ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
       </div>
