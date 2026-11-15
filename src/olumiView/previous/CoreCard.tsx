@@ -16,7 +16,7 @@ import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
 import { typography } from '../../styles/typography'
 import type { ViewCard } from '../client'
-import { CARD_WIDTH, drawKindOf, QUESTION, readingOf } from '../layout'
+import { CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
 import { failedOf, failedReasonOf } from '../k5'
@@ -136,6 +136,19 @@ export function familyOf(card: ViewCard): 'option' | 'factor' | 'aim' | 'other' 
   return 'other'
 }
 
+/**
+ * UI-BRIEF-20261115 step 3 (Paul, 15 Nov: "visualising it as much as it can"): the number of Olumi's question about THIS card in the panel's
+ * numbered list of Olumi's questions (layout.ts chatQuestionsOf, the same list and order ViewChat draws; it is numbered only with two or
+ * more), with the question's words. Bound by core's id (`trial_questions[].id`); a question core gives no id (coaching_questions) marks no
+ * card, and none is guessed from its words.
+ */
+export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id: string): { n: number; text: string } | null {
+  const qs = chatQuestionsOf(model)
+  if (qs.length < 2) return null
+  const i = qs.findIndex((q) => q.id === id)
+  return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
+}
+
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
@@ -209,6 +222,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
+  // Olumi's question about this card, by its number in the panel's list (questionRingOf): on the card's corner where nothing else holds it.
+  const ring = card === null ? null : questionRingOf(model, id)
+  const ringMark = ring === null ? null
+    : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.nodeLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
     : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
@@ -316,7 +333,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   return (
     // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}>
-    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? undefined}
+    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}</div> : (
