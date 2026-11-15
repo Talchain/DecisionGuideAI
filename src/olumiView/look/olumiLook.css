@@ -229,6 +229,10 @@
 }
 .ok-reply sup { color: #687879; font-size: 0.72em; margin-left: 1px; }
 .ok-reply details > summary { color: #687879; cursor: pointer; }
+/* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
+.ok-reply .ok-lead { font-size: 15.5px; line-height: 1.5; font-weight: 500; color: #213238; margin: 0; }
+.ok-reply .ok-reply-more { margin-top: 2px; }
+.ok-reply .ok-reply-more[open] > summary { margin-bottom: 6px; }
 /* Olumi's proposal, pinned above the composer: one bordered card in Olumi's blue. The pinned box is the card (its inner section and the
    proposal are laid out as its own contents), so the actions' sticky foot is held by the box's own scroll and Approve stays in view
    however short the panel. */
