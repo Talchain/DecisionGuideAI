@@ -293,7 +293,7 @@
 /* QUIET (DL 02:1xZ, UI-BRIEF-20261115): the lens bar's words as plain words, an underline on the active one; no pills, no icons beside a
    shown word (a compact bar, whose words are screen-reader only, keeps its icons). The canvas head band sits under the bar. Only the
    lane's bar (ViewLensBar: its labels carry data-lens-label); the legacy LensBar shares the testid and role and is not touched. */
-[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) { background: transparent !important; border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
+[data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) { background: #f7f5f0 !important; /* --o-canvas: flat, so a card panned under the bar never shows its words through */ border-color: transparent !important; box-shadow: none !important; backdrop-filter: none !important; }
 [data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio'] { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
 [data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio']:has(> [data-lens-label]:not(.sr-only)) > svg { display: none; }
 [data-testid='lens-bar'][role='radiogroup']:has([data-lens-label]) [role='radio'][aria-checked='true'] [data-lens-label] { color: #213238; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
