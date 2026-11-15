@@ -27,6 +27,11 @@ export const isViewNode = (node: { type?: string } | null | undefined): boolean 
  *  (ViewWelcome's opening line stays). */
 export const holdsViewDrawing = (nodes: readonly { type?: string }[]): boolean => holdsViewNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
 
+/** Whether the last drawing of the View's model failed (the lazy layout engine would not load, or the lay-out threw), and how many times the
+ *  person has asked for it again. A retry draws the same View already held: no read, no provider call, no write. */
+export const useViewDrawState = create<{ failed: boolean; attempt: number }>(() => ({ failed: false, attempt: 0 }))
+export const retryViewDraw = (): void => useViewDrawState.setState((s) => ({ failed: false, attempt: s.attempt + 1 }))
+
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 /** The View card (or the question) under the pointer, if any: its reason links are drawn while it is (`linkDrawn`). */
@@ -205,14 +210,18 @@ export function useViewCanvas(on: boolean): void {
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}`)
+  // Asking again after a failed drawing runs this effect again on the same View.
+  const attempt = useViewDrawState((s) => s.attempt)
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    if (view === null || model === null) { withdrawViewCanvas(); return }
+    if (view === null || model === null) { useViewDrawState.setState({ failed: false }); withdrawViewCanvas(); return }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
     let live = true
     // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
+    // A new attempt (a newer View, another scenario, or Try again) clears an earlier failure, so a healthy scenario never shows another's.
+    useViewDrawState.setState({ failed: false })
     void causalFor(model).then((places) => {
       if (!live) return
       const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
@@ -225,7 +234,9 @@ export function useViewCanvas(on: boolean): void {
       // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.
       const changed = view.version?.changed
       pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, changed), ...addedSince(last.model, model)])] : arrived)
-    })
+    // A drawing that failed (the layout engine's file refused, or the lay-out threw) is said and can be asked for again, never left as an
+    // empty canvas under "Opening this scenario…" (Codex replay of 3e4642b0, 15 Nov). A stale attempt says nothing.
+    }).catch(() => { if (live) useViewDrawState.setState({ failed: true }) })
     return () => { live = false }
-  }, [on, view, model, heights, laidAs])
+  }, [on, view, model, heights, laidAs, attempt])
 }

@@ -13,7 +13,7 @@ import { useCanvasStore } from '../canvas/store'
 import type { View } from './client'
 import { boardDraftOf } from './DraftingBoard'
 import { takesBrief, ViewComposer } from './ViewChat'
-import { holdsViewDrawing } from './canvas'
+import { holdsViewDrawing, retryViewDraw, useViewDrawState } from './canvas'
 
 /** Whether the scenario on screen is waiting for its brief: core holds no scenario for it (a new one, not yet named or named), or holds
  *  one with no model and no proposal. Decided only once the View store is the scenario on screen's, never while another's View is held
@@ -23,6 +23,8 @@ export const awaitsBriefOf = (s: { uuid: string | null; sid: string | null; view
 
 /** The canvas's words while a scenario's model is being read and drawn, and when a failed read gave no reason of its own. */
 export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Olumi could not open this scenario just now.'
+/** Said when the scenario was read but its model could not be drawn (the layout engine would not load): the saved scenario is intact. */
+export const DRAW_FAILED_WORDS = 'Olumi could not draw this scenario just now. Your scenario is saved.'
 
 /**
  * What the canvas says while the scenario on screen opens, from the moment core holds it until its model is ON the canvas (14 Nov, cold
@@ -31,10 +33,11 @@ export const READING_WORDS = 'Opening this scenario…', READ_FAILED_WORDS = 'Ol
  * (`drawn`); 'error' when the read failed with no View. Null for another scenario's View, a past version, a View with no model (a
  * scenario waiting for its brief, or a draft running: the welcome or the drafting board speak there), and once the model is drawn.
  */
-const readingOf = (s: { uuid: string | null; sid: string | null; view: View | null; at: number | null; status: ViewStatus }, onScreen: string | null, drawn: boolean): 'reading' | 'error' | null => {
+const readingOf = (s: { uuid: string | null; sid: string | null; view: View | null; at: number | null; status: ViewStatus }, onScreen: string | null, drawn: boolean, drawFailed = false): 'reading' | 'error' | 'draw' | null => {
   if (s.at !== null || s.uuid !== onScreen || s.sid === null) return null
   if (s.view === null) return s.status === 'error' ? 'error' : 'reading'
-  return (s.view.model?.cards.length ?? 0) > 0 && !drawn ? 'reading' : null
+  if ((s.view.model?.cards.length ?? 0) === 0 || drawn) return null
+  return drawFailed ? 'draw' : 'reading'
 }
 
 /** Whether the welcome (and so its composer) is wanted for the scenario on screen. */
@@ -67,16 +70,20 @@ export function ViewWelcome(): JSX.Element | null {
   // cold open, through the read and then the first drawing), the canvas says so; a read that failed says why, with a retry. Never a blank
   // canvas with no words. One element throughout: ViewCanvas keeps this mounted until the drawing is on the canvas (readingOf).
   const drawn = useCanvasStore((s) => holdsViewDrawing(s.nodes))
-  const reading = useViewStore((s) => readingOf(s, onScreen, drawn))
+  const drawFailed = useViewDrawState((s) => s.failed)
+  const reading = useViewStore((s) => readingOf(s, onScreen, drawn, drawFailed))
   const error = useViewStore((s) => s.error)
   const [again, setAgain] = useState(false)
   if (reading !== null) return (
     <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-reading" data-reading={reading}>
-      <div role={reading === 'error' ? 'alert' : 'status'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
-        <p data-testid="view-reading-words">{reading === 'error' ? error ?? READ_FAILED_WORDS : READING_WORDS}</p>
+      <div role={reading === 'reading' ? 'status' : 'alert'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
+        <p data-testid="view-reading-words">{reading === 'error' ? error ?? READ_FAILED_WORDS : reading === 'draw' ? DRAW_FAILED_WORDS : READING_WORDS}</p>
         {reading === 'error' ? (
           <button type="button" disabled={again} data-testid="view-reading-again" className="min-h-[44px] rounded-md border border-border px-4 text-text-header hover:bg-panel-hover disabled:cursor-not-allowed"
             onClick={() => { setAgain(true); void useViewStore.getState().refresh().finally(() => setAgain(false)) }}>Try again</button>
+        ) : null}
+        {reading === 'draw' ? (
+          <button type="button" data-testid="view-draw-again" className="min-h-[44px] rounded-md border border-border px-4 text-text-header hover:bg-panel-hover" onClick={retryViewDraw}>Try again</button>
         ) : null}
       </div>
     </div>
