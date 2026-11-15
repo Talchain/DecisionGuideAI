@@ -1089,8 +1089,22 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
 export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   const [open, setOpen] = useState(false)
   const body = `view-proposal-body-${p.id}`
+  const self = useRef<HTMLDivElement>(null)
+  // Codex 15 Nov (held 329, nine changes): the step's words and core's warning lines can fill the pinned box, so on opening the box is
+  // scrolled the least that brings the list of changes' top just under the row (the words stay a scroll up). Readings, where held, are
+  // placed after this by their own rule (Proposal's land).
+  useLayoutEffect(() => {
+    if (!open) return
+    const el = self.current, box = el?.closest<HTMLElement>('.ok-pinned') ?? null, list = el?.querySelector<HTMLElement>('[data-testid="view-changes"]') ?? null
+    const row = el?.querySelector<HTMLElement>('[data-testid="view-proposal-row"]') ?? null
+    if (box === null || list === null) return
+    const under = box.getBoundingClientRect().top + (row?.getBoundingClientRect().height ?? 0) + 8
+    const below = list.getBoundingClientRect().top - under
+    const actions = el?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')?.getBoundingClientRect().top ?? box.getBoundingClientRect().bottom
+    if (list.getBoundingClientRect().top + 24 > actions && below > 0) box.scrollTop += below
+  }, [open])
   return (
-    <div className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
+    <div ref={self} className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
       <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
