@@ -152,9 +152,11 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   // Down the faces only, never back up into a larger face's band (the swing DL-408 recorded, 1 → 0.87 → 0.50 → 0.30 → 0.51). The band is
   // chosen by FACE_RANGE (the zooms each face is FRAMED in), not by the drawing threshold, so a frame never rests in the gap between the
   // two (body draws from 0.4167, is framed from 0.45: Codex 15 Nov). Each frame is worked out from that face's measured heights and capped
-  // at its band's top; where it falls below the band's foot even so, the next smaller face is tried. A face not drawn yet is drawn first:
-  // the taller face's frame, capped at that face's band top, is returned (it fits there, since it fitted at a larger zoom), the settle loop
-  // draws and measures that face, and frames again.
+  // at its band's top; where it falls below the band's foot even so, the next smaller face is tried. A face not drawn yet must be drawn
+  // to be measured: the frame returned there is the larger face's, capped at that face's band top. It is NOT sure to hold that face, which
+  // can be taller than the full one (live v4 3162 against 2075 flow px; DL-408 1211 against 1061: Codex 15 Nov, round 3), so it is a
+  // measuring hop only (frameStep): the camera goes there unanimated, the settle loop measures that face, and frames again from its own
+  // heights. Only a frame worked out from the drawn face's own heights animates and rests.
   let r: FaceRegime = bandOf(whole.zoom), nodes = full.nodes
   for (let step = 0; step < 3; step += 1) {
     const drawn = snaps[r]
@@ -169,6 +171,32 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
 /** The face whose FRAMING band holds this zoom (FACE_RANGE): unlike faceRegimeOf (the drawing threshold), the hysteresis gap below the body
  *  face's band counts as the line face's, so a frame is only ever put where one face is drawn either way. */
 export const bandOf = (zoom: number): FaceRegime => (zoom >= FACE_RANGE.full[0] - EPS ? 'full' : zoom >= FACE_RANGE.body[0] - EPS ? 'body' : 'line')
+
+/** The settle loop's board: each card's measured height and place, which a new face or a new layout changes. */
+export const settledBoardKey = (drawn: readonly Node[]): string => `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+/** The settle loop stops BEFORE framing again when the settled board is the one it last framed, or after MAX_FITS (useViewCamera; the
+ *  spec runs these same steps: Codex 15 Nov, round 3). */
+export const settleDone = (board: string, fitted: string, fits: number, drawnCount: number): boolean => drawnCount === 0 || board === fitted || fits >= MAX_FITS
+/** One settle of useViewCamera's loop, once the board has settled: stop (false), or frame (`frame` says whether that was a measuring hop)
+ *  and go on. After a measuring hop the board is framed again even if it looks unchanged: its new face may not have redrawn by the next
+ *  settle. The hook and the spec run this same step. */
+export function settleTick(loop: { fitted: string; fits: number }, board: string, drawnCount: number, frame: () => boolean): boolean {
+  if (settleDone(board, loop.fitted, loop.fits, drawnCount)) return false
+  const hop = frame()
+  loop.fits += 1
+  loop.fitted = hop ? '' : board
+  return true
+}
+/**
+ * One framing (useViewCamera's fit): the board as drawn at `zoom` is kept as the face that zoom draws, and the frame is worked out from the
+ * faces kept. `measuring`: the face the frame's zoom draws has not been drawn yet, so its heights are unknown and the frame is not sure to
+ * hold it (frameOf); the camera goes there unanimated, only so that face is drawn and measured.
+ */
+export function frameStep(snaps: Partial<Record<FaceRegime, FaceSnap>>, drawn: readonly Node[], zoom: number, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): { snaps: Partial<Record<FaceRegime, FaceSnap>>; v: Viewport | null; measuring: boolean } {
+  const kept = drawn.length === 0 ? snaps : { ...snaps, [faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
+  const v = cameraFrame(kept, pane, free)
+  return { snaps: kept, v, measuring: v !== null && kept[faceRegimeOf(v.zoom)] === undefined }
+}
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
 function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number, board: readonly Node[] = nodes): Viewport | null {
@@ -195,11 +223,12 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   pane.current = { width, height }
   // The board as last drawn with each face (`cameraFrame`); cleared per version.
   const snaps = useRef<Partial<Record<FaceRegime, FaceSnap>>>({})
-  const fit = useCallback(() => {
-    const drawn = viewNodes(getNodes()), zoom = getViewport().zoom
-    if (drawn.length > 0) snaps.current = { ...snaps.current, [faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
-    const v = cameraFrame(snaps.current, pane.current)
-    if (v) void setViewport(v, { duration: DURATION })
+  const fit = useCallback((): boolean => {
+    const step = frameStep(snaps.current, viewNodes(getNodes()), getViewport().zoom, pane.current)
+    snaps.current = step.snaps
+    // A measuring hop is not a frame to rest on (frameOf): it is not animated, and the settle loop frames again once that face is drawn.
+    if (step.v) void setViewport(step.v, { duration: step.measuring ? 0 : DURATION })
+    return step.measuring
   }, [getNodes, getViewport, setViewport])
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
   const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}` })
@@ -207,21 +236,19 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
     if (version === '') return
     userMoved.current = false
     snaps.current = {}
-    let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
+    let raf = 0, since = performance.now(), last = ''
+    const loop = { fitted: '', fits: 0 }
     const tick = () => {
       if (userMoved.current) return
       const cards = useViewStore.getState().view?.model?.cards ?? []
       const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
       const drawn = measuredOf(getNodes(), ids)
-      const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+      const board = settledBoardKey(drawn)
       const now = `${board}@${getViewport().zoom}`
       const settled = drawn.length === ids.size && now === last && !viewLaying()
       last = now
       if (!frameDue(settled, performance.now() - since)) { raf = requestAnimationFrame(tick); return }
-      if (drawn.length === 0 || board === fitted || fits >= MAX_FITS) return
-      fit()
-      fits += 1
-      fitted = board
+      if (!settleTick(loop, board, drawn.length, fit)) return
       since = performance.now()
       last = ''
       raf = requestAnimationFrame(tick)

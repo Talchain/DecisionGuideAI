@@ -10,7 +10,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node, Viewport } from '@xyflow/react'
-import { FACE_RANGE, bandOf, cameraFrame, faceRegimeOf, type FaceRegime, type FaceSnap } from '../ViewCanvas'
+import { FACE_RANGE, bandOf, cameraFrame, faceRegimeOf, frameStep, settleDone, settleTick, settledBoardKey, type FaceRegime, type FaceSnap } from '../ViewCanvas'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
@@ -19,6 +19,23 @@ const snap = (s: { zoom: number; nodes: Box[] }): FaceSnap => ({ zoom: s.zoom, n
 const FREE_1128 = { top: 104, right: 1128 - 811, bottom: 26, left: 45 }, FREE_2000 = { top: 104, right: 2000 - 1640, bottom: 26, left: 45 }
 const inside = (bx: Box[], v: Viewport, pane: { width: number; height: number }, free: typeof FREE_1128) =>
   bx.filter((b) => { const l = b.x * v.zoom + v.x, t = b.y * v.zoom + v.y; return !(l >= free.left - 0.5 && t >= free.top - 0.5 && l + b.w * v.zoom <= pane.width - free.right + 0.5 && t + b.h * v.zoom <= pane.height - free.bottom + 0.5) }).map((b) => b.id)
+type Step = { v: Viewport; measuring: boolean }
+/** useViewCamera's settle loop, run by its own step (settleTick, with settledBoardKey; `frame` is its fit: frameStep, the camera moved to
+ *  the frame): Codex 15 Nov, round 3. `drawnAt` is what the canvas draws, measured, at a zoom; each settle reads it at the current zoom. */
+const settleLoop = (drawnAt: (zoom: number) => Node[], pane: { width: number; height: number }, free: typeof FREE_1128, zoom0 = 1): Step[] => {
+  let snaps: Partial<Record<FaceRegime, FaceSnap>> = {}, zoom = zoom0
+  const loop = { fitted: '', fits: 0 }, trace: Step[] = []
+  for (;;) {
+    const drawn = drawnAt(zoom)
+    const going = settleTick(loop, settledBoardKey(drawn), drawn.length, () => {
+      const step = frameStep(snaps, drawn, zoom, pane, free)
+      snaps = step.snaps
+      if (step.v !== null) { trace.push({ v: step.v, measuring: step.measuring }); zoom = step.v.zoom }
+      return step.measuring
+    })
+    if (!going) return trace
+  }
+}
 
 // Old look, 15 Nov (Paul's standing ruling, the whole model at first open; DL-support: "first view and Fit must use the canvas area LEFT of
 // the side panel and show the whole model, at all three sizes"). This replaces the 13 Nov rule bound here before ("a model that cannot fit
@@ -34,22 +51,39 @@ describe('the opening frames the whole model, down the faces, never back up into
     const pane = F.w1128.pane
     // What the canvas draws at a zoom: the face that zoom draws (faceRegimeOf), as measured on the served build (body 0.503, line 0.314).
     const drawnAt = (z: number): FaceSnap => { const r = faceRegimeOf(z); return r === 'full' ? snap(F.w2000.full) : snap(F.w1128[r]) }
-    const snaps: Partial<Record<FaceRegime, FaceSnap>> = {}, order: FaceRegime[] = ['full', 'body', 'line'], seen: number[] = []
-    let zoom = 1, v: Viewport | null = null
-    for (let fit = 0; fit < 5; fit += 1) { // MAX_FITS; before each fit the hook re-snaps the board as drawn at the current zoom
-      snaps[faceRegimeOf(zoom)] = drawnAt(zoom)
-      v = cameraFrame(snaps, pane, FREE_1128)!
-      seen.push(v.zoom)
-      if (faceRegimeOf(v.zoom) === faceRegimeOf(zoom) && Math.abs(v.zoom - zoom) < 1e-9) break // the same board drawn again: the hook stops
-      zoom = v.zoom
-    }
-    const bands = seen.map((z) => order.indexOf(bandOf(z)))
+    const order: FaceRegime[] = ['full', 'body', 'line'], trace = settleLoop((z) => drawnAt(z).nodes as Node[], pane, FREE_1128)
+    const seen = trace.map((s) => s.v.zoom), bands = seen.map((z) => order.indexOf(bandOf(z)))
     for (let i = 1; i < bands.length; i += 1) expect(bands[i]!, `fit ${i}: ${seen.join(' → ')}`).toBeGreaterThanOrEqual(bands[i - 1]!)
-    const last = v!, face = faceRegimeOf(last.zoom)
+    const last = trace[trace.length - 1]!.v, face = faceRegimeOf(last.zoom)
+    expect(trace[trace.length - 1]!.measuring, 'the frame it rests on is worked out from the drawn face\'s own heights').toBe(false)
     expect(bandOf(last.zoom), 'the face drawn there is the face framed for').toBe(face)
     expect(last.zoom).toBeGreaterThanOrEqual(FACE_RANGE[face][0] - 0.001)
     expect(last.zoom).toBeLessThanOrEqual(FACE_RANGE[face][1] + 0.001)
     expect(inside(face === 'full' ? F.w2000.full.nodes : F.w1128[face].nodes, last, pane, FREE_1128)).toEqual([])
+  })
+  it('catch (Codex 15 Nov, round 3): the body face is TALLER than the full one here, so the hop to it is a measuring hop (unanimated), and every frame that animates and rests holds the face drawn there whole', () => {
+    const pane = F.w1128.pane
+    const body = F.w1128.body.nodes as Box[], full = F.w2000.full.nodes as Box[]
+    const extent = (bx: Box[]) => Math.max(...bx.map((b) => b.y + b.h)) - Math.min(...bx.map((b) => b.y))
+    expect(extent(body)).toBeGreaterThan(extent(full)) // the precondition (1211 against 1061)
+    const boxesAt = (z: number): Box[] => { const r = faceRegimeOf(z); return r === 'full' ? full : F.w1128[r].nodes }
+    const trace = settleLoop((z) => nodesOf(boxesAt(z)), pane, FREE_1128)
+    expect(trace[0]!.measuring, `the first hop, to ${trace[0]!.v.zoom}, draws a face not measured yet`).toBe(true)
+    for (const s of trace.filter((t) => !t.measuring)) expect(inside(boxesAt(s.v.zoom), s.v, pane, FREE_1128), `rest at ${s.v.zoom}`).toEqual([])
+  })
+  it('catch (Codex 15 Nov, round 3): the loop stops BEFORE framing when the settled board is the one it last framed, though the camera moved', () => {
+    const box = (id: string, y: number): Node => ({ id, position: { x: 0, y }, data: {}, measured: { width: 248, height: 150 } })
+    const nodes = [box('a', 0), box('b', 200), box('c', 400)], pane = { width: 1128, height: 707 }
+    const trace = settleLoop(() => nodes, pane, FREE_1128)
+    expect(trace).toHaveLength(1) // a zoom-equality stop (after framing again) would have framed twice
+    expect(settleDone(settledBoardKey(nodes), settledBoardKey(nodes), 1, nodes.length)).toBe(true)
+  })
+  it('catch: after a measuring hop the loop frames again even if the new face has not redrawn by the next settle (the board looks unchanged)', () => {
+    const full = nodesOf(F.w2000.full.nodes), pane = F.w1128.pane
+    const trace = settleLoop(() => full, pane, FREE_1128) // every zoom still shows the full faces' heights
+    expect(trace[0]!.measuring).toBe(true)
+    expect(trace.length).toBeGreaterThan(1)
+    expect(trace[trace.length - 1]!.measuring).toBe(false)
   })
   it('the band gap (Codex 15 Nov): a frame never rests between the body face\'s drawing threshold and its framing band', () => {
     for (const z of [0.42, 0.43, 0.44, 0.449]) expect(bandOf(z), String(z)).toBe('line')
