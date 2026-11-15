@@ -44,9 +44,15 @@ describe('a question\'s number on the card it is about', () => {
   it('Q2 must not change: a question core gives no id marks no card; with only one question the list is not numbered and no card is marked', () => {
     const one = structuredClone(RUN2); one.model!.trial_questions = one.model!.trial_questions!.slice(1, 2); one.model!.coaching_questions = []
     expect(chatQuestionsOf(one.model).length).toBe(1)
-    for (const c of one.model!.cards) expect(questionRingOf(one.model, c.id), c.id).toBeNull()
+    for (const c of one.model!.cards) {
+      expect(questionRingOf(one.model, c.id), c.id).toBeNull()
+      expect(draw(one, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
+    }
     const coachingOnly = structuredClone(RUN2); coachingOnly.model!.trial_questions = []; coachingOnly.model!.coaching_questions = [...RUN2.model!.coaching_questions!, RUN2.model!.coaching_questions![0]! + ' (2)']
     expect(chatQuestionsOf(coachingOnly.model).length, 'a numbered list of questions with no id').toBe(2)
-    for (const c of coachingOnly.model!.cards) expect(questionRingOf(coachingOnly.model, c.id), c.id).toBeNull()
+    for (const c of coachingOnly.model!.cards) {
+      expect(questionRingOf(coachingOnly.model, c.id), c.id).toBeNull()
+      expect(draw(coachingOnly, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
+    }
   })
 })
