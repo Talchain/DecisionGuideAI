@@ -79,6 +79,10 @@ describe('the far face draws a chance whole (DL-424)', () => {
     const clamp = pill.querySelector<HTMLElement>(`[data-core-lead-clamp="${card.id}"]`)!
     expect(clamp.textContent).toBe(card.headline!.why)
     expect(clamp.getAttribute('data-view')).toBe(`${card.id}.headline.why`)
+    // CATCH (Codex 15 Nov): the pill wraps (its words are a whole reason), never the one-line pill that runs out of the card.
+    expect(pill).toHaveClass('ok-pill', 'ok-pill-why')
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    expect(css).toMatch(/\.olumi-look \.ok-pill\.ok-pill-why \{ white-space: normal; flex-shrink: 1; min-width: 0; max-width: 100%;/)
     expect(pill.textContent).not.toContain('No chance yet')
     expect(face.querySelector('details.ok-why')).toBeNull()
     expect(face.querySelector(`[data-view="${card.id}.headline.add"]`)!.textContent).toBe(card.headline!.add)

@@ -101,6 +101,9 @@
   padding: calc(1px * var(--o-s)) calc(8px * var(--o-s)); font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body);
   background: var(--o-panel); white-space: nowrap; flex-shrink: 0;
 }
+/* Contract 3 (Codex 15 Nov): a withheld chance's pill holds core's reason, which can run long: it wraps within the card (three lines,
+   CoreCard's clamp), never one line running out of it. */
+.olumi-look .ok-pill.ok-pill-why { white-space: normal; flex-shrink: 1; min-width: 0; max-width: 100%; border-radius: 8px; }
 .olumi-look .ok-why > summary {
   list-style: none; cursor: pointer; width: max-content; color: var(--o-info); font-size: calc(11.5px * var(--o-s)); line-height: 1.45;
   text-decoration: underline; text-underline-offset: 2px;
@@ -260,11 +263,15 @@
    composer. A thread squeezed to nothing is clipped, never drawn over the box (13:50Z on 7163b55b: its padding overlapped the first row).
    Nothing held: exactly as before. */
 /* Contract 3: only while the one-row review is OPEN (closed, it is one line and the thread keeps its room). */
-[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
-[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }
-.ok-pinned:has(details[open] [data-reading-row]) { flex-shrink: 1; }
-/* The one-row review: closed, the box is that one row; open, the box scrolls its body and the actions stay sticky at its foot. */
-.ok-pinned details.ok-row-review > summary { padding-bottom: 12px; }
+[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
+[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }
+.ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }
+/* The one-row review (ViewChat ProposalReview): its wrapper and, while open, its body are display: contents, so the row, the step's words,
+   the change list and the actions are the pinned column's own items (the list keeps its bounded scroll, the actions their sticky foot). */
+.ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden]) { display: contents; }
+.ok-pinned [data-review-body] > * { flex: none; }
+.ok-pinned [data-review-body] > * + * { margin-top: 8px; }
+.ok-pinned [data-testid='view-proposal-row'] { flex: none; padding-bottom: 12px; }
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */

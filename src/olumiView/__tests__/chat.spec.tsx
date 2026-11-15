@@ -13,6 +13,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
 import { withheldWords, leadLineOf } from '../previous/CoreCard'
+import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -118,14 +119,14 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
     for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
-    // Contract 3: core's heading and `on` are the one row's own line (the <summary>), drawn once, outside the card body.
-    const review = container.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
+    // Contract 3: core's heading and `on` are the one row's own line (its row, a button), drawn once, outside the card body.
+    const review = container.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
     const row = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
     for (const k of ['heading', 'on'] as const) expect(row.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
     expect(card.querySelector('[data-view="proposal.heading"]')).toBeNull()
     expect(card.querySelector('[data-view="proposal.on"]')).toBeNull()
     // Opened, the review shows the same actions; Approve and Set aside post exactly as before.
-    review.open = true
+    setOpen(review, true)
     await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
     await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
     useViewStore.setState({ view: held })
@@ -142,16 +143,16 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const step = container.querySelector<HTMLElement>('[data-testid="view-next-step"][data-step="approve"]')!
     expect(step.getAttribute('aria-label')).toBe('Next step')
-    const review = step.querySelector<HTMLDetailsElement>('details[data-testid="view-proposal-review"]')!
-    expect(review.open).toBe(false)
+    const review = step.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
+    expect(isOpen(review)).toBe(false)
     expect(review.closest('[data-testid="view-chat-pinned"]')).not.toBeNull()
-    const row = review.querySelector<HTMLElement>('summary[data-testid="view-proposal-row"]')!
+    const row = review.querySelector<HTMLElement>('button[data-testid="view-proposal-row"]')!
     expect(row.textContent).toBe(p.on === '' ? p.heading : `${p.heading} · ${p.on}`)
     // the heading line is drawn once, in the row, never again in the body
     expect(step.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
     // CONTRAST: the old "Next step" header line is gone for this kind
     expect([...step.querySelectorAll('p')].some((el) => el.textContent === 'Next step')).toBe(false)
-    review.open = true
+    setOpen(review, true)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     expect([...review.querySelectorAll('button')].map((b) => b.textContent)).toEqual(expect.arrayContaining(['Approve', 'Set aside']))
   })
@@ -162,7 +163,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     useViewStore.setState({ view: held })
     const { container } = renderTab()
     const box = container.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')!
-    expect(box.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!.open).toBe(false)
+    expect(isOpen(box.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!)).toBe(false)
     expect(box.style.maxHeight).toBe('')
     // CONTRAST: the box no longer carries the 112px floor that held the old open proposal
     expect(box.className).not.toContain('min-h-[112px]')

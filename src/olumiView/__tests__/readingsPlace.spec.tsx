@@ -15,6 +15,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { setTeamFetch } from '../../olumiCore/team/api'
+import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 type Mark = NonNullable<View['proposal']>['marks'][number]
@@ -38,8 +39,8 @@ const show = (marks: Mark[], open = true) => {
   const view: View = { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks } }
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
   const r = render(<ViewChat />)
-  const review = document.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')
-  if (open && review !== null) { review.open = true; for (const o of observers) if (o.seen.length > 0) o.fire() }
+  const review = document.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')
+  if (open && review !== null) { setOpen(review, true); for (const o of observers) if (o.seen.length > 0) o.fire() }
   return r
 }
 beforeEach(() => {
@@ -84,7 +85,7 @@ describe('PL-1083 (1): placing the held reading rows', () => {
   it('CATCH (contract 3): while the review rests closed, the held rows are not placed: the box keeps no height of ours and is not scrolled', () => {
     show(held, false)
     const b = boxOf()!
-    expect(document.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!.open).toBe(false)
+    expect(isOpen(document.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!)).toBe(false)
     for (const o of observers) if (o.seen.length > 0) o.fire()
     expect(b.style.maxHeight).toBe('')
     expect(b.scrollTop).toBe(0)
@@ -203,7 +204,8 @@ describe('PL-1083 (1): a first row taller than the box can ever be', () => {
 describe('PL-1083 (1): a thread squeezed to nothing is clipped, never drawn over the box', () => {
   const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   it('while readings are held the thread\'s wrapper has no floor and hides what overflows it', () => {
-    const sel = "[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap] {"
+    // Contract 3: only while the review is open (its body shown), as its rows are only then on screen.
+    const sel = "[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] {"
     const i = css.indexOf(sel)
     expect(i).toBeGreaterThanOrEqual(0)
     expect(css.slice(i, css.indexOf('}', i))).toMatch(/min-height: 0;\s*overflow: hidden/)

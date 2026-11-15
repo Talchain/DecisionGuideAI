@@ -13,6 +13,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
+import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {
@@ -46,11 +47,11 @@ describe('the next step', () => {
     const c = show(view), s = step(c)!
     expect([s.tagName, s.getAttribute('aria-label'), s.getAttribute('data-step')]).toEqual(['SECTION', 'Next step', 'approve'])
     expect(s.closest('[data-testid="view-chat-pinned"]')).not.toBeNull() // still mounted in the pinned box
-    const review = s.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
-    expect(review.tagName).toBe('DETAILS')
-    expect(review.open).toBe(false) // closed at rest
+    const review = s.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
+    expect(rowOf(review).getAttribute('aria-expanded')).toBe('false')
+    expect(isOpen(review)).toBe(false) // closed at rest
     const row = review.querySelector('[data-testid="view-proposal-row"]')!
-    expect(row.tagName).toBe('SUMMARY')
+    expect(row.tagName).toBe('BUTTON')
     expect(row.textContent).toBe(`${p.heading} · ${p.on}`) // core's words, exactly
     expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
     expect(row.querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
@@ -59,8 +60,8 @@ describe('the next step', () => {
     expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
     expect(review.querySelector('[data-testid="view-chat-proposal"] [data-view="proposal.heading"]')).toBeNull()
     // The words for the step sit in the review's body, with the card; opening it shows them without approving anything.
-    review.open = true
-    expect(review.open).toBe(true)
+    setOpen(review, true)
+    expect(isOpen(review)).toBe(true)
     expect(review).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     // CONTRAST: the other kinds are unchanged: still a titled card with "Next step" and no review row.
@@ -174,9 +175,9 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     const under = moves(c.querySelector('[data-testid="view-chat-latest"]'))
     expect(under.map((b) => b.textContent)).toEqual([next.label]) // core's label, verbatim
     // Contract 3: Approve / Set aside are pinned inside the one-row review. Open it (the PL-1083 placement binds the OPEN proposal), then both are there.
-    const review = c.querySelector<HTMLDetailsElement>('[data-testid="view-chat-pinned"] [data-testid="view-proposal-review"]')!
-    expect(review.open).toBe(false)
-    review.open = true
+    const review = c.querySelector<HTMLElement>('[data-testid="view-chat-pinned"] [data-testid="view-proposal-review"]')!
+    expect(isOpen(review)).toBe(false)
+    setOpen(review, true)
     expect(review.querySelectorAll('[data-testid="view-approve"]')).toHaveLength(1) // Approve is pinned
     expect(review.querySelectorAll('[data-testid="view-set-aside"]')).toHaveLength(1)
     expect(c.querySelectorAll('[data-testid="view-chat-pinned"] [data-testid="view-approve"]')).toHaveLength(1)
@@ -249,29 +250,29 @@ describe('the readings rule places nothing while the one-row review is closed', 
   // to 406 px and scrolled it to 292 whether or not the rows were on screen.
   it('catch: closed at rest, the box is neither grown nor scrolled, and a resize while closed still moves nothing; opening it places the rows (406 px, scrollTop 292)', () => {
     const c = held(), b = boxOf()
-    const review = c.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
-    expect(review.open).toBe(false)
+    const review = c.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
+    expect(isOpen(review)).toBe(false)
     expect(c.querySelectorAll('[data-reading-row]')).toHaveLength(2) // the rows exist; they are just not on screen
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
     b.style.maxHeight = '999px' // a stale height from before it was closed: the closed rule clears it
     const placer = observers.find((o) => o.seen.includes(b))!
     placer.fire()
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
-    review.open = true
+    setOpen(review, true)
     placer.fire() // the box's ResizeObserver places the rows when the person opens it
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['406px', 292])
     // And closing again gives the room back.
-    review.open = false
+    setOpen(review, false)
     placer.fire()
     expect(b.style.maxHeight).toBe('')
   })
 
-  // CONTRAST: the stylesheet's open-only rule is in the CSS (jsdom draws none), so bind its text: every :has rule needs details[open].
-  it('contrast: the readings :has rules in olumiLook.css require details[open] (the thread and More ways keep their room while closed)', () => {
+  // CONTRAST: the stylesheet's open-only rule is in the CSS (jsdom draws none), so bind its text: every :has rule needs the review's body shown.
+  it('contrast: the readings :has rules in olumiLook.css require the review\'s body shown (the thread and More ways keep their room while closed)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     const rules = css.split('\n').filter((l) => /:has\(.*\[data-reading-row\]\)/.test(l))
     expect(rules).toHaveLength(3)
-    for (const r of rules) expect(r).toContain('details[open] [data-reading-row]')
+    for (const r of rules) expect(r).toContain('[data-review-body]:not([hidden]) [data-reading-row]')
   })
 })
 
