@@ -73,6 +73,15 @@ describe('the far face draws a chance whole (DL-424)', () => {
 
   // The reading face's hover says each of core's sentences once: in the live fixture the why and the title are the same sentence, and with no why
   // the line IS the title. CATCH: before this change the hover joined them, "<sentence> · <sentence>".
+  it('DL 15 Nov (Paul: "so much text"): a withheld chance with core\'s reason shows one "Why not" press on the face; it opens the whole reason', () => {
+    const { card, c } = far('cut_monthly_spending_to_stretch_the_runway', undefined, 'full')
+    const lead = c.querySelector<HTMLElement>(`[data-core-lead="${card.id}"]`)!
+    const press = lead.querySelector<HTMLDetailsElement>(`details[data-testid="${card.id}-withheld-words"]`)!
+    expect([press.querySelector('summary')!.textContent, press.open]).toEqual(['Why not', false])
+    expect(press.querySelector(`[data-core-lead-clamp="${card.id}"]`)!.textContent).toBe(card.headline!.why)
+    expect(lead.textContent).not.toContain('No chance yet')
+    cleanup()
+  })
   it('the reading face\'s hover for a withheld chance says core\'s sentence once', () => {
     for (const h of [undefined, { why: null }] as const) {
       const { card, c } = far('cut_monthly_spending_to_stretch_the_runway', h, 'full')

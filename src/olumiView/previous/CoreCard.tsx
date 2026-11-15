@@ -118,12 +118,17 @@ export function farMarkOf(card: ViewCard, cards: readonly ViewCard[]): { glyph: 
 /** The hover that goes with `leadLineOf`: core's own title for the same thing (the goal, conditions and precision behind a chance; the bound's and
  *  the figure's own), verbatim. Null where core sends none. */
 /**
- * Contract 3 (as the new look, Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"; DL 15 Nov polish: no sentence
- * is ever cut on a card face): core's reason for a withheld chance, drawn whole and wrapped (a block span, laid out exactly as the plain lead).
- * Its hover (the lead's title) is the whole reason too. Words are core's only.
+ * Contract 3 and DL 15 Nov (Paul: "so much text and busy content"): a withheld chance's face carries no sentence; its "Why not" press opens
+ * core's whole reason, never cut. Where core gives no reason (the lead is its bare text), that short text is the face. Words are core's only.
  */
-export function WithheldLead({ id, lead }: { id: string; lead: string | null }): JSX.Element {
-  return <span className="block break-words" data-core-lead-clamp={id} data-testid={`${id}-withheld-words`}>{lead}</span>
+export function WithheldLead({ id, lead, reason }: { id: string; lead: string | null; reason: boolean }): JSX.Element {
+  if (!reason) return <span className="block break-words" data-core-lead-clamp={id} data-testid={`${id}-withheld-words`}>{lead}</span>
+  return (
+    <details className="nodrag nopan" data-testid={`${id}-withheld-words`} onClick={(e) => e.stopPropagation()}>
+      <summary className={`${typography.nodeLabel} min-h-[24px] cursor-pointer text-text-body`}>Why not</summary>
+      <p className={`${typography.nodeLabel} block whitespace-pre-wrap break-words text-text-body`} data-core-lead-clamp={id}>{lead}</p>
+    </details>
+  )
 }
 
 export function leadTitleOf(card: ViewCard): string | null {
@@ -232,7 +237,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {/* Conditions and names remain whole on the reading face. */}
               {/* Contract 3: a withheld chance leads with core's reason, which can run to a paragraph; as in the new look's pill it is held to
                   three lines on the card (the whole sentence is the lead's hover, above), so one reason does not make the board tall. */}
-              {aimTarget === null ? (card.family === 'option' && card.headline?.state === 'none' ? <WithheldLead id={id} lead={lead} /> : <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>)
+              {aimTarget === null ? (card.family === 'option' && card.headline?.state === 'none' ? <WithheldLead id={id} lead={lead} reason={lead !== card.headline.text} /> : <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>)
                 // DL 06:57Z (1): the aim's question (core's bound) opens its target figure's own editor, found by core's `target` line.
                 : <FigureEdit id={aimTarget.id} edit={aimTarget.figure!.edit ?? null} place="view-aim" opener={<span className="block break-words" data-core-lead-clamp={id}>{lead}</span>} />}
               {estimate && !olumi && lead === card.figure?.text ? <>{' '}<Glyph at={`${id}.olumi`} mark={card.olumi} /></> : null}
