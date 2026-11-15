@@ -7,6 +7,7 @@ import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { NEXT_STEP_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 import { useUIStore } from '../../stores/uiStore'
+import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))
@@ -254,6 +255,19 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
   // DL-538 (14 Nov, the target panel): Olumi's proposal with Approve / Set aside is pinned between the thread and the composer, never buried.
   // These two rows replaced CT8b "following brings the card whole into view" and CT8c "the block runs from the question's top": the card is
   // no longer in the thread to be scrolled to.
+  it('CT8r CATCH (contract 3, Codex 15 Nov): the thread rests on the newest REPLY\'s first line, not on the person\'s message drawn above it in the same turn', () => {
+    const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
+    // The newest turn: the person's message from 600, Olumi's reply below it from 900 (a tall message).
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-chat-answer' ? 900 : this.dataset.testid === 'view-chat-latest' ? 600 : 0 })
+    show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
+    Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
+    act(() => show(bare))
+    expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
+    expect(scroll.scrollTop).toBe(884) // 900 - 16; before: the turn's own top, 600 - 16 = 584, with the reply below the clipped thread
+  })
+
   it('CT8b (DL-538): a held proposal\'s Next step card is pinned outside the thread\'s scroll, above the composer; the thread follows the newest reply\'s start', () => {
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })
@@ -267,9 +281,9 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.contains(step), 'not in the thread').toBe(false)
     // Contract 3: the proposal is one row, closed at rest; Approve is in its body. Open it (what the person does to reach Approve), then the
     // PL-1083 / DL-538 placement is bound as before: Approve on the pinned card, inside the review, which is inside the pinned box.
-    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
-    expect(review.open, 'closed at rest').toBe(false)
-    review.open = true
+    const review = getByTestId('view-proposal-review')
+    expect(isOpen(review), 'closed at rest').toBe(false)
+    setOpen(review, true)
     const approve = step.querySelector('[data-testid="view-approve"]')
     expect(approve, 'Approve is on the pinned card').not.toBeNull()
     expect(review.contains(approve), 'Approve is in the opened review').toBe(true)
@@ -480,14 +494,15 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
 
   // CATCH (fails on the old css: the three :has rules were `.ok-pinned [data-reading-row]` / `.ok-pinned:has([data-reading-row])`, so a CLOSED
   // review holding reading rows still hid More ways, clipped the thread and let the box shrink). CONTRAST: the old selectors now match nothing.
-  it('NS1b the readings rules apply only while the review is OPEN: More ways hides, the thread yields and the box shrinks only under details[open]', () => {
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
-    expect(rule('.ok-pinned:has(details[open] [data-reading-row])')).toMatch(/flex-shrink: 1/)
+  it('NS1b the readings rules apply only while the review is OPEN: More ways hides, the thread yields and the box shrinks only while it is open', () => {
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
+    expect(rule('.ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row])')).toMatch(/flex-shrink: 1/)
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
     expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')
-    expect(rule('.ok-pinned details.ok-row-review > summary')).toMatch(/padding-bottom: 12px/)
+    expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/padding-bottom: 12px/)
+    expect(rule(".ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden])")).toMatch(/display: contents/)
   })
 
   // CATCH (fails on the old NextStepCard, which drew a "Next step" header, no review and no row, the proposal's own heading in the open, and
@@ -502,13 +517,13 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect([step.tagName, step.getAttribute('data-step'), step.getAttribute('aria-label')]).toEqual(['SECTION', 'approve', 'Next step'])
     expect(step.className).not.toContain('border-info')
     expect([...step.querySelectorAll('p')].map((e) => e.textContent), 'no Next step header').not.toContain('Next step')
-    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
-    expect(review.tagName).toBe('DETAILS')
+    const review = getByTestId('view-proposal-review')
+    expect(rowOf(review).getAttribute('aria-expanded')).toBe('false')
     expect(review).toHaveClass('ok-row-review')
-    expect(review.open, 'closed at rest').toBe(false)
+    expect(isOpen(review), 'closed at rest').toBe(false)
     expect(step.firstElementChild, 'the review is the step\'s only child').toBe(review)
     const row = getByTestId('view-proposal-row')
-    expect(row.tagName).toBe('SUMMARY')
+    expect(row.tagName).toBe('BUTTON')
     expect(review.firstElementChild).toBe(row)
     expect(row.textContent).toBe(`${p.heading} · ${p.on}`)
     expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
@@ -520,32 +535,32 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
 
   it('C3-2 opened, the row\'s body holds core\'s step words for approval and every change with Approve and Set aside; nothing is sent by opening', () => {
     const { getByTestId } = render(<ViewChat />)
-    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
-    const body = review.querySelector('summary')!.nextElementSibling as HTMLElement
+    const review = getByTestId('view-proposal-review')
+    const body = bodyOf(review) as HTMLElement
     expect(body.querySelector('p')?.textContent).toBe(NEXT_STEP_WORDS.approve)
     expect(body.contains(getByTestId('view-chat-proposal'))).toBe(true)
     expect(body.contains(getByTestId('view-approve'))).toBe(true)
     expect(body.querySelector('[data-testid="view-proposal-actions"]'), 'the actions are in the body').not.toBeNull()
     const proposalPart = getByTestId('view-chat-proposal')
     expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal does not draw its heading again').toHaveLength(0)
-    fireEvent.click(review.querySelector('summary')!)
-    expect(review.open, 'pressing the row opens it').toBe(true)
+    fireEvent.click(rowOf(review))
+    expect(isOpen(review), 'pressing the row opens it').toBe(true)
     expect(posts, 'opening sends nothing').toEqual([])
   })
 
   // CATCH (fails on the old `key`-less layout: a proposal always drew open). A NEW proposal starts closed; the same proposal re-shown stays as the person left it.
   it('C3-3 a new proposal starts closed; the same proposal shown again keeps what the person opened', () => {
     const { getByTestId } = render(<ViewChat />)
-    const first = getByTestId('view-proposal-review') as HTMLDetailsElement
-    first.open = true
+    const first = getByTestId('view-proposal-review')
+    setOpen(first, true)
     act(() => show({ ...proposal, chat: [...proposal.chat] }))
     expect(first.isConnected, 'same proposal, same row').toBe(true)
-    expect((getByTestId('view-proposal-review') as HTMLDetailsElement).open).toBe(true)
+    expect(isOpen(getByTestId('view-proposal-review'))).toBe(true)
     act(() => show({ ...proposal, proposal: { ...proposal.proposal!, id: proposal.proposal!.id + 1 } }))
-    const next = getByTestId('view-proposal-review') as HTMLDetailsElement
+    const next = getByTestId('view-proposal-review')
     expect(next).not.toBe(first)
-    expect(next.open, 'a new proposal is closed').toBe(false)
-    expect(next.querySelector('summary')!.textContent).toBe(`${proposal.proposal!.heading} · ${proposal.proposal!.on}`)
+    expect(isOpen(next), 'a new proposal is closed').toBe(false)
+    expect(rowOf(next).textContent).toBe(`${proposal.proposal!.heading} · ${proposal.proposal!.on}`)
   })
 })
 
@@ -588,8 +603,8 @@ describe('Contract 3: the readings rest moves nothing while the review is closed
   // CATCH (fails on the old land(), which placed on arrival whether or not the rows were on screen: maxHeight '406px' and scrollTop 292 at mount).
   it('R1 closed at rest: the box keeps its own height and scroll, on arrival and when its parts change size', () => {
     const { getByTestId } = render(<ViewChat />)
-    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
-    expect(review.open).toBe(false)
+    const review = getByTestId('view-proposal-review')
+    expect(isOpen(review)).toBe(false)
     expect(review.querySelectorAll('[data-reading-row]').length, 'precondition: the held rows are in the proposal').toBe(2)
     const b = boxOf()
     expect([b.style.maxHeight, b.scrollTop], 'on arrival').toEqual(['', 0])
@@ -601,14 +616,14 @@ describe('Contract 3: the readings rest moves nothing while the review is closed
   // The old row's meaning, kept: with the review OPEN the box grows by what the rows lack and is scrolled so both rows rest whole above the actions.
   it('R2 opened, the box places the rows as PL-1083 (1) says (grown to 406px, scrolled to 292, both rows whole above the actions); closed again, the box lets go of its height', () => {
     const { getByTestId } = render(<ViewChat />)
-    const review = getByTestId('view-proposal-review') as HTMLDetailsElement
+    const review = getByTestId('view-proposal-review')
     const b = boxOf()
-    review.open = true
+    setOpen(review, true)
     placer().fire() // the opened body changes the box's size; the browser's observer reports it
     expect(b.style.maxHeight).toBe('406px')
     expect(b.scrollTop).toBe(292)
     expect(Object.keys(ROWS).every(wholeRow)).toBe(true)
-    review.open = false
+    setOpen(review, false)
     placer().fire()
     expect(b.style.maxHeight, 'closed again: the box keeps its own height').toBe('')
   })

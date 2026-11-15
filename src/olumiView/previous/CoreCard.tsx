@@ -292,7 +292,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className="ok-row">
           {/* Contract 3: the pill says why (withheldWords), never the bare "No chance yet" where core sends a reason. Core's why, where it
               sends one, IS the pill's words, so no "Why not" is drawn to say it again. */}
-          <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>{trail}</span>
+          <span className="ok-pill ok-pill-why" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>{trail}</span>
         </div>
         {h.add == null || h.add === '' ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
       </div>

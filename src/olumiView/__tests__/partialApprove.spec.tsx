@@ -14,6 +14,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
+import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const p = golden.proposal!
@@ -65,9 +66,9 @@ describe('partial approval', () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
     show({ ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } })
     // Contract 3: the proposal is drawn only when the person opens the review; the rule the row binds is the same, one level down.
-    const review = screen.getByTestId('view-proposal-review') as HTMLDetailsElement
-    expect(review.open).toBe(false)
-    review.open = true
+    const review = screen.getByTestId('view-proposal-review')
+    expect(isOpen(review)).toBe(false)
+    setOpen(review, true)
     const box = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
     expect(box.open).toBe(false)
     expect(screen.getByText('Everything')).toBeVisible()
@@ -152,7 +153,7 @@ describe('a figure and the line that reads it are ticked together', () => {
  */
 describe('contract 3: the waiting proposal is one row, closed at rest', () => {
   const row = () => screen.getByTestId('view-proposal-row')
-  const review = () => screen.getByTestId('view-proposal-review') as HTMLDetailsElement
+  const review = () => screen.getByTestId('view-proposal-review')
 
   it('CATCH: at rest the review is closed and shows only core\'s heading line (before: NextStepCard drew <Proposal> open under a "Next step" header, so no view-proposal-review existed and the actions were in view)', () => {
     const c = show(golden)
@@ -160,8 +161,8 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     expect(section.getAttribute('data-step')).toBe('approve')
     expect(section.getAttribute('aria-label')).toBe('Next step')
     expect(screen.getByTestId('view-chat-pinned').contains(section), 'still in the pinned box').toBe(true)
-    expect(review().open).toBe(false)
-    expect(row().tagName).toBe('SUMMARY')
+    expect(isOpen(review())).toBe(false)
+    expect(row().tagName).toBe('BUTTON')
     expect(row().textContent).toBe(`${p.heading} · ${p.on}`)
     expect(row().querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
     expect(row().querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
@@ -176,7 +177,7 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
 
   it('CATCH: opening the row shows every change, core\'s words for each, and the actions, without approving (before: the actions were never behind a row)', () => {
     const c = show(golden)
-    review().open = true
+    setOpen(review(), true)
     expect(screen.getByTestId('view-changes')).toBeVisible()
     p.changes.forEach((ch, i) => {
       expect(c.querySelector(`[data-view="proposal.changes.${i}.text"]`)?.textContent).toBe(ch.text)
@@ -191,14 +192,14 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     show(golden)
     const row = screen.getByTestId('view-proposal-row')
     fireEvent.click(row)
-    expect(review().open).toBe(true)
+    expect(isOpen(review())).toBe(true)
     expect(screen.getByTestId('view-proposal-actions')).toBeVisible()
     fireEvent.click(row)
-    expect(review().open).toBe(false)
+    expect(isOpen(review())).toBe(false)
     expect(screen.getByTestId('view-proposal-actions')).not.toBeVisible()
     cleanup()
     show({ ...golden, proposal: { ...p, id: p.id + 1 } })
-    expect(review().open, 'the details is keyed on the proposal id').toBe(false)
+    expect(isOpen(review()), 'the details is keyed on the proposal id').toBe(false)
   })
 
   it('CATCH: the readings rule moves nothing while the review is closed (before: land() ran regardless and sized the box from rows that are not on screen)', () => {
@@ -212,15 +213,15 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
       box().style.maxHeight = '200px'
       fire.forEach((f) => f())
       expect(box().style.maxHeight, 'closed: the box keeps its own height').toBe('')
-      expect(review().open).toBe(false)
+      expect(isOpen(review())).toBe(false)
     } finally { globalThis.ResizeObserver = ro }
   })
 
   it('CATCH: the stylesheet\'s readings rules apply only while the review is open (before: bare `.ok-pinned [data-reading-row]` hid More ways and squeezed the thread at rest)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look', 'olumiLook.css'), 'utf8')
-    expect(css).toContain(".ok-pinned:has(details[open] [data-reading-row]) { flex-shrink: 1; }")
-    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }")
-    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }")
+    expect(css).toContain(".ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }")
     // CONTRAST: the old, unconditional selectors are gone.
     expect(css).not.toContain(".ok-pinned:has([data-reading-row])")
     expect(css).not.toContain(":has(.ok-pinned [data-reading-row])")

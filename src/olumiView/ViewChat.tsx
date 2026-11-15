@@ -438,8 +438,8 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
     const scrolled = () => { if (Math.abs(box.scrollTop - placedAt) < 1) return; if (held || Date.now() <= armed) theirs = true }
     const land = () => {
       // Contract 3: while the one-row review is closed, its rows are not on screen; nothing is placed and the box keeps its own height.
-      const review = el.closest('details')
-      if (review !== null && !review.open) { box.style.maxHeight = ''; return }
+      const review = el.closest<HTMLElement>('[data-review-body]')
+      if (review !== null && review.hidden) { box.style.maxHeight = ''; return }
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null || theirs) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
@@ -1086,6 +1086,29 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
 }
 
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
+/**
+ * Contract 3: the one row of Olumi's waiting proposal. A button (core's heading · on) opens and closes it; keyed on the proposal, so a new one
+ * starts closed. Its body stays mounted while closed (the person's ticks and reading choices are kept) and is `hidden`; while open it is
+ * `display: contents` (olumiLook.css), so the step's words, the change list and the actions are the pinned column's own items and the list
+ * keeps its bounded scroll (Codex 15 Nov: a block wrapper, as a <details> body is, let the list grow and the whole box scroll instead).
+ */
+export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+  const [open, setOpen] = useState(false)
+  const body = `view-proposal-body-${p.id}`
+  return (
+    <div className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
+      <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
+        aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
+        <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+      </button>
+      <div id={body} data-review-body="" hidden={!open}>
+        <p>{NEXT_STEP_WORDS.approve}</p>
+        <Proposal p={p} busy={busy} evidence={evidence} inRow />
+      </div>
+    </div>
+  )
+}
+
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   const step = nextStepOf(view)
   if (step === null) return null
@@ -1096,15 +1119,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
     const p = view.proposal!
     return (
       <section className={`${typography.viewPanelBody} space-y-2`} data-testid="view-next-step" data-step="approve" aria-label="Next step">
-        <details key={p.id} className="ok-row-review" data-testid="view-proposal-review">
-          <summary className="flex min-h-[44px] cursor-pointer items-center gap-1" data-testid="view-proposal-row">
-            <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
-          </summary>
-          <div className="space-y-2 pb-3">
-            <p>{NEXT_STEP_WORDS.approve}</p>
-            <Proposal key={p.id} p={p} busy={busy} evidence={view.evidence} inRow />
-          </div>
-        </details>
+        <ProposalReview key={p.id} p={p} busy={busy} evidence={view.evidence} />
       </section>
     )
   }
@@ -1282,7 +1297,9 @@ export function ViewChat() {
     // A job the saved row already draws (its message and failure; only Try again added) is not the newest message: his message is
     // (DL 1128 fault 3: following the job's Try again scrolled his own message out of view above the pinned proposal).
     const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
-    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    // Contract 3 (Codex 15 Nov): the newest REPLY's first line, never the person's message drawn above it in the same turn.
+    const latest = el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+    const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"], [data-testid="view-chat-early"]') ?? latest
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
@@ -1313,6 +1330,8 @@ export function ViewChat() {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
     const observer = new ResizeObserver(followNewest)
     observer.observe(content.current)
+    // The thread's own height changes too (the review row opening or closing in the pinned box below): rest again (Codex 15 Nov).
+    if (scroll.current !== null) observer.observe(scroll.current)
     return () => observer.disconnect()
   }, [followNewest, floating])
   // Return focus to the pop-out control after docking (A2 stop/float, DL 10 Nov).
