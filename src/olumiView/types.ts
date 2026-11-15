@@ -171,6 +171,10 @@ export type View = {
         unaffected?: true
         chance?: null
         state_text?: string
+        blocked_by?: Array<{
+          ref: string
+          role: "figure" | "link" | "calculation" | "risk" | "aim" | "limit" | "option" | "note"
+        }>
       }>
       driver: {
         text: string
@@ -330,6 +334,290 @@ export type View = {
           }
         }>
       }
+      event?: {
+        mode: "add" | "multiply"
+        effect_on: {
+          id: string
+          label: string
+        }
+        occurrence: {
+          id: string
+          label: string
+          figure: {
+            text: string
+            title: string
+            options: Array<{
+              option: string
+              id: string
+              text: string
+              title: string
+              author: {
+                by: "person" | "brief" | "olumi" | "mixed"
+                text: string
+                title: string
+              } | null
+              edit: {
+                prompt: string
+                ask: string
+              } | {
+                prompt: string
+                ask: string
+                route: "size"
+                record: string
+                note: string | null
+                fields: Array<{
+                  key: "typed" | "chance" | "change"
+                  prompt: string
+                  ask: string
+                }>
+              } | null
+            }>
+          }
+          author: {
+            by: "person" | "brief" | "olumi" | "mixed"
+            text: string
+            title: string
+          } | null
+          edit: {
+            prompt: string
+            ask: string
+          } | {
+            prompt: string
+            ask: string
+            route: "size"
+            record: string
+            note: string | null
+            fields: Array<{
+              key: "typed" | "chance" | "change"
+              prompt: string
+              ask: string
+            }>
+          } | null
+        } | null
+        severity: {
+          id: string
+          label: string
+          figure: {
+            text: string
+            title: string
+            options: Array<{
+              option: string
+              id: string
+              text: string
+              title: string
+              author: {
+                by: "person" | "brief" | "olumi" | "mixed"
+                text: string
+                title: string
+              } | null
+              edit: {
+                prompt: string
+                ask: string
+              } | {
+                prompt: string
+                ask: string
+                route: "size"
+                record: string
+                note: string | null
+                fields: Array<{
+                  key: "typed" | "chance" | "change"
+                  prompt: string
+                  ask: string
+                }>
+              } | null
+            }>
+          }
+          author: {
+            by: "person" | "brief" | "olumi" | "mixed"
+            text: string
+            title: string
+          } | null
+          edit: {
+            prompt: string
+            ask: string
+          } | {
+            prompt: string
+            ask: string
+            route: "size"
+            record: string
+            note: string | null
+            fields: Array<{
+              key: "typed" | "chance" | "change"
+              prompt: string
+              ask: string
+            }>
+          } | null
+        } | null
+        starts_after: {
+          id: string
+          label: string
+          figure: {
+            text: string
+            title: string
+            options: Array<{
+              option: string
+              id: string
+              text: string
+              title: string
+              author: {
+                by: "person" | "brief" | "olumi" | "mixed"
+                text: string
+                title: string
+              } | null
+              edit: {
+                prompt: string
+                ask: string
+              } | {
+                prompt: string
+                ask: string
+                route: "size"
+                record: string
+                note: string | null
+                fields: Array<{
+                  key: "typed" | "chance" | "change"
+                  prompt: string
+                  ask: string
+                }>
+              } | null
+            }>
+          }
+          author: {
+            by: "person" | "brief" | "olumi" | "mixed"
+            text: string
+            title: string
+          } | null
+          edit: {
+            prompt: string
+            ask: string
+          } | {
+            prompt: string
+            ask: string
+            route: "size"
+            record: string
+            note: string | null
+            fields: Array<{
+              key: "typed" | "chance" | "change"
+              prompt: string
+              ask: string
+            }>
+          } | null
+        } | null
+        after_periods: number | null
+        occurrence_worked: {
+          form: "sum" | "product" | "stock" | "effect"
+          steps: Array<{
+            id: string
+            label: string
+            figure: {
+              text: string
+              title: string
+              options: Array<{
+                option: string
+                id: string
+                text: string
+                title: string
+                author: {
+                  by: "person" | "brief" | "olumi" | "mixed"
+                  text: string
+                  title: string
+                } | null
+                edit: {
+                  prompt: string
+                  ask: string
+                } | {
+                  prompt: string
+                  ask: string
+                  route: "size"
+                  record: string
+                  note: string | null
+                  fields: Array<{
+                    key: "typed" | "chance" | "change"
+                    prompt: string
+                    ask: string
+                  }>
+                } | null
+              }>
+            }
+            author: {
+              by: "person" | "brief" | "olumi" | "mixed"
+              text: string
+              title: string
+            } | null
+            edit: {
+              prompt: string
+              ask: string
+            } | {
+              prompt: string
+              ask: string
+              route: "size"
+              record: string
+              note: string | null
+              fields: Array<{
+                key: "typed" | "chance" | "change"
+                prompt: string
+                ask: string
+              }>
+            } | null
+            role: "base" | "term" | "in" | "out"
+            sign?: 1 | -1
+            power?: 1 | -1
+            coefficient?: {
+              id: string
+              label: string
+              figure: {
+                text: string
+                title: string
+                options: Array<{
+                  option: string
+                  id: string
+                  text: string
+                  title: string
+                  author: {
+                    by: "person" | "brief" | "olumi" | "mixed"
+                    text: string
+                    title: string
+                  } | null
+                  edit: {
+                    prompt: string
+                    ask: string
+                  } | {
+                    prompt: string
+                    ask: string
+                    route: "size"
+                    record: string
+                    note: string | null
+                    fields: Array<{
+                      key: "typed" | "chance" | "change"
+                      prompt: string
+                      ask: string
+                    }>
+                  } | null
+                }>
+              }
+              author: {
+                by: "person" | "brief" | "olumi" | "mixed"
+                text: string
+                title: string
+              } | null
+              edit: {
+                prompt: string
+                ask: string
+              } | {
+                prompt: string
+                ask: string
+                route: "size"
+                record: string
+                note: string | null
+                fields: Array<{
+                  key: "typed" | "chance" | "change"
+                  prompt: string
+                  ask: string
+                }>
+              } | null
+            }
+          }>
+        } | null
+      }
       rests_on: Array<{
         id: string
         whose: "theirs" | "olumi" | "mixed"
@@ -346,6 +634,12 @@ export type View = {
         }
         whose: "theirs" | "olumi" | "mixed"
         author: string | null
+        read_by?: Array<{
+          id: string
+          kind: "calculation" | "event" | "aim"
+          output: string
+          label: string
+        }>
       }>
       disputed?: Array<{
         id: string
@@ -1321,6 +1615,9 @@ export type View = {
       move: string
       label: string
     } | null
+    early?: {
+      text: string
+    }
     withheld?: {
       kind: "untraced_figure" | "unheld_source" | "unshown_lead" | "internal_name" | "shared_wording" | "choice_words" | "other"
       limit: string
@@ -1497,7 +1794,29 @@ export type View = {
       label: string
       title: string
     } | null
+    early?: {
+      text: string
+    } | null
+    busy?: true
+    conversation?: Array<{
+      seq: number
+      kind: "brief" | "turn"
+      job: number | null
+      by_id: string
+      ask: "message" | "challenge" | "method" | "move" | "consider" | null
+      proposal: number | null
+      discussion: boolean | null
+      state: "building" | "applied" | "checked" | "not_in_model" | null
+    }>
   } | null
+  floor?: Array<{
+    job: number
+    at: string
+    by: string
+    by_id: string
+    said: string
+    text: string
+  }>
   turn?: {
     job: number
     status: "answering" | "failed" | "lost"
