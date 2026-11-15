@@ -27,7 +27,7 @@ const show = (view: View) => {
 const tickOf = (i: number) => document.querySelector<HTMLInputElement>(`[data-target-for="view-change-tick-${i}"] input`)!
 beforeEach(() => {
   posts = []
-  useReviewTicks.setState({ pid: null, ticked: new Set(), rejected: new Set(), review: 0 })
+  useReviewTicks.setState({ key: null, ticked: new Set(), rejected: new Set(), review: 0 })
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     if ((init?.method ?? 'GET') === 'POST') { posts.push(String(u)); return new Response('{"version":9,"n":2,"receipt":"r"}', { status: 201 }) }
@@ -77,6 +77,59 @@ describe('Olumi\'s suggestion on each proposed card (old look)', () => {
     fireEvent.click(screen.getByTestId('per_specialist-suggestion-edit'))
     expect(useViewChat.getState().text).toContain('About per_specialist:')
     expect(posts).toEqual([])
+  })
+  // Codex 15 Nov round 1 (db61aa1b): six blockers, each a row below.
+  it('CATCH (1): no tap while a write is in flight', () => {
+    show(golden)
+    act(() => { useViewChat.setState({ busy: true }) })
+    for (const w of ['accept', 'edit', 'reject']) expect(screen.getByTestId(`start_delay-suggestion-${w}`)).toBeDisabled()
+  })
+  it('CATCH (2): a group or partner tick never re-ticks a rejected line; only its own tick or Undo reverses it', () => {
+    const v = structuredClone(golden); const ch = v.proposal!.changes
+    ch[0]!.together = { ids: [ch[1]!.id] } as never // per_specialist goes with start_delay
+    show(v)
+    fireEvent.click(screen.getByTestId('start_delay-suggestion-reject'))
+    expect(screen.getByTestId('per_specialist-suggestion-accept'), 'its partner was rejected').toBeDisabled()
+    fireEvent.click(tickOf(0)) // ticking per_specialist in the list would tick its partner: held while the partner is rejected
+    expect([tickOf(0).checked, tickOf(1).checked]).toEqual([false, false])
+    expect(screen.getByTestId('start_delay-suggestion-said')).toHaveTextContent('Rejected')
+    fireEvent.click(tickOf(1)) // the rejected line's own tick reverses it (it names no partner of its own)
+    expect([tickOf(0).checked, tickOf(1).checked]).toEqual([false, true])
+    expect(screen.getByTestId('start_delay-suggestion-said')).toHaveTextContent('Accepted')
+    fireEvent.click(tickOf(0)) // now per_specialist ticks, with its partner
+    expect([tickOf(0).checked, tickOf(1).checked]).toEqual([true, true])
+  })
+  it('CATCH (3): choices belong to one scenario\'s proposal: a new scenario drops them, and so does Set aside', async () => {
+    show(golden)
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
+    act(() => { useViewStore.setState({ sid: 's_other' } as never) })
+    act(() => { useViewStore.setState({ sid: golden.id } as never) })
+    expect(screen.getByTestId('per_specialist-suggestion-label'), 'nothing carried back').toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
+    await act(async () => { fireEvent.click(screen.getByTestId('view-set-aside')) })
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(useReviewTicks.getState().ticked.size).toBe(0)
+  })
+  it('CATCH (4): Review shows the Olumi tab before opening the review', () => {
+    show(golden)
+    useUIStore.setState({ activeOutputTab: 'team' } as never)
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-review'))
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+  it('CATCH (5): no chip on a proposal core does not support (it has no approval)', () => {
+    show({ ...golden, proposal: { ...golden.proposal!, verdict: { supported: false, text: 'Core cannot support this change.' } } } as View)
+    expect(document.querySelector('[data-suggestion]')).toBeNull()
+  })
+  it('CATCH (6): a one-change proposal has the chip too; its choice applies on Approve, a rejection on Set aside, and Approve is held', () => {
+    const one = { ...golden, proposal: { ...golden.proposal!, changes: golden.proposal!.changes.slice(0, 1) } } as View
+    show(one)
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
+    expect(screen.getByTestId('per_specialist-suggestion-said')).toHaveTextContent('Accepted · applies on Approve')
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-undo'))
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-reject'))
+    expect(screen.getByTestId('per_specialist-suggestion-said')).toHaveTextContent('Rejected · applies on Set aside')
+    expect(screen.getByTestId('view-approve')).toBeDisabled()
   })
   it('CONTRAST: with no waiting proposal (an approved board) no card says "Olumi\'s suggestion"', () => {
     show({ ...golden, proposal: null } as View)

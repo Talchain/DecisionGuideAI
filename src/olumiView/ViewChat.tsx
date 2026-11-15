@@ -47,7 +47,7 @@ import { ResultReceipts } from './ResultReceipts'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 import { lineBoxesNear, lineCutShift } from './footCut'
 import { readingsRest, restTop } from './readingsRest'
-import { clearTicks, setTicks, ticksFor, useReviewTicks } from './reviewTicks'
+import { clearTicks, setTicks, ticksFor, ticksKey, useReviewTicks } from './reviewTicks'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -383,16 +383,20 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   // The ticks are shared with the cards' "Olumi's suggestion" chips (reviewTicks.ts): one set of choices, one commit. ⛔ NEVER ORPHAN
   // OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with them.
   const root = useRef<HTMLDivElement>(null)
-  const shared = useReviewTicks(), mine = ticksFor(shared, p.id), ticked = mine.ticked, rejected = mine.rejected
-  const toggle = (c: Change) => setTicks(p.id, changes, [c], !ticked.has(keyOf(c)))
-  const toggleGroup = (lines: number[], on: boolean) => setTicks(p.id, changes, lines.flatMap((i) => (changes[i] ? [changes[i]!] : [])), on)
+  const sid = useViewStore((s) => s.sid), tkey = ticksKey(sid, p.id)
+  const shared = useReviewTicks(), mine = ticksFor(shared, tkey), ticked = mine.ticked, rejected = mine.rejected
+  // The list's own tick of a line reverses that line's rejection; a group's tick never does (reviewTicks.ts).
+  const toggle = (c: Change) => setTicks(tkey, changes, [c], !ticked.has(keyOf(c)), true)
+  const toggleGroup = (lines: number[], on: boolean) => setTicks(tkey, changes, lines.flatMap((i) => (changes[i] ? [changes[i]!] : [])), on)
   // A chip's Review: the review opens (its row, a <details>) and Approve ticked comes into view, one tap from any card.
   const reviewAsk = useRef(shared.review)
   useEffect(() => {
     if (shared.review === reviewAsk.current) return
     reviewAsk.current = shared.review
     const d = root.current?.closest('details'); if (d) d.open = true
-    root.current?.querySelector<HTMLElement>('[data-testid="view-approve-ticked"]')?.scrollIntoView?.({ block: 'nearest' })
+    // After the Olumi tab is shown (the chip activates it), the commit is brought into view.
+    const go = () => root.current?.querySelector<HTMLElement>('[data-testid="view-approve-ticked"], [data-testid="view-approve"]')?.scrollIntoView?.({ block: 'nearest' })
+    go(); if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go)
   }, [shared.review])
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
@@ -428,7 +432,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
     if (unsure.current !== null && unsure.current !== sent && (/"(only|refuse)_readings"/.test(unsure.current) || withReadings)) { setRefused(true); return }
     setRefused(false)
     // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
-    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); clearTicks(); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
+    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); clearTicks(tkey); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
   }
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
@@ -517,7 +521,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
             className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
-        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id))}>Set aside</button>
+        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id).then((r) => { clearTicks(tkey); return r }))}>Set aside</button>
       </div>
     </div>
   )
