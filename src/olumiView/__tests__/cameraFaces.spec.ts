@@ -10,7 +10,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node, Viewport } from '@xyflow/react'
-import { FACE_RANGE, bandOf, cameraFrame, faceRegimeOf, frameStep, lateRedraw, settleDone, settleTick, settledBoardKey, type FaceRegime, type FaceSnap, type SettleLoop } from '../ViewCanvas'
+import { FACE_RANGE, bandOf, cameraFrame, faceRegimeOf, frameStep, heightsOfBoard, lateRedraw, settleDone, settleTick, settledBoardKey, type FaceRegime, type FaceSnap, type SettleLoop } from '../ViewCanvas'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
@@ -98,10 +98,14 @@ describe('the opening frames the whole model, down the faces, never back up into
     const boxesAt = (z: number): Box[] => { const r = faceRegimeOf(z); return r === 'full' ? full : F.w1128[r].nodes }
     const stale = settleRun(() => nodesOf(full), pane, FREE_1128) // the redraw is later than the wait
     expect(stale.trace.map((s) => s.measuring)).toEqual([true]) // no animated frame from the full faces' heights
-    expect(stale.pending).toBe(settledBoardKey(nodesOf(full)))
+    expect(stale.pending).toBe(heightsOfBoard(settledBoardKey(nodesOf(full))))
     const redrawn = nodesOf(boxesAt(stale.zoom))
     expect(lateRedraw(stale.pending, settledBoardKey(redrawn))).toBe(true)
-    expect(lateRedraw(stale.pending, stale.pending!)).toBe(false)
+    expect(lateRedraw(stale.pending, settledBoardKey(nodesOf(full)))).toBe(false)
+    // CATCH (Codex 15 Nov, round 6): a card moved one pixel, its heights unchanged, is not the new face drawn and re-arms nothing.
+    const nudged = nodesOf(full.map((b, i) => (i === 3 ? { ...b, x: b.x + 1 } : b)))
+    expect(settledBoardKey(nudged)).not.toBe(settledBoardKey(nodesOf(full)))
+    expect(lateRedraw(stale.pending, settledBoardKey(nudged))).toBe(false)
     const late = settleRun((z) => nodesOf(boxesAt(z)), pane, FREE_1128, stale)
     const rests = late.trace.filter((t) => !t.measuring)
     expect(rests.length).toBeGreaterThan(0)

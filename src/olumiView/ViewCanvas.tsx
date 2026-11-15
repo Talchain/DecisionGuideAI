@@ -177,7 +177,9 @@ export const settledBoardKey = (drawn: readonly Node[]): string => `${drawnHeigh
 /** The settle loop stops BEFORE framing again when the settled board is the one it last framed, or after MAX_FITS (useViewCamera; the
  *  spec runs these same steps: Codex 15 Nov, round 3). */
 export const settleDone = (board: string, fitted: string, fits: number, drawnCount: number): boolean => drawnCount === 0 || board === fitted || fits >= MAX_FITS
-/** The settle loop's state: the board last framed, how many frames, and the board a measuring hop was worked out from (null: none pending). */
+/** A board's measured heights alone (settledBoardKey without the places): what a new face changes; a card moved changes only its place. */
+export const heightsOfBoard = (board: string): string => board.slice(0, Math.max(0, board.lastIndexOf('#')))
+/** The settle loop's state: the board last framed, how many frames, and the heights a measuring hop was worked out from (null: none pending). */
 export type SettleLoop = { fitted: string; fits: number; hopFrom: string | null }
 /**
  * One settle of useViewCamera's loop, once the board has settled: 'stop', 'wait', or 'framed' (`frame` frames it and says whether that was
@@ -187,17 +189,18 @@ export type SettleLoop = { fitted: string; fits: number; hopFrom: string | null 
  * loop when the board does change (lateRedraw). The hook and the spec run this same step.
  */
 export function settleTick(loop: SettleLoop, board: string, drawnCount: number, timedOut: boolean, frame: () => boolean): 'stop' | 'wait' | 'framed' {
-  if (loop.hopFrom !== null && board === loop.hopFrom && drawnCount > 0 && loop.fits < MAX_FITS) return timedOut ? 'stop' : 'wait'
+  // Compared by heights (Codex 15 Nov, round 6): a card moved, its heights unchanged, is not the new face drawn.
+  if (loop.hopFrom !== null && heightsOfBoard(board) === loop.hopFrom && drawnCount > 0 && loop.fits < MAX_FITS) return timedOut ? 'stop' : 'wait'
   if (loop.hopFrom === null && settleDone(board, loop.fitted, loop.fits, drawnCount)) return 'stop'
   if (loop.hopFrom !== null && (drawnCount === 0 || loop.fits >= MAX_FITS)) return 'stop'
   const hop = frame()
   loop.fits += 1
   loop.fitted = board
-  loop.hopFrom = hop ? board : null
+  loop.hopFrom = hop ? heightsOfBoard(board) : null
   return 'framed'
 }
 /** A hop left pending when the loop stopped: the board has changed since (its face drawn, however late), so the loop is run again. */
-export const lateRedraw = (pendingFrom: string | null, board: string): boolean => pendingFrom !== null && board !== pendingFrom
+export const lateRedraw = (pendingFrom: string | null, board: string): boolean => pendingFrom !== null && heightsOfBoard(board) !== pendingFrom
 /**
  * One framing (useViewCamera's fit): the board as drawn at `zoom` is kept as the face that zoom draws, and the frame is worked out from the
  * faces kept. `measuring`: the face the frame's zoom draws has not been drawn yet, so its heights are unknown and the frame is not sure to
@@ -427,7 +430,8 @@ function ViewFlow() {
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo={false} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
-      {hasModel ? <BelowCue onPress={hand} /> : null}
+      {/* The cue's pan is the person's own (Codex 15 Nov, round 6): the camera is theirs, so a late redraw does not re-frame over it. */}
+      {hasModel ? <BelowCue onPress={() => { userMoved.current = true; hand() }} /> : null}
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
       {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true; hand() }} /> : null}
       {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
