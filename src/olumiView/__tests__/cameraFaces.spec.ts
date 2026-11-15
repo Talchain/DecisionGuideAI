@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node, Viewport } from '@xyflow/react'
-import { cameraFrame, FACE_RANGE, faceRegimeOf, frameFor, type FaceRegime, type FaceSnap } from '../ViewCanvas'
+import { bandOf, cameraFrame, FACE_RANGE, faceRegimeOf, frameFor, type FaceRegime, type FaceSnap } from '../ViewCanvas'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
@@ -39,23 +39,28 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     for (const s of [{ body }, { line }, { body, line }]) expect(cameraFrame(s, pane, FREE_1128)!.zoom).toBe(FACE_RANGE.full[1])
   })
 
-  it('1128 (DL-538): with the full face measured and too large to fit whole, the frame stays in the full band, its top under the free canvas\'s top', () => {
+  // THE WHOLE MODEL AT FIRST OPEN (Paul's standing ruling, 10 Nov; DL-support 15 Nov 02:5xZ). These two rows REPLACE DL-538's "with the full
+  // face measured and too large to fit whole, the frame stays in the full band … the rest is panned to" and "no frame ever opens a reduced
+  // face": that rule opened 1232x704 with an option under the side panel and five cards below the fold. A deliberate change of rule, not a
+  // loosened check: the new rows pin that EVERY card is inside the free canvas, on the face the frame draws.
+  it('1128 (whole model): the full face does not fit; the frame is worked out from a reduced face\'s measured heights, every card of that face inside the free canvas', () => {
     const full = snap(F.w2000.full)
+    expect(frameFor(full.nodes, pane, FREE_1128, FACE_RANGE.full[1])!.zoom, 'precondition: the full face does not fit whole in its own band').toBeLessThan(FACE_RANGE.full[0])
     const v = cameraFrame({ full, body, line }, pane, FREE_1128)!
-    expect(faceRegimeOf(v.zoom)).toBe('full')
-    expect(v.zoom).toBeGreaterThanOrEqual(FACE_RANGE.full[0])
-    const top = Math.min(...F.w2000.full.nodes.map((b: Box) => b.y))
-    expect(top * v.zoom + v.y, 'the board\'s top sits at the free canvas\'s top (the rest is panned to)').toBeGreaterThanOrEqual(FREE_1128.top - 1)
-    // DL-538: and wider than the free canvas, it starts at the free canvas's left edge (never centred, its first card under the toolbar)
-    const left = Math.min(...F.w2000.full.nodes.map((b: Box) => b.x)), right = Math.max(...F.w2000.full.nodes.map((b: Box) => b.x + b.w))
-    expect((right - left) * v.zoom, 'precondition: wider than the free canvas').toBeGreaterThan(pane.width - FREE_1128.left - FREE_1128.right)
-    expect(left * v.zoom + v.x).toBeCloseTo(FREE_1128.left, 3)
+    const r = faceRegimeOf(v.zoom)
+    expect(r, 'a reduced face, because the full one does not fit').not.toBe('full')
+    expect(bandOf(v.zoom), 'the frame rests inside the band of the face it draws').toBe(r)
+    expect(inside(F.w1128[r].nodes, v, pane, FREE_1128), 'no card of the drawn face outside the free canvas (under the panel, the strip or below the fold)').toEqual([])
+    expect(inside(F.w1128[r].nodes, v, pane, FREE_1128)).not.toContain(GOAL)
   })
 
-  it('no frame ever opens a reduced face: each measured face alone or together', () => {
+  it('1128 (whole model): down the faces only; a face not drawn yet is framed at its band\'s top so it is drawn and measured, never back up into the full band', () => {
     const full = snap(F.w2000.full)
-    for (const s of [{ body }, { line }, { full }, { full, body }, { full, line }, { full, body, line }] as Partial<Record<FaceRegime, FaceSnap>>[])
-      expect(faceRegimeOf(cameraFrame(s, pane, FREE_1128)!.zoom), JSON.stringify(Object.keys(s))).toBe('full')
+    const hop = cameraFrame({ full }, pane, FREE_1128)!
+    expect(faceRegimeOf(hop.zoom), 'body not measured yet: the frame goes down to draw it').not.toBe('full')
+    expect(hop.zoom).toBeLessThanOrEqual(FACE_RANGE.body[1] + 1e-9)
+    for (const s of [{ full, body }, { full, line }, { full, body, line }] as Partial<Record<FaceRegime, FaceSnap>>[])
+      expect(faceRegimeOf(cameraFrame(s, pane, FREE_1128)!.zoom), JSON.stringify(Object.keys(s))).not.toBe('full')
   })
 
   it('2000: the full face, measured, fits whole at the readable zoom or more: framed there, every card and the goal inside', () => {

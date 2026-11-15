@@ -148,9 +148,7 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
 }
 
 function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
-  // DL-538 (14 Nov, the target screen): the board OPENS on its readable full face, never on a zoomed-out face. Until the full face has been
-  // drawn, it is drawn once at the top of its band to measure it. Then: the whole board where it fits in the full band; else the full face
-  // as wide as the stage allows (within the band), its top under the free canvas's top; what does not fit is panned to, never shrunk.
+  // Until the full face has been drawn, it is drawn once at the top of its band to measure it (DL-538, unchanged).
   const full = snaps.full
   if (full === undefined) {
     const drawn = snaps.body ?? snaps.line
@@ -158,16 +156,30 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   }
   const [lo, hi] = FACE_RANGE.full
   const whole = frameFor(full.nodes, pane, free, hi)
-  if (whole !== null && whole.zoom >= lo) return whole
-  return atZoom(full.nodes, pane, free, Math.max(lo, Math.min(hi, acrossZoom(full.nodes, pane, free))))
+  if (whole === null || whole.zoom >= lo) return whole
+  // THE WHOLE MODEL AT FIRST OPEN (Paul's standing ruling, 10 Nov; DL-support 15 Nov 02:5xZ: "first view and Fit must use the canvas area left
+  // of the side panel and below the lens strip, and show the whole model"). This REPLACES DL-538's "what does not fit is panned to, never
+  // shrunk", which opened 1232x704 with an option under the side panel, five cards below the fold and "N more cards below" over a card. A
+  // model that does not fit at reading size is framed whole in the free canvas, each card on its reduced face. The rule is the old look's
+  // (wip/scenario-ui-old-fit, ViewCanvas frameOf at c33f2751), ported by hand because the two files differ: down the faces only, never back
+  // up into a larger face's band (the swing DL-408 recorded); the band chosen by FACE_RANGE (bandOf), so a frame never rests in the gap
+  // between two faces' bands; each frame worked out from that face's MEASURED heights and capped at its band's top; where it falls below the
+  // band's foot even so, the next smaller face is tried. A face not drawn yet is framed on the larger face's heights at its band's top so
+  // it gets drawn and measured, and the settle loop frames again from its own heights.
+  let r: FaceRegime = bandOf(whole.zoom), nodes = full.nodes
+  for (let step = 0; step < 3; step += 1) {
+    const drawn = snaps[r]
+    if (drawn === undefined) return frameFor(nodes, pane, free, FACE_RANGE[r][1]) ?? whole
+    const f = frameFor(drawn.nodes, pane, free, FACE_RANGE[r][1]) ?? whole
+    if (r === 'line' || f.zoom >= FACE_RANGE[r][0] - EPS) return f
+    nodes = drawn.nodes
+    r = r === 'full' ? 'body' : 'line'
+  }
+  return whole
 }
-
-/** The zoom at which the board's width fills the free canvas across (its height not considered: what is below is panned to). */
-function acrossZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined): number {
-  if (nodes.length === 0 || pane.width === 0) return 1
-  const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
-  return Math.max(1, pane.width - raw.left - raw.right) / Math.max(1, bounds.width)
-}
+/** The face whose FRAMING band holds this zoom (FACE_RANGE): unlike faceRegimeOf (the drawing threshold), the hysteresis gap below the body
+ *  face's band counts as the line face's, so a frame is only ever put where one face is drawn either way (the old look's, c33f2751). */
+export const bandOf = (zoom: number): FaceRegime => (zoom >= FACE_RANGE.full[0] - EPS ? 'full' : zoom >= FACE_RANGE.body[0] - EPS ? 'body' : 'line')
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
 function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number): Viewport | null {
