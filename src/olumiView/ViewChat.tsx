@@ -161,6 +161,10 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const restKey = latest ? restingRingOf(about, noted === null ? NO_CARDS : [noted]).join('\u0000') : ''
   // Core API v1.29: Olumi's reply to this edit while it runs, or how it ended without one (the View's `reply`), in place of its answer.
   const reply = useViewStore((st) => (st.view?.reply != null && st.view.reply.proposal === t.id ? st.view.reply : null))
+  // The next step's label is said once: on the move's button when MoveTap draws one (the same predicate it uses), else as the heading.
+  const sid = useViewStore((st) => st.sid)
+  const gone = useViewChat((st) => st.gone ?? null)
+  const tapDrawn = moves && t.answer !== null && !!t.answer.next.newest && moveShown(sid, gone, t.id, t.answer.next)
   useEffect(() => {
     if (!latest) return undefined
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
@@ -193,8 +197,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       )}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
-      {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}>{tapDrawn ? null : <><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span>{' '}</>}<Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
+      {tapDrawn ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} at={`${at}.answer.next`} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       <Stories answer={t.answer} at={at} />
     </div>
@@ -961,12 +965,17 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
+/** Whether a reply's move is drawn as a tap: one predicate for MoveTap and the reply, so the label is said once and the two never disagree. */
+export function moveShown(sid: string | null, gone: string | null, turn: number, next: Next): boolean {
+  return sid !== null && typeof next.move === 'string' && next.move !== '' && gone !== moveKey(sid, turn, next.move)
+}
+
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
 export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
-  if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
+  if (!moveShown(sid, gone, turn, next)) return null
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}

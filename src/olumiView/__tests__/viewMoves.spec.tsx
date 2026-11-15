@@ -9,7 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import golden from '../golden/whatif.view.json'
 import type { View } from '../client'
-import { ViewChat, useViewChat } from '../ViewChat'
+import { ViewChat, moveShown, useViewChat } from '../ViewChat'
 import { useViewStore } from '../store'
 import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 
@@ -105,5 +105,47 @@ describe('the coach\'s next move is one tap', () => {
     useViewStore.setState({ view: { ...v, chat: v.chat.map((t) => (t.answer ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, newest: false } } } : t)) } as View })
     render(<ViewChat />)
     expect(screen.queryByTestId('view-next-move')).toBeNull()
+  })
+})
+
+describe('the next step\'s label is said once: on the tap when one is drawn, else as the heading', () => {
+  const labelsAt = (root: ParentNode, k: number) => [...root.querySelectorAll<HTMLElement>(`[data-view="chat.${k}.answer.next.label"]`)]
+  const nextOf = (root: ParentNode) => root.querySelector<HTMLElement>('[data-testid="view-chat-next"]')!
+
+  it('catch: the newest reply\'s label is drawn once, on the tap, bound to its View path; the line above it holds only the words', () => {
+    const { container } = render(<ViewChat />)
+    const latest = container.querySelector('[data-testid="view-chat-latest"]')!
+    const at = labelsAt(latest, last)
+    expect(at).toHaveLength(1)
+    expect(at[0]!.closest('[data-testid="view-next-move"]')).not.toBeNull()
+    expect(at[0]!.textContent).toBe(NEXT.label)
+    expect(labelsAt(nextOf(latest), last)).toHaveLength(0)
+    expect(nextOf(latest).querySelector(`[data-view="chat.${last}.answer.next.text.0.text"]`)).not.toBeNull() // the words stay
+  })
+
+  it('an older reply keeps its heading and its words, and draws no tap', () => {
+    const earlier = base.chat.findIndex((t, i) => i < last && t.answer !== null)
+    expect(earlier, 'precondition: an earlier answered reply').toBeGreaterThanOrEqual(0)
+    const { container } = render(<ViewChat />)
+    const turn = container.querySelector(`[data-view-turn="chat.${earlier}"]`)!
+    const at = labelsAt(turn, earlier)
+    expect(at).toHaveLength(1)
+    expect(at[0]!.closest('[data-testid="view-chat-next"]')).not.toBeNull()
+    expect(turn.querySelector('[data-testid="view-next-move"]')).toBeNull()
+  })
+
+  it('a move already taken (gone) leaves the heading and the words as they were, with no tap', () => {
+    useViewChat.setState({ gone: `${SID}\u0000${base.chat[last]!.id}\u0000outside_view` })
+    const { container } = render(<ViewChat />)
+    const latest = container.querySelector('[data-testid="view-chat-latest"]')!
+    expect(latest.querySelector('[data-testid="view-next-move"]')).toBeNull()
+    const at = labelsAt(latest, last)
+    expect(at).toHaveLength(1)
+    expect(at[0]!.closest('[data-testid="view-chat-next"]')).not.toBeNull()
+  })
+
+  it('moveShown is the one predicate: a scenario, a non-empty move, and not the one already taken', () => {
+    const n = NEXT
+    expect([moveShown(SID, null, 1, n), moveShown(null, null, 1, n), moveShown(SID, null, 1, { ...n, move: '' }), moveShown(SID, `${SID}\u00001\u0000${n.move}`, 1, n)]).toEqual([true, false, false, false])
   })
 })
