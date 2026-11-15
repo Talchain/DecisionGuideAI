@@ -76,7 +76,14 @@ export function leadLineOf(card: ViewCard): string | null {
   if (card.family === 'option') {
     // RULING 7: the chance of meeting the goal, core's words. Where core withholds it, core's own first line saying so, never a blank and
     // never a figure of the UI's.
-    if (card.headline != null) return card.headline.text
+    // Contract 3 (ONE-PLAN, 15 Nov: "a card with no result shows the outcome's blocker in plain words, never 'No chance yet'"): where core
+    // withholds the chance (`headline.state` none), core's own sentence for why: its `why` (this option's own reason), else its `title` (the
+    // reason every option shares, whole); the bare `text` only where core sends neither. Picked by field; no word is the UI's.
+    if (card.headline != null) {
+      const h = card.headline
+      if (h.state === 'none') return (h.why ?? '') !== '' ? h.why! : h.title !== '' ? h.title : h.text
+      return h.text
+    }
     const first = card.rows[0]
     return first !== undefined && first.kind === 'none' ? first.text : null
   }
@@ -212,7 +219,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             // A figure core marks Olumi's estimate reads as Olumi's (its blue, core's mark on hover) whoever the card is from; Olumi's own
             // card says so in its author line, so its mark is not said twice. A bound's own mark beside it.
             <div className={`${typography.nodeValue} ${(olumi || estimate) && card.family !== 'option' ? 'text-info' : 'text-text-header'} ${aimTarget === null ? '' : 'relative'}`} data-core-lead={id}
-              title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined}>
+              title={[lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x, i, all) => x != null && x !== '' && all.indexOf(x) === i).join(' · ') || undefined}>
               {/* Conditions and names remain whole on the reading face. */}
               {aimTarget === null ? <span className="block break-words" data-core-lead-clamp={id}>{lead}</span>
                 // DL 06:57Z (1): the aim's question (core's bound) opens its target figure's own editor, found by core's `target` line.

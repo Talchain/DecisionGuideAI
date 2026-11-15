@@ -366,7 +366,7 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
   return can ? <FigureEdit id={id} edit={edit} label={text} place="view-question" /> : <>{text}</>
 }
 
-export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
@@ -422,8 +422,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   }
   return (
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
-      <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
-        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
+      {inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
+        : <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+          {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
           {from.by === null ? null : <p>Asked by: <span data-view="proposal.from.by">{from.by}</span></p>}
@@ -1025,11 +1026,27 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   const step = nextStepOf(view)
   if (step === null) return null
+  // Contract 3 (ONE-PLAN, 15 Nov: "the pending review collapses to one row; all changes can be read without approving"): Olumi's waiting
+  // proposal is ONE row in the thread, below the newest reply, in core's words (`proposal.heading` · `proposal.on`). Opening it shows every
+  // change, its readings and Approve / Set aside; nothing is pinned over the thread. Closed at rest; a new proposal starts closed.
+  if (step.kind === 'approve') {
+    const p = view.proposal!
+    return (
+      <details key={p.id} className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel ring-1 ring-info/20`} data-testid="view-next-step" data-step="approve" aria-label="Next step">
+        <summary className="flex min-h-[44px] cursor-pointer items-center gap-1 px-3" data-testid="view-proposal-row">
+          <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        </summary>
+        <div className="space-y-2 px-3 pb-3">
+          <p>{NEXT_STEP_WORDS.approve}</p>
+          <Proposal key={p.id} p={p} busy={busy} evidence={view.evidence} inRow />
+        </div>
+      </details>
+    )
+  }
   return (
     <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
       {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
-      {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <FigureWaits view={view} item={step.item} />
@@ -1210,7 +1227,9 @@ export function ViewChat() {
     if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
     // DL 06:57Z (4), old look: while a proposal waits, its actions (a sticky foot) must have room at the thread's foot: where the block above
     // leaves too little, the thread moves on only as far as that needs (Olumi's question keeps what room is left; never past the step's top).
-    const prop = step?.dataset['step'] === 'approve' ? step.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]') : null
+    // Contract 3: the proposal's room and readings rules apply only while its one row is open (closed, it is one line under the reply), and
+    // the cap below (the newest reply's first line) bounds them: opened, they move the thread no further down than that line.
+    const prop = step?.dataset['step'] === 'approve' && (step as HTMLDetailsElement).open === true ? step.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]') : null
     const row = prop?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]') ?? null
     if (step !== null && prop != null && row !== null) top = Math.max(top, Math.min(step.offsetTop - 16, prop.offsetTop + row.offsetHeight + 16 - el.clientHeight))
     // PL-1083 (1): while the proposal holds Olumi's readings, the thread rests where the most leading reading rows are whole above the
@@ -1219,13 +1238,19 @@ export function ViewChat() {
     // other rest of this thread, someone who has scrolled away to read is not moved (`follows`, above; pre-screen 4b92d394 row 14).
     const rest = prop != null && row !== null ? readingsRest(el, prop, row) : null
     if (rest !== null) top = restTop(top, rest, maxScroll)
+    // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"): at rest the thread never goes past the newest reply's (or
+    // job's) first line; what follows it (the proposal's row, Olumi's question) is reached by reading on. Someone who has scrolled on
+    // themselves since the last rest (followedTop is cleared by their scroll) is never pulled back up by it (opening the row grows the thread).
+    const cap = newest === null ? Infinity : newest.offsetTop - 16
+    top = Math.min(top, cap)
+    if (followedTop.current === null) top = Math.max(top, el.scrollTop)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     // DL 07:48Z (4): no half-line at the foot's rule at rest: move the least that leaves each line wholly above the rule or under the foot,
     // never so far back that the foot loses its room, nor on past the step's top.
     if (step !== null && prop != null && row !== null) {
       const now = el.scrollTop
       const upRoom = Math.min(now, now - (prop.offsetTop + row.offsetHeight + 16 - el.clientHeight), rest === null ? Infinity : now - rest.low)
-      const downRoom = rest === null ? Math.min(maxScroll - now, step.offsetTop - 16 - now) : Math.min(maxScroll - now, rest.high - now)
+      const downRoom = Math.min(rest === null ? Math.min(maxScroll - now, step.offsetTop - 16 - now) : Math.min(maxScroll - now, rest.high - now), Math.max(0, cap - now))
       const shift = lineCutShift(lineBoxesNear(el, row, row.getBoundingClientRect().top), row.getBoundingClientRect().top, upRoom, downRoom)
       if (shift !== 0) el.scrollTop = now + shift
     }
