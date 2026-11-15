@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node, Viewport } from '@xyflow/react'
-import { bandOf, cameraFrame, FACE_RANGE, faceRegimeOf, frameFor, type FaceRegime, type FaceSnap } from '../ViewCanvas'
+import { bandOf, cameraFrame, FACE_RANGE, faceRegimeOf, frameFor, frameStep, settledBoardKey, settleTick, type FaceRegime, type FaceSnap } from '../ViewCanvas'
 
 type Box = { id: string; x: number; y: number; w: number; h: number }
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
@@ -61,6 +61,28 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     expect(hop.zoom).toBeLessThanOrEqual(FACE_RANGE.body[1] + 1e-9)
     for (const s of [{ full, body }, { full, line }, { full, body, line }] as Partial<Record<FaceRegime, FaceSnap>>[])
       expect(faceRegimeOf(cameraFrame(s, pane, FREE_1128)!.zoom), JSON.stringify(Object.keys(s))).not.toBe('full')
+  })
+
+  it('1128 (whole model): the settle loop, run step by step as the hook runs it, goes DOWN the faces only, never back up (no line→body), measures each face it hops to, and ends with every card of the drawn face inside the free canvas', () => {
+    const boxes: Record<FaceRegime, Box[]> = { full: F.w2000.full.nodes, body: F.w1128.body.nodes, line: F.w1128.line.nodes }
+    const order: Record<FaceRegime, number> = { full: 0, body: 1, line: 2 }
+    let snaps: Partial<Record<FaceRegime, FaceSnap>> = {}, zoom = 1, v: Viewport | null = null
+    const faces: FaceRegime[] = [], loop = { fitted: '', fits: 0 }
+    for (let i = 0; i < 12; i += 1) {
+      const drawn = nodesOf(boxes[faceRegimeOf(zoom)])
+      const going = settleTick(loop, settledBoardKey(drawn), drawn.length, () => {
+        const st = frameStep(snaps, drawn, zoom, pane, FREE_1128)
+        snaps = st.snaps; v = st.v; zoom = v!.zoom; faces.push(faceRegimeOf(zoom))
+        return st.measuring
+      })
+      if (!going) break
+    }
+    expect(faces.length, 'it framed').toBeGreaterThan(0)
+    for (let i = 1; i < faces.length; i += 1) expect(order[faces[i]!] >= order[faces[i - 1]!], `down only: ${faces.join(' → ')}`).toBe(true)
+    const last = faceRegimeOf(v!.zoom)
+    expect(snaps[last], 'the face it rests on was drawn and measured').toBeDefined()
+    expect(inside(boxes[last], v!, pane, FREE_1128), `every card inside, on ${last}`).toEqual([])
+    expect(loop.fits).toBeLessThanOrEqual(5)
   })
 
   it('2000: the full face, measured, fits whole at the readable zoom or more: framed there, every card and the goal inside', () => {
