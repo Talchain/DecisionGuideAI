@@ -143,6 +143,15 @@ describe('Olumi\'s suggestion on each proposed card (old look)', () => {
     expect(screen.getByTestId('per_specialist-suggestion-said')).toHaveTextContent('Rejected · applies on Set aside')
     expect(screen.getByTestId('view-approve')).toBeDisabled()
   })
+  it('MARK (DL 15 Nov): a review line whose change carries core\'s `olumi` mark draws its glyph with core\'s title; a line with none draws nothing', () => {
+    const v = structuredClone(golden); const ch = v.proposal!.changes
+    const i = ch.findIndex((c) => !c.top && c.id === 'per_specialist'), j = ch.findIndex((c) => !c.top && c.id === 'start_delay')
+    ch[i]!.olumi = { glyph: '◆', title: 'Proposed by Olumi: ‹core›' }; ch[j]!.olumi = null
+    show(v)
+    const mark = document.querySelector(`[data-change="rec:per_specialist"] [data-view="proposal.changes.${i}.olumi.glyph"]`)
+    expect(mark?.textContent).toBe('◆'); expect(mark?.getAttribute('title')).toBe('Proposed by Olumi: ‹core›')
+    expect(document.querySelector(`[data-change="rec:start_delay"] [data-view="proposal.changes.${j}.olumi.glyph"]`)).toBeNull()
+  })
   it('CONTRAST: with no waiting proposal (an approved board) no card says "Olumi\'s suggestion"', () => {
     show({ ...golden, proposal: null } as View)
     expect(document.querySelector('[data-suggestion]')).toBeNull()
