@@ -521,10 +521,13 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
   // The held proposal, as the rows below read it (the NS rows read the CSS only).
   beforeEach(() => { show(proposal) })
 
-  it('NS1 the box is a column whose only shrinking part is the list of changes; the step, the heading and the actions keep their height (the open box, unchanged)', () => {
+  it('NS1 CATCH (contract 3, Codex 15 Nov, held 329 with nine changes): nothing in the open box shrinks, the list of changes included, so core\'s words and warnings above it can never squeeze it to 0 px; the pinned box is the one scroll body, the actions sticky at its foot', () => {
     expect(rule('.ok-pinned')).toMatch(/display: flex; flex-direction: column/)
     expect(rule(".ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > *")).toMatch(/flex: none/)
-    expect(rule(".ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes']")).toMatch(/flex: 0 1 auto; min-height: 0; overflow-y: auto/)
+    // Before: `flex: 0 1 auto; min-height: 0` made the list the only part that gave way (0 px at 1232x704 and 1.33 on held 329).
+    expect(rule(".ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes']")).toMatch(/^\s*flex: none;\s*$/)
+    expect(rule('.ok-pinned .ok-actions')).toMatch(/position: sticky; bottom: 0/)
+    expect(document.querySelector('[data-testid="view-chat-pinned"]') ?? render(<ViewChat />).getByTestId('view-chat-pinned')).toHaveClass('overflow-y-auto')
   })
 
   // CATCH (fails on the old css: the three :has rules were `.ok-pinned [data-reading-row]` / `.ok-pinned:has([data-reading-row])`, so a CLOSED

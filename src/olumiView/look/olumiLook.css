@@ -258,8 +258,13 @@
 .ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden]) { display: contents; }
 .ok-pinned [data-review-body] > * { flex: none; }
 .ok-pinned [data-review-body] > * + * { margin-top: 8px; }
-.ok-pinned [data-testid='view-proposal-row'] { flex: none; padding-bottom: 12px; }
-.ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+/* Opened, the row stays at the box's top as its header (the box scrolls under it); its upward shadow covers the box's top padding, so no
+   line scrolled away shows above it. */
+.ok-pinned [data-testid='view-proposal-row'] { flex: none; padding-bottom: 12px; position: sticky; top: 0; z-index: 1; background: #fefefe; box-shadow: 0 -16px 0 #fefefe; }
+/* Contract 3 (Codex 15 Nov, held 329 with nine changes: the list was squeezed to 0 px at 1232 by the step's words and core's warning lines,
+   which do not shrink). The list never shrinks: where the box cannot hold the words, the list and the actions, the pinned box itself
+   (overflow-y auto) is the ONE scroll body for all of them, the actions sticky at its foot, so the checklist is always drawn whole. */
+.ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: none; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
 .ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: #1b7b88 !important; border-color: #1b7b88 !important; color: #fefefe !important; }
