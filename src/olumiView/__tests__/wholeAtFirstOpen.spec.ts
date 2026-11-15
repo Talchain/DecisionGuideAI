@@ -40,6 +40,13 @@ describe('the camera frames the whole model in the free canvas', () => {
     expect(v.zoom).toBeLessThanOrEqual(FACE_RANGE[regime][1])
     expect(inFree(reduced, v)).toEqual([])
   })
+  it('catch (Codex 15 Nov): the foot rule is checked on the faces the frame used, so a board framed whole with its reduced faces is not pushed below the fold', () => {
+    const box = (id: string, y: number, h: number): Node => ({ id, type: 'view-card', data: {}, position: { x: 0, y }, measured: { width: CARD_WIDTH, height: h }, width: CARD_WIDTH, height: h }) as unknown as Node
+    const full = [box('a', 0, 100), box('b', 1200, 300)], line = [box('a', 0, 100), box('b', 1100, 100)]
+    const v = cameraFrame({ full: { zoom: 1, nodes: full }, line: { zoom: 0.3, nodes: line } }, PANE, FREE)!
+    expect(faceRegimeOf(v.zoom)).toBe('line')
+    expect(inFree(line, v)).toEqual([])
+  })
   it('must not change: a board that fits at reading size is framed at full size or the largest zoom up to 1, as before', () => {
     const small = tall().slice(0, 4), v = cameraFrame({ full: { zoom: 1, nodes: small } }, PANE, FREE)!
     expect(v.zoom).toBeGreaterThanOrEqual(FACE_RANGE.full[0])

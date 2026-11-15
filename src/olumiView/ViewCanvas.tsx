@@ -130,8 +130,9 @@ export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] 
 /** Fit the measured full faces when readable; otherwise keep them at reading size and let the board pan. */
 export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }): Viewport | null {
   const v = frameOf(snaps, pane, free)
-  // DL 07:48Z (3), by layout: at rest no card's label or figure is under the foot controls (footClear.ts, as in the new look).
-  const nodes = (snaps.full ?? snaps.body ?? snaps.line)?.nodes
+  // DL 07:48Z (3), by layout: at rest no card's label or figure is under the foot controls (footClear.ts, as in the new look). Checked on
+  // the faces the frame was worked out from (the face its zoom draws, where measured), never another face's taller heights (Codex 15 Nov).
+  const nodes = (v === null ? undefined : snaps[faceRegimeOf(v.zoom)] ?? snaps.full ?? snaps.body ?? snaps.line)?.nodes
   if (v === null || nodes === undefined) return v
   return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top))
 }
@@ -148,9 +149,19 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   // whole in the free canvas left of the side panel, never opened at full size with the rest panned to under the panel. Zoomed out, each
   // card draws its reduced face; the frame is worked out from the faces that zoom draws (FACE_RANGE), so the heights it rests on are the
   // ones on screen. Until that face has been drawn and measured, the full faces' frame stands, and the settle loop frames again.
-  const regime = faceRegimeOf(whole.zoom), drawn = snaps[regime]
-  if (drawn === undefined) return whole
-  return frameFor(drawn.nodes, pane, free, FACE_RANGE[regime][1]) ?? whole
+  // Down the faces only, never back up (the swing DL-408 recorded, 1 → 0.87 → 0.50 → 0.30 → 0.51): from the face the full frame lands in,
+  // each frame is worked out from that face's measured heights and capped at its band's top; where it still falls below the band's foot
+  // (the board is too tall even with that face), the next smaller face is tried; a face not drawn yet is drawn at that zoom first.
+  let regime = faceRegimeOf(whole.zoom), v: Viewport = whole
+  for (let step = 0; step < 3; step += 1) {
+    const drawn = snaps[regime]
+    if (drawn === undefined) return v
+    const f = frameFor(drawn.nodes, pane, free, FACE_RANGE[regime][1]) ?? v
+    if (regime === 'line' || f.zoom >= FACE_RANGE[regime][0] - EPS) return f
+    regime = faceRegimeOf(f.zoom)
+    v = f
+  }
+  return v
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
