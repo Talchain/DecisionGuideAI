@@ -1,0 +1,229 @@
+/**
+ * The option card's range and its reliance on Olumi's own estimates ("always provide quantified uncertainty, being clear that it has estimated
+ * something", Paul 14 Nov). Real path: the lane's card (CoreCard) mounted on core's own goldens (pricing, bakery, european), read from the View
+ * alone: `headline.range` (core's words), the chance row's `chance`, and `run.rests[]`. Every expectation is bound by card id and by the rest's
+ * option and aim, never by a value another card could satisfy; the words checked are core's, character for character.
+ */
+import '@testing-library/jest-dom/vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
+import type { View } from '../client'
+import { useViewStore } from '../store'
+import { useViewLens } from '../lens'
+import { useCanvasStore } from '../../canvas/store'
+import { CoreCard } from '../previous/CoreCard'
+import { restsOf } from '../layout'
+import { rangeBandOf, shareWidths, SHARE_FLOOR, NEUTRAL_REST_WORDS } from '../resultRange'
+
+const golden = (n: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8')) as View
+const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
+afterEach(() => { cleanup(); useViewLens.setState({ lens: 'full' }); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useCanvasStore.setState({ nodes: [], edges: [], lodRung: undefined } as never) })
+
+function draw(view: View, id: string) {
+  const card = view.model!.cards.find((c) => c.id === id)!
+  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
+  useCanvasStore.setState({ nodes: view.model!.cards.map((c) => ({ id: c.id, type: 'viewCard', data: { card: c, label: c.heading }, position: { x: 0, y: 0 } })), edges: [] } as never)
+  const root = render(<ReactFlowProvider><Node {...({ id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+    positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
+  const q = (sel: string) => root.querySelector<HTMLElement>(sel)
+  return { card, root, band: q(`[data-band="${id}"]`), mark: q(`[data-chance-mark="${id}"]`), caption: q(`[data-range-caption="${id}"]`), share: q(`[data-rests-share="${id}"]`),
+    olumi: q(`[data-share-olumi="${id}"]`), person: q(`[data-share-person="${id}"]`), track: q(`[data-view="${id}.chance.track"]`) }
+}
+const pct = (el: HTMLElement | null, prop: 'left' | 'width') => parseFloat(el!.style[prop])
+const withRests = (view: View, patch: (r: NonNullable<NonNullable<View['model']>['run']>['rests'][number]) => void, option: string): View => {
+  const v = structuredClone(view); for (const r of v.model!.run!.rests) if (r.option === option && r.kind === 'goal') patch(r); return v
+}
+
+describe('the range, as a band with the chance marked', () => {
+  it('B1 catch (bakery second_oven): the band runs between the two figures core states, the chance is marked inside it, the caption is core\'s words', () => {
+    const d = draw(golden('bakery'), 'second_oven')
+    expect(d.card.headline!.range).toBe("about 53% if 'extra sold per oven' is low, about 81% if it is high")
+    expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([53, 28])
+    expect(d.band!.hasAttribute('data-open-low') || d.band!.hasAttribute('data-open-high')).toBe(false)
+    expect(pct(d.mark, 'left')).toBeCloseTo(71.62, 5)
+    expect(d.caption!.textContent).toBe(d.card.headline!.range)
+    expect(pct(d.track!.querySelector('span'), 'width')).toBeCloseTo(71.62, 5)
+  })
+  it('B2 catch (pricing raise_price): "under" and "over" stay open: the band runs to both ends of the track, not to 1% and 99%', () => {
+    const d = draw(golden('pricing'), 'raise_price')
+    expect(d.card.headline!.range).toBe("under 1% if 'cups change' is low, over 99% if it is high")
+    expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([0, 100])
+    expect(d.band!.hasAttribute('data-open-low') && d.band!.hasAttribute('data-open-high')).toBe(true)
+    expect(pct(d.mark, 'left')).toBeCloseTo(49.21, 5)
+    expect(d.caption!.textContent).toBe(d.card.headline!.range)
+  })
+  it('B3 catch: one open end only ("under 1% … about 95%"): the band is 0 to 95 and open only at the low end; the reversed order reads the same', () => {
+    expect(rangeBandOf("under 1% if 'x' is low, about 95% if it is high")).toEqual({ from: 0, to: 95, openLow: true, openHigh: false })
+    expect(rangeBandOf("about 92% if 'x' is low, under 1% if it is high")).toEqual({ from: 0, to: 92, openLow: true, openHigh: false })
+    expect(rangeBandOf("about 4% if 'x' is low, about 97% if it is high")).toEqual({ from: 4, to: 97, openLow: false, openHigh: false })
+  })
+  it('B4 must not change: words that are not core\'s two-ended sentence draw no band (the words stay), never a guessed one', () => {
+    for (const w of ['£2,580/month', 'Outcome range', "under 1% if 'x' is low", "about 4% if 'x' is low, about 140% if it is high", '', null]) expect(rangeBandOf(w), String(w)).toBeNull()
+    const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = 'it moves a lot with the oven'
+    const d = draw(v, 'second_oven')
+    expect(d.band).toBeNull(); expect(d.caption!.textContent).toBe('it moves a lot with the oven'); expect(d.mark).not.toBeNull()
+  })
+  it('B5 must not change: a chance with no range words draws the fill and the mark, no band, no caption', () => {
+    const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = null
+    const d = draw(v, 'second_oven')
+    expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
+  })
+  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: "No chance yet")', () => {
+    const fixed = draw(golden('pricing'), 'carry_on')
+    expect(fixed.root.querySelector('[data-ok-face="fixed"]')!.textContent).toContain(fixed.card.headline!.text)
+    expect([fixed.track, fixed.band, fixed.mark, fixed.share]).toEqual([null, null, null, null])
+    cleanup()
+    const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', range: null, why: 'Core could not work it out.' }
+    const none = draw(v, 'raise_price')
+    expect(none.root.querySelector('[data-ok-face="none"]')!.textContent).toContain('No chance yet'); expect(none.root.textContent).toContain('Core could not work it out.')
+    expect([none.track, none.band, none.mark, none.caption]).toEqual([null, null, null, null])
+  })
+})
+
+type Rest = NonNullable<NonNullable<View['model']>['run']>['rests'][number]
+const entryOf = (v: View, option: string, aim: string): Rest => v.model!.run!.rests.find((x) => x.kind === 'goal' && x.option === option && x.aim === aim)!
+/** Words that credit a reader's own figures or Olumi's estimates: none may ever be written by the card itself. */
+const CREDIT = /\byour\b|own figures|Olumi’s estimates|Olumi's estimates|\bmostly\b|\bpartly\b/i
+
+describe('what the result rests on: core\'s own line for the entry, whatever the split (W5 round 2, reviewer 14 Nov)', () => {
+  it('S1 catch (pricing raise_price): the label is the entry\'s own line, character for character; the title is the whole line; one click opens Rests on', () => {
+    const v = golden('pricing'), r = entryOf(v, 'raise_price', 'profit_goal')
+    const d = draw(v, 'raise_price')
+    expect(pct(d.olumi, 'width')).toBeCloseTo(r.olumi_share * 100, 6); expect(pct(d.person, 'width')).toBe(0)
+    expect(d.share!.textContent).toBe(r.line)
+    expect(d.root.querySelector(`[data-view="raise_price.rests.line"]`)!.textContent).toBe(r.line)
+    expect(d.share!.getAttribute('data-rests-basis')).toBe('line')
+    expect(d.share!.getAttribute('title')).toBe(r.line)
+    expect(d.share!.tagName).toBe('BUTTON'); expect(d.share!.className).toContain('nodrag')
+    expect(useViewLens.getState().lens).toBe('full')
+    act(() => { fireEvent.click(d.share!) })
+    expect(useViewLens.getState().lens).toBe('rests_on')
+  })
+  it('S1b catch: the card holds the line to two lines, and the whole line stays reachable: in the button\'s title, and on pressing it in Rests on, which draws every entry\'s full line', () => {
+    const v = golden('pricing'), r = entryOf(v, 'raise_price', 'profit_goal')
+    const d = draw(v, 'raise_price')
+    const span = d.root.querySelector('[data-view="raise_price.rests.line"]')!
+    expect(span.className).toContain('line-clamp-2')
+    expect(span.textContent, 'the clamp is CSS only: the DOM holds the whole line').toBe(r.line)
+    expect(d.share!.getAttribute('title')).toBe(r.line)
+    expect(restsOf(v.model!.run!)!.lines.map((l) => l.line.line), 'the Rests on view draws the entry\'s full line').toContain(r.line)
+  })
+  it('S2 catch: for every split the label is THAT entry\'s own line, never a word the card wrote from the shares (equal halves, a small Olumi share, all unassigned, many people)', () => {
+    const splits: Array<[number, number, number]> = [[0.5, 0.5, 0], [0.04, 0.6, 0.36], [0, 0, 1], [0.98, 0, 0.02], [0.01, 0.7, 0.29], [0.3, 0.2, 0.5]]
+    for (const [o, p, u] of splits) {
+      const v = structuredClone(golden('bakery')), r = entryOf(v, 'second_oven', 'sell_360')
+      r.olumi_share = o; r.person_share = p; r.unassigned = u; r.line = `Entry ${r.id} at ${o}/${p}/${u}: its own scoped line.`
+      const d = draw(v, 'second_oven')
+      expect(d.share, `${o}/${p}/${u}: drawn`).not.toBeNull()
+      expect(d.share!.textContent, `${o}/${p}/${u}`).toBe(r.line)
+      expect(d.share!.textContent).not.toMatch(CREDIT)
+      expect(d.share!.getAttribute('data-rests-basis')).toBe('line')
+      const total = Math.max(1, o + p + u) // served shares that run over the whole are scaled to fit (S6); these never meaningfully do
+      expect(pct(d.olumi, 'width')).toBeCloseTo((o / total) * 100, 6); expect(pct(d.person, 'width')).toBeCloseTo((p / total) * 100, 6)
+      cleanup()
+    }
+  })
+  it('S3 catch (european): the entry is this option\'s AIM entry, not another option\'s or a limit\'s: swapping the others\' shares and lines changes nothing here', () => {
+    const base = golden('european'), rests = base.model!.run!.rests
+    const mine = entryOf(base, 'single_country_test', 'reach_customer_target')
+    expect(mine.olumi_share, 'precondition: its own share differs from the other options\' and from its own limits\'').not.toBe(entryOf(base, 'broader_entry', 'reach_customer_target').olumi_share)
+    const d = draw(base, 'single_country_test')
+    expect(pct(d.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(d.share!.textContent).toBe(mine.line)
+    cleanup()
+    const swapped = structuredClone(base)
+    for (const r of swapped.model!.run!.rests) if (r.id !== mine.id) { r.olumi_share = 0.123; r.person_share = 0.456; r.line = 'NOT THIS CARD' }
+    swapped.model!.run!.rests.reverse() // its limits now come before its goal: the entry is found by kind, option and aim, not by position
+    const s = draw(swapped, 'single_country_test')
+    expect(pct(s.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6); expect(s.share!.textContent).toBe(mine.line)
+    cleanup()
+    const mutated = structuredClone(base); mutated.model!.run!.rests.find((r) => r.id === mine.id)!.olumi_share = 0.5
+    expect(pct(draw(mutated, 'single_country_test').olumi, 'width')).toBe(50)
+    expect(rests.length).toBeGreaterThan(3)
+  })
+  it('S3b catch: two goal entries for one option under different aims: the card shows the entry of ITS headline aim, wherever it sits in the list', () => {
+    const v = structuredClone(golden('pricing')), mine = entryOf(v, 'raise_price', 'profit_goal')
+    v.model!.run!.rests.unshift({ ...structuredClone(mine), id: 'F_OTHER_AIM', aim: 'some_other_aim', line: 'THE OTHER AIM\'S LINE', hover: 'THE OTHER AIM\'S HOVER', olumi_share: 0.11 })
+    const d = draw(v, 'raise_price')
+    expect(d.share!.textContent).toBe(mine.line); expect(d.share!.getAttribute('title')).toBe(mine.line)
+    expect(pct(d.olumi, 'width')).toBeCloseTo(mine.olumi_share * 100, 6)
+  })
+  it('S4 catch: a share core serves as numerical dust (5.5e-16) draws as a bar of no width; the words are still the entry\'s line and credit nobody', () => {
+    const v = withRests(golden('bakery'), (r) => { r.olumi_share = 5.5e-16; r.person_share = 0.4; r.unassigned = 0.6 }, 'second_oven')
+    const d = draw(v, 'second_oven')
+    expect(SHARE_FLOOR).toBeGreaterThan(5.5e-16)
+    expect([pct(d.olumi, 'width'), pct(d.person, 'width')]).toEqual([0, 40])
+    expect(d.share!.textContent).toBe(entryOf(v, 'second_oven', 'sell_360').line); expect(d.share!.textContent).not.toMatch(CREDIT)
+  })
+  it('S5 catch: a result that rests wholly on what is unassigned (0, 0, 1) still draws core\'s line and a full unassigned bar; only a missing entry draws nothing', () => {
+    const zero = withRests(golden('bakery'), (r) => { r.olumi_share = 0; r.person_share = 0; r.unassigned = 1 }, 'second_oven')
+    const z = draw(zero, 'second_oven')
+    expect(z.share).not.toBeNull(); expect(z.share!.textContent).toBe(entryOf(zero, 'second_oven', 'sell_360').line)
+    expect(pct(z.root.querySelector<HTMLElement>('[data-share-unassigned="second_oven"]'), 'width')).toBe(100); cleanup()
+    const none = structuredClone(golden('bakery')); none.model!.run!.rests = none.model!.run!.rests.filter((r) => r.option !== 'second_oven')
+    expect(draw(none, 'second_oven').share).toBeNull(); cleanup()
+    const limitOnly = structuredClone(golden('bakery')); for (const r of limitOnly.model!.run!.rests) if (r.option === 'second_oven') r.kind = 'limit'
+    expect(draw(limitOnly, 'second_oven').share).toBeNull()
+  })
+  it('S5b catch: shares that are not finite numbers are bars of no width, not a reason to hide the entry: the line is still drawn', () => {
+    const v = withRests(golden('bakery'), (r) => { r.olumi_share = Number.NaN; r.person_share = Number.POSITIVE_INFINITY; r.unassigned = Number.NaN }, 'second_oven')
+    const d = draw(v, 'second_oven')
+    expect(d.share!.textContent).toBe(entryOf(v, 'second_oven', 'sell_360').line)
+    expect([pct(d.olumi, 'width'), pct(d.person, 'width')]).toEqual([0, 0])
+  })
+  it('S6 the fill never overflows its track: shares served as more than the whole are scaled to fit, each keeping its proportion', () => {
+    const w = shareWidths({ id: 'x', olumi: 0.9, person: 0.3, unassigned: 0, line: '', hover: '' })
+    expect(w.olumi + w.person).toBeCloseTo(100, 6); expect(w.olumi / w.person).toBeCloseTo(3, 6)
+  })
+  it('S7b catch: the sentence is the entry\'s own, not another option\'s: changing this entry\'s line changes this card\'s words and no other\'s', () => {
+    const v = withRests(golden('european'), (r) => { r.olumi_share = 0.1; r.person_share = 0.1; r.unassigned = 0.8; r.line = 'THIS ENTRY ONLY' }, 'single_country_test')
+    expect(draw(v, 'single_country_test').share!.textContent).toBe('THIS ENTRY ONLY')
+    cleanup()
+    expect(draw(v, 'broader_entry').share!.textContent).toBe(entryOf(v, 'broader_entry', 'reach_customer_target').line)
+  })
+  it('S8 catch: where core serves no line (blank, or only spaces) the label is the neutral link, whatever the split, and it credits neither Olumi nor any person', () => {
+    const splits: Array<[number, number, number]> = [[0.02, 0, 0.98], [0.5, 0.5, 0], [0.04, 0.6, 0.36], [0, 0, 1], [0.01, 0.7, 0.29]]
+    for (const [o, p, u] of splits) for (const blank of ['', '  ']) {
+      const v = withRests(golden('pricing'), (r) => { r.olumi_share = o; r.person_share = p; r.unassigned = u; r.line = blank }, 'raise_price')
+      const d = draw(v, 'raise_price')
+      expect(d.share!.textContent, `${o}/${p}/${u}`).toBe(NEUTRAL_REST_WORDS)
+      expect(d.share!.getAttribute('data-rests-basis')).toBe('neutral')
+      expect(d.root.querySelector('[data-rests-neutral="raise_price"]')).not.toBeNull()
+      expect(d.root.querySelector('[data-view="raise_price.rests.line"]'), 'the neutral label is not a View string').toBeNull()
+      expect(d.share!.textContent).not.toMatch(CREDIT)
+      expect(d.share!.getAttribute('title')).toBe(entryOf(v, 'raise_price', 'profit_goal').hover)
+      act(() => { fireEvent.click(d.share!) }); expect(useViewLens.getState().lens).toBe('rests_on')
+      cleanup(); useViewLens.setState({ lens: 'full' })
+    }
+  })
+  it('S9 catch: the unassigned share is its own segment at its served width, and is not folded into the person\'s', () => {
+    const v = withRests(golden('pricing'), (r) => { r.olumi_share = 0.02; r.person_share = 0; r.unassigned = 0.98 }, 'raise_price')
+    const d = draw(v, 'raise_price')
+    const un = d.root.querySelector<HTMLElement>('[data-share-unassigned="raise_price"]')
+    expect(un).not.toBeNull(); expect(pct(un, 'width')).toBeCloseTo(98, 6); expect(pct(d.person, 'width')).toBe(0); expect(pct(d.olumi, 'width')).toBeCloseTo(2, 6)
+    cleanup()
+    const w = shareWidths({ id: 'x', olumi: 0.3, person: 0.2, unassigned: 0.5, line: '', hover: '' })
+    expect(w.olumi).toBeCloseTo(30, 6); expect(w.person).toBeCloseTo(20, 6); expect(w.unassigned).toBeCloseTo(50, 6)
+  })
+  it('S10 catch (a second reader): the person\'s share is every person\'s figures together, so the card never reads who the figures were: whoever wrote them, the neutral words are the same and say "your own" to no one', () => {
+    type Figure = NonNullable<NonNullable<NonNullable<View['model']>['run']>['rests'][number]['figures']>[number]
+    const base = (whose: Array<Figure['whose']>) => withRests(golden('bakery'), (r) => { r.olumi_share = 0.001; r.person_share = 0.7; r.unassigned = 0.3; r.line = ''
+      r.figures = whose.map((w, i): Figure => ({ id: `fig_${i}`, label: `figure ${i}`, whose: w, share: 0, text: '', line: '', mark: null, give: null })) }, 'second_oven')
+    const read = (v: View) => { const t = draw(v, 'second_oven').share!.textContent; cleanup(); return t }
+    const written = read(base(['theirs'])), others = read(base(['theirs', 'theirs', 'olumi'])), mixed = read(base(['mixed']))
+    expect(written).toBe(NEUTRAL_REST_WORDS); expect(others).toBe(written); expect(mixed).toBe(written)
+    expect(written).not.toMatch(CREDIT)
+  })
+})
+
+describe('the card keeps its height', () => {
+  it('H1 the track keeps its 3px height and 3px + 2px margins (the band and the mark are out of flow), so the card does not grow by them', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    expect(css).toMatch(/\.olumi-look \.ok-track \{[^}]*height: 3px;[^}]*margin: calc\(3px \* var\(--o-s\)\) 0 calc\(2px \* var\(--o-s\)\);/)
+    for (const sel of ['.ok-band', '.ok-mark-chance']) expect(css).toMatch(new RegExp(`\\.ok-track > \\${sel} \\{[^}]*position: absolute;`))
+  })
+})

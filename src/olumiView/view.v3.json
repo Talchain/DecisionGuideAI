@@ -6937,6 +6937,187 @@
            "string",
            "null"
           ]
+         },
+         "claims": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "cite": {
+             "type": "string"
+            },
+            "analysis": {
+             "type": "string"
+            },
+            "result": {
+             "type": "string"
+            },
+            "option": {
+             "type": "string"
+            },
+            "optionName": {
+             "type": "string"
+            },
+            "aim": {
+             "type": "string"
+            },
+            "aimName": {
+             "type": "string"
+            },
+            "status": {
+             "type": "string",
+             "enum": [
+              "saved",
+              "proposed",
+              "what-if"
+             ]
+            },
+            "version": {
+             "type": "number"
+            },
+            "origin": {
+             "type": "string"
+            },
+            "figure": {
+             "type": "string"
+            },
+            "conditions": {
+             "type": "string"
+            },
+            "basis": {
+             "type": "string"
+            },
+            "rendered": {
+             "type": "string"
+            },
+            "superseded": {
+             "type": "boolean"
+            },
+            "assumptions": {
+             "type": "array",
+             "items": {
+              "type": "object",
+              "properties": {
+               "figure": {
+                "type": "string"
+               },
+               "label": {
+                "type": "string"
+               },
+               "value": {
+                "anyOf": [
+                 {
+                  "type": "object",
+                  "properties": {
+                   "point": {
+                    "type": "number"
+                   },
+                   "approximate": {
+                    "type": "boolean"
+                   }
+                  },
+                  "required": [
+                   "point"
+                  ],
+                  "additionalProperties": false
+                 },
+                 {
+                  "type": "object",
+                  "properties": {
+                   "low": {
+                    "type": "number"
+                   },
+                   "high": {
+                    "type": "number"
+                   },
+                   "likely": {
+                    "type": [
+                     "number",
+                     "null"
+                    ]
+                   }
+                  },
+                  "required": [
+                   "low",
+                   "high"
+                  ],
+                  "additionalProperties": false
+                 },
+                 {
+                  "type": "object",
+                  "properties": {
+                   "asked": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "asked"
+                  ],
+                  "additionalProperties": false
+                 },
+                 {
+                  "type": "object",
+                  "properties": {
+                   "unknown": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "unknown"
+                  ],
+                  "additionalProperties": false
+                 },
+                 {
+                  "type": "object",
+                  "properties": {
+                   "worked_out": {
+                    "type": "boolean",
+                    "const": true
+                   }
+                  },
+                  "required": [
+                   "worked_out"
+                  ],
+                  "additionalProperties": false
+                 }
+                ]
+               },
+               "unit": {
+                "type": [
+                 "string",
+                 "null"
+                ]
+               }
+              },
+              "required": [
+               "figure",
+               "label",
+               "value"
+              ],
+              "additionalProperties": false
+             }
+            }
+           },
+           "required": [
+            "cite",
+            "analysis",
+            "result",
+            "option",
+            "optionName",
+            "aim",
+            "aimName",
+            "status",
+            "version",
+            "origin",
+            "figure",
+            "conditions",
+            "basis",
+            "rendered",
+            "superseded",
+            "assumptions"
+           ],
+           "additionalProperties": false
+          }
          }
         },
         "required": [

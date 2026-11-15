@@ -1269,6 +1269,42 @@ export type View = {
         in_control: boolean
       }>
       stories_heading: string | null
+      claims?: Array<{
+        cite: string
+        analysis: string
+        result: string
+        option: string
+        optionName: string
+        aim: string
+        aimName: string
+        status: "saved" | "proposed" | "what-if"
+        version: number
+        origin: string
+        figure: string
+        conditions: string
+        basis: string
+        rendered: string
+        superseded: boolean
+        assumptions: Array<{
+          figure: string
+          label: string
+          value: {
+            point: number
+            approximate?: boolean
+          } | {
+            low: number
+            high: number
+            likely?: number | null
+          } | {
+            asked: string
+          } | {
+            unknown: string
+          } | {
+            worked_out: true
+          }
+          unit?: string | null
+        }>
+      }>
     } | null
     broke: string | null
     problem: string | null

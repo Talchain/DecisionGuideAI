@@ -19,14 +19,20 @@ export const FOOT_BAND = 64
 export const FREE_TOP = 120
 type Box = { y: number; h: number }
 /** How many cards are not wholly in view below the free canvas's foot, at the camera's place (DL-538: a goal cut at its foot counts). */
-export const cardsBelowOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
-  cards.filter((c) => (c.y + c.h) * zoom + ty > height - FOOT_BAND).length
+export const cardsBelowOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
+  let n = 0
+  for (const c of cards) if ((c.y + c.h) * zoom + ty > height - FOOT_BAND) n += 1
+  return n
+}
 /** How far one press pans the board up: to its foot, so one press brings the last row (the measure and the goal) wholly into view
  *  (DL-538 item 1: the goal reachable without hunting); the rows passed over stay a pan away. */
 export const panUpOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
   Math.max(0, Math.max(...cards.map((c) => (c.y + c.h) * zoom + ty)) - (height - FOOT_BAND))
-const boxesOf = (nodes: readonly { type?: string; position: { y: number }; measured?: { height?: number } }[]): Box[] =>
-  nodes.filter((n) => n.type === VIEW_CARD).map((n) => ({ y: n.position.y, h: n.measured?.height ?? 0 }))
+const boxesOf = (nodes: readonly { type?: string; position: { y: number }; measured?: { height?: number } }[]): Box[] => {
+  const out: Box[] = []
+  for (const n of nodes) if (n.type === VIEW_CARD) out.push({ y: n.position.y, h: n.measured?.height ?? 0 })
+  return out
+}
 
 /**
  * DL 1128 fault (4): a card cut by the panel's edge on the right says so, as the cue below does: "N more cards to the right". `right` is the
@@ -34,11 +40,18 @@ const boxesOf = (nodes: readonly { type?: string; position: { y: number }; measu
  * right edge into view.
  */
 type XBox = { x: number; w: number }
-export const cardsRightOf = (cards: readonly XBox[], tx: number, zoom: number, right: number): number => cards.filter((c) => (c.x + c.w) * zoom + tx > right + 0.5).length
+export const cardsRightOf = (cards: readonly XBox[], tx: number, zoom: number, right: number): number => {
+  let n = 0
+  for (const c of cards) if ((c.x + c.w) * zoom + tx > right + 0.5) n += 1
+  return n
+}
 export const panLeftOf = (cards: readonly XBox[], tx: number, zoom: number, right: number): number =>
   Math.max(0, Math.max(...cards.map((c) => (c.x + c.w) * zoom + tx)) - right + 16)
-const xBoxesOf = (nodes: readonly { type?: string; position: { x: number }; measured?: { width?: number } }[]): XBox[] =>
-  nodes.filter((n) => n.type === VIEW_CARD).map((n) => ({ x: n.position.x, w: n.measured?.width ?? 0 }))
+const xBoxesOf = (nodes: readonly { type?: string; position: { x: number }; measured?: { width?: number } }[]): XBox[] => {
+  const out: XBox[] = []
+  for (const n of nodes) if (n.type === VIEW_CARD) out.push({ x: n.position.x, w: n.measured?.width ?? 0 })
+  return out
+}
 const freeRight = (width: number): number => width - paddingToInsets(computeFitPadding()).right
 function useCardsRight(): number {
   return useStore((s) => cardsRightOf(xBoxesOf(s.nodes), s.transform[0], s.transform[2], freeRight(s.width)))

@@ -11,7 +11,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
-import { MORE_WAYS, NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
+import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {
@@ -126,41 +126,43 @@ describe('Olumi\'s chronological conversation', () => {
   })
 })
 
-describe('one next move (DL ruling b, 7 Nov; Paul 6 Nov: progressive disclosure)', () => {
+describe('the reply\'s next move is under the reply, not tucked behind More ways (Paul 14 Nov); filled primary only when no Approve / Set aside is pinned beside it', () => {
   const moves = (el: Element | null) => (el === null ? [] : [...el.querySelectorAll('[data-testid="view-next-move"]')])
-  it('catch: while the Next step shows, the reply\'s move tap waits behind "More ways to think about this": one move control in all', () => {
+  it('catch: beside a pinned Approve / Set aside, the reply\'s move is one SECONDARY button under the reply, in core\'s label; More ways holds no move', () => {
     const view = golden('proposal'), next = view.chat[view.chat.length - 1]!.answer!.next
     expect(nextStepOf(view)).not.toBeNull()
     const c = show(view)
-    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
-    const more = c.querySelector<HTMLDetailsElement>('[data-testid="view-more-ways"]')!
-    expect(more.querySelector('summary')!.textContent).toBe(MORE_WAYS)
-    expect(moves(more).map((b) => b.textContent)).toEqual([next.label]) // core's label, verbatim
+    const under = moves(c.querySelector('[data-testid="view-chat-latest"]'))
+    expect(under.map((b) => b.textContent)).toEqual([next.label]) // core's label, verbatim
+    expect(c.querySelector('[data-testid="view-chat-pinned"] [data-testid="view-approve"]')).not.toBeNull() // Approve is pinned
+    expect(under[0]!.className).not.toContain('bg-primary') // so the move is not a second filled button
+    expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
     // Core's words for the move stay in the reply.
     expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).not.toBeNull()
   })
-  it('catch (checker 7 Nov): a figure step on someone else\'s page offers them no editor, so the reply\'s tap stays under the reply', () => {
+  it('contrast: on a figure step the move stays under the reply for someone else\'s page and for the owner\'s alike', () => {
     const p = golden('proposal'), b = golden('bakery')
     const view: View = { ...p, proposal: null, model: { ...p.model!, edit_base: p.model!.edit_base ?? 1, run: { ...(p.model!.run ?? b.model!.run!), waits_on: b.model!.run!.waits_on } } }
     expect(nextStepOf(view)?.kind).toBe('figure')
     try {
       useMe.setState({ me: { id: 'someone-else', name: 'Someone else' }, status: 'ready' } as never)
       const c = show(view)
-      expect(c.querySelector('[data-testid="view-next-step"] [data-testid^="next-figure-edit-"]')).toBeNull() // no editor for them
       expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
       cleanup()
       useMe.setState({ me: { id: view.you_id!, name: view.you }, status: 'ready' } as never)
-      const own = show(view) // CONTRAST: on their own page the step offers its editor, and the tap waits behind More ways
-      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
-      expect(moves(own.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(1)
+      const own = show(view)
+      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary') // nothing pinned: filled primary
+      expect(moves(own.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     } finally { useMe.setState({ me: null } as never) }
   })
-  it('must not change: with no Next step, the move tap stays under the reply and More ways holds no move', () => {
+  it('must not change: with no Next step, the move stays under the reply and More ways holds no move', () => {
     const p = golden('proposal'), view: View = { ...p, proposal: null, collab: { ...p.collab, alone: false }, model: { ...p.model!, run: p.model!.run === null ? null : { ...p.model!.run, waits_on: null } } }
     expect(nextStepOf(view)).toBeNull()
     const c = show(view)
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
   })
 })

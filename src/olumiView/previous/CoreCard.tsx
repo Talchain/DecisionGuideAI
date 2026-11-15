@@ -21,6 +21,7 @@ import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
 import { failedOf, failedReasonOf } from '../k5'
 import { clearWhatIf } from '../whatif'
+import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge, ViewValuesBand } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
@@ -256,14 +257,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (h !== null && h.state === 'chance') {
       const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
-      const at = typeof row?.chance === 'number' && row.chance >= 0 && row.chance <= 1 ? row.chance : null
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
           <p className="ok-chance line-clamp-3"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
-          {at === null ? null : <span className="ok-track" aria-hidden="true" data-view={`${id}.chance.track`}><span style={{ width: `${at * 100}%` }} /></span>}
+          <ChanceBand card={card} />
           {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{qual}</p>}
+          <RestsShareFill card={card} />
           {h.add == null ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
         </div>
       )

@@ -187,8 +187,25 @@
 /* A card that carries marks at its foot (the What would change driver, a goal's marks) keeps their row, so no mark sits on its words. */
 .olumi-look .react-flow__node [role='group'][aria-label]:has(> [data-testid*='-bottom-marks-'] > *) { padding-bottom: calc(31px * var(--o-s)) !important; }
 /* An option's chance at true scale: core's number (rows[].chance), no multiplier, no marker, no leader styling. */
-.olumi-look .ok-track { display: block; height: 3px; border-radius: 3px; background: var(--o-track); margin: calc(3px * var(--o-s)) 0 calc(2px * var(--o-s)); overflow: hidden; }
-.olumi-look .ok-track > span { display: block; height: 100%; background: var(--o-option); border-radius: 3px; }
+.olumi-look .ok-track { display: block; position: relative; height: 3px; border-radius: 3px; background: var(--o-track); margin: calc(3px * var(--o-s)) 0 calc(2px * var(--o-s)); }
+.olumi-look .ok-track > span { display: block; height: 100%; background: var(--o-option); border-radius: 3px; position: relative; }
+/* Core's range as a band behind the fill and the chance marked on it: both out of flow, so the track keeps its height and margins. An open end
+   ("under", "over") runs to the track's end with a squared edge there, never a rounded one that would read as a limit. */
+.olumi-look .ok-track > .ok-band { position: absolute; top: -1px; bottom: -1px; background: var(--o-fam-option); border-radius: 3px; }
+.olumi-look .ok-track > .ok-band[data-open-low] { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.olumi-look .ok-track > .ok-band[data-open-high] { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--o-ink); border-radius: 1px; }
+/* How much of the result rests on Olumi's estimates against the person's own figures: Olumi's blue, the ink, the rest left as the track. */
+.olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--o-s)); max-width: 100%; text-align: left; font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.olumi-look .ok-share:hover { color: var(--o-ink); }
+.olumi-look .ok-share-bar { display: flex; width: 100%; height: 3px; border-radius: 3px; background: var(--o-track); overflow: hidden; }
+.olumi-look .ok-share-bar > i { display: block; height: 100%; }
+.olumi-look .ok-share-olumi { background: var(--o-info); }
+.olumi-look .ok-share-person { background: var(--o-ink); }
+.olumi-look .ok-share-unassigned { background: var(--o-light); opacity: 0.45; }
+@keyframes ok-ring-pulse { from { outline-width: 8px; } to { outline-width: 4px; } }
+[data-presentation="v10"] .react-flow__node.v10-pulse { animation: ok-ring-pulse 700ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
 /* His message: a warm bubble with his name inside it. */

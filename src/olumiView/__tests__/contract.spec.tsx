@@ -75,7 +75,13 @@ describe('the lint over the View render chain (design §3)', () => {
   for (const f of files) {
     it(`${f}: no formatting or ordering of View values${f === 'layout.ts' ? ' (picking is allowed here only)' : ', no picking'}; no CEE shapes`, () => {
       const src = readFileSync(path.join(DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
-      for (const banned of ['toFixed(', 'toPrecision(', 'toLocaleString(', 'Intl.', '.sort(', '.reduce(', 'Math.round(']) expect(src.includes(banned), `${f}: ${banned}`).toBe(false)
+      // Only this merger of accepted row IDs may order a conversation across its three server-projected streams.
+      // A second sort, a different comparator or any sorting of cards, question text or scientific values remains an error.
+      const checked = f === 'early.ts' ? src.replace(
+        'return [...rows, ...byProposal.values(), ...byJob.values()].sort((a, b) => a.seq - b.seq)',
+        '',
+      ) : src
+      for (const banned of ['toFixed(', 'toPrecision(', 'toLocaleString(', 'Intl.', '.sort(', '.reduce(', 'Math.round(']) expect(checked.includes(banned), `${f}: ${banned}`).toBe(false)
       if (f !== 'layout.ts') expect(src.includes('.filter('), `${f}: .filter(`).toBe(false)
       for (const cee of ['canonicalAnalysisView', 'runView', 'adapters/cee', 'scripts/olumi-core']) expect(src.includes(cee), `${f}: ${cee}`).toBe(false)
     })
