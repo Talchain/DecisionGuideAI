@@ -54,7 +54,12 @@ export const cameraMayMove = (a: Activity, now: number): boolean => !a.active &&
 type Box = { x: number; y: number; w: number; h: number }
 /** Where the camera goes so every one of `box` is in the free canvas: null when it all is already (nothing moves). */
 export function replyViewTarget(box: Box, pane: { w: number; h: number }, inset: { left: number; top: number; right: number; bottom: number }, viewport: { x: number; y: number; zoom: number }) {
-  return tryInViewTarget({ box, pane, inset, viewport })
+  const t = tryInViewTarget({ box, pane, inset, viewport })
+  // Never zoomed in (Codex, pairing read 15 Nov, blocking 1): the try's floor (TRY_MIN_ZOOM) would raise a board the person holds below it.
+  // There the cards are centred at the person's own zoom; a group wider than the free canvas at that zoom stays partly out, as they left it.
+  if (t === null || t.zoom <= viewport.zoom) return t
+  const fw = pane.w - inset.left - inset.right, fh = pane.h - inset.top - inset.bottom, zoom = viewport.zoom
+  return { x: inset.left + fw / 2 - (box.x + box.w / 2) * zoom, y: inset.top + fh / 2 - (box.y + box.h / 2) * zoom, zoom }
 }
 
 export function useReplyInView(movedAt: MutableRefObject<number>, activity: MutableRefObject<Activity>): void {

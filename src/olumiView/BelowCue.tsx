@@ -34,14 +34,14 @@ function useBesideZoom(): number {
   return left
 }
 
-export function BelowCue(): JSX.Element | null {
+export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void } = {}): JSX.Element | null {
   const below = useCardsBelow()
   const { getViewport, setViewport } = useReactFlow()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
   // of the board's columns (DL layout pass, 9 Nov). A hook: read before the early return.
   const left = useBesideZoom()
   if (below === 0) return null
-  const up = () => { const v = getViewport(); void setViewport({ ...v, y: v.y - Math.floor(window.innerHeight * 0.6) }, { duration: 300 }) }
+  const up = () => { onPress?.(); const v = getViewport(); void setViewport({ ...v, y: v.y - Math.floor(window.innerHeight * 0.6) }, { duration: 300 }) }
   return (
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex" style={{ left }} data-testid="view-below-cue">
       <button type="button" onClick={up}

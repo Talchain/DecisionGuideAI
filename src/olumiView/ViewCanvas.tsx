@@ -83,6 +83,17 @@ const DURATION = 400, MAX_FITS = 5
 export const FRAME_WAIT_MS = 1500
 export const frameDue = (settled: boolean, waitedMs: number): boolean => settled || waitedMs >= FRAME_WAIT_MS
 
+/**
+ * The person's own deliberate camera move from a control (Fit, "Zoom in for detail", "N more cards below"): it counts as their move
+ * (movedAt), so a pending reveal, open-in-view, try-in-view or reply pan and a reply's pulse stand down, and the camera stays theirs for
+ * QUIET_MS (replyInView.ts). A programmatic move fires no event-backed onMoveStart, so each control says so itself (Codex, pairing read
+ * 15 Nov, blocking 2: the detail zoom and the below cue moved the camera without it).
+ */
+export const handOf = (movedAt: { current: number }, activity: { current: Activity }) => (): void => {
+  movedAt.current += 1
+  activity.current = { at: Date.now(), active: false }
+}
+
 /** The View's nodes as drawn, with the store's measurements. */
 const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
 
@@ -290,6 +301,7 @@ function ViewFlow() {
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
+  const hand = handOf(movedAt, activity)
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
     <>
@@ -326,7 +338,7 @@ function ViewFlow() {
         // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
         // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
         // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
-        onFitView={() => { userMoved.current = false; movedAt.current += 1; activity.current = { at: Date.now(), active: false }; fit() }}
+        onFitView={() => { userMoved.current = false; hand(); fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
@@ -336,9 +348,9 @@ function ViewFlow() {
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo={false} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
-      {hasModel ? <BelowCue /> : null}
+      {hasModel ? <BelowCue onPress={hand} /> : null}
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
-      {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true }} /> : null}
+      {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true; hand() }} /> : null}
       {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
       {hasModel ? <ViewLensBar previousPlace /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
