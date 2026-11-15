@@ -13,9 +13,9 @@ import { useViewStore } from './store'
 type Change = NonNullable<View['proposal']>['changes'][number]
 export const lineKey = (c: Change): string => `${c.top ? 'top' : 'rec'}:${c.id}`
 
-type Ticks = { readonly key: string | null; readonly ticked: ReadonlySet<string>; readonly rejected: ReadonlySet<string>; readonly review: number }
+type Ticks = { readonly key: string | null; readonly ticked: ReadonlySet<string>; readonly rejected: ReadonlySet<string>; readonly review: boolean }
 const EMPTY = { ticked: new Set<string>(), rejected: new Set<string>() }
-export const useReviewTicks = create<Ticks>()(() => ({ key: null, ...EMPTY, review: 0 }))
+export const useReviewTicks = create<Ticks>()(() => ({ key: null, ...EMPTY, review: false }))
 
 /** The choices' owner: this scenario's proposal. */
 export const ticksKey = (sid: string | null, pid: number): string => `${sid ?? ''}#${pid}`
@@ -66,10 +66,12 @@ export function chooseFromCard(key: string, changes: readonly Change[], c: Chang
 export const rejectedPartner = (s: Ticks, changes: readonly Change[], c: Change): Change | null =>
   withPartners(changes, c).find((x) => x !== c && s.rejected.has(lineKey(x))) ?? null
 
-/** One tap to the review's commit: the review opens and brings its commit into view. */
-export const openReview = (): void => useReviewTicks.setState((s) => ({ review: s.review + 1 }))
+/** One tap to the review's commit: a request that stays pending until a review is on the page to answer it (the dock may mount it only
+ *  after the tap: Codex 15 Nov, round 2); the review then opens, brings its commit into view, and clears it. */
+export const openReview = (): void => useReviewTicks.setState({ review: true })
+export const reviewAnswered = (): void => useReviewTicks.setState({ review: false })
 /** Drop the choices of `key` (after Approve or Set aside of that proposal; another owner's choices are left alone). */
 export const clearTicks = (key: string): void => useReviewTicks.setState((s) => (s.key === key ? { key, ...EMPTY } : {}))
 
 // A new scenario on the page drops every choice: none is ever shown for a scenario it was not made in.
-useViewStore.subscribe((s, prev) => { if (s.sid !== prev.sid) useReviewTicks.setState({ key: null, ...EMPTY }) })
+useViewStore.subscribe((s, prev) => { if (s.sid !== prev.sid) useReviewTicks.setState({ key: null, ...EMPTY, review: false }) })

@@ -27,7 +27,7 @@ const show = (view: View) => {
 const tickOf = (i: number) => document.querySelector<HTMLInputElement>(`[data-target-for="view-change-tick-${i}"] input`)!
 beforeEach(() => {
   posts = []
-  useReviewTicks.setState({ key: null, ticked: new Set(), rejected: new Set(), review: 0 })
+  useReviewTicks.setState({ key: null, ticked: new Set(), rejected: new Set(), review: false })
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     if ((init?.method ?? 'GET') === 'POST') { posts.push(String(u)); return new Response('{"version":9,"n":2,"receipt":"r"}', { status: 201 }) }
@@ -116,6 +116,18 @@ describe('Olumi\'s suggestion on each proposed card (old look)', () => {
     fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
     fireEvent.click(screen.getByTestId('per_specialist-suggestion-review'))
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+  it('CATCH (4b, Codex round 2): Review tapped while no review is mounted (a collapsed dock) opens it once it mounts', () => {
+    show(golden)
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-accept'))
+    cleanup() // the dock collapses: the review is gone
+    render(<SuggestionChip id="per_specialist" name="per_specialist" />)
+    fireEvent.click(screen.getByTestId('per_specialist-suggestion-review'))
+    expect(useReviewTicks.getState().review, 'pending until a review answers').toBe(true)
+    cleanup()
+    render(<ViewChat />) // the dock opens: the review mounts
+    expect(document.querySelector<HTMLDetailsElement>('details[data-testid="view-next-step"]')!.open).toBe(true)
+    expect(useReviewTicks.getState().review).toBe(false)
   })
   it('CATCH (5): no chip on a proposal core does not support (it has no approval)', () => {
     show({ ...golden, proposal: { ...golden.proposal!, verdict: { supported: false, text: 'Core cannot support this change.' } } } as View)

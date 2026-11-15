@@ -47,7 +47,7 @@ import { ResultReceipts } from './ResultReceipts'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 import { lineBoxesNear, lineCutShift } from './footCut'
 import { readingsRest, restTop } from './readingsRest'
-import { clearTicks, setTicks, ticksFor, ticksKey, useReviewTicks } from './reviewTicks'
+import { clearTicks, reviewAnswered, setTicks, ticksFor, ticksKey, useReviewTicks } from './reviewTicks'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -388,11 +388,11 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   // The list's own tick of a line reverses that line's rejection; a group's tick never does (reviewTicks.ts).
   const toggle = (c: Change) => setTicks(tkey, changes, [c], !ticked.has(keyOf(c)), true)
   const toggleGroup = (lines: number[], on: boolean) => setTicks(tkey, changes, lines.flatMap((i) => (changes[i] ? [changes[i]!] : [])), on)
-  // A chip's Review: the review opens (its row, a <details>) and Approve ticked comes into view, one tap from any card.
-  const reviewAsk = useRef(shared.review)
+  // A chip's Review: the review opens (its row, a <details>) and its commit comes into view, one tap from any card. The request stays pending
+  // until a review is mounted to answer it (the dock may open, and mount this, after the tap).
   useEffect(() => {
-    if (shared.review === reviewAsk.current) return
-    reviewAsk.current = shared.review
+    if (!shared.review) return
+    reviewAnswered()
     const d = root.current?.closest('details'); if (d) d.open = true
     // After the Olumi tab is shown (the chip activates it), the commit is brought into view.
     const go = () => root.current?.querySelector<HTMLElement>('[data-testid="view-approve-ticked"], [data-testid="view-approve"]')?.scrollIntoView?.({ block: 'nearest' })
