@@ -10,7 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
@@ -88,17 +88,11 @@ export function withheldWords(h: NonNullable<ViewCard['headline']>): string | nu
 }
 
 /**
- * Contract 3 (Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"): core's reason held to three lines on the card,
- * and pressed (or Enter / Space) it opens whole in place, and closes again; its hover is the whole reason too. Words are core's only.
+ * Contract 3 (Codex 15 Nov, held 329: "a long missing-result reason must be reachable whole"; DL 15 Nov polish: no sentence is ever cut on a
+ * card face): core's reason, whole, wrapped on the card. Words are core's only.
  */
 export function WithheldWords({ id, h }: { id: string; h: NonNullable<ViewCard['headline']> }): JSX.Element {
-  const [whole, setWhole] = useState(false)
-  return (
-    <button type="button" className="nodrag nowheel nokey nopan min-w-0 cursor-pointer text-left" data-testid={`${id}-withheld-words`} aria-expanded={whole}
-      onClick={(e) => { e.stopPropagation(); setWhole((w) => !w) }}>
-      <span className={whole ? '' : 'line-clamp-3'} data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
-    </button>
-  )
+  return <span className="min-w-0 break-words" data-testid={`${id}-withheld-words`} data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
 }
 
 export function leadLineOf(card: ViewCard): string | null {
@@ -306,7 +300,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
-          <p className="ok-chance line-clamp-3"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
+          <p className="ok-chance"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
           <ChanceBand card={card} />
@@ -317,7 +311,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       )
     }
     if (h !== null && h.state === 'fixed') return (
-      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed line-clamp-3"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
+      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
     )
     if (h !== null && h.state === 'none') return (
       <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
@@ -333,12 +327,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // line, core's words (the sheet's "worked out but waiting"); the person's and Olumi's own figures keep the headline figure.
     if (card.figure !== null && lead === card.figure.text && viewNow !== null && isWorkedOut(viewNow, id)) return (
       <div data-core-lead={id} data-ok-face="worked" title={hover}>
-        <p className="ok-status line-clamp-3"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
+        <p className="ok-status"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
       </div>
     )
     if (card.figure !== null && lead === card.figure.text) return (
       <div data-core-lead={id} data-ok-face="figure" title={hover}>
-        <p className="line-clamp-3"><span className={`ok-fig ${estimate || olumi ? 'ok-fig-olumi' : ''}`} data-core-lead-clamp={id}>{lead}</span>
+        <p><span className={`ok-fig ${estimate || olumi ? 'ok-fig-olumi' : ''}`} data-core-lead-clamp={id}>{lead}</span>
           {estimate && !olumi ? <Glyph at={`${id}.olumi`} mark={card.olumi} className="ok-mark" /> : null}{trail}</p>
       </div>
     )
@@ -350,14 +344,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       return (
         <div data-core-lead={id} data-ok-face="target" title={hover} className={target === null ? undefined : 'relative'}>
           {target === null
-            ? <p className="ok-target line-clamp-3">{words}{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
-            : <div className="ok-target line-clamp-3"><FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</div>}
+            ? <p className="ok-target">{words}{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
+            : <div className="ok-target"><FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</div>}
         </div>
       )
     }
     return (
       <div data-core-lead={id} data-ok-face="line" title={hover} className="ok-by">
-        <span className="line-clamp-3" data-core-lead-clamp={id}>{lead}</span>{trail}
+        <span data-core-lead-clamp={id}>{lead}</span>{trail}
       </div>
     )
   }

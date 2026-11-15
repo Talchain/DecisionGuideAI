@@ -57,9 +57,11 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect(el.querySelectorAll(`[data-view="${o.id}.headline.why"]`).length).toBe(1)
     const next = el.querySelectorAll(`[data-view="${o.id}.headline.add"]`)
     expect([next.length, next[0]?.textContent, next[0]?.className.includes('ok-next')]).toEqual([1, o.headline!.add, true])
-    // DL 04:59Z (4): on the card the next step is at most two lines (ok-next-card); its whole sentence stays in the DOM and on hover, and is
-    // drawn whole in the panel once selected (selectedExplain.spec E-add). The 1128 fault (1) stays closed: the pinned box is never cut.
-    expect([next[0]!.className.split(/\s+/).includes('ok-next-card'), next[0]!.getAttribute('title')]).toEqual([true, o.headline!.add])
+    // DL 15 Nov polish (supersedes DL 04:59Z (4)'s two-line clamp): the next step is drawn whole on the card, never cut: no clamp class, and the
+    // look's rule for ok-next-card clamps nothing.
+    expect([next[0]!.className.split(/\s+/).includes('ok-next-card'), /line-clamp|truncate/.test(next[0]!.className), next[0]!.getAttribute('title')]).toEqual([true, false, o.headline!.add])
+    const rule = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').match(/\.ok-next-card\s*\{[^}]*\}/g) ?? []
+    expect(rule.join(' ')).not.toMatch(/line-clamp|ellipsis|overflow:\s*hidden/)
   })
 
   it('L2b withheldWords picks by field: why, else title, else text; the pill is bound by the field used. CONTRAST: a chance and a fixed result have none', () => {

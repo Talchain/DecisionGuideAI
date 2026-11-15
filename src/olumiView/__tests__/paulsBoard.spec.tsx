@@ -277,22 +277,25 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
   })
 
   // ORDER-UI-NEXT (DL, 13 Nov): three lines, as every other card: at two, the chance line's assumption name was cut ("…for 'Weeks until first…").
-  it('FT13 (DL, live draft: an option\'s long setting question doubled its card): an option\'s face line is clamped to three lines, core\'s words whole on hover', () => {
+  // DL 15 Nov polish (supersedes the three-line clamp of FT13/FT14): no sentence is ever cut on a card face; core's words are drawn whole, wrapped.
+  it('FT13 an option\'s long setting question is drawn whole on its face, never cut; core\'s words whole on hover too', () => {
     const opt = EU.model!.cards.find((c) => c.family === 'option')!
     const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
     const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([clamp?.className.includes('line-clamp-3'), clamp?.className.includes('line-clamp-2'), clamp?.textContent, lead.title.startsWith(long)]).toEqual([true, false, long, true])
+    expect([/line-clamp|truncate/.test(clamp?.className ?? ''), clamp?.textContent, lead.title.startsWith(long)]).toEqual([false, long, true])
+    for (let a: Element | null = clamp ?? null; a !== null && a !== lead.parentElement; a = a.parentElement) expect(a.className, 'no clamp above it either').not.toMatch(/line-clamp|truncate/)
   })
 
-  it('FT14 (DL, A13f: a challenge\'s paragraph ran ~15 lines on its face): any card\'s face line is clamped to three lines, core\'s words whole on hover', () => {
+  it('FT14 any card\'s long face line (a challenge\'s paragraph) is drawn whole, never cut; core\'s words whole on hover too', () => {
     const chal = EU.model!.cards.find((c) => c.family !== 'option' && c.figure === null && c.bound == null)!
     const para = 'A larger pre-seed round may raise the bar for the next raise: later investors expect progress in line with the money raised, so missing milestones could make follow-on funding harder. '.repeat(3).trim()
     const v = withCard(EU, chal.id, (c) => ({ ...c, face: { ...(c.face ?? {}), line: { text: para, words: 'olumi' } } as never }))
     const lead = draw(v, chal.id).querySelector<HTMLElement>(`[data-core-lead="${chal.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([clamp?.className, clamp?.textContent, lead.title.startsWith(para)]).toEqual(['line-clamp-3', para, true])
+    expect([/line-clamp|truncate/.test(clamp?.className ?? ''), clamp?.textContent, lead.title.startsWith(para)]).toEqual([false, para, true])
+    for (let a: Element | null = clamp ?? null; a !== null && a !== lead.parentElement; a = a.parentElement) expect(a.className, 'no clamp above it either').not.toMatch(/line-clamp|truncate/)
   })
 
   it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the title is three lines on the face, the whole heading its hover; core\'s words unchanged', () => {

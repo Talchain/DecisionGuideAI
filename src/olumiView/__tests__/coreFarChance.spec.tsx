@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import path from 'node:path'
-import { cleanup, fireEvent, render, within } from '@testing-library/react'
+import { cleanup, render, within } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
@@ -79,14 +79,9 @@ describe('the far face draws a chance whole (DL-424)', () => {
     const clamp = pill.querySelector<HTMLElement>(`[data-core-lead-clamp="${card.id}"]`)!
     expect(clamp.textContent).toBe(card.headline!.why)
     expect(clamp.getAttribute('data-view')).toBe(`${card.id}.headline.why`)
-    // CATCH (Codex 15 Nov, held 329): the reason, held to three lines, opens whole on a press and closes again; its hover is the whole reason.
-    const open = c.querySelector<HTMLButtonElement>(`[data-testid="${card.id}-withheld-words"]`)!
-    expect([open.getAttribute('aria-expanded'), clamp.classList.contains('line-clamp-3')]).toEqual(['false', true])
+    // CATCH (Codex 15 Nov, held 329; DL 15 Nov polish): the reason is drawn whole, never cut, with nothing clamped above it; its hover is the whole reason.
+    for (let a: Element | null = clamp; a !== null && a !== face.parentElement; a = a.parentElement) expect(a.className).not.toMatch(/line-clamp|truncate/)
     expect(pill.getAttribute('title')).toBe(card.headline!.why)
-    fireEvent.click(open)
-    expect([open.getAttribute('aria-expanded'), clamp.classList.contains('line-clamp-3'), clamp.textContent]).toEqual(['true', false, card.headline!.why])
-    fireEvent.click(open)
-    expect(clamp.classList.contains('line-clamp-3')).toBe(true)
     // CATCH (Codex 15 Nov): the pill wraps (its words are a whole reason), never the one-line pill that runs out of the card.
     expect(pill).toHaveClass('ok-pill', 'ok-pill-why')
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
