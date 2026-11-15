@@ -12,6 +12,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
+import { leadLineOf, withheldWords } from '../previous/CoreCard'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {
@@ -30,6 +31,44 @@ describe('the next step', () => {
     expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(step(c)?.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     expect(c.querySelectorAll('[data-testid="view-chat-proposal"]')).toHaveLength(1)
+    // Contract 3: the card, Approve and Set aside live INSIDE the one-row review (closed at rest, read without approving), inside the step.
+    const review = step(c)!.querySelector('[data-testid="view-proposal-review"]')!
+    expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
+    expect(review.querySelectorAll('[data-testid="view-approve"]')).toHaveLength(1)
+    expect(review.querySelectorAll('[data-testid="view-set-aside"]')).toHaveLength(1)
+  })
+
+  // CATCH (contract 3). Fails on the product before it: NextStepCard drew a bordered card headed by a <p>Next step</p> with the Proposal drawn open
+  // (no <details>, no view-proposal-review / view-proposal-row), and Proposal drew its own proposal.heading line.
+  it('catch: at rest a held proposal is ONE closed row in core\'s words (heading · on); the step has no "Next step" header; the heading is drawn once', () => {
+    const view = golden('proposal'), p = view.proposal!
+    expect([p.heading, p.on]).toEqual(['Olumi proposes 2 changes', 'on version 1']) // the golden's own words, bound here
+    const c = show(view), s = step(c)!
+    expect([s.tagName, s.getAttribute('aria-label'), s.getAttribute('data-step')]).toEqual(['SECTION', 'Next step', 'approve'])
+    expect(s.closest('[data-testid="view-chat-pinned"]')).not.toBeNull() // still mounted in the pinned box
+    const review = s.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
+    expect(review.tagName).toBe('DETAILS')
+    expect(review.open).toBe(false) // closed at rest
+    const row = review.querySelector('[data-testid="view-proposal-row"]')!
+    expect(row.tagName).toBe('SUMMARY')
+    expect(row.textContent).toBe(`${p.heading} · ${p.on}`) // core's words, exactly
+    expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
+    expect(row.querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
+    expect([...s.querySelectorAll('p')].map((e) => e.textContent)).not.toContain('Next step') // no header for this kind
+    // The row IS the heading: the proposal's body does not draw it again, anywhere on the page.
+    expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
+    expect(review.querySelector('[data-testid="view-chat-proposal"] [data-view="proposal.heading"]')).toBeNull()
+    // The words for the step sit in the review's body, with the card; opening it shows them without approving anything.
+    review.open = true
+    expect(review.open).toBe(true)
+    expect(review).toHaveTextContent(NEXT_STEP_WORDS.approve)
+    expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
+    // CONTRAST: the other kinds are unchanged: still a titled card with "Next step" and no review row.
+    cleanup()
+    const f = step(show(golden('bakery')))!
+    expect(f.getAttribute('data-step')).toBe('figure')
+    expect([...f.querySelectorAll('p')].map((e) => e.textContent)).toContain('Next step')
+    expect(f.querySelector('[data-testid="view-proposal-review"]')).toBeNull()
   })
 
   it('no proposal and the chances wait on a figure the person can type: that figure, in core\'s words, with its editor', () => {
@@ -134,7 +173,13 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     const c = show(view)
     const under = moves(c.querySelector('[data-testid="view-chat-latest"]'))
     expect(under.map((b) => b.textContent)).toEqual([next.label]) // core's label, verbatim
-    expect(c.querySelector('[data-testid="view-chat-pinned"] [data-testid="view-approve"]')).not.toBeNull() // Approve is pinned
+    // Contract 3: Approve / Set aside are pinned inside the one-row review. Open it (the PL-1083 placement binds the OPEN proposal), then both are there.
+    const review = c.querySelector<HTMLDetailsElement>('[data-testid="view-chat-pinned"] [data-testid="view-proposal-review"]')!
+    expect(review.open).toBe(false)
+    review.open = true
+    expect(review.querySelectorAll('[data-testid="view-approve"]')).toHaveLength(1) // Approve is pinned
+    expect(review.querySelectorAll('[data-testid="view-set-aside"]')).toHaveLength(1)
+    expect(c.querySelectorAll('[data-testid="view-chat-pinned"] [data-testid="view-approve"]')).toHaveLength(1)
     expect(under[0]!.className).not.toContain('bg-primary') // so the move is not a second filled button
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
@@ -164,5 +209,96 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
+  })
+})
+
+// Contract 3 (placement): the readings rule moves nothing while the review is closed; opening it places the rows as PL-1083 (1) says.
+// The layout is stubbed (jsdom has none) with the 12:15Z measurement readingsPlace.spec binds: box 350 px at its cap, actions 116 px, two rows
+// 143 and 121 px at 300 and 451 down the box's scroll, so the open box grows to 406 px and scrolls to 292.
+describe('the readings rule places nothing while the one-row review is closed', () => {
+  type Mark = NonNullable<View['proposal']>['marks'][number]
+  const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
+  const marks = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-452caf7a-cut13-held-marks.json'), 'utf8')) as Mark[]
+  const boxOf = () => document.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')!
+  const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : parseFloat(b.style.maxHeight))
+  const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
+  const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
+  let observers: Array<{ fire: () => void; seen: Element[] }> = []
+  beforeEach(() => {
+    observers = []
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const id = this.getAttribute('data-testid') ?? ''
+      if (id === 'view-chat-pinned') return rect(BOX_TOP, boxH(this))
+      if (id === 'view-proposal-actions') return rect(0, 116)
+      if (ROWS[id] !== undefined) return rect(BOX_TOP + ROWS[id]![0] - boxOf().scrollTop, ROWS[id]![1])
+      return rect(0, 0)
+    }
+    Object.defineProperty(Element.prototype, 'clientHeight', { configurable: true, get(this: HTMLElement) { return this.getAttribute('data-testid') === 'view-chat-pinned' ? boxH(this) - 2 : 0 } })
+    Object.defineProperty(Element.prototype, 'scrollHeight', { configurable: true, get(this: HTMLElement) { return this.getAttribute('data-testid') === 'view-chat-pinned' ? SCROLL_H : 0 } })
+    globalThis.ResizeObserver = class { private o: { fire: () => void; seen: Element[] }; constructor(cb: ResizeObserverCallback) { this.o = { fire: () => cb([], this as unknown as ResizeObserver), seen: [] }; observers.push(this.o) } observe(e: Element) { this.o.seen.push(e) } unobserve() {} disconnect() { this.o.seen = [] } } as unknown as typeof ResizeObserver
+  })
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = real.rect
+    if (real.ch) Object.defineProperty(Element.prototype, 'clientHeight', real.ch)
+    if (real.sh) Object.defineProperty(Element.prototype, 'scrollHeight', real.sh)
+    globalThis.ResizeObserver = real.ro
+  })
+  const held = () => { const g = golden('proposal'); return show({ ...g, proposal: { ...g.proposal!, marks } }) }
+
+  // CATCH. Fails on the product before contract 3: Proposal's land() had no closed-review return, so on arrival (and on any resize) it grew the box
+  // to 406 px and scrolled it to 292 whether or not the rows were on screen.
+  it('catch: closed at rest, the box is neither grown nor scrolled, and a resize while closed still moves nothing; opening it places the rows (406 px, scrollTop 292)', () => {
+    const c = held(), b = boxOf()
+    const review = c.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
+    expect(review.open).toBe(false)
+    expect(c.querySelectorAll('[data-reading-row]')).toHaveLength(2) // the rows exist; they are just not on screen
+    expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
+    b.style.maxHeight = '999px' // a stale height from before it was closed: the closed rule clears it
+    const placer = observers.find((o) => o.seen.includes(b))!
+    placer.fire()
+    expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
+    review.open = true
+    placer.fire() // the box's ResizeObserver places the rows when the person opens it
+    expect([b.style.maxHeight, b.scrollTop]).toEqual(['406px', 292])
+    // And closing again gives the room back.
+    review.open = false
+    placer.fire()
+    expect(b.style.maxHeight).toBe('')
+  })
+
+  // CONTRAST: the stylesheet's open-only rule is in the CSS (jsdom draws none), so bind its text: every :has rule needs details[open].
+  it('contrast: the readings :has rules in olumiLook.css require details[open] (the thread and More ways keep their room while closed)', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const rules = css.split('\n').filter((l) => /:has\(.*\[data-reading-row\]\)/.test(l))
+    expect(rules).toHaveLength(3)
+    for (const r of rules) expect(r).toContain('details[open] [data-reading-row]')
+  })
+})
+
+// Contract 3 (a withheld chance says core's reason). The pill's own rendering is bound in coreFarChance.spec; here the words it shows, by field.
+describe('a withheld option\'s words are core\'s reason, never the bare "No chance yet"', () => {
+  type Card = NonNullable<View['model']>['cards'][number]
+  const withheld = (n: string) => golden(n).model!.cards.filter((k) => k.family === 'option' && k.headline != null && k.headline.state === 'none')
+  // CATCH. Fails before: withheldWords did not exist, and leadLineOf returned card.headline.text ("No chance yet") for every option card.
+  it('catch: core sends only title + bare text (no why) so the words are core\'s title; once core sends a why, that is the words', () => {
+    const cards = withheld('app-launch')
+    expect(cards.map((k) => k.id)).toEqual(['option_scheduled', 'option_delay', 'option_isolate'])
+    for (const k of cards) {
+      const h = k.headline!
+      expect([h.text, h.why]).toEqual(['No chance yet', null]) // precondition: the fixture's bare words, and no why
+      expect(withheldWords(h)).toBe(h.title)
+      expect(leadLineOf(k as Card)).toBe(h.title)
+      expect(leadLineOf(k as Card)).not.toBe('No chance yet')
+    }
+    // Core's why, from another golden's own words, wins over the title.
+    const why = withheld('pricing-unmoved-unresolved')[0]!.headline!.title, k = cards[0]!
+    const withWhy = { ...k, headline: { ...k.headline!, why } } as Card
+    expect(withheldWords(withWhy.headline!)).toBe(why)
+    expect(leadLineOf(withWhy)).toBe(why)
+    // CONTRAST: a card with a figure (not withheld) is never given withheld words.
+    const chance = golden('pricing').model!.cards.find((x) => x.family === 'option' && x.headline != null && x.headline.state === 'chance')!
+    expect(chance).toBeDefined()
+    expect(withheldWords(chance.headline!)).toBeNull()
+    expect(leadLineOf(chance as Card)).toBe(chance.headline!.text)
   })
 })

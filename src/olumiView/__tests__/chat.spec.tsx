@@ -12,6 +12,7 @@ import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
+import { withheldWords, leadLineOf } from '../previous/CoreCard'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -42,6 +43,25 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
     const swapped = [...view.chat].reverse()
     const first = (chat: View['chat']) => render(<ViewTurns chat={chat} />).container.querySelector('[data-view-turn="chat.0"]')!.textContent
     expect(first(swapped)).not.toBe(first(view.chat))
+  })
+})
+
+// CATCH (contract 3). Fails before: withheldWords did not exist and leadLineOf returned headline.text ("No chance yet") for a withheld option.
+describe('a withheld chance says core\'s reason, picked by field (why, else title, else text)', () => {
+  type H = NonNullable<import('../client').ViewCard['headline']>
+  const none = (o: Partial<H>) => ({ state: 'none', text: 'T-text', title: '', why: null, add: null, ...o }) as unknown as H
+  it('why first, then title, then text; null for any other state', () => {
+    expect(withheldWords(none({ why: 'W-why', title: 'T-title' }))).toBe('W-why')
+    expect(withheldWords(none({ why: '', title: 'T-title' }))).toBe('T-title')
+    expect(withheldWords(none({ why: null, title: '' }))).toBe('T-text')
+    // CONTRAST: a chance is never withheld words
+    expect(withheldWords({ ...none({ why: 'W-why' }), state: 'chance' } as unknown as H)).toBeNull()
+  })
+  it('an option card\'s lead line is that reason, not the bare "No chance yet" text', () => {
+    const card = (h: H) => ({ family: 'option', headline: h, rows: [] }) as unknown as Parameters<typeof leadLineOf>[0]
+    expect(leadLineOf(card(none({ why: 'W-why' })))).toBe('W-why')
+    expect(leadLineOf(card(none({ title: 'T-title' })))).toBe('T-title')
+    expect(leadLineOf(card(none({})))).toBe('T-text')
   })
 })
 
@@ -98,13 +118,54 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
     for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
-    for (const k of ['heading', 'on'] as const) expect(card.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
+    // Contract 3: core's heading and `on` are the one row's own line (the <summary>), drawn once, outside the card body.
+    const review = container.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!
+    const row = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
+    for (const k of ['heading', 'on'] as const) expect(row.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
+    expect(card.querySelector('[data-view="proposal.heading"]')).toBeNull()
+    expect(card.querySelector('[data-view="proposal.on"]')).toBeNull()
+    // Opened, the review shows the same actions; Approve and Set aside post exactly as before.
+    review.open = true
     await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
     await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
     useViewStore.setState({ view: held })
     const { container: again } = renderTab()
     await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
     await waitFor(() => expect(posts[1]).toEqual({ url: `/api/proposals/${p.id}/discard`, body: {} }))
+  })
+
+  // CATCH (contract 3). Fails on the product before this change: ViewChat's NextStepCard drew <Proposal> open inside a "Next step" box, with
+  // no <details data-testid="view-proposal-review">, so the query below was null and the "Next step" header was present.
+  it('at rest the pending review is ONE closed row in core\'s words (heading · on), with no header; opening it shows the words and the actions', () => {
+    const held = golden('proposal'), p = held.proposal!
+    useViewStore.setState({ view: held })
+    const { container } = renderTab()
+    const step = container.querySelector<HTMLElement>('[data-testid="view-next-step"][data-step="approve"]')!
+    expect(step.getAttribute('aria-label')).toBe('Next step')
+    const review = step.querySelector<HTMLDetailsElement>('details[data-testid="view-proposal-review"]')!
+    expect(review.open).toBe(false)
+    expect(review.closest('[data-testid="view-chat-pinned"]')).not.toBeNull()
+    const row = review.querySelector<HTMLElement>('summary[data-testid="view-proposal-row"]')!
+    expect(row.textContent).toBe(p.on === '' ? p.heading : `${p.heading} · ${p.on}`)
+    // the heading line is drawn once, in the row, never again in the body
+    expect(step.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
+    // CONTRAST: the old "Next step" header line is gone for this kind
+    expect([...step.querySelectorAll('p')].some((el) => el.textContent === 'Next step')).toBe(false)
+    review.open = true
+    expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
+    expect([...review.querySelectorAll('button')].map((b) => b.textContent)).toEqual(expect.arrayContaining(['Approve', 'Set aside']))
+  })
+
+  // CATCH (contract 3). Fails before: land() had no closed-details early return, so a closed review's box was given a maxHeight from the rows.
+  it('the readings rest places nothing while the review is closed: the box keeps its own height', () => {
+    const held = golden('proposal')
+    useViewStore.setState({ view: held })
+    const { container } = renderTab()
+    const box = container.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')!
+    expect(box.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!.open).toBe(false)
+    expect(box.style.maxHeight).toBe('')
+    // CONTRAST: the box no longer carries the 112px floor that held the old open proposal
+    expect(box.className).not.toContain('min-h-[112px]')
   })
 
   it('a proposal made on considering evidence names who asked and the evidence in its member\'s words, never as its author (API v1.12)', () => {

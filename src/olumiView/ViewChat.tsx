@@ -378,7 +378,7 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
   return can ? <FigureEdit id={id} edit={edit} label={text} place="view-question" /> : <>{text}</>
 }
 
-export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
@@ -437,6 +437,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
     const keyed = (e: KeyboardEvent) => { if (SCROLL_KEYS.has(e.key)) arm() }
     const scrolled = () => { if (Math.abs(box.scrollTop - placedAt) < 1) return; if (held || Date.now() <= armed) theirs = true }
     const land = () => {
+      // Contract 3: while the one-row review is closed, its rows are not on screen; nothing is placed and the box keeps its own height.
+      const review = el.closest('details')
+      if (review !== null && !review.open) { box.style.maxHeight = ''; return }
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null || theirs) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
@@ -486,8 +489,9 @@ export function Proposal({ p, busy, evidence }: { p: NonNullable<View['proposal'
   }
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
-      <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
-        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>
+      {inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
+        : <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
           {from.by === null ? null : <p>Asked by: <span data-view="proposal.from.by">{from.by}</span></p>}
@@ -1085,11 +1089,29 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   const step = nextStepOf(view)
   if (step === null) return null
+  // Contract 3 (ONE-PLAN, 15 Nov: "the pending review collapses to one row; all changes can be read without approving"): Olumi's waiting
+  // proposal is ONE row, in core's words (`proposal.heading` · `proposal.on`), closed at rest so the thread keeps its room; opening it
+  // shows every change, its readings and Approve / Set aside (the box then grows and scrolls as before). A new proposal starts closed.
+  if (step.kind === 'approve') {
+    const p = view.proposal!
+    return (
+      <section className={`${typography.viewPanelBody} space-y-2`} data-testid="view-next-step" data-step="approve" aria-label="Next step">
+        <details key={p.id} className="ok-row-review" data-testid="view-proposal-review">
+          <summary className="flex min-h-[44px] cursor-pointer items-center gap-1" data-testid="view-proposal-row">
+            <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+          </summary>
+          <div className="space-y-2 pb-3">
+            <p>{NEXT_STEP_WORDS.approve}</p>
+            <Proposal key={p.id} p={p} busy={busy} evidence={view.evidence} inRow />
+          </div>
+        </details>
+      </section>
+    )
+  }
   return (
     <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
       {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
-      {step.kind === 'approve' ? <Proposal key={view.proposal!.id} p={view.proposal!} busy={busy} evidence={view.evidence} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <FigureWaits view={view} item={step.item} />
@@ -1372,7 +1394,7 @@ export function ViewChat() {
       </div>
       {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
           buried under a long reply; it scrolls on its own when taller than half the panel. */}
-      {view === null || !pinned ? null : <div className="ok-pinned min-h-[112px] shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
+      {view === null || !pinned ? null : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
       {session === null && !methods ? null : (
         <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
           <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>

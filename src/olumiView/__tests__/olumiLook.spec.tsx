@@ -13,7 +13,7 @@ import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
-import { CoreCard, farChanceOf } from '../previous/CoreCard'
+import { CoreCard, farChanceOf, leadLineOf, withheldWords } from '../previous/CoreCard'
 import { isWorkedOut, joinOf, workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
@@ -43,16 +43,54 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)
   })
 
-  it('L2 no chance yet: core\'s words as the quiet pill, "Why not" opening core\'s reason, and core\'s ONE next step (headline.add) in the next-step slot', () => {
+  it('L2 no chance yet (contract 3): the pill says core\'s why, never the bare "No chance yet"; "Why not" is not drawn again; core\'s ONE next step (headline.add) stays in the next-step slot', () => {
     const o = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.headline.add != null)
     const el = draw(RUN2, o)
-    expect(el.querySelector(`[data-core-lead="${o.id}"] .ok-pill [data-core-lead-clamp]`)?.textContent).toBe(o.headline!.text)
-    expect(el.querySelector(`[data-view="${o.id}.headline.why"] p`)?.textContent).toBe(o.headline!.why)
+    // CATCH (fails on the old CoreCard line `{h.text}`): the pill's words are headline.why, bound by the clamp span's data-view path, not the bare text.
+    expect(o.headline!.why, 'precondition: core sent a reason').toBeTruthy()
+    expect(o.headline!.text, 'precondition: the bare text is not the reason').not.toBe(o.headline!.why)
+    const pill = el.querySelector(`[data-core-lead="${o.id}"] .ok-pill [data-core-lead-clamp]`)!
+    expect([pill.textContent, pill.getAttribute('data-view')]).toEqual([o.headline!.why, `${o.id}.headline.why`])
+    expect(el.querySelector(`[data-core-lead="${o.id}"] .ok-pill`)!.textContent, 'the bare words are not drawn in the pill').not.toContain(o.headline!.text)
+    // CATCH (fails on the old `<details ... data-view=<id>.headline.why><summary>Why not</summary>`): the reason is said once, in the pill; no second drawing.
+    expect([el.querySelector(`details[data-view="${o.id}.headline.why"]`), el.querySelector(`[data-core-lead="${o.id}"] .ok-why`)]).toEqual([null, null])
+    expect(el.querySelectorAll(`[data-view="${o.id}.headline.why"]`).length).toBe(1)
     const next = el.querySelectorAll(`[data-view="${o.id}.headline.add"]`)
     expect([next.length, next[0]?.textContent, next[0]?.className.includes('ok-next')]).toEqual([1, o.headline!.add, true])
     // DL 04:59Z (4): on the card the next step is at most two lines (ok-next-card); its whole sentence stays in the DOM and on hover, and is
     // drawn whole in the panel once selected (selectedExplain.spec E-add). The 1128 fault (1) stays closed: the pinned box is never cut.
     expect([next[0]!.className.split(/\s+/).includes('ok-next-card'), next[0]!.getAttribute('title')]).toEqual([true, o.headline!.add])
+  })
+
+  it('L2b withheldWords picks by field: why, else title, else text; the pill is bound by the field used. CONTRAST: a chance and a fixed result have none', () => {
+    const o = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.headline.add != null)
+    const other = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.id !== o.id && (c.headline.why ?? '') !== '')
+    const h = o.headline!
+    expect(h.title, 'precondition: core sent a title').not.toBe('')
+    expect(h.title, 'precondition: title and text differ').not.toBe(h.text)
+    expect(other.headline!.why, 'precondition: a second reason, different from the first').not.toBe(h.why)
+    const variants: Array<[string, ViewCard, string, string]> = [
+      ['why wins over title and text', { ...o, headline: { ...h, why: other.headline!.why } } as ViewCard, other.headline!.why!, 'why'],
+      ['title where there is no why', { ...o, headline: { ...h, why: null } } as ViewCard, h.title, 'title'],
+      ['an empty why is no why', { ...o, headline: { ...h, why: '' } } as ViewCard, h.title, 'title'],
+      ['the bare text only where core sends neither', { ...o, headline: { ...h, why: null, title: '' } } as ViewCard, h.text, 'text'],
+    ]
+    for (const [name, card, words, field] of variants) {
+      expect(withheldWords(card.headline!), name).toBe(words)
+      expect(leadLineOf(card), `${name}: the zoomed-out lead line`).toBe(words)
+      const el = draw(RUN2, card)
+      const pill = el.querySelector(`[data-core-lead="${card.id}"] .ok-pill [data-core-lead-clamp]`)!
+      expect([name, pill.textContent, pill.getAttribute('data-view')]).toEqual([name, words, `${card.id}.headline.${field}`])
+      // Never the bare text where a field above it exists, and never "Why not". A catch only where core sends a why (the first variant): the old
+      // CoreCard drew headline.text and a "Why not" for it; with no why the old product drew no "Why not" either (must-not-change).
+      if (field !== 'text') expect([name, pill.textContent === h.text]).toEqual([name, false])
+      expect([name, el.querySelector(`[data-core-lead="${card.id}"] .ok-why`)]).toEqual([name, null])
+      cleanup()
+    }
+    const chance = cardOf(RUN1, (c) => c.family === 'option' && c.headline?.state === 'chance')
+    const fixed = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'fixed')
+    expect([withheldWords(chance.headline!), withheldWords(fixed.headline!)]).toEqual([null, null])
+    expect([leadLineOf(chance), leadLineOf(fixed)]).toEqual([chance.headline!.text, fixed.headline!.text])
   })
 
   it('L3 a fixed result is said as fixed, in core\'s words, never as a chance', () => {

@@ -31,10 +31,16 @@ const rect = (top: number, height: number) => ({ top, bottom: top + height, heig
 const real = { rect: HTMLElement.prototype.getBoundingClientRect, ch: Object.getOwnPropertyDescriptor(Element.prototype, 'clientHeight'), sh: Object.getOwnPropertyDescriptor(Element.prototype, 'scrollHeight'), ro: globalThis.ResizeObserver }
 let observers: Array<{ fire: () => void; seen: Element[] }> = []
 
-const show = (marks: Mark[]) => {
+// Contract 3 (15 Nov): the held proposal is ONE row (a <details>), closed at rest, and its rows are placed only once it is opened. So that
+// every row below binds the placing of an OPEN review exactly as before, show() opens it as the person would and reports the change of size
+// the browser would (each observer fires). `open = false` draws it as it rests.
+const show = (marks: Mark[], open = true) => {
   const view: View = { ...golden, you: 'Paul', proposal: { ...golden.proposal!, marks } }
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
-  return render(<ViewChat />)
+  const r = render(<ViewChat />)
+  const review = document.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')
+  if (open && review !== null) { review.open = true; for (const o of observers) if (o.seen.length > 0) o.fire() }
+  return r
 }
 beforeEach(() => {
   footH = 116; panelMax = 620; ROWS = SHORT_ROWS; observers = []
@@ -72,6 +78,14 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(b.style.maxHeight).toBe('406px')
     expect(b.scrollTop).toBe(292)
     expect(whole()).toBe(true)
+  })
+  it('CATCH (contract 3): while the review rests closed, the held rows are not placed: the box keeps no height of ours and is not scrolled', () => {
+    show(held, false)
+    const b = boxOf()!
+    expect(document.querySelector<HTMLDetailsElement>('[data-testid="view-proposal-review"]')!.open).toBe(false)
+    for (const o of observers) if (o.seen.length > 0) o.fire()
+    expect(b.style.maxHeight).toBe('')
+    expect(b.scrollTop).toBe(0)
   })
   it('CONTRAST: a proposal with no reading is not touched: no height set, no scroll, nothing watched for it', () => {
     show([PLAIN])

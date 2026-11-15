@@ -74,11 +74,26 @@ export function coreHoverValueOf(card: ViewCard): { text: string; source: string
 }
 
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
+/** The field of core's that says why a chance is withheld (`headline.state` none): `why`, else `title`, else `text`; null for a chance or a
+ *  fixed result. Picked by field, never by comparing words. */
+export function withheldField(h: NonNullable<ViewCard['headline']>): 'why' | 'title' | 'text' | null {
+  if (h.state !== 'none') return null
+  return (h.why ?? '') !== '' ? 'why' : h.title !== '' ? 'title' : 'text'
+}
+/** Core's words for a withheld chance: that field's words (withheldField); null for a chance or a fixed result. */
+export function withheldWords(h: NonNullable<ViewCard['headline']>): string | null {
+  const f = withheldField(h)
+  return f === null ? null : f === 'why' ? h.why! : h[f]
+}
+
 export function leadLineOf(card: ViewCard): string | null {
   if (card.family === 'option') {
     // RULING 7: the chance of meeting the goal, core's words. Where core withholds it, core's own first line saying so, never a blank and
     // never a figure of the UI's.
-    if (card.headline != null) return card.headline.text
+    // Contract 3 (ONE-PLAN, 15 Nov: "a card with no result shows the outcome's blocker in plain words, never 'No chance yet'"): where core
+    // withholds the chance (`headline.state` none), core's own sentence for why: its `why` (this option's own reason), else its `title` (the
+    // reason every option shares, whole); the bare `text` only where core sends neither. Picked by field; no word is the UI's.
+    if (card.headline != null) return withheldWords(card.headline) ?? card.headline.text
     const first = card.rows[0]
     return first !== undefined && first.kind === 'none' ? first.text : null
   }
@@ -275,8 +290,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (h !== null && h.state === 'none') return (
       <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
         <div className="ok-row">
-          <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id}>{h.text}</span>{trail}</span>
-          {h.why == null || h.why === '' ? null : <details className="ok-why nodrag nowheel" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>}
+          {/* Contract 3: the pill says why (withheldWords), never the bare "No chance yet" where core sends a reason. Core's why, where it
+              sends one, IS the pill's words, so no "Why not" is drawn to say it again. */}
+          <span className="ok-pill" title={h.title}><span className="line-clamp-3" data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>{trail}</span>
         </div>
         {h.add == null || h.add === '' ? null : <p className="ok-next ok-next-card" title={h.add} data-view={`${id}.headline.add`}>{h.add}</p>}
       </div>
