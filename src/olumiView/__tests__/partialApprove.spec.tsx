@@ -12,6 +12,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { ViewChat, useViewChat } from '../ViewChat'
+import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
@@ -60,9 +61,13 @@ describe('partial approval', () => {
     expect(posts[0]!.body).toEqual({ base: p.base, only: [changes[0]!.id], only_top: [changes[0]!.id] })
   })
 
-  it('DL 11 Nov (replacing PL 7 Nov\'s open groups): a grouped proposal rests with every group closed, its heading and tick in view; a group opens on press and shows each of core\'s lines', () => {
+  it('DL 11 Nov, now inside the one-row review (contract 3): once the review is opened, a grouped proposal rests with every group closed, its heading and tick in view; a group opens on press and shows each of core\'s lines', () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
     show({ ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } })
+    // Contract 3: the proposal is drawn only when the person opens the review; the rule the row binds is the same, one level down.
+    const review = screen.getByTestId('view-proposal-review') as HTMLDetailsElement
+    expect(review.open).toBe(false)
+    review.open = true
     const box = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
     expect(box.open).toBe(false)
     expect(screen.getByText('Everything')).toBeVisible()
@@ -138,5 +143,125 @@ describe('a figure and the line that reads it are ticked together', () => {
     show(pair)
     fireEvent.click(screen.getByTestId(`view-change-tick-${at('c_extra')}`))
     expect(ticks()).toEqual([false, false, true])
+  })
+})
+
+/**
+ * Contract 3 minimum (ONE-PLAN 15 Nov: "the pending review collapses to one row; all changes can be read without approving"). Each CATCH names
+ * the line of the product before this change that makes it fail.
+ */
+describe('contract 3: the waiting proposal is one row, closed at rest', () => {
+  const row = () => screen.getByTestId('view-proposal-row')
+  const review = () => screen.getByTestId('view-proposal-review') as HTMLDetailsElement
+
+  it('CATCH: at rest the review is closed and shows only core\'s heading line (before: NextStepCard drew <Proposal> open under a "Next step" header, so no view-proposal-review existed and the actions were in view)', () => {
+    const c = show(golden)
+    const section = screen.getByTestId('view-next-step')
+    expect(section.getAttribute('data-step')).toBe('approve')
+    expect(section.getAttribute('aria-label')).toBe('Next step')
+    expect(screen.getByTestId('view-chat-pinned').contains(section), 'still in the pinned box').toBe(true)
+    expect(review().open).toBe(false)
+    expect(row().tagName).toBe('SUMMARY')
+    expect(row().textContent).toBe(`${p.heading} · ${p.on}`)
+    expect(row().querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
+    expect(row().querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
+    // The heading is drawn once (the row's own line), not again inside the body.
+    expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
+    expect(screen.queryByText('Next step'), 'no "Next step" header for this kind').toBeNull()
+    expect(row()).toBeVisible()
+    expect(screen.getByTestId('view-proposal-actions'), 'closed: Approve and Set aside are not on screen').not.toBeVisible()
+    expect(screen.getByTestId('view-changes'), 'closed: the changes are not on screen').not.toBeVisible()
+    expect(screen.getByTestId('view-chat-pinned').className).not.toContain('min-h-[112px]')
+  })
+
+  it('CATCH: opening the row shows every change, core\'s words for each, and the actions, without approving (before: the actions were never behind a row)', () => {
+    const c = show(golden)
+    review().open = true
+    expect(screen.getByTestId('view-changes')).toBeVisible()
+    p.changes.forEach((ch, i) => {
+      expect(c.querySelector(`[data-view="proposal.changes.${i}.text"]`)?.textContent).toBe(ch.text)
+      expect(screen.getByTestId(`view-change-tick-${i}`)).toBeVisible()
+    })
+    expect(screen.getByTestId('view-proposal-actions')).toBeVisible()
+    expect(screen.getByTestId('view-approve-ticked')).toBeVisible()
+    expect(posts, 'reading is not approving').toHaveLength(0)
+  })
+
+  it('CATCH: pressing the row opens it and a second press closes it again; a new proposal starts closed (before: no row to press)', () => {
+    show(golden)
+    const row = screen.getByTestId('view-proposal-row')
+    fireEvent.click(row)
+    expect(review().open).toBe(true)
+    expect(screen.getByTestId('view-proposal-actions')).toBeVisible()
+    fireEvent.click(row)
+    expect(review().open).toBe(false)
+    expect(screen.getByTestId('view-proposal-actions')).not.toBeVisible()
+    cleanup()
+    show({ ...golden, proposal: { ...p, id: p.id + 1 } })
+    expect(review().open, 'the details is keyed on the proposal id').toBe(false)
+  })
+
+  it('CATCH: the readings rule moves nothing while the review is closed (before: land() ran regardless and sized the box from rows that are not on screen)', () => {
+    const box = () => screen.getByTestId('view-chat-pinned')
+    let fire: (() => void)[] = []
+    const ro = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class { constructor(cb: ResizeObserverCallback) { fire.push(() => cb([], this as unknown as ResizeObserver)) } observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver
+    try {
+      const mark = { what: 'Budget', status: 'not yet confirmed', title: 'A figure of Olumi\'s', reading: { id: 'r1' } } as unknown as NonNullable<View['proposal']>['marks'][number]
+      show({ ...golden, you: 'Paul', proposal: { ...p, marks: [mark] } })
+      box().style.maxHeight = '200px'
+      fire.forEach((f) => f())
+      expect(box().style.maxHeight, 'closed: the box keeps its own height').toBe('')
+      expect(review().open).toBe(false)
+    } finally { globalThis.ResizeObserver = ro }
+  })
+
+  it('CATCH: the stylesheet\'s readings rules apply only while the review is open (before: bare `.ok-pinned [data-reading-row]` hid More ways and squeezed the thread at rest)', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look', 'olumiLook.css'), 'utf8')
+    expect(css).toContain(".ok-pinned:has(details[open] [data-reading-row]) { flex-shrink: 1; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned details[open] [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }")
+    // CONTRAST: the old, unconditional selectors are gone.
+    expect(css).not.toContain(".ok-pinned:has([data-reading-row])")
+    expect(css).not.toContain(":has(.ok-pinned [data-reading-row])")
+  })
+})
+
+/**
+ * Contract 3 (ONE-PLAN 15 Nov): a card with no chance shows the outcome's blocker in plain words, never "No chance yet". Core's own View
+ * (__tests__/fixtures/live-loop11-workshop-r3-pending.view.json, two options withheld, two with a chance), bound by card id.
+ */
+describe('contract 3: a withheld chance says why, in core\'s words', () => {
+  const pending: View = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', 'live-loop11-workshop-r3-pending.view.json'), 'utf8'))
+  const card = (id: string) => structuredClone(pending.model!.cards.find((c) => c.id === id)!)
+
+  it('CATCH: a withheld option\'s words are core\'s `why`, not `text` "No chance yet" (before: leadLineOf returned headline.text)', () => {
+    for (const id of ['open_on_sundays', 'stop_taking_e_bike_jobs']) {
+      const h = card(id).headline!
+      expect(h.state, id).toBe('none')
+      expect(h.text, `${id}: core still sends the bare words`).toBe('No chance yet')
+      expect(h.why, id).toBeTruthy()
+      expect(withheldWords(h), id).toBe(h.why)
+      expect(leadLineOf(card(id)), id).toBe(h.why)
+      expect(leadLineOf(card(id)), id).not.toBe('No chance yet')
+    }
+  })
+
+  it('the field used is picked in order: `why`, else `title`, else `text`', () => {
+    const h = card('open_on_sundays').headline!
+    expect(withheldWords({ ...h, why: null, title: 'T', text: 'X' })).toBe('T')
+    expect(withheldWords({ ...h, why: '', title: 'T', text: 'X' })).toBe('T')
+    expect(withheldWords({ ...h, why: undefined, title: 'T', text: 'X' })).toBe('T')
+    expect(withheldWords({ ...h, why: null, title: '', text: 'X' })).toBe('X')
+    expect(withheldWords({ ...h, why: 'W', title: 'T', text: 'X' })).toBe('W')
+  })
+
+  it('CONTRAST: an option with a chance has no withheld words and keeps core\'s headline text', () => {
+    for (const id of ['hire_a_part_time_mechanic', 'leave_things_as_they_are']) {
+      const c = card(id)
+      expect(c.headline!.state, id).toBe('chance')
+      expect(withheldWords(c.headline!), id).toBeNull()
+      expect(leadLineOf(c), id).toBe(c.headline!.text)
+    }
   })
 })

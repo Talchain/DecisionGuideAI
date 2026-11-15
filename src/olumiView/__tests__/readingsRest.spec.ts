@@ -61,16 +61,83 @@ describe('readingsRest', () => {
   })
 })
 
-describe('PL-1083 (1), new look, DL 12:5xZ (A): what yields while the proposal holds readings', async () => {
+describe('PL-1083 (1), new look, DL 12:5xZ (A), contract 3: what yields while the OPEN review holds readings', async () => {
   const { readFileSync } = await import('node:fs')
   const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const rule = (sel: string) => { const i = css.indexOf(sel + ' {'); return i < 0 ? null : css.slice(i, css.indexOf('}', i) + 1) }
-  it('first More ways hides', () => expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/))
-  it('then the thread may shrink below its floor', () => expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0/))
-  it('the box shrinks rather than run past the composer', () => expect(rule('.ok-pinned:has([data-reading-row])')).toMatch(/flex-shrink: 1/))
+  const HELD_OPEN = ':has(.ok-pinned details[open] [data-reading-row])'
+  it('first More ways hides (review open)', () => expect(rule("[data-testid='view-chat']" + HELD_OPEN + " > [data-testid='view-more-ways']")).toMatch(/display: none/))
+  it('then the thread may shrink below its floor (review open)', () => expect(rule("[data-testid='view-chat']" + HELD_OPEN + ' > [data-thread-wrap]')).toMatch(/min-height: 0/))
+  it('the box shrinks rather than run past the composer (review open)', () => expect(rule('.ok-pinned:has(details[open] [data-reading-row])')).toMatch(/flex-shrink: 1/))
   it('CONTRAST: every such rule is keyed on a held reading row, so nothing changes when none is held', () => {
     const lines = css.split('\n').filter((l) => /view-more-ways|data-thread-wrap/.test(l) && l.includes('{'))
     expect(lines.length).toBeGreaterThan(0)
-    for (const line of lines) expect(line).toContain(':has(.ok-pinned [data-reading-row])')
+    for (const line of lines) expect(line).toContain(HELD_OPEN)
+  })
+  // CATCH (fails on 41354eb1: its rules were `:has(.ok-pinned [data-reading-row])` / `.ok-pinned:has([data-reading-row])`, no details[open]):
+  // a held reading row inside a CLOSED review moves nothing, so the thread and More ways keep their room at rest.
+  it('CATCH: no rule keys on a held row without the review being open', () => {
+    const keyed = css.split('\n').filter((l) => l.includes('[data-reading-row]') && l.includes('{'))
+    expect(keyed.length).toBe(3)
+    for (const line of keyed) expect(line).toContain('details[open] [data-reading-row]')
+    expect(css).not.toMatch(/\.ok-pinned \[data-reading-row\]/)
+    expect(css).not.toMatch(/\.ok-pinned:has\(\[data-reading-row\]\)/)
+  })
+  it('CATCH: the open review is a sibling rule only for the pinned box (nothing outside .ok-pinned matches)', () => {
+    for (const line of css.split('\n').filter((l) => l.includes('details[open] [data-reading-row]'))) expect(line).toContain('.ok-pinned')
+  })
+})
+
+describe('contract 3: the pending review is one row at rest, and a withheld card says why (source bound by identity)', async () => {
+  const { readFileSync } = await import('node:fs')
+  const chat = readFileSync('src/olumiView/ViewChat.tsx', 'utf8')
+  const card = readFileSync('src/olumiView/previous/CoreCard.tsx', 'utf8')
+  const from = chat.indexOf("if (step.kind === 'approve') {")
+  const approve = chat.slice(from, chat.indexOf('data-step={step.kind}', from))
+  // CATCH (fails on 41354eb1: the approve step was the generic section with a "Next step" header and the Proposal drawn open).
+  it('CATCH: approve renders a closed <details> review whose summary is core\'s heading and on, no header', () => {
+    expect(approve).toContain('data-step="approve"')
+    expect(approve).toContain('data-testid="view-proposal-review"')
+    expect(approve).toContain('data-testid="view-proposal-row"')
+    expect(approve).not.toMatch(/<details[^>]*\bopen\b/) // closed at rest
+    expect(approve).toContain('data-view="proposal.heading">{p.heading}')
+    expect(approve).toContain('data-view="proposal.on">{p.on}')
+    expect(approve).not.toContain('Next step</p>')
+    expect(approve).toContain('{NEXT_STEP_WORDS.approve}')
+    expect(approve).toContain('inRow')
+  })
+  it('CATCH: inside the review the proposal does not draw its own heading again (it is in the summary)', () => {
+    const inRow = chat.indexOf('{inRow ?'), heading = chat.indexOf('data-view="proposal.heading"', inRow)
+    expect(inRow).toBeGreaterThan(0)
+    const other = chat.indexOf('\n        : <div>', inRow) // the not-inRow branch
+    expect(other).toBeGreaterThan(inRow)
+    expect(chat.slice(inRow, other)).not.toContain('proposal.heading') // the heading sits only in the not-inRow branch
+    expect(heading).toBeGreaterThan(other)
+  })
+  it('CATCH: the readings are not placed while the review is closed, and the box keeps its own height', () => {
+    expect(chat).toContain("const review = el.closest('details')")
+    expect(chat).toContain("if (review !== null && !review.open) { box.style.maxHeight = ''; return }")
+    // the closed-guard precedes the placement that reads the actions
+    expect(chat.indexOf('!review.open')).toBeLessThan(chat.indexOf('[data-testid="view-proposal-actions"]\')', chat.indexOf('!review.open')))
+  })
+  it('CATCH: the pinned box lost its 112 px floor, so a one-row review does not reserve a taller box', () => {
+    expect(chat).toContain('<div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
+    expect(chat).not.toContain('min-h-[112px]')
+  })
+  it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {
+    expect(card).toContain("export function withheldField(h: NonNullable<ViewCard['headline']>): 'why' | 'title' | 'text' | null {")
+    expect(card).toContain("if (h.state !== 'none') return null")
+    expect(card).toContain("return (h.why ?? '') !== '' ? 'why' : h.title !== '' ? 'title' : 'text'")
+    expect(card).toContain("return f === null ? null : f === 'why' ? h.why! : h[f]")
+    expect(card).toContain('return withheldWords(card.headline) ?? card.headline.text')
+    expect(card).toContain('data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>')
+    // The withheld pill's words are withheldWords(h) (above); the fixed face's pill still draws core's h.text, so the source is not searched for it.
+  })
+  it('CATCH: "Why not" is not drawn for a withheld chance: core\'s why, where it sends one, is the pill\'s words (olumiLook L2b binds it drawn)', () => {
+    expect(card).not.toContain('<details className="ok-why nodrag nowheel" data-view={`${id}.headline.why`}><summary>Why not</summary><p>{h.why}</p></details>')
+  })
+  it('CONTRAST: the other next-step kinds keep the "Next step" header and the bordered card', () => {
+    expect(chat).toContain('<p className={typography.panelHeader}>Next step</p>')
+    expect(chat).toContain('data-step={step.kind} aria-label="Next step"')
   })
 })

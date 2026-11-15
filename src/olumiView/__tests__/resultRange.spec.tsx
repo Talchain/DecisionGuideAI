@@ -15,7 +15,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useViewLens } from '../lens'
 import { useCanvasStore } from '../../canvas/store'
-import { CoreCard } from '../previous/CoreCard'
+import { CoreCard, withheldWords, leadLineOf } from '../previous/CoreCard'
 import { restsOf } from '../layout'
 import { rangeBandOf, shareWidths, SHARE_FLOOR, NEUTRAL_REST_WORDS } from '../resultRange'
 
@@ -81,7 +81,7 @@ describe('the range, as a band with the chance marked', () => {
     expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
     expect([d.track!.getAttribute('tabindex'), d.track!.getAttribute('aria-hidden')], 'no words: nothing to reach, as before').toEqual([null, 'true'])
   })
-  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: "No chance yet")', () => {
+  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: core\'s why in the pill, contract 3)', () => {
     const fixed = draw(golden('pricing'), 'carry_on')
     expect(fixed.root.querySelector('[data-ok-face="fixed"]')!.textContent).toContain(fixed.card.headline!.text)
     expect([fixed.track, fixed.band, fixed.mark, fixed.share]).toEqual([null, null, null, null])
@@ -89,8 +89,46 @@ describe('the range, as a band with the chance marked', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
     c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', range: null, why: 'Core could not work it out.' }
     const none = draw(v, 'raise_price')
-    expect(none.root.querySelector('[data-ok-face="none"]')!.textContent).toContain('No chance yet'); expect(none.root.textContent).toContain('Core could not work it out.')
+    const pill = none.root.querySelector('[data-ok-face="none"] .ok-pill')!
+    // Contract 3: the pill is core's `why`, exactly; the bare text is not drawn anywhere on the face.
+    expect(pill.textContent).toBe('Core could not work it out.')
+    expect(none.root.querySelector('[data-ok-face="none"]')!.textContent).not.toContain('No chance yet')
     expect([none.track, none.band, none.mark, none.caption]).toEqual([null, null, null, null])
+  })
+  // CATCH (contract 3): on the product before this change the pill drew headline.text ("No chance yet") and a separate "Why not" details carried the why,
+  // so the pill's text, its data-view and the absent "Why not" all fail there (old CoreCard line: `{h.text}` in .ok-pill; `<details className="ok-why">` drawn when why is set).
+  it('B6b catch (contract 3): a withheld card\'s pill shows core\'s why, names the field it came from, and "Why not" is not drawn again', () => {
+    const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'Every option shares this reason.', range: null, why: 'Core could not work it out.' }
+    const d = draw(v, 'raise_price')
+    const lead = d.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
+    expect(lead.textContent).toBe('Core could not work it out.')
+    expect(lead.getAttribute('data-view')).toBe('raise_price.headline.why')
+    expect(d.root.querySelector('[data-ok-face="none"] details.ok-why')).toBeNull()
+    expect(d.root.textContent).not.toContain('Why not')
+    expect(withheldWords(c.headline)).toBe('Core could not work it out.')
+  })
+  it('B6c catch (contract 3): with no why, core\'s title (the reason every option shares) is the pill, whole; with neither, the text stands. Each names its own field', () => {
+    const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'The goal has no target yet.', range: null, why: null }
+    const t = draw(v, 'raise_price')
+    const lead = t.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
+    expect(lead.textContent).toBe('The goal has no target yet.'); expect(lead.getAttribute('data-view')).toBe('raise_price.headline.title')
+    expect(withheldWords(c.headline)).toBe('The goal has no target yet.')
+    cleanup()
+    c.headline = { ...c.headline!, title: '', why: '' }
+    const x = draw(v, 'raise_price')
+    const lead2 = x.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
+    expect(lead2.textContent).toBe('No chance yet'); expect(lead2.getAttribute('data-view')).toBe('raise_price.headline.text')
+    expect(withheldWords(c.headline)).toBe('No chance yet')
+    expect(x.root.querySelector('details.ok-why')).toBeNull()
+  })
+  it('B6d contrast: a chance and a fixed result are not withheld: withheldWords is null for them and their own words are unchanged', () => {
+    const g = golden('pricing')
+    expect(withheldWords(g.model!.cards.find((x) => x.id === 'raise_price')!.headline!)).toBeNull()
+    const fixedH = g.model!.cards.find((x) => x.id === 'carry_on')!.headline!
+    expect(withheldWords(fixedH)).toBeNull()
+    expect(leadLineOf(g.model!.cards.find((x) => x.id === 'carry_on')!)).toBe(fixedH.text)
   })
 })
 

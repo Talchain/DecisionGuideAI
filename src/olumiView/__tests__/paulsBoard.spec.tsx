@@ -269,8 +269,9 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     useCanvasStore.setState({ lodRung: 'line' } as never)
     try {
       expect(zoomedOut(bare).textContent).not.toContain('No changes specified'); cleanup()
+      // The CONTRAST is a SERVED chance (state 'chance'): contract 3 (15 Nov) draws core's why for a withheld one (state 'none'), as this card is in EU.
       const lead = leadLineOf(EU.model!.cards.find((c) => c.id === opt.id)!) ?? 'about'
-      expect(zoomedOut(withCard(EU, opt.id, (c) => ({ ...c, headline: { ...(c.headline ?? { title: '', shared: false, state: 'shown', aim_id: null }), text: 'about 41% chance' } as never }))).textContent, 'CONTRAST').toContain('about 41% chance')
+      expect(zoomedOut(withCard(EU, opt.id, (c) => ({ ...c, headline: { ...(c.headline ?? { title: '', shared: false, aim_id: null }), state: 'chance', text: 'about 41% chance' } as never }))).textContent, 'CONTRAST').toContain('about 41% chance')
       void lead
     } finally { useCanvasStore.setState({ lodRung: was } as never) }
   })
