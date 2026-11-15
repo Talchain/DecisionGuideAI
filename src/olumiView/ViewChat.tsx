@@ -1286,6 +1286,9 @@ export function ViewChat() {
   // Contract 3 (Codex 15 Nov): where the person last scrolled the thread themselves. The thread at rest is never moved above it, on this or
   // any later rest (a reply growing, a step drawn), until they scroll again; null until they first do.
   const readerTop = useRef<number | null>(null)
+  // A save receipt not yet brought into view (each save is a new notice, even of the same version). The first rest that draws its receipt
+  // brings it into view over the reader's floor, once; until then the floor stands (Codex 15 Nov, round 3).
+  const receiptDue = useRef(false)
   const [away, setAway] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const readScroll = useCallback(() => {
@@ -1337,8 +1340,10 @@ export function ViewChat() {
     const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
     // It wins over the Next step below it (the person's own save is what they look for); the step stays a scroll away.
     if (saved !== null) top = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
-    // Someone who has scrolled on themselves (readerTop, contract 3) is never pulled back above where they scrolled.
-    top = Math.max(top, readerTop.current ?? -Infinity)
+    // Someone who has scrolled on themselves (readerTop, contract 3) is never pulled back above where they scrolled, except to bring the
+    // receipt of a save they have just made into view, once; the floor is then theirs again from where that leaves them.
+    if (saved !== null && receiptDue.current) { receiptDue.current = false; readerTop.current = null }
+    else top = Math.max(top, readerTop.current ?? -Infinity)
     el.scrollTop = Math.max(0, Math.min(maxScroll, top))
     followedTop.current = el.scrollTop
     setAway(false)
@@ -1349,10 +1354,12 @@ export function ViewChat() {
   const floorKey = floorShown(view).map((f) => f.job).join(',') + '|' + (earlyOf(view?.draft) === null ? 0 : 1) + (view?.draft?.status ?? '')
   const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
   const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
-  // The person's own save is what they look for (DL journey (4)): a fresh receipt clears where they last scrolled, so the rest below brings it
-  // into view (Codex 15 Nov, round 2: a reader near the foot who then saved was held below the receipt). Declared first: it runs first.
-  useEffect(() => { readerTop.current = null }, [noticeKey])
-  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, sinceTo, floorKey])
+  // The person's own save is what they look for (DL journey (4)): each new notice (a new object, even for the same version) makes its
+  // receipt due, so the rest that draws it brings it into view over the reader's floor (Codex 15 Nov, rounds 2 and 3). A notice going away
+  // makes nothing due. Declared first: it runs before the rest below.
+  const notice = useModelNotice((s) => s.notice)
+  useEffect(() => { if (notice !== null) receiptDue.current = true }, [notice])
+  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, notice, sinceTo, floorKey])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return

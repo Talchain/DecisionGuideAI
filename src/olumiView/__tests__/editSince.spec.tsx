@@ -22,7 +22,7 @@ const show = (n: number) => {
   useModelNotice.setState({ notice: { kind: 'saved', n, by: null, sid: RUN2.id } })
   return render(<ViewChat />).container
 }
-afterEach(() => { cleanup(); useModelNotice.setState({ notice: null }); useViewStore.setState({ view: null, status: 'none' } as never) })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); useModelNotice.setState({ notice: null }); useViewStore.setState({ view: null, status: 'none' } as never) })
 
 describe('a saved figure says what it changed (journey 4)', () => {
   it('S1 under "Version 2 saved.": core\'s since lines, each chance that moved word for word, and the changed figure with whose it is', () => {
@@ -98,5 +98,45 @@ describe('a saved figure says what it changed (journey 4)', () => {
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
     expect(scroll.scrollTop).toBe(616) // the receipt whole; held at where they scrolled: 1650, the receipt (700..900) out of view above
     top.mockRestore(); tall.mockRestore()
+  })
+
+  // Codex 15 Nov round 3: the reader near the foot (1650), the receipt at 700..900, a Next step at 1300.
+  const nearFoot = (view: View) => {
+    vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 700 : this.dataset.testid === 'view-next-step' ? 1300 : 600 })
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : this.dataset.testid === 'view-next-step' ? 150 : 0 })
+    useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view, status: 'ready', error: null, stale: false } as never)
+    const el = render(<ViewChat />).container
+    const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
+    Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
+    scroll.scrollTop = 1650; fireEvent.scroll(scroll)
+    return scroll
+  }
+  const edited = () => ({ ...RUN2, collab: { ...RUN2.collab, alone: true }, chat: [...RUN2.chat, { ...RUN2.chat.at(-1)!, id: RUN2.chat.at(-1)!.id + 1, answer: null }] }) as View
+  const saveOf = (n: number) => act(() => { useModelNotice.setState({ notice: { kind: 'saved', n, by: null, sid: RUN2.id } }) })
+
+  it('S6 CATCH (round 3): a save while a reply is still arriving does not pull them back to the reply; the receipt comes into view when the reply lands', () => {
+    const view = edited(), job: NonNullable<View['turn']> = { job: 9001, status: 'answering', said: view.chat.at(-1)!.said, ask: 'message', by: 'Paul', by_id: '1', words: 'Olumi is answering.', started: '2026-11-15T10:00:00Z', at: '2026-11-15T10:00:00Z' }
+    const scroll = nearFoot({ ...view, turn: job })
+    expect(scroll.querySelector('[data-testid="view-chat-turn-job"]:not([data-shown])'), 'precondition: a reply arriving').not.toBeNull()
+    saveOf(2)
+    expect(scroll.scrollTop).toBe(1650) // not 584 (the arriving reply): where they scrolled stands
+    act(() => { useViewStore.setState({ view } as never) }) // the reply lands
+    expect(scroll.scrollTop).toBe(616) // the receipt whole, once it is drawn
+  })
+  it('S7 CATCH (round 3): a second save of the same version brings its receipt into view again', () => {
+    const scroll = nearFoot(edited())
+    saveOf(2)
+    expect(scroll.scrollTop).toBe(616)
+    scroll.scrollTop = 1650; fireEvent.scroll(scroll) // they scroll on again
+    saveOf(2) // the same version number, a new save
+    expect(scroll.scrollTop).toBe(616)
+  })
+  it('S8 CATCH (round 3): a notice going away never pulls them back', () => {
+    const scroll = nearFoot(edited())
+    saveOf(2)
+    scroll.scrollTop = 1650; fireEvent.scroll(scroll)
+    act(() => { useModelNotice.setState({ notice: null }) })
+    expect(scroll.scrollTop).toBe(1650)
   })
 })
