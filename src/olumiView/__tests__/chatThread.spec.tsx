@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { ViewChat, ViewComposer, ViewConversation, useViewChat } from '../ViewChat'
+import { NEXT_STEP_WORDS, ViewChat, ViewComposer, ViewConversation, useViewChat } from '../ViewChat'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))
@@ -250,55 +250,99 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(550)
   })
 
-  it('CT8b (DL-183, Paul\'s 1.33 scale): with a Next step card below the newest reply, following brings the card whole into view, or its top when taller; CONTRAST: no card, the reply\'s start', () => {
+  it('CT8b (contract 3, 15 Nov; supersedes DL-183): Olumi\'s waiting proposal is ONE closed row in core\'s words, and at rest the thread stays on the newest reply\'s first line, not brought down to the card', () => {
     // The step alone: the question above it is CT8c's.
     const bare = { ...proposal, model: { ...proposal.model!, coaching_questions: [] } } as View
+    const p = proposal.proposal!
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 700 : 600 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
     show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
-    const { getByTestId, queryByTestId } = render(<ViewChat />)
+    const { getByTestId, queryByTestId, container } = render(<ViewChat />)
     const scroll = getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
     act(() => show(bare))
-    expect(queryByTestId('view-next-step'), 'precondition: core asks for a next step on a held proposal').not.toBeNull()
-    expect(scroll.scrollTop).toBe(666) // 700 + 150 + 16 - 200: the card whole, its foot 16 px above the thread's
+    const step = queryByTestId('view-next-step') as HTMLDetailsElement | null
+    expect(step, 'precondition: core asks for a next step on a held proposal').not.toBeNull()
+    // The row: a closed <details> whose summary is core's heading · on; no "Next step" header paragraph is drawn for this kind.
+    expect(step!.tagName).toBe('DETAILS')
+    expect(step!.dataset.step).toBe('approve')
+    expect(step!.open).toBe(false)
+    expect(getByTestId('view-proposal-row').tagName).toBe('SUMMARY')
+    expect(getByTestId('view-proposal-row').textContent).toBe(`${p.heading} · ${p.on}`)
+    expect(container.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1) // the Proposal inside does not draw its heading again
+    expect(step!.querySelector('p')?.textContent).toBe(NEXT_STEP_WORDS.approve)
+    // CATCH: the old product brought the card whole into view (700 + 150 + 16 - 200 = 666) and fails here; now the newest reply's first line (600 - 16).
+    expect(scroll.scrollTop).toBe(584)
     cleanup()
     show({ ...bare, chat: bare.chat.slice(0, Math.max(0, bare.chat.length - 1)) })
     const short = render(<ViewChat />).getByTestId('view-chat-scroll')
     Object.defineProperties(short, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 100, configurable: true } })
     act(() => show(bare))
-    expect(short.scrollTop).toBe(684) // taller than the thread: its top
+    // CATCH: taller than the thread, the old product went to the card's top (684); the row is reached by reading on.
+    expect(short.scrollTop).toBe(584)
   })
 
-  it('CT8c (DL, 12 Nov): Olumi\'s question above the Next step comes into view with it: the block runs from the question\'s top when the two are taller than the thread', () => {
+  it('CT8c (contract 3, 15 Nov; supersedes DL 12 Nov): Olumi\'s question below the newest reply is not brought into view with the row; the thread rests on the reply\'s first line', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 760 : this.dataset.testid === 'view-model-question' ? 700 : 600 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : this.dataset.testid === 'view-model-question' ? 50 : 0 })
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
     show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
-    const scroll = render(<ViewChat />).getByTestId('view-chat-scroll')
+    const { getByTestId } = render(<ViewChat />)
+    const scroll = getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 120, configurable: true } })
     act(() => show(asked))
-    expect(scroll.scrollTop).toBe(684) // the question's top (700 - 16), not the step's (744)
+    expect(getByTestId('view-model-question'), 'precondition: the question is drawn').not.toBeNull()
+    // CATCH: the old product ran the block from the question's top (700 - 16 = 684) and fails here; now the newest reply's first line (600 - 16).
+    expect(scroll.scrollTop).toBe(584)
   })
 
-  it('CT8d (DL 06:57Z (4), old look): with a proposal waiting, the thread moves on only as far as the actions need to be in view; never past the step\'s top', () => {
+  it('CT8d (contract 3, 15 Nov; supersedes DL 06:57Z (4) at rest): a closed proposal row leaves the thread on the reply\'s first line; opening it never carries the thread past that line; someone who has scrolled on is not moved up', () => {
+    let resize: ResizeObserverCallback = () => undefined
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: ResizeObserverCallback) { resize = callback }
+      observe = vi.fn()
+      disconnect = vi.fn()
+    })
+    const grow = () => act(() => resize([], {} as ResizeObserver))
     const at: Record<string, number> = { 'view-model-question': 600, 'view-next-step': 700, 'view-chat-proposal': 900 }, tall: Record<string, number> = { 'view-model-question': 50, 'view-next-step': 400, 'view-proposal-actions': 116 }
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return at[this.dataset.testid ?? ''] ?? 500 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return tall[this.dataset.testid ?? ''] ?? 0 })
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
+    const open = (scroll: HTMLElement) => {
+      const step = scroll.querySelector<HTMLDetailsElement>('[data-testid="view-next-step"]')!
+      expect(step.open, 'precondition: the row is closed at rest').toBe(false)
+      step.open = true
+      return step
+    }
     show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
     const scroll = render(<ViewChat />).getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 2600, configurable: true }, clientHeight: { value: 330, configurable: true } })
     act(() => show(asked))
-    // The question's top would be 584; the actions need 900 + 116 + 16 - 330 = 702; the step's top caps it at 684.
-    expect(scroll.scrollTop).toBe(684)
+    // Closed: the newest reply (unmocked, so 500) opens on its first line, 484. CATCH: the old product, whose card held its actions in view, rested at 684.
+    expect(scroll.scrollTop).toBe(484)
+    // Open: the actions' room (900 + 116 + 16 - 330 = 702) and the step's top (684) no longer carry the thread past the reply's first line.
+    // CATCH: the old product rested at 684 whenever the proposal was drawn.
+    open(scroll); grow()
+    expect(scroll.scrollTop).toBe(484)
     cleanup()
     show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
     const roomy = render(<ViewChat />).getByTestId('view-chat-scroll')
     Object.defineProperties(roomy, { scrollHeight: { value: 2600, configurable: true }, clientHeight: { value: 460, configurable: true } })
     act(() => show(asked))
-    // Where the actions already fit with the question at the top (900 + 116 + 16 - 460 = 572 < 584), the question's top is kept (CT8c's rule).
-    expect(roomy.scrollTop).toBe(584)
+    // CATCH: where the actions already fit, the old product kept the question's top (584); the cap is the reply's first line whatever the height.
+    expect(roomy.scrollTop).toBe(484)
+    cleanup()
+    // Someone who has scrolled on to the foot since the last rest (gap 1000 - 330 - 600 = 70, still following) is never moved up by the cap,
+    // and opening the row (which grows the thread) leaves them where they are.
+    show({ ...asked, chat: asked.chat.slice(0, Math.max(0, asked.chat.length - 1)) })
+    const read = render(<ViewChat />).getByTestId('view-chat-scroll')
+    Object.defineProperties(read, { scrollHeight: { value: 1000, configurable: true }, clientHeight: { value: 330, configurable: true } })
+    act(() => show(asked))
+    expect(read.scrollTop).toBe(484)
+    read.scrollTop = 600; fireEvent.scroll(read)
+    open(read); grow()
+    // CATCH: the old product put the thread at 684, clamped to the thread's end (670), up to nothing the reader asked for.
+    expect(read.scrollTop).toBe(600)
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).

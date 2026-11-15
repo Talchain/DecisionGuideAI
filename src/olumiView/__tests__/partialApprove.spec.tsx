@@ -63,6 +63,11 @@ describe('partial approval', () => {
   it('DL 11 Nov (replacing PL 7 Nov\'s open groups): a grouped proposal rests with every group closed, its heading and tick in view; a group opens on press and shows each of core\'s lines', () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
     show({ ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } })
+    // Contract 3 (15 Nov): the proposal itself is one row, closed at rest; once it is opened, its groups rest closed as before.
+    const step = screen.getByTestId('view-next-step') as HTMLDetailsElement
+    expect([step.tagName, step.open]).toEqual(['DETAILS', false])
+    expect(screen.getByText('Everything')).not.toBeVisible()
+    step.open = true
     const box = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
     expect(box.open).toBe(false)
     expect(screen.getByText('Everything')).toBeVisible()
@@ -142,8 +147,11 @@ describe('a figure and the line that reads it are ticked together', () => {
 })
 
 describe('DL 06:57Z (4), old look: Approve and Set aside are reached without scrolling the thread', () => {
-  it('SA1 the proposal\'s actions are one sticky foot, inside the thread\'s scroll, holding Approve and Set aside (bound by test id)', () => {
+  it('SA1 (contract 3, 15 Nov: the proposal is one row, closed at rest) once the row is opened, the proposal\'s actions are one sticky foot, inside the thread\'s scroll, holding Approve and Set aside (bound by test id)', () => {
     show(golden)
+    const step = screen.getByTestId('view-next-step') as HTMLDetailsElement
+    expect([step.tagName, step.open]).toEqual(['DETAILS', false])
+    step.open = true
     const row = screen.getByTestId('view-proposal-actions')
     // DL 07:48Z: opaque, over the thread's 16 px foot padding, a visible rule at its top and no fade (no ghosted lines); the resting scroll
     // keeps any line from being cut by the rule (footCut.spec FK1-FK4).

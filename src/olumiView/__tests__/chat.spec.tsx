@@ -98,7 +98,10 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
     for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
-    for (const k of ['heading', 'on'] as const) expect(card.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
+    // Contract 3 (15 Nov): core's heading · on is the one row's own line (its summary); the change card inside does not draw it again.
+    const rowLine = container.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
+    for (const k of ['heading', 'on'] as const) expect(rowLine.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
+    expect(card.querySelector('[data-view="proposal.heading"]')).toBeNull()
     await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
     await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
     useViewStore.setState({ view: held })

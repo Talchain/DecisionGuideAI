@@ -27,6 +27,11 @@ describe('the next step', () => {
   it('a proposal held: check it, then approve or set aside, with core\'s change card and its two buttons inside the step', () => {
     const c = show(golden('proposal'))
     expect(step(c)?.getAttribute('data-step')).toBe('approve')
+    // Contract 3 (15 Nov): one closed row, its line core's heading · on; opening it shows the step's words, the change card and its buttons.
+    expect(step(c)?.tagName).toBe('DETAILS')
+    expect((step(c) as HTMLDetailsElement).open).toBe(false)
+    const p = golden('proposal').proposal!
+    expect(step(c)?.querySelector(':scope > summary')?.textContent).toBe(p.on === '' ? p.heading : `${p.heading} · ${p.on}`)
     expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(step(c)?.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     expect(c.querySelectorAll('[data-testid="view-chat-proposal"]')).toHaveLength(1)
@@ -37,6 +42,9 @@ describe('the next step', () => {
     const c = show(view)
     const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
     expect(step(c)?.getAttribute('data-step')).toBe('figure')
+    // CONTRAST (contract 3): only Olumi's waiting proposal is the one closed row; a figure step stays the open card under its "Next step" header.
+    expect(step(c)?.tagName).toBe('SECTION')
+    expect(step(c)?.querySelector(':scope > p')?.textContent).toBe('Next step')
     // Core's words only: its label and the figure's name at their paths, core's hover; no sentence of the UI's own.
     const waits = step(c)!.querySelector('[data-testid="view-next-figure-waits"]')!
     expect(waits.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(w.label)

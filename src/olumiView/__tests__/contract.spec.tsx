@@ -13,6 +13,7 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { driverRange, ViewChances, ViewChancesBlock } from '../ViewChances'
 import { useViewStore } from '../store'
+import { leadLineOf } from '../previous/CoreCard'
 
 // Paths from the repository root (vitest's working directory): jsdom gives this module no file: URL to resolve against.
 const DIR = path.resolve('src/olumiView')
@@ -262,6 +263,30 @@ describe('a reason every option shares is said once, above the options; each cov
     // Core's deliberate lead change (DL, 8 Nov; core e653edb1 view.test.ts maps the oracle's lead the same way): one line, qualifier visible.
     const lead = (l: string | null) => l?.replace(/^In this model, on current information, each option’s chance of (‘.*’):$/, 'Chance of $1, in this model on current information') ?? null
     expect(container.querySelector('[data-view="run.lead"]')?.textContent).toBe(lead(oracle['pricing-unmoved-unresolved']!.lead))
+  })
+  // Contract 3 (15 Nov): the OLD look's option card (previous/CoreCard leadLineOf) no longer says 'No chance yet' where core withholds the chance:
+  // core's headline.why, else headline.title, else headline.text. The Run-dock row above is a different surface (ViewChances Row) and keeps core's
+  // row text; this row binds the card face. CATCH: the product before this change returned `card.headline.text` ('No chance yet') for every
+  // option card, so both expectations below fail on it.
+  it('the old look\'s withheld option card leads with core\'s why, else its title, never the bare \'No chance yet\' (contract 3)', () => {
+    const model = structuredClone(golden('pricing-unmoved-unresolved').model!)
+    for (const [id, mark] of Object.entries(oracle['pricing-unmoved-unresolved']!.withheld)) {
+      const card = model.cards.find((c) => c.id === id)!
+      expect(card.headline!.state, id).toBe('none')
+      expect(card.headline!.text, id).toBe('No chance yet')
+      // No why: core's title, which is the oracle's words for this card.
+      expect(card.headline!.why ?? null, id).toBeNull()
+      expect(leadLineOf(card), id).toBe(card.headline!.title)
+      expect(leadLineOf(card), id).toBe(mark)
+      // A why (core's own words: the Run's shared sentence stands in as a fixture string): it wins over the title.
+      card.headline!.why = model.run!.shared_blockers![0]!.text
+      expect(leadLineOf(card), id).toBe(model.run!.shared_blockers![0]!.text)
+      expect(leadLineOf(card), id).not.toBe(card.headline!.title)
+      // CONTRAST: where core sends neither, the bare text is what is left.
+      card.headline!.why = null
+      card.headline!.title = ''
+      expect(leadLineOf(card), id).toBe('No chance yet')
+    }
   })
   it('absent: no View without the key draws a shared reason', () => {
     // (From core 89d09f0 the goldens carry the key where a blocker is shared: the absent case is made by taking it away.)
