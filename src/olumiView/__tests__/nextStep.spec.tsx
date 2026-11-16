@@ -87,15 +87,19 @@ describe('the next step', () => {
     expect(step(c)!.querySelector(`label[for="next-figure-${item.id}"]`)?.textContent).toBe(item.edit!.prompt)
   })
 
-  it('catch (strategy witness 8, 8 Nov): a figure no one can size yet is said as core says it, never as one only the person can give', () => {
-    const view = golden('studio'), w = view.model!.run!.waits_on!, item = w.items.find((i) => i.edit !== null)!, k = w.items.indexOf(item)
-    expect([item.answer, typeof item.unknown]).toEqual([false, 'string'])
+  it('DL ruling (17 Nov; was strategy witness 8): a figure no one can size yet is never the step; an askable figure behind it is', () => {
+    const view = golden('studio'), w = view.model!.run!.waits_on!, item = w.items.find((i) => i.edit !== null)!
+    expect([item.answer, typeof item.unknown], 'precondition: the only editable figure is one no one can size').toEqual([false, 'string'])
+    expect(w.items.some((i) => i.edit !== null && i.unknown == null), 'precondition: no figure someone can give').toBe(false)
     const c = show(view)
-    expect(step(c)?.getAttribute('data-step')).toBe('figure')
-    const waits = step(c)!.querySelector('[data-testid="view-next-figure-waits"]')!
-    expect(waits.querySelector(`[data-view="run.waits_on.items.${k}.unknown"]`)?.textContent).toBe(item.unknown)
-    expect(waits.textContent).toBe(`${w.label} ${item.text}${item.unknown}`)
-    expect(step(c)!.textContent).not.toMatch(/only you can give/)
+    expect(nextStepOf(view)?.kind).not.toBe('figure')
+    expect(c.querySelector('[data-testid="view-next-figure-waits"]'), 'no step asks for it').toBeNull()
+    // An askable figure behind it is the step instead (core's order otherwise kept).
+    const asked = golden('bakery').model!.run!.waits_on!.items.find((i) => i.edit !== null && i.unknown == null)!
+    const both = { ...view, model: { ...view.model!, run: { ...view.model!.run!, waits_on: { ...w, items: [item, asked] } } } } as View
+    const s2 = nextStepOf(both)
+    expect(s2?.kind).toBe('figure')
+    expect(s2?.kind === 'figure' && s2.item.id).toBe(asked.id)
     // Contrast: an asked figure (bakery) carries no unknown clause.
     cleanup()
     const b = golden('bakery'), bi = b.model!.run!.waits_on!.items.find((i) => i.edit !== null)!

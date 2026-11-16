@@ -86,7 +86,8 @@ const teamActivity = (view: View): boolean => view.collab.alone && view.collab.m
  *  1. a proposal Olumi holds (nothing is kept until it is approved);
  *  2. the newest reply's own move, when it is a real move (never the filler) and has not gone stale (`isGone`): the person's reasoning
  *     comes before completing the model (Codex 006: after a question, the step asked for a figure no one could size yet);
- *  3. the first figure the chances wait on that core lets them type (still on its card, "waits on", with its editor, whatever leads here).
+ *  3. the first figure the chances wait on that core lets them type and someone can give (never one core marks `unknown`: no one can size it
+ *     yet; it stays on its card, "waits on", with its editor, whatever leads here).
  *     The DL's exception (the figure leads when the latest ask needs the result it blocks) waits on core saying so explicitly: Codex 006h
  *     found that no proxy in the View today (core's own question, a card the reply points at) establishes that dependency;
  *  4. the first question core orders for the goal (`first`: with no goal nothing leads, so none is chosen);
@@ -95,7 +96,9 @@ const teamActivity = (view: View): boolean => view.collab.alone && view.collab.m
  */
 export function nextStepFor(view: View, isGone: (turn: number, move: string) => boolean = () => false): NextStep | null {
   if (view.proposal !== null) return { kind: 'approve' }
-  const figure = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
+  // DL ruling (17 Nov, ~10:00Z): a figure core marks as one no one can size yet (`unknown`) is never the step; it stays on its card in core's
+  // words, and the next step goes on (the goal's first question). Only a figure someone can give is asked for here.
+  const figure = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null && i.unknown == null)
   const figureStep = figure === undefined ? null : { kind: 'figure' as const, item: figure as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
   const t = view.chat.at(-1)
   if (t?.answer != null && t.answer.next.newest && isRealMove(t.answer.next.move) && !isGone(t.id, t.answer.next.move)) return { kind: 'move', turn: t.id, next: t.answer.next }
