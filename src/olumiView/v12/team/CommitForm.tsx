@@ -25,6 +25,10 @@ export const COMMIT_WORDS = {
 interface Draft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
 const EMPTY: Draft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
 
+/** A labelled field. Defined once at module level: a component made inside the form's render is a new type every keystroke, so React
+ *  remounts the textarea and the person loses focus after one character (Codex's UI chat, 16 Nov). */
+const L = ({ id, t, children }: { id: string; t: string; children: JSX.Element }) => <div className="grid gap-1"><label htmlFor={id} className={LABEL}>{t}</label>{children}</div>
+
 export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element | null {
   const key = `${sid}:commitment`
   const [d, setD, drop] = useDraft<Draft>(key, { ...EMPTY, owner: view.you_id })
@@ -50,7 +54,6 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       setError(e instanceof TeamApiError ? e.message : view.team_words.failed)
     } finally { setBusy(false) }
   }
-  const L = ({ id, t, children }: { id: string; t: string; children: JSX.Element }) => <div className="grid gap-1"><label htmlFor={id} className={LABEL}>{t}</label>{children}</div>
   const area = (id: string, k: 'action' | 'expect' | 'reconsider') => (
     <textarea id={id} data-testid={id} className={`${FIELD} min-h-[56px]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
   )

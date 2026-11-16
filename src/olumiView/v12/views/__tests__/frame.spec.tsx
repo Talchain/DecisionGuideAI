@@ -49,6 +49,18 @@ describe('the frame request', () => {
     expect(frameBody({ question: '  ', aim: ' Aim ', options: ['', ' a ', 'b', 'c', 'd', 'e', 'f'], links: [{ from_label: 'x', to_label: '', words: 'w' }, { from_label: 'x', to_label: 'y', words: ' w ' }] }))
       .toEqual({ aim: 'Aim', options: ['a', 'b', 'c', 'd', 'e'], links: [{ from_label: 'x', to_label: 'y', words: 'w' }] })
   })
+  it('typing keeps the same field and its focus: no field is remounted between keystrokes (Codex UI chat, 16 Nov)', () => {
+    render(<FrameEntry sid="s_x" view={view()} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    for (const id of ['frame-text', 'frame-question', 'frame-aim']) {
+      const first = screen.getByTestId(id) as HTMLTextAreaElement
+      first.focus()
+      fireEvent.change(first, { target: { value: 'G' } })
+      fireEvent.change(screen.getByTestId(id), { target: { value: 'Gr' } })
+      expect(screen.getByTestId(id), id).toBe(first)
+      expect(document.activeElement, id).toBe(first)
+    }
+  })
   it('posts text, the current version and only the parts said, on the existing views route, with an op', async () => {
     const all = serve(() => ({ status: 201, body: { contribution: 4 } }))
     const sent = { get length() { return all.filter((x) => x.method === 'POST').length }, 0: undefined as unknown as Sent }

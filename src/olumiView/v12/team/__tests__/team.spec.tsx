@@ -38,6 +38,18 @@ function serve(answer: (s: Sent) => { status: number; body: unknown }): Sent[] {
 afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts() })
 
 describe('Record what you will do', () => {
+  it('typing keeps the same field and its focus: no field is remounted between keystrokes (Codex UI chat, 16 Nov)', () => {
+    render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
+    for (const id of ['commit-form-action', 'commit-form-expect', 'commit-form-reconsider']) {
+      const first = screen.getByTestId(id) as HTMLTextAreaElement
+      first.focus()
+      fireEvent.change(first, { target: { value: 'R' } })
+      fireEvent.change(screen.getByTestId(id), { target: { value: 'Ri' } })
+      expect(screen.getByTestId(id), id).toBe(first)
+      expect(document.activeElement, id).toBe(first)
+      expect(first.value).toBe('Ri')
+    }
+  })
   it('draws the board\'s words, the Proposed tag and the footnote', () => {
     render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
     expect(screen.getByTestId('commit-form-heading').textContent).toBe('Record what you will do')

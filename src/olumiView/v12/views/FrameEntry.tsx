@@ -30,6 +30,10 @@ export const MYVIEW_WORDS = {
 export const optionSuggestions = (view: View, max: number): string[] =>
   (view.model?.cards ?? []).filter((c) => c.family === 'option' && c.status === null && c.heading.trim() !== '').map((c) => c.heading).slice(0, max)
 
+/** A labelled field. Defined once at module level: a component made inside the entry's render is a new type every keystroke, so React
+ *  remounts the field and the person loses focus after one character (Codex's UI chat, 16 Nov). */
+const L = ({ t, children }: { t: string; children: JSX.Element | JSX.Element[] }) => <label className={`${META} grid gap-0.5`}><span className="text-text-header">{t}</span>{children}</label>
+
 export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: string; view: View; onWrote: () => Promise<boolean>; defaultOpen?: boolean }): JSX.Element | null {
   const key = `${sid}:viewframe`                  // its own write key, so a frame give never attaches to the plain view's in-flight write
   const [text, setText, dropText] = useDraft(`${sid}:viewframe:text`, '')
@@ -76,7 +80,6 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
     return <button type="button" data-testid="frame-open" onClick={() => setOpen(true)}
       className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body`}>{words.heading ?? 'Say my whole view in my own words'}</button>
   }
-  const L = ({ t, children }: { t: string; children: JSX.Element | JSX.Element[] }) => <label className={`${META} grid gap-0.5`}><span className="text-text-header">{t}</span>{children}</label>
   return (
     <div className="grid gap-2" data-testid="frame-entry">
       <h3 className={`${BODY} font-medium text-text-header`} data-testid="frame-heading">{MYVIEW_WORDS.heading}</h3>
