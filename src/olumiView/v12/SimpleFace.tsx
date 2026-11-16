@@ -74,13 +74,16 @@ export type SimpleFaceProps = {
   readonly kind?: CardKind
   /** The card's own controls that stay (the figure's edit, core's fold badge). */
   readonly extra?: ReactNode
+  /** The figure's range bar (v12/scale RangeBar), on a full-width row of its own above the foot: squeezed into the foot it was only as wide as
+   *  its labels, which then ran together ("0 months5 months", Paul's 15:00Z test). */
+  readonly scale?: ReactNode
   /** A withheld chance's "Why not" press (CoreCard `WithheldWords`), so Simple never shows the bare "No chance yet" where core gives a reason. */
   readonly withheld?: ReactNode
   /** The figure tried on a copy (What if), drawn in place of the saved figure with the saved one named beside it (CoreCard). */
   readonly trying?: ReactNode
 }
 
-export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, withheld, trying }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, withheld, trying }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -201,6 +204,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5" data-simple-card={id}>
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
       {body}
+      {scale == null ? null : <div className="min-w-0 basis-full" data-simple-scale={id}>{scale}</div>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

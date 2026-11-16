@@ -31,7 +31,7 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
         {deadline !== null && <span data-testid="range-deadline" style={{ position: 'absolute', top: 0, bottom: 0, borderLeft: `2px solid ${GOLD}`, left: `${pctOf(axis, deadline)}%` }} />}
         {t !== null && <span data-testid="range-tried" data-at={t} style={{ position: 'absolute', top: -2, bottom: -2, borderLeft: `2px dashed ${INK}`, left: `${pctOf(axis, t)}%` }} />}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, whiteSpace: 'nowrap' }}>
         <span data-testid="range-min">{fmt(axis.min)} {range.unit}</span>
         <span data-testid="range-max">{fmt(axis.max)} {range.unit}</span>
       </div>
