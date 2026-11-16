@@ -1,6 +1,6 @@
 /**
  * V12 refinement spec §1 and §6: `**x**` is weight 500 with no asterisks, a bare http(s) address is a safe link, and a long reply folds to its
- * first two blocks behind "Show the whole reply".
+ * first two blocks behind "Show the whole first answer", and only where core marks the split (Codex 16:48Z): any other reply is drawn whole.
  */
 import { describe, expect, it } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
@@ -27,16 +27,26 @@ describe('reply text marks', () => {
   })
 })
 
-describe('a long reply folds', () => {
+describe('a long first answer folds; nothing else does', () => {
   const long = T(`${'First paragraph words. '.repeat(8)}\n\n${'Second paragraph words. '.repeat(8)}\n\n${'Third paragraph words. '.repeat(8)}`)
-  it('shows two blocks and the toggle, then the whole reply on press', () => {
-    const { container } = render(<Blocks parts={long} at="x" fold />)
-    expect(container.querySelectorAll('[data-reply-para]').length).toBe(2)
-    const toggle = screen.getByTestId('view-reply-fold')
-    expect([toggle.textContent, toggle.getAttribute('aria-expanded')]).toEqual(['Show the whole reply', 'false'])
-    fireEvent.click(toggle)
+  const para = (n: number) => `Point ${n}. ` + 'This paragraph is long enough to take several lines of the panel at twelve pixels wide. '.repeat(2)
+  it('shows the label and two blocks, the toggle, and the check; the whole first answer on press', () => {
+    const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), CHECK_HEADING, 'The model has no figure yet.'].join('\n\n')
+    const { container } = render(<Blocks parts={[{ text }]} at="x" lines={{ label: FIRST_ANSWER_LABEL, heading: CHECK_HEADING }} fold />)
     expect(container.querySelectorAll('[data-reply-para]').length).toBe(3)
+    const toggle = screen.getByTestId('view-reply-fold')
+    expect([toggle.textContent, toggle.getAttribute('aria-expanded')]).toEqual(['Show the whole first answer', 'false'])
+    fireEvent.click(toggle)
+    expect(container.querySelectorAll('[data-reply-para]').length).toBe(4)
     expect(screen.getByTestId('view-reply-fold').getAttribute('aria-expanded')).toBe('true')
+  })
+  it('never folds a reply without core\'s split: a long method reply, or a first answer with no check heading, is drawn whole (Codex 16:48Z)', () => {
+    const method = render(<Blocks parts={long} at="x" fold />)
+    expect([method.container.querySelectorAll('[data-reply-para]').length, method.container.querySelector('[data-testid="view-reply-fold"]')]).toEqual([3, null])
+    method.unmount()
+    const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), para(4)].join('\n\n')
+    const noCheck = render(<Blocks parts={[{ text }]} at="x" lines={{ label: FIRST_ANSWER_LABEL, heading: null }} fold />)
+    expect([noCheck.container.querySelectorAll('[data-reply-para]').length, noCheck.container.querySelector('[data-testid="view-reply-fold"]')]).toEqual([4, null])
   })
   it('never folds a short reply, or a long one when not asked', () => {
     const short = render(<Blocks parts={T('One.\n\nTwo.\n\nThree.')} at="x" fold />)

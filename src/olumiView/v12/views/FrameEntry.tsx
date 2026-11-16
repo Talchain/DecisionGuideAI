@@ -135,7 +135,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
       {asking && (
         <div className={CARD} data-testid="frame-olumi-asks">
           <p className={LABEL}><span data-testid="frame-olumi-asks-label">{MYVIEW_WORDS.asks}</span>: <span data-testid="frame-olumi-asks-prompt">{prompt}</span></p>
-          <textarea aria-label={prompt ?? MYVIEW_WORDS.asks} data-testid="frame-olumi-ask" className={`${FIELD} min-h-[56px]`} value={ask} disabled={held} onChange={(e) => { setAsk(e.target.value); if (error) setError(null) }} />
+          <textarea aria-label={prompt ?? MYVIEW_WORDS.asks} data-testid="frame-olumi-ask" className={`${FIELD} min-h-[56px]`} value={ask} disabled={held} onChange={(e) => { mark(); setAsk(e.target.value); if (error) setError(null) }} />
           <p className={`${META} flex items-center gap-1.5`} data-testid="frame-olumi-ask-private"><Lock aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{MYVIEW_WORDS.askOnly}</p>
         </div>
       )}

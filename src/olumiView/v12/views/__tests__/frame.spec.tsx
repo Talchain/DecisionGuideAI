@@ -79,6 +79,17 @@ describe('the frame request', () => {
     await waitFor(() => expect(all.filter((x) => x.method === 'POST')).toHaveLength(1))
     expect(all.find((x) => x.method === 'POST')!.body).toMatchObject({ version: 2 })
   })
+  it("J3 from the first keystroke anywhere: an answer to Olumi's question typed first, against version 1, is never sent as a view of version 2 (Codex 16:48Z)", () => {
+    serve(() => ({ status: 201, body: { contribution: 4 } }))
+    const ask = (n: number) => view({ version: { ...(fx as View).version!, n }, collab: { ...fx.collab, frame_words: fw, private_view_prompt: 'What would change your mind?' } } as Partial<View>)
+    const { rerender } = render(<FrameEntry sid="s_x" view={ask(1)} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    fireEvent.change(screen.getByTestId('frame-olumi-ask'), { target: { value: 'A competitor cutting prices' } })
+    rerender(<FrameEntry sid="s_x" view={ask(2)} onWrote={async () => true} />)
+    fireEvent.change(screen.getByTestId('frame-question'), { target: { value: 'Grow or hold?' } })
+    expect(screen.getByTestId('frame-stale-base').textContent).toContain('version 1')
+    expect((screen.getByTestId('frame-give') as HTMLButtonElement).disabled).toBe(true)
+  })
   it('finding 15: an option row copied from the shared titles and never typed in is never sent as this member\'s own, even after the shared title is renamed', async () => {
     const all = serve(() => ({ status: 201, body: { contribution: 4 } }))
     const v1 = view()

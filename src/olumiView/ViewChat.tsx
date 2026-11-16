@@ -94,7 +94,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
  * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
  */
 type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
-export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a reply longer than about 8 lines shows its first 2 blocks, then "Show the whole reply". Off unless asked (the conversation asks). */ fold?: boolean }) {
+export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a first draft's long first answer (core's label, then core's check heading) shows its first 2 blocks, then "Show the whole first answer"; the check always shows. Any other reply is drawn whole. Off unless asked (the conversation asks). */ fold?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
@@ -132,7 +132,9 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   // detail, never the model's check or correction of it (Codex, 16 Nov: a folded reply could show the unverified claim and hide its correction).
   const check = groups.findIndex((g) => lineOf(g) === 'heading')
   const head = check === -1 ? groups.length : check
-  const foldable = fold && head > 2 + lead && est > 8
+  // Folds only a verified split: core's first answer, then core's check heading (Codex 16:48Z). A reply without that split (a method reply, any
+  // reply whose words core did not mark) is drawn whole, so no check of its own is ever folded away.
+  const foldable = fold && check >= 0 && head > 2 + lead && est > 8
   const folded = foldable && !whole
   const before = folded ? groups.slice(0, 2 + lead) : groups.slice(0, head), after = groups.slice(head)
   const groupEl = (g: { list: boolean; lines: Piece[][] }, gi: number) => lineOf(g) === 'label'
@@ -147,7 +149,7 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
       {before.map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (check === -1 ? 'Show the whole reply' : 'Show the whole first answer') : 'Show less'}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? 'Show the whole first answer' : 'Show less'}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
         : null}
       {after.map((g, gi) => groupEl(g, head + gi))}
     </>
