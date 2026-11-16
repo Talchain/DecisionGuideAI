@@ -24,7 +24,8 @@ import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { LENS_BAR_TESTID } from '../canvas/artefacts/LensBar'
 
 export type Rect = { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }
-export type Regions = { readonly head: Rect; readonly foot: readonly Rect[]; readonly dock: Rect }
+/** `keys`: the lens keys floating in the canvas's bottom band (What if, Trade-offs, If it failed); a card's open editor is kept clear of them. */
+export type Regions = { readonly head: Rect; readonly foot: readonly Rect[]; readonly dock: Rect; readonly keys?: readonly Rect[] }
 
 /**
  * FIRST-PAINT NUMBERS (DL ruling 9 Nov: hiring must fit at zoom 1; owned here, read by layout.ts headFirst).
@@ -44,6 +45,9 @@ export const REGION_GAP = 12
 export const BAND_GAP = 8
 export const HEAD_CONTROLS = [`[data-testid="${LENS_BAR_TESTID}"]`] as const
 export const FOOT_CONTROLS = ['nav[aria-label="Viewport controls"]', '[data-testid="view-below-cue"] button'] as const
+/** The lens keys that float over the canvas's bottom-left band (Codex 006f: the What if key covered a card's open editor and its "Try
+ *  without saving"). Kept apart from FOOT_CONTROLS, which the below-cue counts with. */
+export const LENS_KEYS = ['[data-testid="view-whatif-key"]', '[data-testid="view-tradeoffs-key"]', '[data-testid="view-premortem-key"]'] as const
 
 /** HEAD's height: the lowest head control's foot plus the gap; 0 when none is drawn. */
 export function headHeightOf(feet: readonly number[]): number {
@@ -68,7 +72,7 @@ const rectsOf = (sels: readonly string[]) => sels.flatMap((s) => [...document.qu
 export function regionsOf(): Regions {
   const W = window.innerWidth, H = window.innerHeight, inset = measureDockInset()
   const head = headHeightOf(rectsOf(HEAD_CONTROLS).map((r) => r.bottom))
-  return { head: { left: 0, right: W - inset, top: 0, bottom: head }, foot: rectsOf(FOOT_CONTROLS), dock: { left: W - inset, right: W, top: 0, bottom: H } }
+  return { head: { left: 0, right: W - inset, top: 0, bottom: head }, foot: rectsOf(FOOT_CONTROLS), dock: { left: W - inset, right: W, top: 0, bottom: H }, keys: rectsOf(LENS_KEYS) }
 }
 
 const across = (a: Rect, b: Rect) => Math.min(a.right, b.right) > Math.max(a.left, b.left)
@@ -81,12 +85,21 @@ const along = (a: Rect, b: Rect) => Math.min(a.bottom, b.bottom) > Math.max(a.to
  */
 export function clearOf(card: Rect, r: Regions): { dx: number; dy: number } {
   let up = 0
-  for (const f of r.foot) if (across(card, f) && card.bottom > f.top - REGION_GAP) up = Math.max(up, card.bottom - (f.top - REGION_GAP))
+  for (const f of [...r.foot, ...(r.keys ?? [])]) if (across(card, f) && card.bottom > f.top - REGION_GAP) up = Math.max(up, card.bottom - (f.top - REGION_GAP))
   // The band already keeps its own gap (BAND_GAP): a card is clear of it once its top is below the band.
   const down = r.head.bottom > 0 && across(card, r.head) && card.top < r.head.bottom ? r.head.bottom - card.top : 0
   // Moving up by `up` must not push its top under the head: then show its top.
   const dy = down > 0 ? down : up > 0 ? -Math.min(up, Math.max(0, card.top - r.head.bottom)) : 0
-  const dx = card.right > r.dock.left - REGION_GAP && along(card, r.dock) ? -(card.right - (r.dock.left - REGION_GAP)) : 0
+  let dx = card.right > r.dock.left - REGION_GAP && along(card, r.dock) ? -(card.right - (r.dock.left - REGION_GAP)) : 0
+  // A lens key taller than the room above it: moving up stops at the head, and the card can still sit on the key. Then it moves right of
+  // the key, where the dock leaves room (keys are anchored at the band's left).
+  if (dx === 0) {
+    const moved = { left: card.left, right: card.right, top: card.top + dy, bottom: card.bottom + dy }
+    for (const k of r.keys ?? []) if (across(moved, k) && along(moved, k)) {
+      const right = k.right + REGION_GAP - card.left
+      if (right > 0 && card.right + right <= r.dock.left - REGION_GAP) dx = Math.max(dx, right)
+    }
+  }
   return { dx: Math.trunc(dx), dy: Math.trunc(dy) }
 }
 

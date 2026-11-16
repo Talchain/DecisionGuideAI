@@ -28,6 +28,20 @@ describe('clearOf: how far the board moves so an open card clears the regions', 
   it('a card running into the dock moves left', () => {
     expect(clearOf({ left: 800, right: 1000, top: 200, bottom: 300 }, R)).toEqual({ dx: -(1000 - (925 - REGION_GAP)), dy: 0 })
   })
+  // Codex 006f: the What if key (x 16-336 at 1232x704) covered a card's open editor and its "Try without saving" (y 505-526).
+  it('an open editor over a lens key moves up until its foot clears the key', () => {
+    const keyed: Regions = { ...R, keys: [{ left: 16, right: 336, top: 470, bottom: 640 }] }
+    expect(clearOf({ left: 160, right: 360, top: 330, bottom: 530 }, keyed)).toEqual({ dx: 0, dy: -(530 - (470 - REGION_GAP)) })
+  })
+  it('a key too tall to clear by moving up (the head stops it): the card moves right of the key', () => {
+    const tall: Regions = { ...R, keys: [{ left: 16, right: 336, top: 250, bottom: 640 }] }
+    expect(clearOf({ left: 160, right: 360, top: 330, bottom: 530 }, tall)).toEqual({ dx: 336 + REGION_GAP - 160, dy: -(330 - 104) })
+  })
+  it('CONTRAST: a card beside the key, or with no key drawn, does not move for it', () => {
+    const keyed: Regions = { ...R, keys: [{ left: 16, right: 336, top: 470, bottom: 640 }] }
+    expect(clearOf({ left: 400, right: 600, top: 330, bottom: 530 }, keyed)).toEqual({ dx: 0, dy: 0 })
+    expect(clearOf({ left: 160, right: 360, top: 330, bottom: 530 }, R)).toEqual({ dx: 0, dy: 0 })
+  })
   it('the head band ends just below its lowest control; none drawn, no band', () => {
     expect(headHeightOf([96, 92])).toBe(96 + BAND_GAP)
     expect(headHeightOf([])).toBe(0)
