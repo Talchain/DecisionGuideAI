@@ -302,7 +302,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
   it('CT8g CATCH (contract 3 on the redesign, 15 Nov): a figure step below a long newest reply does not carry the thread past the reply\'s first line', () => {
     // A View whose next step is a figure the person can type (core's bakery golden) with a conversation in it.
     const bakery: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
-    const asked = { ...bakery, chat: fixture.chat } as View
+    // DL order (16 Nov): a reply's real move leads; this row is about a figure step, so the newest reply offers only the filler move.
+    const asked = { ...bakery, chat: fixture.chat.map((t, i) => (i === fixture.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: 'other_method' } } } : t)) } as View
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 900 : this.dataset.testid === 'view-chat-answer' ? 600 : 0 })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-next-step' ? 150 : 0 })
     show({ ...asked, chat: asked.chat.slice(0, 1) })

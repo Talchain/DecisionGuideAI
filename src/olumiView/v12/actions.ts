@@ -87,8 +87,8 @@ const teamActivity = (view: View): boolean => view.collab.alone && view.collab.m
  *  2. the newest reply's own move, when it is a real move (never the filler) and has not gone stale (`isGone`): the person's reasoning
  *     comes before completing the model (Codex 006: after a question, the step asked for a figure no one could size yet);
  *  3. the first figure the chances wait on that core lets them type (still on its card, "waits on", with its editor, whatever leads here).
- *     EXCEPT (DL ruling, 16 Nov overnight): when the person's latest ask needs the result that figure blocks (`askNeedsFigure`), the figure
- *     leads, before the move: their question cannot be answered without it;
+ *     The DL's exception (the figure leads when the latest ask needs the result it blocks) waits on core saying so explicitly: Codex 006h
+ *     found that no proxy in the View today (core's own question, a card the reply points at) establishes that dependency;
  *  4. the first question core orders for the goal (`first`: with no goal nothing leads, so none is chosen);
  *  5. bringing a colleague in, only while the View shows a team activity begun alone.
  * Else nothing: the conversation is the next step.
@@ -97,7 +97,6 @@ export function nextStepFor(view: View, isGone: (turn: number, move: string) => 
   if (view.proposal !== null) return { kind: 'approve' }
   const figure = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
   const figureStep = figure === undefined ? null : { kind: 'figure' as const, item: figure as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  if (figureStep !== null && askNeedsFigure(view, figureStep.item.id)) return figureStep
   const t = view.chat.at(-1)
   if (t?.answer != null && t.answer.next.newest && isRealMove(t.answer.next.move) && !isGone(t.id, t.answer.next.move)) return { kind: 'move', turn: t.id, next: t.answer.next }
   if (figureStep !== null) return figureStep
@@ -105,20 +104,6 @@ export function nextStepFor(view: View, isGone: (turn: number, move: string) => 
   if (m !== undefined && m !== null) return { kind: 'method', method: m }
   if (view.version !== null && !replyHasNext(view) && teamActivity(view)) return { kind: 'invite' }
   return null
-}
-
-/**
- * DL ruling (16 Nov overnight): the figure step leads only when the person's latest ask needs the result the figure blocks. Read from the
- * View's structure, never from the person's words (no word list over free text): the latest turn is one of core's own questions that needs
- * an analysis (NEEDS_ANALYSIS: comparing options, what has to be true, what would push it), or the reply's own next step points at that
- * figure (core's `next.at` / `next.about`).
- */
-export function askNeedsFigure(view: View, figureId: string): boolean {
-  const t = view.chat.at(-1)
-  if (t == null || t.answer == null) return false
-  const method = sessionOf(view)?.methods.find((m) => m.id !== FIGURE_FIRST_ID && m.text === t.said)?.id
-  if (method !== undefined && NEEDS_ANALYSIS.has(method)) return true
-  return t.answer.next.at === figureId || t.answer.next.about.includes(figureId)
 }
 
 /** The method replies are the turns whose `said` is one of core's own menu questions, word for word. */

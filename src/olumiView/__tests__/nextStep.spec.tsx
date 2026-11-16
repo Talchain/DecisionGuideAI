@@ -5,7 +5,6 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { NEEDS_ANALYSIS } from '../v12/actions'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
@@ -155,28 +154,6 @@ describe('the next step', () => {
     expect(nextStepOf(withMove('pre_mortem'))?.kind).toBe('move')
     expect(nextStepOf(withMove('other_method'))?.kind).toBe('method')
   })
-
-  it('DL ruling exception: when the latest ask needs the result the missing figure blocks, the figure leads, read from structure only', () => {
-    const sv = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', 'goal-understand.view3.json'), 'utf8')) as View
-    const answered = sv.chat.filter((t) => t.answer !== null).at(-1)!
-    const bakery = { ...golden('bakery'), chat: [{ ...answered, answer: { ...answered.answer!, next: { ...answered.answer!.next, about: [], at: null } } }] } as View
-    expect(bakery.chat.at(-1)?.answer, 'precondition: an answered turn').toBeTruthy()
-    const fig = bakery.model!.run!.waits_on!.items.find((i) => i.edit !== null)!.id
-    const last = (v: View, f: (t: View['chat'][number]) => View['chat'][number]): View => ({ ...v, chat: v.chat.map((t, i) => (i === v.chat.length - 1 ? f(t) : t)) })
-    const realMove = (v: View) => last(v, (t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: 'pre_mortem', newest: true } } }))
-    // 1. The reply's own next step points at the figure the chances wait on (core's next.about / next.at).
-    const pointed = last(realMove(bakery), (t) => ({ ...t, answer: { ...t.answer!, next: { ...t.answer!.next, about: [fig] } } }))
-    expect(nextStepOf(pointed)?.kind).toBe('figure')
-    expect(nextStepOf(last(realMove(bakery), (t) => ({ ...t, answer: { ...t.answer!, next: { ...t.answer!.next, at: fig } } })))?.kind).toBe('figure')
-    expect(nextStepOf(last(realMove(bakery), (t) => ({ ...t, answer: { ...t.answer!, next: { ...t.answer!.next, about: ['some_other_card'], at: null } } })))?.kind, 'CONTRAST: pointing elsewhere, the move leads').toBe('move')
-    // 2. The latest turn is one of core's own questions that needs an analysis (here 'differ': how the options differ).
-    const withSession = { ...bakery, session: sv.session } as View
-    const differ = sv.session!.methods.find((m) => m.id === 'differ')!, plain = sv.session!.methods.find((m) => !NEEDS_ANALYSIS.has(m.id) && m.id !== 'figure_first')!
-    expect(nextStepOf(last(realMove(withSession), (t) => ({ ...t, said: differ.text })))?.kind).toBe('figure')
-    expect(nextStepOf(last(realMove(withSession), (t) => ({ ...t, said: plain.text })))?.kind, 'CONTRAST: a question that needs no result: the move leads').toBe('move')
-    // The person's own words are never read: a message of their own asking much the same, not core's question word for word, changes nothing.
-    expect(nextStepOf(last(realMove(withSession), (t) => ({ ...t, said: 'Which of these options would do better for us?' })))?.kind, 'their own words are not read').toBe('move')
-  })
 })
 
 describe('Olumi\'s chronological conversation', () => {
@@ -222,13 +199,12 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     // Core's words for the move stay in the reply.
     expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).not.toBeNull()
   })
-  it('contrast: on a figure step the move stays under the reply for someone else\'s page and for the owner\'s alike', () => {
+  it('contrast (DL order, 16 Nov): with a figure waiting, the reply\'s move leads and stays under the reply, for someone else\'s page and the owner\'s alike', () => {
     const p = golden('proposal'), b = golden('bakery')
-    // A figure step under the DL's order (16 Nov): the reply's own next step points at the figure the chances wait on, so the figure leads.
-    const fig = b.model!.run!.waits_on!.items.find((i) => i.edit !== null)!.id
-    const chat = p.chat.map((t, i) => (i === p.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, about: [...t.answer.next.about, fig] } } } : t))
-    const view: View = { ...p, chat, proposal: null, model: { ...p.model!, edit_base: p.model!.edit_base ?? 1, run: { ...(p.model!.run ?? b.model!.run!), waits_on: b.model!.run!.waits_on } } }
-    expect(nextStepOf(view)?.kind).toBe('figure')
+    // A figure the chances wait on, and a reply with a real move: under the DL's order the move leads; the figure stays on its card.
+    const view: View = { ...p, proposal: null, model: { ...p.model!, edit_base: p.model!.edit_base ?? 1, run: { ...(p.model!.run ?? b.model!.run!), waits_on: b.model!.run!.waits_on } } }
+    expect(view.model!.run!.waits_on!.items.some((i) => i.edit !== null), 'precondition: a figure the chances wait on').toBe(true)
+    expect(nextStepOf(view)?.kind).toBe('move')
     try {
       useMe.setState({ me: { id: 'someone-else', name: 'Someone else' }, status: 'ready' } as never)
       const c = show(view)
