@@ -86,7 +86,7 @@ export function KeyPill() {
   const item = 'flex items-center gap-1'
   return (
     <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + 12 }}
-      className={`pointer-events-none absolute bottom-[14px] z-[1100] flex flex-col items-start justify-center gap-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
+      className={`pointer-events-none absolute bottom-[64px] z-[1100] flex flex-col items-start justify-center gap-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
       {lines.length === 0 ? null : (
         <div className="flex items-center gap-2.5" data-key-row="lines">
           {lines.map((l) => l.id === 'effect'

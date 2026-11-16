@@ -339,6 +339,9 @@
    the badge sat on the second line of the option's chance words (frame fix006-funding, 16 Nov). Only the badge: a reserve on every card with
    foot marks made the board a band taller and an aim dropped out of view (frame fix006b). */
 .olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label]:has(> [data-testid*='-bottom-marks-'] [data-testid^='view-driver-']) { padding-bottom: 28px !important; }
+/* The same reserve on a compact worked-out card that holds an option's withheld row (its letter, empty track and core's reason): at the
+   design system's 12 px the foot marks otherwise sat over that row and cut core's reason to one letter (DS fix, 16 Nov). */
+.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label]:has(> [data-testid*='-bottom-marks-'] > *):has([data-simple-withheld]) { padding-bottom: 28px !important; }
 .olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { font-size: 14px !important; line-height: 1.3 !important; }
 /* V12 Simple: every title at most two lines (the whole heading is the hover); the clamp class alone was overridden by the core card's own title rules. */
 .olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; }
