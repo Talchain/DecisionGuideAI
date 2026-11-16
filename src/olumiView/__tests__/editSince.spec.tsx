@@ -75,7 +75,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     // As served after the edit (j4 drive): the edit's own turn, its reply not given on the zero-call server, and core's invite step.
     // V12 (actions.ts teamActivity): the invite step is offered once a team activity has begun alone (a private view of their own), so the
     // fixture has begun one.
-    const edited = { ...RUN2, collab: { ...RUN2.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false }] }, chat: [...RUN2.chat, { ...RUN2.chat.at(-1)!, id: RUN2.chat.at(-1)!.id + 1, answer: null }] } as View
+    const edited = { ...RUN2, collab: { ...RUN2.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false }] }, chat: [...RUN2.chat, { ...RUN2.chat.at(-1)!, id: RUN2.chat.at(-1)!.id + 1, answer: null }] } as unknown as View
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: edited, status: 'ready', error: null, stale: false } as never)
     const el = render(<ViewChat />).container
     expect(el.querySelector('[data-testid="view-next-step"]'), 'precondition: a Next step card below').not.toBeNull()
