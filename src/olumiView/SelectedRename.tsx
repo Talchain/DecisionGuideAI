@@ -30,7 +30,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
       <Rename key={id} id={id} heading={heading} shown />
       {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={`${id}.author.text`} data-testid="selected-author">{author.text}</span>}
       {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={`${id}.headline.title`} data-testid="selected-headline-title">{said}</p>}
-      {add === null || add === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-ink`} data-testid="selected-headline-add">{add}</p>}
+      {add === null || add === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-testid="selected-headline-add">{add}</p>}
       {/* DL journey 3: a selected option's explanation, from core's fields (look/SelectedExplain.tsx). */}
       {view === null ? null : <SelectedExplain view={view} id={id} />}
     </>

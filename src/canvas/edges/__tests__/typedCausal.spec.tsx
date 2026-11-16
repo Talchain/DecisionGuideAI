@@ -73,7 +73,7 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
   })
   it('a noncausal line retains its existing treatment; an alert retains its priority', () => {
-    expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('#62B290')
+    expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('var(--edge-positive)') // the same #62B290, as its token (brand.css --edge-positive)
     cleanup()
     expect(draw(causal('decreases'), { alert: true }).p.style.stroke).toBe('var(--olumi-mark-orange)')
   })

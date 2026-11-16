@@ -16,8 +16,8 @@ export const Tick = () => <svg className="tick" viewBox="0 0 16 16" width="12" h
 export const Dash = () => <svg className="dash" viewBox="0 0 16 16" width="12" height="12"><path d="M4 8h8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
 export const Brand = ({ s }: { s: number }) => (
   <svg viewBox="0 0 680 680" width={s} height={s}>
-    <g transform="translate(13 49)" fill="none" stroke="#252525" strokeWidth="52.2"><path d="M460.5 561.0A244.8 244.8 0 0 1 159.0 460.1" /><path d="M138.8 250.4A244.8 244.8 0 0 1 317.9 94.6" /><path d="M547.8 167.1A244.8 244.8 0 0 1 609.1 380.8" /></g>
-    <g transform="translate(13 49)"><circle cx="447" cy="95" r="95.5" fill="#EA7B4B" /><path d="M0 432L226 432L112.5 243Z" fill="#5C9BB8" /><rect x="484" y="412" width="170" height="170" fill="#62B28F" /></g>
+    <g transform="translate(13 49)" fill="none" style={{ stroke: 'var(--text-header)' }} strokeWidth="52.2"><path d="M460.5 561.0A244.8 244.8 0 0 1 159.0 460.1" /><path d="M138.8 250.4A244.8 244.8 0 0 1 317.9 94.6" /><path d="M547.8 167.1A244.8 244.8 0 0 1 609.1 380.8" /></g>
+    <g transform="translate(13 49)"><circle cx="447" cy="95" r="95.5" style={{ fill: 'var(--olumi-mark-orange)' }} /><path d="M0 432L226 432L112.5 243Z" style={{ fill: 'var(--olumi-mark-blue)' }} /><rect x="484" y="412" width="170" height="170" style={{ fill: 'var(--olumi-mark-green)' }} /></g>
   </svg>
 )
 

@@ -171,7 +171,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // SCI-16: core's typed sign and sizing state are authoritative. A default-width solid line has a size, not greater certainty;
   // an unsized/words-only claim is dashed. Core's doubt, pending changes and disagreement retain their cue. Olumi's ink stays blue;
   // the typed sign keeps its own direction colour. No magnitude becomes width.
-  const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
+  const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? 'var(--edge-positive)' : link.label === '−' ? 'var(--edge-negative)' : byOlumi ? 'var(--semantic-info)' : 'var(--edge-neutral)'
   // DS (Edge polarity tokens): a modelled effect's colour is its direction, whatever else marks it (a driver is wider, a quiet rail thinner, never re-coloured).
   // A reason link (typed `causal`, no effect role) keeps its ink as drawn today.
   const reasonOnly = role === 'reason'
