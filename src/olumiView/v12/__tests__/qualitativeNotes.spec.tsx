@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
-import { qualitativeNotesToOpen, resetQualitativeNotes, useQualitativeNotes } from '../qualitativeNotes'
+import { notesOpenOn, qualitativeNotesToOpen, resetQualitativeNotes, useQualitativeNotes } from '../qualitativeNotes'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5/effects.view3.json'), 'utf8'))
 type Badge = NonNullable<NonNullable<View['model']>['question']['badge']>
@@ -17,6 +17,24 @@ const badge = { records: ['dissent_purposes', 'claim_visitors', 'claim_learning'
 const aim = { ...fx.model!.cards.find((c) => c.family === 'goal')!, id: 'aim_purpose' }
 const qualitative = (over: Partial<NonNullable<View['model']>> = {}): View => ({ ...fx, model: { ...fx.model!, question: { ...fx.model!.question, badge }, cards: [aim], ...over } } as View)
 afterEach(() => { resetQualitativeNotes(); vi.restoreAllMocks() })
+
+describe('an option with no chance shows the notes that bear on it (16 Nov: the reasoning a model stores reaches the canvas)', () => {
+  const option = fx.model!.cards.find((c) => c.family === 'option')!
+  const premise = { glyph: '⊢', text: 'An invented prerequisite', title: '', id: 'cond_invented', olumi: null }
+  const mixed = { cards: [aim, option] }
+  it('open on an option that has premises and no chance row; closed where it has a chance, where it has no premises, and on a figure card', () => {
+    const noChance = { ...option, rows: option.rows.filter((r) => r.kind !== 'chance'), premises: [premise] }
+    expect(notesOpenOn(mixed, noChance)).toBe(true)
+    // Contrasts, each by the one field that differs.
+    const chanceRow = { kind: 'chance' } as (typeof option.rows)[number]
+    expect(notesOpenOn(mixed, { ...noChance, rows: [chanceRow] })).toBe(false)
+    expect(notesOpenOn(mixed, { ...noChance, premises: [] })).toBe(false)
+    expect(notesOpenOn(mixed, { ...noChance, family: 'quantity' })).toBe(false)
+  })
+  it('a qualitative model (no option, no figure) still opens them on every card, as before', () => {
+    expect(notesOpenOn({ cards: [aim] }, { ...aim, premises: [] })).toBe(true)
+  })
+})
 
 describe('a qualitative model shows the question\'s notes on the canvas', () => {
   it('opens them only where the model is the question and its aims, with notes folded and not yet open', () => {
