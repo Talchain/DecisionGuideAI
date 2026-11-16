@@ -6,7 +6,7 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 import type { View } from '../../client'
 import { useCanvasStore } from '../../../canvas/store'
 import { useViewStore } from '../../store'
-import { useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../canvas'
+import { useSimpleCols, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../canvas'
 import { drawnModelOf } from '../../layout'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
@@ -46,6 +46,36 @@ describe('V12 Simple draws the whole model', () => {
     act(() => showWholeModel(SID)); rerender()
     await vi.waitFor(() => expect(ids()).toEqual(whole.cards.map((c) => c.id)))
     expect(links()).toBe(simpleLinks)
+  })
+})
+
+describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards outside)', () => {
+  const widthIs = (w: number) => { Object.defineProperty(window, 'innerWidth', { value: w, configurable: true }); act(() => { window.dispatchEvent(new Event('resize')) }) }
+  const wide = () => Math.max(...useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.position.x))
+  const was = window.innerWidth
+  afterEach(() => { Object.defineProperty(window, 'innerWidth', { value: was, configurable: true }) })
+
+  it('S1b a narrower room lays the Simple board out again with fewer cards across; a wider one with more', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 2400, configurable: true })
+    const { rerender } = renderHook(() => useViewCanvas(true))
+    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).length).toBe(whole.cards.length))
+    const atWide = wide()
+    widthIs(1000); rerender()
+    await vi.waitFor(() => expect(wide(), 'the board is laid out again, narrower').toBeLessThan(atWide))
+    const atNarrow = wide()
+    widthIs(2400); rerender()
+    await vi.waitFor(() => expect(wide(), 'and wider again').toBeGreaterThan(atNarrow))
+  })
+
+  it('S1c a few pixels change nothing; Detailed does not follow the room', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1600, configurable: true })
+    const simple = renderHook(() => useSimpleCols(true, true)), detailed = renderHook(() => useSimpleCols(true, false))
+    const n = simple.result.current
+    widthIs(1606)
+    expect(simple.result.current).toBe(n)
+    expect(detailed.result.current).toBe(0)
+    widthIs(900)
+    expect(simple.result.current).toBeLessThan(n)
   })
 })
 

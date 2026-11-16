@@ -4,7 +4,7 @@
  * columns). Drawn whenever a View lands (`useViewCanvas`), including the first approved model and every approval after it (00052 #1).
  * A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
@@ -194,6 +194,29 @@ export function placeViewCards(model: ViewModel): Promise<boolean> {
 /** The scenario, version and model the canvas last drew: a newer version of the same scenario pulses what it applied (`appliedSince`). */
 let drew: { sid: string | null; n: number | null; model: ViewModel } | null = null
 
+/**
+ * V12 Simple: how many cards its bands take across the room the canvas has now (layout.ts simpleStageRow), 0 on Detailed. It follows the
+ * pane's width (a window resized, the dock opened or closed), so a Simple board laid out for a wider room is laid out again for this one
+ * (Codex 006: after a resize from about 2000 to 1280 wide, Fit left "2 more cards to the right", since the bands were still the wide room's
+ * and Simple never zooms below its readable floor). Only a change in the count lays the board out again; a few pixels move nothing.
+ */
+export function useSimpleCols(on: boolean, simple: boolean): number {
+  const cols = () => (simple ? simpleStageRow(roomOf().w).perRow : 0)
+  const [n, setN] = useState(cols)
+  useEffect(() => {
+    if (!on) return undefined
+    const again = () => setN(cols())
+    again()
+    const pane = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
+    const watch = pane !== null && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(again) : null
+    if (watch !== null && pane !== null) watch.observe(pane)
+    window.addEventListener('resize', again)
+    return () => { watch?.disconnect(); window.removeEventListener('resize', again) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on, simple])
+  return n
+}
+
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
@@ -206,6 +229,7 @@ export function useViewCanvas(on: boolean): void {
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
+  const cols = useSimpleCols(on, level === 'simple')
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
@@ -228,5 +252,5 @@ export function useViewCanvas(on: boolean): void {
       pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, changed), ...addedSince(last.model, model)])] : arrived)
     })
     return () => { live = false }
-  }, [on, view, model, heights, laidAs])
+  }, [on, view, model, heights, laidAs, cols])
 }
