@@ -56,7 +56,7 @@ import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { LastReplyCard } from './v12/chat/LastReplyCard'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { richText } from './v12/chat/richText'
-import { replyLineOf, type ReplyLine } from './v12/chat/replyLabels'
+import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
@@ -94,7 +94,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
  * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
  */
 type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
-export function Blocks({ parts, at, first = 1, item, fold = false }: { parts: Said; at: string; first?: number; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a reply longer than about 8 lines shows its first 2 blocks, then "Show the whole reply". Off unless asked (the conversation asks). */ fold?: boolean }) {
+export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a reply longer than about 8 lines shows its first 2 blocks, then "Show the whole reply". Off unless asked (the conversation asks). */ fold?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
@@ -120,11 +120,12 @@ export function Blocks({ parts, at, first = 1, item, fold = false }: { parts: Sa
   // How long the reply reads, in lines of the panel (about 44 characters to a line at 12 px): an estimate, never a measure.
   const chars = (l: Piece[]) => l.reduce((n, x) => n + (x.kind === 'text' ? x.s.length : 2), 0)
   const est = groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + Math.max(1, Math.ceil(chars(l) / 44)), 0), 0)
-  // Core's own label and heading lines (replyLabels.ts): drawn apart from the prose, and the label is not counted as one of the two folded blocks.
+  // Core's own label and heading lines, by the words core sent on this turn (replyLabels.ts): drawn apart from the prose, and the label is not
+  // counted as one of the two folded blocks.
   const lineOf = (g: { list: boolean; lines: Piece[][] }): ReplyLine => {
     if (g.list || g.lines.length !== 1) return null
     const only = g.lines[0]!
-    return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join('')) : null
+    return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join(''), coreLines) : null
   }
   const lead = groups.length > 0 && lineOf(groups[0]!) === 'label' ? 1 : 0
   // Olumi's check against the model (core's heading line) and everything after it always show: the fold hides only the first answer's later
@@ -259,8 +260,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {leads
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} fold /></div>
-        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} fold />}
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold /></div>
+        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* The newest reply's next question is the "From my last reply" card above the box (V12): drawn once, so not again under the reply. Older replies keep theirs. */}
       {inCard ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}

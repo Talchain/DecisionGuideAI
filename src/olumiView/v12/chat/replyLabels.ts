@@ -1,12 +1,20 @@
 /**
- * The two lines core writes itself into a first draft's reply (olumi-core src/app/ai-runtime/direct-hook.ts FIRST_ANSWER_LABEL and
- * CHECK_HEADING, at wip/rs-fast d0d27fc8). They are core's fixed words, not the AI's, so the reply panel can draw them apart from the prose:
- * the label as a quiet caption, the heading as a block heading. Matched as a whole paragraph, exactly; nothing else in a reply is read.
- * When the View carries `first_answer` on the turn, the panel will style by its range instead and this match goes.
+ * A first draft's reply holds two lines core writes itself: the label over the first answer and the heading over Olumi's check against the
+ * model. Core sends both words on the turn (`answer.first_answer: { label, heading | null }`, olumi-core view/session.ts withMove), so the
+ * reply panel draws exactly those whole paragraphs apart from the prose: the label as a quiet caption, the heading as a block heading. The UI
+ * holds no copy of either; a reply without `first_answer` has no such lines, whatever its words.
+ * Additive on olumi.view/3 and not yet in the generated types, so it is read here, defensively.
  */
-export const FIRST_ANSWER_LABEL = 'A first answer from your brief and general knowledge, written before the model. Not checked against the model.'
-export const CHECK_HEADING = "Olumi's check against the model"
-
+export type FirstAnswerLines = { label: string; heading: string | null }
 export type ReplyLine = 'label' | 'heading' | null
-export const replyLineOf = (paragraph: string): ReplyLine =>
-  paragraph.trim() === FIRST_ANSWER_LABEL ? 'label' : paragraph.trim() === CHECK_HEADING ? 'heading' : null
+
+/** Core's two lines for this reply, or null where the turn carries none (any reply but a first draft's, or an older core). */
+export const firstAnswerOf = (answer: unknown): FirstAnswerLines | null => {
+  const fa = (answer as { first_answer?: unknown } | null)?.first_answer as { label?: unknown; heading?: unknown } | undefined
+  if (fa == null || typeof fa.label !== 'string' || fa.label === '') return null
+  return { label: fa.label, heading: typeof fa.heading === 'string' && fa.heading !== '' ? fa.heading : null }
+}
+
+/** Which of core's lines a whole paragraph is, by core's own words for this reply; null for every paragraph when core sent none. */
+export const replyLineOf = (paragraph: string, lines: FirstAnswerLines | null): ReplyLine =>
+  lines === null ? null : paragraph.trim() === lines.label ? 'label' : lines.heading !== null && paragraph.trim() === lines.heading ? 'heading' : null

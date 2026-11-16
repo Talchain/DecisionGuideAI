@@ -8,6 +8,9 @@ import { Blocks } from '../../../ViewChat'
 
 type Said = Parameters<typeof Blocks>[0]['parts']
 const T = (text: string) => [{ text }] as unknown as Said
+// Core's two lines as olumi-core sends them on a first draft's turn (`answer.first_answer`, view/session.ts at wip/v12-first-answer).
+const FIRST_ANSWER_LABEL = 'A first answer from your brief and general knowledge, written before the model. Not checked against the model.'
+const CHECK_HEADING = "Olumi's check against the model"
 
 describe('reply text marks', () => {
   it('draws **x** as weight 500 without asterisks, and a bare address as a safe link without its trailing full stop', () => {
@@ -47,23 +50,33 @@ describe('a long reply folds', () => {
 describe("a first draft reply: core's own label and heading stand apart from the prose", () => {
   it('draws the label as a caption, the heading as a block heading, and the list as a list', async () => {
     const { Blocks } = await import('../../../ViewChat')
-    const { FIRST_ANSWER_LABEL, CHECK_HEADING } = await import('../replyLabels')
     const text = [FIRST_ANSWER_LABEL, 'Cash runway decides the order.', '- Ask two supporters.\n- Keep the round going.', CHECK_HEADING, 'Your model has no figure for the angel round yet.'].join('\n\n')
-    const { container } = render(<Blocks parts={[{ text }]} at="t" />)
+    const { container } = render(<Blocks parts={[{ text }]} at="t" lines={{ label: FIRST_ANSWER_LABEL, heading: CHECK_HEADING }} />)
     expect(container.querySelector('[data-reply-label]')?.textContent).toBe(FIRST_ANSWER_LABEL)
     expect(container.querySelector('[data-reply-heading]')?.textContent).toBe(CHECK_HEADING)
     expect(container.querySelectorAll('[data-reply-list] li')).toHaveLength(2)
     expect(container.querySelectorAll('[data-reply-para]')).toHaveLength(2)
+  })
+  it('styles nothing by its words alone: without core\'s first_answer the same paragraphs are plain prose', async () => {
+    const { Blocks } = await import('../../../ViewChat')
+    const text = [FIRST_ANSWER_LABEL, 'Cash runway decides the order.', CHECK_HEADING, 'Your model has no figure yet.'].join('\n\n')
+    const { container } = render(<Blocks parts={[{ text }]} at="t" />)
+    expect([container.querySelector('[data-reply-label]'), container.querySelector('[data-reply-heading]')]).toEqual([null, null])
+    expect(container.querySelectorAll('[data-reply-para]')).toHaveLength(4)
+  })
+  it('reads the lines from the turn: firstAnswerOf takes label and heading, and nothing from an answer without them', async () => {
+    const { firstAnswerOf } = await import('../replyLabels')
+    expect(firstAnswerOf({ first_answer: { label: 'L', heading: null } })).toEqual({ label: 'L', heading: null })
+    expect([firstAnswerOf({}), firstAnswerOf(null), firstAnswerOf({ first_answer: { label: '' } })]).toEqual([null, null, null])
   })
 })
 
 describe('a folded first answer never hides Olumi\'s check against the model', () => {
   it('folds the first answer\'s later detail but keeps the heading and the check', async () => {
     const { Blocks } = await import('../../../ViewChat')
-    const { FIRST_ANSWER_LABEL, CHECK_HEADING } = await import('../replyLabels')
     const para = (n: number) => `Point ${n}. ` + 'This paragraph is long enough to take several lines of the panel at twelve pixels wide. '.repeat(2)
     const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), para(4), CHECK_HEADING, 'Your model says something different about point three.'].join('\n\n')
-    const { container } = render(<Blocks parts={[{ text }]} at="t" fold />)
+    const { container } = render(<Blocks parts={[{ text }]} at="t" lines={{ label: FIRST_ANSWER_LABEL, heading: CHECK_HEADING }} fold />)
     expect(container.querySelector('[data-reply-heading]')?.textContent).toBe(CHECK_HEADING)
     expect(container.textContent).toContain('Your model says something different')
     expect(container.textContent).not.toContain('Point 3.')
