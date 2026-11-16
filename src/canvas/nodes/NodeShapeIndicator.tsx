@@ -24,6 +24,11 @@ interface NodeShapeIndicatorProps {
   stroke?: string
   /** In viewBox units (12-unit box), so 0.6 here = the contract's 1.2 in 24. */
   strokeWidth?: number
+  /**
+   * An outlined, dashed shape in the kind's colour and a panel fill, never solid: what is not yet verified (V12's assumption marker, Paul 16 Nov).
+   * Absent everywhere else, so every other reader draws exactly as before.
+   */
+  dashedOutline?: boolean
 }
 
 /**
@@ -41,13 +46,16 @@ const SHAPE_FILLS: Record<NodeType, string> = {
   constraint: 'var(--text-light)',
 }
 
-export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverride, stroke, strokeWidth }: NodeShapeIndicatorProps) {
-  const fill = fillOverride ?? SHAPE_FILLS[nodeKind] ?? SHAPE_FILLS.factor
+export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverride, stroke, strokeWidth, dashedOutline = false }: NodeShapeIndicatorProps) {
+  const kindFill = SHAPE_FILLS[nodeKind] ?? SHAPE_FILLS.factor
+  const fill = dashedOutline ? fillOverride ?? 'var(--bg-panel)' : fillOverride ?? kindFill
   // Spread onto every shape element. Empty when no stroke was asked for, so the
   // default rendering is byte-identical to the stroke-less shape.
-  const outline = stroke
-    ? { stroke, strokeWidth: strokeWidth ?? 0.6, strokeLinejoin: 'round' as const }
-    : {}
+  const outline = dashedOutline
+    ? { stroke: kindFill, strokeWidth: 1, strokeDasharray: '2 1.5', strokeLinejoin: 'round' as const }
+    : stroke
+      ? { stroke, strokeWidth: strokeWidth ?? 0.6, strokeLinejoin: 'round' as const }
+      : {}
 
   switch (nodeKind) {
     case 'factor':

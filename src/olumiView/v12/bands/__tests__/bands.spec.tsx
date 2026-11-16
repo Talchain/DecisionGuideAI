@@ -10,7 +10,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { cleanup, render, screen } from '@testing-library/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
-import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_LABEL_H } from '../../../layout'
+import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
 import { BANDS, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs } from '../bands'
 import { bandLabelsOf } from '../BandLayer'
 import { extrasOf } from '../extras'
@@ -67,14 +67,17 @@ describe('bands: Simple layout', () => {
     expect(maxY(of('inputs'))).toBeLessThan(minY(of('outcomes')))
     expect(maxY(of('outcomes'))).toBeLessThan(minY(of('aims')))
   })
-  it('B5 each present band has one label, above its first row and clear of the row above it', async () => {
+  it('B5 each present band has one label, in one left column (the board\'s left edge), standing over its first row in the 48 unit row gap (R1)', async () => {
     const { places, y } = await placed(model)
     const nodes = [...places].map(([id, position]) => ({ id, position }))
     const labels = bandLabelsOf(nodes, model)
     expect(labels.map((l) => l.band)).toEqual(['options', 'inputs', 'outcomes', 'aims'])
+    // The label is anchored to the row's top (BandLayer lifts it clear of the kind marker); the room above the row is the row gap, as wide as production's.
     const topOfOptions = Math.min(...allOptionCards(model).map((c) => y(c.id)))
-    expect(labels[0]!.y).toBe(topOfOptions - SIMPLE_LABEL_H)
-    expect(labels[0]!.y).toBeGreaterThanOrEqual(places.get(QUESTION)!.y + 44)
+    expect(labels[0]!.y).toBe(topOfOptions)
+    expect(topOfOptions - (places.get(QUESTION)!.y + 44), 'the label has the 48 unit row gap above the first row').toBe(SIMPLE_GAP_Y)
+    expect(new Set(labels.map((l) => l.x)).size, 'one column').toBe(1)
+    expect(labels[0]!.x, 'at the board\'s left edge').toBe(Math.min(...model.cards.map((c) => places.get(c.id)!.x)))
   })
 })
 

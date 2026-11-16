@@ -8,7 +8,7 @@
  * once the causal layout is in, and framed again if the new zoom changed the board, at most three times and never over the person's own
  * pan or zoom. The dock, the note and the zoom controls are the legacy canvas's own components, unchanged.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
@@ -80,6 +80,7 @@ import { useQualitativeNotes } from './v12/qualitativeNotes'
 import { clearLayoutUndo } from './v12/edit/undo'
 import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
+import { useFocusPath } from './v12/bands/focusPath'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { KeyPill } from './v12/bands/KeyPill'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
@@ -87,6 +88,8 @@ import { keptIdeasOf } from './v12/ideas'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
+/** A card off the lit path fades to production's own opacity (canvas/nodes/BaseNode opacity-25). */
+const OFF_PATH_OPACITY = 0.25
 const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard, [VIEW_IDEA]: IdeaCard, [VIEW_FOLD]: FoldCard }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
@@ -162,7 +165,9 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
   const v = frameOf(snaps, pane, free, simple)
   // DL 07:48Z (3): at rest no card's label or figure is under the foot controls (footClear.ts); after the first approval, the aim in view.
   const nodes = (snaps.full ?? snaps.body ?? snaps.line)?.nodes
-  if (v === null || nodes === undefined) return v
+  // V12 Simple frames the whole board at the largest zoom that fits it above the foot gutter (simpleFrame): a board that does not fit is shown from its top
+  // and the cue counts what is below, so the board is not pushed down to put a row wholly under the fold (R1 priority 2, 16 Nov).
+  if (v === null || nodes === undefined || simple) return v
   return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top), anchor)
 }
 
@@ -170,8 +175,8 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   // DL-538 (14 Nov, the target screen): the board OPENS on its readable full face, never on a zoomed-out face. Until the full face has been
   // drawn, it is drawn once at the top of its band to measure it. Then: the whole board where it fits in the full band; else the full face
   // as wide as the stage allows (within the band), its top under the free canvas's top; what does not fit is panned to, never shrunk.
-  // V12 Simple: compact faces at a fixed type size, so their heights do not change with zoom and there is no face regime to measure: the whole
-  // model at the largest zoom that fits (never past 1), never below Simple's 0.8 (10.4 px type on screen); what still does not fit is below.
+  // V12 Simple: compact faces at the type scale the board was laid out for, so their heights do not change with zoom and there is no face regime
+  // to measure: the whole model at the largest zoom that fits (never past 1), never below Simple's floor, 0.5; what still does not fit is below.
   if (simple) { const n = snaps.full ?? snaps.body ?? snaps.line; return n === undefined ? null : simpleFrame(n.nodes, pane, free) }
   const full = snaps.full
   if (full === undefined) {
@@ -343,13 +348,22 @@ function ViewFlow() {
   useQualitativeNotes(useViewStore((s) => s.sid), view)
   const chipCards = useMemo(() => new Set(revealOf(view)?.cardChips.keys() ?? []), [view])
   const simple = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s)) === 'simple'
+  // The path lit while a card is hovered, else while one is selected (R1: production's rule; the cards and links off it fade, only then).
+  const hovered = useViewHover((h) => h.id)
+  const lit = useMemo(() => {
+    if (!simple || view?.model == null) return null
+    const selected = stored.find((n) => n.selected === true && n.type === VIEW_CARD)?.id ?? null
+    const focus = hovered !== null && stored.some((n) => n.id === hovered && n.type === VIEW_CARD) ? hovered : selected
+    return causalPathOf(drawnModelOf(view.model), focus)
+  }, [stored, hovered, simple, view])
+  useEffect(() => { useFocusPath.setState({ path: lit }) }, [lit])
   const nodes = useMemo(() => {
     const base = withOpenCard(withChipsAbove(stored, chipCards), openCard)
-    // V12 Simple: with a card selected, the cards off its causal path dim (v12/bands, causalPathOf), not only the links.
-    const selected = simple ? stored.find((n) => n.selected === true && n.type === VIEW_CARD)?.id ?? null : null
-    const path = selected === null || view?.model == null ? null : causalPathOf(drawnModelOf(view.model), selected)
-    return path === null ? base : base.map((n) => (n.id === QUESTION || path.has(n.id) ? n : { ...n, style: { ...n.style, opacity: 0.35, transition: 'opacity 120ms' }, className: `${n.className ?? ''} v12-off-path`.trim() }))
-  }, [stored, chipCards, openCard, simple, view])
+    // V12 Simple: the board is drawn at the type scale it was laid out for (layout.ts simpleScaleOf), the same on every card: heights then do not
+    // change as the person zooms, so nothing re-flows under their hand. Both variables, the canvas's and the look's own (--o-s is substituted at the root).
+    const scaled = !simple ? base : base.map((n) => { const s = (n.data as { scale?: number }).scale; return s === undefined ? n : { ...n, style: { ...n.style, '--canvas-label-scale': s, '--o-s': s } as CSSProperties } })
+    return lit === null ? scaled : scaled.map((n) => (n.id === QUESTION || lit.has(n.id) ? n : { ...n, style: { ...n.style, opacity: OFF_PATH_OPACITY, transition: 'opacity 300ms ease' }, className: `${n.className ?? ''} v12-off-path`.trim() }))
+  }, [stored, chipCards, openCard, simple, lit])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   // The previous product's right-click menu on the lane's canvas: its own items, those that reach core (ask Olumi in the chat, the card's

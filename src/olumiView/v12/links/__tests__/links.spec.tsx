@@ -9,13 +9,16 @@ import type { View, ViewLink } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
-import { DIRECTION_NOT_SETTLED, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, effectDash, effectWidth, linkStyle } from '../styles'
+import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, effectWidth, linkStyle } from '../styles'
 import { effectMidpoint } from '../geometry'
+import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
+import { useFocusPath } from '../../bands/focusPath'
+import { EDGE_OFF_PATH_OPACITY } from '../../../../canvas/edges/ViewLinkEdge'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const first = view.model!.links[0]!
 const base = { ...first, causal: { sign: 'increases', of: 'more_of_from', target: first.to, disputed: false, author: null, text: '', strength: { state: 'sized', figure: null, low: null, likely: null } } } as unknown as ViewLink
-afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useFocusPath.setState({ path: null }); useSimpleLevel.setState({ levels: {} }); setDefaultLevel('simple') })
 
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 const draw = (link: ViewLink, nodes: { id: string; x: number; y: number }[] = []) => render(
@@ -32,10 +35,12 @@ const g = (c: HTMLElement) => c.querySelector('g[data-view-link]') as SVGGElemen
 describe('style table', () => {
   it('every role has its stroke, dash, end and label', () => {
     expect(LINK_STYLES.effect).toMatchObject({ stroke: EFFECT_STROKES.neutral, dash: null, end: 'arrow' })
-    expect(LINK_STYLES.input).toMatchObject({ stroke: INPUT_GREY, dash: '1 4', end: 'dot' })
+    // R5 (16 Nov): dash means doubt and nothing else, so the role lines are solid; every one of them is the thinnest rung, 2 px.
+    expect(LINK_STYLES.input).toMatchObject({ stroke: INPUT_GREY, dash: null, end: 'dot', width: 2 })
     expect(LINK_STYLES.measures).toMatchObject({ stroke: GOLD, end: 'none' })
     expect(LINK_STYLES.target.stroke).toBe(GOLD)
-    expect(LINK_STYLES.size).toMatchObject({ dash: '1 4', end: 'none', label: 'size' })
+    expect(LINK_STYLES.size).toMatchObject({ dash: null, end: 'none', label: 'size', width: 2 })
+    expect(Object.values(LINK_STYLES).map((x) => x.width)).toEqual([2, 2, 2, 2, 2])
   })
   it('reason, an unknown role and no role have no style (drawn as today)', () => {
     expect(linkStyle({ role: 'reason' })).toBeNull()
@@ -43,7 +48,6 @@ describe('style table', () => {
     expect(linkStyle({})).toBeNull()
     expect(linkStyle({ role: 'input' })?.role).toBe('input')
   })
-  it('doubt alone dashes an effect', () => { expect(effectDash(true)).not.toBeNull(); expect(effectDash(false)).toBeNull() })
 })
 
 describe('a modelled effect', () => {
@@ -65,10 +69,17 @@ describe('a modelled effect', () => {
     const neg = line(draw(withCausal('decreases'))).style.stroke
     expect(neg).toBe('var(--edge-negative)'); expect(neg).not.toBe(INK)
   })
-  it('strength is thickness only from a unit-free share, within 1.5 to 3 px; raw figures never size a line', () => {
-    expect(effectWidth(null)).toBe(1.5); expect(effectWidth(0)).toBe(1.5); expect(effectWidth(1)).toBe(3); expect(effectWidth(5)).toBe(3); expect(effectWidth(0.5)).toBe(2.25)
-    const l = withCausal('increases'); l.causal!.strength.share = 1
-    expect(line(draw(l)).style.strokeWidth).toBe('3')
+  it('strength is thickness only from a unit-free share, on production\'s 2 / 3 / 4 / 5 ladder (R1, R5); raw figures never size a line', () => {
+    // The bands are production's (canvas/domain/vocabulary: 0, 0.20, 0.40, 0.70 cuts); no share is the thinnest rung.
+    expect(effectWidth(null)).toBe(2); expect(effectWidth(0)).toBe(2); expect(effectWidth(0.19)).toBe(2); expect(effectWidth(0.2)).toBe(3); expect(effectWidth(0.4)).toBe(4); expect(effectWidth(0.7)).toBe(5); expect(effectWidth(5)).toBe(5)
+    expect(effectWidth(-0.5)).toBe(4)
+    const l = withCausal('increases'); l.causal = { ...l.causal!, strength: { ...l.causal!.strength, share: 0.5 } }
+    const c = draw(l)
+    expect(line(c).style.strokeWidth).toBe('4')
+    // Screen px: the line does not thin as the camera zooms out.
+    expect(line(c).style.vectorEffect).toBe('non-scaling-stroke')
+    cleanup()
+    expect(line(draw(withCausal('increases'))).style.strokeWidth).toBe(String(PLAIN_WIDTH))
   })
   it('is dashed only when doubted (not when unsized or proposed)', () => {
     expect(line(draw(withCausal('increases', { doubt: true }))).style.strokeDasharray).not.toBe('')
@@ -100,11 +111,13 @@ describe('a modelled effect', () => {
 })
 
 describe('link roles', () => {
-  const role = (r: string, extra: object = {}) => ({ ...withCausal('increases'), role: r, ...extra }) as ViewLink
-  it('input: thin neutral dotted, a filled dot at the end, no arrowhead', () => {
+  // R5: only a link with a typed `causal` is an effect; a role line carries no `causal` here.
+  const role = (r: string, extra: object = {}) => ({ ...first, doubt: false, alert: false, proposed: false, causal: null, role: r, ...extra }) as unknown as ViewLink
+  it('input: neutral, 2 px and solid, a filled dot at the end, no arrowhead', () => {
     const c = draw(role('input'))
     expect(line(c).style.stroke).toBe(INPUT_GREY)
-    expect(line(c).style.strokeDasharray).toBe('1 4')
+    expect(line(c).style.strokeDasharray).toBe('')
+    expect(line(c).style.strokeWidth).toBe('2')
     expect(g(c).getAttribute('data-link-end')).toBe('dot')
     expect(c.querySelector('marker circle')).not.toBeNull()
     expect(c.querySelector('marker path')).toBeNull()
@@ -117,15 +130,34 @@ describe('link roles', () => {
     expect(g(c).getAttribute('data-link-role')).toBe('measures')
   })
   it('target: a gold line', () => { expect(line(draw(role('target'))).style.stroke).toBe(GOLD) })
-  it('reason: no role style is applied (a typed link keeps the modelled look)', () => {
-    const c = draw(role('reason'))
-    expect(line(c).style.stroke).toBe(INK)
+  it('a link with a typed `causal` is an effect whatever its role says: direction colour and arrowhead, never the role\'s dots (R5)', () => {
+    const c = draw({ ...withCausal('decreases'), role: 'input' } as ViewLink)
+    expect(line(c).style.stroke).toBe(EFFECT_STROKES.decreases)
     expect(line(c).style.strokeDasharray).toBe('')
+    expect(g(c).getAttribute('data-link-end')).toBe('arrow')
+    expect(g(c).getAttribute('data-link-role')).toBe('input')
   })
-  it('size: a dotted wire to the midpoint of the sized effect, labelled "size"; never an arrowhead', () => {
+  it('reason: a plain 2 px neutral line, never coloured or weighted as an effect, never ink (R5)', () => {
+    // Simple draws every link at rest (Detailed draws a reason link only while one of its cards is active).
+    setDefaultLevel('simple')
+    for (const l of [role('reason'), { ...role('reason'), role: undefined, kind: 'reason' } as unknown as ViewLink, { ...first, doubt: false, alert: false, proposed: false, causal: null, label: '' } as unknown as ViewLink]) {
+      const c = draw(l)
+      expect(line(c).style.stroke).toBe(EDGE_NEUTRAL)
+      expect(line(c).style.stroke).not.toBe(INK)
+      expect(line(c).style.strokeWidth).toBe('2')
+      expect(line(c).style.strokeDasharray).toBe('')
+      cleanup()
+    }
+  })
+  it('only a doubted link is dashed, whatever kind of line it is (R5)', () => {
+    expect(line(draw(role('input', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
+    cleanup()
+    expect(line(draw(role('reason', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
+  })
+  it('size: a plain wire to the midpoint of the sized effect, labelled "size"; never an arrowhead', () => {
     const l = role('size', { sizes: { from: 'a', to: 'b' } })
     const c = draw({ ...l, from: 'f', to: 't' } as ViewLink, [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 0, y: 200 }, { id: 'f', x: 300, y: 0 }, { id: 't', x: 300, y: 100 }])
-    expect(line(c).style.strokeDasharray).toBe('1 4')
+    expect(line(c).style.strokeDasharray).toBe('')
     expect(line(c).getAttribute('marker-end')).toBeNull()
     expect(c.querySelector('[data-view-link-size-label="links.0"]')?.textContent).toBe('size')
     expect(c.querySelector('[data-view-link-size-label="links.0"]')?.getAttribute('font-size')).toBe('12')
@@ -142,4 +174,20 @@ describe('link roles', () => {
 describe('effectMidpoint', () => {
   it('a card below: bottom-centre to top-centre', () => { expect(effectMidpoint({ x: 0, y: 0, w: 100, h: 40 }, { x: 0, y: 200, w: 100, h: 40 })).toEqual({ x: 50, y: 120 }) })
   it('a card beside: right edge to left edge', () => { expect(effectMidpoint({ x: 0, y: 0, w: 100, h: 40 }, { x: 200, y: 0, w: 100, h: 40 })).toEqual({ x: 150, y: 20 }) })
+})
+
+describe('the lit path (R1, 16 Nov): links fade only while a path is lit', () => {
+  const l = (from: string, to: string) => ({ ...withCausal('increases'), from, to }) as ViewLink
+  it('at rest nothing fades; with a path lit, a link whose ends are not both on it fades to production\'s 0.18, one on the path does not', () => {
+    const rest = draw(l('a', 'b'))
+    expect([g(rest).style.opacity, g(rest).hasAttribute('data-off-path')]).toEqual(['', false])
+    cleanup()
+    useFocusPath.setState({ path: new Set(['a', 'b']) })
+    const on = draw(l('a', 'b'))
+    expect([g(on).style.opacity, g(on).hasAttribute('data-off-path')], 'on the path').toEqual(['', false])
+    cleanup()
+    const off = draw(l('a', 'z'))
+    expect([g(off).style.opacity, g(off).hasAttribute('data-off-path')], 'one end off the path').toEqual([String(EDGE_OFF_PATH_OPACITY), true])
+    expect(EDGE_OFF_PATH_OPACITY).toBe(0.18)
+  })
 })

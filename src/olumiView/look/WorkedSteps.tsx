@@ -87,10 +87,10 @@ function Operand({ s, option, coefficient = false }: { s: Omit<CoreStep, 'role'>
   )
 }
 
-function CoreWorked({ card, worked, option, mine, open }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string>; open?: boolean }): JSX.Element {
+function CoreWorked({ card, worked, option, mine, open, inline }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string>; open?: boolean; inline?: boolean }): JSX.Element {
   return (
-    <details className="ok-steps nodrag nowheel" data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
-      <summary title={WORKED_OUT}><span className="line-clamp-1">{WORKED_OUT}</span></summary>
+    <details className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
+      <summary title={WORKED_OUT}><span>{WORKED_OUT}</span></summary>
       <ol>
         {worked.steps.map((s, i) => {
           const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
@@ -117,17 +117,18 @@ export function movedByWorked(view: View, option: string): string[] {
 }
 
 /** `mine`: the cards whose terms are marked as this option's (SelectedExplain); none on a card's own face. `option`: the selected option. */
-/** `open`: drawn open (a selected option's path, DL 08:58Z), where the steps are the path itself. */
-export function WorkedSteps({ view, id, mine, option, open }: { view: View; id: string; mine?: ReadonlySet<string>; option?: string; open?: boolean }): JSX.Element | null {
+/** `open`: drawn open (a selected option's path, DL 08:58Z), where the steps are the path itself. `inline`: the open steps are part of the card's own
+ *  flow (a card whose figure waits, R7, 16 Nov: its working IS what the person can act on), never a pop-out over the row below. */
+export function WorkedSteps({ view, id, mine, option, open, inline }: { view: View; id: string; mine?: ReadonlySet<string>; option?: string; open?: boolean; inline?: boolean }): JSX.Element | null {
   const card = view.model?.cards.find((c) => c.id === id) ?? null
-  if (card?.worked != null) return <CoreWorked card={card} worked={card.worked} option={option} mine={mine} open={open} />
+  if (card?.worked != null) return <CoreWorked card={card} worked={card.worked} option={option} mine={mine} open={open} inline={inline} />
   const worked = workedStepsOf(view, id)
   if (worked.length === 0) return null
   return (
     <>
       {worked.map(({ relation, steps }) => (
-        <details key={relation.id} className="ok-steps nodrag nowheel" data-view={`${id}.worked.${relation.id}`} open={open}>
-          <summary title={relation.label}><span className="line-clamp-1">{relation.label}</span></summary>
+        <details key={relation.id} className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${id}.worked.${relation.id}`} open={open}>
+          <summary title={relation.label}><span>{relation.label}</span></summary>
           <ol>
             {steps.map(({ link, from, effectCard }, i) => {
               const effect = (link as { effect?: { text: string; title: string } | null }).effect ?? null

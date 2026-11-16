@@ -81,48 +81,46 @@ describe('the range, as a band with the chance marked', () => {
     expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
     expect([d.track!.getAttribute('tabindex'), d.track!.getAttribute('aria-hidden')], 'no words: nothing to reach, as before').toEqual([null, 'true'])
   })
-  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: the "Why not" press opens core\'s why, DL 15 Nov)', () => {
+  it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: ONE quiet line, its why the hover, R6 16 Nov)', () => {
     const fixed = draw(golden('pricing'), 'carry_on')
     expect(fixed.root.querySelector('[data-ok-face="fixed"]')!.textContent).toContain(fixed.card.headline!.text)
     expect([fixed.track, fixed.band, fixed.mark, fixed.share]).toEqual([null, null, null, null])
     cleanup()
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
-    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', range: null, why: 'Core could not work it out.' }
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', range: null, why: 'Core could not work it out.', add: null }
     const none = draw(v, 'raise_price')
-    const press = none.root.querySelector<HTMLDetailsElement>('[data-ok-face="none"] details.ok-why')!
-    // DL 15 Nov: the face is the "Why not" press alone; it opens core's `why`, exactly; the bare text is not drawn anywhere on the face.
-    expect([press.querySelector('summary')!.textContent, press.querySelector('[data-core-lead-clamp="raise_price"]')!.textContent]).toEqual(['Why not', 'Core could not work it out.'])
-    expect(none.root.querySelector('[data-ok-face="none"]')!.textContent).not.toContain('No chance yet')
+    // R6: the face is one quiet line, core's headline words where it sends no next step; the why is its hover; no press, no "?", no empty track.
+    const line = none.root.querySelector<HTMLElement>('[data-ok-face="none"] .ok-quiet')!
+    expect([line.textContent, line.getAttribute('title')]).toEqual(['No chance yet', 'Core could not work it out.'])
+    expect(none.root.querySelector('[data-ok-face="none"] details, [data-ok-face="none"] summary, [data-ok-face="none"] .ok-empty, [data-ok-face="none"] .ok-q')).toBeNull()
     expect([none.track, none.band, none.mark, none.caption]).toEqual([null, null, null, null])
   })
-  // CATCH (contract 3): on the product before this change the pill drew headline.text ("No chance yet") and a separate "Why not" details carried the why,
-  // so the pill's text, its data-view and the absent "Why not" all fail there (old CoreCard line: `{h.text}` in .ok-pill; `<details className="ok-why">` drawn when why is set).
-  it('B6b catch (contract 3, DL 15 Nov): a withheld card\'s face is one "Why not" press that opens core\'s why, naming the field it came from', () => {
+  it('B6b catch (R6): a withheld card with a next step draws that step as its one line, naming the field it came from; the why is behind the hover, off the face', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
-    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'Every option shares this reason.', range: null, why: 'Core could not work it out.' }
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'Every option shares this reason.', range: null, why: 'Core could not work it out.', add: 'Say what the target is.' }
     const d = draw(v, 'raise_price')
-    const lead = d.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
-    expect(lead.textContent).toBe('Core could not work it out.')
-    expect(lead.getAttribute('data-view')).toBe('raise_price.headline.why')
-    expect(lead.closest('details.ok-why'), 'the reason is behind the press, off the face').not.toBeNull()
-    expect(d.root.querySelectorAll('[data-ok-face="none"] summary')).toHaveLength(1)
-    expect(d.root.querySelector('[data-ok-face="none"] .ok-pill')).toBeNull()
+    const line = d.root.querySelector<HTMLElement>('[data-ok-face="none"] .ok-quiet')!
+    expect(line.textContent).toBe('Say what the target is.')
+    expect(line.getAttribute('data-view')).toBe('raise_price.headline.add')
+    expect(line.getAttribute('title'), 'the reason whole, then the step').toBe('Core could not work it out.\nSay what the target is.')
+    expect(d.root.querySelectorAll('[data-ok-face="none"] summary')).toHaveLength(0)
+    expect(d.root.querySelector('[data-ok-face="none"]')!.textContent, 'the reason is not on the face').not.toContain('Core could not work it out.')
     expect(withheldWords(c.headline)).toBe('Core could not work it out.')
   })
-  it('B6c catch (contract 3, DL 15 Nov): with no why, core\'s title (the reason every option shares) is behind the press; with neither, core\'s short text is the face, with no press. Each names its own field', () => {
+  it('B6c catch (R6): with no next step the line is core\'s headline text, and its hover is the reason: core\'s title where there is no why, else the text itself. Each names its own field', () => {
     const v = structuredClone(golden('pricing')); const c = v.model!.cards.find((x) => x.id === 'raise_price')!
-    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'The goal has no target yet.', range: null, why: null }
+    c.headline = { ...c.headline!, state: 'none', text: 'No chance yet', title: 'The goal has no target yet.', range: null, why: null, add: null }
     const t = draw(v, 'raise_price')
-    const lead = t.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
-    expect(lead.textContent).toBe('The goal has no target yet.'); expect(lead.getAttribute('data-view')).toBe('raise_price.headline.title')
+    const line = t.root.querySelector<HTMLElement>('[data-ok-face="none"] .ok-quiet')!
+    expect([line.textContent, line.getAttribute('title'), line.getAttribute('data-view')]).toEqual(['No chance yet', 'The goal has no target yet.', 'raise_price.headline.text'])
     expect(withheldWords(c.headline)).toBe('The goal has no target yet.')
     cleanup()
     c.headline = { ...c.headline!, title: '', why: '' }
     const x = draw(v, 'raise_price')
-    const lead2 = x.root.querySelector<HTMLElement>('[data-core-lead-clamp="raise_price"]')!
-    expect(lead2.textContent).toBe('No chance yet'); expect(lead2.getAttribute('data-view')).toBe('raise_price.headline.text')
+    const line2 = x.root.querySelector<HTMLElement>('[data-ok-face="none"] .ok-quiet')!
+    expect([line2.textContent, line2.getAttribute('title')]).toEqual(['No chance yet', 'No chance yet'])
     expect(withheldWords(c.headline)).toBe('No chance yet')
-    expect(x.root.querySelector('details.ok-why')).toBeNull()
+    expect(x.root.querySelector('details')).toBeNull()
   })
   it('B6d contrast: a chance and a fixed result are not withheld: withheldWords is null for them and their own words are unchanged', () => {
     const g = golden('pricing')

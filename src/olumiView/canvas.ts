@@ -51,6 +51,8 @@ export const focusedLinkOf = (target: EventTarget | null): string | null =>
     : null
 
 type At = { x: number; y: number }
+/** A place with the width its band gives the card and the type scale the Simple board is drawn at (layout.ts SimplePlace). */
+type Placed = At & { w?: number; s?: number }
 /** Where this module last put each View card and the question. One still there is the canvas's to re-place; one elsewhere is where the
  *  person put it. */
 const placed = new Map<string, At>()
@@ -59,15 +61,15 @@ type Box = At & { w: number; h: number }
 const sits = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 /** The last causal layout, keyed by what it rests on (the cards, their links and their drawn heights), and how many are being laid out. */
-let causal: { key: string; places: Map<string, At> } | null = null
+let causal: { key: string; places: Map<string, Placed> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean } }) =>
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
-let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean } = { cardW: 0, gapX: 0 }
+let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }
 export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
@@ -106,7 +108,7 @@ export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []
   return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
 }
 
-async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, At>> {
+async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, Placed>> {
   const { nodes, railed, size, opts } = causalInputs(model, extras)
   row = opts.row
   const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
@@ -125,12 +127,14 @@ async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): P
  * Put the View's model on the canvas at `places` (the question's and every card's). True when the canvas changed. A card (or the
  * question) the person moved stays where they put it; the canvas's measurements are kept, so a re-draw never forgets a card's height.
  */
-export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>, extras: readonly BandExtra[] = []): boolean {
+export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Placed>, extras: readonly BandExtra[] = []): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
   if (row.cardW === 0) row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const heights = drawnHeights(store.nodes), q = { width: questionBarWidth(model, row) }
-  const box = (id: string, p: At) => ({ ...p, w: id === QUESTION ? q.width : row.cardW, h: heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const widthOf = (id: string): number => (id === QUESTION ? places.get(id)?.w ?? q.width : places.get(id)?.w ?? row.cardW)
+  const scale = [...places.values()].find((p) => p.s !== undefined)?.s
+  const box = (id: string, p: At) => ({ x: p.x, y: p.y, w: widthOf(id), h: heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
   const ids = [QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : extras.find((e) => e.id === id)?.type ?? VIEW_CARD)
   const movedTo = (id: string) => { const n = held.get(id); return n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
   // What the person moved stays; every other card goes to its causal place, below any moved card it would sit on (review 00063 #1).
@@ -152,11 +156,11 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>
   const kept = (id: string) => ({ ...measured(id), ...(held.get(id)?.selected === true ? { selected: true } : {}) })
   // The question first, as core's page draws it (00057 #1): its text, its date, its badge, and the links to the question as a whole.
   const nodes = [
-    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: q.width }, position: placeOf(QUESTION), ...kept(QUESTION) },
+    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: widthOf(QUESTION), ...(scale === undefined ? {} : { scale }) }, position: placeOf(QUESTION), ...kept(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
-    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading, width: row.cardW }, position: placeOf(card.id), ...kept(card.id) })),
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading, width: widthOf(card.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(card.id), ...kept(card.id) })),
     // V12 Simple: the kept ideas and the folded inputs' group (v12/bands), each in its band.
-    ...extras.map((e) => ({ id: e.id, type: e.type, data: { ...e.data, width: row.cardW }, position: placeOf(e.id), ...kept(e.id) })),
+    ...extras.map((e) => ({ id: e.id, type: e.type, data: { ...e.data, width: widthOf(e.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(e.id), ...kept(e.id) })),
   ]
   // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
   const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title,
@@ -197,13 +201,13 @@ export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>>
 export const ideasOnlyOf = (view: View | null, sid: string | null): BandExtra[] => (view === null || view.model != null ? [] : extrasOf(view, sid, null))
 
 /** Draw the ideas-only board at `places`. A card the person moved stays where they put it. True when the canvas changed. */
-export function drawIdeasOnly(extras: readonly BandExtra[], places: ReadonlyMap<string, At>): boolean {
+export function drawIdeasOnly(extras: readonly BandExtra[], places: ReadonlyMap<string, Placed>): boolean {
   const store = useCanvasStore.getState(), held = new Map(store.nodes.map((n) => [n.id, n]))
   const nodes = extras.map((e) => {
     const n = held.get(e.id), put = places.get(e.id) ?? { x: 0, y: 0 }
     const moved = n?.type === e.type && !at(placed.get(e.id), n.position)
     if (!moved) placed.set(e.id, put)
-    return { id: e.id, type: e.type, data: { ...e.data, width: row.cardW }, position: moved ? n!.position : put, ...(n?.measured ? { measured: n.measured } : {}), ...(n?.selected === true ? { selected: true } : {}) }
+    return { id: e.id, type: e.type, data: { ...e.data, width: places.get(e.id)?.w ?? row.cardW, ...(places.get(e.id)?.s === undefined ? {} : { scale: places.get(e.id)!.s }) }, position: moved ? n!.position : put, ...(n?.measured ? { measured: n.measured } : {}), ...(n?.selected === true ? { selected: true } : {}) }
   })
   if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && store.edges.length === 0) return false
   store.beginExternalGraphMutation?.('envelope_apply')
@@ -252,13 +256,13 @@ export function placeViewCards(model: ViewModel): Promise<boolean> {
 let drew: { sid: string | null; n: number | null; model: ViewModel } | null = null
 
 /**
- * V12 Simple: how many cards its bands take across the room the canvas has now (layout.ts simpleStageRow), 0 on Detailed. It follows the
+ * V12 Simple: the row budget its bands share across the room the canvas has now (layout.ts simpleStageRow), '' on Detailed. It follows the
  * pane's width (a window resized, the dock opened or closed), so a Simple board laid out for a wider room is laid out again for this one
  * (Codex 006: after a resize from about 2000 to 1280 wide, Fit left "2 more cards to the right", since the bands were still the wide room's
- * and Simple never zooms below its readable floor). Only a change in the count lays the board out again; a few pixels move nothing.
+ * and Simple never zooms below its readable floor). Only a change in the row budget (layout.ts simpleStageRow, in steps of 48) lays the board out again; a few pixels move nothing.
  */
-export function useSimpleCols(on: boolean, simple: boolean): number {
-  const cols = () => (simple ? simpleStageRow(roomOf().w).perRow : 0)
+export function useSimpleCols(on: boolean, simple: boolean): string {
+  const cols = () => (simple ? String(simpleStageRow(roomOf().w).budget) : '')
   const [n, setN] = useState(cols)
   useEffect(() => {
     if (!on) return undefined
