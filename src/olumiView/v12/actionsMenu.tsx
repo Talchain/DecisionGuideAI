@@ -4,7 +4,7 @@
  * then the tools folded in from the Reasoning tab. It replaces the "More ways to think about this" disclosure; the composer's four method icons
  * stay beside it. Presses are the caller's (`onMethod`, `onTool`), so this file holds no write and imports nothing from ViewChat.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TOOL_WORDS, type Menu, type ToolId } from './actions'
@@ -16,9 +16,36 @@ export const FIRST_FOR_YOUR_GOAL = 'Suits what you came here for'
 /** The ⋯ button's name. */
 export const MORE_ACTIONS = 'More ways to think about this'
 
+/**
+ * Where the open list sits: inside the panel it is opened from, never past its edges (Codex 006 #2: anchored to the small ⋯ button it ran
+ * 153 px past the chat panel's left edge at 1232 x 704, and the panel cut it off there). `left` is the list's offset from the button's own
+ * left edge (it is drawn in the button's box, above it), so the panel's clip never reaches it.
+ */
+export type MenuPlace = { left: number; width: number; maxHeight: number }
+const EDGE = 8
+export function placeMenu(button: { top: number; left: number; right: number }, panel: { left: number; right: number }, win: { width: number; height: number }): MenuPlace {
+  const lo = Math.max(EDGE, panel.left + EDGE), hi = Math.min(win.width - EDGE, panel.right - EDGE)
+  const width = Math.max(0, Math.min(320, hi - lo))
+  const at = Math.min(Math.max(button.right - width, lo), hi - width)
+  return { left: at - button.left, width, maxHeight: Math.max(160, Math.min(win.height * 0.6, button.top - 2 * EDGE)) }
+}
+
 export function ActionsMenu({ menu, held, goal, onMethod, onTool }: { menu: Menu; held: boolean; goal: ReactNode; onMethod: (id: string) => void; onTool: (id: ToolId) => void }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLSpanElement>(null)
+  const [place, setPlace] = useState<MenuPlace | null>(null)
+  useLayoutEffect(() => {
+    if (!open) { setPlace(null); return undefined }
+    const measure = () => {
+      const button = root.current?.getBoundingClientRect()
+      if (!button) return
+      const panel = root.current?.closest('aside')?.getBoundingClientRect() ?? { left: 0, right: window.innerWidth }
+      setPlace(placeMenu(button, panel, { width: window.innerWidth, height: window.innerHeight }))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [open])
   useEffect(() => {
     if (!open) return undefined
     const away = (e: MouseEvent) => { if (root.current !== null && !root.current.contains(e.target as Node)) setOpen(false) }
@@ -36,6 +63,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool }: { menu: Menu
       </button>
       {!open ? null : (
         <div role="group" aria-label={ACTIONS_MENU_NAME} data-testid="view-actions-menu"
+          style={place === null ? undefined : { left: place.left, right: 'auto', width: place.width, maxHeight: place.maxHeight }}
           className={`${typography.viewPanelBody} absolute bottom-full right-0 z-30 mb-2 max-h-[60vh] w-[min(320px,calc(100vw-32px))] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-2 shadow-lg`}>
           {goal}
           <div className="space-y-0.5" data-testid="view-session-menu">

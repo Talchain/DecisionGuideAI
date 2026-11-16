@@ -37,6 +37,7 @@ import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { ViewCanvas } from '../olumiView/ViewCanvas'
 import { useViewStore } from '../olumiView/store'
+import { useAddressIsTheScenario } from '../olumiView/routeBinding'
 
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
 
@@ -71,6 +72,8 @@ function CanvasMVPBody() {
 
   // C.1a: Supabase scenario persistence
   const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  // Core lane: every address that names a core scenario is the scenario on screen, a change without a reload included (Codex 006 #1).
+  useAddressIsTheScenario(isOlumiCoreLane(), scenarioIdFromRoute)
   const {
     loadScenario: loadSupabaseScenario,
     saveStatus: supabaseSaveStatus,

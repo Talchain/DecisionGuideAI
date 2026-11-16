@@ -14,6 +14,7 @@ import { useViewStore } from '../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
 import { IDEA_MAX, ideaTextOf, keepIdea } from '../ideas'
+import { placeMenu } from '../actionsMenu'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
 const SID = 's_cb215d057b96', UUID = '00000000-0000-4000-8000-cb215d057b96'
@@ -207,5 +208,26 @@ describe('the next step card', () => {
     const c = render(<ViewChat />).container
     expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
     expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull()
+  })
+})
+
+describe('the ⋯ list stays inside its panel (Codex 006 #2)', () => {
+  // Codex's measure at 1232 x 704: the chat panel spans x 885 to 1232, the ⋯ button's right edge is at 1052, its left at 1024, its top at 650.
+  const button = { top: 650, left: 1024, right: 1052 }, panel = { left: 885, right: 1232 }, win = { width: 1232, height: 704 }
+  it('at 1232 x 704 the whole list is inside the panel, 8 px from each edge at most', () => {
+    const p = placeMenu(button, panel, win)
+    const at = button.left + p.left
+    expect(at).toBeGreaterThanOrEqual(panel.left + 8)
+    expect(at + p.width).toBeLessThanOrEqual(panel.right - 8)
+    expect(p.width).toBe(320)
+  })
+  it('CONTRAST: anchored to the button as before, it started at x 732, 153 px left of the panel', () => {
+    expect(button.right - 320).toBe(732)
+    expect(panel.left - (button.right - 320)).toBe(153)
+  })
+  it('a panel narrower than the list: the list narrows to the panel, never past it', () => {
+    const p = placeMenu({ top: 650, left: 1180, right: 1208 }, { left: 1000, right: 1232 }, win)
+    expect(p.width).toBe(216)
+    expect(1180 + p.left).toBe(1008)
   })
 })

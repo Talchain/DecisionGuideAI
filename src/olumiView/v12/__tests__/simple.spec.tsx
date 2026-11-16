@@ -59,6 +59,21 @@ describe('V12 Simple faces', () => {
     expect(container.querySelector('[data-simple-face="no-chance"]')).toBeNull()
   })
 
+  it('S2b core\'s value words as a qualified sentence (Codex 006 #3) wrap under the track in two lines, verbatim, and can shrink', () => {
+    const long = 'about 31% chance, on Olumi\'s assumption for \'Weeks until the second venue opens if nothing else changes\''
+    const base = card('broader_entry'), h = base.headline!
+    const c = { ...base, rows: base.rows.map((r) => (r.kind === 'chance' && (r as { aim_id?: string | null }).aim_id === h.aim_id ? { ...r, value: long } : r)) } as typeof base
+    expect(chanceWordsOf(c)).toBe(long)
+    const { container } = render(<SimpleFace card={c} model={model} noted={false} />)
+    const words = container.querySelector<HTMLElement>('[data-simple-chance="broader_entry"]')!
+    expect(words.textContent, 'core\'s words, every one').toBe(long)
+    expect(words.className).toContain('line-clamp-2')
+    expect(words.className).toContain('min-w-0')
+    expect(words.className, 'the words may shrink: never the unshrinkable line that ran across the canvas').not.toContain('flex-none')
+    expect(words.closest('[data-simple-face="gauge"]')!.querySelector('.ok-track'), 'the track keeps its own row').not.toBeNull()
+    expect(words.parentElement!.className, 'the track and the words are stacked, not one row').not.toContain('flex')
+  })
+
   it('S4 a figure with a modelled band is one range bar per option on one axis, inside 0 to 100', () => {
     const rows = bandRowsOf(card('churn_rate'), model)
     expect(rows.length).toBe(card('churn_rate').values!.length)

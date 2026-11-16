@@ -5,6 +5,8 @@
  * Words the person typed go out exactly as typed (not trimmed, not capitalised, not ended with a full stop); core keeps them
  * as given. A blank field is the one thing refused here, because core refuses it too.
  */
+import { coreScenarioIdOf } from './sid'
+
 export class TeamApiError extends Error {
   readonly status: number
   /**
@@ -63,7 +65,24 @@ async function stillThisPerson(): Promise<void> {
   if (id !== pagePerson) throw new TeamApiError(409, NOT_FOR_THIS_PAGE)
 }
 
+/** What the page says when a write names another scenario than the one its address names (Codex 006 #1). */
+export const NOT_THIS_SCENARIO = 'This page now shows another scenario than the one this change was made in, so nothing was saved. Reload the page to continue.'
+
+/**
+ * The address is the scenario (`/#/scenario/<uuid>`, `sid.ts`). A write to `/api/scenarios/<sid>/…` for any other scenario is refused
+ * here, before it leaves: changing the address without a reload once left the previous scenario on screen, and a press there was saved in
+ * that scenario rather than the one addressed (Codex 006 #1). An address that names no core scenario (`/#/canvas`, a first brief) checks nothing.
+ */
+export function writeTargetsAddress(path: string, hash: string): boolean {
+  const target = /^\/api\/scenarios\/([^/?]+)/.exec(path)
+  const routed = /^#\/scenario\/([^/?]+)/.exec(hash)
+  if (!target || !routed) return true
+  const addressed = coreScenarioIdOf(decodeURIComponent(routed[1]!))
+  return addressed === null || addressed === decodeURIComponent(target[1]!)
+}
+
 export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  if (method === 'POST' && typeof window !== 'undefined' && !writeTargetsAddress(path, window.location.hash)) throw new TeamApiError(409, NOT_THIS_SCENARIO)
   if (method === 'POST') await stillThisPerson()
   let res: Response
   try {

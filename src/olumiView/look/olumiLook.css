@@ -332,6 +332,10 @@
 /* ── V12 Simple: the compact card (BaseNode `data.compact`). One clamped title line and one visual row, type at its fixed 13 px (no counter-scale,
    so the card's height does not change with zoom: 13 px x 0.8 is 10.4 px on screen at Simple's floor). ───────────────────────────────── */
 .olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label] { --o-s: 1; --canvas-label-scale: 1; padding: 6px 12px !important; }
+/* A compact option card with the main-driver badge at its foot keeps a row for it: the compact padding above once overrode that reserve, and
+   the badge sat on the second line of the option's chance words (frame fix006-funding, 16 Nov). Only the badge: a reserve on every card with
+   foot marks made the board a band taller and an aim dropped out of view (frame fix006b). */
+.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label]:has(> [data-testid*='-bottom-marks-'] [data-testid^='view-driver-']) { padding-bottom: 28px !important; }
 .olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { font-size: 13px !important; line-height: 1.3 !important; }
 /* V12 Simple: every title at most two lines (the whole heading is the hover); the clamp class alone was overridden by the core card's own title rules. */
 .olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; }

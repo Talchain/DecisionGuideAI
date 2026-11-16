@@ -97,9 +97,12 @@ export function SimpleFace({ card, model, noted, extra }: SimpleFaceProps): JSX.
     const rest = card.rows.map((r, i) => ({ r: r as RowLike, i })).filter(({ r }) => r.aim_id == null ? h === null : r.aim_id !== headAim || h === null)
     const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
     const lead = h === null ? null : h.state === 'chance' && at !== null ? (
-      <div className="flex items-center gap-2" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
-        <div className="min-w-0 flex-1"><ChanceBand card={card} /></div>
-        <b className={`${typography.nodeValue} flex-none tabular-nums text-text-header`} data-simple-chance={id}>{words ?? `${Math.round(at * 100)}%`}</b>
+      // Codex 006 #3: core's value words can be a qualified sentence ("about 31% chance, on Olumi's assumption for '…'"), and printed as one
+      // unshrinkable line beside the track they ran across the canvas. The track takes the card's width; core's words, verbatim, wrap under it
+      // in two lines at most, so the figure and its qualification stay on the face; the whole basis is the hover. No figure is read from the words.
+      <div className="min-w-0" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
+        <ChanceBand card={card} />
+        <p className={`${SMALL} mt-1 line-clamp-2 min-w-0 break-words font-medium tabular-nums text-text-header`} data-simple-chance={id}>{words ?? `${Math.round(at * 100)}%`}</p>
       </div>
     ) : h.state === 'fixed' ? (
       <p className={`${SMALL} line-clamp-2 text-text-body`} data-simple-face="fixed" title={h.title !== '' ? h.title : h.text}>{h.text}</p>
