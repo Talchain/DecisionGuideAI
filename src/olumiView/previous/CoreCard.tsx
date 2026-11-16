@@ -383,7 +383,16 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
-          {simple ? <SimpleFace card={card} model={model} noted={noted} extra={<>{editCue}{badgeLine}</>} withheld={card.headline != null && card.headline.state === 'none' ? <WithheldWords id={id} h={card.headline} /> : undefined} /> : <>
+          {simple ? <SimpleFace card={card} model={model} noted={noted} extra={<>{editCue}{badgeLine}</>} withheld={card.headline != null && card.headline.state === 'none' ? <WithheldWords id={id} h={card.headline} /> : undefined}
+            trying={tryOn?.kind !== 'tried' ? undefined : (
+              // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
+              <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
+                <p className={`${typography.nodeValue} line-clamp-1 font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+                {card.figure == null || card.figure.text === '' ? null
+                  : <p className={`${typography.nodeLabel} line-clamp-1 text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}</p>}
+                {tryOn.said === null ? null : <p className={`${typography.nodeLabel} line-clamp-2 text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+              </div>
+            )} /> : <>
           {faceOf()}
           {limitsOf()}
           {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}

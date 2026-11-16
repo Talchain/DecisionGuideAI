@@ -83,9 +83,11 @@ export type SimpleFaceProps = {
   readonly extra?: ReactNode
   /** A withheld chance's "Why not" press (CoreCard `WithheldWords`), so Simple never shows the bare "No chance yet" where core gives a reason. */
   readonly withheld?: ReactNode
+  /** The figure tried on a copy (What if), drawn in place of the saved figure with the saved one named beside it (CoreCard). */
+  readonly trying?: ReactNode
 }
 
-export function SimpleFace({ card, model, noted, extra, withheld }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, extra, withheld, trying }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -157,6 +159,9 @@ export function SimpleFace({ card, model, noted, extra, withheld }: SimpleFacePr
   } else if (card.figure != null) {
     body = <div className="min-w-0 flex-1" data-simple-face="no-figure" title={card.figure.title !== '' ? card.figure.title : undefined}><Dashed testid={`${id}-empty-bar`} /></div>
   }
+  // Codex 006 (what-if): Simple drew only the SAVED figure while a different one was being tried, so the card and the what-if disagreed with
+  // nothing to say why. While a figure is tried, its card says so in place, and names the saved figure beside it.
+  if (trying !== undefined && card.family !== 'option') body = trying
   return (
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5" data-simple-card={id}>
       {body}

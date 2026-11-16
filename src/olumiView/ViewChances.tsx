@@ -120,7 +120,13 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
                   <div key={o.option_id} data-whatif-card={o.option_id}>
                     <div className={typography.panelHeader}>{card.heading}</div>
                     <WhatIfBars card={card} rows={o.rows} facts={v.facts} />
-                    {o.rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${o.option_id}` }} row={row} i={i} />)}
+                    {o.rows.map((row, i) => {
+                      // Codex 006 (what-if): a row with no chance said only "No chance yet", with no aim, beside another aim's result. Core's
+                      // none row names its aim by id; the aim's own heading from this View goes before it. A chance row names its aim itself.
+                      const aim = row.kind === 'none' && row.aim_id != null ? model.cards.find((c) => c.id === row.aim_id)?.heading ?? null : null
+                      const line = <Row key={i} card={{ ...card, id: `whatif.${o.option_id}` }} row={row} i={i} />
+                      return aim === null ? line : <div key={i} className="flex flex-wrap items-baseline gap-x-2" data-whatif-aim={row.aim_id!}><span>{aim}</span>{line}</div>
+                    })}
                     <WhatIfSizeLines variant={v} option={o.option_id} />
                   </div>
                 )
