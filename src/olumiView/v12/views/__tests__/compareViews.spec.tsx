@@ -69,7 +69,7 @@ describe('Compare views in the main workspace', () => {
       unmount()
     }
   })
-  it("one column per person: a person's several views sit together, newest first, the earlier ones under 'Earlier'", () => {
+  it("one column per person: a person's several views sit together, each its own record, in core's order; none is marked current (Codex 014)", () => {
     serve(() => ({ status: 200, body: payload([]) }))
     const paul = fx.collab.shared.find((x) => x.id === 8)!, sam = fx.collab.shared.find((x) => x.id === 9)!
     const again = { ...paul, id: 12, text: 'My newer view', frame: undefined }
@@ -78,9 +78,9 @@ describe('Compare views in the main workspace', () => {
     render(<CompareViewsStage />)
     expect([...screen.getByTestId('compare-members').querySelectorAll<HTMLElement>('[data-by]')].map((c) => c.dataset['by'])).toEqual([paul.by_id, sam.by_id])
     const col = screen.getByTestId(`compare-person-${paul.by_id}`)
-    expect([...col.querySelectorAll('[data-testid^="compare-view-"][data-testid$="-words"]')].map((e) => e.textContent)).toEqual(['My newer view', paul.text.trim()].filter((x) => x !== ''))
-    expect(screen.getByTestId(`compare-person-${paul.by_id}-earlier`).textContent).toContain(frames[8].question)
-    expect(screen.queryByTestId(`compare-person-${sam.by_id}-earlier`)).toBeNull()
+    expect([...col.querySelectorAll('[data-testid^="compare-view-"][data-testid$="-words"]')].map((e) => e.textContent)).toEqual([paul.text.trim(), 'My newer view'].filter((x) => x !== ''))
+    expect(col.textContent).toContain(frames[8].question)
+    expect(col.textContent).not.toMatch(/\b(Earlier|Latest|Current)\b/)
   })
   it('shows core\'s differences with the same next steps as the dock; a step posts to core\'s route and Commit brings the Team tab', async () => {
     const sent = serve((s) => (s.method === 'POST' ? { status: 201, body: { step: 5 } } : { status: 200, body: payload([figure]) }))

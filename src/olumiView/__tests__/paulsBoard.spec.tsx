@@ -25,6 +25,7 @@ import { CoreCard, leadLineOf } from '../previous/CoreCard'
 import { useCanvasStore } from '../../canvas/store'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
+import { setLevel } from '../v12/simpleStore'
 import { railOf } from '../../canvas/edges/linkRail'
 import { frameDue, FRAME_WAIT_MS } from '../ViewCanvas'
 import { Proposal } from '../ViewChat'
@@ -132,6 +133,28 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
       else expect([btn?.getAttribute('aria-label'), btn?.textContent?.includes(said(c.badge as unknown as B))], c.id).toEqual([(c.badge as unknown as B).label, true])
       r.unmount()
     }
+  })
+})
+
+describe('what core folded is content, shown at rest (Codex H07 17:12Z)', () => {
+  const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
+  const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+    positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
+  it('PB7b: no badge line is a hover-only action, on a card or on the question; and the Simple question pill draws its notes badge', () => {
+    ready(EU)
+    for (const level of ['working', 'simple'] as const) {
+      setLevel(level, useViewStore.getState().sid)
+      const q = render(<ReactFlowProvider><Node {...props(QUESTION, undefined)} /></ReactFlowProvider>)
+      const line = q.container.querySelector(`[data-core-badge="${QUESTION}"]`)
+      expect(line, level).not.toBeNull()
+      expect(line!.closest('[data-card-action]'), level).toBeNull()
+      q.unmount()
+      const c = EU.model!.cards.find((x) => x.badge != null)!
+      const r = render(<ReactFlowProvider><Node {...props(c.id, c)} /></ReactFlowProvider>)
+      expect(r.container.querySelector(`[data-core-badge="${c.id}"]`)!.closest('[data-card-action]'), `${level} ${c.id}`).toBeNull()
+      r.unmount()
+    }
+    setLevel('working', useViewStore.getState().sid)
   })
 })
 

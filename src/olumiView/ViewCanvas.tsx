@@ -76,6 +76,7 @@ import { LensesMenu } from './v12/lenses/LensesMenu'
 import { LayerCanvasStyle } from './v12/lenses/LayerCanvasStyle'
 import { ViewsToggle } from './v12/views/ViewsToggle'
 import { CompareViewsStage } from './v12/views/CompareViewsStage'
+import { useQualitativeNotes } from './v12/qualitativeNotes'
 import { clearLayoutUndo } from './v12/edit/undo'
 import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
@@ -338,6 +339,8 @@ function ViewFlow() {
   // V11: the card whose chip is open is marked `v11-open` on its node, so the coaching ring (ring.ts) steps out of it: one focus per screen.
   const openCard = useReveal((s) => s.card)
   const view = useViewStore((s) => s.view)
+  // A model that is only a question and its aims shows the purposes and tensions core folded behind the question (v12/qualitativeNotes).
+  useQualitativeNotes(useViewStore((s) => s.sid), view)
   const chipCards = useMemo(() => new Set(revealOf(view)?.cardChips.keys() ?? []), [view])
   const simple = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s)) === 'simple'
   const nodes = useMemo(() => {

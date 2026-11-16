@@ -69,7 +69,6 @@ export const COMPARE_WORDS = {
   back: 'Back to the model',
   inCentre: 'Everyone’s views and where they differ are open in the main workspace.',
   control: 'Compare views',
-  earlier: 'Earlier',
 } as const
 
 /**

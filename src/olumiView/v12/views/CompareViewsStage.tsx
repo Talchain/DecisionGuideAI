@@ -14,7 +14,7 @@ import { useViewStore } from '../../store'
 import type { View } from '../../client'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { useUIStore } from '../../../stores/uiStore'
-import { BODY, META } from '../../../olumiCore/team/ui'
+import { BODY } from '../../../olumiCore/team/ui'
 import { typography } from '../../../styles/typography'
 import { Figures } from '../../RevealDock'
 import { useDockInset } from '../bands/KeyPill'
@@ -37,7 +37,8 @@ function ViewBody({ v }: { v: Shared }): JSX.Element {
   )
 }
 
-/** The revealed views by person (core's `by_id`), in the order each person first appears; each person's views newest first. Nothing is ranked. */
+/** The revealed views by person (core's `by_id`), in the order each person first appears; each person's views in core's order. Nothing is
+ *  ranked, merged or marked current: the View sends no version or time for a view, so none is invented here (Codex 014). */
 export function byPerson(shared: readonly Shared[]): { by_id: string; by: string; views: Shared[] }[] {
   const people = new Map<string, { by_id: string; by: string; views: Shared[] }>()
   for (const v of shared) {
@@ -45,22 +46,15 @@ export function byPerson(shared: readonly Shared[]): { by_id: string; by: string
     const p = people.get(v.by_id) ?? { by_id: v.by_id, by: v.by, views: [] }
     p.views.push(v); people.set(v.by_id, p)
   }
-  return [...people.values()].map((p) => ({ ...p, views: [...p.views].sort((a, b) => b.id - a.id) }))
+  return [...people.values()]
 }
 
-/** One person as a column: their name, their newest view, then their earlier views under a quiet "Earlier". */
+/** One person as a column: their name, then each of their views as its own record, separated by a hairline. */
 function Person({ p }: { p: { by_id: string; by: string; views: Shared[] } }): JSX.Element {
-  const [latest, ...earlier] = p.views
   return (
     <section className="grid content-start gap-3 rounded-xl border border-panel-border bg-panel p-4" data-testid={`compare-person-${p.by_id}`} data-by={p.by_id} aria-label={p.by}>
       <h3 className={`${typography.viewPanelBody} m-0 font-medium text-text-header`} data-testid={`compare-person-${p.by_id}-name`}>{p.by}</h3>
-      <ViewBody v={latest!} />
-      {earlier.length > 0 && (
-        <div className="grid gap-3 border-t border-panel-border pt-3" data-testid={`compare-person-${p.by_id}-earlier`}>
-          <p className={META}>{COMPARE_WORDS.earlier}</p>
-          {earlier.map((v) => <ViewBody key={v.id} v={v} />)}
-        </div>
-      )}
+      {p.views.map((v, i) => <div key={v.id} className={i === 0 ? '' : 'border-t border-panel-border pt-3'}><ViewBody v={v} /></div>)}
     </section>
   )
 }

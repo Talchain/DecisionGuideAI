@@ -266,7 +266,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
   const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
   const badgeLine = badge === null ? null
-    : <p className="ok-count" data-core-badge={id} data-card-action=""><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
+    // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
+    // purposes and tensions read as an empty board: Codex H07, 17:12Z).
+    : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-light'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
@@ -411,8 +413,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
-        // V12 Simple: the question alone, a slim pill (its notes, its date and the chance sentence are the panel's, the date also its hover).
-        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text} />
+        // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
+        // date and the chance sentence are the panel's, the date also its hover.
+        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{badgeLine}</div>
         : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
