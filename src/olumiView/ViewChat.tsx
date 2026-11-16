@@ -16,6 +16,7 @@ import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocu
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
+import { toReadOf } from './toRead'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
 import { chatQuestionsOf, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
@@ -368,6 +369,11 @@ export const READINGS_CHANGED = 'Your choices changed after an approval that did
  * The proposal, as core's change card: its heading, the change list (flat, or under core's group headings over 12), and Approve (the whole
  * card), Approve ticked (exactly the ticked lines, core's `only` / `only_top`) and Set aside. A proposal held without a list has Approve alone.
  *
+ * What is read to approve (core's `proposal.to_read`, ./toRead.ts; DL 16 Nov): where core sends it, the list is the lines core says to read
+ * one by one (flat, or under ITS headings), then ONE line of core's words for the person's own points the proposal only notes, closed at
+ * rest, which opens to every one of them. No line leaves the list: each keeps its tick by its own id and its place in `changes`, and the
+ * approvals send what they sent. Where core does not send it, the whole list as before.
+ *
  * A reading of Olumi's (a mark with core's `reading.id`) carries a two-way choice, neither chosen until the person chooses. On approval the
  * readings they chose to use are confirmed (`only_readings`), the ones they chose to keep the original for are refused (`refuse_readings`),
  * and any other offered reading is not applied (nor refused: PL-661). So an approval with an answered reading sends those ids WITH the
@@ -394,7 +400,12 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   // no words names no one.
   const from = p.from == null ? null : { by: p.from.by ?? null, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
-  const changes = p.changes ?? [], groups = p.groups ?? null
+  const changes = p.changes ?? []
+  // The lines drawn one by one and their grouping: core's reading of the proposal where it sends one (`to_read`), else the whole list and its
+  // groups. `noted`: the person's own points, drawn behind core's one line. Ticks and approvals read `changes` alone, never these.
+  const read = toReadOf(p)
+  const shown = read === undefined ? changes.map((_, i) => i) : read.lines, groups = read === undefined ? p.groups ?? null : read.groups
+  const groupsAt = read === undefined ? 'proposal.groups' : 'proposal.to_read.groups', noted = read?.noted ?? null
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
   const tickable = changes.length > 1
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
@@ -403,12 +414,13 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   const withPartners = (c: Change): Change[] => { const ids = c.together?.ids ?? []; return [c, ...changes.flatMap((o) => (!o.top && ids.includes(o.id) ? [o] : []))] }
   const set = (n: Set<string>, cs: readonly Change[], on: boolean) => { for (const x of cs) { if (on) n.add(keyOf(x)); else n.delete(keyOf(x)) } }
   const toggle = (c: Change) => setTicked((t) => { const n = new Set(t); set(n, withPartners(c), !n.has(keyOf(c))); return n })
-  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, withPartners(c), on) } return n })
+  const toggleGroup = (lines: readonly number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, withPartners(c), on) } return n })
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
+  const allTicked = (lines: readonly number[]) => lines.length > 0 && lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
   const verdict = verdictOf(p)
   // The readings Olumi offers, by core's own id for each (`marks[].reading.id`). A core that serves no change list offers no choice: the
   // proposal's own lines could not be named beside the readings, and core would then drop them. Nor does a proposal core does not support:
@@ -520,31 +532,54 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
           </fieldset>]
         )
       })}
-      {changes.length === 0 ? null : groups === null
-        ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{changes.map((_, i) => line(i))}</ul>
-        : (
-          <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
-            {groups.map((g, gi) => {
-              const all = g.lines.length > 0 && g.lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
-              return (
-                <li key={gi}>
-                  {/* Closed at rest, a group opens on press (DL 11 Nov, replacing PL 7 Nov's open groups: 36 lines filled the panel). The heading
-                      is core's, with its count and whose they are; Approve still approves every line, ticked or not, and a group's tick chooses it whole. */}
-                  <details data-testid={`view-change-group-box-${gi}`}>
-                    <summary className="cursor-pointer">
-                      <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for={`view-change-group-${gi}`}>
-                        <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
-                          aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
-                      </label>
-                      <b data-view={`proposal.groups.${gi}.heading`}>{g.heading}</b>
-                    </summary>
-                    <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map(line)}</ul>
-                  </details>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+      {changes.length === 0 ? null : (
+        <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
+          {groups === null ? shown.map((i) => line(i)) : groups.map((g, gi) => {
+            const all = allTicked(g.lines)
+            return (
+              <li key={gi}>
+                {/* Closed at rest, a group opens on press (DL 11 Nov, replacing PL 7 Nov's open groups: 36 lines filled the panel). The heading
+                    is core's, with its count and whose they are; Approve still approves every line, ticked or not, and a group's tick chooses it whole. */}
+                <details data-testid={`view-change-group-box-${gi}`}>
+                  <summary className="cursor-pointer">
+                    <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for={`view-change-group-${gi}`}>
+                      <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
+                        aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
+                    </label>
+                    <b data-view={`${groupsAt}.${gi}.heading`}>{g.heading}</b>
+                  </summary>
+                  <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map((i) => line(i))}</ul>
+                </details>
+              </li>
+            )
+          })}
+          {/* The person's own points the proposal only notes: ONE line, core's words (never a count made here), closed at rest; a press, or
+              Enter or Space on it, opens every one of them, each with its own tick. Its tick chooses them all, as a group's does, so "Approve
+              ticked" never needs one tick per sentence. Among flat lines it is set as a line (tick, then the words); among groups, as a group. */}
+          {noted === null ? null : (() => {
+            const all = allTicked(noted.lines)
+            const box = <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(noted.lines, !all)} aria-label={`Choose ${noted.text}`} data-testid="view-changes-noted-tick" />
+            const words = <span data-view="proposal.to_read.noted.text">{noted.text}</span>
+            const lines = (pad: string) => <ul className={`m-0 mt-1 grid list-none gap-1 p-0${pad}`}>{noted.lines.map((i) => line(i))}</ul>
+            return groups === null ? (
+              <li className="flex items-start gap-2" data-testid="view-changes-noted-row">
+                {!tickable ? null : <label className="inline-flex min-h-[24px] min-w-[24px] flex-none cursor-pointer items-center justify-center" data-target-for="view-changes-noted-tick">{box}</label>}
+                <details className="min-w-0" data-testid="view-changes-noted"><summary className="cursor-pointer">{words}</summary>{lines('')}</details>
+              </li>
+            ) : (
+              <li data-testid="view-changes-noted-row">
+                <details data-testid="view-changes-noted">
+                  <summary className="cursor-pointer">
+                    {!tickable ? null : <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for="view-changes-noted-tick">{box}</label>}
+                    {words}
+                  </summary>
+                  {lines(' pl-3')}
+                </details>
+              </li>
+            )
+          })()}
+        </ul>
+      )}
       {/* V11 change 6: core's verdict on the change, before any approval (./verdict.ts). Not supported: core's words, what would support it,
           and no Approve; the person may still set it aside. */}
       {verdict === undefined ? null : (
