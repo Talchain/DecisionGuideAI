@@ -19,6 +19,7 @@ import { strategyMarkOn } from './strategy/strategy'
 import { DifferChip, railLayout, useLinkDiffers } from '../olumiCore/team/CardDiffers'
 import { useRailBoxesRef } from './railBoxes'
 import { LinkMarkCardChip } from './LinkMarkChip'
+import { useViewsMarks } from './v12/views/viewsMarks'
 
 /** Nothing opens on an earlier version: it is drawn as it was, without the dock. */
 const onEarlier = () => useViewStore.getState().at !== null
@@ -88,7 +89,10 @@ const markWords = (m: Mark): string => m.figure?.mark_label ?? m.by
 function useMarks(card: string) {
   const view = useViewStore((s) => s.view)
   const selected = useReveal((s) => s.selected)
-  return { ...marksOn(revealOf(view), card), view, selected }
+  // The Views toggle (v12/views): off hides the reveal's marks on the cards; the reveal itself and the panel are unchanged.
+  const shown = useViewsMarks((s) => s.on)
+  const none = { chips: [], initials: [], cardChips: [] }
+  return { ...(shown ? marksOn(revealOf(view), card) : none), view, selected }
 }
 
 /** Overlapping initials for the people a chip gathers (a duo reads as one group). */

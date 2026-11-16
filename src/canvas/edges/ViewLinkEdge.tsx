@@ -16,6 +16,7 @@ import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkByOlumi, linkDrawn, routeRailAtRest } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
+import { useLevel } from '../../olumiView/v12/simpleStore'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
@@ -44,6 +45,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
   const hovered = useViewHover((h) => h.id)
+  const simple = useLevel() === 'simple'
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
@@ -144,7 +146,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
   // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
-  if (!driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
+  // V12 Simple draws every link at rest (the structure is the reasoning; only text is removed): reason links and route rails included, quiet.
+  if (!simple && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
   // DL round 5 (rehearsal item 10): a rail round the board is quiet at rest, the neutral link grey at 1 px, so the rails are not the first

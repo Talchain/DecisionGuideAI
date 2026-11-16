@@ -4,14 +4,11 @@ import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
-import { DissentPanel } from './DissentPanel'
-import { DifferencesPanel } from './DifferencesPanel'
 import { LinkStance } from './LinkStance'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel } from './InvitePanel'
-import { NudgesPanel } from './NudgesPanel'
-import { ViewsPanel } from './ViewsPanel'
+import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
 import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
@@ -81,14 +78,11 @@ export function TeamTab(): JSX.Element {
           {/* The nudges' reveal is the team's record too: held with the forms (R1 review 1; the writer refuses it as well). */}
           {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
           <StrategyOverviewSection view={shown} />
-          <fieldset disabled={past !== null} className="contents"><NudgesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
-          <fieldset disabled={past !== null} className="contents"><ViewsPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
-          {/* After the reveal: doubt or keep one link in your own words (core POST …/links/stance; every word core's). Above the differences,
-              which show what it does (the UI gate, 8 Nov: below them it read as part of the figures' section). */}
+          {/* V12: "Where we differ" is the one home of the member's own view (private view, whole view in words, nudges), the differences and the
+              dissent, so none of those panels is drawn twice (one draft, one write key, one set of test ids). After the reveal, doubt or keep one
+              link in your own words (core POST …/links/stance) sits above it, as it did above the differences (the UI gate, 8 Nov). */}
           <fieldset disabled={past !== null} className="contents"><LinkStance sid={sid} view={shown} onWrote={refresh} /></fieldset>
-          {/* Where your explanations differ (core GET …/differences): the revealed figures you differ on, side by side, and what to do with each. */}
-          <fieldset disabled={past !== null} className="contents"><DifferencesPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
-          <fieldset disabled={past !== null} className="contents"><DissentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          <fieldset disabled={past !== null} className="contents"><WhereWeDiffer sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
           <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <fieldset disabled={past !== null} className="contents"><CommitmentPanel sid={sid} view={shown} onWrote={refresh} /></fieldset>

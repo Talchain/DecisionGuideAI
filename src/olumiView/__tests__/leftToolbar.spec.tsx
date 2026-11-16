@@ -44,12 +44,12 @@ const toolbar = () => screen.getByRole('navigation', { name: 'Canvas tools' })
 const plus = () => within(toolbar()).getByTestId('canvas-add-to-model')
 
 describe('core lane left toolbar', () => {
-  it('draws exactly +, Select and Pan in order, without Undo or the old floating opener', () => {
+  it('draws exactly +, Select, Pan, Undo and Layers in order (V12 tool run), without the old floating opener', () => {
     mount()
     expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual([
-      'canvas-add-to-model', 'canvas-tool-select', 'canvas-tool-hand',
+      'canvas-add-to-model', 'canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button',
     ])
-    expect(within(toolbar()).queryByRole('button', { name: 'Undo' })).toBeNull()
+    expect(within(toolbar()).getByTestId('lane-undo')).toBeTruthy()
     expect(screen.queryByTestId('view-add-figure-open')).toBeNull()
   })
 
@@ -106,7 +106,7 @@ describe('core lane left toolbar', () => {
     })
     expect(within(toolbar()).queryByTestId('canvas-add-to-model')).toBeNull()
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['canvas-tool-select', 'canvas-tool-hand'])
+    expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button'])
     fireEvent.click(within(toolbar()).getByTestId('canvas-tool-select'))
     expect(within(toolbar()).getByTestId('canvas-tool-select')).toHaveAttribute('aria-pressed', 'true')
   })

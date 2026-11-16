@@ -166,13 +166,15 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
  * core's is read or written here.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number } } = {}): Promise<Map<string, { x: number; y: number }>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean } } = {}): Promise<Map<string, { x: number; y: number }>> {
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
   // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
   // previous layout's own cap.
   const maxPerRow = Math.max(options.row?.perRow ?? MAX_CARDS_PER_ROW, allOptionCards(model).length)
+  // V12 Simple: bands as wide as the stage allows (simplePlaces); the layout's tiers are kept, each one row for it to read the order from.
+  if (options.row?.simple === true) return simplePlaces(model, nodes, edges, size, options.row, options.spacing)
   const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   if (direction !== 'DOWN' && direction !== 'UP') return places
@@ -190,6 +192,48 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
     for (const ids of rows.values()) { const shift = left - Math.min(...ids.map((id) => packed.get(id)!.x)); for (const id of ids) { const p = packed.get(id)!; packed.set(id, { x: p.x + shift, y: p.y }) } }
   }
   return packed
+}
+
+/** V12 Simple: the card width, the gaps and the band wrap (Paul, 16 Nov: the whole structure in view at once; cuts text, not cards). */
+export const SIMPLE_CARD_W = 200, SIMPLE_GAP_X = 16, SIMPLE_GAP_Y = 6, SIMPLE_BAND_GAP = 12
+/** The Simple row for a stage `roomW` wide (canvas.ts roomOf, the real pane less its insets): as many cards across as fit at Simple's own floor, 0.8 (5 at 880, 9 at 1650). */
+export function simpleStageRow(roomW: number): { cardW: number; gapX: number; perRow: number; simple: true } {
+  const room = roomW / 0.8 // camera.ts SIMPLE_FIT_FLOOR, kept here so layout does not import the camera
+  return { cardW: SIMPLE_CARD_W, gapX: SIMPLE_GAP_X, perRow: roomW <= 0 ? 4 : Math.max(1, Math.floor((room + SIMPLE_GAP_X) / (SIMPLE_CARD_W + SIMPLE_GAP_X))), simple: true }
+}
+/**
+ * V12 Simple places: the previous layout's own tiers (its y rows: options, inputs, outcomes, aims, each laid as ONE row here) kept in order and
+ * each card in its band; a band wraps to a new row only past `perRow` cards. Each band is ordered by the mean place of its cards' parents in the
+ * rows above (the simple crossing rule; the layout's own order breaks ties), and every row is centred on the board. Rows stack with the
+ * measured heights, so no two cards overlap. Geometry only.
+ */
+async function simplePlaces(model: ViewModel, nodes: Node[], edges: Edge[], size: ReadonlyMap<string, Size>, row: { cardW: number; gapX: number; perRow?: number }, spacing?: number): Promise<Map<string, { x: number; y: number }>> {
+  const laid = await layoutGraph(nodes, edges, { direction: 'DOWN', spacing, preserveLocked: false, maxPerRow: Math.max(1, model.cards.length + 1) })
+  const at = new Map(laid.nodes.map((n) => [n.id, n.position]))
+  const perRow = Math.max(1, row.perRow ?? 4), stride = row.cardW + row.gapX
+  const ys = ascending([...new Set([...at].filter(([id]) => id !== QUESTION).map(([, p]) => Math.round(p.y)))])
+  const bands = ys.map((y) => [...at].filter(([id, p]) => id !== QUESTION && Math.round(p.y) === y).sort((a, b) => a[1].x - b[1].x).map(([id]) => id))
+  const widest = Math.max(1, ...bands.map((b) => Math.min(perRow, b.length)), Math.min(perRow, Math.max(1, allOptionCards(model).length)))
+  const boardW = widest * stride - row.gapX
+  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : model.cards.find((c) => c.id === id)?.h ?? 90)
+  const parents = new Map<string, string[]>()
+  for (const { link } of cardLinks(model)) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
+  const out = new Map<string, { x: number; y: number }>()
+  const centre = new Map<string, number>()
+  const qCount = Math.min(perRow, Math.max(1, allOptionCards(model).length)), qW = qCount * stride - row.gapX
+  out.set(QUESTION, { x: (boardW - qW) / 2, y: 0 })
+  let y = heightOf(QUESTION) + SIMPLE_BAND_GAP
+  for (const band of bands) {
+    const key = (id: string): number => { const xs = (parents.get(id) ?? []).flatMap((p) => (centre.has(p) ? [centre.get(p)!] : [])); return xs.length === 0 ? at.get(id)!.x : xs.reduce((a, b) => a + b, 0) / xs.length }
+    const first = new Map(band.map((id, i) => [id, i]))
+    const ordered = band.some((id) => (parents.get(id) ?? []).some((p) => centre.has(p))) ? [...band].sort((a, b) => key(a) - key(b) || first.get(a)! - first.get(b)!) : band
+    for (let i = 0; i < ordered.length; i += perRow) {
+      const rowIds = ordered.slice(i, i + perRow), left = (boardW - (rowIds.length * stride - row.gapX)) / 2
+      rowIds.forEach((id, j) => { out.set(id, { x: left + j * stride, y }); centre.set(id, left + j * stride + row.cardW / 2) })
+      y += Math.max(...rowIds.map(heightOf)) + (i + perRow < ordered.length ? SIMPLE_GAP_Y : SIMPLE_BAND_GAP)
+    }
+  }
+  return out
 }
 
 /**
@@ -1160,7 +1204,11 @@ export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX
   return { cardW, gapX: LAYOUT_NODE_GAP, perRow: fit(cardW, LAYOUT_NODE_GAP) }
 }
 /** The question bar's width over a row of options: the whole row. */
-export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number }): number => { const n = Math.max(1, allOptionCards(model).length); return n * row.cardW + (n - 1) * row.gapX }
+export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number; simple?: boolean }): number => {
+  // V12 Simple: the bar spans the options' first row, which wraps at the stage's count.
+  const n = Math.max(1, row.simple === true ? Math.min(row.perRow ?? 4, allOptionCards(model).length) : allOptionCards(model).length)
+  return n * row.cardW + (n - 1) * row.gapX
+}
 
 /** A reading explanation is shared only across matching rows with the same non-empty heading. */
 export function readingHeadingOf(marks: NonNullable<View['proposal']>['marks'], ids: readonly string[]) {

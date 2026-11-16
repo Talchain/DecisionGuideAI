@@ -26,6 +26,9 @@ export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
 export const reducedFaceSize = (zoom: number): number =>
   Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil(labelCounterScale(zoom) * LABEL_SCALE_QUANTUM) / LABEL_SCALE_QUANTUM : 0
 
+/** V12 Simple: its compact faces draw 13 px type at a fixed size (no counter-scale), so 0.8 keeps every word at 10.4 px or more on screen. */
+export const SIMPLE_FIT_FLOOR = 0.8
+
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */
 export const WHOLE_FIT_ZOOM = READABLE_WHOLE_ZOOM

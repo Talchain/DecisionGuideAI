@@ -1,0 +1,187 @@
+/**
+ * V12 LAYERS MENU: a layers button for the left floating menu (`LeftSidebar` `layers` slot) that opens a small list, and a small floating panel for the
+ * layer on. Production's lens list for power users, drawn from core's View only (`layers.ts`). Chrome words are the layers' names and the table's column
+ * heads; everything about the scenario is the View's, verbatim. Olumi's own contributions stay Olumi's: a figure's author line is core's words.
+ */
+import { useEffect, useRef, useState } from 'react'
+import { Layers, X } from 'lucide-react'
+import Tooltip from '../../../components/Tooltip'
+import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
+import { typography } from '../../../styles/typography'
+import { useViewStore } from '../../store'
+import type { View } from '../../client'
+import { MENU_EXCLUSIVE_EVENT } from '../../../components/layout/LeftSidebar'
+import {
+  BASIS_LABEL, BASIS_ORDER, edgeTableOf, evidenceOf, figureCards, LAYER_LABEL, layerEntries, optionLayerId, optionOfLayer, SIGN_GLYPH, SIGN_WORDS,
+  sensitiveAssumptionsOf, type Basis, type LayerId,
+} from './layers'
+import { chooseLayer, useActiveLayer } from './store'
+
+const NO_LAYER_LABEL = 'Layers'
+export const LENSES_TESTID = 'v12-layers'
+const pop = `absolute left-full top-0 ml-3 nodrag nopan z-[1200] rounded-lg border border-border bg-panel shadow-2 ${typography.viewPanelBody}`
+
+export function LensesMenu(): JSX.Element | null {
+  const view = useViewStore((s) => s.view)
+  const layer = useActiveLayer()
+  const [menu, setMenu] = useState(false)
+  const [panel, setPanel] = useState(false)
+  const root = useRef<HTMLDivElement | null>(null)
+  const entries = layerEntries(view)
+
+  useEffect(() => {
+    if (!menu) return
+    const away = (e: PointerEvent) => { if (root.current !== null && !root.current.contains(e.target as Node)) setMenu(false) }
+    const exclusive = (e: Event) => { if ((e as CustomEvent).detail !== LENSES_TESTID) setMenu(false) }
+    document.addEventListener('pointerdown', away)
+    window.addEventListener(MENU_EXCLUSIVE_EVENT, exclusive)
+    return () => { document.removeEventListener('pointerdown', away); window.removeEventListener(MENU_EXCLUSIVE_EVENT, exclusive) }
+  }, [menu])
+
+  if (view === null || view.model === null || entries.length <= 1) return null
+  const on = layer !== 'full'
+  const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full') }
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { setMenu(false); setPanel(false); return }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    const items = [...(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
+    const i = items.indexOf(document.activeElement as HTMLElement)
+    const next = e.key === 'ArrowDown' ? (i + 1) % items.length : i <= 0 ? items.length - 1 : i - 1
+    items[next]?.focus()
+    e.preventDefault()
+  }
+
+  return (
+    <div ref={root} className="relative nodrag nopan" onKeyDown={onKey} data-testid={LENSES_TESTID}>
+      <Tooltip content={NO_LAYER_LABEL}>
+        <button type="button" className={on ? styles.iconButtonActive : styles.iconButton} aria-label={NO_LAYER_LABEL} aria-haspopup="menu" aria-expanded={menu} aria-pressed={on}
+          data-testid={`${LENSES_TESTID}-button`}
+          onClick={() => { setPanel(false); setMenu((m) => { if (!m) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: LENSES_TESTID })); return !m }) }}>
+          <Layers className={styles.icon} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      {menu ? (
+        <div role="menu" aria-label={NO_LAYER_LABEL} className={`${pop} w-[240px] p-1`} data-testid={`${LENSES_TESTID}-menu`}>
+          {entries.map((e, i) => (
+            <div key={e.id} role="none">
+              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className="my-1 border-t border-border" /> : null}
+              <button type="button" role="menuitemradio" aria-checked={e.id === layer} data-layer={e.id} onClick={() => choose(e.id)}
+                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
+                <span className="min-w-0 truncate">{e.label}</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {panel && on ? <LayerPanel view={view} layer={layer} onClose={() => setPanel(false)} /> : null}
+    </div>
+  )
+}
+
+const th = `${typography.viewPanelMeta} border-b border-border px-2 py-1.5 text-left font-medium text-text-header`
+const td = `${typography.viewPanelTabular} border-b border-border px-2 py-1.5 align-top`
+
+function Head({ title, onClose }: { title: string; onClose: () => void }): JSX.Element {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+      <h2 className={`${typography.viewPanelBody} font-medium text-text-header`}>{title}</h2>
+      <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
+/** Cards listed with the options each moves, or with a basis; the View's headings and author words as they are. */
+function FigureList({ view, ids }: { view: View; ids: ReadonlyMap<string, readonly { id: string; heading: string }[]> }): JSX.Element {
+  const model = view.model!
+  return (
+    <ul className="space-y-2">
+      {[...ids].map(([id, options]) => {
+        const c = model.cards.find((x) => x.id === id)!
+        return (
+          <li key={id} data-layer-row={id}>
+            <p className="text-text-header">{c.heading}{c.figure !== null ? <span className={`${typography.viewPanelTabular} ml-2 text-text-body`} title={c.figure.title}>{c.figure.text}</span> : null}</p>
+            {c.author != null ? <p className={`${typography.viewPanelMeta} ${c.author.by === 'olumi' || c.author.by === 'mixed' ? 'text-info' : 'text-text-body'}`} title={c.author.title}>{c.author.text}</p> : null}
+            <p className={typography.viewPanelMeta}>{options.map((o) => o.heading).join(' · ')}</p>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerId; onClose: () => void }): JSX.Element | null {
+  const model = view.model
+  if (model === null) return null
+  const option = optionOfLayer(layer)
+  let title: string = layer in LAYER_LABEL ? LAYER_LABEL[layer as keyof typeof LAYER_LABEL] : ''
+  let body: JSX.Element | null = null
+  let wide = false
+
+  if (option !== null) {
+    const c = model.cards.find((x) => x.id === option)
+    title = c?.heading ?? ''
+    const words = c?.headline?.text ?? c?.driver?.text ?? null
+    body = (
+      <div className="space-y-2">
+        {words === null ? null : <p className={typography.viewPanelMeta}>{words}</p>}
+        <p className={typography.viewPanelMeta}>Cards this option sets, what each leads to, and what it rests on.</p>
+      </div>
+    )
+  } else if (layer === 'sensitivity') {
+    body = (
+      <div className="space-y-2">
+        {model.run !== null ? <p className={typography.viewPanelMeta} title={model.run.sensitivity.title}>{model.run.sensitivity.text}</p> : null}
+        {model.cards.filter((c) => c.driver != null && c.status === null).map((c) => <p key={c.id} data-layer-row={c.id}><span className="text-text-header">{c.heading}</span><br /><span title={c.driver!.title}>{c.driver!.text}</span></p>)}
+      </div>
+    )
+  } else if (layer === 'sensitive_assumptions') {
+    body = <FigureList view={view} ids={sensitiveAssumptionsOf(model)} />
+  } else if (layer === 'causal') {
+    wide = true
+    const rows = edgeTableOf(model)
+    body = (
+      <div className="max-h-[50vh] overflow-auto">
+        <table className="w-full border-collapse" data-testid={`${LENSES_TESTID}-edges`}>
+          <thead><tr><th scope="col" className={th}>From</th><th scope="col" className={th}>To</th><th scope="col" className={th}>Sign</th><th scope="col" className={th}>Strength</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.index} data-edge={r.index} title={r.hover}>
+                <td className={td}>{r.from}</td><td className={td}>{r.to}</td>
+                <td className={td}><span aria-hidden="true">{SIGN_GLYPH[r.sign]}</span> <span className={r.sign === 'unknown' ? '' : 'sr-only'}>{SIGN_WORDS[r.sign]}</span>{r.by !== null ? <span className={`${typography.viewPanelMeta} block`} data-edge-author>{r.by}</span> : null}{r.disputed ? <span className={`${typography.viewPanelMeta} block`}>Disputed</span> : null}</td>
+                <td className={td}>{r.strength ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  } else if (layer === 'evidence') {
+    const e = evidenceOf(view)
+    const by = (b: Basis) => figureCards(model).filter((c) => e.basis.get(c.id) === b)
+    body = (
+      <div className="space-y-3">
+        <p className={typography.viewPanelMeta} data-testid={`${LENSES_TESTID}-evidence-summary`}>{e.grounded} of {e.figures} figures rest on supporting evidence.{e.challenged > 0 ? ` ${e.challenged} ${e.challenged === 1 ? 'is' : 'are'} challenged by evidence.` : ''}{e.olumiLinks > 0 ? ` ${e.olumiLinks} links carry Olumi’s direction.` : ''}</p>
+        {BASIS_ORDER.map((b) => {
+          const items = by(b)
+          return items.length === 0 ? null : (
+            <section key={b} data-basis={b}>
+              <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`}>{BASIS_LABEL[b]}</h3>
+              <ul>{items.map((c) => { const id = c.id; return <li key={id} data-layer-row={id}>{c.heading}{c.author != null ? <span className={`${typography.viewPanelMeta} ml-2 ${b === 'assumed' ? 'text-info' : b === 'challenged' ? 'text-text-header' : ''}`} title={c.author.title}>{c.author.text}</span> : null}</li> })}</ul>
+            </section>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
+      <Head title={title} onClose={onClose} />
+      <div className="p-3">{body}</div>
+    </div>
+  )
+}
+
+export { optionLayerId }

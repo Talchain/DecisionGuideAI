@@ -11,6 +11,7 @@ import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
 import { useLayoutStore } from '../../canvas/layoutStore'
 import { useViewStore } from '../store'
+import { setDefaultLevel } from '../v12/simpleStore'
 import { drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
 import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
 
@@ -25,7 +26,8 @@ vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () =
 const golden = (n: string, dir = 'golden', ext = 'view'): View => JSON.parse(readFileSync(path.resolve('src/olumiView', dir, `${n}.${ext}.json`), 'utf8'))
 const ids = () => useCanvasStore.getState().nodes.slice(1).map((n) => n.id)
 
-beforeEach(() => { lane.on = true; hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
+// These rows are about the whole model drawn (Working); the Simple level has its own rows (v12/__tests__/simpleCanvas.spec.tsx).
+beforeEach(() => { setDefaultLevel('working'); lane.on = true; hydrate.mockClear(); useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null }) })
 afterEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }))
 
 describe('the View draws the canvas', () => {

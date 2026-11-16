@@ -15,6 +15,7 @@ import { useCanvasStore } from '../../canvas/store'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useViewCanvas } from '../canvas'
+import { setDefaultLevel } from '../v12/simpleStore'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(f), 'utf8'))
 const european = load('src/olumiView/golden/european.view.json')
@@ -24,6 +25,7 @@ let calls = 0
 const keep = useViewStore.getState().setOpened
 
 beforeEach(() => {
+  setDefaultLevel('working') // about the whole model drawn; Simple has its own rows (v12/__tests__/simpleCanvas.spec.tsx)
   calls = 0
   useCanvasStore.setState({ nodes: [], edges: [], highlightedNodes: new Set() } as never)
 })

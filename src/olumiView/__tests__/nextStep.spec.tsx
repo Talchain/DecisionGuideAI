@@ -64,7 +64,7 @@ describe('the next step', () => {
     expect(isOpen(review)).toBe(true)
     expect(review).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
-    // CONTRAST: the other kinds are unchanged: still a titled card with "Next step" and no review row.
+    // CONTRAST: the other kinds are still a titled card with "Next step" and no review row (V12: the goal's first question).
     cleanup()
     const f = step(show(golden('bakery')))!
     expect(f.getAttribute('data-step')).toBe('figure')
@@ -104,10 +104,12 @@ describe('the next step', () => {
     expect(step(bc)!.querySelectorAll('[data-view$=".unknown"]')).toHaveLength(0)
   })
 
-  it('nothing to approve or type, and they are the only member: bring a colleague in, which opens Team', () => {
+  it('nothing to approve, no question for a goal, and they are alone with a view of their own begun: bring a colleague in, which opens Team', () => {
     const view = golden('pricing')
     expect(view.model!.run!.waits_on).toBeNull()
-    const c = show(view)
+    const begun: View = { ...view, chat: [], collab: { ...view.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false } as never] } }
+    expect(nextStepOf(view)?.kind).not.toBe('invite') // contrast: alone, but nothing of theirs begun
+    const c = show(begun)
     expect(step(c)?.getAttribute('data-step')).toBe('invite')
     expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.invite)
     fireEvent.click(c.querySelector('[data-testid="view-next-invite"]')!)
@@ -121,8 +123,8 @@ describe('the next step', () => {
     expect(step(c)).toBeNull()
     expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(1) // the reply's own step, once
     expect(nextStepOf({ ...view, proposal: golden('proposal').proposal })?.kind).toBe('approve')
-    // Contrast: the same View with no reply yet still offers the invitation.
-    expect(nextStepOf({ ...view, chat: [] })?.kind).toBe('invite')
+    // Contrast: with no reply yet and nothing of theirs begun, no invitation is made up (V12: only a team activity begun alone invites).
+    expect(nextStepOf({ ...view, chat: [] })?.kind).not.toBe('invite')
   })
 
   it('a team already, with nothing to approve or type: no step (the conversation is the next step)', () => {
@@ -131,16 +133,18 @@ describe('the next step', () => {
     expect(step(c)).toBeNull()
   })
 
-  it('the order: a held proposal comes before a figure, and a figure before an invitation; core\'s own states only', () => {
+  it('the order: a held proposal first, then the reply\'s real move, then the goal\'s first question; a filler move gives way to the question', () => {
     const bakery = golden('bakery'), proposal = golden('proposal')
     expect(nextStepOf({ ...bakery, proposal: proposal.proposal })?.kind).toBe('approve')
-    expect(nextStepOf(bakery)?.kind).toBe('figure')
-    // A figure core does not let them type is never offered as their step.
+    const sv = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', 'goal-understand.view3.json'), 'utf8')) as View
+    const withMove = (move: string): View => ({ ...sv, chat: sv.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move } } })) })
+    expect(nextStepOf(bakery)?.kind).toBe('figure') // a figure the chances wait on comes before the reply's move and before a question
     const run = bakery.model!.run!, waits = run.waits_on!
     const untypeable = { ...bakery, model: { ...bakery.model!, run: { ...run, waits_on: { ...waits, items: waits.items.map((i) => ({ ...i, edit: null })) } } } }
-    expect(nextStepOf(untypeable)?.kind).toBe('invite')
-    // While a proposal is held core gives no version to edit: no figure step either.
-    expect(nextStepOf({ ...bakery, model: { ...bakery.model!, edit_base: null }, collab: { ...bakery.collab, alone: false } })).toBeNull()
+    expect(nextStepOf(untypeable)?.kind).not.toBe('figure') // a figure core does not let them type is never their step
+    expect(nextStepOf({ ...bakery, model: { ...bakery.model!, edit_base: null } })?.kind).not.toBe('figure') // no version to edit: no figure step
+    expect(nextStepOf(withMove('pre_mortem'))?.kind).toBe('move')
+    expect(nextStepOf(withMove('other_method'))?.kind).toBe('method')
   })
 })
 
@@ -205,8 +209,9 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
   })
   it('must not change: with no Next step, the move stays under the reply and More ways holds no move', () => {
     const p = golden('proposal'), view: View = { ...p, proposal: null, collab: { ...p.collab, alone: false }, model: { ...p.model!, run: p.model!.run === null ? null : { ...p.model!.run, waits_on: null } } }
-    expect(nextStepOf(view)).toBeNull()
+    expect(nextStepOf(view)?.kind).toBe('move') // V12: the reply's own move is the step; it is drawn under the reply, with no second card
     const c = show(view)
+    expect(step(c)).toBeNull()
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)

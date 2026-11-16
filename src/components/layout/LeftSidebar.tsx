@@ -71,6 +71,17 @@ interface LeftSidebarProps {
    * describes; first screen, Paul 27 Oct). Its name is the question it opens.
    */
   addAsksInChat?: boolean
+  /**
+   * V12 slot: the editing lane's undo (`src/olumiView/v12/UndoControl.tsx`). When given it takes the place of the built-in Undo, in the same
+   * spot in the top pill (Add, Select, Pan, Undo), and shows whatever `showUndo` says: its own availability stays with its writer.
+   */
+  undoControl?: ReactNode
+  /**
+   * V12 slot: the layers button (`src/olumiView/v12/lenses/LensesMenu.tsx`), production's lens list. It sits LAST in the top pill, after Undo,
+   * as contract v3.1's tool run names it (+, pointer, hand, undo, layers): it changes how the model is VIEWED, like the view tools, and the
+   * bottom pill (zoom, fit, More) stays exactly as Paul specified it. Omitted, nothing renders.
+   */
+  layers?: ReactNode
 }
 
 /** The program board's + asks this, and the chat opens for the answer. */
@@ -89,6 +100,8 @@ export function LeftSidebar({
   undoUnavailable = false,
   onAddToModelClick,
   addAsksInChat = false,
+  undoControl,
+  layers,
 }: LeftSidebarProps) {
   const addBtnRef = useRef<HTMLButtonElement | null>(null)
 
@@ -243,7 +256,7 @@ export function LeftSidebar({
             the call site's flag folds the other way, this branch stops firing
             on its own and real undo takes over. There is no second place to
             remember to update. */}
-        {showUndo && <Tooltip content="Undo">
+        {undoControl ?? (showUndo && <Tooltip content="Undo">
           <button
             type="button"
             className={styles.iconButton}
@@ -262,7 +275,9 @@ export function LeftSidebar({
           >
             <Undo2 className={styles.icon} aria-hidden="true" />
           </button>
-        </Tooltip>}
+        </Tooltip>)}
+
+        {layers}
 
         {/* ⭐ NO REDO BUTTON (contract v3.1, DESIGN-GAP #13). Redo is reached
             from the keyboard: `isUndoRedoGesture` returns true for ⌘Y and ⌘⇧Z

@@ -8,8 +8,9 @@ import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION } from './layout'
 import { useViewStore } from './store'
+import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
@@ -58,11 +59,11 @@ let causal: { key: string; places: Map<string, At> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number } }) =>
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean } }) =>
   JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], opts.direction, opts.spacing, opts.row])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
-let row: { cardW: number; gapX: number; perRow?: number } = { cardW: 0, gapX: 0 }
+let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean } = { cardW: 0, gapX: 0 }
 export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
@@ -91,7 +92,8 @@ const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().
  *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
 async function causalFor(model: ViewModel): Promise<Map<string, At>> {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
-  row = stageRow(model, roomOf().w)
+  // V12: Simple has its own, wider bands (layout.ts simpleStageRow); Detailed keeps the stage row.
+  row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, { direction, spacing: nodeSpacing, row })
   if (causal?.key === key) return causal.places
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
@@ -113,7 +115,7 @@ async function causalFor(model: ViewModel): Promise<Map<string, At>> {
 export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, At>): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
-  if (row.cardW === 0) row = stageRow(model, roomOf().w)
+  if (row.cardW === 0) row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const heights = drawnHeights(store.nodes), q = { width: questionBarWidth(model, row) }
   const box = (id: string, p: At) => ({ ...p, w: id === QUESTION ? q.width : row.cardW, h: heights.get(id) ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
   const ids = [QUESTION, ...model.cards.map((c) => c.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : VIEW_CARD)
@@ -201,7 +203,9 @@ export function useViewCanvas(on: boolean): void {
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
   const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
-  const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}`)
+  // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
+  const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
+  const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).

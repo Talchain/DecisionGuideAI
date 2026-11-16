@@ -14,11 +14,10 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
-import { replyHasNext } from './replyHasNext'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
-import { chatQuestionsOf, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { chatQuestionsOf, isFirstLook, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -39,7 +38,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, MessageCircleQuestion, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -47,6 +46,11 @@ import { earlyOf, floorShown, onFloor, entriesOf, threadRows, type FloorTurn } f
 import { EarlyAnswer } from './EarlyAnswer'
 import { ResultReceipts } from './ResultReceipts'
 import { SinceVersion } from '../olumiCore/compare'
+import { ActionsMenu } from './v12/actionsMenu'
+import { FIGURE_FIRST_ID, isMethodReply, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
+import { KeepIdea } from './v12/KeepIdea'
+import { ideaTextOf } from './v12/ideas'
+import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
@@ -171,6 +175,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
   const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`}>{t.by}</p>
   const early = earlyOf(t)
+  // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
+  const keepSid = useViewStore((st) => (st.view !== null && isMethodReply(st.view, t) ? st.sid : null))
+  const idea = t.answer === null || keepSid === null ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
   const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}<p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
   const model = useViewStore((st) => st.view?.model ?? null)
@@ -206,6 +213,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         </details>
       )}
       <Stories answer={t.answer} at={at} />
+      {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
@@ -878,7 +886,7 @@ export async function showOlumisNow(): Promise<boolean> {
 }
 
 /** The menu item core sends while it offers "Let us give our figure first" (API.md): a press opens its entry, never POST …/method. */
-export const FIGURE_FIRST = 'figure_first'
+export const FIGURE_FIRST = FIGURE_FIRST_ID
 
 /**
  * Open the blind entry (`GET …/figure-first`, a read that writes nothing), keeping core's headings from the View (the show answer has none).
@@ -968,7 +976,7 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
 export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
-  if (sid === null || typeof next.move !== 'string' || next.move === '' || gone === moveKey(sid, turn, next.move)) return null
+  if (sid === null || !isRealMove(next.move) || gone === moveKey(sid, turn, next.move)) return null
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
@@ -1045,21 +1053,16 @@ export function useAnswersAsks(on = true): void {
   }, [on])
 }
 
-type WaitsOnItem = NonNullable<NonNullable<NonNullable<View['model']>['run']>['waits_on']>['items'][number]
-export type NextStep = { readonly kind: 'approve' } | { readonly kind: 'figure'; readonly item: WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } } | { readonly kind: 'invite' }
+export type NextStep = V12NextStep
 
 /**
- * The one thing for the person to do next (lane C, Paul 3 Nov: a first-time person knows what to do within a minute), chosen from what
- * the View already states, in this order: a proposal Olumi holds is checked first (nothing is kept until it is approved); then the
- * first figure the chances wait on that core lets them type; then, while they are the only member, bringing a colleague in. Else
- * nothing: the conversation is the next step.
+ * The one thing for the person to do next (V12: chosen from their purpose and the state, v12/actions.ts `nextStepFor`): a proposal Olumi holds
+ * (checked first; nothing is kept until it is approved); else the newest reply's own move when it is a real one; else the first question core
+ * orders for what they came for; else bringing a colleague in, only while the View shows a team activity begun alone. Else nothing: the
+ * conversation is the next step. `isGone` drops a move core has refused as stale (MoveTap's own rule).
  */
-export function nextStepOf(view: View): NextStep | null {
-  if (view.proposal !== null) return { kind: 'approve' }
-  const item = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null)
-  if (item) return { kind: 'figure', item: item as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  if (view.version !== null && view.collab.alone && !replyHasNext(view)) return { kind: 'invite' }
-  return null
+export function nextStepOf(view: View, isGone?: (turn: number, move: string) => boolean): NextStep | null {
+  return nextStepFor(view, isGone)
 }
 
 // A figure step has no words of the UI's own: it says what the chances wait on in core's words (`run.waits_on`), so it never claims who can
@@ -1069,19 +1072,6 @@ export const NEXT_STEP_WORDS = {
   approve: 'Olumi proposes changes, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve, and figure edits wait until then.',
   invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
 } as const
-
-/** What the chances wait on, for the figure step, in core's words at their paths: its label, the figure's name, and, where core says no one
- *  can size it yet, that clause. The hover is core's (the question asked, or why it is unknown). */
-function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
-  const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
-  return (
-    <p title={item.title} data-testid="view-next-figure-waits">
-      <span data-view="run.waits_on.label">{w.label}</span>{' '}
-      <span data-view={`run.waits_on.items.${k}.text`}>{item.text}</span>
-      {item.unknown === null || item.unknown === '' ? null : <span data-view={`run.waits_on.items.${k}.unknown`}>{item.unknown}</span>}
-    </p>
-  )
-}
 
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
 /**
@@ -1121,9 +1111,42 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   )
 }
 
+/** The presses the menu and the next step share: one action system. A question is asked as a discussion-only turn (askMethod); "Let us give
+ *  our figure first" opens its blind entry; the reply or the entry is brought into view once drawn. */
+export function runMethod(id: string): void {
+  const from = document.querySelector('[data-testid="view-chat"]')
+  if (id === FIGURE_FIRST) void openFigureFirst().then(() => bringIntoView(from, 'view-figure-first-entry'))
+  else void askMethod(id).then((sent) => { if (sent) bringIntoView(from, 'view-chat-latest') })
+}
+
+/** The tools folded in from the Reasoning tab. "Your brief" shows the brief's account (the brief panel on a first look, else the tab that holds
+ *  the brief); "Review all inputs" opens the Model tab, the model's own inputs, to read and change there. Neither asks Olumi anything. */
+export function runTool(id: ToolId): void {
+  if (id === 'review_inputs') { useUIStore.getState().forceActivateOutputTab('diagnostics'); return }
+  const { sid, view } = useViewStore.getState()
+  if (sid !== null) useBriefPanelLeft.setState((st) => { const left = new Set(st.left); left.delete(sid); return { left } })
+  if (!isFirstLook(view)) useUIStore.getState().forceActivateOutputTab('analysisNew')
+}
+
+/** What the chances wait on, for the figure step, in core's words at their paths: its label, the figure's name, and, where core says no one
+ *  can size it yet, that clause. The hover is core's (the question asked, or why it is unknown). */
+function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
+  const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
+  return (
+    <p title={item.title} data-testid="view-next-figure-waits">
+      <span data-view="run.waits_on.label">{w.label}</span>{' '}
+      <span data-view={`run.waits_on.items.${k}.text`}>{item.text}</span>
+      {item.unknown === null || item.unknown === '' ? null : <span data-view={`run.waits_on.items.${k}.unknown`}>{item.unknown}</span>}
+    </p>
+  )
+}
+
 function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
-  const step = nextStepOf(view)
-  if (step === null) return null
+  const sid = useViewStore((st) => st.sid)
+  const gone = useViewChat((st) => st.gone ?? null)
+  const step = nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
+  // The reply's own move is drawn under that reply as its one tap (MoveTap, Turn): no second card for the same step.
+  if (step === null || step.kind === 'move') return null
   // Contract 3 (ONE-PLAN, 15 Nov: "the pending review collapses to one row; all changes can be read without approving"): Olumi's waiting
   // proposal is ONE row, in core's words (`proposal.heading` · `proposal.on`), closed at rest so the thread keeps its room; opening it
   // shows every change, its readings and Approve / Set aside (the box then grows and scrolls as before). A new proposal starts closed.
@@ -1136,19 +1159,34 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
     )
   }
   return (
-    <section className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2 ring-1 ring-info/20`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
+    <section className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={typography.panelHeader}>Next step</p>
-      {step.kind === 'figure' ? null : <p>{NEXT_STEP_WORDS[step.kind]}</p>}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <FigureWaits view={view} item={step.item} />
           <FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" />
         </div>
       ) : null}
+      {step.kind === 'method' ? <MethodStep m={step.method} held={busy} /> : null}
       {step.kind === 'invite' ? (
-        <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+        <>
+          <p>{NEXT_STEP_WORDS.invite}</p>
+          <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+        </>
       ) : null}
     </section>
+  )
+}
+
+/** The first question core orders for what they came for, as one button in core's words; an analysis-gated one says what it needs. */
+function MethodStep({ m, held }: { m: MenuMethod; held: boolean }) {
+  return (
+    <div className="space-y-1">
+      <button type="button" disabled={held} onClick={() => runMethod(m.id)} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-next-method" data-method={m.id}>
+        <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
+      </button>
+      {m.prerequisite === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-method-prerequisite">{m.prerequisite}</p>}
+    </div>
   )
 }
 
@@ -1204,72 +1242,16 @@ export const MENU_NAME = 'Questions to explore with Olumi'
 export const FIRST_FOR_GOAL = 'Suits what you came here for'
 
 /**
- * The menu of plain questions (canon wave step 1; Paul's 18 Sep "Methods you can run", made prominent): every question core sends, in
- * core's order and words, none hidden; the ones that suit the goal (`first`) carry a quiet emphasis, never a filter. A press asks Olumi
- * that question as a discussion-only turn; while any turn is in flight the whole menu is held.
- */
-function MethodMenu({ session, held }: { session: Session; held: boolean }) {
-  const box = useRef<HTMLDivElement>(null)
-  // The reply lands as the newest turn, under the menu: once it is drawn, it is brought into view, so a press is seen to be answered.
-  // "Let us give our figure first" opens its own entry (never a question to Olumi); every other item asks its question.
-  const ask = (id: string) => (id === FIGURE_FIRST
-    ? void openFigureFirst().then(() => bringIntoView(box.current, 'view-figure-first-entry'))
-    : void askMethod(id).then((sent) => { if (sent) bringIntoView(box.current, 'view-chat-latest') }))
-  return (
-    <div ref={box} className="flex items-start gap-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="view-session-menu">
-      <span className="mt-1 inline-flex h-5 w-5 flex-none items-center justify-center text-info" title={MENU_NAME} aria-hidden="true"><MessageCircleQuestion className="h-4 w-4" /></span>
-      <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={MENU_NAME}>
-        {session.methods.map((m, i) => (
-          <button key={m.id} type="button" disabled={held} onClick={() => ask(m.id)} title={m.first ? FIRST_FOR_GOAL : undefined}
-            className={`${VIEW_CHIP_CLASS}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
-            {m.first ? <span className="h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
-            <span data-view={`session.methods.${i}.text`}>{m.text}</span>
-            {m.first ? <span className="sr-only"> ({FIRST_FOR_GOAL})</span> : null}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/**
  * R25 spacing roles on this tab (plan v3 item 3; one value per role, alpha surfaces only): sections 16px (space-y-4, the tab's p-4);
  * a card's padding 12px (p-3); related items 8px (space-y-2); a label to its content 4px (space-y-1). The waiting change sits inside the
  * Next step card with no second border or padding of its own (the double padding is gone).
  */
-/**
- * v10's methods (DGAI's reasoning moves' glyphs and words): each fills the composer with its prefix, keeping what was typed, for the person
- * to finish; nothing is sent. R25 (DL ruling 7 Nov, Paul 6 Nov: one next move visible, the methods behind "More ways"): drawn inside the
- * disclosure, each with its name, no longer as the composer's icon row.
- */
-function MethodChips() {
-  return (
-    <span role="group" aria-label="Ways to test the model" className="flex flex-wrap items-center gap-1" data-testid="v10-method-chips">
-      {V10_METHODS.map(({ key, label, prefix }) => {
-        const Icon = METHOD_GLYPHS[key]
-        return (
-          <button key={key} type="button" data-testid={`v10-method-${key}`}
-            className={`${typography.viewPanelBody} inline-flex min-h-[24px] items-center gap-1.5 rounded-md px-2 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); document.getElementById('view-chat-text')?.focus() }}>
-            <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />{label}
-          </button>
-        )
-      })}
-    </span>
-  )
-}
-
-/** The disclosure holding what the team came for and every method (R25: depth one click away, never above Olumi's reply). */
-export const MORE_WAYS = 'More ways to think about this'
-
-/** Keep the thread together and methods within reach (UI recovery witness row 11, DL 10 Nov). */
+/** The thread and the Next step. The ways in to Olumi's questions are the composer's ⋯ menu (V12: one action system). */
 export function ViewChat() {
   useAnswersAsks()
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at)
-  // Core's session block (canon wave step 1): what the team came for, then the menu; a View without it draws neither.
-  const session = view === null ? null : sessionOf(view)
   const held = busy || past !== null
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
   const ff = view === null ? null : figureFirstOf(view)
@@ -1289,7 +1271,6 @@ export function ViewChat() {
   // brings it into view over the reader's floor, once; until then the floor stands (Codex 15 Nov, round 3).
   const receiptDue = useRef(false)
   const [away, setAway] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
   const readScroll = useCallback(() => {
     const el = scroll.current
     if (el === null) return
@@ -1383,9 +1364,6 @@ export function ViewChat() {
     if (ff?.offer == null) closeFigureFirst()
     else void openFigureFirst()
   }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
-  // The methods, behind More ways (none for a brief, or while a write holds the composer they fill).
-  const sid = useViewStore((s) => s.sid)
-  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) // the methods need a model; a model-less conversation has none
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   const pinned = view !== null && nextStepOf(view)?.kind === 'approve'
@@ -1452,16 +1430,6 @@ export function ViewChat() {
       {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
           buried under a long reply; it scrolls on its own when taller than half the panel. */}
       {view === null || !pinned ? null : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
-      {session === null && !methods ? null : (
-        <details className="shrink-0 px-4" data-testid="view-more-ways" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
-          <summary className={`${typography.viewPanelBody} flex min-h-[44px] cursor-pointer items-center text-text-body underline underline-offset-2`}>{MORE_WAYS}</summary>
-          {/* Keep room for the thread after choosing a method (pre-screen 4b92d394 row 16). */}
-          <div className="max-h-[25vh] overflow-y-auto space-y-4 pb-4" onClick={(e) => { if ((e.target as Element).closest('button')) setMoreOpen(false) }}>
-            {methods ? <MethodChips /> : null}
-            {session === null ? null : <><SessionGoal session={session} held={held} /><MethodMenu session={session} held={held} /></>}
-          </div>
-        </details>
-      )}
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
@@ -1555,6 +1523,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
+  const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
   // is the latest; a proposal not yet approved is not one.
@@ -1598,6 +1567,11 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
                 )
               })}
             </span>
+          )}
+          {/* V12 one action system: the ⋯ opens core's questions in core's order, what they came for, and the tools folded in from the Reasoning
+              tab (it replaces the "More ways" disclosure). Core sends no session block, or the scenario has no model yet: no ⋯. */}
+          {menu === null || session === null ? null : (
+            <ActionsMenu menu={menu} held={held} onMethod={runMethod} onTool={runTool} goal={<SessionGoal session={session} held={held} />} />
           )}
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (

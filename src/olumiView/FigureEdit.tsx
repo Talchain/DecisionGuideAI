@@ -15,6 +15,8 @@ import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
 import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
+import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
+import { SizeEditButton } from './v12/edit/SizeEditButton'
 
 /**
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
@@ -92,7 +94,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: { prompt: string; ask: string } | null; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -110,10 +112,13 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const key = `${sid}:edit:${id}`
   const sending = useWriteSending(key)
   // Row 6: an open card editor is on record while it is open, so its card keeps it when core stops offering the edit.
-  useEffect(() => { if (place !== 'view-figure') return; keepOpen(id, open ? edit : null); return () => { if (!open) keepOpen(id, null) } }, [place, id, open, edit])
+  useEffect(() => { if (place !== 'view-figure') return; keepOpen(id, open && edit ? edit : null); return () => { if (!open) keepOpen(id, null) } }, [place, id, open, edit])
   // DL 09:50Z (1): another card's words that open this editor (`opener`, the aim's question) are that card's own words: where no editor is
   // offered here (not this person's page, no version, no edit), they are drawn as plain words, never dropped.
   if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
+  // A RISK's chance and size, or a link's strength, is core's `…/size` route, never `…/edit` (which refuses it: a risk is not a figure). Core
+  // says so with `route: 'size'`; the lane's own size form takes it, in core's field words. A plain figure edit keeps this editor.
+  if (isSizeEdit(edit)) return <SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-body hover:text-text-header`}>{opener}</SizeEditButton>
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
   if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null

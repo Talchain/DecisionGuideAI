@@ -29,6 +29,7 @@ import { noteEditSaved, noticeWords } from '../notice'
 import { clearWhatIf, tryWhatIf, useWhatIf } from '../whatif'
 import { editKey, useModelWords, readAfterSave, useModelEdit } from './editing'
 import { tagOf, useModelTab, type Editing } from './state'
+import { LaneEditForm, isSizeEdit, type CoreEdit } from '../v12/edit/EditForm'
 
 /**
  * The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. The person's own
@@ -167,10 +168,13 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
  * Change one figure (`POST …/edit`, typed as the person wrote it). `mine.quantity` is the figure's own card id: the row's own, or for an
  * aim the target figure, for a link the figure that sizes it. The base is the one the editor opened on, never a later one (FigureEdit rule).
  */
-export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 'figure' }; edit: { prompt: string; ask: string } }): JSX.Element {
+export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 'figure' }; edit: NonNullable<CoreEdit> }): JSX.Element {
   const W = useModelWords()!
   const { row, quantity, sid, base, typed } = mine
   const [trying, setTrying] = useState(false)
+  const here = useRef<HTMLSpanElement | null>(null)
+  const [at, setAt] = useState<{ x: number; y: number }>({ x: 96, y: 160 })
+  useEffect(() => { const r = here.current?.getBoundingClientRect(); if (r) setAt({ x: r.left, y: r.bottom + 4 }) }, [])
   const key = editKey.figure(sid, quantity)
   const { error, setError, field, form, run, cancel, pending, other, inert } = useSave(mine, key, 'value')
   const withdrawn = useWithdrawn()
@@ -197,6 +201,9 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
     } finally { setTrying(false) }
   }
 
+  // A risk's chance and size (or a link's strength) is core's `…/size` route, never `…/edit`, which refuses it: core's own `route: 'size'` sends
+  // it to the lane's size form, on the base this editor opened on. The form closes this row's editor when it is done.
+  if (isSizeEdit(edit)) return <><span ref={here} data-model-editor-size={row} /><LaneEditForm spec={{ kind: 'size', sid, base, edit, subject: row }} anchor={at} onClose={cancel} /></>
   return (
     <form ref={form} className="mt-2 space-y-2" data-model-editor={row} data-model-editor-for={quantity} aria-busy={pending || undefined}
       onSubmit={(e) => { e.preventDefault(); save() }}

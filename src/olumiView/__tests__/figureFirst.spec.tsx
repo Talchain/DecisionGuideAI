@@ -43,7 +43,13 @@ function core(next: () => View, respond: (url: string) => Response | Promise<Res
   }) as unknown as typeof fetch)
 }
 const show = (v: View) => useViewStore.setState({ uuid: UUID, sid: SID, view: v, error: null, status: 'ready', stale: false, at: null })
-const renderTab = () => render(<><ViewChat /><ViewComposer /></>).container
+// V12: the goal row and the questions live behind the composer's ⋯ (one action system), so the menu is opened once drawn.
+const renderTab = () => {
+  const c = render(<><ViewChat /><ViewComposer /></>).container
+  const b = c.querySelector('[data-testid="view-actions-button"]')
+  if (b !== null) act(() => { fireEvent.click(b) })
+  return c
+}
 const click = (el: Element) => act(async () => { fireEvent.click(el) })
 const q = (c: ParentNode, s: string) => c.querySelector<HTMLElement>(s)
 const menuItem = (c: HTMLElement) => q(c, '[data-testid="view-session-method"][data-method="figure_first"]')!

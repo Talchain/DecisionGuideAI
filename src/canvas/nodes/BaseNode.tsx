@@ -991,7 +991,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const isCoreCard = (data as { core?: boolean } | undefined)?.core === true
   // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line): three lines on the face, the whole
   // heading as the title's hover; the card's accessible name keeps it whole (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
-  const titleClamp = isCoreCard ? 'line-clamp-3' : 'line-clamp-2'
+  // V12 Simple (`data.compact`): a compact card, two title lines at most, the whole heading on hover.
+  const compact = isCoreCard && (data as { compact?: boolean } | undefined)?.compact === true
+  // One title line on a compact card (the question: two), the whole heading on hover.
+  const titleClamp = compact ? (nodeType === 'decision' ? 'line-clamp-2' : 'line-clamp-1') : isCoreCard ? 'line-clamp-3' : 'line-clamp-2'
   const isIncomplete = isCoreCard ? false : (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
@@ -1543,7 +1546,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * can therefore never rise above the body's top, and the title keeps the
    * card's full measure at every scale.
    */
-  const anchorRailBeside = isAnchorCard && showQuickActions
+  const anchorRailBeside = isAnchorCard && showQuickActions && !compact
   /**
    * The anchor body's box beside its rail — drawn wherever the rail is beside it,
    * and DECLARED on the body at every rung (`NODE_BODY_BOUND_STYLE_ATTR`) so the
@@ -1553,7 +1556,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    */
   const anchorBodyBox = isAnchorCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
   /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
-  const quickActionsInset = anchorRailBeside || atNormalZoom
+  // A compact card reserves no band for the rail: it hangs below the card, as it does below the landing floor.
+  const quickActionsInset = anchorRailBeside || (atNormalZoom && !compact)
   /**
    * The card's padding AT A RUNG — `normal` is the Normal (`full`) rung, where the
    * rail is beside an anchor and the band is reserved under every other card.
@@ -1565,6 +1569,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const cardPaddingAt = (normal: boolean): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
+    // V12 Simple: 6 px above and below, 12 px at the sides, at both rungs (no reserved band).
+    if (compact) return { paddingTop: px(6), paddingRight: side, paddingBottom: px(6), paddingLeft: side }
     const actionsAtRung = normal || showQuickActions
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
@@ -1929,6 +1935,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       onMouseEnter={hoverCard.nodeHandlers.onMouseEnter}
       onMouseLeave={hoverCard.nodeHandlers.onMouseLeave}
       role="group"
+      {...(compact ? { 'data-simple-compact': '' } : {})}
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}

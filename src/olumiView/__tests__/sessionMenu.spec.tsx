@@ -35,7 +35,16 @@ function core(next: () => View, respond: (url: string) => Response | Promise<Res
   }) as unknown as typeof fetch)
 }
 const show = (view: View) => useViewStore.setState({ uuid: UUID, sid: SID, view, error: null, status: 'ready', stale: false, at: null })
-const renderTab = () => render(<><ViewChat /><ViewComposer /></>).container
+// V12: the goal row and the questions live behind the composer's ⋯ (one action system), so the menu is opened once drawn (a press closes it).
+const openMenu = (c: HTMLElement) => {
+  const b = c.querySelector('[data-testid="view-actions-button"]')
+  if (b !== null && c.querySelector('[data-testid="view-actions-menu"]') === null) act(() => { fireEvent.click(b) })
+}
+const renderTab = (open = true) => {
+  const c = render(<><ViewChat /><ViewComposer /></>).container
+  if (open) openMenu(c)
+  return c
+}
 const press = (el: Element) => act(async () => { fireEvent.click(el) })
 const goalOptions = (c: HTMLElement) => [...c.querySelectorAll<HTMLButtonElement>('[data-testid="view-session-goal-option"]')]
 const methods = (c: HTMLElement) => [...c.querySelectorAll<HTMLButtonElement>('[data-testid="view-session-method"]')]
@@ -114,19 +123,23 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
   })
 })
 
-describe('reasoning first (R25, Paul 7 Nov, plan v3 item 4): Olumi\'s reply above the next step; every method behind one disclosure', () => {
-  it('catch: the latest reply is drawn before the next step, and the goal and every method sit in a closed "More ways to think about this"', () => {
+describe('reasoning first (R25, Paul 7 Nov, plan v3 item 4; V12 one action system): Olumi\'s reply above the next step; every method behind the one ⋯ menu', () => {
+  it('catch: the latest reply is drawn before the next step; the menu is closed at rest, "More ways" is gone, and the goal and every method sit in the opened ⋯ menu', () => {
     const view = fixture('goal-understand')
     show(view)
-    const c = renderTab()
-    const reply = c.querySelector('[data-testid="view-chat-latest"]'), more = c.querySelector<HTMLDetailsElement>('[data-testid="view-more-ways"]')!
+    const c = renderTab(false)
+    const reply = c.querySelector('[data-testid="view-chat-latest"]')
     expect(reply).not.toBeNull()
     const next = c.querySelector('[data-testid="view-next-step"]')
     if (next !== null) expect(reply!.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(more.open).toBe(false)
-    expect(more.querySelector('summary')!.textContent).toBe('More ways to think about this')
-    expect(methods(c).every((b) => more.contains(b))).toBe(true)
-    expect(more.contains(c.querySelector('[data-testid="view-session-menu"]'))).toBe(true)
+    expect(c.querySelector('[data-testid="view-more-ways"]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-actions-menu"]')).toBeNull()
+    expect(methods(c)).toHaveLength(0)
+    openMenu(c)
+    const menu = c.querySelector('[data-testid="view-actions-menu"]')!
+    expect(methods(c).every((b) => menu.contains(b))).toBe(true)
+    expect(menu.contains(c.querySelector('[data-testid="view-session-menu"]'))).toBe(true)
+    expect(menu.contains(c.querySelector('[data-testid="view-session-goal"]'))).toBe(true)
   })
 })
 
@@ -195,14 +208,16 @@ describe('a press asks that question as a discussion-only turn', () => {
     const c = renderTab()
     await press(methods(c).find((b) => b.dataset['method'] === 'find_first')!)
     expect(posts).toHaveLength(1)
+    openMenu(c)
     expect(methods(c)).toHaveLength(11)
     for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(true)
     expect(c.querySelector<HTMLButtonElement>('[data-testid="view-session-goal-clear"]')!.disabled).toBe(true)
     expect(c.querySelector<HTMLButtonElement>('[data-testid="view-session-goal-change"]')!.disabled).toBe(true)
-    await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
+    openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
     expect(posts).toHaveLength(1)
     await act(async () => { release(new Response(JSON.stringify({ proposal: 6, discussion: true }), { status: 201 })) })
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
+    openMenu(c)
     for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(false)
   })
 
@@ -211,13 +226,13 @@ describe('a press asks that question as a discussion-only turn', () => {
     show(fixture('goal-understand'))
     const c = renderTab()
     useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one']), edgeIds: new Set<string>(), anchorPosition: null } })
-    await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
+    openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
     expect(posts[0]!.body).toEqual({ method: 'go_wrong', op: OP, option: 'add_one' })
     useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one', 'hold']), edgeIds: new Set<string>(), anchorPosition: null } })
-    await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
+    openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
     expect(posts[1]!.body).toEqual({ method: 'go_wrong', op: OP })
     useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one']), edgeIds: new Set<string>(), anchorPosition: null } })
-    await press(methods(c).find((b) => b.dataset['method'] === 'rests')!)
+    openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'rests')!)
     expect(posts[2]!.body).toEqual({ method: 'rests', op: OP })
     useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set<string>(), anchorPosition: null } })
   })

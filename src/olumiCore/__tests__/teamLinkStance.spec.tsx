@@ -167,7 +167,7 @@ describe('Its place in the Team tab', () => {
     useMe.setState({ me: { id: revealed.you_id, name: revealed.you }, status: 'ready' } as never)
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: revealed, status: 'ready', error: null, stale: false })
     render(<TeamTab />)
-    const [form, diffs] = await waitFor(() => { const f = screen.getByTestId('team-link-stance'), d = screen.getByTestId('team-differences'); return [f, d] as const })
+    const [form, diffs] = await waitFor(() => { const f = screen.getByTestId('team-link-stance'), d = screen.getByTestId('differ-differences'); return [f, d] as const })
     expect(form.compareDocumentPosition(diffs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     useMe.setState({ me: null, status: 'none' } as never)
   })

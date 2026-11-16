@@ -11,6 +11,7 @@
  * Nothing here formats, rounds, orders or works out a value.
  */
 import { memo, useMemo } from 'react'
+import { isForThisPage, useMe } from '../../olumiCore/me'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
@@ -33,6 +34,9 @@ import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
+import { SimpleFace } from '../v12/SimpleFace'
+import { useLevel } from '../v12/simpleStore'
+import { nextNoteOf } from '../note'
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
@@ -185,6 +189,10 @@ export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id:
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
+  // V12: Simple draws the card as visuals (v12/SimpleFace.tsx); Detailed draws today's full face. The note's card wears Olumi's badge.
+  const simple = useLevel() === 'simple'
+  const me = useMe((s) => s.me)
+  const noted = useViewStore((s) => s.view !== null && simple && isForThisPage(s.view, me) && (nextNoteOf(s.view)?.at ?? null) === id)
   // The card is the one the node carries (canvas.ts drawViewCanvas: core's own card, never a copy), else the View's: one snapshot with the node.
   const carried = (props.data as { card?: ViewCard }).card
   const card = id === QUESTION ? null : carried ?? model?.cards.find((c) => c.id === id) ?? null
@@ -200,7 +208,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const titleOverride = faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
   const question = id === QUESTION ? model?.question ?? null : null
   const coreValue = card === null ? null : coreHoverValueOf(card)
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source])
+  // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, simple])
   const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
@@ -368,9 +377,13 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
-      {card === null ? <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div> : (
+      {card === null ? (simple
+        // V12 Simple: the question alone, a slim pill (its notes, its date and the chance sentence are the panel's, the date also its hover).
+        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text} />
+        : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
+          {simple ? <SimpleFace card={card} model={model} noted={noted} extra={<>{editCue}{badgeLine}</>} /> : <>
           {faceOf()}
           {limitsOf()}
           {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
@@ -432,6 +445,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               : card.author != null && card.author.text !== '' ? <p className="ok-by" data-core-author={id} title={card.author.title || undefined}>{card.author.text}</p> : null}
               {badgeLine}{viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}</div>
           </div>
+          </>}
         </div>
       )}
     </BaseNode>

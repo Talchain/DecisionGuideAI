@@ -5,7 +5,7 @@
  * submenu mechanics, keyboard navigation, and tooltips.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -17,9 +17,10 @@ import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuE
 import { SetValuePopover } from './SetValuePopover'
 import { setValueCustom, type FactorValueWriter } from './actions'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { CANVAS_LAYER_CLASS } from '../layers'
 
-interface CanvasContextMenuProps {
+export interface CanvasContextMenuProps {
   target: ContextTarget
   onClose: () => void
   screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number }
@@ -29,13 +30,38 @@ interface CanvasContextMenuProps {
   onSetInteractionMode?: (mode: 'select' | 'hand') => void
 }
 
-export function CanvasContextMenu({
+/** What a menu's items hook hands the shared menu: the rows, and (the lane only) a small edit form that stands in for the menu while it is open. */
+export interface MenuItemsOptions {
+  target: ContextTarget
+  showToast: ReturnType<typeof useShowToast>
+  screenToFlowPosition: CanvasContextMenuProps['screenToFlowPosition']
+  onClose: () => void
+  onOpenCustomValue: (nodeId: string) => void
+  factorValueWriter: FactorValueWriter | undefined
+  interactionMode?: 'select' | 'hand'
+  onSetInteractionMode?: (mode: 'select' | 'hand') => void
+}
+export type MenuItemsHook = (o: MenuItemsOptions) => { items: MenuEntry[]; overlay: ReactNode | null }
+/** The previous product's rows (the legacy canvas). Never swapped for another hook in a mounted menu. */
+const useLegacyItems: MenuItemsHook = (o) => ({ items: useMenuItems(o), overlay: null })
+
+// V12 manual editing: on the olumi-core lane the menu is the lane's own (laneMenu.ts), every edit row a real core route through one small form.
+// It is loaded only there, so the legacy canvas (and its specs) never import it.
+const LaneContextMenu = lazy(() => import('./LaneContextMenu'))
+
+export function CanvasContextMenu(props: CanvasContextMenuProps) {
+  if (isOlumiCoreLane()) return <Suspense fallback={null}><LaneContextMenu {...props} /></Suspense>
+  return <CanvasContextMenuBase {...props} useItems={useLegacyItems} />
+}
+
+export function CanvasContextMenuBase({
   target,
   onClose,
   screenToFlowPosition,
   interactionMode,
   onSetInteractionMode,
-}: CanvasContextMenuProps) {
+  useItems,
+}: CanvasContextMenuProps & { useItems: MenuItemsHook }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const submenuTriggerRefs = useRef(new Map<string, HTMLButtonElement>())
   const showToast = useShowToast()
@@ -72,7 +98,7 @@ export function CanvasContextMenu({
     setCustomValueNodeId(nodeId)
   }, [])
 
-  const items = useMenuItems({
+  const { items, overlay } = useItems({
     target,
     showToast,
     screenToFlowPosition,
@@ -113,6 +139,8 @@ export function CanvasContextMenu({
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // The lane's edit form owns the keys while it is open (a space or an Enter typed in it is its own).
+      if (overlay !== null) return
       if (openSubmenuId) {
         // Let submenu handle its own keys; Escape bubbles up
         if (e.key === 'Escape') {
@@ -166,7 +194,7 @@ export function CanvasContextMenu({
           break
       }
     },
-    [actionableItems, focusedIndex, onClose, openSubmenuId, openSubmenu],
+    [actionableItems, focusedIndex, onClose, openSubmenuId, openSubmenu, overlay],
   )
 
   useEffect(() => {
@@ -225,6 +253,7 @@ export function CanvasContextMenu({
   // undocumented z-101), and `NodePopover.tsx`'s own header names the fix for
   // exactly this class of control — "Renders via createPortal to escape
   // ReactFlow's stacking context."
+  if (overlay !== null) return <>{overlay}</>
   if (customValueNodeId) {
     return createPortal(
       <SetValuePopover

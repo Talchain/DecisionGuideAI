@@ -328,3 +328,10 @@
   font-size: calc(11.5px * var(--o-s)); line-height: 1.45; color: var(--o-body); background: var(--o-panel); border: 1px solid var(--o-border-emph);
   border-radius: 13px; box-shadow: 0 7px 20px rgba(30, 49, 50, 0.12), 0 1px 3px rgba(30, 49, 50, 0.06); padding: calc(8px * var(--o-s)) calc(10px * var(--o-s));
 }
+
+/* ── V12 Simple: the compact card (BaseNode `data.compact`). One clamped title line and one visual row, type at its fixed 13 px (no counter-scale,
+   so the card's height does not change with zoom: 13 px x 0.8 is 10.4 px on screen at Simple's floor). ───────────────────────────────── */
+.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label] { --o-s: 1; --canvas-label-scale: 1; padding: 6px 12px !important; }
+.olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { font-size: 13px !important; line-height: 1.3 !important; }
+.olumi-look .react-flow__node [data-simple-compact] .ok-count, .olumi-look .react-flow__node [data-simple-compact] .ok-mark { font-size: 13px; }
+.olumi-look .react-flow__node [data-simple-compact] .ok-face { gap: 0; }

@@ -56,17 +56,12 @@ describe('v10 on the core lane', () => {
     useViewStore.setState({ sid: null, view: null })
     expect(render(<><ViewChat /><ViewComposer /></>).container.querySelector('[data-testid="view-composer-methods"]')).toBeNull()
   })
-  it('the method chips sit behind "More ways to think about this" (DL ruling 7 Nov: one next move visible) and fill the composer\'s prefix, keeping what was typed; nothing is sent; none for a brief', () => {
+  it('V12: the named method chips and the "More ways" disclosure are gone: the four icons fill the prefix and the one ⋯ menu (where core sends a session) is the way in to the rest; none of them for a brief', () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
-    const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
-    expect(container.querySelector('[data-testid="view-composer"] [data-testid="v10-method-chips"]')).toBeNull() // not the composer's row
-    const chips = container.querySelector('[data-testid="view-more-ways"] [data-testid="v10-method-chips"]')!
-    expect(chips).not.toBeNull()
-    fireEvent.change(box, { target: { value: 'the 30p rise' } })
-    fireEvent.click(chips.querySelector('[data-testid="v10-method-assumption"]')!)
-    expect(box.value).toBe('Challenge it: the 30p rise')
-    fireEvent.click(chips.querySelector('[data-testid="v10-method-opposite"]')!)
-    expect(box.value).toBe('Argue the opposite of: the 30p rise') // swaps the prefix, never stacks it
+    expect(container.querySelector('[data-testid="v10-method-chips"]')).toBeNull()
+    expect(container.querySelector('[data-testid="view-more-ways"]')).toBeNull()
+    // (this View carries no session block, so core offers no menu here: the ⋯ is drawn from core's session, sessionMenu.spec)
+    expect(container.querySelectorAll('[data-testid="view-composer-methods"] button')).toHaveLength(4)
     expect(posts).toBe(0)
     unmount()
     // A scenario with no version yet takes its brief: no methods for it (the View is read, so More ways could draw).

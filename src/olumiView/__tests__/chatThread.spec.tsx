@@ -65,22 +65,19 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     for (const turn of getByTestId('view-chat-turns').children) expect(turn.closest('details')).toBeNull()
   })
 
-  it('CT3 More ways is outside the scrolling thread and closed at rest, with bounded depth', () => {
-    const { getByTestId } = render(<ViewChat />)
-    const more = getByTestId('view-more-ways') as HTMLDetailsElement
-    const scroll = getByTestId('view-chat-scroll')
-    expect(scroll.contains(more)).toBe(false)
-    expect(getByTestId('view-chat').contains(more)).toBe(true)
-    follows(scroll, more)
-    expect(more.open).toBe(false)
-    const summary = more.querySelector('summary')!
-    expect(summary).toHaveClass('text-text-body', 'underline', 'underline-offset-2')
-    expect(summary).not.toHaveClass('text-info')
-    const content = summary.nextElementSibling!
-    // Re-pinned (pre-screen 4b92d394, DL 10 Nov): row 16 leaves more height for the thread.
-    expect(content).toHaveClass('max-h-[25vh]', 'overflow-y-auto')
-    expect(content.contains(getByTestId('view-session-menu'))).toBe(true)
-    expect(content.contains(getByTestId('v10-method-chips'))).toBe(true)
+  it('CT3 (V12) the ⋯ menu is outside the scrolling thread, in the composer, closed at rest and bounded in height; "More ways" is gone', async () => {
+    const { getByTestId, queryByTestId } = render(<><ViewChat /><ViewComposer /></>)
+    expect(queryByTestId('view-more-ways')).toBeNull()
+    expect(queryByTestId('view-actions-menu')).toBeNull()
+    const scroll = getByTestId('view-chat-scroll'), button = getByTestId('view-actions-button')
+    expect(scroll.contains(button)).toBe(false)
+    expect(getByTestId('view-composer').contains(button)).toBe(true)
+    await act(async () => { fireEvent.click(button) })
+    const menu = getByTestId('view-actions-menu')
+    expect(menu).toHaveClass('max-h-[60vh]', 'overflow-y-auto')
+    expect(menu.contains(getByTestId('view-session-menu'))).toBe(true)
+    expect(menu.contains(getByTestId('view-session-goal'))).toBe(true)
+    expect(queryByTestId('v10-method-chips')).toBeNull()
   })
 
   it('CT4 a turn in flight follows the last saved turn, with thinking dots only while running', () => {
@@ -400,20 +397,16 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
   })
 
   // Closing the strip gives its space back after a press (pre-screen 4b92d394 row 16).
-  it('CT10 More ways caps content at 25vh and closes after a method button is pressed', async () => {
-    const { getByTestId, getAllByTestId } = render(<ViewChat />)
-    const more = getByTestId('view-more-ways') as HTMLDetailsElement
-    expect(more.querySelector('summary')!.nextElementSibling).toHaveClass('max-h-[25vh]', 'overflow-y-auto')
-    fireEvent.click(more.querySelector('summary')!)
-    await act(async () => { fireEvent(more, new Event('toggle')) })
-    expect(more.open).toBe(true)
-    await act(async () => { fireEvent.click(getAllByTestId('view-session-method')[0]!.querySelector('span')!) })
-    expect(more.open).toBe(false)
-    expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/method`, body: { method: getAllByTestId('view-session-method')[0]!.getAttribute('data-method'), op: expect.any(String) } }])
-    fireEvent.click(more.querySelector('summary')!)
-    await act(async () => { fireEvent(more, new Event('toggle')) })
-    fireEvent.click(getByTestId('v10-method-assumption'))
-    expect(more.open).toBe(false)
+  it('CT10 (V12) the ⋯ menu closes after a question is pressed, which posts that question once; the four icons fill the box and send nothing', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = render(<><ViewChat /><ViewComposer /></>)
+    await act(async () => { fireEvent.click(getByTestId('view-actions-button')) })
+    expect(getByTestId('view-actions-button')).toHaveAttribute('aria-expanded', 'true')
+    const first = getAllByTestId('view-session-method')[0]!
+    const id = first.getAttribute('data-method')
+    await act(async () => { fireEvent.click(first.querySelector('span')!) })
+    expect(queryByTestId('view-actions-menu')).toBeNull()
+    expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/method`, body: { method: id, op: expect.any(String) } }])
+    fireEvent.click(getByTestId('view-composer-method-assumption'))
     expect(useViewChat.getState().text).not.toBe('')
     expect(posts).toHaveLength(1)
   })
