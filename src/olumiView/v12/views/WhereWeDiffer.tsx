@@ -10,7 +10,7 @@ import { NudgesPanel } from '../../../olumiCore/team/NudgesPanel'
 import { ViewsPanel } from '../../../olumiCore/team/ViewsPanel'
 import { DissentPanel } from '../../../olumiCore/team/DissentPanel'
 import { AVATAR, BODY, CARD, ERR, H, META } from '../../../olumiCore/team/ui'
-import { groupDifferences, revealedForYou } from './differGroups'
+import { emptyConsequence, groupDifferences, NOTHING_CALCULATED, revealedForYou } from './differGroups'
 import { SimpleSummary, useRevealedDifferences } from './SimpleSummary'
 import { FrameEntry, MyFrames } from './FrameEntry'
 import { FrameLines } from './FrameLines'
@@ -43,7 +43,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
     <section data-testid={revealed ? 'differ-after' : 'differ-before'} aria-label={shown?.heading ?? view.collab.heading} className="grid gap-4">
       <NudgesPanel sid={sid} view={view} onWrote={onWrote} />
       <ViewsPanel sid={sid} view={view} onWrote={onWrote} />
-      <FrameEntry sid={sid} view={view} onWrote={onWrote} />
+      <FrameEntry sid={sid} view={view} onWrote={onWrote} defaultOpen={!revealed && view.collab.mine.length === 0} />
       <MyFrames view={view} />
       {revealed && (
         <div className="grid gap-2" data-testid="differ-differences">
@@ -58,6 +58,12 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
                 onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
             </div>
           ))}
+          {shown !== null && (() => { const g = emptyConsequence(shown); return g === null ? null : (
+            <div className="grid gap-2" data-testid="differ-group-consequence">
+              <p className={`${META} text-text-header`} data-testid="differ-group-consequence-heading">{g.heading}</p>
+              <p className={META} data-testid="differ-group-consequence-empty">{NOTHING_CALCULATED}</p>
+            </div>
+          ) })()}
         </div>
       )}
       {framed.length > 0 && (

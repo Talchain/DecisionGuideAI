@@ -35,10 +35,10 @@ import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
-import { drawKindOf } from './layout'
+import { drawKindOf, drawnModelOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
-import { drawnHeightsKey, measuredOf, QUESTION, viewDrawnNodes } from './layout'
+import { drawnHeightsKey, measuredOf, QUESTION, settleIdsOf, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
 import type { View } from './client'
 import { FOOT_GUTTER, restClearOfFoot } from './footClear'
@@ -76,10 +76,14 @@ import { LensesMenu } from './v12/lenses/LensesMenu'
 import { LayerCanvasStyle } from './v12/lenses/LayerCanvasStyle'
 import { ViewsToggle } from './v12/views/ViewsToggle'
 import { clearLayoutUndo } from './v12/edit/undo'
+import { BandLayer } from './v12/bands/BandLayer'
+import { causalPathOf } from './v12/bands/bands'
+import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
+import { KeyPill } from './v12/bands/KeyPill'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
-const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard }
+const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard, [VIEW_IDEA]: IdeaCard, [VIEW_FOLD]: FoldCard }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
@@ -107,7 +111,7 @@ export const handOf = (movedAt: { current: number }, activity: { current: Activi
 }
 
 /** The View's nodes as drawn, with the store's measurements. */
-const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, VIEW_QUESTION])
+const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, VIEW_QUESTION, VIEW_IDEA, VIEW_FOLD])
 
 /**
  * The one camera rule for a board, in the free canvas (left of the dock, under the top bar): the WHOLE board, top-aligned and centred
@@ -269,8 +273,10 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
         target = null
         if (Math.abs(v.zoom - t.zoom) > 0.01 || Math.abs(v.x - t.x) > 2 || Math.abs(v.y - t.y) > 2) fitted = ''
       }
+      // The cards the canvas holds (Simple may fold some inputs away, and draws kept ideas), so the settle signal waits for what is drawn.
+      const held = new Set(getNodes().map((n) => n.id))
       const cards = useViewStore.getState().view?.model?.cards ?? []
-      const ids = new Set([QUESTION, ...cards.map((c) => c.id)])
+      const ids = settleIdsOf(held, cards)
       const drawn = measuredOf(getNodes(), ids)
       const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
       const now = `${board}@${getViewport().zoom}`
@@ -304,7 +310,14 @@ function ViewFlow() {
   const openCard = useReveal((s) => s.card)
   const view = useViewStore((s) => s.view)
   const chipCards = useMemo(() => new Set(revealOf(view)?.cardChips.keys() ?? []), [view])
-  const nodes = useMemo(() => withOpenCard(withChipsAbove(stored, chipCards), openCard), [stored, chipCards, openCard])
+  const simple = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s)) === 'simple'
+  const nodes = useMemo(() => {
+    const base = withOpenCard(withChipsAbove(stored, chipCards), openCard)
+    // V12 Simple: with a card selected, the cards off its causal path dim (v12/bands, causalPathOf), not only the links.
+    const selected = simple ? stored.find((n) => n.selected === true && n.type === VIEW_CARD)?.id ?? null : null
+    const path = selected === null || view?.model == null ? null : causalPathOf(drawnModelOf(view.model), selected)
+    return path === null ? base : base.map((n) => (n.id === QUESTION || path.has(n.id) ? n : { ...n, style: { ...n.style, opacity: 0.35, transition: 'opacity 120ms' }, className: `${n.className ?? ''} v12-off-path`.trim() }))
+  }, [stored, chipCards, openCard, simple, view])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   // The previous product's right-click menu on the lane's canvas: its own items, those that reach core (ask Olumi in the chat, the card's
@@ -416,6 +429,8 @@ function ViewFlow() {
         <Background variant={BackgroundVariant.Dots} gap={16} />
         {/* The previous card frame's zoomed-out face and label scale (the two syncs the previous canvas mounts; they write no model state). */}
         <LodSync /><CanvasLabelScaleSync />
+        {/* V12 Simple: the band labels, the "not linked" marks and the inputs' fold control, in the canvas's own coordinates (v12/bands). */}
+        <BandLayer />
       </ReactFlow>
       <CanvasViewportControls
         onZoomIn={() => { userMoved.current = true; hand(); void zoomIn({ duration: 200 }) }}
@@ -438,6 +453,8 @@ function ViewFlow() {
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
       {hasModel ? <div className="pointer-events-none absolute bottom-4 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}
+      {/* V12: the key, always visible, two rows (v12/bands/KeyPill); "How to read this" stays the popover. */}
+      {hasModel ? <KeyPill /> : null}
       {/* Hand edits (the right-click menu's forms, the details panel and Undo's keys), inside the toast provider. */}
       <LaneEditingLayer />
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}

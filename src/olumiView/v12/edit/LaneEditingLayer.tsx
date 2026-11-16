@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react'
 import { useShowToast } from '../../../canvas/ToastContext'
 import { useViewStore } from '../../store'
 import { LaneInspector } from './LaneInspector'
+import { RangeBar } from '../scale/RangeBar'
 import { clearLayoutUndo, noteSavedVersion, pressUndo, trackLayoutMoves, undoChoicesNow } from './undo'
 
 /** Is the keyboard's target a place text is typed? ⌘Z there is the field's own undo. */
@@ -41,5 +42,6 @@ export function LaneEditingLayer(): JSX.Element {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [showToast])
-  return <LaneInspector />
+  const view = useViewStore((s) => s.view)
+  return <LaneInspector range={(card) => (view === null ? null : <RangeBar card={card} view={view} />)} />
 }

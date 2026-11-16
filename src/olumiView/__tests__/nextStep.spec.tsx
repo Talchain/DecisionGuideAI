@@ -11,7 +11,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
-import { NEXT_STEP_WORDS, nextStepOf, ViewChat } from '../ViewChat'
+import { NEXT_STEP_WORDS, nextStepOf, ViewChat, ViewComposer } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { isOpen, rowOf, setOpen } from './reviewRow'
 
@@ -125,7 +125,11 @@ describe('the next step', () => {
     expect([view.proposal, view.collab.alone, next.text.length > 0]).toEqual([null, true, true])
     const c = show(view)
     expect(step(c)).toBeNull()
-    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(1) // the reply's own step, once
+    // V12: the reply's own step is drawn ONCE, as the "From my last reply" card above the box, and not again under the reply.
+    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(0)
+    const card = render(<ViewComposer />).container.querySelectorAll('[data-testid="view-last-reply-text"]')
+    expect(card).toHaveLength(1)
+    expect(card[0]!.textContent).toContain(next.label)
     expect(nextStepOf({ ...view, proposal: golden('proposal').proposal })?.kind).toBe('approve')
     // Contrast: with no reply yet and nothing of theirs begun, no invitation is made up (V12: only a team activity begun alone invites).
     expect(nextStepOf({ ...view, chat: [] })?.kind).not.toBe('invite')
@@ -200,8 +204,9 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(under[0]!.className).not.toContain('bg-primary') // so the move is not a second filled button
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
-    // Core's words for the move stay in the reply.
-    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).not.toBeNull()
+    // Core's words for the move are the "From my last reply" card (V12), once; the reply keeps the move's button, not the line again.
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toBeNull()
+    expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-text"]')?.textContent).toContain(next.label)
   })
   it('contrast (DL order, 16 Nov): with a figure waiting, the reply\'s move leads and stays under the reply, for someone else\'s page and the owner\'s alike', () => {
     const p = golden('proposal'), b = golden('bakery')

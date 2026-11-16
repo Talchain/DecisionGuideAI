@@ -355,7 +355,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       const later = render(<ViewComposer />).container
       expect(later.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
       // Never the brief's example: DGAI's own placeholder for a model with a run (the panel's original look, DL 4 Nov).
-      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBe('Ask about the latest analysis…')
+      expect(later.querySelector('#view-chat-text')?.getAttribute('placeholder')).toBe('Ask about your thinking…')
     })
 
     it('a canvas with no scenario yet moves to core\'s id\'s own UUID', async () => {

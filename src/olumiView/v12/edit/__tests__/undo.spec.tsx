@@ -124,7 +124,7 @@ describe('the control and the keys', () => {
   const mount = () => render(<ToastProvider><UndoControl /><LaneEditingLayer /></ToastProvider>)
   it('is labelled by what it will undo, and a disabled one says why', () => {
     mount()
-    expect(screen.getByTestId('lane-undo')).toHaveAttribute('aria-label', 'Undo')
+    expect(screen.getByTestId('lane-undo')).toHaveAttribute('aria-label', 'Undo: nothing of yours to undo yet')
     expect(screen.getByTestId('lane-undo')).toHaveAttribute('title', UNDO_WORDS.savedNotYet)
     act(() => recordLayoutMove(SID, { a: { x: 1, y: 1 } }))
     expect(screen.getByTestId('lane-undo')).toHaveAttribute('aria-label', 'Undo move')

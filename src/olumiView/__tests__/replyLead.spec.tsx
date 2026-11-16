@@ -37,7 +37,7 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
         const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
         const lead = turn.querySelector<HTMLElement>(`[data-reply-lead="chat.${i}"]`)!
         const more = turn.querySelector<HTMLDetailsElement>(`[data-reply-more="chat.${i}"]`)!
-        expect([more.open, more.querySelector('summary')?.textContent]).toEqual([false, 'Why'])
+        expect([more.open, more.querySelector('summary')?.textContent]).toEqual([false, 'Why, and what moves it'])
         // the whole answer is the lead: EVERY text piece of core's answer, at its own View path, with its exact words, is in the lead, none in the fold
         const pieces = piecesOf(t.answer!.answer, `chat.${i}.answer.answer`)
         expect(pieces.length, 'precondition: the answer has words').toBeGreaterThan(0)

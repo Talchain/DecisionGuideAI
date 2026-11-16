@@ -13,7 +13,7 @@ import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
-import { IDEA_MAX, ideaTextOf, keepIdea } from '../ideas'
+import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
 import { placeMenu } from '../actionsMenu'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
@@ -43,7 +43,7 @@ describe('keepIdea', () => {
     expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/strategy/items`)
     expect(posts[0]!.body).toEqual({ kind: 'idea', text: 'Try a part-time specialist first.', base: 4, from_turn: 7, op: OP })
   })
-  it('takes the version from the View on screen (edit_base) when not given; with none, it says so and calls nothing', async () => {
+  it('takes the version from the View on screen (edit_base) when not given; with none (a proposal pending), it retains the idea on the scenario, never in the model', async () => {
     const v = fixture('after-find-first')
     core(() => v)
     show(v)
@@ -51,8 +51,18 @@ describe('keepIdea', () => {
     expect(posts[0]!.body['base']).toBe(v.model!.edit_base)
     posts = []
     show({ ...v, model: { ...v.model!, edit_base: null } })
-    await expect(keepIdea({ sid: SID, turn: 2, text: 'x' })).rejects.toThrow(/no saved model/i)
-    expect(posts).toHaveLength(0)
+    await keepIdea({ sid: SID, turn: 2, text: 'Try a part-time specialist first.' })
+    expect(posts).toHaveLength(1)
+    expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/kept`)
+    expect(posts[0]!.body).toEqual({ turn: 2, text: 'Try a part-time specialist first.' })   // no base, no op, no kind: never a model write
+  })
+  it('reads ideas retained before approval (View kept[]) after the model\'s own idea items, each once, as Olumi\'s with their keeper', () => {
+    const v = fixture('after-find-first')
+    const kept = [{ id: 41, turn: 14, text: 'Phone booked visitors first.', by: 'olumi', kept_by: { id: '10', name: 'Sam' }, at: '2026-11-16T12:00:00Z', concerns: [] }]
+    const ideas = keptIdeasOf({ ...v, kept } as unknown as View)
+    expect(ideas.at(-1)).toEqual({ id: 'kept:41', text: 'Phone booked visitors first.', olumis: true, sourceTurn: '14', keptBy: { id: '10', name: 'Sam' } })
+    const twice = { ...v, kept, strategy: { items: [{ kind: 'idea', id: 'idea_1', text: 'Phone booked visitors first.', by_id: 'olumi', source_turn: 14 }] } } as unknown as View
+    expect(keptIdeasOf(twice).filter((i) => i.text === 'Phone booked visitors first.')).toHaveLength(1)
   })
   it('a repeat of the same press after a failure reuses its op, so core keeps it once; a different idea has a different op', async () => {
     core(() => fixture('after-find-first'), () => new Response(JSON.stringify({ error: 'x' }), { status: 503 }))

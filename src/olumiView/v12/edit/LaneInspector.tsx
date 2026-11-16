@@ -6,19 +6,25 @@
  *
  * "Take out of comparison" is NOT offered: core has no route for an option's status or an exclusion (MANUAL-EDITING-MAP, headline 4).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
 import { useShowToast } from '../../../canvas/ToastContext'
+import { useCanvasStore } from '../../../canvas/store'
+import type { NodeTarget } from '../../../canvas/contextMenu/types'
+import type { ViewCard } from '../../client'
+import type { FigureRange } from '../contract'
+import { FigureInspector } from '../inspect/FigureInspector'
 import { useViewStore } from '../../store'
 import { LaneEditForm, type EditSpec } from './EditForm'
 import { useLaneInspector } from './inspectorStore'
 
 const NOOP = () => undefined
 
-export function LaneInspector(): JSX.Element | null {
+/** `range`: the slot for a figure's range chart (the scale lane's RangeBar); called only for a card whose View carries a numeric range. */
+export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRange) => ReactNode } = {}): JSX.Element | null {
   const target = useLaneInspector((s) => s.target), close = useLaneInspector((s) => s.close)
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
   const showToast = useShowToast()
@@ -40,6 +46,9 @@ export function LaneInspector(): JSX.Element | null {
   const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []), [card, link, ctx])
   if (target === null || (card === null && link === null)) return null
   const title = card !== null ? card.heading : link!.title
+  // The card's own ask action (the right-click menu's "Explain"), pointed at this card's canvas node.
+  const node = card === null ? undefined : useCanvasStore.getState().nodes.find((n) => n.id === card.id)
+  const ask = node === undefined ? null : () => ctx.act.ask({ kind: 'node', nodeId: node.id, nodeType: node.type as NodeTarget['nodeType'], node, screenPos: { x: 0, y: 0 } }, 'explain_element')
   return (
     <>
       <aside role="complementary" aria-label="Details" data-testid="lane-inspector" data-kind={target.kind}
@@ -54,6 +63,7 @@ export function LaneInspector(): JSX.Element | null {
             {card.figure === null ? null : <p className="text-text-body" title={card.figure.title} data-testid="lane-inspector-figure">{card.figure.text}</p>}
             {card.olumi === null ? null : <p className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{card.olumi.glyph} </span>{card.olumi.title}</p>}
             {card.status === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`}>{card.status}</p>}
+            <FigureInspector card={card} range={range} onAsk={ask} onClose={close} />
           </>
         )}
         {link === null ? null : (

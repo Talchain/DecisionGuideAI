@@ -9,11 +9,14 @@ import Tooltip from '../../../components/Tooltip'
 import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
 import { typography } from '../../../styles/typography'
 import { useViewStore } from '../../store'
-import type { View } from '../../client'
+import { useCanvasStore } from '../../../canvas/store'
+import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
+import { isBaseline } from '../contract'
+import type { View, ViewModel } from '../../client'
 import { MENU_EXCLUSIVE_EVENT } from '../../../components/layout/LeftSidebar'
 import {
   BASIS_LABEL, BASIS_ORDER, edgeTableOf, evidenceOf, figureCards, LAYER_LABEL, layerEntries, optionLayerId, optionOfLayer, SIGN_GLYPH, SIGN_WORDS,
-  sensitiveAssumptionsOf, type Basis, type LayerId,
+  sensitiveAssumptionsOf, type Basis, type EdgeRow, type LayerId,
 } from './layers'
 import { chooseLayer, useActiveLayer } from './store'
 
@@ -81,13 +84,50 @@ export function LensesMenu(): JSX.Element | null {
 const th = `${typography.viewPanelMeta} border-b border-border px-2 py-1.5 text-left font-medium text-text-header`
 const td = `${typography.viewPanelTabular} border-b border-border px-2 py-1.5 align-top`
 
-function Head({ title, onClose }: { title: string; onClose: () => void }): JSX.Element {
+function Head({ title, tag = null, count = null, onClose }: { title: string; tag?: string | null; count?: string | null; onClose: () => void }): JSX.Element {
   return (
     <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-      <h2 className={`${typography.viewPanelBody} font-medium text-text-header`}>{title}</h2>
+      <h2 className={`${typography.viewPanelBody} min-w-0 flex-1 font-medium text-text-header`}>{title}</h2>
+      {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
+      {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
       <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
         <X className="h-4 w-4" aria-hidden="true" />
       </button>
+    </div>
+  )
+}
+
+export const LINK_LEGEND = '? sign not settled. n/a: the View holds no sign. Dashed: doubted.'
+
+/**
+ * Every link as a row. A row and its link on the canvas are one selection, both ways, through the canvas's own store (`selection.edgeIds`): pressing a row
+ * selects the link, and a link selected on the canvas marks its row. Core's own words (headings, author, strength) are as the View sends them.
+ */
+function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[] }): JSX.Element {
+  const selected = useCanvasStore((s) => s.selection.edgeIds)
+  const baseline = model.cards.filter((c) => isBaseline(c) && !model.links.some((l) => l.from === c.id || l.to === c.id))
+  const select = (id: string) => useCanvasStore.getState().selectEdgeWithoutHistory(id)
+  return (
+    <div className="max-h-[50vh] overflow-auto">
+      <table className="w-full border-collapse" data-testid={`${LENSES_TESTID}-edges`}>
+        <thead><tr><th scope="col" className={th}>From</th><th scope="col" className={th}>To</th><th scope="col" className={th}>Sign</th><th scope="col" className={th}>Strength</th></tr></thead>
+        <tbody>
+          {rows.map((r) => {
+            const id = edgeIdOf(model.links[r.index]!), on = selected.has(id)
+            return (
+              <tr key={r.index} data-edge={r.index} data-edge-id={id} data-role={r.role ?? undefined} title={r.hover} tabIndex={0} aria-selected={on}
+                ref={(el) => { if (on) el?.scrollIntoView?.({ block: 'nearest' }) }}
+                onClick={() => select(id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id) } }}
+                className={`cursor-pointer hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${on ? 'bg-panel-hover' : ''}`}>
+                <td className={td}>{r.from}</td><td className={td}>{r.to}</td>
+                <td className={td}>{r.sign === null ? <span data-edge-na>n/a</span> : <><span aria-hidden="true">{SIGN_GLYPH[r.sign]}</span> <span className={r.sign === 'unknown' ? '' : 'sr-only'}>{SIGN_WORDS[r.sign]}</span></>}{r.by !== null ? <span className={`${typography.viewPanelMeta} block`} data-edge-author>{r.by}</span> : null}{r.disputed ? <span className={`${typography.viewPanelMeta} block`}>Disputed</span> : null}</td>
+                <td className={td}>{r.strength ?? ''}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className={`${typography.viewPanelMeta} mt-2 text-text-light`} data-testid={`${LENSES_TESTID}-legend`}>{LINK_LEGEND}{baseline.map((c) => ` ${c.heading} is the baseline and has no link of its own.`).join('')}</p>
     </div>
   )
 }
@@ -118,6 +158,8 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
   let title: string = layer in LAYER_LABEL ? LAYER_LABEL[layer as keyof typeof LAYER_LABEL] : ''
   let body: JSX.Element | null = null
   let wide = false
+  let tag: string | null = null
+  let count: string | null = null
 
   if (option !== null) {
     const c = model.cards.find((x) => x.id === option)
@@ -141,22 +183,9 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
   } else if (layer === 'causal') {
     wide = true
     const rows = edgeTableOf(model)
-    body = (
-      <div className="max-h-[50vh] overflow-auto">
-        <table className="w-full border-collapse" data-testid={`${LENSES_TESTID}-edges`}>
-          <thead><tr><th scope="col" className={th}>From</th><th scope="col" className={th}>To</th><th scope="col" className={th}>Sign</th><th scope="col" className={th}>Strength</th></tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.index} data-edge={r.index} title={r.hover}>
-                <td className={td}>{r.from}</td><td className={td}>{r.to}</td>
-                <td className={td}><span aria-hidden="true">{SIGN_GLYPH[r.sign]}</span> <span className={r.sign === 'unknown' ? '' : 'sr-only'}>{SIGN_WORDS[r.sign]}</span>{r.by !== null ? <span className={`${typography.viewPanelMeta} block`} data-edge-author>{r.by}</span> : null}{r.disputed ? <span className={`${typography.viewPanelMeta} block`}>Disputed</span> : null}</td>
-                <td className={td}>{r.strength ?? ''}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )
+    tag = 'Proposed'
+    count = `${rows.length} of ${model.links.length} links`
+    body = <LinkTable model={model} rows={rows} />
   } else if (layer === 'evidence') {
     const e = evidenceOf(view)
     const by = (b: Basis) => figureCards(model).filter((c) => e.basis.get(c.id) === b)
@@ -178,7 +207,7 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
 
   return (
     <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
-      <Head title={title} onClose={onClose} />
+      <Head title={title} tag={tag} count={count} onClose={onClose} />
       <div className="p-3">{body}</div>
     </div>
   )

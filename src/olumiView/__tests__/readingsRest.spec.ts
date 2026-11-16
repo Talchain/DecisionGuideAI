@@ -92,6 +92,7 @@ describe('contract 3: the pending review is one row at rest, and a withheld card
   const { readFileSync } = await import('node:fs')
   const chat = readFileSync('src/olumiView/ViewChat.tsx', 'utf8')
   const card = readFileSync('src/olumiView/previous/CoreCard.tsx', 'utf8')
+const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
   const from = chat.indexOf('export function ProposalReview(')
   const approve = chat.slice(from, chat.indexOf('data-step={step.kind}', from))
   // CATCH (fails on 41354eb1: the approve step was the generic section with a "Next step" header and the Proposal drawn open).
@@ -127,10 +128,13 @@ describe('contract 3: the pending review is one row at rest, and a withheld card
     expect(chat).not.toContain('min-h-[112px]')
   })
   it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {
-    expect(card).toContain("export function withheldField(h: NonNullable<ViewCard['headline']>): 'why' | 'title' | 'text' | null {")
-    expect(card).toContain("if (h.state !== 'none') return null")
-    expect(card).toContain("return (h.why ?? '') !== '' ? 'why' : h.title !== '' ? 'title' : 'text'")
-    expect(card).toContain("return f === null ? null : f === 'why' ? h.why! : h[f]")
+    // V12: the two pickers moved to v12/cards/words.ts, one source for the fixed and the Simple face; CoreCard names them as before.
+    expect(words).toContain("export function withheldField(h: Headline): 'why' | 'title' | 'text' | null {")
+    expect(words).toContain("if (h.state !== 'none') return null")
+    expect(words).toContain("return (h.why ?? '') !== '' ? 'why' : h.title !== '' ? 'title' : 'text'")
+    expect(words).toContain("return f === null ? null : f === 'why' ? h.why! : h[f]")
+    expect(card).toContain("import { chanceParts, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'")
+    expect(card).toContain('export { withheldField, withheldWords }')
     expect(card).toContain('return withheldWords(card.headline) ?? card.headline.text')
     expect(card).toContain('data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>')
     // The withheld pill's words are withheldWords(h) (above); the fixed face's pill still draws core's h.text, so the source is not searched for it.

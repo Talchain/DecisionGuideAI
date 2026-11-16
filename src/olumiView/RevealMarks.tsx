@@ -17,6 +17,7 @@ import { marksOn, openChipOf, revealOf, useReveal, type CardChip, type Mark } fr
 import { evidenceOn } from './evidence'
 import { strategyMarkOn } from './strategy/strategy'
 import { DifferChip, railLayout, useLinkDiffers } from '../olumiCore/team/CardDiffers'
+import { DriverDifferMark } from './v12/team'
 import { useRailBoxesRef } from './railBoxes'
 import { LinkMarkCardChip } from './LinkMarkChip'
 import { useViewsMarks } from './v12/views/viewsMarks'
@@ -153,7 +154,9 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
           className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 text-left ${i === 0 ? 'flex-1 pr-2.5' : 'flex-none pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
-          <People people={chip.people} />
+          {chip.kind === 'disagreement' && chip.people.length >= 2
+            ? <DriverDifferMark people={chip.people} evidence={chip.evidence.length > 0} />
+            : <People people={chip.people} />}
           {i === 0
             // P1: core's words wrap in balanced lines, never one word alone on the last line ("…observed / it").
             ? <span className="min-w-0 [text-wrap:balance]" data-reveal-chip-text="">{chip.text}</span>

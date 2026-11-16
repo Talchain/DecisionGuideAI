@@ -199,6 +199,8 @@ describe('link words at the overview', () => {
   const studio = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/studio.view.json'), 'utf8')) as View).model!
   // No golden link carries both a sign and core's strength words: the sign is read on a studio link (a plain '+'), the strength on a bakery one.
   const i = bakery.links.findIndex((l) => l.effect != null), s = studio.links.findIndex((l) => l.label === '+' && l.kind !== 'reason')
+  // V12 rule 2: a typed (causal) link carries no sign label, so the sign's words are bound on the same link as an UNTYPED one (core's legacy label), which V12 still draws.
+  const legacy = { ...studio, links: studio.links.map((l, k) => (k === s ? { ...l, causal: null } : l)) } as typeof studio
   const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
   const draw = (zoom: number, selected: boolean, m = bakery, k = i) => {
     const Zoom = () => { const api = useStoreApi(); api.setState({ transform: [0, 0, zoom] }); return null }
@@ -208,12 +210,15 @@ describe('link words at the overview', () => {
   it('zoom 0.449 at rest: no words (not its sign either); CONTRAST: zoom 1 at rest draws its sign as before', () => {
     expect([i, s], 'precondition: a link with core\'s effect words, and a link with a sign').toEqual([expect.any(Number), expect.any(Number)])
     expect(Math.min(i, s)).toBeGreaterThanOrEqual(0)
-    expect(draw(0.449, false, studio, s).querySelector(`[data-view-link-words="links.${s}"]`)).toBeNull()
+    expect(draw(0.449, false, legacy, s).querySelector(`[data-view-link-words="links.${s}"]`)).toBeNull()
     cleanup()
-    expect(draw(1, false, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
+    expect(draw(1, false, legacy, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
+    cleanup()
+    // CONTRAST (V12): the same link typed draws no sign label at zoom 1 either.
+    if (studio.links[s]!.causal != null) expect(draw(1, false, studio, s).querySelector(`[data-view="links.${s}.label"]`)).toBeNull()
   })
   it('B1: zoom 0.449, the link selected: its sign, and core\'s strength words, are drawn at the reduced face\'s scale, the one the canvas root carries', () => {
-    expect(draw(0.449, true, studio, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
+    expect(draw(0.449, true, legacy, s).querySelector(`[data-view="links.${s}.label"]`)?.textContent).toBe(studio.links[s]!.label)
     cleanup()
     // Mounted as the canvas mounts it: CanvasLabelScaleSync writes the counter-scale on the .react-flow root, and the words' token reads it.
     const Zoom = () => { const api = useStoreApi(); api.setState({ transform: [0, 0, 0.449] }); return null }

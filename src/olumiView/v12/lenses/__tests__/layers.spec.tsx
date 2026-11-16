@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View } from '../../../client'
-import { optionCards } from '../../../layout'
+import { cardLinks, optionCards } from '../../../layout'
 import { useViewStore } from '../../../store'
 import { LeftSidebar } from '../../../../components/layout/LeftSidebar'
 import { edgeTableOf, evidenceOf, layerEntries, marksOf, optionLayerId, optionPathOf, sensitiveAssumptionsOf } from '../layers'
@@ -48,11 +48,12 @@ describe('the layer entries', () => {
 })
 
 describe('the edge table', () => {
-  it('has a row for each causal link only, with sign and strength from the View; an unsized link shows core\'s own words, never a number', () => {
+  it('has a row for every card link, with sign and strength from the View; an unsized link shows core\'s own words, never a number', () => {
     const v = golden(), rows = edgeTableOf(v.model!)
-    expect(rows.length).toBe(v.model!.links.filter((l) => l.causal != null).length)
+    expect(rows.length).toBe(cardLinks(v.model!).length)
+    expect(rows.filter((r) => r.sign !== null).length).toBe(v.model!.links.filter((l) => l.causal != null).length)
     expect(rows.length).toBeGreaterThan(0)
-    const r = rows[0]!
+    const r = rows.find((x) => x.sign !== null)!
     expect(r.sign).toBe('decreases')
     expect(r.strength).toBe('stays a claim in words')
     expect(r.strength).not.toMatch(/\d/)
@@ -61,7 +62,7 @@ describe('the edge table', () => {
   it('a sized link shows its likely figure and range in its own unit; the reserved comparable strength is never read', () => {
     const v = golden(), l = v.model!.links.find((x) => x.causal != null)!
     l.causal!.strength = { state: 'sized', figure: 'x', low: 1, likely: 2, high: 3, unit: 'customers', per: null, share: 0.9, relative_to: null }
-    const r = edgeTableOf(v.model!)[0]!
+    const r = edgeTableOf(v.model!).find((x) => x.index === v.model!.links.indexOf(l))!
     expect(r.strength).toBe('2 customers (1 to 3)')
     expect(JSON.stringify(r)).not.toContain('0.9')
   })
@@ -72,7 +73,7 @@ describe('the edge table (CONTRAST)', () => {
     const v = golden(), l = v.model!.links.find((x) => x.causal != null)!
     l.causal!.strength = { state: 'unsized', figure: null, low: 1, likely: 2, high: 3, unit: 'customers', per: null, share: null, relative_to: null }
     l.size = { record: 'r', text: 'no strength yet', title: 't', edit: null }
-    expect(edgeTableOf(v.model!)[0]!.strength).toBe('no strength yet')
+    expect(edgeTableOf(v.model!).find((x) => x.index === v.model!.links.indexOf(l))!.strength).toBe('no strength yet')
   })
 })
 

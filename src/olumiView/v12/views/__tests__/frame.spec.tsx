@@ -58,7 +58,7 @@ describe('the frame request', () => {
     fireEvent.change(screen.getByTestId('frame-text'), { target: { value: 'My view' } })
     expect((screen.getByTestId('frame-give') as HTMLButtonElement).disabled).toBe(true) // words alone are the plain view's job; this one needs a frame part
     fireEvent.change(screen.getByTestId('frame-question'), { target: { value: 'Grow or hold?' } })
-    fireEvent.click(screen.getByTestId('frame-option-add')); fireEvent.change(screen.getByTestId('frame-option-0'), { target: { value: 'Hire two' } })
+    fireEvent.change(screen.getByTestId('frame-option-0'), { target: { value: 'Hire two' } })
     fireEvent.click(screen.getByTestId('frame-link-add'))
     fireEvent.change(screen.getByTestId('frame-link-0-from'), { target: { value: 'Hiring' } })
     fireEvent.change(screen.getByTestId('frame-link-0-to'), { target: { value: 'Morale' } })
@@ -69,6 +69,18 @@ describe('the frame request', () => {
     expect(posts[0]).toMatchObject({ method: 'POST', url: '/api/scenarios/s_x/views', body: { text: 'My view', version: 1, frame: { question: 'Grow or hold?', options: ['Hire two'], links: [{ from_label: 'Hiring', to_label: 'Morale', words: 'lifts it' }] } } })
     expect((posts[0]!.body as { frame: object }).frame).not.toHaveProperty('aim')
     expect(typeof (posts[0]!.body as { op: unknown }).op).toBe('string')
+  })
+  it('silence is not agreement: options left as the shared model\'s own titles are never sent as this person\'s position', async () => {
+    const all = serve(() => ({ status: 201, body: { contribution: 5 } }))
+    render(<FrameEntry sid="s_x" view={view()} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    expect(screen.getByTestId('frame-option-0-from-model')).toBeTruthy()   // a suggestion is drawn, marked as the shared model's
+    fireEvent.change(screen.getByTestId('frame-text'), { target: { value: 'My view' } })
+    fireEvent.change(screen.getByTestId('frame-question'), { target: { value: 'Grow or hold?' } })
+    fireEvent.click(screen.getByTestId('frame-give'))
+    await waitFor(() => expect(all.filter((x) => x.method === 'POST').length).toBe(1))
+    const body = all.find((x) => x.method === 'POST')!.body as { frame: Record<string, unknown> }
+    expect(body.frame).toEqual({ question: 'Grow or hold?' })
   })
   it('draws core\'s refusal as core words it, and keeps what was typed', async () => {
     serve(() => ({ status: 409, body: { error: 'give the version this view is about: the model has moved on' } }))
@@ -115,7 +127,7 @@ describe('the frame request', () => {
     fireEvent.click(screen.getByTestId('frame-open'))
     expect(screen.getByTestId('frame-note').textContent).toBe('Core runs none of this.')
     expect((screen.getByTestId('frame-question') as HTMLInputElement).maxLength).toBe(40)
-    fireEvent.click(screen.getByTestId('frame-option-add')); fireEvent.click(screen.getByTestId('frame-option-add'))
+    // The shared model's options fill the rows up to core's cap (2 here), so no further row is offered.
     expect(screen.queryByTestId('frame-option-add')).toBeNull()
     expect(frameBody({ ...EMPTY_FRAME, options: ['a', 'b', 'c'] }, lim)).toEqual({ options: ['a', 'b'] })
   })

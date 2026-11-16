@@ -23,6 +23,8 @@ import { useViewLens } from './lens'
 import { useViewStore } from './store'
 import { clearWhatIf, tryWhatIf, useWhatIf } from './whatif'
 import { Compare } from './WhatIfCompare'
+import { SAVED_NOT_SHOWN, setFigure } from './FigureEdit'
+import { takeWhatIfFocus, useWhatIfFocus } from './v12/inspect/whatIfFocus'
 
 /** The key's width and gap above the canvas's bottom band, as the legacy key card stands (`LensInfoPanel.tsx`). */
 const KEY_WIDTH = 320
@@ -38,8 +40,12 @@ export function ViewWhatIfKey(): JSX.Element | null {
   const [pick, setPick] = useState('')
   const [typed, setTyped] = useState('')
   const [running, setRunning] = useState(false)
+  const [keeping, setKeeping] = useState(false)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { setFolded(true); setError(null) }, [on])
+  // "What if" pressed on a figure in the inspector: open the form on that figure (after the reset above, which runs first).
+  const focus = useWhatIfFocus((s) => s.id)
+  useEffect(() => { if (focus === null || !on) return; setPick(focus); setTyped(''); setFolded(false); takeWhatIfFocus() }, [focus, on])
   const model = view?.model ?? null
   if (!on || model === null || sid === null || view === null) return null
 
@@ -54,6 +60,16 @@ export function ViewWhatIfKey(): JSX.Element | null {
       setError(e instanceof TeamApiError ? e.message : WHAT_IF_COPY.unusable)
     } finally { setRunning(false) }
   }
+  const keep = async () => {
+    if (current === null || keeping) return
+    setError(null); setKeeping(true)
+    try {
+      if (await setFigure(sid, current.base, current.quantity, current.typed)) clearWhatIf()
+      else setError(SAVED_NOT_SHOWN)
+    } catch (e) {
+      setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+    } finally { setKeeping(false) }
+  }
   const Icon = LENS_ICON.what_if
   const legend = current === null
     ? <p className={`${typography.viewPanelBody} text-text-body`}>{WHAT_IF_COPY.legendEmpty}</p>
@@ -61,6 +77,8 @@ export function ViewWhatIfKey(): JSX.Element | null {
       <p className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p></>
 
   return (
+    <>
+    <WhatIfBar label={view.lens_words.label.what_if} canKeep={current !== null} keeping={keeping} onKeep={() => void keep()} onDiscard={clearWhatIf} />
     <section aria-label={view.lens_words.label.what_if} data-testid="view-whatif-key"
       className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
       style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxHeight: 'min(52vh, 460px)' }}>
@@ -108,5 +126,28 @@ export function ViewWhatIfKey(): JSX.Element | null {
         {folded || current === null ? null : <Compare model={model} shown={current} />}
       </div>
     </section>
+    </>
+  )
+}
+
+export const WHAT_IF_BAR = { proposed: 'Proposed', discard: 'Discard', keep: 'Keep it', tryFirst: 'Try a value first' } as const
+
+/**
+ * The what-if bar, floating above the Simple | Detailed pill (the board: "What if", Proposed, Discard, Keep it). Discard drops what was tried (nothing was saved).
+ * Keep it saves the tried value through the existing set-figure path and is disabled, with its reason, until a value has been tried.
+ */
+export function WhatIfBar({ label, canKeep, keeping, onKeep, onDiscard }: { label: string; canKeep: boolean; keeping: boolean; onKeep: () => void; onDiscard: () => void }): JSX.Element {
+  const btn = `${typography.viewPanelBody} min-h-[32px] cursor-pointer rounded-full px-3 ${ACTION_FOCUS}`
+  return (
+    <div role="group" aria-label={label} data-testid="view-whatif-bar"
+      className={`pointer-events-auto absolute bottom-[72px] left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1 shadow-2 ${typography.viewPanelBody}`}>
+      <span className="font-medium text-text-header">{label}</span>
+      <span data-testid="view-whatif-bar-proposed" className="rounded-full border border-panel-border px-1.5 text-[11px] leading-4 text-text-light">{WHAT_IF_BAR.proposed}</span>
+      <button type="button" data-testid="view-whatif-bar-discard" onClick={onDiscard} className={`${btn} text-text-body hover:bg-panel-hover`}>{WHAT_IF_BAR.discard}</button>
+      <button type="button" data-testid="view-whatif-bar-keep" aria-disabled={!canKeep || keeping || undefined} title={canKeep ? undefined : WHAT_IF_BAR.tryFirst}
+        onClick={() => { if (canKeep && !keeping) onKeep() }}
+        className={`${btn} bg-primary text-text-on-color aria-disabled:cursor-not-allowed aria-disabled:bg-border aria-disabled:text-text-light`}>{WHAT_IF_BAR.keep}</button>
+      {canKeep ? null : <span data-testid="view-whatif-bar-reason" className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_BAR.tryFirst}</span>}
+    </div>
   )
 }

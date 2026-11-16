@@ -7,7 +7,7 @@ import { Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
-import { keepIdea, PAST_VERSION } from './ideas'
+import { isKept, keepIdea, PAST_VERSION } from './ideas'
 
 export const KEEP_IDEA = 'Keep as an idea'
 export const KEEP_IDEA_HOVER = 'Keeps this idea on your scenario. It is recorded as Olumi’s, kept by you.'
@@ -16,6 +16,8 @@ export const KEPT_IDEA = 'Kept. It stays Olumi’s idea.'
 export function KeepIdea({ sid, turn, text }: { sid: string; turn: number; text: string }) {
   const [state, setState] = useState<{ s: 'idle' | 'busy' | 'kept' } | { s: 'said'; said: string }>({ s: 'idle' })
   const past = useViewStore((st) => st.at !== null)
+  // Kept already (this press, or an earlier one the View holds): "Kept", never a second button for the same words from the same reply.
+  const held = useViewStore((st) => isKept(st.view, turn, text))
   const go = async () => {
     setState({ s: 'busy' })
     try {
@@ -26,7 +28,7 @@ export function KeepIdea({ sid, turn, text }: { sid: string; turn: number; text:
       setState({ s: 'said', said: e instanceof TeamApiError || e instanceof Error ? e.message : 'That did not go through. Nothing was kept.' })
     }
   }
-  if (state.s === 'kept') return <p role="status" className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-keep-idea-kept">{KEPT_IDEA}</p>
+  if (state.s === 'kept' || held) return <p role="status" className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-keep-idea-kept">{KEPT_IDEA}</p>
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="view-keep-idea">
       <button type="button" disabled={state.s === 'busy' || past} onClick={() => void go()} title={past ? PAST_VERSION : KEEP_IDEA_HOVER} data-testid="view-keep-idea-button"

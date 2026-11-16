@@ -7,6 +7,7 @@
 import { call, newOp } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
 import type { View, ViewTurn } from '../client'
+import { sessionOf } from '../layout'
 
 /** Core keeps an item to this many characters (app/strategy/kinds.ts TEXT_MAX). */
 export const IDEA_MAX = 400
@@ -23,12 +24,16 @@ export const ideaBaseOf = (view: View | null): number | null => view?.model?.edi
  * Keep Olumi's idea. `base` is read from the View on screen unless given. Resolves with core's answer; rejects with TeamApiError carrying core's
  * words (a 4xx), or with `Error(NO_BASE)` before any call when there is no version to save against.
  */
-export const NO_BASE = 'There is no saved model to keep this against yet. Approve the proposal first, then keep it.'
 export const PAST_VERSION = 'You are looking at an earlier version. Go back to the current one to keep this.'
+/**
+ * With no saved model to keep against (the first proposal still pending, or none), the idea is retained on the scenario instead, never in the
+ * model and never approving anything: core `POST /api/scenarios/:sid/kept { turn, text }` (Codex root, 16 Nov 12:23:29Z). Core resolves Olumi
+ * as the author and this person as the keeper, and the same person's repeat press writes nothing, so no op is sent.
+ */
 export async function keepIdea({ sid, turn, text, base, op }: { sid: string; turn: number; text: string; base?: number | null; op?: string }): Promise<unknown> {
   if (base === undefined && useViewStore.getState().at !== null) throw new Error(PAST_VERSION)
   const b = base === undefined ? ideaBaseOf(useViewStore.getState().view) : base
-  if (b === null) throw new Error(NO_BASE)
+  if (b === null) return call<unknown>('POST', `/api/scenarios/${encodeURIComponent(sid)}/kept`, { turn, text })
   const k = keyOf(sid, turn, text)
   const use = op ?? ops.get(k) ?? newOp()
   ops.set(k, use)
@@ -61,4 +66,71 @@ export function ideaTextOf(answer: NonNullable<ViewTurn['answer']>): string | nu
     out = next
   }
   return out === '' ? null : out
+}
+
+type Parts = NonNullable<ViewTurn['answer']>['answer']
+
+/**
+ * The approaches core's reply separates itself: its own list lines ("- ", the same lines the reply draws as bullets), only where there are two
+ * or more of them, so one line is never offered as "an approach" of a reply that holds a single one. Each is its words verbatim (marker dropped),
+ * and only a line that is plain words (no cite inside it) and fits core's limit can be kept: core accepts only text that is in the reply. Prose
+ * is never split here. Returns the keepable ones, in the reply's order; none when the reply does not separate them.
+ */
+export const approachOf = (pieces: ReadonlyArray<{ text: string } | { cite: string }>): string | null => {
+  if (pieces.some((p) => 'cite' in p)) return null
+  const words = pieces.map((p) => ('text' in p ? p.text : '')).join('').replace(/^\s*- /, '').replace(/\s+/g, ' ').trim()
+  return words === '' || [...words].length > IDEA_MAX ? null : words
+}
+export function approachesOf(parts: Parts): string[] {
+  const lines: Array<Array<{ text: string } | { cite: string }>> = [[]]
+  for (const p of parts) {
+    if ('cite' in p) { lines[lines.length - 1]!.push(p); continue }
+    p.text.split('\n').forEach((s, k) => { if (k > 0) lines.push([]); if (s !== '') lines[lines.length - 1]!.push({ text: s }) })
+  }
+  const items = lines.filter((l) => { const f = l[0]; return f !== undefined && 'text' in f && /^\s*- /.test(f.text) })
+  if (items.length < 2) return []
+  return items.flatMap((l) => { const w = approachOf(l); return w === null ? [] : [w] })
+}
+
+/** An idea the scenario holds (View `strategy.items[kind='idea']`: Olumi's idea, the reply it came from, the person who kept it). */
+export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null }
+
+/**
+ * The ideas kept on the scenario, read by shape (the vendored View types predate them): first the model's own idea items (core's order, none set
+ * aside), then the ideas retained before any model was approved (View `kept[]`, oldest first), each once: a retained idea that is also a model
+ * item (same words, same reply) is drawn as the model item.
+ */
+export function keptIdeasOf(view: View | null): KeptIdea[] {
+  const items = strategyIdeasOf(view)
+  const kept = (view as { kept?: unknown } | null)?.kept
+  if (!Array.isArray(kept)) return items
+  const retained = kept.flatMap((r: Record<string, unknown> | null): KeptIdea[] => {
+    if (r === null || typeof r !== 'object' || typeof r['id'] !== 'number' || typeof r['text'] !== 'string' || typeof r['turn'] !== 'number') return []
+    const k = r['kept_by'] as { id?: unknown; name?: unknown } | null | undefined
+    const keptBy = k != null && typeof k.id === 'string' && typeof k.name === 'string' ? { id: k.id, name: k.name } : null
+    return [{ id: `kept:${r['id']}`, text: r['text'], olumis: r['by'] === 'olumi', sourceTurn: String(r['turn']), keptBy }]
+  })
+  const seen = new Set(items.map((i) => `${i.sourceTurn}\u0000${i.text}`))
+  return [...items, ...retained.filter((i) => { const key = `${i.sourceTurn}\u0000${i.text}`; if (seen.has(key)) return false; seen.add(key); return true })]
+}
+function strategyIdeasOf(view: View | null): KeptIdea[] {
+  const items = (view as { strategy?: { items?: unknown } } | null)?.strategy?.items
+  if (!Array.isArray(items)) return []
+  return items.flatMap((i: Record<string, unknown> | null): KeptIdea[] => {
+    if (i === null || typeof i !== 'object' || i['kind'] !== 'idea' || typeof i['id'] !== 'string' || typeof i['text'] !== 'string' || i['status'] === 'set_aside') return []
+    const k = i['kept_by'] as { id?: unknown; name?: unknown } | null | undefined
+    const keptBy = k != null && typeof k.id === 'string' && typeof k.name === 'string' ? { id: k.id, name: k.name } : null
+    const t = i['source_turn']
+    return [{ id: i['id'], text: i['text'], olumis: i['by_id'] === 'olumi', sourceTurn: typeof t === 'string' || typeof t === 'number' ? String(t) : null, keptBy }]
+  })
+}
+
+/** Is this text, from this reply, already kept? (Matched by the reply it came from when core says which, else by its words.) */
+export const isKept = (view: View | null, turn: number, text: string): boolean =>
+  keptIdeasOf(view).some((i) => i.text === text && (i.sourceTurn === null || i.sourceTurn === String(turn)))
+
+/** The core menu question a kept idea came from: the said words of the reply's turn, when they are one of core's own questions. */
+export function ideaMethodOf(view: View, idea: KeptIdea): string | null {
+  const t = idea.sourceTurn === null ? undefined : view.chat.find((c) => String(c.id) === idea.sourceTurn)
+  return t === undefined ? null : sessionOf(view)?.methods.find((m) => m.text === t.said)?.text ?? null
 }

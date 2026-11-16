@@ -138,12 +138,12 @@ export function ChatFloatHost({ children, composer }: { children: ReactNode; com
       showNextDockTab()
       // No other tab to show: the chat comes back to the dock, as for a press on the tab.
       if (useUIStore.getState().activeOutputTab === 'olumi') useChatFloat.setState({ floating: false })
-      else panel.current?.querySelector('textarea')?.focus()
+      else panel.current?.querySelector<HTMLTextAreaElement>('#view-chat-text')?.focus()
     })
     resize()
     // A dock reopened on its Olumi tab while the chat still floats (the dock was folded away meanwhile) moves on to its next tab too.
     showNextDockTab()
-    panel.current?.querySelector('textarea')?.focus()
+    panel.current?.querySelector<HTMLTextAreaElement>('#view-chat-text')?.focus()
     window.addEventListener('resize', resize)
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', end)

@@ -12,6 +12,8 @@ import { useUIStore } from '../../stores/uiStore'
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))
 const failed: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1/bookshop-v1-turn-failed.core-172e23ae.view3.json'), 'utf8'))
 const show = () => useViewStore.setState({ uuid: '00000000-0000-4000-8000-cb215d057b96', sid: fixture.id, view: fixture, error: null, status: 'ready', stale: false, at: null })
+// V12: the commit form in the Olumi tab holds textareas of its own, so the chat composer is named by its placeholder, not by role.
+const COMPOSER = 'Ask about your thinking…'
 const scene = () => render(<><ViewChat /><ViewComposer /></>)
 
 beforeEach(() => {
@@ -37,9 +39,9 @@ afterEach(() => {
 
 describe('A2 stop/float, DL 10 Nov', () => {
   it('CF1 moves the one thread and composer to a body portal and back, keeping typed words and thread state', () => {
-    const { container, getByTestId, queryByTestId, getAllByTestId, getByRole } = scene()
+    const { container, getByTestId, queryByTestId, getAllByTestId, getByPlaceholderText } = scene()
     const thread = getByTestId('view-chat-turns')
-    fireEvent.change(getByRole('textbox'), { target: { value: 'Keep this thought' } })
+    fireEvent.change(getByPlaceholderText(COMPOSER), { target: { value: 'Keep this thought' } })
     const popout = getByTestId('view-chat-popout')
     expect(popout).toHaveAccessibleName('Open Olumi in floating panel')
     expect(popout).toHaveAttribute('title', 'Open in floating window')
@@ -55,15 +57,15 @@ describe('A2 stop/float, DL 10 Nov', () => {
     expect(getAllByTestId('view-chat-turns')).toHaveLength(1)
     expect(getByTestId('view-chat-turns')).toBe(thread)
     expect(getAllByTestId('view-composer')).toHaveLength(1)
-    expect(within(panel).getByRole('textbox')).toHaveValue('Keep this thought')
-    expect(within(panel).getByRole('textbox')).toHaveFocus()
+    expect(within(panel).getByPlaceholderText(COMPOSER)).toHaveValue('Keep this thought')
+    expect(within(panel).getByPlaceholderText(COMPOSER)).toHaveFocus()
     fireEvent.click(getByTestId('view-chat-dockback'))
     expect(queryByTestId('view-chat-float')).toBeNull()
     expect(getAllByTestId('view-chat-turns')).toHaveLength(1)
     expect(getByTestId('view-chat-turns')).toBe(thread)
     expect(container.contains(thread)).toBe(true)
     expect(getAllByTestId('view-composer')).toHaveLength(1)
-    expect(getByRole('textbox')).toHaveValue('Keep this thought')
+    expect(getByPlaceholderText(COMPOSER)).toHaveValue('Keep this thought')
     expect(getByTestId('view-chat-popout')).toHaveFocus()
   })
 
@@ -71,7 +73,7 @@ describe('A2 stop/float, DL 10 Nov', () => {
     const { getByTestId, queryByTestId, getAllByTestId } = scene()
     fireEvent.click(getByTestId('view-chat-popout'))
     act(() => useUIStore.setState({ activeOutputTab: 'diagnostics' }))
-    fireEvent.keyDown(within(getByTestId('view-chat-float')).getByRole('textbox'), { key: 'Escape' })
+    fireEvent.keyDown(within(getByTestId('view-chat-float')).getByPlaceholderText(COMPOSER), { key: 'Escape' })
     expect(queryByTestId('view-chat-float')).toBeNull()
     expect(useChatFloat.getState().floating).toBe(false)
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
@@ -133,12 +135,12 @@ describe('A2 stop/float, DL 10 Nov', () => {
       if (init?.method === 'POST') posts.push({ url, body: JSON.parse(String(init.body)) })
       return new Response(JSON.stringify(init?.method === 'POST' ? {} : fixture), { status: 200 })
     }) as typeof fetch)
-    const { getByTestId, getByRole } = scene()
+    const { getByTestId, getByPlaceholderText } = scene()
     fireEvent.click(getByTestId('view-chat-popout'))
-    fireEvent.change(getByRole('textbox'), { target: { value: 'What evidence would change this?' } })
+    fireEvent.change(getByPlaceholderText(COMPOSER), { target: { value: 'What evidence would change this?' } })
     await act(async () => { fireEvent.click(getByTestId('view-composer-send')) })
     expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/messages`, body: { text: 'What evidence would change this?', op: expect.any(String) } }])
-    expect(getByRole('textbox')).toHaveValue('')
+    expect(getByPlaceholderText(COMPOSER)).toHaveValue('')
   })
 
   it('CF7 a running turn has no false stop control: core only offers draft cancellation', () => {
@@ -227,37 +229,37 @@ describe('Build 2 UI: the floated chat\'s place, and the dock it leaves', () => 
     expect(getByTestId('view-chat-float')).toBeTruthy()
     expect(useChatFloat.getState().floating).toBe(true)
     expect(useUIStore.getState().activeOutputTab).toBe('results')
-    expect(within(getByTestId('view-chat-float')).getByRole('textbox')).toHaveFocus()
+    expect(within(getByTestId('view-chat-float')).getByPlaceholderText(COMPOSER)).toHaveFocus()
   })
 
   it('B2-3 the dock shows no empty panel while the chat floats: it moves to its next tab; docking the chat again restores the Olumi tab; the draft survives both ways', () => {
     page(1232, 704, { left: 260, top: 64, right: 532, bottom: 168 })
-    const { getByTestId, queryByTestId, getByRole, getAllByTestId } = scene()
-    fireEvent.change(getByRole('textbox'), { target: { value: 'Half a thought' } })
+    const { getByTestId, queryByTestId, getByPlaceholderText, getAllByTestId } = scene()
+    fireEvent.change(getByPlaceholderText(COMPOSER), { target: { value: 'Half a thought' } })
     const before = useUIStore.getState().activeOutputTabVersion
     fireEvent.click(getByTestId('view-chat-popout'))
     expect(useUIStore.getState().activeOutputTab).toBe('results') // the tab after Olumi in the dock's own row
     expect(useUIStore.getState().activeOutputTabVersion).toBe(before + 1) // by forced activation, the route the dock follows
-    expect(within(getByTestId('view-chat-float')).getByRole('textbox')).toHaveValue('Half a thought')
+    expect(within(getByTestId('view-chat-float')).getByPlaceholderText(COMPOSER)).toHaveValue('Half a thought')
     expect(getAllByTestId('view-composer')).toHaveLength(1)
     fireEvent.click(getByTestId('view-chat-dockback'))
     expect(queryByTestId('view-chat-float')).toBeNull()
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
-    expect(getByRole('textbox')).toHaveValue('Half a thought')
+    expect(getByPlaceholderText(COMPOSER)).toHaveValue('Half a thought')
     expect(getAllByTestId('view-composer')).toHaveLength(1)
   })
 
   it('B2-4 the Olumi tab chosen again while the chat floats brings the chat back to the dock, never an empty panel; Olumi last in the row gives the tab before it', () => {
     page(1232, 704, { left: 260, top: 64, right: 532, bottom: 168 }, ['results', 'team', 'olumi'])
-    const { getByTestId, queryByTestId, getByRole } = scene()
-    fireEvent.change(getByRole('textbox'), { target: { value: 'Still here' } })
+    const { getByTestId, queryByTestId, getByPlaceholderText } = scene()
+    fireEvent.change(getByPlaceholderText(COMPOSER), { target: { value: 'Still here' } })
     fireEvent.click(getByTestId('view-chat-popout'))
     expect(useUIStore.getState().activeOutputTab).toBe('team')
     expect(getByTestId('view-chat-float')).toBeTruthy()
     act(() => useUIStore.getState().setActiveOutputTab('olumi')) // a press on the dock's Olumi tab (OutputsDock handleTabClick)
     expect(queryByTestId('view-chat-float')).toBeNull()
     expect(useChatFloat.getState().floating).toBe(false)
-    expect(getByRole('textbox')).toHaveValue('Still here')
+    expect(getByPlaceholderText(COMPOSER)).toHaveValue('Still here')
   })
 
   it('B2-5 at 1024×640 the window is clamped inside the canvas: the default, a drag past every edge, and a window made smaller', () => {

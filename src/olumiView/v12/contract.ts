@@ -33,11 +33,12 @@ export const figureRange = (card: object): FigureRange | null => {
   return { low, high, unit, likely: typeof likely === 'number' && Number.isFinite(likely) ? likely : null }
 }
 
-/** On a calculated card, the options core could not calculate, each with core's own reason (for example "170 runs gave a time below zero"). */
+/** On a calculated card, the options core could not calculate, each with core's own reason (for example "170 samples gave a time below zero"):
+ *  core's `values_withheld`, its own field, never among the bands in `values` (so no reader of `values` can take a position from one). */
 export interface WithheldValue { option: string; text: string }
 export const withheldValues = (card: object): WithheldValue[] => {
-  const vs = (card as { values?: unknown }).values
+  const vs = (card as { values_withheld?: unknown }).values_withheld
   if (!Array.isArray(vs)) return []
-  return vs.flatMap((v: { option?: unknown; text?: unknown; withheld?: unknown }) =>
-    v?.withheld === true && typeof v.option === 'string' && typeof v.text === 'string' ? [{ option: v.option, text: v.text }] : [])
+  return vs.flatMap((v: { option?: unknown; text?: unknown }) =>
+    typeof v?.option === 'string' && typeof v.text === 'string' ? [{ option: v.option, text: v.text }] : [])
 }

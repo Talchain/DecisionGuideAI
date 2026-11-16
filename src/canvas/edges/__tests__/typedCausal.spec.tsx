@@ -6,6 +6,7 @@ import { ViewLinkEdge } from '../ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 import type { ViewLink } from '../../../olumiView/client'
 import { useViewStore } from '../../../olumiView/store'
+import { INK, effectDash } from '../../../olumiView/v12/links/styles'
 import proposal from '../../../olumiView/golden/proposal.view.json'
 
 type Causal = NonNullable<ViewLink['causal']>
@@ -27,26 +28,33 @@ const draw = (c: Causal | null, changes: Partial<ViewLink> = {}) => {
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('a link renders the typed causal meaning, with no inferred strength scale', () => {
-  it.each([['increases', '#62B290', '−'], ['decreases', '#D6336C', '+'], ['none', 'var(--edge-neutral)', '+'], ['unknown', 'var(--text-light)', '+']] as const)
-    ('%s uses the producer sign, even when a legacy label suggests another direction', (sign, stroke, label) => {
-      const got = draw(causal(sign), { label })
-      expect(got.p.style.stroke).toBe(stroke)
+  // V12 canvas rule 2: a modelled effect is ONE dark ink with an arrowhead whatever the producer's sign; no sign colour, no +/- glyph. The
+  // sign is still the producer's (data-causal-sign), never the legacy label's; "unknown" is a "?" badge.
+  it.each([['increases'], ['decreases'], ['none'], ['unknown']] as const)
+    ('%s is drawn in the one ink with an arrowhead, its sign read from the producer and never from a legacy label', (sign) => {
+      const got = draw(causal(sign), { label: sign === 'increases' ? '−' : '+' })
+      expect(got.p.style.stroke).toBe(INK)
+      expect(got.r.querySelector('g[data-view-link]')?.getAttribute('data-causal-sign')).toBe(sign)
+      expect(got.r.querySelector('g[data-view-link]')?.getAttribute('data-link-end')).toBe('arrow')
       expect(got.r.querySelector('[data-view="links.0.label"]')).toBeNull()
-      const glyph = got.r.querySelector('[data-view-link-sign] path')
-      expect(glyph?.getAttribute('d') ?? null).toBe(sign === 'increases' ? 'M1 6H11M6 1V11' : sign === 'decreases' ? 'M1 6H11' : null)
+      expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
+      const unsettled = document.body.querySelector('[data-view-link-unsettled="links.0"]')
+      if (sign === 'unknown') expect(unsettled?.textContent).toBe('?'); else expect(unsettled).toBeNull()
     })
-  it('an actual sized zero is neutral and solid, while an unsized or words-only link is dashed', () => {
+  it('a link is dashed only where core doubts it: a sized zero, an unsized or a words-only link is solid', () => {
     expect(draw(causal('none')).p.style.strokeDasharray).toBe('')
     for (const state of ['unsized', 'in_words'] as const) {
-      cleanup(); expect(draw(causal('unknown', state)).p.style.strokeDasharray).toBe('5 5')
+      cleanup(); expect(draw(causal('unknown', state)).p.style.strokeDasharray).toBe('')
     }
+    cleanup(); expect(draw(causal('increases'), { doubt: true }).p.style.strokeDasharray).toBe(effectDash(true))
   })
-  it('pending and disputed links retain their provisional cue, alongside their typed direction and the source words', () => {
+  it('a pending link is solid, a disputed one keeps its marker and words, and a doubted one is the one that is dashed', () => {
     const pending = draw(causal('increases'), { proposed: true })
-    expect([pending.p.style.stroke, pending.p.style.strokeDasharray]).toEqual(['#62B290', '5 5'])
+    expect([pending.p.style.stroke, pending.p.style.strokeDasharray]).toEqual([INK, ''])
+    expect(pending.r.querySelector('g[data-view-link]')?.getAttribute('data-proposed')).toBe('true')
     cleanup()
-    const disputed = draw(causal('decreases', 'sized', true))
-    expect(disputed.p.style.strokeDasharray).toBe('5 5')
+    const disputed = draw(causal('decreases', 'sized', true), { doubt: true })
+    expect(disputed.p.style.strokeDasharray).toBe(effectDash(true))
     expect(disputed.r.querySelector('g[data-view-link]')?.getAttribute('data-causal-disputed')).toBe('true')
     expect(disputed.r.querySelector('g[data-view-link] > title')?.textContent).toContain('Sam supplied this provisional link.')
     expect(disputed.r.querySelector('g[data-view-link] > title')?.textContent).toContain('The original source words.')
@@ -57,11 +65,12 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
       cleanup(); expect(draw(c).p.style.strokeWidth).toBe('1.5')
     }
   })
-  it('a size does not erase core\'s doubt or Olumi\'s authorship; the sign keeps its direction colour', () => {
+  it('a size does not erase core\'s doubt or Olumi\'s authorship: the line is dashed by doubt, and Olumi\'s mark is on it, in no sign colour', () => {
     const c = causal('increases'); c.author = { by: 'olumi', text: 'Olumi inferred', title: 'Olumi proposed this link.' }
     const got = draw(c, { doubt: true })
-    expect([got.p.style.stroke, got.p.style.strokeDasharray]).toEqual(['var(--semantic-info)', '5 5'])
-    expect((got.r.querySelector('[data-view-link-sign]') as SVGElement).style.color).toBe('rgb(98, 178, 144)')
+    expect([got.p.style.stroke, got.p.style.strokeDasharray]).toEqual([INK, effectDash(true)])
+    expect(got.r.querySelector('[data-view-link-olumi-mark="links.0"]')).not.toBeNull()
+    expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
   })
   it('a noncausal line retains its existing treatment; an alert retains its priority', () => {
     expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('#62B290')

@@ -49,7 +49,12 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isMethodReply, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { ideaTextOf } from './v12/ideas'
+import { CommitFormSlot } from './v12/team'
+import { approachOf, approachesOf, ideaTextOf } from './v12/ideas'
+import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
+import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
+import { LastReplyCard } from './v12/chat/LastReplyCard'
+import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
@@ -87,7 +92,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
  * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
  */
 type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
-export function Blocks({ parts, at, first = 1 }: { parts: Said; at: string; first?: number }) {
+export function Blocks({ parts, at, first = 1, item }: { parts: Said; at: string; first?: number; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode }) {
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
     if ('cite' in p) { lines[lines.length - 1]!.push({ kind: 'cite', i, cite: p.cite }); return }
@@ -112,7 +117,7 @@ export function Blocks({ parts, at, first = 1 }: { parts: Said; at: string; firs
   return (
     <>
       {groups.map((g, gi) => (g.list
-        ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => <li key={li}>{draw(l, true)}</li>)}</ul>
+        ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li}>{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
         : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
     </>
   )
@@ -152,10 +157,24 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 
 const NO_CARDS: readonly string[] = []
 
+/**
+ * The newest reply's next step as the "From my last reply" card above the composer's box (V12), or null where no card is drawn: no next step
+ * with words (a conversational reply), or a scenario still waiting for its brief. The turn it came from does not draw that line again.
+ */
+export function lastReplyCardOf(view: View | null, sid: string | null): NonNullable<ReturnType<typeof newestNextOf>> | null {
+  if (view === null || takesBrief(sid, view)) return null
+  const last = newestNextOf(view.chat)
+  return last === null || last.next.text.every((p) => !('text' in p) || p.text.trim() === '') ? null : last
+}
+
+/** The reply's disclosure (V12 Main): the reasons, and what would move the answer. */
+export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
+
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
 function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
+  const inCard = useViewStore((st) => t.answer !== null && lastReplyCardOf(st.view, st.sid)?.turn.id === t.id)
   const lit = useRef(false)
   useEffect(() => () => { if (lit.current) endRing() }, [])
   const ring = (on: boolean) => { lit.current = on; if (on) pointRing(about); else endRing() }
@@ -176,9 +195,19 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`}>{t.by}</p>
   const early = earlyOf(t)
   // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
-  const keepSid = useViewStore((st) => (st.view !== null && isMethodReply(st.view, t) ? st.sid : null))
-  const idea = t.answer === null || keepSid === null ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
-  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}<p className={typography.viewPanelBody} data-view={`${at}.said`}>{t.said}</p></div>
+  // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
+  // a method reply with no such lines is kept whole.
+  const keepSid = useViewStore((st) => (st.view !== null && t.answer !== null ? st.sid : null))
+  const methodReply = useViewStore((st) => st.view !== null && isMethodReply(st.view, t))
+  // Where core's reply separates its approaches (its own list lines, two or more), each is kept on its own; otherwise the reply is kept whole.
+  const approaches = t.answer === null || keepSid === null ? [] : approachesOf(t.answer.answer)
+  const idea = t.answer === null || keepSid === null || !methodReply || approaches.length > 0 ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
+  const keepEach = keepSid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={keepSid} turn={t.id} text={words} /> : null)
+  // V12: the person's message is a method chip when it is, word for word, one of core's menu questions.
+  const whole = useViewStore((st) => st.view)
+  const method = methodOfSaid(whole, t.said)
+  const aboutCards = t.answer === null ? [] : aboutCardsOf(whole, t.answer.next)
+  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}<p className={typography.viewPanelBody} data-view={`${at}.said`}>{method === null ? null : <MethodMark id={method.id} />}{t.said}</p></div>
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
   const model = useViewStore((st) => st.view?.model ?? null)
   const olumi = model === null ? null : olumiKey(model)
@@ -199,20 +228,22 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {leads
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} /></div>
-        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} />}
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} /></div>
+        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
-      <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
+      {/* The newest reply's next question is the "From my last reply" card above the box (V12): drawn once, so not again under the reply. Older replies keep theirs. */}
+      {inCard ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       {!leads ? null : (
         <details className="ok-reply-more" data-reply-more={at}>
-          <summary>Why</summary>
+          <summary>{WHY_AND_WHAT_MOVES_IT}</summary>
           <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} first={whyFirst[j]} /></li>)}</ul>
         </details>
       )}
       <Stories answer={t.answer} at={at} />
+      <AboutChips cards={aboutCards} />
       {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
     </div>
   )
@@ -1402,6 +1433,8 @@ export function ViewChat() {
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
+            {/* V12 Solo-Return: the ideas kept on this scenario, with where each came from and who kept it. */}
+            <KeptIdeas />
             {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
                 questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
                 first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
@@ -1427,6 +1460,7 @@ export function ViewChat() {
               )
             })()}
             {view === null || pinned ? null : <NextStepCard view={view} busy={busy} />}
+            <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
             {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
@@ -1488,6 +1522,8 @@ function Working() {
 }
 
 /** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
+/** The composer's one sentence once there is something to ask about (V12 boards); the brief's example stays for the first brief. */
+export const COMPOSER_PLACEHOLDER = 'Ask about your thinking…'
 export const BRIEF_INTRO = 'Describe the situation in your own words: the options you are weighing, what you are aiming for, and any figures you know. Olumi builds a model from it for you to check and change.'
 export const BRIEF_EXAMPLE = 'For example: should we hire a second engineer now or wait until next quarter? We need the release out by June, and each engineer ships about two features a month.'
 
@@ -1539,15 +1575,14 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
-  // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
-  // is the latest; a proposal not yet approved is not one.
-  // J1 gate: while Olumi's newest answer asks the person something, the box invites the reply (the prototype's words); a run with
-  // nothing in it yet is not "the latest analysis".
-  const asked = newestNextOf(view?.chat) !== null
-  const placeholder = brief ? BRIEF_EXAMPLE : onFloor(view) ? 'Reply to Olumi, or ask a follow-up' : asked ? 'Reply, or edit the model' : view?.version != null && (view.model?.run?.aim ?? null) !== null ? 'Ask about the latest analysis…' : 'Ask about this model…'
+  // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
+  const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
+  // V12 "From my last reply": the newest reply's next question, as a card above the box, only where that next has words.
+  const lastWords = lastReplyCardOf(view, sid)
   return (
     <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
+      {lastWords === null || brief ? null : <LastReplyCard label={lastWords.next.label}><Words parts={lastWords.next.text} at={`chat.${lastWords.k}.answer.next.text`} first={lastWords.first} /></LastReplyCard>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {/* A brief's drafting is said on the board (DraftingBoard.tsx), once; a message being answered is said here. */}
       {busy && !brief ? <Working /> : null}

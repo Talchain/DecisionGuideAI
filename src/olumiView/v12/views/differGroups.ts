@@ -83,3 +83,12 @@ export function summaryLine(c: DifferCount): string | null {
   const where = `${c.places} ${c.places === 1 ? 'place' : 'places'} you differ`
   return c.changes === 0 ? where : `${where}; ${c.changes} ${c.changes === 1 ? 'changes' : 'change'} the answer`
 }
+
+/** Said under group 3 when core calculated none (Sprint-Differ board; fixed chrome, about no scenario). */
+export const NOTHING_CALCULATED = 'Nothing here is calculated yet.'
+/** Group 3 with no rows, for a revealed comparison that has differences but none core calculated: never dropped silently, never faked. Null
+ *  when there are no differences at all (core's own empty line stands) or group 3 already has rows. */
+export function emptyConsequence(data: Differences): DifferGroup | null {
+  if (data.differences.length === 0 || data.differences.some((d) => groupOf(d) === 'consequence')) return null
+  return { id: 'consequence', heading: coreHeading(data, 'consequence') ?? DIFFER_GROUP_HEADINGS.consequence, rows: [] }
+}

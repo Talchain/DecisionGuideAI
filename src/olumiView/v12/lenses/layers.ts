@@ -8,7 +8,8 @@
  * for it; `run.tipping` is "what would have to be true", a different finding, so it is not relabelled).
  */
 import type { View, ViewCard, ViewLink, ViewModel } from '../../client'
-import { driverLinksOf, driversOf, optionCards } from '../../layout'
+import { cardLinks, driverLinksOf, driversOf, optionCards } from '../../layout'
+import { linkRole, type LinkRole } from '../contract'
 
 export type LayerId = 'full' | 'sensitivity' | 'sensitive_assumptions' | 'causal' | 'evidence' | `option:${string}`
 export const OPTION_PREFIX = 'option:'
@@ -153,24 +154,26 @@ export function marksOf(view: View | null, layer: LayerId): LayerMarks | null {
 export const SIGN_WORDS = { increases: 'Increases', decreases: 'Decreases', none: 'No effect', unknown: 'Direction not said' } as const
 export const SIGN_GLYPH = { increases: '+', decreases: '−', none: '0', unknown: '?' } as const
 
-export interface EdgeRow { index: number; from: string; to: string; sign: NonNullable<ViewLink['causal']>['sign']; strength: string | null; disputed: boolean; by: string | null; hover: string }
+export interface EdgeRow {
+  index: number; from: string; to: string
+  /** The sign the View holds for the link; null where it holds none (drawn "n/a", never guessed). */
+  sign: NonNullable<ViewLink['causal']>['sign'] | null
+  role: LinkRole | null; strength: string | null; disputed: boolean; by: string | null; hover: string
+}
 const nameOf = (model: ViewModel, id: string): string => cardOfRecord(model, id)?.heading ?? id
 
 /**
- * The edge table: every link the View types as one causal step (`causal` non-null), with its endpoints' headings. Strength only where the model holds
- * one (`strength.state` sized with a likely figure: its own unit, its range where core gives one); otherwise core's own line for the link (`size.text`,
- * e.g. "no strength yet") or nothing. No strength is ever computed or compared here.
+ * The link table: every link the canvas draws between two cards, in the View's order, each with its endpoints' headings. A link the View types as a
+ * causal step carries its sign, author, doubt and strength; one it does not type (an input, a size, a bound) is still a row, with no sign (`null`: "n/a")
+ * and core's own line for it where there is one (`size.text`). Role is core's (`linkRole`) where it sends one. No strength is ever computed or compared here.
  */
 export function edgeTableOf(model: ViewModel): EdgeRow[] {
-  const rows: EdgeRow[] = []
-  model.links.forEach((l, i) => {
+  return cardLinks(model).map(({ link: l, i }) => {
     const c = l.causal
-    if (c == null) return
-    const s = c.strength, unit = s.unit === null ? '' : ` ${s.unit}`
-    const strength = s.state === 'sized' && s.likely !== null
+    const s = c?.strength, unit = s?.unit == null ? '' : ` ${s.unit}`
+    const strength = s !== undefined && s.state === 'sized' && s.likely !== null
       ? `${s.likely}${unit}${s.low !== null && s.high !== null ? ` (${s.low} to ${s.high})` : ''}`
       : (l.size?.text ?? null)
-    rows.push({ index: i, from: nameOf(model, l.from), to: nameOf(model, l.to), sign: c.sign, strength, disputed: c.disputed, by: c.author?.text ?? null, hover: c.text })
+    return { index: i, from: nameOf(model, l.from), to: nameOf(model, l.to), sign: c?.sign ?? null, role: linkRole(l), strength, disputed: c?.disputed ?? false, by: c?.author?.text ?? null, hover: c?.text ?? l.title }
   })
-  return rows
 }

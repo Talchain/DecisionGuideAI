@@ -18,6 +18,7 @@ import { SetValuePopover } from './SetValuePopover'
 import { setValueCustom, type FactorValueWriter } from './actions'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { CardMenuHeader } from '../../olumiView/v12/chat/CardMenuHeader'
 import { CANVAS_LAYER_CLASS } from '../layers'
 
 export interface CanvasContextMenuProps {
@@ -295,6 +296,7 @@ export function CanvasContextMenuBase({
         className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
         style={{ left: position.x, top: position.y }}
       >
+        {isOlumiCoreLane() && target.kind === 'node' ? <CardMenuHeader nodeId={target.nodeId} /> : null}
         {items.map((entry, i) => {
           if (isDivider(entry)) {
             return <div key={i} role="separator" className="mx-2 my-2" />

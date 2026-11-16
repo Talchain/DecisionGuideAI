@@ -344,3 +344,101 @@
 .olumi-look .react-flow__node [data-simple-compact][role='group'] [data-testid='node-title'][data-testid='node-title'] { display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; }
 .olumi-look .react-flow__node [data-simple-compact] .ok-count, .olumi-look .react-flow__node [data-simple-compact] .ok-mark { font-size: 13px; }
 .olumi-look .react-flow__node [data-simple-compact] .ok-face { gap: 0; }
+
+/* ── V12 shapes by kind (canvas rule 5; the boards' shape language). CoreCard puts the kind on the face (`data-ok-shape`, and a calculated
+   card's `data-ok-state`), read from the View's structure (v12/cards/kind.ts): the shape says what a card is, never a colour fill. ──────── */
+/* An option: a square-cornered rectangle in the option colour. */
+.olumi-look .react-flow__node:has([data-ok-shape='option']) [role='group'][aria-label] { border-radius: 6px !important; border-width: 1.5px; }
+/* An uncertain input: a rounded pill. An assumption: the same pill, dashed. */
+.olumi-look .react-flow__node:has([data-ok-shape='input']) [role='group'][aria-label] { border-radius: 20px !important; border-width: 1.5px; }
+.olumi-look .react-flow__node:has([data-ok-shape='assumption']) [role='group'][aria-label] { border-radius: 20px !important; border-style: dashed !important; }
+/* Calculated from inputs: a double outline. The second line is drawn inside the border and out of flow, so no card changes size and the
+   selection ring (a box-shadow) and the lens outlines keep their channels. It takes the frame's own colour (Olumi's blue, the challenge
+   colour or the family's). Pending (it waits on an input): both lines dashed. Withheld for an option: the inner line dashed.
+   It is the card's ::before: its ::after is the layers' note (v12/lenses/LayerCanvasStyle.tsx), so the two never share an element. */
+.olumi-look .react-flow__node:has([data-ok-shape='calculated']) [role='group'][aria-label] { border-radius: 10px !important; }
+.olumi-look .react-flow__node:has([data-ok-shape='calculated']) [role='group'][aria-label]::before {
+  content: ''; position: absolute; inset: 2px; border: 1px solid; border-color: inherit; border-radius: 7px; pointer-events: none;
+}
+.olumi-look .react-flow__node:has([data-ok-state='pending']) [role='group'][aria-label] { border-style: dashed !important; }
+.olumi-look .react-flow__node:has([data-ok-state='pending']) [role='group'][aria-label]::before,
+.olumi-look .react-flow__node:has([data-ok-state='withheld']) [role='group'][aria-label]::before { border-style: dashed; }
+/* An aim: a diamond mark with its label. In Simple the frame goes quiet at rest so the diamond and the label are the aim; a frame that says
+   something (Olumi proposes it, challenged, doubted) is kept. */
+.olumi-look .react-flow__node:has([data-ok-shape='aim']) [data-simple-compact][role='group'][aria-label]:not(:hover):not([class*='border-info']):not([class*='olumi-mark-orange']):not([class*='border-dashed']) {
+  background: transparent !important; border-color: transparent !important;
+}
+
+/* The kind's mark before the name. An option's is its letter (A, B, C… in core's option card order; CoreCard sets `--ok-letter` on the
+   node), outlined in the option colour, with the name's lines standing beside it. */
+.olumi-look .react-flow__node:has([data-option-letter]) [data-testid='node-title'],
+.olumi-look .react-flow__node:has([data-ok-shape='aim']) [data-testid='node-title'] { position: relative; padding-left: calc(22px * var(--o-s)); }
+/* Both marks stay inside one title line (16.9 px on the compact card, whose title clips), so neither is cut on a one-line name. */
+.olumi-look .react-flow__node:has([data-option-letter]) [data-testid='node-title']::before {
+  content: var(--ok-letter, ''); position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; justify-content: center;
+  box-sizing: border-box; width: auto; min-width: calc(16px * var(--o-s)); height: calc(16px * var(--o-s)); margin: 0; padding: 0 calc(3px * var(--o-s));
+  border: 1px solid var(--o-option); border-radius: 4px; background: var(--o-panel); color: var(--o-ink);
+  font-size: calc(10px * var(--o-s)); font-weight: 700; line-height: 1; letter-spacing: 0; transform: none;
+}
+/* An aim's is the diamond, in the goal's colour. */
+.olumi-look .react-flow__node:has([data-ok-shape='aim']) [data-testid='node-title']::before {
+  position: absolute; left: calc(3px * var(--o-s)); top: calc(3px * var(--o-s)); box-sizing: border-box; width: calc(10px * var(--o-s)); height: calc(10px * var(--o-s)); margin: 0;
+  border: 1.5px solid var(--o-goal); border-radius: 2px; background: color-mix(in srgb, var(--o-goal) 45%, var(--o-panel)); transform: rotate(45deg);
+}
+/* A calculated figure's is a double ring; an assumption's a dashed diamond; a risk's a warning triangle (an outline, in ink: orange is the
+   challenge colour). */
+.olumi-look .react-flow__node:has([data-ok-shape='calculated']) [data-testid='node-title']::before {
+  box-sizing: border-box; width: calc(10px * var(--o-s)); height: calc(10px * var(--o-s)); border: 3px double var(--o-factor); border-radius: 3px; background: transparent;
+}
+.olumi-look .react-flow__node:has([data-ok-shape='assumption']) [data-testid='node-title']::before {
+  box-sizing: border-box; border: 1px dashed var(--o-light); border-radius: 2px; background: transparent; transform: rotate(45deg) scale(0.85);
+}
+.olumi-look .react-flow__node:has([data-ok-shape='risk']) [data-testid='node-title']::before {
+  width: calc(11px * var(--o-s)); height: calc(10px * var(--o-s)); border-radius: 0; background: var(--o-body);
+  clip-path: polygon(evenodd, 50% 0, 100% 100%, 0 100%, 50% 0, 50% 34%, 26% 85%, 74% 85%, 50% 34%);
+}
+
+/* ── V12 card marks (v12/cards/marks.tsx), on the Simple and the Detailed face alike ──────────────────────────────────────────────── */
+/* Whose it is: Olumi's own mark in Olumi's blue, a person's in ink; core's author words are the hover. */
+.olumi-look .ok-am { display: inline-flex; flex: none; align-items: center; justify-content: center; vertical-align: -0.15em; }
+.olumi-look .ok-am-olumi { color: var(--o-info); }
+.olumi-look .ok-am-person { color: var(--o-ink); }
+.olumi-look .ok-author { display: inline-flex; flex: none; align-items: center; gap: 2px; margin-right: calc(4px * var(--o-s)); vertical-align: -0.15em; }
+.olumi-look [data-simple-foot] .ok-author { margin-right: 0; }
+.olumi-look .ok-qual > .ok-am, .olumi-look .ok-simple-qual > .ok-am { margin-right: calc(3px * var(--o-s)); }
+/* The qualifier under a Simple chance: core's words after the number, on their own line. */
+.olumi-look .ok-simple-qual { font-weight: 400; color: var(--o-light); }
+/* An option's letter where a row names the option (the chip on the option's own card is its title mark, above). Outlined, never filled. */
+.olumi-look .ok-letter {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; min-width: calc(16px * var(--o-s)); height: calc(16px * var(--o-s));
+  padding: 0 calc(3px * var(--o-s)); border: 1px solid var(--o-option); border-radius: 4px; background: var(--o-panel); color: var(--o-ink);
+  font-size: calc(10px * var(--o-s)); font-weight: 700; line-height: 1;
+}
+/* A kind's tag ("assumption") and the aim's bound in Simple (a quiet outlined pill that may shrink). */
+.olumi-look .ok-tag { flex: none; font-size: calc(10.5px * var(--o-s)); line-height: 1.4; color: var(--o-light); }
+.olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
+/* "baseline": the same quiet outlined pill, level with the marks beside it. */
+.olumi-look .ok-pill.ok-baseline { align-self: center; }
+/* Nothing to place yet: a dashed, empty track (a withheld chance, a figure not sized, a calculation that waits). */
+.olumi-look .ok-empty {
+  display: block; flex: 1 1 auto; box-sizing: border-box; min-width: calc(24px * var(--o-s)); height: calc(7px * var(--o-s));
+  border: 1.5px dashed var(--o-light); border-radius: 999px;
+}
+.olumi-look .ok-withheld, .olumi-look .ok-unsized { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
+/* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
+.olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }
+.olumi-look .ok-withheld-row .ok-why { position: static; flex: none; }
+.olumi-look .ok-q { flex: none; font-size: calc(13px * var(--o-s)); font-weight: 600; line-height: 1; color: var(--o-body); }
+/* Core's reason at rest, short: two lines at most (one for a figure's gap), whole on hover and behind "Why not". */
+.olumi-look .ok-caption {
+  margin: 0; font-size: calc(11.5px * var(--o-s)); line-height: 1.35; color: var(--o-light); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.olumi-look .ok-caption.ok-caption-one { -webkit-line-clamp: 1; }
+/* "Olumi has a question about this": Olumi's mark in a ring, Olumi's blue, with a soft halo. */
+.olumi-look .ok-asks {
+  display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: 18px; height: 18px; border: 1.5px solid var(--o-info);
+  border-radius: 999px; background: var(--o-panel); color: var(--o-info); box-shadow: 0 0 0 3px color-mix(in srgb, var(--o-info) 18%, transparent);
+}
+/* On the compact card the small type is its fixed 12 px (no counter-scale). */
+.olumi-look .react-flow__node [data-simple-compact] .ok-caption, .olumi-look .react-flow__node [data-simple-compact] .ok-tag { font-size: 12px; }

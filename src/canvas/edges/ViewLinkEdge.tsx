@@ -20,6 +20,10 @@ import { useLevel } from '../../olumiView/v12/simpleStore'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
+import { linkRole, sizedLink } from '../../olumiView/v12/contract'
+import { DIRECTION_NOT_SETTLED, INK, effectDash, linkStyle } from '../../olumiView/v12/links/styles'
+import { effectMidpoint } from '../../olumiView/v12/links/geometry'
+import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
@@ -39,7 +43,13 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
   const causal = link.causal ?? null
-  const signed = causal === null ? link.label !== '' : causal.sign === 'increases' || causal.sign === 'decreases'
+  // V12 (rule 2): a modelled effect says its sign by nothing but its direction of travel; only a legacy link with no typed `causal` keeps its label.
+  const signed = causal === null && link.label !== ''
+  const notSettled = causal?.sign === 'unknown'
+  const role = linkRole(link)
+  const style = linkStyle(link)
+  const styled = style !== null && style.role !== 'effect' ? style : null
+  const modelled = styled === null && (causal !== null || role === 'effect')
   const labelWord = useViewStore((s) => causal === null ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
@@ -90,7 +100,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const focused = useViewFocusLink((f) => f.id === id)
   // A removal on its way keeps the link and its ask drawn, whatever focus does (Codex delta 4960db98).
   const removing = useRemovingLink(link.remove)
-  const rail = from && to ? railOf(from, to, cards, slot) : null
+  // A size wire runs from its figure to the midpoint of the effect link it sizes (never to a card, never as a cause).
+  const sizes = role === 'size' ? sizedLink(link) : null
+  const sFrom = sizes === null ? undefined : cards.find((c) => c.id === sizes.from), sTo = sizes === null ? undefined : cards.find((c) => c.id === sizes.to)
+  const sizeAt = sFrom && sTo ? effectMidpoint(sFrom, sTo) : null
+  const rail = sizeAt === null && from && to ? railOf(from, to, cards, slot) : null
   // A link into a card wholly above its source (a claim under the option it argues about) leaves the source's top and enters the target's
   // foot. From the fixed bottom and top handles it ran down, behind both cards and back up, so only two curls showed (Paul's A11 board,
   // 12 Nov). A rail keeps its own ends.
@@ -98,7 +112,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const [bezier, midX, midY] = getBezierPath(up !== null
     ? { sourceX: up.from.x + up.from.w / 2, sourceY: up.from.y, targetX: up.to.x + up.to.w / 2, targetY: up.to.y + up.to.h, sourcePosition: Position.Top, targetPosition: Position.Bottom }
     : { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const path = rail?.path ?? bezier
+  const path = sizeAt !== null ? `M ${sourceX},${sourceY} L ${sizeAt.x},${sizeAt.y}` : rail?.path ?? bezier
   // Placed again only when the path, the cards or the words' size change (the off-path search is the costly part). A rail's path fixes its rail.
   // Clear of the words of the links before this one too (railBoxes.ts useLinkWordsBoxes): opened cards' near links no longer stack words.
   const before = wordsBefore(useLinkWordsBoxes((s) => s.boxes), i)
@@ -108,7 +122,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // R25 (plan v3 item 7, Paul's 2A): at rest a link says its sign and any "!"; its strength in core's words shows while the link is selected
   // or focused, or a card at either end is hovered or selected, and on a driver link.
   const near = selected || focused || driver || active.has(source) || active.has(target)
-  const effect = near ? link.effect ?? null : null
+  const effect = near && role !== 'size' ? link.effect ?? null : null
   const { x, y } = placed
   // Zoomed out (below the readable zoom, camera.ts) the cards draw less and so do the links: at rest a link says its sign by its colour
   // only, so the overview stays quiet (Paul 10 Nov, 68be1258). B1 (Paul's "do now", 11 Nov): the first open is the whole board, below that
@@ -117,7 +131,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // label counter-scale CanvasLabelScaleSync writes on the canvas root (the reduced face's own, camera.ts reducedFaceSize), so they never
   // draw at the bare zoom's ~5 px (DL 10 Nov). The flag, not the scale, is selected: an edge re-renders only when it flips.
   const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]) > 0)
-  const words = (signed || effect !== null) && (!zoomedOut || near)
+  const words = (signed || effect !== null || notSettled) && role !== 'size' && (!zoomedOut || near)
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
   const hidden = placed.far === true && !near
@@ -147,7 +161,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
   // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
   // V12 Simple draws every link at rest (the structure is the reasoning; only text is removed): reason links and route rails included, quiet.
-  if (!simple && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
+  if (styled === null && !simple && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
   // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
   // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
   // DL round 5 (rehearsal item 10): a rail round the board is quiet at rest, the neutral link grey at 1 px, so the rails are not the first
@@ -158,16 +172,18 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // an unsized/words-only claim is dashed. Core's doubt, pending changes and disagreement retain their cue. Olumi's ink stays blue;
   // the typed sign keeps its own direction colour. No magnitude becomes width.
   const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
-  const colour = causal === null ? null : { increases: '#62B290', decreases: '#D6336C', none: 'var(--edge-neutral)', unknown: 'var(--text-light)' }[causal.sign]
-  const stroke = causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : linkOlumi ? 'var(--semantic-info)' : colour!
-  const dashed = causal === null ? link.doubt || byOlumi : link.doubt || link.proposed || causal.disputed || causal.strength.state !== 'sized'
+  const stroke = styled !== null ? styled.stroke : !modelled && causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : INK
+  const dash = styled !== null ? styled.dash : modelled || causal !== null ? effectDash(link.doubt) : link.doubt || byOlumi ? '5 5' : null
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined}>
       <title>{title}</title>
-      <defs><marker id={arrow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill={stroke} /></marker></defs>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd ?? `url(#${arrow})`} style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : 1.5, ...(dashed ? { strokeDasharray: '5 5' } : {}) }} />
+      <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} colour={stroke} /></defs>
+      <BaseEdge id={id} path={path} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+        style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : styled?.width ?? 1.5, ...(dash !== null ? { strokeDasharray: dash } : {}), ...(styled?.dash ? { strokeLinecap: 'round' as const } : {}) }} />
+      {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
+      {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} title={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (
         <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
       ) : null}
@@ -178,12 +194,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
-            {!signed ? null : causal === null ? <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span> : (
-              // The sign is a graphic of core's enum, not a sentence or a strength inferred from a legacy label.
-              <svg width="1em" height="1em" viewBox="0 0 12 12" style={{ color: colour ?? undefined }} aria-hidden="true" data-view-link-sign={`links.${i}.causal.sign`} data-sign={causal.sign}>
-                <path d={causal.sign === 'increases' ? 'M1 6H11M6 1V11' : 'M1 6H11'} fill="none" stroke="currentColor" strokeWidth="1.4" />
-              </svg>
-            )}
+            {notSettled ? <span data-view-link-unsettled={`links.${i}`} title={causal?.text || DIRECTION_NOT_SETTLED} aria-label={causal?.text || DIRECTION_NOT_SETTLED} role="img" style={{ pointerEvents: 'auto' }}>?</span> : null}
+            {!signed ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
             {effect === null ? null : <span title={effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{effect.text}</span>}
           </div>

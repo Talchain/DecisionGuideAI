@@ -91,6 +91,21 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   )
 }
 
+/** Said when the figure saved but the View could not be read again, so the old figure is never shown as current. */
+export const SAVED_NOT_SHOWN = 'Saved, but Olumi could not show it just now. Reload the page to see it.'
+
+/**
+ * THE ONE SET-FIGURE PATH: the person's typed figure to core's edit route on `base`, under the key every editor of this figure shares (one write is
+ * one write wherever it is pressed), then the saved version said at once and the View read again. True when the new View shows it; false when the
+ * save went through but the View could not be read. Core's refusal throws as it says it (`TeamApiError`). The card editor and the what-if bar's "Keep it" both use it.
+ */
+export async function setFigure(sid: string, base: number, id: string, typed: string): Promise<boolean> {
+  const saved = await runWrite(`${sid}:edit:${id}`, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
+  // Core's 201 IS saved (R25, DL ruling: no AI call on its path): its version is said at once, as an approval's is.
+  noteEditSaved(saved)
+  return useViewStore.getState().modelChanged()
+}
+
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
@@ -129,12 +144,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     if (typed.trim() === '' || sending || live === null) return
     setError(null)
     try {
-      const saved = await runWrite(key, { op: true }, { base, quantity: id, typed }, (op) => writes.edit(sid, base, id, typed, op!))
-      // Core's 201 IS saved (R25, DL ruling: no AI call on its path): its version is said at once, as an approval's is.
-      noteEditSaved(saved)
-      // Saved: the editor closes once the new View shows it; a View that could not be read says so here, never the old figure as current.
-      if (await useViewStore.getState().modelChanged()) { setOpen(false); setTyped('') }
-      else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
+      if (await setFigure(sid, base, id, typed)) { setOpen(false); setTyped('') }
+      else setError(SAVED_NOT_SHOWN)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     }

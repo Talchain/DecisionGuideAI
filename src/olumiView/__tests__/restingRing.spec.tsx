@@ -11,7 +11,7 @@ import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewConversation } from '../ViewChat'
+import { ViewComposer, ViewConversation } from '../ViewChat'
 import { endRing, restRing } from '../ring'
 import { nextCardsOf } from '../layout'
 
@@ -46,10 +46,15 @@ afterEach(() => {
 describe('coaching on its card: the newest reply\'s next step keeps the cards it names lit', () => {
   it('catch: at rest, with no pointer or focus, exactly the cards core\'s newest next step names are lit; the line is core\'s', () => {
     expect(NAMED.length).toBeGreaterThan(1)
-    const { container } = render(<ViewConversation chat={golden.chat} />)
+    const { container } = render(<><ViewConversation chat={golden.chat} /><ViewComposer /></>)
     expect(lit()).toEqual(sorted(NAMED))
     expect(nodeEl(OTHER).classList.contains('v10-lit')).toBe(false)
-    expect(container.querySelector(`[data-view="chat.${LAST}.answer.next.label"]`)!.textContent).toBe(golden.chat[LAST]!.answer!.next.label)
+    // V12: the newest reply's next question is drawn once, in the "From my last reply" card (core's label and words), and not again under the reply.
+    const next = golden.chat[LAST]!.answer!.next
+    expect(container.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toBeNull()
+    const card = container.querySelector('[data-testid="view-last-reply-text"]')!.textContent
+    expect(card).toContain(next.label)
+    expect(card).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
   })
 
   it('pointing at an earlier reply\'s next step lights exactly its cards; leaving restores the newest reply\'s, by hover and by keyboard', () => {
@@ -94,11 +99,22 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     expect(lit()).toEqual([OTHER])
     rerender(<ViewConversation chat={chatWith([])} />)
     expect(lit()).toEqual([])
-    expect(container.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')!.hasAttribute('tabindex')).toBe(false)
+    // V12: the newest reply's line is the card's, not drawn under the reply; so the focus rule is read on an EARLIER reply's line (which keeps its own).
+    expect(container.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toBeNull()
     rerender(<ViewConversation chat={golden.chat} />)
     expect(lit()).toEqual(sorted(NAMED))
     unmount()
     expect(lit()).toEqual([])
+  })
+
+  it('an earlier reply\'s line takes focus exactly when it names cards or records; the newest reply\'s is the card\'s and not under the reply', () => {
+    const named = render(<ViewConversation chat={golden.chat} />).container.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')!
+    expect(golden.chat[0]!.answer!.next.about.length, 'precondition: the earlier reply names records').toBeGreaterThan(0)
+    expect(named.getAttribute('tabindex')).toBe('0')
+    cleanup()
+    const none = render(<ViewConversation chat={chatWith(null, [])} />).container
+    expect(none.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')!.hasAttribute('tabindex')).toBe(false)
+    expect(none.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toBeNull()
   })
 
   it('fails closed: a record that is no card lights nothing and never throws; a card named twice is lit once (the one adapter)', () => {
@@ -110,9 +126,11 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
   })
 
   it('no new words: the conversation reads the same with the ring on as with it off, and recommends nothing', () => {
-    const on = render(<ViewConversation chat={golden.chat} />).container.textContent
+    // V12: the visible "About <card> on the canvas" chip is the one added line (v12/chat/AboutChip); everything else must read the same.
+    const words = (c: HTMLElement) => { c.querySelectorAll('[data-testid="view-about-chips"]').forEach((e) => e.remove()); return c.textContent }
+    const on = words(render(<ViewConversation chat={golden.chat} />).container)
     cleanup()
-    const off = render(<ViewConversation chat={chatWith([])} />).container.textContent
+    const off = words(render(<ViewConversation chat={chatWith([])} />).container)
     expect(on).toBe(off)
     expect(on).not.toMatch(/\b(best|winner|recommend)/i)
   })

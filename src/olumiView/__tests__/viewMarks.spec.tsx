@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewLink } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
@@ -70,7 +70,10 @@ describe('#3 a link keeps its meaning', () => {
     const doubted = links.find((l) => l.doubt)!, firm = links.find((l) => !l.doubt)!
     for (const l of [doubted, firm]) {
       const c = edge(l)
-      expect(c.querySelector('g[data-view-link] > title')?.textContent).toBe(l.title)
+      // A typed causal link's hover is its causal words, its author's, then core's own title (ViewLinkEdge `title`); an untyped one's is core's title alone.
+      const expected = l.causal == null ? l.title : [l.causal.text, l.causal.author?.title, l.title].filter(Boolean).join('\n')
+      expect(c.querySelector('g[data-view-link] > title')?.textContent).toBe(expected)
+      expect(c.querySelector('g[data-view-link] > title')?.textContent).toContain(l.title)
       expect(c.querySelector('g[data-view-link]')?.getAttribute('data-kind')).toBe(l.kind)
       // Dashed means doubt (the J1 gate's links draw the dash as 5 5): bound to dashed or not, not to one pattern's bytes.
       // The line itself (React Flow's edge path), not the arrowhead's path in <defs>, which now comes first.
@@ -80,9 +83,14 @@ describe('#3 a link keeps its meaning', () => {
     }
   })
 
-  it('its sign sits on the line, exactly as core wrote it, bound to its place in the View', () => {
-    const i = links.findIndex((l) => l.label !== '')
-    edge(links[i]!, i)
+  it('V12 rule 2: a typed link says its sign by its direction of travel alone (no label on the line); an untyped link\'s sign sits on the line exactly as core wrote it, bound to its place in the View', () => {
+    const i = links.findIndex((l) => l.label !== '' && l.causal != null)
+    expect(i, 'the golden has a typed link that carried a sign').toBeGreaterThanOrEqual(0)
+    const typed = edge(links[i]!, i)
+    expect(document.body.querySelector(`[data-view="links.${i}.label"]`)).toBeNull()
+    expect(typed.querySelector('g[data-view-link]')?.getAttribute('data-link-end')).toBe('arrow')
+    cleanup()
+    edge({ ...links[i]!, causal: null }, i)
     expect(document.body.querySelector(`[data-view="links.${i}.label"]`)?.textContent).toBe(links[i]!.label)
   })
 
