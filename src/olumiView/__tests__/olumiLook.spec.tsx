@@ -43,6 +43,25 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)
   })
 
+  it('L1b a chance with no comma after "chance": the figure is the text up to the first " chance", the condition (from " if ") is the small qualifier line exactly as core wrote it; the comma form is the control', () => {
+    const base = cardOf(RUN1, (c) => c.family === 'option' && c.headline?.state === 'chance')
+    const cases: Array<[string, string, string, string]> = [
+      ['opt_carry_on', "about 9% chance, on Olumi's assumption for 'time from now until funding is committed if carrying on'", 'about 9% chance', "on Olumi's assumption for 'time from now until funding is committed if carrying on'"],
+      ['opt_angels', "about 50% chance if this route delivers at all, on Olumi's estimate of how long this route takes", 'about 50% chance', "if this route delivers at all, on Olumi's estimate of how long this route takes"],
+      ['opt_bridge', "about 73% chance if this route delivers at all, on Olumi's estimate of how long this route takes", 'about 73% chance', "if this route delivers at all, on Olumi's estimate of how long this route takes"],
+    ]
+    for (const [id, text, head, qual] of cases) {
+      const o = { ...base, id, headline: { ...base.headline!, text } } as ViewCard
+      const el = draw(RUN1, o)
+      expect([id, el.querySelector(`[data-core-lead="${id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${id}.headline.qualifier"]`)?.textContent]).toEqual([id, head, qual])
+      cleanup()
+    }
+    // a sentence with no " chance" keeps today's behaviour: drawn whole as the headline, no qualifier
+    const plain = { ...base, headline: { ...base.headline!, text: 'about 9% likely' } } as ViewCard
+    const el = draw(RUN1, plain)
+    expect([el.querySelector(`[data-core-lead="${plain.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${plain.id}.headline.qualifier"]`)]).toEqual(['about 9% likely', null])
+  })
+
   it('L2 no chance yet (contract 3, DL 15 Nov: the face carries less): the face is one "Why not" press, never the bare "No chance yet"; it opens core\'s why and core\'s ONE next step (headline.add), each once', () => {
     const o = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.headline.add != null)
     const el = draw(RUN2, o)

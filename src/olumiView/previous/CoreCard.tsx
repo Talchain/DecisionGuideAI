@@ -138,8 +138,17 @@ export function farLineOf(card: ViewCard): string | null {
  */
 export function farChanceOf(card: ViewCard): string | null {
   if (card.family !== 'option' || card.headline?.state !== 'chance') return null
-  const t = card.headline.text, cut = t.indexOf(', ')
-  return cut > 0 && t.slice(0, cut).endsWith(' chance') ? t.slice(0, cut) : null
+  return splitChance(card.headline.text)?.head ?? null
+}
+
+/** Core's chance line cut at the first " chance": the figure up to and including it, then the condition exactly as core wrote it (after ", " in
+ *  "X chance, <clause>", or starting at " if " in "X chance if <clause>"). Null where there is no " chance" or nothing follows it. No words added. */
+export function splitChance(t: string): { head: string; qual: string } | null {
+  const at = t.indexOf(' chance')
+  if (at < 0) return null
+  const end = at + ' chance'.length, rest = t.slice(end)
+  const qual = rest.startsWith(', ') ? rest.slice(2) : rest.startsWith(' ') ? rest.slice(1) : ''
+  return qual === '' ? null : { head: t.slice(0, end), qual }
 }
 
 /** The far face's Olumi mark for a chance resting on Olumi's assumption (DL-424): core's own glyph for Olumi's figure it rests on (that card's
@@ -305,7 +314,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     const trail = <>{changeOn === 'lead' ? changeMark : null}{cueOnLead ? <>{' '}{editCue}</> : null}</>
     const h = card.family === 'option' ? card.headline ?? null : null
     if (h !== null && h.state === 'chance') {
-      const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
+      const head = farChanceOf(card), qual = splitChance(h.text)?.qual ?? null
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
