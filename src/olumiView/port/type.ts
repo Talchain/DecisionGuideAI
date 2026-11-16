@@ -15,5 +15,5 @@ export const TYPE = {
   /** 14px: every reading line. */
   body: t.viewPanelBody ?? 'text-[14px] font-sans leading-relaxed',
   /** 18px semibold: the panel's one headline. */
-  headline: t.viewPanelHeadline ?? 'text-[18px] font-semibold font-sans leading-snug',
+  headline: t.viewPanelHeadline ?? 'text-[18px] font-medium font-sans leading-snug',
 } as const

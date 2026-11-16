@@ -39,17 +39,17 @@ export function BriefPanel(): JSX.Element | null {
       <div className="space-y-2.5 px-3.5 pb-2 pt-3.5">
         <header className="space-y-0.5">
           <div className="flex items-start justify-between gap-2">
-            <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-semibold text-text-header`}><FileText aria-hidden="true" className="h-4 w-4" />Your brief, as you wrote it</h2>
+            <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-medium text-text-header`}><FileText aria-hidden="true" className="h-4 w-4" />Your brief, as you wrote it</h2>
             <button type="button" className={`${typography.viewPanelMeta} inline-flex min-h-[24px] flex-none cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
           </div>
           {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version === null || a.versionAt === null ? null : <> · <span data-view="version.at_text">{a.versionAt}</span></>}{a.version !== null && a.by !== null ? ' · ' : null}{a.by}</p>}
         </header>
         <blockquote className={`${typography.viewPanelBody} text-text-body`} data-testid="brief-panel-brief">“{a.brief}”</blockquote>
         <dl className={`${typography.viewPanelBody} space-y-1.5 text-text-body`}>
-          {a.used.length === 0 ? null : <div data-testid="brief-panel-used"><dt className="inline font-semibold text-text-header">Used: </dt><dd className="inline">{list(a.used)}.</dd></div>}
-          {a.inferred.length === 0 ? null : <div data-testid="brief-panel-inferred"><dt className="inline font-semibold text-text-header">Inferred</dt> <dd className="inline">(dashed): {list(a.inferred)}. Yours to change.</dd></div>}
+          {a.used.length === 0 ? null : <div data-testid="brief-panel-used"><dt className="inline font-medium text-text-header">Used: </dt><dd className="inline">{list(a.used)}.</dd></div>}
+          {a.inferred.length === 0 ? null : <div data-testid="brief-panel-inferred"><dt className="inline font-medium text-text-header">Inferred</dt> <dd className="inline">(dashed): {list(a.inferred)}. Yours to change.</dd></div>}
           {a.leftOut.length === 0 ? null : (
-            <div data-testid="brief-panel-left-out"><dt className="inline font-semibold text-text-header">Left out: </dt>
+            <div data-testid="brief-panel-left-out"><dt className="inline font-medium text-text-header">Left out: </dt>
               {/* Each part as the brief has it, in quotes (core's `quote`); a part not in the brief's words is named by its label, unquoted.
                   Core's note on why follows it. */}
               {a.leftOut.map((x) => (
@@ -60,7 +60,7 @@ export function BriefPanel(): JSX.Element | null {
               ))}
             </div>
           )}
-          {!a.noAim && !a.noChances ? null : <div data-testid="brief-panel-not-yet"><dt className="inline font-semibold text-text-header">Not yet: </dt><dd className="inline">{a.noAim ? 'an aim' : null}{a.noAim && a.noChances ? ', ' : null}{a.noChances ? 'chances' : null}.</dd></div>}
+          {!a.noAim && !a.noChances ? null : <div data-testid="brief-panel-not-yet"><dt className="inline font-medium text-text-header">Not yet: </dt><dd className="inline">{a.noAim ? 'an aim' : null}{a.noAim && a.noChances ? ', ' : null}{a.noChances ? 'chances' : null}.</dd></div>}
         </dl>
         <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-notes-missing">{a.leftOut.some((x) => x.why !== null) ? 'Olumi’s own notes on why it used or inferred each part are not available yet.' : 'Olumi’s own notes on why it used, inferred or left out each part are not available yet.'}</p>
       </div>

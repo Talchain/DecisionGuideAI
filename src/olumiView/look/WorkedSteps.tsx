@@ -138,7 +138,7 @@ export function WorkedSteps({ view, id, mine, option, open }: { view: View; id: 
               return (
                 <li key={`${link.from}:${i}`} title={link.title} data-step={base ? 'base' : 'term'} data-step-from={link.from} data-step-own={mine?.has(link.from) ? '' : undefined} className={mine?.has(link.from) ? 'ok-step-own' : undefined}>
                   <span className="ok-step-name">{from?.heading ?? link.from}</span>{' '}
-                  <b>{base ? from?.figure?.text ?? '' : effect?.text ?? ''}</b>
+                  <b className="font-medium">{base ? from?.figure?.text ?? '' : effect?.text ?? ''}</b>
                   {mark === null ? null : <span className={`ok-step-by ${mark.olumi ? 'ok-by-olumi' : ''}`}> · {mark.text}</span>}
                   {own !== null && edit != null ? <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={own.id} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></> : null}
                 </li>

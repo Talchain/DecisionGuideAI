@@ -21,7 +21,8 @@ export function ResultReceipts({ claims }: { claims: Claims }) {
     <summary className={typography.viewPanelBody + ' cursor-pointer py-2'}>What these chances rest on</summary>
     <ul className="list-none space-y-3">
       {claims.map((claim, i) => <li key={claim.cite + '/' + i} className="space-y-1">
-        <p><strong>{claim.optionName}</strong> · {claim.aimName} · {claim.figure}</p>
+        {/* The option's name at the scale's 500 weight (Paul, 7 Nov: 400/500 only; a bare <strong> drew 700). */}
+        <p><strong className="font-medium">{claim.optionName}</strong> · {claim.aimName} · {claim.figure}</p>
         <p className={typography.chatMeta}>{statuses[claim.status]} · {claim.status === 'saved' ? 'Version ' + claim.version : claim.version === 0 ? 'Before first approval' : 'Based on version ' + claim.version}{claim.superseded ? ' · Before the changes in this reply' : ''}</p>
         {claim.basis && <p>{claim.basis}</p>}
         {claim.conditions && <p>{claim.conditions}</p>}

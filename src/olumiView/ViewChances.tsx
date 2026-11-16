@@ -446,7 +446,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
       <span className="mt-1 shrink-0"><NodeShapeIndicator nodeKind={sharpenKindOf(row.id)} size={10} /></span>
       <p className="min-w-0 flex-1">
         <span data-view={`sharpen.${i}.lead`}>{row.lead}</span>{' '}
-        <span className="font-semibold" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
+        <span className="font-medium" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
       </p>
       <span role="img" aria-label={row.rationale} title={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
         className={`${typography.viewPanelMeta} shrink-0 cursor-help`}>ⓘ</span>

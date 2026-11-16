@@ -105,6 +105,12 @@ describe('keeping an approach on its own', () => {
     const latest = container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!
     expect(latest.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(3)
     expect(latest.querySelectorAll('li [data-testid="view-keep-idea-button"]')).toHaveLength(3)
+    // Paul, 16 Nov: no row of "Keep as an idea" under every bullet. Each item's keep is an icon at the end of its own line (no visible words, its
+    // name for assistive tech), hidden at rest and shown on that item's hover or keyboard focus; the reply's own keep stays a quiet row.
+    const each = [...latest.querySelectorAll<HTMLButtonElement>('li [data-testid="view-keep-idea-button"]')]
+    expect(each.map((b) => [b.textContent, b.getAttribute('aria-label'), b.closest('li')!.classList.contains('group/item')])).toEqual(Array(3).fill(['', 'Keep as an idea', true]))
+    expect(each.every((b) => b.className.split(' ').includes('opacity-0') && b.className.includes('group-hover/item:opacity-100') && b.className.includes('group-focus-within/item:opacity-100'))).toBe(true)
+    expect(latest.querySelectorAll('li div[data-testid="view-keep-idea"]')).toHaveLength(0)
     await press(latest.querySelectorAll('[data-testid="view-keep-idea-button"]')[1]!)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toMatchObject({ kind: 'idea', text: 'Offer sessions at a second venue.', from_turn: replyOf(v).id })

@@ -38,7 +38,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ExternalLink, FlipVertical2, Globe, History, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -140,14 +140,14 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
     : lineOf(g) === 'heading'
     ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
     : (g.list
-    ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
+    ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
     : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>)
   return (
     <>
       {before.map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (check === -1 ? 'Show the whole reply' : 'Show the whole first answer') : 'Show less'}</button>
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (check === -1 ? 'Show the whole reply' : 'Show the whole first answer') : 'Show less'}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
         : null}
       {after.map((g, gi) => groupEl(g, head + gi))}
     </>
@@ -234,7 +234,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // Where core's reply separates its approaches (its own list lines, two or more), each is kept on its own; otherwise the reply is kept whole.
   const approaches = t.answer === null || keepSid === null ? [] : approachesOf(t.answer.answer)
   const idea = t.answer === null || keepSid === null || !coached || approaches.length > 0 ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
-  const keepEach = keepSid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={keepSid} turn={t.id} text={words} /> : null)
+  const keepEach = keepSid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={keepSid} turn={t.id} text={words} inline /> : null)
   // V12: the person's message is a method chip when it is, word for word, one of core's menu questions.
   const whole = useViewStore((st) => st.view)
   const method = methodOfSaid(whole, t.said)

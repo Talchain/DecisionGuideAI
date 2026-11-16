@@ -112,7 +112,7 @@ export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }
   return (
     <>
       <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-      <span className={`${TYPE.body} min-w-0 flex-1 break-words font-semibold text-text-header`} data-testid="port-row-readout">{readout}</span>
+      <span className={`${TYPE.body} min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="port-row-readout">{readout}</span>
     </>
   )
 }
@@ -300,8 +300,8 @@ export function HeroHeadlineAlone({ card, named }: { card: ViewCard; named: bool
     <div data-testid="port-option-row" data-view-row={`${card.id}.headline`} data-option-id={card.id} data-leader="false" title={h.title}>
       <div className={HERO_ROW_STACK}>
         <span className={`${TYPE.meta} block w-full break-words text-text-body`} data-view={`${card.id}.heading`}>{card.heading}</span>
-        {named ? null : <span className={`${TYPE.body} block w-full break-words font-semibold text-text-header`} data-view={`${card.id}.headline.text`}>{h.text}</span>}
-        {why === null ? null : <span className={`${TYPE.body} block w-full break-words font-semibold text-text-header`} data-testid="port-row-readout" data-view={`${card.id}.headline.why`}>{why}</span>}
+        {named ? null : <span className={`${TYPE.body} block w-full break-words font-medium text-text-header`} data-view={`${card.id}.headline.text`}>{h.text}</span>}
+        {why === null ? null : <span className={`${TYPE.body} block w-full break-words font-medium text-text-header`} data-testid="port-row-readout" data-view={`${card.id}.headline.why`}>{why}</span>}
       </div>
       {add === null ? null : (
         <div className="space-y-1 px-2 pb-1" data-testid="port-row-headline">

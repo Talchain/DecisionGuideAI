@@ -47,7 +47,7 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
       onMouseDown={(e) => { if (e.target === e.currentTarget && !sending) onClose() }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) onClose() }}>
       <form onSubmit={(e) => void save(e)} className="grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg-panel p-4 shadow-panel">
-        <h2 className={`${typography.viewLabel} m-0 font-semibold text-text-header`}>{TITLE_WORDS.heading}</h2>
+        <h2 className={`${typography.viewLabel} m-0 font-medium text-text-header`}>{TITLE_WORDS.heading}</h2>
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
         <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}
           onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}

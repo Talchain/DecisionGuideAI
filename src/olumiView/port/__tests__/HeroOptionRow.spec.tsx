@@ -250,7 +250,7 @@ describe('the row reads its finding first', () => {
       expect(row.dataset['leader']).toBe(leader)
       const readout = container.querySelector('[data-testid="port-row-readout"]')!
       expect(readout.querySelector(`[data-view="${card}.rows.1.value"]`)).not.toBeNull()
-      expect(readout.className.split(' ')).toEqual(expect.arrayContaining(['font-semibold', 'text-text-header']))
+      expect(readout.className.split(' ')).toEqual(expect.arrayContaining(['font-medium', 'text-text-header']))
       expect(readout.className).not.toContain('text-text-body')
       const name = container.querySelector(`[data-view="${card}.heading"]`)!
       expect(name.className.startsWith(TYPE.meta)).toBe(true)
