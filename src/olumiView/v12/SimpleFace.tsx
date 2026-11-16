@@ -214,7 +214,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />
         {card.challenged ? <span role="img" aria-label="Challenged" title="Challenged" className="h-2 w-2 flex-none rounded-full" style={{ background: ORANGE }} data-simple-challenged={id} /> : null}
-        {card.change == null ? null : <span role="img" aria-label={card.change.title} title={card.change.title} className="text-info" data-view={`${id}.change.glyph`}>{card.change.glyph}</span>}
+        {/* An added card's "+" repeats its proposed frame: shown only for a change the frame does not say (16 Nov, Paul: less noise). */}
+        {card.change == null || card.change.kind === 'added' ? null : <span role="img" aria-label={card.change.title} title={card.change.title} className="text-info" data-view={`${id}.change.glyph`}>{card.change.glyph}</span>}
         {noted ? <OlumiAsksMark id={id} words={notedWords} /> : null}
         <span className="ml-auto flex items-center gap-1 empty:hidden">{extra}</span>
       </div>
