@@ -93,8 +93,8 @@ export const typography = {
   caption: 'text-xs font-sans leading-normal',              // 12px (badges/chips)
 
   // Interactive - Inter
-  button: 'text-sm font-semibold font-sans leading-none',   // 14px
-  buttonSmall: 'text-xs font-semibold font-sans leading-none', // 12px
+  button: 'text-sm font-medium font-sans leading-none',   // 14px
+  buttonSmall: 'text-xs font-medium font-sans leading-none', // 12px
   link: 'text-sm font-medium font-sans underline hover:no-underline',
 
   // Specialized
