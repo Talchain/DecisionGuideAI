@@ -50,23 +50,37 @@ const show = (view: View) => useViewStore.setState({ sid: 's_x', view, at: null,
 afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts(); useCompare.setState({ open: false }); useOverview.setState({ open: false }) })
 
 describe('Compare views in the main workspace', () => {
-  it('draws each member as their own column, bound by id: their name, words and whole view follow the member, never the position', async () => {
+  it('draws each person as their own column, bound by id: their name, words and whole view follow the person, never the position', async () => {
     serve(() => ({ status: 200, body: payload([figure]) }))
     for (const order of [[8, 9], [9, 8]] as const) {
       show(withFrames(order))
       useCompare.setState({ open: true })
       const { unmount } = render(<CompareViewsStage />)
-      const cols = [...screen.getByTestId('compare-members').querySelectorAll<HTMLElement>('[data-testid^="compare-member-"][data-by]')]
-      expect(cols.map((c) => c.dataset['testid'])).toEqual(order.map((id) => `compare-member-${id}`))
+      const byIdOf = (id: 8 | 9) => fx.collab.shared.find((x) => x.id === id)!
+      const cols = [...screen.getByTestId('compare-members').querySelectorAll<HTMLElement>('[data-by]')]
+      expect(cols.map((c) => c.dataset['by'])).toEqual(order.map((id) => byIdOf(id).by_id))
       for (const id of order) {
-        const col = screen.getByTestId(`compare-member-${id}`)
-        const s = fx.collab.shared.find((x) => x.id === id)!
-        expect(screen.getByTestId(`compare-member-${id}-name`).textContent).toBe(s.by)
+        const s = byIdOf(id)
+        const col = screen.getByTestId(`compare-person-${s.by_id}`)
+        expect(screen.getByTestId(`compare-person-${s.by_id}-name`).textContent).toBe(s.by)
         expect(col.textContent).toContain(frames[id].question)
         expect(col.textContent).not.toContain(frames[id === 8 ? 9 : 8].question)
       }
       unmount()
     }
+  })
+  it("one column per person: a person's several views sit together, newest first, the earlier ones under 'Earlier'", () => {
+    serve(() => ({ status: 200, body: payload([]) }))
+    const paul = fx.collab.shared.find((x) => x.id === 8)!, sam = fx.collab.shared.find((x) => x.id === 9)!
+    const again = { ...paul, id: 12, text: 'My newer view', frame: undefined }
+    show({ ...withFrames(), collab: { ...fx.collab, shared: [{ ...paul, frame: frames[8] }, { ...sam, frame: frames[9] }, again] } } as View)
+    useCompare.setState({ open: true })
+    render(<CompareViewsStage />)
+    expect([...screen.getByTestId('compare-members').querySelectorAll<HTMLElement>('[data-by]')].map((c) => c.dataset['by'])).toEqual([paul.by_id, sam.by_id])
+    const col = screen.getByTestId(`compare-person-${paul.by_id}`)
+    expect([...col.querySelectorAll('[data-testid^="compare-view-"][data-testid$="-words"]')].map((e) => e.textContent)).toEqual(['My newer view', paul.text.trim()].filter((x) => x !== ''))
+    expect(screen.getByTestId(`compare-person-${paul.by_id}-earlier`).textContent).toContain(frames[8].question)
+    expect(screen.queryByTestId(`compare-person-${sam.by_id}-earlier`)).toBeNull()
   })
   it('shows core\'s differences with the same next steps as the dock; a step posts to core\'s route and Commit brings the Team tab', async () => {
     const sent = serve((s) => (s.method === 'POST' ? { status: 201, body: { step: 5 } } : { status: 200, body: payload([figure]) }))
@@ -95,7 +109,7 @@ describe('Compare views in the main workspace', () => {
     show(withFrames())
     act(() => { useCompare.getState().show() })
     rerender(<CompareViewsStage />)
-    expect(screen.getByTestId('compare-member-9').textContent).toContain(frames[9].question)
+    expect(screen.getByTestId(`compare-person-${fx.collab.shared.find((x) => x.id === 9)!.by_id}`).textContent).toContain(frames[9].question)
     await waitFor(() => expect(sent.length).toBeGreaterThan(0))
   })
   it('returns to the model: the Back button and Esc close it; an Esc inside a menu does not', () => {
