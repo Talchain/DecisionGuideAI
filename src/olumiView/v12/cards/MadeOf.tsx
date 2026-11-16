@@ -22,13 +22,21 @@ export function MadeOf({ card, drawn }: { card: ViewCard; drawn: (id: string) =>
       {worked.steps.map((s, i) => {
         const join = joinOf(worked.form, s, i === 0), onCanvas = drawn(s.id)
         return (
-          <li key={`${s.id}:${i}`} title={s.figure.title !== '' ? s.figure.title : undefined} className={`${typography.viewLabel} flex min-w-0 items-baseline gap-1 text-text-body`}
+          <li key={`${s.id}:${i}`} title={s.figure.title !== '' ? s.figure.title : undefined} className={`${typography.viewLabel} flex min-w-0 flex-wrap items-baseline gap-1 text-text-body`}
             data-made-of-step={s.id} data-step-sign={s.sign} data-step-power={s.power}>
             {join === null ? null : <span className="flex-none font-medium text-text-header" data-step-join={join}>{join}</span>}
             <span className="line-clamp-2 min-w-0 flex-1 break-words">{s.label}</span>
             {onCanvas ? null : <span className="flex-none text-text-light" data-made-of-figure={s.id}>{s.figure.text}</span>}
             {onCanvas || s.author?.by !== 'olumi' ? null : <span className="flex-none self-center"><OlumiMark words={s.author.title} size={12} /></span>}
-            {onCanvas || s.edit == null ? null : <span className="ok-edit flex-none" data-figure-edit-wrap=""><FigureEdit id={s.id} edit={s.edit} place="view-step" glyph="✎" label={GIVE_FIGURE} words={false} /></span>}
+            {onCanvas || s.edit == null ? null : <span className="ok-edit flex-none" data-figure-edit-wrap=""><FigureEdit id={s.id} edit={s.edit} place="view-step" glyph label={GIVE_FIGURE} words={false} /></span>}
+            {/* An effect's term is its driver times its own coefficient (core's `coefficient` operand): named beside it, never dropped. */}
+            {worked.form !== 'effect' || s.coefficient == null ? null : (
+              <span className="flex min-w-0 basis-full items-baseline gap-1 pl-3" data-made-of-coefficient={s.coefficient.id}>
+                <span className="flex-none font-medium text-text-header" data-step-join="times">times</span>
+                <span className="line-clamp-2 min-w-0 flex-1 break-words">{s.coefficient.label}</span>
+                <span className="flex-none text-text-light">{s.coefficient.figure.text}</span>
+              </span>
+            )}
           </li>
         )
       })}
