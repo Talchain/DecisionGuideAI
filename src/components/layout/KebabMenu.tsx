@@ -36,7 +36,11 @@ import { SnapshotManager } from '../../canvas/components/SnapshotManager'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
-import { coreLaneAllows, lanePreviousControl } from '../../olumiCore/lane'
+import { coreLaneAllows, lanePreviousControl, isOlumiCoreLane } from '../../olumiCore/lane'
+import { useViewStore } from '../../olumiView/store'
+import { summaryPath } from '../../olumiView/summary'
+import { ScenarioTitleDialog } from '../../olumiView/ScenarioTitleDialog'
+import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 
 interface KebabMenuProps {
   isOpen: boolean
@@ -63,6 +67,19 @@ export function KebabMenu({
   >(null)
 
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
+
+  // THE OLUMI-CORE LANE (Paul, 16 Nov: the menu keeps every item that has a working path). Each item below is offered on the lane only
+  // where core has a route or the setting is the page's own:
+  //   Rename              core's own-title route (ScenarioTitleDialog); needs a scenario read from core.
+  //   Export              the Summary as Markdown (`GET …/summary?format=md`); needs a saved version.
+  //   Snapshots           core's stored versions (`GET …/versions`), in the Version history panel.
+  //   Start new scenario  a blank brief (the old scenario stays in core and in My scenarios, so nothing is lost and nothing is confirmed).
+  //   Import              no core route: not offered. Canvas settings: the lane's canvas (ViewCanvas) does not read them: not offered.
+  const lane = isOlumiCoreLane()
+  const coreSid = useViewStore((s) => s.sid)
+  const coreAt = useViewStore((s) => s.at)
+  const coreHasVersion = useViewStore((s) => s.view?.version != null)
+  const [showTitle, setShowTitle] = useState(false)
 
   const {
     showGrid,
@@ -97,6 +114,26 @@ export function KebabMenu({
   const handleStartNewModel = useCallback(() => {
     setShowResetConfirm(true)
     onClose()
+  }, [onClose])
+
+  const handleLaneRename = useCallback(() => {
+    setShowTitle(true)
+    onClose()
+  }, [onClose])
+
+  const handleLaneSnapshots = useCallback(() => {
+    useVersionsPanelStore.getState().open()
+    onClose()
+  }, [onClose])
+
+  const handleLaneStartNew = useCallback(() => {
+    onClose()
+    // The one "start fresh" is My scenarios' own; loaded on the press, so the bar does not carry that page (and its imports).
+    void import('../../olumiCore/accounts/MyScenariosPage').then((m) => {
+      m.startFreshScenario()
+      // A HashRouter: the address names the scenario shown, so it moves to the blank brief with it (as TopBar's links do).
+      window.location.hash = '#/canvas'
+    })
   }, [onClose])
 
   const handleConfirmReset = useCallback(() => {
@@ -142,6 +179,55 @@ export function KebabMenu({
               >
                 <Pencil size={14} aria-hidden="true" />
                 <span>Rename</span>
+              </button>
+            )}
+            {lane && coreSid !== null && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                onClick={handleLaneRename}
+                data-testid="kebab-rename-core"
+              >
+                <Pencil size={14} aria-hidden="true" />
+                <span>Rename</span>
+              </button>
+            )}
+            {lane && coreSid !== null && coreHasVersion && (
+              <a
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                href={summaryPath(coreSid, coreAt, 'md')}
+                download
+                onClick={onClose}
+                data-testid="kebab-export-core"
+              >
+                <Download size={14} aria-hidden="true" />
+                <span>Export summary</span>
+              </a>
+            )}
+            {lane && coreSid !== null && coreHasVersion && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                onClick={handleLaneSnapshots}
+                data-testid="kebab-snapshots-core"
+              >
+                <Camera size={14} aria-hidden="true" />
+                <span>Version history</span>
+              </button>
+            )}
+            {lane && (
+              <button
+                type="button"
+                role="menuitem"
+                className={styles.dropdownMenuButton}
+                onClick={handleLaneStartNew}
+                data-testid="kebab-start-new-core"
+              >
+                <FilePlus size={14} aria-hidden="true" />
+                <span>Start new scenario</span>
               </button>
             )}
             {lanePreviousControl('file') && (
@@ -247,9 +333,10 @@ export function KebabMenu({
               <span>How influence works</span>
             </button>
 
+            {!lane && (<>
             <hr className={styles.dropdownMenuDivider} />
 
-            {/* Canvas settings (flattened) */}
+            {/* Canvas settings (flattened). Not on the olumi-core lane: its canvas (ViewCanvas) reads none of these. */}
             <div className={styles.dropdownMenuLabel}>Canvas settings</div>
 
             <label htmlFor="kebab-show-grid" className={styles.settingsRow}>
@@ -320,9 +407,12 @@ export function KebabMenu({
                 className={styles.settingsCheckbox}
               />
             </label>
+            </>)}
           </div>
         )}
       </div>
+
+      {lane && showTitle && <ScenarioTitleDialog onClose={() => setShowTitle(false)} />}
 
       {/* Start-new-model confirmation dialog.
 

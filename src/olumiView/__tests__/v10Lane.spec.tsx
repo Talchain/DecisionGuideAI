@@ -39,6 +39,23 @@ afterEach(() => {
 })
 
 describe('v10 on the core lane', () => {
+  it('the four methods are also icon buttons inside the composer box (named, titled), fill the prefix, send nothing; none for a brief', () => {
+    const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
+    const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
+    const row = container.querySelector('[data-testid="view-composer"] [data-testid="view-composer-methods"]')!
+    expect(row).not.toBeNull()
+    expect([...row.querySelectorAll('button')].map((b) => [b.getAttribute('aria-label'), b.getAttribute('title')])).toEqual(
+      ['Challenge it', 'The opposite', 'What would disprove it', 'Outside view'].map((l) => [l, l]))
+    fireEvent.change(box, { target: { value: 'the 30p rise' } })
+    fireEvent.click(row.querySelector('[data-testid="view-composer-method-disconfirming"]')!)
+    expect(box.value).toBe('What would disprove: the 30p rise')
+    fireEvent.click(row.querySelector('[data-testid="view-composer-method-assumption"]')!)
+    expect(box.value).toBe('Challenge it: the 30p rise')
+    expect(posts).toBe(0)
+    unmount()
+    useViewStore.setState({ sid: null, view: null })
+    expect(render(<><ViewChat /><ViewComposer /></>).container.querySelector('[data-testid="view-composer-methods"]')).toBeNull()
+  })
   it('the method chips sit behind "More ways to think about this" (DL ruling 7 Nov: one next move visible) and fill the composer\'s prefix, keeping what was typed; nothing is sent; none for a brief', () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
     const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!

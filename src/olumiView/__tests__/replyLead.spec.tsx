@@ -25,9 +25,9 @@ const piecesOf = (parts: Array<{ text?: string; cite?: string }>, at: string) =>
 const drawnAs = (el: Element | null, words: string) => el !== null && (el.textContent === words || el.textContent === words.replace(/^\s*- /, ''))
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
-describe('a reply leads with its first Why line; the rest is behind "Why"', () => {
+describe('a reply leads with its answer; the reasons are behind "Why"', () => {
   for (const f of ['src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json', 'src/olumiView/fixtures/real/hiring.view3.json', 'src/olumiView/fixtures/real/capacity.view3.json']) {
-    it(`L1 ${path.basename(f)}: lead = why[0] whole; next step after it; answer and why[1..] inside a closed "Why"`, () => {
+    it(`L1 ${path.basename(f)}: lead = the whole answer; next step after it; every Why line inside a closed "Why", none outside`, () => {
       const v = read(f)
       useViewStore.setState({ view: v })
       const { container } = render(<ViewConversation chat={v.chat} />)
@@ -35,30 +35,42 @@ describe('a reply leads with its first Why line; the rest is behind "Why"', () =
       expect(withWhy.length, 'precondition: a reply with Why lines').toBeGreaterThan(0)
       for (const { t, i } of withWhy) {
         const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
-        const lead = turn.querySelector<HTMLElement>(`[data-reply-lead="chat.${i}"]`)
-        expect(lead === null ? null : wordsOf(lead), String(t.id)).toBe(norm(textOf(t.answer!.why[0]!)))
+        const lead = turn.querySelector<HTMLElement>(`[data-reply-lead="chat.${i}"]`)!
         const more = turn.querySelector<HTMLDetailsElement>(`[data-reply-more="chat.${i}"]`)!
         expect([more.open, more.querySelector('summary')?.textContent]).toEqual([false, 'Why'])
-        // the whole answer is kept, inside "Why", never cut: EVERY text piece of core's answer, at its own View path, with its exact words,
-        // is inside the fold; none is drawn outside it
+        // the whole answer is the lead: EVERY text piece of core's answer, at its own View path, with its exact words, is in the lead, none in the fold
         const pieces = piecesOf(t.answer!.answer, `chat.${i}.answer.answer`)
         expect(pieces.length, 'precondition: the answer has words').toBeGreaterThan(0)
         for (const { path: at, words } of pieces) {
           const all = turn.querySelectorAll(`[data-view="${at}"]`)
-          expect([all.length, more.contains(all[0] ?? null), drawnAs(all[0] ?? null, words)], at).toEqual([1, true, true])
+          expect([all.length, lead.contains(all[0] ?? null), more.contains(all[0] ?? null), drawnAs(all[0] ?? null, words)], at).toEqual([1, true, false, true])
         }
-        // and the lead is why[0], piece by piece, exact
-        for (const { path: at, words } of piecesOf(t.answer!.why[0]!, `chat.${i}.answer.why.0`)) {
-          const el = turn.querySelector(`[data-view="${at}"]`)
-          expect([lead!.contains(el), drawnAs(el, words)], at).toEqual([true, true])
+        // every Why line is inside the fold, piece by piece, exact, and none is in the lead
+        for (let j = 0; j < t.answer!.why.length; j++) {
+          const ps = piecesOf(t.answer!.why[j]!, `chat.${i}.answer.why.${j}`)
+          expect(ps.length, `why ${j} has words`).toBeGreaterThan(0)
+          for (const { path: at, words } of ps) {
+            const el = turn.querySelector(`[data-view="${at}"]`)
+            expect([more.contains(el), lead.contains(el), drawnAs(el, words)], at).toEqual([true, false, true])
+          }
         }
-        // nothing of the answer is outside "Why"; the lead comes before the next step
+        // the lead comes before the next step, and the next step is outside "Why"
         const next = turn.querySelector('[data-testid="view-chat-next"]')!
-        expect(lead!.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        for (let j = 1; j < t.answer!.why.length; j++) expect(more.querySelector(`[data-view^="chat.${i}.answer.why.${j}"]`), `why ${j}`).not.toBeNull()
+        expect([!!(lead.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING), more.contains(next)]).toEqual([true, false])
       }
     })
   }
+  it('L3 an answer that differs from why[0]: the lead is the answer, never why[0]', () => {
+    const v = read('src/olumiView/fixtures/real/hiring.view3.json')
+    const i = v.chat.findIndex((t) => t.answer !== null && t.answer.why.length > 0)
+    const t = v.chat[i]!
+    expect(norm(textOf(t.answer!.answer))).not.toBe(norm(textOf(t.answer!.why[0]!)))
+    useViewStore.setState({ view: v })
+    const { container } = render(<ViewConversation chat={v.chat} />)
+    const lead = container.querySelector<HTMLElement>(`[data-reply-lead="chat.${i}"]`)!
+    expect(lead.querySelector(`[data-view^="chat.${i}.answer.why"]`)).toBeNull()
+    expect(norm(wordsOf(lead))).toContain(norm(textOf(t.answer!.answer)).slice(0, 40))
+  })
   it('L2 must not change: a reply with no Why line draws its answer in full, with no "Why" fold and no lead', () => {
     const v = read('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json')
     const i = v.chat.findIndex((t) => t.answer !== null)

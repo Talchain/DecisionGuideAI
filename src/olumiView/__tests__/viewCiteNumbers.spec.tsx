@@ -16,10 +16,10 @@ import { useViewStore } from '../store'
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', n), 'utf8'))
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
-/** Core's cites of one reply, in the order the reply draws them (UI-BRIEF-20261115 step 2): with Why lines, the first Why line (the lead), the
- *  next step, then inside "Why" the answer and the other Why lines; with none, the answer then the next step. */
+/** Core's cites of one reply, in the order the reply draws them (UI-BRIEF-20261115 step 2): the answer (the lead), the next step, then the Why
+ *  lines inside "Why"; with no Why lines, the answer then the next step. */
 const citesOf = (t: View['chat'][number]) => t.answer === null ? [] : (t.answer.why.length > 0
-  ? [t.answer.why[0]!, t.answer.next.text, t.answer.answer, ...t.answer.why.slice(1)]
+  ? [t.answer.answer, t.answer.next.text, ...t.answer.why]
   : [t.answer.answer, t.answer.next.text]).flatMap((ps) => ps.flatMap((p) => ('cite' in p ? [p.cite] : [])))
 
 describe('a reply\'s cites are numbered by their place in it, core\'s cite on hover', () => {

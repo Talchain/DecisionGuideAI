@@ -290,7 +290,7 @@ describe('the card keeps its height', () => {
 })
 
 /** The CSS that reveals the tip and keeps the quiet lens rules on the lane's bar only (Codex 02:2xZ): read as text, rule by rule. */
-describe('the tip shows on hover and on keyboard focus only; the quiet lens rules touch only the lane\'s bar', () => {
+describe('the tip shows on hover and on keyboard focus only; no stylesheet rule restyles the lens bar', () => {
   const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
   const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1]!.trim(), body: m[2]! }))
   it('C1 the tip is hidden at rest and shown, over the [hidden] default, exactly while its focusable track is hovered or keyboard-focused', () => {
@@ -300,9 +300,7 @@ describe('the tip shows on hover and on keyboard focus only; the quiet lens rule
       '.olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip', '.olumi-look .ok-track[tabindex]:hover > .ok-range-tip'])
     expect(rules.filter((r) => /\.ok-range-tip/.test(r.sel) && /display:\s*(?!none\b)[a-z]/.test(r.body)).length, 'no other rule shows it').toBe(1)
   })
-  it('C2 every quiet lens rule is scoped to the bar whose labels carry data-lens-label (ViewLensBar), never the legacy LensBar', () => {
-    const lens = rules.filter((r) => r.sel.includes("[data-testid='lens-bar']"))
-    expect(lens.length).toBeGreaterThan(0)
-    for (const r of lens) for (const one of r.sel.split(',')) expect(one, one).toContain(":has([data-lens-label])")
+  it('C2 no stylesheet rule restyles the lens bar: the R24 pill (icons, labels, highlight, count) is drawn by ViewLensBar alone', () => {
+    expect(rules.filter((r) => r.sel.includes("[data-testid='lens-bar']") || r.sel.includes('data-lens-label'))).toEqual([])
   })
 })

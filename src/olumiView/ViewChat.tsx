@@ -175,24 +175,24 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
   const model = useViewStore((st) => st.view?.model ?? null)
   const olumi = model === null ? null : olumiKey(model)
-  // UI-BRIEF-20261115 step 2 (Paul, 15 Nov: "so much text … intimidating"): a reply with Why lines leads with its FIRST Why line, whole, as
-  // core wrote it; its next step follows; the answer and the other Why lines are behind the product's own "Why". A reply with no Why line
-  // draws its answer as before. Each cite is numbered by its place in the order the reply DRAWS it (lead, next step, answer, other Why lines).
+  // UI-BRIEF-20261115 step 2, answer first (Paul, 15 Nov: "so much text"): a reply leads with its answer, whole, as core wrote it
+  // (paragraphs, lists, cites and conditions kept); its next step follows; the reasons (Why lines) sit behind the product's own "Why".
+  // A reply with no Why line has no fold. Each cite is numbered by its place in the order the reply DRAWS it (answer, next step, Why lines).
   const leads = t.answer !== null && t.answer.why.length > 0
   const whyFirst: number[] = []
-  let nextFirst = 1, answerFirst = 1
-  if (t.answer !== null && leads) {
-    whyFirst[0] = 1; nextFirst = 1 + citesIn(t.answer.why[0]!); answerFirst = nextFirst + citesIn(t.answer.next.text)
-    let k = answerFirst + citesIn(t.answer.answer)
-    for (let j = 1; j < t.answer.why.length; j++) { whyFirst[j] = k; k += citesIn(t.answer.why[j]!) }
-  } else if (t.answer !== null) { nextFirst += citesIn(t.answer.answer) }
+  let nextFirst = 1
+  if (t.answer !== null) {
+    nextFirst = 1 + citesIn(t.answer.answer)
+    let k = nextFirst + citesIn(t.answer.next.text)
+    for (let j = 0; j < t.answer.why.length; j++) { whyFirst[j] = k; k += citesIn(t.answer.why[j]!) }
+  }
   const answer = t.answer === null ? (reply === null ? null : (
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
     <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {leads
-        ? <p className="ok-lead" data-reply-lead={at}><Words parts={t.answer.why[0]!} at={`${at}.answer.why.0`} first={whyFirst[0]} /></p>
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} /></div>
         : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
@@ -202,8 +202,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {!leads ? null : (
         <details className="ok-reply-more" data-reply-more={at}>
           <summary>Why</summary>
-          <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} first={answerFirst} />
-          {t.answer.why.length < 2 ? null : <ul className="list-disc pl-4">{t.answer.why.slice(1).map((w, j) => <li key={j + 1}><Words parts={w} at={`${at}.answer.why.${j + 1}`} first={whyFirst[j + 1]} /></li>)}</ul>}
+          <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} first={whyFirst[j]} /></li>)}</ul>
         </details>
       )}
       <Stories answer={t.answer} at={at} />
@@ -1553,6 +1552,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''
   const submit = () => { if (!sendHeld) void send() }
+  // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
+  // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
+  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // DGAI's placeholders by stage (useStageAwarePlaceholder), from the View: core runs the analysis on every save, so a saved model's run
   // is the latest; a proposal not yet approved is not one.
@@ -1576,13 +1578,28 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
-      <div className={`relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light ${brief ? '' : 'flex items-center gap-2 py-1.5 pl-3 pr-1.5'}`}>
-        <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${brief ? 'pt-2 pb-1 px-3' : 'flex-1 py-1'}`}
+      <div className="relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light">
+        <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
           rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
           onChange={(e) => useViewChat.setState({ text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
-        <div className={`flex items-center justify-end gap-1 ${brief ? 'px-2 pb-1' : 'flex-none'}`} data-testid="view-composer-actions">
+        <div className="flex items-center gap-1 px-2 pb-1.5" data-testid="view-composer-footer">
+          {!methods ? null : (
+            <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
+              {V10_METHODS.map(({ key, label, prefix }) => {
+                const Icon = METHOD_GLYPHS[key]
+                return (
+                  <button key={key} type="button" aria-label={label} title={label} data-testid={`view-composer-method-${key}`}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
+                    onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }}>
+                    <Icon className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )
+              })}
+            </span>
+          )}
+        <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
@@ -1593,6 +1610,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-header text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default">
             <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
           </button>
+        </div>
         </div>
       </div>
     </div>

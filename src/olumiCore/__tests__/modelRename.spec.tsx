@@ -14,6 +14,7 @@ import { SCENARIO_RENAME_REQUEST_EVENT } from '../../canvas/components/scenarioR
 import { useCanvasStore } from '../../canvas/store'
 import * as scenarios from '../../canvas/store/scenarios'
 
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 vi.mock('../../canvas/store', () => ({ useCanvasStore: vi.fn() }))
 vi.mock('../../canvas/store/scenarios', () => ({
   loadScenarios: vi.fn(() => []), getScenario: vi.fn(), createScenario: vi.fn(), updateScenario: vi.fn(), deleteScenario: vi.fn(),

@@ -94,7 +94,7 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
             aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : compact || id === 'tradeoffs' ? W.label[id] : W.hint[id]}
             aria-label={id === 'rests_on' ? W.rests_on_label : W.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
-            className={`${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light/60' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
+            className={`${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light/60' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
             <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
             <span className={compact ? 'sr-only' : undefined} data-lens-label={id}>{W.label[id]}</span>
             {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : null}
@@ -108,7 +108,7 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
 /** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
 const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 // J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
-const SEGMENT = `${typography.viewPanelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
+const SEGMENT = `${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
 const segment = (on: boolean) => `${SEGMENT} ${on ? `border-text-header ${SELECTED}` : 'border-[#EEE6D8] bg-canvas text-text-body hover:text-text-header'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
@@ -173,7 +173,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
                   className={`grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2.5 rounded-xl px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
                   <Icon aria-hidden="true" className={`mt-[3px] h-3.5 w-3.5 ${waiting ? 'text-text-light' : 'text-text-body'}`} />
                   <span className="grid min-w-0 gap-0.5">
-                    <span className={`${typography.viewPanelBody} ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
+                    <span className={`${typography.panelBody} ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
                     <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? W.needsRun : W.hint[id]}</span>
                   </span>
                   {count > 0 ? <span className={`${typography.viewPanelMeta} mt-[2px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : <span />}
