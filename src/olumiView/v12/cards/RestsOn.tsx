@@ -18,7 +18,7 @@ export function RestsOn({ card, open: initial }: { card: ViewCard; open: boolean
   const [open, setOpen] = useState(initial)
   if (premises.length === 0) return null
   return (
-    <div className="nodrag basis-full" data-rests-on-card={card.id}>
+    <div className="nodrag grid min-w-0 gap-1" data-rests-on-card={card.id}>
       <button type="button" aria-expanded={open} data-testid={`rests-on-${card.id}`} onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
         {RESTS_ON(premises.length)}{open ? <ChevronUp aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" /> : <ChevronDown aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />}

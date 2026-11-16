@@ -81,9 +81,11 @@ export type SimpleFaceProps = {
   readonly withheld?: ReactNode
   /** The figure tried on a copy (What if), drawn in place of the saved figure with the saved one named beside it (CoreCard). */
   readonly trying?: ReactNode
+  /** A full-width row under the foot (what the card rests on, v12/cards/RestsOn): its lines wrap within the card, never run out of it. */
+  readonly below?: ReactNode
 }
 
-export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, withheld, trying }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, withheld, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -219,6 +221,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         {noted ? <OlumiAsksMark id={id} words={notedWords} /> : null}
         <span className="ml-auto flex items-center gap-1 empty:hidden">{extra}</span>
       </div>
+      {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>
   )
 }
