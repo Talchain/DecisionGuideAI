@@ -94,17 +94,26 @@ const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().
 
 /** The previous product's places for the model (layout.ts causalPlaces), at the cards' drawn heights (else core's), worked out once per
  *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
-async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, At>> {
+/** What the canvas hands the causal layout for this model now: each card's size and the layout options (the store's direction and spacing, the
+ *  stage row for the level and the room). One place for the inputs, so a check of "where the causal layout places it" uses the canvas's own. */
+export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []) {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
   // V12: Simple has its own, wider bands (layout.ts simpleStageRow); Detailed keeps the stage row.
-  row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
-  const { direction, nodeSpacing } = useLayoutStore.getState(), key = causalKey(model, nodes, railed, extras, { direction, spacing: nodeSpacing, row })
-  if (causal?.key === key) return causal.places
+  const stage = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
+  const { direction, nodeSpacing } = useLayoutStore.getState()
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, row) : row.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
+  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, stage) : stage.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
+  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
+}
+
+async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, At>> {
+  const { nodes, railed, size, opts } = causalInputs(model, extras)
+  row = opts.row
+  const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
+  if (causal?.key === key) return causal.places
   laying += 1
   try {
-    const places = await causalPlaces(model, size, { direction, spacing: nodeSpacing, row, extras })
+    const places = await causalPlaces(model, size, opts)
     causal = { key, places }
     return places
   } finally {

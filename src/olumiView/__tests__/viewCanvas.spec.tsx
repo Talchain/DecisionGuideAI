@@ -9,10 +9,9 @@ import path from 'node:path'
 import { act, renderHook } from '@testing-library/react'
 import type { View } from '../client'
 import { useCanvasStore } from '../../canvas/store'
-import { useLayoutStore } from '../../canvas/layoutStore'
 import { useViewStore } from '../store'
 import { setDefaultLevel } from '../v12/simpleStore'
-import { drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
+import { causalInputs, drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
 import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
@@ -35,9 +34,11 @@ describe('the View draws the canvas', () => {
     const model = golden('pricing').model!
     expect(await layViewCanvas(model)).toBe(true)
     const { nodes, edges } = useCanvasStore.getState()
-    // UI restore stage 1 (DL ruling 10 Nov): use the previous layout with the store's direction and spacing, without viewport input.
-    const { direction, nodeSpacing } = useLayoutStore.getState()
-    const places = await causalPlaces(model, new Map(), { direction, spacing: nodeSpacing }), cards = nodes.slice(1)
+    // UI restore stage 1 (DL ruling 10 Nov): the previous causal layout, with the store's direction and spacing. Since the DL's stage ruling
+    // (329fe2fb, 14 Nov: options in one row sized to the stage, the goal beside its measure) the canvas also hands it the stage row and each
+    // card's size: compared against the layout called with the canvas's own inputs, never against recorded coordinates.
+    const { size, opts } = causalInputs(model)
+    const places = await causalPlaces(model, size, opts), cards = nodes.slice(1)
     expect(cards.map((n) => [n.id, n.type, n.position])).toEqual(model.cards.map((c) => [c.id, VIEW_CARD, places.get(c.id)]))
     expect(cards.every((n, i) => (n.data as { card: unknown }).card === model.cards[i])).toBe(true)
     // The previous graph's question-to-option lines (ROOT_LINK) are drawn besides core's own links (previousCard.spec.ts).
@@ -95,9 +96,15 @@ describe('the causal graph, not core\'s columns (Paul 4 Nov: "the horizontal mod
       await layViewCanvas(model)
       const nodes = useCanvasStore.getState().nodes, y = (id: string) => nodes.find((x) => x.id === id)!.position.y
       // UI restore stage 1 (DL ruling 10 Nov): aims close the board; every card follows the question, with no head-row override.
+      // DL journey (1), 329fe2fb 14 Nov: the goal closes the board BESIDE its measure: an aim is never above another card, and where it shares
+      // a card's row it stands to that card's right (the measure's row, the target's last row).
+      const x = (id: string) => nodes.find((n) => n.id === id)!.position.x
       for (const c of model.cards) expect(y(c.id), `${c.id} below ${QUESTION}`).toBeGreaterThan(y(QUESTION))
       for (const aim of model.cards.filter((c) => askKindOf(c.family) === 'goal')) {
-        for (const c of model.cards.filter((c) => askKindOf(c.family) !== 'goal')) expect(y(aim.id), `${aim.id} below ${c.id}`).toBeGreaterThan(y(c.id))
+        for (const c of model.cards.filter((c) => askKindOf(c.family) !== 'goal')) {
+          expect(y(aim.id), `${aim.id} not above ${c.id}`).toBeGreaterThanOrEqual(y(c.id))
+          if (y(aim.id) === y(c.id)) expect(x(aim.id), `${aim.id} right of ${c.id} on its row`).toBeGreaterThan(x(c.id))
+        }
       }
       const boxes = [{ id: QUESTION, ...nodes.find((n) => n.id === QUESTION)!.position, w: questionPlace(model).width, h: 85 }, ...model.cards.map((c) => ({ id: c.id, ...nodes.find((n) => n.id === c.id)!.position, w: CARD_WIDTH, h: c.h }))]
       for (const a of boxes) for (const b of boxes) if (a.id < b.id) expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h, `${a.id} overlaps ${b.id}`).toBe(false)
