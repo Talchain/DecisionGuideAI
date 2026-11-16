@@ -17,6 +17,10 @@ export const resetQualitativeNotes = (): void => openedOnce.clear()
 /** A model with no option and no figure: the question, its aims and notes only. */
 export const isQualitative = (model: { cards: readonly { family: string }[] } | null | undefined): boolean =>
   model != null && !model.cards.some((c) => c.family === 'option' || c.family === 'quantity')
+/** A card whose notes are its picture, so core's `premises` are drawn open on it: every card of a qualitative model, and on any model an option the Run has no chance for
+ *  (no chance row) where core has placed the notes that concern it on the card. An option with a chance keeps its premises in the Rests on lens, as before. */
+export const notesOpenOn = (model: { cards: readonly { family: string }[] } | null | undefined, card: { family: string; rows?: readonly { kind: string }[]; premises?: readonly unknown[] }): boolean =>
+  isQualitative(model) || (card.family === 'option' && (card.premises ?? []).length > 0 && !(card.rows ?? []).some((r) => r.kind === 'chance'))
 /** True where the model is only a question and its aims, and the question holds folded notes not yet open. */
 export function qualitativeNotesToOpen(view: View | null): boolean {
   const m = view?.model
