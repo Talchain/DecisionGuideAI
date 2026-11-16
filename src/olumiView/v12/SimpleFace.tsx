@@ -189,7 +189,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    body = <p className={`${typography.nodeValue} line-clamp-2 min-w-[7rem] flex-1 break-words font-semibold`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    body = <p className={`${typography.viewValue} line-clamp-2 min-w-[7rem] flex-1 break-words font-semibold`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
   } else if (card.figure != null) {
     // An input not sized yet: a dashed, empty bar and core's own words for the gap ("not sized yet · …"), one line, whole on hover.
     body = <div className="min-w-[7rem] flex-1" data-simple-face="no-figure"><UnsizedFigure id={id} words={unsizedWords(card)} /></div>
