@@ -30,7 +30,10 @@ describe('layers on the canvas', () => {
     render(<LayerCanvasStyle />)
     const c = css()!
     expect(c).not.toContain('opacity')
-    expect(c).toMatch(/data-id="existing_market_acquisitions"\]::after\{content:"No attached evidence \(Olumi's\)".*var\(--o-info\)/)
-    expect(c).toMatch(/data-id="starting_customers"\]::after\{content:"No attached evidence"/)
+    expect(c).toMatch(/data-id="existing_market_acquisitions"\][^{]*::after\{content:"No attached evidence \(Olumi's\)".*var\(--o-info\)/)
+    expect(c).toMatch(/data-id="starting_customers"\][^{]*::after\{content:"No attached evidence"/)
+    // Codex 006d #1: the note is on a row inside its card, which the card measures (so the layout leaves room); never below the card.
+    expect(c).toMatch(/data-id="starting_customers"\] \[role='group'\][^{]*\{padding-bottom:22px!important/)
+    expect(c).not.toMatch(/top:100%/)
   })
 })

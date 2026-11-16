@@ -1,6 +1,6 @@
 /**
  * V12 LAYERS ON THE CANVAS: renders nothing but a `<style>` that sets back the cards and links a layer is not about, and tags a card with the layer's
- * note on it (an option's name on a sensitive figure; Grounded / Assumed / No data on a figure). It reaches the nodes and edges by React Flow's own
+ * note on it (an option's name on a sensitive figure; the evidence state on a figure), on a row inside the card. It reaches the nodes and edges by React Flow's own
  * `data-id` (card id; edge id `from->to:kind`, as `canvas.ts` names them), so no canvas file changes and R24's lens bar (`lens.ts`) is untouched.
  * Mount once inside the canvas: `{hasModel ? <LayerCanvasStyle /> : null}`. The words are the View's (option headings) or the three basis names.
  */
@@ -22,8 +22,14 @@ export function layerCss(
     for (const c of model.cards) if (!m.on.has(c.id)) out.push(`${node(c.id)}{opacity:.55;transition:opacity .2s}`)
     model.links.forEach((_, i) => { const e = edge(i); if (e !== null && !m.links.has(i)) out.push(`${e}{opacity:.4;transition:opacity .2s}`) })
   }
-  const tag = (id: string, text: string, info: boolean) =>
-    out.push(`${node(id)}::after{content:${q(text)};position:absolute;left:0;top:100%;margin-top:4px;font-size:11px;line-height:1.3;white-space:nowrap;color:${info ? 'var(--o-info)' : 'var(--o-body)'};pointer-events:none}`)
+  // The note sits INSIDE the card, on a row of its own at its foot (Codex 006d #1: drawn below the card it ran across the next row, whose
+  // owner was then unclear). The row is padding the card measures, so the layout leaves room for it (canvas.ts lays out at drawn heights).
+  // The card element is matched with more attributes than the compact padding rule (olumiLook.css), so this padding wins on Simple too.
+  const card = (id: string) => `.olumi-look ${node(id)} [role='group'][aria-label][aria-label][aria-label][aria-label]`
+  const tag = (id: string, text: string, info: boolean) => out.push(
+    `${card(id)}{padding-bottom:22px!important;position:relative}`,
+    `${card(id)}::after{content:${q(text)};position:absolute;left:12px;right:12px;bottom:5px;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${info ? 'var(--o-info)' : 'var(--o-body)'};pointer-events:none}`,
+  )
   for (const [id, text] of m.tags) tag(id, text, false)
   for (const [id, b] of m.basis) tag(id, BASIS_LABEL[b], b === 'assumed')
   return out.join('\n')

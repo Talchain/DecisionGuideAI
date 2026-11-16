@@ -166,6 +166,9 @@
 /* "Why not" and the worked steps open OUTSIDE the card's flow, under their summary (as the figure editor does, D2): the card's height and
    the board never change when one opens. */
 .olumi-look .ok-why, .olumi-look .ok-steps { position: relative; }
+/* While a card's "Why not" (or its steps) is open, that card is drawn above its neighbours: the reason opens beside the card, and the next
+   cards once painted over its lower lines (Codex 006d #2). React Flow sets each node's z-index inline, so only !important lifts it. */
+.olumi-look .react-flow__node:has(.ok-why[open]), .olumi-look .react-flow__node:has(.ok-steps[open]) { z-index: 2000 !important; }
 .olumi-look .ok-why[open] > p, .olumi-look .ok-steps[open] > ol {
   position: absolute; left: 0; top: calc(100% + 4px); z-index: 40; width: calc(280px * var(--o-s)); margin: 0;
   background: var(--o-panel); border: 1px solid var(--o-border-emph); border-radius: 13px;
