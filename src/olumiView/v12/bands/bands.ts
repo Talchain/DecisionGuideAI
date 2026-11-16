@@ -26,7 +26,9 @@ export const INPUTS_ASSOCIATED_LABEL = 'Points raised'
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
   if (band !== 'inputs' || model === null) return BANDS[band].label
   const inputs = new Set(inputIdsOf(model))
-  const causal = cardLinks(model).some(({ link }) => link.kind !== 'reason' && linkRole(link) !== 'size' && (inputs.has(link.from) || inputs.has(link.to)))
+  // Driver wording stays for a true causal or quantitative input (Codex 18:21:40Z): a figure in the band keeps it, linked or not.
+  const figures = model.cards.some((c) => inputs.has(c.id) && c.family === 'quantity')
+  const causal = figures || cardLinks(model).some(({ link }) => link.kind !== 'reason' && linkRole(link) !== 'size' && (inputs.has(link.from) || inputs.has(link.to)))
   return causal ? BANDS.inputs.label : INPUTS_ASSOCIATED_LABEL
 }
 /** Group an inputs band folds at (rule 7). */

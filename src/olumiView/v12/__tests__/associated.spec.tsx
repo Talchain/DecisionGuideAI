@@ -25,6 +25,9 @@ describe('a band of cards only associated by reasons', () => {
     expect(bandLabelOf('inputs', qual([{ ...reason('claim_visitors', 'aim_purpose'), kind: 'plain' }]))).toBe(BANDS.inputs.label)
     expect(bandLabelOf('inputs', fx.model!)).toBe(BANDS.inputs.label) // the effects fixture's figures drive its outcomes
     expect(bandLabelOf('aims', qual([]))).toBe(BANDS.aims.label)
+    // A figure in the band keeps the driver wording even with no causal link (a quantitative input).
+    const fig = { ...fx.model!.cards.find((c) => c.family === 'quantity')! }
+    expect(bandLabelOf('inputs', { ...qual([]), cards: [...qual([]).cards, fig] } as ViewModel)).toBe(BANDS.inputs.label)
   })
 })
 
