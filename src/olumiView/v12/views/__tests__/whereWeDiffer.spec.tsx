@@ -115,6 +115,55 @@ describe('after an authorised reveal', () => {
   })
 })
 
+describe('retaining a revealed difference, qualitative included', () => {
+  const frame = (kind: string) => ({ ...base, kind, record: `frame:${kind}`, cards: [], goal: '', goal_label: '', label: `Different ${kind}`, status: 'not_run', options: [], steps: [] })
+  for (const kind of ['question', 'aim', 'options']) {
+    it(`frame:${kind}: Keep as a disagreement posts the step and the returned step is read back with the views still shown`, async () => {
+      const row = frame(kind)
+      let steps: unknown[] = []
+      const sent = serve((s) => {
+        if (s.method === 'POST') { steps = [{ id: 7, at: 't', by: 'Ann', by_id: '1', step: 'dissent', version: 1, text: 'Ann keeps this as a disagreement' }]; return { status: 201, body: { step: 7 } } }
+        return { status: 200, body: payload([{ ...row, steps }]) }
+      })
+      render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+      const at = `differ-row-frame:${kind}`
+      expect((await screen.findByTestId(`${at}-dissent`)).textContent).toBe('Keep as a disagreement')
+      expect(screen.getByTestId(`${at}-research`).textContent).toBe('Agree to find out')
+      fireEvent.click(screen.getByTestId(`${at}-dissent`))
+      await waitFor(() => expect(screen.getByTestId(`${at}-steps`).textContent).toContain('Ann keeps this as a disagreement'))
+      const post = sent.filter((s) => s.method === 'POST')
+      expect(post).toHaveLength(1)
+      expect(post[0]).toMatchObject({ url: `/api/scenarios/s_x/differences/frame:${kind}/steps`, body: { step: 'dissent' } })
+      expect(Object.keys(post[0]!.body as object)).toEqual(['step'])
+      expect(screen.getByTestId(`${at}-sides`).textContent).toContain(base.sides[0].holder)   // the original views stay visible
+      expect(screen.getByTestId(`${at}-status`).textContent).toBe(base.status_text)
+      expect(screen.getByTestId(`${at}-dissent`).getAttribute('aria-pressed')).toBe('true')
+      expect(document.body.textContent).not.toMatch(/changes the model|updates the model/i)
+    })
+  }
+  it('Agree to find out on an added link, still pending, posts research to the colon-kept record', async () => {
+    const row = { ...link, kind: 'link_added', record: 'link_added:a:b' }
+    const sent = serve((s) => (s.method === 'POST' ? { status: 201, body: { step: 8 } } : { status: 200, body: payload([row]) }))
+    render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId('differ-row-link_added:a:b-capacity_goal-research'))
+    await waitFor(() => expect(sent.some((s) => s.method === 'POST')).toBe(true))
+    expect(sent.find((s) => s.method === 'POST')).toMatchObject({ url: '/api/scenarios/s_x/differences/link_added:a:b/steps', body: { step: 'research' } })
+  })
+  it('contrast: a difference not visible to this member offers no step and asks core for nothing', async () => {
+    const sent = serve(() => ({ status: 200, body: payload([frame('question')]) }))
+    render(<WhereWeDiffer sid="s_x" view={view({ gated: true })} onWrote={async () => true} />)
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByTestId('differ-row-frame:question-dissent')).toBeNull()
+    expect(screen.queryByTestId('differ-row-frame:question-research')).toBeNull()
+    expect(sent.filter((s) => s.url.includes('/differences'))).toHaveLength(0)
+    cleanup()
+    serve(() => ({ status: 200, body: { ...payload([frame('question')]), gated: true } }))
+    render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByTestId('differ-row-frame:question-dissent')).toBeNull()
+  })
+})
+
 describe('Views toggle', () => {
   it('is drawn only after a reveal, and flips the one marks switch', () => {
     const { rerender } = render(<ViewsToggle view={view({ gated: true, collab: { ...fx.collab, shared: [] } })} />)

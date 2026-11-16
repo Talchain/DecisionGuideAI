@@ -10,6 +10,7 @@ import { dissentWords } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
+import { CommitForm } from '../../olumiView/v12/team/CommitForm'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
 /** DL 10 Nov (two-person rehearsal on 55c0c03f, bounded-trial blocker): a next action can be gathering evidence before any option is
@@ -102,7 +103,10 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
       </ul>
 
       {view.version === null ? (
-        <p className={META} data-testid="team-commitment-unapproved">A commitment is made against an approved model. Approve the model in the chat first.</p>
+        <>
+          <p className={META} data-testid="team-commitment-unapproved">A commitment to an option is made against an approved model. Approve the model in the chat first. You can record what you will do now, with no option chosen.</p>
+          <CommitForm sid={sid} view={view} onWrote={onWrote} />
+        </>
       ) : !open ? (
         <div><Button size="sm" variant="secondary" data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</Button></div>
       ) : (

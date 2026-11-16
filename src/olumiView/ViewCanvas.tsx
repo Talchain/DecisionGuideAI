@@ -80,6 +80,8 @@ import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { KeyPill } from './v12/bands/KeyPill'
+import { IdeaPanel } from './v12/bands/IdeaPanel'
+import { keptIdeasOf } from './v12/ideas'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
@@ -303,6 +305,29 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
   return fit
 }
 
+/**
+ * The camera for the ideas-only board (no model, so the model's own framing has nothing to frame, camera.ts boardKeyOf): the kept ideas are put in
+ * view once every card is measured, never over a move the person made, and again when Fit is pressed. Returns that framing.
+ */
+function useFrameIdeas(active: boolean, userMoved: React.MutableRefObject<boolean>): () => void {
+  const { fitView, getNodes } = useReactFlow()
+  const ids = useCanvasStore((s) => s.nodes.filter((n) => n.type === VIEW_IDEA).map((n) => n.id).join('|'))
+  const frame = useCallback(() => { void fitView({ nodes: getNodes().filter((n) => n.type === VIEW_IDEA), padding: 0.25, minZoom: 0.8, maxZoom: 1, duration: 0 }) }, [fitView, getNodes])
+  useEffect(() => {
+    if (!active || ids === '') return undefined
+    let raf = 0, tries = 0
+    const tick = () => {
+      if (userMoved.current) return
+      const held = getNodes().filter((n) => n.type === VIEW_IDEA)
+      if (held.length > 0 && held.every((n) => (n.measured?.width ?? 0) > 0)) { frame(); return }
+      if (++tries < 120) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [active, ids, frame, getNodes, userMoved])
+  return frame
+}
+
 function ViewFlow() {
   const [tool, setTool] = useState<'select' | 'hand'>('hand')
   const stored = useCanvasStore((s) => s.nodes)
@@ -399,6 +424,10 @@ function ViewFlow() {
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
+  // Codex 008e #1: kept ideas with no model are the board (their band alone), so the welcome does not stand over them. The dock's own message
+  // box takes the words then (DockComposer draws it whenever no welcome is up). No toolbar or model control is shown for a model that is not there.
+  const ideasOnly = useViewStore((s) => s.view !== null && s.view.model == null && keptIdeasOf(s.view).length > 0)
+  const frameIdeas = useFrameIdeas(ideasOnly, userMoved)
   const level = useLevel()
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
@@ -439,13 +468,14 @@ function ViewFlow() {
         // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
         // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
         // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
-        onFitView={() => { userMoved.current = false; hand(); fit() }}
+        onFitView={() => { userMoved.current = false; hand(); if (ideasOnly) frameIdeas(); else fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; clearLayoutUndo(); if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
       {hasModel ? null : <DraftingBoard />}
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
-      {hasModel ? null : <ViewWelcome />}
+      {hasModel || ideasOnly ? null : <ViewWelcome />}
+      <IdeaPanel />
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}

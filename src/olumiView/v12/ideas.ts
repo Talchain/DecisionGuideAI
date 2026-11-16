@@ -134,3 +134,14 @@ export function ideaMethodOf(view: View, idea: KeptIdea): string | null {
   const t = idea.sourceTurn === null ? undefined : view.chat.find((c) => String(c.id) === idea.sourceTurn)
   return t === undefined ? null : sessionOf(view)?.methods.find((m) => m.text === t.said)?.text ?? null
 }
+
+/**
+ * Whether Keep is offered on Olumi's reply (Codex 008e #3): any reply with an answer, whatever the person typed. The View carries no marker for
+ * "coached" or "host-only"; core keeps only what it can read in a reply and refuses the rest in its own words (shown as today), so the page
+ * does not guess narrower than core: a guess that hid a Keep core supports would fail silently, one too wide fails with core's sentence.
+ */
+export const isCoachedReply = (t: ViewTurn): boolean => t.answer !== null
+
+/** The questions the person can send about a kept idea: they carry its exact words, and go to the composer for the person to edit (never sent). */
+export const developQuestionOf = (idea: Pick<KeptIdea, 'text'>): string => `How could I develop this idea? “${idea.text}”`
+export const challengeQuestionOf = (idea: Pick<KeptIdea, 'text'>): string => `What would challenge this idea? “${idea.text}”`

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -181,10 +181,42 @@ export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>>
   return { model: folded ? withoutInputs(drawn) : drawn, extras: extrasOf(view, sid, folded ? drawn : null) }
 }
 
+/**
+ * The kept ideas to draw when core holds NO model (its first proposal set aside, or none yet; Codex 008e #1): the "Ideas you kept" band and
+ * nothing else, on any level. Empty when core holds a model (the model's own board draws its bands) or the scenario holds no kept idea.
+ */
+export const ideasOnlyOf = (view: View | null, sid: string | null): BandExtra[] => (view === null || view.model != null ? [] : extrasOf(view, sid, null))
+
+/** Draw the ideas-only board at `places`. A card the person moved stays where they put it. True when the canvas changed. */
+export function drawIdeasOnly(extras: readonly BandExtra[], places: ReadonlyMap<string, At>): boolean {
+  const store = useCanvasStore.getState(), held = new Map(store.nodes.map((n) => [n.id, n]))
+  const nodes = extras.map((e) => {
+    const n = held.get(e.id), put = places.get(e.id) ?? { x: 0, y: 0 }
+    const moved = n?.type === e.type && !at(placed.get(e.id), n.position)
+    if (!moved) placed.set(e.id, put)
+    return { id: e.id, type: e.type, data: { ...e.data, width: row.cardW }, position: moved ? n!.position : put, ...(n?.measured ? { measured: n.measured } : {}), ...(n?.selected === true ? { selected: true } : {}) }
+  })
+  if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && store.edges.length === 0) return false
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    useCanvasStore.setState({ nodes: nodes as never, edges: [], pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
+  } finally {
+    useCanvasStore.getState().endExternalGraphMutation?.()
+  }
+  return true
+}
+
+/** Lay out and draw the ideas-only board for the room the canvas has now. */
+export function layIdeasOnly(extras: readonly BandExtra[]): boolean {
+  row = simpleStageRow(roomOf().w)
+  const heights = drawnHeights(useCanvasStore.getState().nodes)
+  return drawIdeasOnly(extras, ideasOnlyPlaces(extras, new Map(extras.map((e) => [e.id, { width: row.cardW, height: heights.get(e.id) ?? e.h }])), row))
+}
+
 /** Core holds no model (its first draft set aside): the View's cards, question and links leave the canvas (gap D4). True when they did. */
 export function withdrawViewCanvas(): boolean {
   const store = useCanvasStore.getState()
-  if (!holdsViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION])) return false
+  if (!holdsViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION, VIEW_IDEA, VIEW_FOLD])) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     useCanvasStore.setState({ nodes: [], edges: [] })
@@ -240,6 +272,9 @@ export function useViewCanvas(on: boolean): void {
   const open = useInputsOpen((s) => s.open)
   const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open)), [view, open, level])
   const model = board?.model ?? null
+  // Kept ideas outlive the model they were kept beside: with no model they are drawn alone (ideasOnlyOf), never with a fabricated card.
+  const sidNow = useViewStore((s) => s.sid)
+  const ideasOnly = useMemo(() => ideasOnlyOf(view, sidNow), [view, sidNow])
   // Folds start closed (DL ruling 9 Nov (ii): 77cdc6f6's first-look fold opening is retired for this serve; the route is one click away on
   // the badge's count), so a reopened board draws what the first one did.
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
@@ -247,11 +282,11 @@ export function useViewCanvas(on: boolean): void {
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
-  const cols = useSimpleCols(on, level === 'simple')
+  const cols = useSimpleCols(on, level === 'simple' || ideasOnly.length > 0)
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    if (view === null || model === null) { withdrawViewCanvas(); return }
+    if (view === null || model === null) { if (ideasOnly.length > 0) layIdeasOnly(ideasOnly); else withdrawViewCanvas(); return }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
     let live = true
@@ -270,5 +305,5 @@ export function useViewCanvas(on: boolean): void {
       pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, changed), ...addedSince(last.model, model)])] : arrived)
     })
     return () => { live = false }
-  }, [on, view, model, board, heights, laidAs, cols])
+  }, [on, view, model, board, ideasOnly, heights, laidAs, cols])
 }

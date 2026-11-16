@@ -81,6 +81,9 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   )
 }
 
+/** The two steps' fixed labels (Sprint-Resolve board). */
+const STEP_WORDS = { dissent: 'Keep as a disagreement', research: 'Agree to find out' } as const
+
 function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: Differences; d: Difference; onWrote: () => Promise<boolean> }): JSX.Element {
   const h = data.headings
   const at = `differ-row-${d.record}${d.goal ? `-${d.goal}` : ''}`
@@ -125,13 +128,13 @@ function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: D
       )}
       {d.settle.length > 0 && <ul className="m-0 grid list-disc gap-1 pl-4" data-testid={`${at}-settle`}>{d.settle.map((s, i) => <li key={i} className={`${BODY} break-words`} data-settle={s.kind}>{s.text}</li>)}</ul>}
       {d.steps.length > 0 && <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-steps`}>{d.steps.map((s) => <li key={s.id} className={`${BODY} break-words`} data-step={s.step}>{s.text}</li>)}</ul>}
-      {d.status !== 'pending' && (
-        <div className="flex flex-wrap gap-2" data-testid={`${at}-actions`}>
-          <Button size="sm" variant="secondary" data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{h.dissent}</Button>
-          <Button size="sm" variant="secondary" data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{h.research}</Button>
-          <Button size="sm" data-testid={`${at}-commit`} disabled={busy} onClick={commit}>{h.commit}</Button>
-        </div>
-      )}
+      {/* Core's step route takes any difference this member can see now, calculated or not (qualitative framing rows included), so the two
+          steps are offered on every drawn row; a step records what the team will do about the difference and changes no model. */}
+      <div className="flex flex-wrap gap-2" data-testid={`${at}-actions`}>
+        <Button size="sm" variant="secondary" data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_WORDS.dissent}</Button>
+        <Button size="sm" variant="secondary" data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_WORDS.research}</Button>
+        {d.status !== 'pending' && <Button size="sm" data-testid={`${at}-commit`} disabled={busy} onClick={commit}>{h.commit}</Button>}
+      </div>
       {error && <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p>}
     </article>
   )

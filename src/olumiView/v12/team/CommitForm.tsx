@@ -18,6 +18,8 @@ import { isForThisPage, useMe } from '../../../olumiCore/me'
 export const COMMIT_WORDS = {
   heading: 'Record what you will do', proposed: 'Proposed', action: 'What will you do?', expect: 'What do you expect to happen?',
   reconsider: 'When would you reconsider?', keep: 'Keep it', footnote: 'You can compare what happened with what you expected later.',
+  /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
+  unanchored: 'No option is chosen. This records what you will do now, and it does not approve the proposed model.',
 } as const
 
 interface Draft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
@@ -30,8 +32,10 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const [error, setError] = useState<string | null>(null)
   const locked = useWriteLocked(key), sending = useWriteSending(key)
   const busy = mine || sending
-  // A commitment is made against an approved version of the model (core refuses it otherwise): with none, the form is not offered.
-  if (view.version === null) return null
+  // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
+  // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
+  // proposal stays unapproved; nothing here is read from it.
+  const anchored = view.version !== null
   const owner = d.owner === '' ? view.you_id : d.owner
   const ready = [d.action, d.expect, d.reconsider].every((t) => t.trim() !== '') && view.collab.owners.some((o) => o.id === owner)
   const put = (p: Partial<Draft>) => { setD((x) => ({ ...x, ...p })); if (error) setError(null) }
@@ -39,7 +43,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     if (!ready || locked || busy) return
     setBusy(true); setError(null)
     try {
-      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: d.keeps ?? [], option: d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: d.reviewOn ? d.reviewOn : null, trigger: d.trigger ? d.trigger : null }))
+      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: anchored && d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
       drop()
       await onWrote()
     } catch (e) {
@@ -51,11 +55,12 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     <textarea id={id} data-testid={id} className={`${FIELD} min-h-[56px]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
   )
   return (
-    <section data-testid="commit-form" aria-label={COMMIT_WORDS.heading} className={CARD}>
+    <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} aria-label={COMMIT_WORDS.heading} className={CARD}>
       <div className="flex items-center justify-between gap-2">
         <h3 className={`${BODY} font-medium text-text-header`} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
         <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid="commit-form-proposed">{COMMIT_WORDS.proposed}</span>
       </div>
+      {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
       <L id="commit-form-action" t={COMMIT_WORDS.action}>{area('commit-form-action', 'action')}</L>
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>

@@ -88,7 +88,8 @@ describe('Keep as an idea on a method reply', () => {
     core(() => v)
     show(v)
     const { container } = render(<ViewChat />)
-    const b = container.querySelector<HTMLButtonElement>('[data-testid="view-keep-idea-button"]')!
+    // The newest reply's own Keep (an earlier reply with an answer has its own, since Codex 008e #3).
+    const b = container.querySelector<HTMLButtonElement>('[data-testid="view-chat-latest"] [data-testid="view-keep-idea-button"]')!
     expect(b).not.toBeNull()
     expect(b.title).toMatch(/recorded as Olumi’s/)
     await press(b)
@@ -116,9 +117,12 @@ describe('Keep as an idea on a method reply', () => {
     await waitFor(() => expect(container.querySelector('[data-testid="view-keep-idea-said"]')).toHaveTextContent('This idea is already kept.'))
     expect(container.querySelector('[data-testid="view-keep-idea-kept"]')).toBeNull()
   })
-  it('contrast: a reply to words the person typed (not one of core\'s questions) has no such action', () => {
+  it('Codex 008e #3: a reply with an answer to words the person typed has the action too; contrast: a turn with no answer has none', () => {
     const v = fixture('after-find-first')
     show({ ...v, chat: v.chat.map((t) => ({ ...t, said: 'Something I typed myself' })) })
+    expect(render(<ViewChat />).container.querySelector('[data-testid="view-chat-latest"] [data-testid="view-keep-idea"]')).not.toBeNull()
+    cleanup()
+    show({ ...v, chat: v.chat.map((t) => ({ ...t, said: 'Something I typed myself', answer: null })) })
     expect(render(<ViewChat />).container.querySelector('[data-testid="view-keep-idea"]')).toBeNull()
   })
 })

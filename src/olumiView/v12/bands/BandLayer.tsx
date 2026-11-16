@@ -30,11 +30,12 @@ function Shape({ shape }: { shape: BandShape }) {
 }
 
 /** The band a drawn node stands in, by id. */
-const bandOfNode = (id: string, model: ViewModel): BandId | null =>
-  id === FOLD_ID ? 'inputs' : id.startsWith(IDEA_PREFIX) ? 'ideas' : (() => { const c = model.cards.find((x) => x.id === id); return c === undefined ? null : bandOf(c, model) })()
+const bandOfNode = (id: string, model: ViewModel | null): BandId | null =>
+  id === FOLD_ID ? 'inputs' : id.startsWith(IDEA_PREFIX) ? 'ideas' : model === null ? null : (() => { const c = model.cards.find((x) => x.id === id); return c === undefined ? null : bandOf(c, model) })()
 
 /** Each present band's first row: its label's place in canvas coordinates (the left of the row, above it). */
-export function bandLabelsOf(nodes: readonly Pick<Node, 'id' | 'position'>[], model: ViewModel): { band: BandId; x: number; y: number }[] {
+/** `model` null: core holds none, and only the kept ideas' band stands (Codex 008e #1). */
+export function bandLabelsOf(nodes: readonly Pick<Node, 'id' | 'position'>[], model: ViewModel | null): { band: BandId; x: number; y: number }[] {
   const tops = new Map<BandId, { x: number; y: number }>()
   for (const n of nodes) {
     const b = bandOfNode(n.id, model)
@@ -53,10 +54,11 @@ export function BandLayer() {
   const nodes = useCanvasStore((s) => s.nodes)
   const open = useInputsOpen((s) => s.open)
   const model = useMemo(() => (core === null ? null : drawnModelOf(core)), [core])
-  const labels = useMemo(() => (model === null ? [] : bandLabelsOf(nodes, model)), [nodes, model])
+  const labels = useMemo(() => bandLabelsOf(nodes, model), [nodes, model])
   const unlinked = useMemo(() => (model === null ? new Set<string>() : new Set(unlinkedIds(model))), [model])
-  if (level !== 'simple' || model === null || labels.length === 0) return null
-  const folds = foldsInputs(model), expanded = folds && sid !== null && open[sid] === true
+  // With no model only the kept ideas' band is drawn, on either level; with one, the bands are Simple's.
+  if ((level !== 'simple' && model !== null) || labels.length === 0) return null
+  const folds = model !== null && foldsInputs(model), expanded = folds && sid !== null && open[sid] === true
   return (
     <ViewportPortal>
       <div style={{ pointerEvents: 'none' }} data-testid="view-band-layer">

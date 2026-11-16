@@ -47,10 +47,10 @@ import { EarlyAnswer } from './EarlyAnswer'
 import { ResultReceipts } from './ResultReceipts'
 import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
-import { FIGURE_FIRST_ID, isMethodReply, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
+import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
-import { approachOf, approachesOf, ideaTextOf } from './v12/ideas'
+import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { LastReplyCard } from './v12/chat/LastReplyCard'
@@ -198,10 +198,11 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
   // a method reply with no such lines is kept whole.
   const keepSid = useViewStore((st) => (st.view !== null && t.answer !== null ? st.sid : null))
-  const methodReply = useViewStore((st) => st.view !== null && isMethodReply(st.view, t))
+  // Codex 008e #3: any coached Olumi reply (an answer with a next step) can be kept whole, whatever the person typed; core refuses what it cannot keep.
+  const coached = isCoachedReply(t)
   // Where core's reply separates its approaches (its own list lines, two or more), each is kept on its own; otherwise the reply is kept whole.
   const approaches = t.answer === null || keepSid === null ? [] : approachesOf(t.answer.answer)
-  const idea = t.answer === null || keepSid === null || !methodReply || approaches.length > 0 ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
+  const idea = t.answer === null || keepSid === null || !coached || approaches.length > 0 ? null : (() => { const text = ideaTextOf(t.answer); return text === null ? null : { sid: keepSid, text } })()
   const keepEach = keepSid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={keepSid} turn={t.id} text={words} /> : null)
   // V12: the person's message is a method chip when it is, word for word, one of core's menu questions.
   const whole = useViewStore((st) => st.view)
@@ -804,7 +805,10 @@ export function stopDraft(): Promise<boolean> {
 }
 
 /** Core holds no model and no proposal for this scenario (none yet, or its first draft was set aside): a message is a new brief (00052 #6). */
-export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view))
+// A scenario that already holds a kept idea is under way: what the person sends there is a message about it (core answers a message on a
+// scenario with no model in words, turns.ts chat floor), never a new brief that would start another scenario (Codex 008e).
+const holdsKept = (view: View): boolean => { const k = (view as { kept?: unknown }).kept; return Array.isArray(k) && k.length > 0 }
+export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view) && !holdsKept(view))
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
 
@@ -1075,6 +1079,12 @@ const ASKS = {
   _prefillChat: withOlumiReveal((text: string) => { keep(text) }),
   _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
   _isConversationBusy: () => useViewChat.getState().busy,
+}
+/** A question from a kept idea (Codex 008e #2): put in the message box after whatever is typed, never sent; the person edits and sends it. */
+export const prefillComposer = (text: string): void => {
+  const f = useGuidanceStore.getState()._prefillChat
+  if (f !== null) f(text)
+  else { keep(text); revealOlumiSurface() }
 }
 let holders = 0
 

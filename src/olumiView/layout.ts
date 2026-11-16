@@ -249,6 +249,20 @@ async function simplePlaces(model: ViewModel, nodes: Node[], edges: Edge[], size
 }
 
 /**
+ * V12 kept ideas with no model (Codex 008e #1): the "Ideas you kept" band and nothing else. Rows of up to `perRow` cards, left to right, the band
+ * label's room above the first row. Geometry only: no question and no causal card is placed or implied.
+ */
+export function ideasOnlyPlaces(extras: readonly SimpleExtra[], size: ReadonlyMap<string, Size>, row: { cardW: number; gapX: number; perRow?: number }): Map<string, { x: number; y: number }> {
+  const perRow = Math.max(1, row.perRow ?? 4), stride = row.cardW + row.gapX, out = new Map<string, { x: number; y: number }>()
+  let y = SIMPLE_LABEL_H
+  for (let i = 0; i < extras.length; i += perRow) {
+    const ids = extras.slice(i, i + perRow)
+    ids.forEach((e, j) => out.set(e.id, { x: j * stride, y }))
+    y += Math.max(...ids.map((e) => size.get(e.id)?.height ?? e.h)) + (i + perRow < extras.length ? SIMPLE_GAP_Y : SIMPLE_BAND_GAP)
+  }
+  return out
+}
+/**
  * DL-538 (the target's stage): the aims close the board beside what they measure. Where the aims stand in a row of their own at the foot
  * (the layout's last layer: the measure links into them), they move up into the row above, to the right of its last card, so the board
  * reads options, figures, then the measure and the goal side by side, one row shorter. Geometry only; nothing else moves.

@@ -118,7 +118,7 @@ describe('keeping an approach on its own', () => {
     expect(approachesOf([{ text: `- ${'x'.repeat(401)}\n- Short one.` }])).toEqual(['Short one.'])
     const v = withAnswer(fixture('after-find-first'), 'One idea. Another idea. A third idea.')
     show(v)
-    const c = render(<ViewChat />).container
+    const c = render(<ViewChat />).container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!
     expect(c.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(1)
   })
   it('an idea the View already holds from this reply shows "Kept", not a button', () => {

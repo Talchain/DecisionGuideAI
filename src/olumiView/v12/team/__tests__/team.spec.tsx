@@ -10,8 +10,9 @@ import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
 import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
-import { resetDrafts } from '../../../../olumiCore/team/drafts'
+import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
 import { CommitForm, COMMIT_WORDS } from '../CommitForm'
+import { CommitmentPanel } from '../../../../olumiCore/team/CommitmentPanel'
 import { DriverDifferMark } from '../DriverDifferMark'
 import { FrameEntry } from '../../views/FrameEntry'
 import { emptyConsequence, groupDifferences, NOTHING_CALCULATED } from '../../views/differGroups'
@@ -65,9 +66,52 @@ describe('Record what you will do', () => {
     expect(post[0]!.body).toMatchObject({ action: 'Ring the funder', owner: '1', expect: 'A yes by May', reconsider: 'If it slips past June', version: 1 })
     expect((screen.getByTestId('commit-form-action') as HTMLTextAreaElement).value).toBe('')
   })
-  it('is not offered before a model version is approved', () => {
-    render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
-    expect(screen.queryByTestId('commit-form')).toBeNull()
+  const fill = () => {
+    fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Ask three customers' } })
+    fireEvent.change(screen.getByTestId('commit-form-expect'), { target: { value: 'Two say they would pay' } })
+    fireEvent.change(screen.getByTestId('commit-form-reconsider'), { target: { value: 'If none will talk to us' } })
+  }
+  it('before approval offers the unanchored form, and a pending proposal stays unapproved: no option, version or other model field is sent', async () => {
+    const sent = serve(() => ({ status: 201, body: { commitment: 4 } }))
+    let wrote = 0
+    const pending = view({ version: null, proposal: { id: 9 } as unknown as View['proposal'] })
+    render(<CommitForm sid="s_x" view={pending} onWrote={async () => { wrote++; return true }} />)
+    expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('false')
+    expect(screen.getByTestId('commit-form-unanchored').textContent).toBe(COMMIT_WORDS.unanchored)
+    fill()
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(wrote).toBe(1))
+    const post = sent.filter((s) => s.method === 'POST' && /\/commitments$/.test(s.url))
+    expect(post).toHaveLength(1)
+    expect(post[0]!.body).toEqual({ action: 'Ask three customers', owner: '1', expect: 'Two say they would pay', reconsider: 'If none will talk to us', keeps: [] })
+    for (const k of ['option', 'version', 'trigger', 'review_on']) expect(Object.keys(post[0]!.body as object)).not.toContain(k)
+    expect(sent.some((s) => /proposal|approve/.test(s.url))).toBe(false)
+  })
+  it('contrast: an option stored in the shared draft is never sent without an approved version, and with one it still is', async () => {
+    const sent = serve(() => ({ status: 201, body: { commitment: 5 } }))
+    putDraft<Record<string, unknown>>('s_x:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: ['d1'], option: 'opt_a', reviewOn: '2027-01-01' }))
+    const { unmount } = render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
+    fill()
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(sent.some((s) => s.method === 'POST' && /commitments$/.test(s.url))).toBe(true))
+    expect(sent.find((s) => /commitments$/.test(s.url))!.body).toEqual({ action: 'Ask three customers', owner: '1', expect: 'Two say they would pay', reconsider: 'If none will talk to us', keeps: [] })
+    unmount(); resetWrites()
+    const sent2 = serve(() => ({ status: 201, body: { commitment: 6 } }))
+    putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'opt_a' }))
+    render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
+    expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('true')
+    expect(screen.queryByTestId('commit-form-unanchored')).toBeNull()
+    fill()
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(sent2.some((s) => s.method === 'POST')).toBe(true))
+    expect(sent2.find((s) => s.method === 'POST')!.body).toMatchObject({ option: 'opt_a', version: 1 })
+  })
+  it('the Team tab\'s panel keeps its option commitment behind an approved version: with none there is no option picker, only the unanchored form', () => {
+    render(<CommitmentPanel sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
+    expect(screen.getByTestId('team-commitment-unapproved')).toBeTruthy()
+    expect(screen.queryByTestId('team-commitment-open')).toBeNull()
+    expect(screen.queryByTestId('team-c-option')).toBeNull()
+    expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('false')
   })
 })
 
