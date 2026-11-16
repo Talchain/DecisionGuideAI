@@ -51,7 +51,7 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
         <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}
           onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-          className={`${typography.viewLabel} w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
+          className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
         <p className={`${typography.viewLabel} m-0 text-text-light`}>{TITLE_WORDS.note}</p>
         {error && <p role="alert" data-testid="scenario-title-error" className={`${typography.viewLabel} m-0 text-danger`}>{error}</p>}
         <div className="flex gap-3">

@@ -35,7 +35,7 @@ export const FIGURE_FIRST_CLOSED = { entry: null, said: null, reading: false, si
 export const useFigureFirst = create<FigureFirstState>()(() => ({ uuid: null, signature: null, entry: null, headings: null, shown: null, said: null, reading: false, typed: '', text: '' }))
 
 const CLOSE = 'inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
-const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
+const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 
 /**
  * The blind entry, in core's words: its heading, question, what the figure feeds, the ask (the label of the box the figure is typed in, sent

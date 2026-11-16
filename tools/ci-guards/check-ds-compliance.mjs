@@ -84,7 +84,7 @@ const V12_TSX = [
   ['family', /\bfont-(?:serif|mono)\b|\bfontFamily:/g, null],
   ['colour', /\brgba?\(\s*\d/g, null],
   // No such colour (tailwind colors.border has only `emphasis`): the class draws nothing and the border falls back to preflight's grey.
-  ['colour', /\bborder-border\b/g, null],
+  ['colour', /\bborder-border(?![-\w])/g, null],
   ['radius', /\brounded(?:-(?:t|b|l|r|s|e|tl|tr|bl|br|ss|se|es|ee))?-(?:xl|xl2|2xl|3xl|\[[^\]]*\])/g, null],
   ['radius', /\brounded(?![-\w])/g, null],
   ['radius', /\bborderRadius:\s*['"]?(\d+(?:\.\d+)?)(?![\d.%])/g, (n) => !V12_RADII.has(n)],

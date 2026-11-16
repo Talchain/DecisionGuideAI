@@ -55,7 +55,7 @@ export function Rename({ id, heading, shown }: { id: string; heading: string; sh
       <label htmlFor={`view-rename-${id}-input`} className={typography.viewLabel}>{RENAME_WORDS.label}</label>
       <input id={`view-rename-${id}-input`} data-testid={`view-rename-input-${id}`} autoFocus autoComplete="off" maxLength={120}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.viewLabel} w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`view-rename-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type="submit" data-testid={`view-rename-save-${id}`} disabled={sending || typed.trim() === ''}

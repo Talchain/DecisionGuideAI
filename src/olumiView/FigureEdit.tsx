@@ -195,7 +195,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.viewLabel} w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       {/* Pre-screen row 7 (DL 10 Nov): the model moved on while this editor was open, so core refuses its base every time and only Cancel
           and reopen got out. One press moves this edit onto the latest version and keeps what was typed; it is the person's press, never

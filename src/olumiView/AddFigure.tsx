@@ -86,7 +86,7 @@ export function AddFigure(): JSX.Element | null {
       setTimeout(() => figureBox.current?.focus(), 0) // back to the words, once they are editable again
     }
   }
-  const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-panel-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
+  const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
     <div className="relative nodrag nopan">
       {live === null ? null : <button ref={reference} type="button"

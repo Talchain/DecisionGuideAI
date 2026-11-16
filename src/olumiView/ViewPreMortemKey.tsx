@@ -116,7 +116,7 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
       <p id="view-pm-question" className={`${typography.viewPanelBody} text-text-body`} data-view="session.pre_mortem.question">{gate.question}</p>
       <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (!busy && !empty) void giveReasons() }}>
         <textarea aria-labelledby="view-pm-question" rows={3} value={text} disabled={busy} data-testid="view-premortem-reasons"
-          className={`${typography.viewPanelBody} block w-full resize-none rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}
+          className={`${typography.viewPanelBody} block w-full resize-none rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
         <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
