@@ -18,6 +18,17 @@ export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>
   aims: { label: 'Aims', shape: 'diamond' },
   ideas: { label: 'Ideas you kept', shape: 'idea' },
 }
+/** The inputs band's neutral label, where nothing in it takes part in a causal link (Codex 019, 18:19Z): readings of success, reported
+ *  positions and other notes are associated with the question by reasons, not drivers of it, so "What drives it" would claim a cause. */
+export const INPUTS_ASSOCIATED_LABEL = 'Points raised'
+/** The band's label for this model: the inputs band says "What drives it" only where one of its cards is in a causal link (a link that is not a
+ *  reason and not a size); otherwise its neutral label. Every other band keeps its fixed label. */
+export function bandLabelOf(band: BandId, model: ViewModel | null): string {
+  if (band !== 'inputs' || model === null) return BANDS[band].label
+  const inputs = new Set(inputIdsOf(model))
+  const causal = cardLinks(model).some(({ link }) => link.kind !== 'reason' && linkRole(link) !== 'size' && (inputs.has(link.from) || inputs.has(link.to)))
+  return causal ? BANDS.inputs.label : INPUTS_ASSOCIATED_LABEL
+}
 /** Group an inputs band folds at (rule 7). */
 export const FOLD_AT = 15
 

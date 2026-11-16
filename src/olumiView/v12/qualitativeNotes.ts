@@ -14,13 +14,16 @@ const openedOnce = new Set<string>()
 /** Test seam: forget which scenarios were opened. */
 export const resetQualitativeNotes = (): void => openedOnce.clear()
 
+/** A model with no option and no figure: the question, its aims and notes only. */
+export const isQualitative = (model: { cards: readonly { family: string }[] } | null | undefined): boolean =>
+  model != null && !model.cards.some((c) => c.family === 'option' || c.family === 'quantity')
 /** True where the model is only a question and its aims, and the question holds folded notes not yet open. */
 export function qualitativeNotesToOpen(view: View | null): boolean {
   const m = view?.model
   if (m == null) return false
   const b = m.question.badge
   if (b == null || b.open || b.records.length === 0) return false
-  return !m.cards.some((c) => c.family === 'option' || c.family === 'quantity')
+  return isQualitative(m)
 }
 
 export function useQualitativeNotes(sid: string | null, view: View | null): void {

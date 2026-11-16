@@ -156,6 +156,23 @@ describe('what core folded is content, shown at rest (Codex H07 17:12Z)', () => 
     }
     setLevel('working', useViewStore.getState().sid)
   })
+  it('PB7c: on a qualitative model a Simple card draws what it rests on, open (Codex 019); on a model with figures it draws no extra line', () => {
+    const withP = EU.model!.cards.find((c) => (c.premises ?? []).length > 0)!
+    expect(withP, 'precondition: the European model holds a card with premises').toBeDefined()
+    ready(EU)
+    setLevel('simple', useViewStore.getState().sid)
+    const numeric = render(<ReactFlowProvider><Node {...props(withP.id, withP)} /></ReactFlowProvider>)
+    expect(numeric.container.querySelector('[data-rests-on-card]')).toBeNull()
+    numeric.unmount()
+    const aim = { ...EU.model!.cards.find((c) => c.family === 'goal')!, premises: withP.premises }
+    ready({ ...EU, model: { ...EU.model!, cards: [aim], links: [] } } as View)
+    setLevel('simple', useViewStore.getState().sid)
+    const q = render(<ReactFlowProvider><Node {...props(aim.id, aim)} /></ReactFlowProvider>)
+    expect(q.container.querySelector(`[data-testid="rests-on-${aim.id}"]`)?.textContent).toBe(`Rests on ${withP.premises!.length}`)
+    expect(q.container.querySelectorAll(`[data-testid="rests-on-${aim.id}-list"] li`)).toHaveLength(withP.premises!.length)
+    q.unmount()
+    setLevel('working', useViewStore.getState().sid)
+  })
 })
 
 describe('the DL\'s look at A13b (12 Nov)', () => {

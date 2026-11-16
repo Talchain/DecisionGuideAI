@@ -10,7 +10,7 @@ import type { ViewModel } from '../../client'
 import { drawnModelOf, SIMPLE_LABEL_H } from '../../layout'
 import { useViewStore } from '../../store'
 import { levelOf, useSimpleLevel } from '../simpleStore'
-import { BANDS, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
+import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
 import { setInputsOpen, useInputsOpen } from './foldStore'
 
 const INK = 'var(--text-light)'
@@ -67,7 +67,7 @@ export function BandLayer() {
         {labels.map(({ band, x, y }) => (
           <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y - LABEL_LIFT, height: SIMPLE_LABEL_H, color: INK, pointerEvents: 'none' }}
             className="flex items-center gap-1.5 whitespace-nowrap text-xs font-medium leading-none">
-            <Shape shape={BANDS[band].shape} />{BANDS[band].label}
+            <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
             {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 rounded-full border border-panel-border px-2 py-0.5 text-xs font-medium"
               title="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}>Fold</button> : null}
           </div>
