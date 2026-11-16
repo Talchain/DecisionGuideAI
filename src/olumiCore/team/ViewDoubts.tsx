@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { create } from 'zustand'
+import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { call, TeamApiError } from './api'
 import { BODY, ERR, FIELD, LABEL, META } from './ui'
@@ -12,7 +14,8 @@ import { useDifferences } from './differences'
  * differ"). Held here until the view is given, then sent with its id; dropped with the view's draft.
  */
 type Remove = NonNullable<NonNullable<View['model']>['links'][number]['remove']>
-interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly error?: string | null }
+/** `pending`: a send that failed after the view was saved: the saved view's id and the stance, so a retry sends these alone, never the view again. */
+interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly error?: string | null; readonly pending?: { readonly view: number; readonly stance: string | null } | null }
 const useDoubts = create<Record<string, DoubtsDraft>>()(() => ({}))
 const keyOf = (r: Remove) => `${r.record}|${r.part ?? ''}`
 const EMPTY: DoubtsDraft = { picked: {}, missing: '' }
@@ -42,8 +45,30 @@ export async function sendDoubts(sid: string, view: number, stance: string | nul
     useDoubts.setState((s) => ({ ...s, [sid]: EMPTY }))
   } catch (e) {
     const said = e instanceof TeamApiError ? e.message : 'That did not go through.'
-    useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), error: `Your view is saved; the links and factor were not: ${said}` } }))
+    useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), error: DOUBTS_FAILED(said), pending: { view, stance } } }))
   }
+}
+/** Said where the view's second save failed (core's words after the colon). The view itself is saved: never said as the view failing. */
+export const DOUBTS_FAILED = (said: string): string => `Your view is saved; what you added with it was not: ${said}`
+export const DOUBTS_RETRY = 'Try again'
+
+/**
+ * Codex 17:35:59Z (UI half): the view's second save (its stance, links, factor) can fail after the view is saved. Its failure is said here,
+ * drawn by the Views panel outside every model-gated field (before any approved model, the link and factor fields are not drawn, and the form
+ * closes once the view is saved), with one retry that sends the same saved view's id and what was named, never the view's text again.
+ */
+export function DoubtsFailure({ sid }: { sid: string }): JSX.Element | null {
+  const d = useDoubts((s) => s[sid] ?? EMPTY)
+  const [busy, setBusy] = useState(false)
+  if (!d.error || !d.pending) return null
+  const pending = d.pending
+  return (
+    <div className="grid gap-1.5" data-testid="team-view-doubts-failure">
+      <p role="alert" className={ERR} data-testid="team-view-doubts-error">{d.error}</p>
+      <div><Button size="sm" variant="secondary" data-testid="team-view-doubts-retry" disabled={busy}
+        onClick={() => { setBusy(true); void sendDoubts(sid, pending.view, pending.stance).finally(() => setBusy(false)) }}>{DOUBTS_RETRY}</Button></div>
+    </div>
+  )
 }
 
 export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; disabled: boolean }): JSX.Element | null {
@@ -84,7 +109,6 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
         <input type="text" autoComplete="off" maxLength={MAX_MISSING} data-testid="team-view-missing" className={FIELD} value={d.missing} disabled={disabled}
           onChange={(e) => put({ missing: e.target.value, error: null })} />
       </label>
-      {d.error ? <p role="alert" className={ERR} data-testid="team-view-doubts-error">{d.error}</p> : null}
     </div>
   )
 }

@@ -9,7 +9,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
-import { resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
+import { DOUBTS_FAILED, DoubtsFailure, resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
 import { resetDifferences, useDifferences, type Differences } from '../team/differences'
 import { ViewsPanel } from '../team/ViewsPanel'
 import { draftOf, resetDrafts } from '../team/drafts'
@@ -75,10 +75,25 @@ describe('a private view\'s links and factor', () => {
     expect(none.filter((s) => s.method === 'POST')).toHaveLength(0)
     serve(400, { error: 'each link must be one the model shows' })
     supported()
-    render(<ViewDoubts sid="s_x" view={view()} disabled={false} />)
+    render(<><ViewDoubts sid="s_x" view={view()} disabled={false} /><DoubtsFailure sid="s_x" /></>)
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'x' } })
-    await sendDoubts('s_x', 7)
-    expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe('Your view is saved; the links and factor were not: each link must be one the model shows')
+    await act(async () => { await sendDoubts('s_x', 7) })
+    expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe(DOUBTS_FAILED('each link must be one the model shows'))
+  })
+
+  it('Codex 17:35:59Z: a stance whose save fails before any approved model is said outside the gated fields, and a retry sends the same saved view\'s id, never the view again', async () => {
+    let sent = serve(409, { error: 'Nothing to hold yet.' })
+    // Before any approved model: the link and factor fields are not drawn (no version), so the failure has to stand outside them.
+    const unapproved = { ...view(), version: null } as View
+    render(<ViewsPanel sid="s_x" view={unapproved} onWrote={async () => true} />)
+    expect(screen.queryByTestId('team-view-doubts')).toBeNull()
+    await act(async () => { await sendDoubts('s_x', 7, 'suspect') })
+    expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe(DOUBTS_FAILED('Nothing to hold yet.'))
+    expect(sent.filter((x) => x.method === 'POST').map((x) => x.url)).toEqual(['/api/scenarios/s_x/views/7/doubts'])
+    sent = serve(201, { doubt: 9 })
+    await act(async () => { fireEvent.click(screen.getByTestId('team-view-doubts-retry')) })
+    await vi.waitFor(() => expect(screen.queryByTestId('team-view-doubts-failure')).toBeNull())
+    expect(sent.filter((x) => x.method === 'POST')).toEqual([{ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [], missing: null, stance: 'suspect' } }])
   })
 
 

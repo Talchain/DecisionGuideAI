@@ -9,7 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } 
 import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
-import { sendDoubts, ViewDoubts } from './ViewDoubts'
+import { DoubtsFailure, sendDoubts, ViewDoubts } from './ViewDoubts'
 import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
@@ -274,6 +274,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           >{view.team_words.views.skip}</button>
         </div>
         {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
+        <DoubtsFailure sid={sid} />
       </div>
     </section>
   )
