@@ -2,4 +2,6 @@
 export { WhereWeDiffer } from './WhereWeDiffer'
 export { SimpleSummary } from './SimpleSummary'
 export { ViewsToggle } from './ViewsToggle'
+export { CompareViewsStage } from './CompareViewsStage'
+export { useCompare } from './useCompare'
 export { useViewsMarks, viewsMarksOn } from './viewsMarks'

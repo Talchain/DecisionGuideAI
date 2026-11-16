@@ -56,10 +56,10 @@ export function useReturnFocus(open: number | null): (close: () => void) => void
 }
 
 /** A view's figures, each as core words it: its label, then its text. */
-function Figures({ v }: { v: Shared }): JSX.Element | null {
+export function Figures({ v, at = 'reveal-dock' }: { v: Shared; at?: string }): JSX.Element | null {
   if (v.figures.length === 0) return null
   return (
-    <dl className="m-0 grid gap-1" data-testid={`reveal-dock-figures-${v.id}`}>
+    <dl className="m-0 grid gap-1" data-testid={`${at}-figures-${v.id}`}>
       {v.figures.map((f) => (
         <div key={f.quantity} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3" title={f.title}>
           <dt className={META}>{f.label}</dt>

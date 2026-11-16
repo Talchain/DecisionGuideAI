@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { putDraft } from '../../../olumiCore/team/drafts'
-import { readDifferences, stepDifference, differencesKey, useDifferences, type Difference, type Differences } from '../../../olumiCore/team/differences'
+import { readDifferences, stepDifference, differencesKey, useDifferences, type Difference, type Differences as DifferencesData } from '../../../olumiCore/team/differences'
 import { runWrite } from '../../../olumiCore/team/writes'
 import { NudgesPanel } from '../../../olumiCore/team/NudgesPanel'
 import { ViewsPanel } from '../../../olumiCore/team/ViewsPanel'
@@ -15,6 +16,7 @@ import { SimpleSummary, useRevealedDifferences } from './SimpleSummary'
 import { FrameEntry, MyFrames } from './FrameEntry'
 import { FrameLines } from './FrameLines'
 import { frameIsEmpty, frameOf } from './frame'
+import { useCompare } from './useCompare'
 
 /**
  * V12 "Where we differ", a section of the AI panel (proposal: "The centre: member views").
@@ -30,63 +32,106 @@ import { frameIsEmpty, frameOf } from './frame'
  * No side is marked right, nothing is averaged or ranked.
  */
 export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
-  const data = useRevealedDifferences(sid, view)
-  const error = useDifferences((s) => (s.sid === sid ? s.error : null))
   const revealed = revealedForYou(view)
-  const key = differencesKey(sid, view)
-  // The member's own entry (private view, whole view in words, nudges, dissent) is always here, whatever the differences are doing: loading,
-  // failed or gated never takes it away. Only the differences themselves wait for core's read.
-  const shown = revealed && data !== null && !data.gated ? data : null
-  const groups = shown === null ? [] : groupDifferences(shown)
-  const framed = revealed ? view.collab.shared.filter((v) => !frameIsEmpty(frameOf(v))) : []
+  // V12 (Codex 16:52Z, proposal 005 "The centre: member views"): after a reveal the comparison can stand in the main workspace. While it does,
+  // the dock says so and offers the way back, so the same rows and frames are never drawn twice (one set of actions, one set of test ids).
+  const centred = useCompare((s) => s.open)
   return (
-    <section data-testid={revealed ? 'differ-after' : 'differ-before'} aria-label={shown?.heading ?? view.collab.heading} className="grid gap-4">
+    <section data-testid={revealed ? 'differ-after' : 'differ-before'} aria-label={view.collab.heading} className="grid gap-4">
       <NudgesPanel sid={sid} view={view} onWrote={onWrote} />
       <ViewsPanel sid={sid} view={view} onWrote={onWrote} />
       {/* Collapsed to its own button: opened by default it drew a second "Your view, private until revealed" form under the team panel's
           (Paul's 15:00Z test). The team panel's form takes the view; this one adds its question, aim, options and links when asked for. */}
       <FrameEntry sid={sid} view={view} onWrote={onWrote} />
       <MyFrames view={view} />
-      {revealed && (
-        <div className="grid gap-4" data-testid="differ-differences">
-          <h3 className={H} data-testid="differ-heading">{shown?.heading ?? view.collab.heading}</h3>
-          {revealed && error && shown === null && <p role="alert" className={ERR} data-testid="differ-error">{error}</p>}
-          {shown !== null && <SimpleSummary sid={sid} view={view} />}
-          {shown !== null && shown.differences.length === 0 && <p className={META} data-testid="differ-empty">{shown.empty}</p>}
-          {shown !== null && groups.map((g) => (
-            <div key={g.id} className="grid gap-4" data-testid={`differ-group-${g.id}`}>
-              <p className={LABEL} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
-              {g.rows.map((d) => <Row key={`${d.record}|${d.goal}`} sid={sid} view={view} data={shown} d={d}
-                onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
-            </div>
-          ))}
-          {shown !== null && (() => { const g = emptyConsequence(shown); return g === null ? null : (
-            <div className="grid gap-2" data-testid="differ-group-consequence">
-              <p className={LABEL} data-testid="differ-group-consequence-heading">{g.heading}</p>
-              <p className={META} data-testid="differ-group-consequence-empty">{NOTHING_CALCULATED}</p>
-            </div>
-          ) })()}
+      {revealed && centred && (
+        <div className="grid gap-2" data-testid="differ-in-centre">
+          <p className={META}>{COMPARE_WORDS.inCentre}</p>
+          <div><Button size="sm" variant="secondary" data-testid="differ-back-to-model" onClick={() => useCompare.getState().hide()}>{COMPARE_WORDS.back}</Button></div>
         </div>
       )}
-      {framed.length > 0 && (
-        <div className="grid gap-4" data-testid="differ-frames">
-          {framed.map((v) => (
-            <div key={v.id} className="grid gap-1" data-testid={`differ-frame-${v.id}`}>
-              <p className={`${BODY} text-text-header`}>{v.by}</p>
-              <FrameLines at={`differ-frame-${v.id}`} v={v} />
-            </div>
-          ))}
-        </div>
+      {revealed && !centred && (
+        <>
+          <div><button type="button" data-testid="differ-open-centre" onClick={() => useCompare.getState().show()}
+            className={`${META} inline-flex min-h-[24px] items-center gap-1 hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{COMPARE_WORDS.open}<ArrowRight aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" /></button></div>
+          <Differences sid={sid} view={view} onWrote={onWrote} />
+          <MemberFrames view={view} />
+        </>
       )}
       <DissentPanel sid={sid} view={view} onWrote={onWrote} />
     </section>
   )
 }
 
+/** The comparison's fixed chrome (UI words; every heading, status and step in the rows is core's). */
+export const COMPARE_WORDS = {
+  open: 'Compare views in the workspace',
+  back: 'Back to the model',
+  inCentre: 'Everyone’s views and where they differ are open in the main workspace.',
+  control: 'Compare views',
+} as const
+
+/**
+ * Core's differences after a reveal, in its three groups, each row with core's own next steps (./Row). Drawn in the Team dock and, side by side
+ * with each member's view, in the main workspace (./CompareViewsStage.tsx): one component, one read (`useRevealedDifferences`), so the gate is the
+ * same wherever it is drawn. Nothing before an authorised reveal.
+ */
+export function Differences({ sid, view, onWrote, wide = false, onFocusCard, onCommit }: { sid: string; view: View; onWrote: () => Promise<boolean>; wide?: boolean; onFocusCard?: () => void; onCommit?: () => void }): JSX.Element | null {
+  const data = useRevealedDifferences(sid, view)
+  const error = useDifferences((s) => (s.sid === sid ? s.error : null))
+  const revealed = revealedForYou(view)
+  const key = differencesKey(sid, view)
+  if (!revealed) return null
+  const shown = data !== null && !data.gated ? data : null
+  const groups = shown === null ? [] : groupDifferences(shown)
+  const rowsClass = wide ? 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]' : 'grid gap-4'
+  return (
+    <div className="grid gap-4" data-testid="differ-differences">
+      <h3 className={H} data-testid="differ-heading">{shown?.heading ?? view.collab.heading}</h3>
+      {error && shown === null && <p role="alert" className={ERR} data-testid="differ-error">{error}</p>}
+      {shown !== null && <SimpleSummary sid={sid} view={view} />}
+      {shown !== null && shown.differences.length === 0 && <p className={META} data-testid="differ-empty">{shown.empty}</p>}
+      {shown !== null && groups.map((g) => (
+        <div key={g.id} className="grid gap-2" data-testid={`differ-group-${g.id}`}>
+          <p className={LABEL} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
+          <div className={rowsClass}>
+            {g.rows.map((d) => <Row key={`${d.record}|${d.goal}`} sid={sid} view={view} data={shown} d={d} onFocusCard={onFocusCard} onCommit={onCommit}
+              onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
+          </div>
+        </div>
+      ))}
+      {shown !== null && (() => { const g = emptyConsequence(shown); return g === null ? null : (
+        <div className="grid gap-2" data-testid="differ-group-consequence">
+          <p className={LABEL} data-testid="differ-group-consequence-heading">{g.heading}</p>
+          <p className={META} data-testid="differ-group-consequence-empty">{NOTHING_CALCULATED}</p>
+        </div>
+      ) })()}
+    </div>
+  )
+}
+
+/** Each revealed member's whole view in words (core's `frame`), named. In the dock as a list; nothing before a reveal. */
+export function MemberFrames({ view }: { view: View }): JSX.Element | null {
+  const framed = revealedForYou(view) ? view.collab.shared.filter((v) => !frameIsEmpty(frameOf(v))) : []
+  if (framed.length === 0) return null
+  return (
+    <div className="grid gap-4" data-testid="differ-frames">
+      {framed.map((v) => (
+        <div key={v.id} className="grid gap-1" data-testid={`differ-frame-${v.id}`}>
+          <p className={`${BODY} text-text-header`}>{v.by}</p>
+          <FrameLines at={`differ-frame-${v.id}`} v={v} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** The two steps' fixed labels (Sprint-Resolve board). */
 const STEP_WORDS = { dissent: 'Keep as a disagreement', research: 'Agree to find out' } as const
 
-function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: Differences; d: Difference; onWrote: () => Promise<boolean> }): JSX.Element {
+/** One difference with core's own next steps. `onFocusCard`/`onCommit` run first where the row stands over the canvas (the main workspace), so
+ *  "Show it on the canvas" returns to the model before it focuses the card, and Commit brings the Team tab's form into view. */
+export function Row({ sid, view, data, d, onWrote, onFocusCard, onCommit }: { sid: string; view: View; data: DifferencesData; d: Difference; onWrote: () => Promise<boolean>; onFocusCard?: () => void; onCommit?: () => void }): JSX.Element {
   const h = data.headings
   const at = `differ-row-${d.record}${d.goal ? `-${d.goal}` : ''}`
   const [busy, setBusy] = useState(false)
@@ -100,6 +145,7 @@ function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: D
     } finally { setBusy(false) }
   }
   const commit = () => {
+    onCommit?.()
     putDraft<Record<string, unknown>>(`${sid}:commitment`, (prev) => ({ action: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '', ...(prev ?? {}), owner: (prev?.['owner'] as string | undefined) || view.you_id, open: true }))
     requestAnimationFrame(() => document.querySelector('[data-testid="team-commitment-form"], [data-testid="team-commitments"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
   }
@@ -107,7 +153,7 @@ function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: D
   return (
     <article className={CARD} data-testid={at} data-difference-status={d.status}>
       {cards.length > 0
-        ? <button type="button" data-testid={`${at}-focus`} title="Show it on the canvas" onClick={() => focusNodeById(cards[0]!)} className={`${BODY} text-left text-text-header`}>
+        ? <button type="button" data-testid={`${at}-focus`} title="Show it on the canvas" onClick={() => { onFocusCard?.(); focusNodeById(cards[0]!) }} className={`${BODY} text-left text-text-header`}>
             {d.label}{d.goal_label ? <span className="text-text-light"> · {d.goal_label}</span> : null}</button>
         : <p className={`${BODY} text-text-header`}>{d.label}</p>}
       <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-sides`}>

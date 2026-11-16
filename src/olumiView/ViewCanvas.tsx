@@ -75,6 +75,7 @@ import { UndoControl } from './v12/UndoControl'
 import { LensesMenu } from './v12/lenses/LensesMenu'
 import { LayerCanvasStyle } from './v12/lenses/LayerCanvasStyle'
 import { ViewsToggle } from './v12/views/ViewsToggle'
+import { CompareViewsStage } from './v12/views/CompareViewsStage'
 import { clearLayoutUndo } from './v12/edit/undo'
 import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
@@ -522,6 +523,8 @@ export function ViewCanvas(): JSX.Element {
                     <ViewFlow />
                     {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
                     <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
+                    {/* V12 (proposal 005, Codex 16:52Z): each member's view side by side, then where they differ, over the canvas beside the dock. */}
+                    <CompareViewsStage />
                   </div>
                 </MaybeConversationProvider>
               </CanvasOverlayBandProvider>

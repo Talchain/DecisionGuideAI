@@ -75,7 +75,7 @@ const KEY_MIN_ROW = 360
 const ZOOM_ROOM = 190
 
 /** The dock's inset from the window's right edge, kept current (the dock opens, closes and resizes without the window moving). */
-function useDockInset(): number {
+export function useDockInset(): number {
   const [inset, setInset] = useState(measureDockInset)
   useEffect(() => {
     const read = () => setInset(measureDockInset())

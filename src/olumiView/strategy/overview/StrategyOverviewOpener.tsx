@@ -9,6 +9,7 @@ import { LayoutList } from 'lucide-react'
 import { useViewStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { useOverview } from './useOverview'
+import { useCompare } from '../../v12/views/useCompare'
 
 export function StrategyOverviewOpener(): JSX.Element | null {
   const words = useViewStore((s) => s.view?.strategy?.headings.overview ?? null)
@@ -17,7 +18,7 @@ export function StrategyOverviewOpener(): JSX.Element | null {
   return (
     <button
       type="button" aria-pressed={open} data-testid="strategy-overview-opener"
-      onClick={() => (open ? useOverview.getState().hide() : useOverview.getState().show())}
+      onClick={() => (open ? useOverview.getState().hide() : (useCompare.getState().hide(), useOverview.getState().show()))}
       className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}
     >
       <LayoutList aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
