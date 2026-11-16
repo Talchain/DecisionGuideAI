@@ -37,7 +37,7 @@ import { targetCardOf } from '../model/targets'
 import { SimpleFace } from '../v12/SimpleFace'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
-import { isBaseline, withheldValues } from '../v12/contract'
+import { isBaseline, limitLeadOf, withheldValues } from '../v12/contract'
 import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
@@ -266,17 +266,17 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
   const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
   const badgeLine = badge === null ? null
-    : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
+    : <p className="ok-count" data-core-badge={id} data-card-action=""><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
-    : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
+    : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-light'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
   // The figure's ✎ (R25): on the figure's own line, as the retired card drew it. A figure with no value yet (Olumi's question, not yet
   // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
   // "a stray pencil glyph on a row of its own").
   const editCue = card === null || card.figure === null ? null : edit !== null
-    ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+    ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
     : card.change?.kind !== 'added' && kind !== 'outcome'
-      ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
+      ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
   // Olumi's question about this card, by its number in the panel's list (questionRingOf): on the card's corner where nothing else holds it.
@@ -285,7 +285,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.viewLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
-    : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
+    : <span className={`max-w-[180px] truncate rounded border border-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   // THE FACE (DL-529, the component sheet's nine faces), core's words verbatim; nothing formatted, rounded or worked out here.
@@ -354,6 +354,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (h !== null && h.state === 'fixed') return (
       <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
     )
+    // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (limitsOf draws it); no "No chance…" line too.
+    if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {
       // V12 (canvas rule 4): "?" and a dashed empty track, with core's real reason at rest as a short caption (whole on hover and behind
       // "Why not"). Never the bare "No chance yet" where core sends a reason (contract 3); where it sends none, its own state words.
@@ -419,7 +421,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
-                <p className={`${typography.viewValue} line-clamp-1 font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+                <p className={`${typography.viewValue} line-clamp-1 text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
                 {card.figure == null || card.figure.text === '' ? null
                   : <p className={`${typography.viewLabel} line-clamp-1 text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></p>}
                 {tryOn.said === null ? null : <p className={`${typography.viewLabel} line-clamp-2 text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
@@ -431,7 +433,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {card.figure != null && card.figure.text === '' ? <UnsizedFigure id={id} words={unsizedWords(card)} /> : null}
           {card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />}
           {limitsOf()}
-          {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
+          {reading === null ? null : <p className={`ok-qual line-clamp-2 ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />
             {card.values!.map((v, i) => heldValues.has(v.option) ? null : (
@@ -444,12 +446,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {/* V12 (canvas rules 4 and 5): an option core could not calculate this figure for is drawn once, by the outcome strips below
               (OutcomeStrips: its letter, a dashed row and core's real reason): never silent, never a value. */}
           {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
-          {card.unused == null || card.unused === '' ? null : <p className="ok-qual" data-view={`${id}.unused`}>{card.unused}</p>}
+          {card.unused == null || card.unused === '' ? null : <p className="ok-qual line-clamp-2" title={card.unused} data-view={`${id}.unused`}>{card.unused}</p>}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
-            <div className="nodrag grid gap-1 rounded-lg bg-panel-hover px-2 py-1.5" data-card-try={id}>
-              <p className={`${typography.viewValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></p>
+            <div className="nodrag grid gap-1 rounded-xl border border-border bg-panel px-3 py-2" data-card-try={id}>
+              <p className={`${typography.viewValue} text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></p>
               {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
                 className={`${typography.viewLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
@@ -458,7 +460,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {tryOn?.kind !== 'option' ? null : (
             // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.
             <p className={`${typography.viewLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
-              {WHAT_IF_COPY.whatIf}: <span className="font-semibold text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
+              {WHAT_IF_COPY.whatIf}: <span className="font-medium text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
             </p>
           )}
           {card.family === 'option' ? <><OptionMarkLine card={id} /><ConditionalBar card={card} /></> : <OutcomeStrips card={card} view={{ model }} letters={letters} />}

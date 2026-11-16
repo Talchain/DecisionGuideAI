@@ -31,10 +31,10 @@ export function IdeaPanel(): JSX.Element | null {
   const idea = view === null || nodeId === null ? undefined : keptIdeasOf(view).find((i) => IDEA_PREFIX + i.id === nodeId)
   if (view === null || nodeId === null || idea === undefined) return null
   const { source, method, keeper } = ideaDetailOf(view, idea)
-  const ask = 'rounded-md border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+  const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
-      className={`${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 text-text-body shadow-sm`}>
+      className={`${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded-xl border border-panel-border bg-panel p-3 text-text-body`}>
       <p data-testid="view-idea-panel-text">{idea.text}</p>
       <div className={`${typography.viewPanelMeta} space-y-0.5 text-text-light`}>
         {idea.olumis ? <p data-testid="view-idea-panel-by">Olumi’s idea</p> : null}

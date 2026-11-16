@@ -23,8 +23,9 @@ import { SizeEditButton } from './v12/edit/SizeEditButton'
  * it is drawn (its element ids), since the same figure can be offered on its card and as the next step at once; `tab`: the dock tab a try
  * opens, where its answer is drawn; `primary`: what Enter does, saving (`set`) or trying on a copy (`try`, where the control offers a try).
  */
-/** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). */
-export const QUIET = 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+/** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). Hidden by
+ *  visibility, never dimmed: nothing is drawn at a lowered opacity at rest (V12 refinement spec). */
+export const QUIET = 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
 /** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
 export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 
@@ -72,8 +73,8 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     } finally { setBusy(false) }
   }
   if (!open) return (
-    <button type="button" data-testid={`${place}-aside-edit-${id}`} onClick={() => setOpen(true)} aria-label={`${label}: ${ASIDE_WORDS.offer}`} title={ASIDE_WORDS.offer}
-      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-info`}><span aria-hidden="true">✎</span></button>
+    <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => setOpen(true)} aria-label={`${label}: ${ASIDE_WORDS.offer}`} title={ASIDE_WORDS.offer}
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><span aria-hidden="true">✎</span></button>
   )
   return (
     <div className="nodrag nopan grid gap-1" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
@@ -133,7 +134,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
   // A RISK's chance and size, or a link's strength, is core's `…/size` route, never `…/edit` (which refuses it: a risk is not a figure). Core
   // says so with `route: 'size'`; the lane's own size form takes it, in core's field words. A plain figure edit keeps this editor.
-  if (isSizeEdit(edit)) return <SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-body hover:text-text-header`}>{opener}</SizeEditButton>
+  // C1: the pencil is a card action (hidden at rest by the look); `contents` takes no box and `visibility` inherits to the button.
+  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
   if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
@@ -172,8 +174,8 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} aria-label={label} title={edit.ask}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-body hover:text-text-header`}>
+        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={openNow} aria-label={label} title={edit.ask}
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
           <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         {/* S1 (Paul's "do now", 11 Nov): core's lead ends on the control ("Give your figure with ✎"); no stop of the UI's after it. */}

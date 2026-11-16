@@ -83,7 +83,7 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
 
   return (
     <div className="grid gap-2" data-testid={`team-outcomes-${c.id}`}>
-      <p className={`${META} text-text-header`}>Outcome review</p>
+      <p className={LABEL}>Outcome review</p>
       {c.outcomes.length === 0 && <p className={META} data-testid={`team-outcomes-empty-${c.id}`}>Nothing recorded yet. When it has played out, say what happened against what you expected.</p>}
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {c.outcomes.map((o) => (

@@ -8,7 +8,7 @@
 /** The selected edge: an ink ring, 1 px, outside any border the thing already has. */
 export const SELECTED_RING = 'ring-1 ring-text-header'
 /** Selected words: ink at 600. */
-export const SELECTED_TEXT = 'text-text-header font-semibold'
+export const SELECTED_TEXT = 'text-text-header font-medium'
 /** The fill, only where the surface is the panel's white (a tab, a chip on the canvas's head band): the panel's warm hover. */
 export const SELECTED_FILL = 'bg-panel-hover'
 /** All three, for a control with words on a light surface (the chips and the dock tabs). */

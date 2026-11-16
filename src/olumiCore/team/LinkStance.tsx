@@ -95,8 +95,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
       {mine.length > 0 && !changing ? (
         <div><Button size="sm" variant="secondary" data-testid={`${at}-change`} onClick={() => setChanging(true)}>{CHANGE_MY_VIEW}</Button></div>
       ) : <>
-      <label className={`${META} grid gap-0.5`}>
-        <span className="text-text-header">{words.link}</span>
+      <label className={`${META} grid gap-1`}>
+        <span className="font-medium text-text-header">{words.link}</span>
         <select data-testid={`${at}-link`} className={FIELD} value={pick} disabled={busy} onChange={(e) => { setPick(e.target.value); setError(null) }}>
           <option value="">{words.pick ?? ''}</option>
           {links.map((l) => <option key={keyOf(l.link)} value={keyOf(l.link)} title={l.title}>{l.text}</option>)}
@@ -110,7 +110,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
           </label>
         ))}
       </fieldset>
-      <label className={`${META} grid gap-0.5`}>
+      <label className={`${META} grid gap-1`}>
         <span className={LABEL}>{words.words}</span>
         <textarea data-testid={`${at}-words`} className={`${FIELD} min-h-[56px]`} maxLength={words.limit} value={said} disabled={busy} onChange={(e) => { setSaid(e.target.value); setError(null) }} />
       </label>

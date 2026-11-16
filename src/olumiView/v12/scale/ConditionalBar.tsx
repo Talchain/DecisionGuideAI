@@ -5,7 +5,7 @@
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 
-const INK = 'var(--o-ink, #213238)', LIGHT = 'var(--o-light, #687879)', TRACK = 'var(--o-track, #eee6d8)', OPT = 'var(--o-option, #8278bb)'
+const INK = 'var(--text-header)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)', OPT = 'var(--option)'
 
 export function driverChances(card: ViewCard): { low: number; high: number } | null {
   const row = card.rows.find((r) => r.kind === 'chance' && r.driver != null) as { driver?: { low: number; high: number } | null } | undefined
@@ -22,7 +22,7 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
   return (
     <div data-testid="conditional-bar" data-card={card.id} title={card.driver?.title || undefined} style={{ margin: '4px 0', fontSize: 12, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
-        <span style={{ position: 'absolute', top: 7, height: 2, background: INK, opacity: 0.4, left: `${lo}%`, width: `${hi - lo}%` }} />
+        <span style={{ position: 'absolute', top: 7, height: 2, background: `color-mix(in srgb, ${INK} 40%, transparent)`, left: `${lo}%`, width: `${hi - lo}%` }} />
         {dot(d.low, 'conditional-low')}{dot(d.high, 'conditional-high')}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>

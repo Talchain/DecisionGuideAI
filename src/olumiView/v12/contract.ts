@@ -42,3 +42,16 @@ export const withheldValues = (card: object): WithheldValue[] => {
   return vs.flatMap((v: { option?: unknown; text?: unknown }) =>
     typeof v?.option === 'string' && typeof v.text === 'string' ? [{ option: v.option, text: v.text }] : [])
 }
+
+/**
+ * An option whose headline is withheld for want of a goal-type aim (`headline.state` none with no `aim_id`) but which has a worked-out result
+ * on a limit (a `limit` row with a value): core's "No chance can be worked out…" is then about an aim the model does not have, so the card
+ * leads with the limit's result and does not also show that line (DL, 16 Nov). Returns that first limit row, or null.
+ */
+export const limitLeadOf = (card: { headline?: { state?: string; aim_id?: string | null } | null; rows: ReadonlyArray<object> }): { aim_id: string; value: string; title: string } | null => {
+  const h = card.headline
+  if (h == null || h.state !== 'none' || h.aim_id != null) return null
+  const r = (card.rows as Array<{ kind?: string; aim_id?: string | null; value?: string | null; title?: string }>)
+    .find((x) => x.kind === 'limit' && typeof x.aim_id === 'string' && typeof x.value === 'string' && x.value !== '')
+  return r === undefined ? null : { aim_id: r.aim_id!, value: r.value!, title: r.title ?? '' }
+}

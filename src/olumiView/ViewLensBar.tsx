@@ -14,7 +14,6 @@ import { Compass } from 'lucide-react'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
 import { HIT_44 } from '../styles/hitArea'
-import { SELECTED } from '../styles/selected'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar'
@@ -57,7 +56,7 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
       if (compactNow.current === fitsCanvas) { compactNow.current = !fitsCanvas; setCompact(!fitsCanvas); return } // measured again once drawn
       // J1 gate: under the core lane's full-width header strip the bar sits on the canvas's top-left, as the prototype's does.
       const strip = pill !== undefined && pill.width >= window.innerWidth - 1
-      const next = previousPlace ? placeLensBar({ ...at, barWidth: width }) : strip ? { left: 16, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
+      const next = previousPlace ? placeLensBar({ ...at, barWidth: width }) : strip ? { left: 12, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
       setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
       // UI restore stage 1, row 2: the left toolbar starts under this bar when the bar sits under the pill (it hid the toolbar's "+").
       document.documentElement.style.setProperty('--view-nav-bottom', pill && next.top >= pill.bottom ? `${next.top + 36}px` : '0px')
@@ -85,8 +84,8 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
   return (
     <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}
       data-compact={compact || undefined}
-      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel/95 p-1 shadow-2 backdrop-blur-sm transition-[left,top,opacity] duration-200 ease-out"
-      style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, opacity: place ? 1 : 0 }}>
+      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top] duration-200 ease-out"
+      style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
@@ -94,8 +93,8 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
             aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : compact || id === 'tradeoffs' ? W.label[id] : W.hint[id]}
             aria-label={id === 'rests_on' ? W.rests_on_label : W.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
-            className={`${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3 transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light/60' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
-            <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            className={`${typography.viewPanelMeta} inline-flex h-full items-center gap-1.5 rounded-full border px-3 font-medium transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
+            <Icon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
             <span className={compact ? 'sr-only' : undefined} data-lens-label={id}>{W.label[id]}</span>
             {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : null}
           </button>
@@ -108,8 +107,8 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
 /** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
 const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 // J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
-const SEGMENT = `${typography.panelBody} inline-flex h-full items-center gap-1.5 rounded-full border px-3.5 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
-const segment = (on: boolean) => `${SEGMENT} ${on ? `border-text-header ${SELECTED}` : 'border-[#EEE6D8] bg-canvas text-text-body hover:text-text-header'}`
+const SEGMENT = `${typography.viewPanelMeta} inline-flex h-full items-center gap-1.5 rounded-full border px-3 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
+const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-canvas text-text-light hover:text-text-header'}`
 
 /** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
 type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
@@ -159,21 +158,21 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
       <div className="relative h-full">
         <button ref={exploreBtn} type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={exploring} data-testid={`${LENS_BAR_TESTID}-explore`}
           onClick={() => setOpen((o) => !o)} className={segment(exploring || open)}>
-          {exploring ? <ExploreIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
+          {exploring ? <ExploreIcon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" /> : null}
           <span className={compact ? 'sr-only' : undefined}>{exploring ? W.label[lens] : W.explore}</span>
         </button>
         {!open ? null : (
           <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
-            className="absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 rounded-2xl border border-panel-border bg-panel p-1.5 shadow-2">
+            className="absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 rounded-xl border border-panel-border bg-panel p-1.5 shadow-2">
             {EXPLORE.map((id) => {
               const Icon = LENS_ICON[id], waiting = id === 'what_changes' && waits, count = id === 'rests_on' ? olumi : 0, on = id === lens
               return (
                 <button key={id} type="button" role="menuitemradio" aria-checked={on} aria-disabled={waiting || undefined} data-testid={`${LENS_BAR_TESTID}-${id}`}
                   onClick={() => { if (waiting) return; useViewLens.setState({ lens: id }); setOpen(false); exploreBtn.current?.focus() }}
-                  className={`grid w-full grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2.5 rounded-xl px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
-                  <Icon aria-hidden="true" className={`mt-[3px] h-3.5 w-3.5 ${waiting ? 'text-text-light' : 'text-text-body'}`} />
+                  className={`grid w-full grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-2 rounded-xl px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
+                  <Icon aria-hidden="true" strokeWidth={1.75} className="mt-[2px] h-3.5 w-3.5 text-text-light" />
                   <span className="grid min-w-0 gap-0.5">
-                    <span className={`${typography.panelBody} ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
+                    <span className={`${typography.viewPanelMeta} font-medium ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
                     <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? W.needsRun : W.hint[id]}</span>
                   </span>
                   {count > 0 ? <span className={`${typography.viewPanelMeta} mt-[2px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : <span />}

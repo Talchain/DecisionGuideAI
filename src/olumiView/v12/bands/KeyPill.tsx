@@ -54,7 +54,7 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
 }
 
 function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample }) {
-  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center rounded-full border-[1.5px] font-semibold leading-none`} style={{ borderColor: EFFECT_STROKES.neutral }}>?</span>
+  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center rounded-full border-[1.5px] font-medium leading-none`} style={{ borderColor: EFFECT_STROKES.neutral }}>?</span>
   const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
@@ -65,8 +65,14 @@ function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample })
   )
 }
 
-/** Room kept clear at the canvas's bottom-left for the zoom controls (14 px from the edge, about 160 px wide), so the key wraps instead of covering them. */
-const ZOOM_CONTROLS_ROOM = 190
+/** The gap kept between the key and the Simple/Detailed toggle (and the canvas edges): 12 px, the canvas chrome's one gap. */
+const CHROME_GAP = 12
+/** The Simple/Detailed row the canvas places at the bottom centre (ViewCanvas): the key stands to its right and never over it. */
+const FOOT_TOGGLE_SELECTOR = '[data-testid="view-foot-toggle"]'
+/** The narrowest room beside the toggle row that holds the key's widest item on one line. */
+const KEY_MIN_ROW = 360
+/** Room kept clear at the canvas's bottom-left for the zoom controls. */
+const ZOOM_ROOM = 190
 
 /** The dock's inset from the window's right edge, kept current (the dock opens, closes and resizes without the window moving). */
 function useDockInset(): number {
@@ -81,26 +87,49 @@ function useDockInset(): number {
   return inset
 }
 
+/** The room right of the toggle row, up to the canvas's right edge, kept current: the key is no wider, so it wraps rather than cover the toggle. */
+function useRoomRight(inset: number): number | null {
+  const [room, setRoom] = useState<number | null>(null)
+  useEffect(() => {
+    const read = () => {
+      const toggle = document.querySelector(FOOT_TOGGLE_SELECTOR)?.getBoundingClientRect()
+      const pane = document.querySelector('[data-testid="view-canvas-root"]')?.getBoundingClientRect()
+      if (!toggle || !pane || toggle.width === 0) { setRoom(null); return }
+      const next = Math.max(160, Math.floor(pane.right - inset - CHROME_GAP - (toggle.right + CHROME_GAP)))
+      setRoom((held) => (held === next ? held : next))
+    }
+    read()
+    const t = setInterval(read, 500)
+    window.addEventListener('resize', read)
+    return () => { clearInterval(t); window.removeEventListener('resize', read) }
+  }, [inset])
+  return room
+}
+
 export function KeyPill() {
   const model = useViewStore((s) => s.view?.model ?? null)
   const inset = useDockInset()
+  const room = useRoomRight(inset)
+  // Where the room beside the toggle row is too narrow for the key's widest item (the effect with its two directions), the key sits on its own
+  // row above the toggle, clear of the zoom controls, instead of spilling over the toggle (seen at 1232 wide, 16 Nov).
+  const above = room !== null && room < KEY_MIN_ROW
+  // Progressive disclosure (Paul, 16 Nov): where the canvas is too narrow for the key beside the toggle row, the key is one small "Key" button
+  // on that row and opens on hover, focus or press; where there is room it is drawn whole.
+  const [open, setOpen] = useState(false)
   if (model === null) return null
   const lines = keyLinesOf(model)
-  const item = 'flex items-center gap-1'
-  return (
-    // One line where the canvas is wide enough (both groups side by side), wrapping where it is not. The canvas reserves the key's height
-    // (computeFitPadding KEY_PILL_SELECTOR), so cards are laid out above it, never under it.
-    <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + 12, maxWidth: `calc(100% - ${inset + 24 + ZOOM_CONTROLS_ROOM}px)` }}
-      className={`pointer-events-none absolute bottom-[64px] z-[1100] flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
+  const item = 'flex items-center gap-1.5'
+  const body = (
+    <>
       {lines.length === 0 ? null : (
-        <div className="flex flex-wrap items-center gap-2.5" data-key-row="lines">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-key-row="lines">
           {lines.map((l) => l.id === 'effect'
             // The effect shows its direction colours: core's own words, then the two fixed notation words (UI chrome) beside their samples.
             ? <span key={l.id} className={item} data-key-item="effect">{l.text}{EFFECT_POLARITY.map((p) => <span key={p.id} className={item} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} />{p.word}</span>)}</span>
             : <span key={l.id} className={item} data-key-item={l.id}><LineSample id={l.id} />{l.text}</span>)}
         </div>
       )}
-      <div className="flex items-center gap-2.5" data-key-row="marks">
+      <div className="flex items-center gap-3" data-key-row="marks">
         <span className={item} data-key-item="olumi-mark">
           <OlumiMark words="Olumi's estimate" size={12} />Olumi&apos;s
         </span>
@@ -108,6 +137,23 @@ export function KeyPill() {
           <svg viewBox="0 0 24 24" role="img" aria-label="A person's figure" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 12, height: 12, flex: 'none' }}><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>a person&apos;s
         </span>
       </div>
+    </>
+  )
+  const box = `flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-1 rounded-xl border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-normal text-text-light whitespace-nowrap`
+  if (above) return (
+    <div data-testid="view-key-pill" data-key-folded="" className="pointer-events-none absolute z-[1100]" style={{ right: inset + CHROME_GAP, bottom: CHROME_GAP }}
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button type="button" data-testid="view-key-open" aria-expanded={open} onClick={() => setOpen(!open)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
+        className={`pointer-events-auto inline-flex h-9 items-center rounded-full border border-panel-border bg-panel px-3 ${typography.viewPanelMeta} font-medium text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>Key</button>
+      {open ? <div role="group" aria-label="Key" className={`absolute bottom-full right-0 mb-2 w-max ${box}`} style={{ maxWidth: `calc(100vw - ${inset + 2 * CHROME_GAP + ZOOM_ROOM}px)` }}>{body}</div> : null}
+    </div>
+  )
+  return (
+    // One line where the canvas is wide enough (both groups side by side), wrapping where it is not. The canvas reserves the key's height
+    // (computeFitPadding KEY_PILL_SELECTOR), so cards are laid out above it, never under it.
+    <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + CHROME_GAP, bottom: CHROME_GAP, maxWidth: room ?? `calc(50% - ${inset + 2 * CHROME_GAP}px)` }}
+      className={`pointer-events-none absolute z-[1100] ${box}`}>
+      {body}
     </div>
   )
 }

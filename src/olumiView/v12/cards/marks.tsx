@@ -16,12 +16,12 @@ const named = (words: string | null | undefined) => (words == null || words === 
 type MarkProps = { readonly words?: string | null; readonly size?: number }
 
 /** Olumi's mark: the product's own, never a sparkle, a speech bubble or a text glyph. */
-export const OlumiMark = ({ words, size = 14 }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-olumi" data-olumi-mark="" {...named(words)}><OlumiAiIcon size={size} strokeWidth={2.4} /></span>
+export const OlumiMark = ({ words, size = 12 }: MarkProps): JSX.Element => (
+  <span className="ok-am ok-am-olumi" data-olumi-mark="" {...named(words)}><OlumiAiIcon size={size} strokeWidth={1.75} /></span>
 )
 /** A person's mark. */
 export const PersonMark = ({ words, size = 14 }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-person" data-person-mark="" {...named(words)}><User aria-hidden="true" width={size} height={size} /></span>
+  <span className="ok-am ok-am-person" data-person-mark="" {...named(words)}><User aria-hidden="true" width={size} height={size} strokeWidth={1.75} /></span>
 )
 
 export type Whose = 'olumi' | 'person' | 'mixed'
@@ -66,7 +66,7 @@ export const EmptyTrack = ({ testid, words }: { testid: string; words?: string |
 )
 
 /**
- * A withheld chance (canvas rule 4): "?" and a dashed empty track, then core's real reason at rest as the caption, two lines at most and whole
+ * A withheld chance (canvas rule 4): "?" and a dashed empty track, then core's real reason at rest as the caption, ONE line at rest (V12 refinement) and whole
  * on hover. `press` is the "Why not" press for the long form. Where core gives no reason, its own state words stand under the track instead.
  */
 export function WithheldChance({ id, state, reason, press }: { id: string; state: string; reason: string | null; press?: ReactNode }): JSX.Element {
@@ -77,7 +77,7 @@ export function WithheldChance({ id, state, reason, press }: { id: string; state
         <EmptyTrack testid={`${id}-empty-bar`} words={state} />
         {press}
       </div>
-      {reason === null ? null : <p className="ok-caption" title={reason} data-withheld-caption={id}>{reason}</p>}
+      {reason === null ? null : <p className="ok-caption ok-caption-one" title={reason} data-withheld-caption={id}>{reason}</p>}
     </div>
   )
 }
@@ -97,5 +97,5 @@ export const OLUMI_ASKS = 'Olumi has a question about this: see the chat'
 /** "Olumi has a question about this": a ring holding Olumi's mark, named by core's own label for the step where it sends one. */
 export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null }): JSX.Element => {
   const name = words != null && words !== '' ? words : OLUMI_ASKS
-  return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OlumiAiIcon size={12} strokeWidth={2.4} /></span>
+  return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OlumiAiIcon size={12} strokeWidth={1.75} /></span>
 }

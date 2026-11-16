@@ -992,6 +992,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // DS type scale (12 / 14 / 18, Paul 7 Nov 2026): a core card sets its title and values at 14 and its labels at 12 (the view* tokens); the old
   // non-core canvas keeps its node* tokens.
   const titleType = isCoreCard ? typography.viewTitle : typography.nodeTitle
+  // V12 refinement (16 Nov): a core card's title is weight 500 in --text-header; the old non-core canvas keeps its 610 contract weight.
+  const titleWeight = isCoreCard ? 500 : NODE_TITLE_WEIGHT
+  const titleStrong = isCoreCard ? 'font-medium' : 'font-semibold'
+  const titleInk = isCoreCard ? 'text-text-header' : 'text-text-body'
   const titleTypeWide = isCoreCard ? typography.viewTitle : typography.nodeTitleWide
   const labelType = isCoreCard ? typography.viewLabel : typography.nodeLabel
   // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line): three lines on the face, the whole
@@ -1574,8 +1578,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const cardPaddingAt = (normal: boolean): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
-    // V12 Simple: 6 px above and below, 12 px at the sides, at both rungs (no reserved band).
-    if (compact) return { paddingTop: px(6), paddingRight: side, paddingBottom: px(6), paddingLeft: side }
+    // V12 Simple: 10 px above and below, 12 px at the sides, at both rungs (no reserved band; refinement spec §2).
+    if (compact) return { paddingTop: px(10), paddingRight: side, paddingBottom: px(10), paddingLeft: side }
     const actionsAtRung = normal || showQuickActions
     // Each full card reserves the existing bottom band for information marks.
     // The action rail retains its own footprint and position.
@@ -2161,6 +2165,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           the legibility floor, where this layer is unmounted. */}
       {/* ⛔ No edit control on a card drawn from the living model alone: it has no store node (`livingModelCanvas.ts`). */}
       {showQuickActions && livingOnly === null && (
+        /* C1 (V12): on a core card the whole action rail is one action control for the look's rest rule (hidden until hover, focus or
+           selection, olumiLook.css); `contents` takes no box, and `visibility` inherits to the rail. */
+        <span className={isCoreCard ? 'contents' : undefined} {...(isCoreCard ? { 'data-card-action': '' } : {})}>
         <NodeQuickActions
           nodeId={id}
           nodeType={nodeType}
@@ -2177,6 +2184,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             ) : undefined
           }
         />
+        </span>
       )}
 
       {/* v10 (#/canvas2): the Olumi mark is a badge on the card's bottom-right corner, not part of the rail
@@ -2720,7 +2728,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             <div
               data-testid="node-title-rename"
               className="nodrag nopan"
-              style={{ fontWeight: NODE_TITLE_WEIGHT }}
+              style={{ fontWeight: titleWeight }}
               onPointerDown={(e) => e.stopPropagation()}
               // A click into the field (placing the caret) is the editor's, never the card's: it must not open the
               // inspector or complete a reconnect under the user's typing.
@@ -2732,7 +2740,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 onSave={(next) => useCanvasStore.getState().updateNodeLabel(id, next)}
                 autoEdit
                 onEditEnd={() => setRenamingOnCard(false)}
-                className={`${isAnchorCard ? titleTypeWide : titleType} text-text-body`}
+                className={`${isAnchorCard ? titleTypeWide : titleType} ${titleInk}`}
                 counterClassName={labelType}
                 wrap
               />
@@ -2761,9 +2769,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                  height, never a word. Only the FAR rung (`line`, the identity
                  chip, #25) clamps, at its own readable size (`FAR_TITLE_TYPE`). */
               lodBodyHidden
-                ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
+                ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? `${titleStrong} text-text-header line-clamp-1` : `${titleInk} line-clamp-2`}`
                 : lodBoostTitle
-                ? `${titleType} font-semibold text-text-body break-words ${titleClamp}`
+                ? `${titleType} ${titleStrong} ${titleInk} break-words ${titleClamp}`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2777,8 +2785,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                    (`.node` sets no title colour; #3F3F3E). The anchors were
                    #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${titleTypeWide} font-semibold text-text-body break-words ${titleClamp}`
-                  : `${titleType} text-text-body break-words ${titleClamp}`
+                  ? `${titleTypeWide} ${titleStrong} ${titleInk} break-words ${titleClamp}`
+                  : `${titleType} ${titleInk} break-words ${titleClamp}`
             )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
@@ -2786,7 +2794,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                all five starters, 87 titles): 0 card-height changes, 0 title
                line-count changes, 0 titles cut. Anchors keep their ink
                (`text-text-header`) as the hierarchy step. */
-            style={lodHideTitle ? { visibility: 'hidden', fontWeight: NODE_TITLE_WEIGHT } : { fontWeight: NODE_TITLE_WEIGHT }}
+            style={lodHideTitle ? { visibility: 'hidden', fontWeight: titleWeight } : { fontWeight: titleWeight }}
           >
             {/* Gap 11: a right float one title line tall keeps LINE 1 clear of
                 the corner marks, or — where they cannot share it with the
@@ -2902,6 +2910,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               type="button"
               onClick={handleExpandToggle}
               onPointerDown={(e) => e.stopPropagation()}
+              {...(isCoreCard ? { 'data-card-action': '' } : {})}
               className="nodrag nopan shrink-0 p-0.5 rounded text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
               aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
               data-testid="node-description-toggle"
@@ -2963,7 +2972,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* Expanded description (markdown) */}
       {isExpanded && description && (
         <div
-          className={`${labelType} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
+          className={`${labelType} ${isCoreCard ? 'text-text-light' : 'text-text-body opacity-85'} mt-3 max-h-[200px] overflow-y-auto node-description`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via safeRichText (sanitizeMarkdown shim)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)

@@ -1,3 +1,4 @@
+import { FIRST_ANSWER_LABEL } from './v12/chat/replyLabels'
 import type { ViewTurn } from './client'
 
 /**
@@ -5,7 +6,7 @@ import type { ViewTurn } from './client'
  * `view.chat[i].early` on a turn, each `{ text }` in plain text: a blank line is a new paragraph, a line starting "- " is a list item.
  * Additive on olumi.view/3 and not yet in the generated types, so it is read here, defensively; absent or empty means today's rendering.
  */
-export const EARLY_LABEL = "Olumi's first thoughts (general knowledge, unverified)"
+export const EARLY_LABEL = FIRST_ANSWER_LABEL
 export const EARLY_FAILED = 'The model could not be built this time. You can try again, or keep talking below.'
 
 /** The early text of a draft or a chat turn, or null where there is none. */

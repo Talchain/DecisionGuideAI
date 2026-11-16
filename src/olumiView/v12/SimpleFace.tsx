@@ -18,7 +18,7 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
-import { isBaseline, withheldValues } from './contract'
+import { isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LetterChip, OlumiAsksMark, OlumiMark, UnsizedFigure, WithheldChance } from './cards/marks'
@@ -116,6 +116,10 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
           </p>
         </div>
       )
+    })() : limitLeadOf(card) !== null ? (() => {
+      // DL 16 Nov: no goal-type aim, but a worked-out result on a limit: that result leads (core's limit name and value), not "No chance…".
+      const l = limitLeadOf(card)!
+      return <p className={`${SMALL} line-clamp-2 text-text-body`} data-simple-face="limit" title={l.title !== '' ? l.title : undefined}>{nameOf(l.aim_id)} {l.value}</p>
     })() : h.state === 'fixed' ? (
       <p className={`${SMALL} line-clamp-2 text-text-body`} data-simple-face="fixed" title={h.title !== '' ? h.title : h.text}>{h.text}</p>
     ) : h.state === 'none' ? (() => {
@@ -150,20 +154,21 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       <div className="grid min-w-0 flex-1 gap-px" data-simple-face="range" title={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.slice(0, 4).map((b) => (
           <div key={b.option} title={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
-            <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--panel-hover, #F2F0EC)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
-              {b.hi > b.lo ? <i className="absolute top-0 block h-full rounded-full" style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%`, background: b.olumi ? BLUE : INK, opacity: 0.75 }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
+            <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--border-default)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
+              {b.hi > b.lo ? <i className="absolute top-0 block h-full rounded-full" style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%`, background: `color-mix(in srgb, ${b.olumi ? BLUE : INK} 75%, transparent)` }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
               {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm" style={{ left: `${b.mid}%`, background: INK }} />}
             </span>
           </div>
         ))}
         {/* Canvas rules 4 and 5: an option core could not calculate is its own dashed row (its letter, an empty track), with core's real reason. */}
-        {held.map((w) => (
+        {held.map((w, i) => (
           <div key={w.option} className="ok-withheld mt-0.5" title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
             <div className="ok-withheld-row">
               {letters.has(w.option) ? <LetterChip letter={letters.get(w.option)!} words={headingOf(w.option)} /> : null}
               <EmptyTrack testid={`${id}-${w.option}-empty-bar`} />
             </div>
-            <p className="ok-caption ok-caption-one" data-simple-withheld-why={w.option}>{w.text}</p>
+            {/* ONE meta line at rest: the first held option's reason; the others' are the row's hover (title above). */}
+            {i === 0 ? <p className="ok-caption ok-caption-one" data-simple-withheld-why={w.option}>{w.text}</p> : null}
           </div>
         ))}
       </div>
@@ -192,7 +197,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    body = <p className={`${typography.viewValue} line-clamp-2 min-w-[7rem] flex-1 break-words font-semibold`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    body = <p className={`${typography.viewValue} line-clamp-2 min-w-[7rem] flex-1 break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
   } else if (card.figure != null) {
     // An input not sized yet: a dashed, empty bar and core's own words for the gap ("not sized yet · …"), one line, whole on hover.
     body = <div className="min-w-[7rem] flex-1" data-simple-face="no-figure"><UnsizedFigure id={id} words={unsizedWords(card)} /></div>
@@ -201,7 +206,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   // nothing to say why. While a figure is tried, its card says so in place, and names the saved figure beside it.
   if (trying !== undefined && card.family !== 'option') body = trying
   return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5" data-simple-card={id}>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id}>
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
       {body}
       {scale == null ? null : <div className="min-w-0 basis-full" data-simple-scale={id}>{scale}</div>}

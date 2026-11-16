@@ -61,6 +61,24 @@ describe('the frame request', () => {
       expect(document.activeElement, id).toBe(first)
     }
   })
+  it('J3: words written against version 1 are never sent as a view of version 2; they are kept, the change is said, and only an explicit move sends them', async () => {
+    const all = serve(() => ({ status: 201, body: { contribution: 4 } }))
+    const v1 = view(), v2 = view({ version: { ...(fx as View).version!, n: 2 } } as Partial<View>)
+    const { rerender } = render(<FrameEntry sid="s_x" view={v1} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    fireEvent.change(screen.getByTestId('frame-text'), { target: { value: 'My view' } })
+    fireEvent.change(screen.getByTestId('frame-question'), { target: { value: 'Grow or hold?' } })
+    rerender(<FrameEntry sid="s_x" view={v2} onWrote={async () => true} />)
+    expect(screen.getByTestId('frame-stale-base').textContent).toContain('version 1')
+    expect((screen.getByTestId('frame-give') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('frame-text') as HTMLTextAreaElement).value).toBe('My view')
+    expect(all.filter((x) => x.method === 'POST')).toHaveLength(0)
+    fireEvent.click(screen.getByTestId('frame-use-current'))
+    expect(screen.queryByTestId('frame-stale-base')).toBeNull()
+    fireEvent.click(screen.getByTestId('frame-give'))
+    await waitFor(() => expect(all.filter((x) => x.method === 'POST')).toHaveLength(1))
+    expect(all.find((x) => x.method === 'POST')!.body).toMatchObject({ version: 2 })
+  })
   it('posts text, the current version and only the parts said, on the existing views route, with an op', async () => {
     const all = serve(() => ({ status: 201, body: { contribution: 4 } }))
     const sent = { get length() { return all.filter((x) => x.method === 'POST').length }, 0: undefined as unknown as Sent }

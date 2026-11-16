@@ -79,8 +79,8 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
           })}
         </fieldset>
       )}
-      <label className={`${META} grid gap-0.5`}>
-        <span className="text-text-header">A factor you think the model leaves out (optional)</span>
+      <label className={`${META} grid gap-1`}>
+        <span className="font-medium text-text-header">A factor you think the model leaves out (optional)</span>
         <input type="text" autoComplete="off" maxLength={MAX_MISSING} data-testid="team-view-missing" className={FIELD} value={d.missing} disabled={disabled}
           onChange={(e) => put({ missing: e.target.value, error: null })} />
       </label>

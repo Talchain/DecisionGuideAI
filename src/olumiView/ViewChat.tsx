@@ -55,6 +55,8 @@ import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { LastReplyCard } from './v12/chat/LastReplyCard'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
+import { richText } from './v12/chat/richText'
+import { replyLineOf, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
@@ -92,7 +94,8 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
  * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
  */
 type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
-export function Blocks({ parts, at, first = 1, item }: { parts: Said; at: string; first?: number; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode }) {
+export function Blocks({ parts, at, first = 1, item, fold = false }: { parts: Said; at: string; first?: number; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a reply longer than about 8 lines shows its first 2 blocks, then "Show the whole reply". Off unless asked (the conversation asks). */ fold?: boolean }) {
+  const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
     if ('cite' in p) { lines[lines.length - 1]!.push({ kind: 'cite', i, cite: p.cite }); return }
@@ -102,7 +105,7 @@ export function Blocks({ parts, at, first = 1, item }: { parts: Said; at: string
   const draw = (line: Piece[], strip: boolean) => line.map((x, j) => {
     if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{n++}</sup>
     const s = strip && j === 0 ? x.s.replace(/^\s*- /, '') : x.s
-    return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{s}</span>
+    return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{richText(s)}</span>
   })
   const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
   // Group: blank lines end a paragraph; consecutive "- " lines make one list.
@@ -114,11 +117,31 @@ export function Blocks({ parts, at, first = 1, item }: { parts: Said; at: string
     if (!breakBefore && last && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
     breakBefore = false
   }
+  // How long the reply reads, in lines of the panel (about 44 characters to a line at 12 px): an estimate, never a measure.
+  const chars = (l: Piece[]) => l.reduce((n, x) => n + (x.kind === 'text' ? x.s.length : 2), 0)
+  const est = groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + Math.max(1, Math.ceil(chars(l) / 44)), 0), 0)
+  // Core's own label and heading lines (replyLabels.ts): drawn apart from the prose, and the label is not counted as one of the two folded blocks.
+  const lineOf = (g: { list: boolean; lines: Piece[][] }): ReplyLine => {
+    if (g.list || g.lines.length !== 1) return null
+    const only = g.lines[0]!
+    return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join('')) : null
+  }
+  const lead = groups.length > 0 && lineOf(groups[0]!) === 'label' ? 1 : 0
+  const folded = fold && !whole && groups.length > 2 + lead && est > 8
+  const shown = folded ? groups.slice(0, 2 + lead) : groups
   return (
     <>
-      {groups.map((g, gi) => (g.list
-        ? <ul key={gi} className="m-0 list-disc space-y-1 pl-5" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li}>{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
+      {shown.map((g, gi) => lineOf(g) === 'label'
+        ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+        : lineOf(g) === 'heading'
+        ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+        : (g.list
+        ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
         : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
+      {fold && groups.length > 2 + lead && est > 8
+        ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? 'Show the whole reply' : 'Show less'}</button>
+        : null}
     </>
   )
 }
@@ -137,7 +160,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
   const headingOf = (id: string) => model?.cards.find((c) => c.id === id)?.heading ?? null
   return (
     <section data-testid="view-chat-stories" aria-label={heading}>
-      <p className={typography.panelHeader} data-view={`${at}.answer.stories_heading`}>{heading}</p>
+      <p className={`${typography.viewPanelHeading} text-text-header`} data-view={`${at}.answer.stories_heading`}>{heading}</p>
       <ol className="space-y-2">
         {stories.map((st, i) => {
           const option = st.option === null ? null : headingOf(st.option)
@@ -226,15 +249,15 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const answer = t.answer === null ? (reply === null ? null : (
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
-    <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-chat-answer">
+    <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {leads
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} /></div>
-        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} />}
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} fold /></div>
+        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} fold />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* The newest reply's next question is the "From my last reply" card above the box (V12): drawn once, so not again under the reply. Older replies keep theirs. */}
       {inCard ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={typography.panelHeader} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={`${typography.viewPanelHeading} text-text-header`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
       {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       {!leads ? null : (
@@ -251,7 +274,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
   const stamp = (
     <div className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
-      <History size={12} aria-hidden="true" />
+      <History size={14} strokeWidth={1.75} aria-hidden="true" />
       <span><span data-view={`${at}.version`}>{t.version}</span>
         {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
     </div>
@@ -299,7 +322,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
-      <div className={`${typography.viewPanelBody} ${styles.markdownContent} ${styles.v2AssistantText} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
+      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
     </li>
   )
 }
@@ -528,7 +551,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
       {inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
-        : <div><span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        : <div><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
@@ -575,7 +598,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
                         <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
                           aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
                       </label>
-                      <b data-view={`proposal.groups.${gi}.heading`}>{g.heading}</b>
+                      <span className="font-medium text-text-header" data-view={`proposal.groups.${gi}.heading`}>{g.heading}</span>
                     </summary>
                     <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map(line)}</ul>
                   </details>
@@ -1156,7 +1179,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
     <div ref={self} className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
       <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        <span className={typography.panelHeader} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        <span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
       </button>
       <div id={body} data-review-body="" hidden={!open}>
         <p>{NEXT_STEP_WORDS.approve}</p>
@@ -1214,8 +1237,8 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
     )
   }
   return (
-    <section className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
-      <p className={typography.panelHeader}>Next step</p>
+    <section className={`${typography.viewPanelBody} rounded-md border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
+      <p className={`${typography.viewPanelHeading} text-text-header`}>Next step</p>
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <FigureWaits view={view} item={step.item} />
@@ -1458,7 +1481,7 @@ export function ViewChat() {
               const testid = (i: number) => (i === 0 ? 'view-model-question-text' : `view-model-question-text-${i}`)
               return (
                 <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label={head}>
-                  <p className={`${typography.viewPanelMeta} text-info`}>{head}</p>
+                  <p className={`${typography.viewPanelHeading} text-text-header`}>{head}</p>
                   {qs.length === 1
                     ? <div data-testid={testid(0)} data-view={qs[0]!.view} data-question-id={qs[0]!.id ?? undefined}>{body(qs[0]!)}</div>
                     : (
@@ -1482,7 +1505,7 @@ export function ViewChat() {
       {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
       {away ? (
         <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
-          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={16} aria-hidden="true" />Latest</button>
+          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />Latest</button>
         </div>
       ) : null}
       {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
@@ -1590,7 +1613,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // V12 "From my last reply": the newest reply's next question, as a card above the box, only where that next has words.
   const lastWords = lastReplyCardOf(view, sid)
   return (
-    <div className={`${typography.viewPanelBody} px-2 pb-2 pt-1 space-y-2`} data-testid="view-composer">
+    <div className={`${typography.viewPanelBody} px-4 pb-3 pt-2 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {lastWords === null || brief ? null : <LastReplyCard label={lastWords.next.label}><Words parts={lastWords.next.text} at={`chat.${lastWords.k}.answer.next.text`} first={lastWords.first} /></LastReplyCard>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
@@ -1602,11 +1625,11 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           <button type="button" className="rounded px-2 py-1 border border-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
         </p>
       )}
-      <label className={brief ? typography.panelHeader : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
+      <label className={brief ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
-      <div className="relative bg-panel border border-panel-border rounded-[14px] transition-colors focus-within:border-text-light">
+      <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
           rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
@@ -1619,9 +1642,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
                 const Icon = METHOD_GLYPHS[key]
                 return (
                   <button key={key} type="button" aria-label={label} title={label} data-testid={`view-composer-method-${key}`}
-                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
                     onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }}>
-                    <Icon className="w-4 h-4" aria-hidden="true" />
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 )
               })}
@@ -1636,7 +1659,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
-              <RefreshCw className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
+              <RefreshCw strokeWidth={1.75} className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}

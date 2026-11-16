@@ -9,7 +9,7 @@ import { runWrite } from '../../../olumiCore/team/writes'
 import { NudgesPanel } from '../../../olumiCore/team/NudgesPanel'
 import { ViewsPanel } from '../../../olumiCore/team/ViewsPanel'
 import { DissentPanel } from '../../../olumiCore/team/DissentPanel'
-import { AVATAR, BODY, CARD, ERR, H, META } from '../../../olumiCore/team/ui'
+import { AVATAR, BODY, CARD, ERR, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { emptyConsequence, groupDifferences, NOTHING_CALCULATED, revealedForYou } from './differGroups'
 import { SimpleSummary, useRevealedDifferences } from './SimpleSummary'
 import { FrameEntry, MyFrames } from './FrameEntry'
@@ -48,28 +48,28 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
       <FrameEntry sid={sid} view={view} onWrote={onWrote} />
       <MyFrames view={view} />
       {revealed && (
-        <div className="grid gap-2" data-testid="differ-differences">
+        <div className="grid gap-4" data-testid="differ-differences">
           <h3 className={H} data-testid="differ-heading">{shown?.heading ?? view.collab.heading}</h3>
           {revealed && error && shown === null && <p role="alert" className={ERR} data-testid="differ-error">{error}</p>}
           {shown !== null && <SimpleSummary sid={sid} view={view} />}
           {shown !== null && shown.differences.length === 0 && <p className={META} data-testid="differ-empty">{shown.empty}</p>}
           {shown !== null && groups.map((g) => (
-            <div key={g.id} className="grid gap-2" data-testid={`differ-group-${g.id}`}>
-              <p className={`${META} text-text-header`} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
+            <div key={g.id} className="grid gap-4" data-testid={`differ-group-${g.id}`}>
+              <p className={LABEL} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
               {g.rows.map((d) => <Row key={`${d.record}|${d.goal}`} sid={sid} view={view} data={shown} d={d}
                 onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
             </div>
           ))}
           {shown !== null && (() => { const g = emptyConsequence(shown); return g === null ? null : (
             <div className="grid gap-2" data-testid="differ-group-consequence">
-              <p className={`${META} text-text-header`} data-testid="differ-group-consequence-heading">{g.heading}</p>
+              <p className={LABEL} data-testid="differ-group-consequence-heading">{g.heading}</p>
               <p className={META} data-testid="differ-group-consequence-empty">{NOTHING_CALCULATED}</p>
             </div>
           ) })()}
         </div>
       )}
       {framed.length > 0 && (
-        <div className="grid gap-2" data-testid="differ-frames">
+        <div className="grid gap-4" data-testid="differ-frames">
           {framed.map((v) => (
             <div key={v.id} className="grid gap-1" data-testid={`differ-frame-${v.id}`}>
               <p className={`${BODY} text-text-header`}>{v.by}</p>
@@ -120,7 +120,7 @@ function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: D
       </ul>
       <p className={`${BODY} break-words ${d.status === 'changes' ? 'font-medium text-text-header' : ''}`} data-testid={`${at}-status`}>{d.status_text}</p>
       {d.options.length > 0 && (
-        <ul className="m-0 grid list-none gap-0.5 p-0" data-testid={`${at}-options`}>
+        <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-options`}>
           {d.options.map((o) => (
             <li key={o.option} className={META} data-difference-option={o.option}>
               <span className="text-text-header">{o.label}</span>{o.chances.map((c) => <span key={c.holder_id} data-difference-chance={c.holder_id}> · {holder(c.holder_id)} {c.text}</span>)}
@@ -128,11 +128,11 @@ function Row({ sid, view, data, d, onWrote }: { sid: string; view: View; data: D
           ))}
         </ul>
       )}
-      {d.settle.length > 0 && <ul className="m-0 grid list-disc gap-1 pl-4" data-testid={`${at}-settle`}>{d.settle.map((s, i) => <li key={i} className={`${BODY} break-words`} data-settle={s.kind}>{s.text}</li>)}</ul>}
+      {d.settle.length > 0 && <ul className="m-0 grid list-disc gap-1 pl-3" data-testid={`${at}-settle`}>{d.settle.map((s, i) => <li key={i} className={`${BODY} break-words`} data-settle={s.kind}>{s.text}</li>)}</ul>}
       {d.steps.length > 0 && <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-steps`}>{d.steps.map((s) => <li key={s.id} className={`${BODY} break-words`} data-step={s.step}>{s.text}</li>)}</ul>}
       {/* Core's step route takes any difference this member can see now, calculated or not (qualitative framing rows included), so the two
           steps are offered on every drawn row; a step records what the team will do about the difference and changes no model. */}
-      <div className="flex flex-wrap gap-2" data-testid={`${at}-actions`}>
+      <div className="flex flex-wrap gap-2 pt-1" data-testid={`${at}-actions`}>
         <Button size="sm" variant="secondary" data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_WORDS.dissent}</Button>
         <Button size="sm" variant="secondary" data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_WORDS.research}</Button>
         {d.status !== 'pending' && <Button size="sm" data-testid={`${at}-commit`} disabled={busy} onClick={commit}>{h.commit}</Button>}

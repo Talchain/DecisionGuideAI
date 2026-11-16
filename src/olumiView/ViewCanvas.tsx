@@ -91,6 +91,8 @@ const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge }
 const PAN_BUTTONS = [0, 1]
 const SELECT_PAN_BUTTONS = [1]
 const MIN_ZOOM = 0.1, MAX_ZOOM = 2
+/** The camera's own framing never zooms in past the real size (V12 spec: a small board sits at 1.0, in Simple and in Detailed); a person may still zoom in themselves, up to MAX_ZOOM. */
+export const FRAME_MAX_ZOOM = 1
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
 const DURATION = 400, MAX_FITS = 5
 /**
@@ -120,15 +122,15 @@ const viewNodes = (nodes: readonly Node[]) => viewDrawnNodes(nodes, [VIEW_CARD, 
  * across, never past 1 and never below the lane's floor (Paul, 10 Nov: the whole model in view at first open, as the previous product's).
  * Zoomed out, each card draws its reduced face (ViewCardNode), so the whole board stays readable.
  */
-export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }, maxZoom = 1): Viewport | null {
+export function frameFor(nodes: readonly Node[], pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }, maxZoom = FRAME_MAX_ZOOM): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   // The frame's top is never above the head band (regions.ts frameTop), however early the padding was read.
   // DL 07:48Z (3): the whole board fits above the foot controls' gutter, never under them.
   const insets = { ...raw, top: frameTop(raw.top), bottom: Math.max(raw.bottom, FOOT_GUTTER) }
-  const whole = wholeAtTopViewport(bounds, pane, insets, maxZoom, CORE_LANE_FIT_FLOOR)
+  const whole = wholeAtTopViewport(bounds, pane, insets, Math.min(maxZoom, FRAME_MAX_ZOOM), CORE_LANE_FIT_FLOOR)
   // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
-  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, maxZoom, CORE_LANE_FIT_FLOOR)
+  return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, Math.min(maxZoom, FRAME_MAX_ZOOM), CORE_LANE_FIT_FLOOR)
 }
 
 /** The three faces a card draws by zoom, each with its own heights (live v4 at 1128x707, 13 Nov: 12 cards summed 2075 flow px with full
@@ -188,7 +190,7 @@ function simpleFrame(nodes: readonly Node[], pane: { width: number; height: numb
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   const top = frameTop(raw.top), bottom = Math.max(raw.bottom, FOOT_GUTTER)
   const freeW = Math.max(1, pane.width - raw.left - raw.right), freeH = Math.max(1, pane.height - top - bottom)
-  const zoom = Math.max(SIMPLE_FIT_FLOOR, Math.min(1, freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height)))
+  const zoom = Math.max(SIMPLE_FIT_FLOOR, Math.min(FRAME_MAX_ZOOM, freeW / Math.max(1, bounds.width), freeH / Math.max(1, bounds.height)))
   return atZoom(nodes, pane, free, zoom)
 }
 
@@ -202,6 +204,7 @@ function acrossZoom(nodes: readonly Node[], pane: { width: number; height: numbe
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */
 function atZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined, zoom: number): Viewport | null {
   if (nodes.length === 0 || pane.width === 0) return null
+  zoom = Math.min(zoom, FRAME_MAX_ZOOM)
   const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
   const insets = { ...raw, top: frameTop(raw.top) }, freeW = Math.max(1, pane.width - insets.left - insets.right)
   // DL-538: a board wider than the free canvas at this zoom starts at its left edge (the question bar and the first option readable; the
@@ -312,7 +315,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
 function useFrameIdeas(active: boolean, userMoved: React.MutableRefObject<boolean>): () => void {
   const { fitView, getNodes } = useReactFlow()
   const ids = useCanvasStore((s) => s.nodes.filter((n) => n.type === VIEW_IDEA).map((n) => n.id).join('|'))
-  const frame = useCallback(() => { void fitView({ nodes: getNodes().filter((n) => n.type === VIEW_IDEA), padding: 0.25, minZoom: 0.8, maxZoom: 1, duration: 0 }) }, [fitView, getNodes])
+  const frame = useCallback(() => { void fitView({ nodes: getNodes().filter((n) => n.type === VIEW_IDEA), padding: 0.25, minZoom: 0.8, maxZoom: FRAME_MAX_ZOOM, duration: 0 }) }, [fitView, getNodes])
   useEffect(() => {
     if (!active || ids === '') return undefined
     let raf = 0, tries = 0
@@ -481,7 +484,7 @@ function ViewFlow() {
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} /> : null}
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
-      {hasModel ? <div className="pointer-events-none absolute bottom-4 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
+      {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}
       {/* V12: the key, always visible, two rows (v12/bands/KeyPill); "How to read this" stays the popover. */}
       {hasModel ? <KeyPill /> : null}

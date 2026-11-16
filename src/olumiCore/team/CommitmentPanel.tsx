@@ -73,7 +73,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   return (
     <section data-testid="team-commitments" aria-label="Commitments" className="grid gap-2">
       <h3 className={H}>Commitments</h3>
-      <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-commitment-list">
+      <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-commitment-list">
         {c.commitments.map((k) => (
           <li key={k.id} data-testid={`team-commitment-${k.id}`} className={CARD}>
             <p className={`${BODY} whitespace-pre-wrap break-words text-text-header`} data-testid={`team-commitment-action-${k.id}`}>{k.action}</p>
@@ -145,7 +145,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
                 return (
                   <button key={t.fact} type="button" aria-pressed={on} data-testid={`team-c-trigger-${t.fact}`} disabled={busy}
                     onClick={() => put({ trigger: on ? '' : t.fact })}
-                    className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-md border px-2 py-1 text-left break-words ${on ? 'border-info bg-info/10' : 'border-panel-border bg-panel'}`}>
+                    className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left break-words ${on ? 'border-info bg-panel-hover' : 'border-panel-border bg-panel'}`}>
                     <span aria-hidden="true" className="flex-none">{on ? '✓' : '+'}</span><span>{t.text}</span>
                   </button>
                 )

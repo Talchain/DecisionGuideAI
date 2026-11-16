@@ -78,7 +78,7 @@ export function DifferChip({ d, card }: { d: Difference; card: string }): JSX.El
       onClick={(e) => { e.stopPropagation(); openDiffer(d) }}
       className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel py-0.5 pl-0.5 ${d.chip ? 'pr-2.5' : 'pr-0.5'} text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">
-        <Unlink2 className="h-3 w-3" />
+        <Unlink2 strokeWidth={1.75} className="h-3 w-3" />
       </span>
       {d.chip ? <span data-differ-chip-text="">{d.chip}</span> : null}
       {' '}<span className="sr-only" data-differ-label="">{d.label}</span>

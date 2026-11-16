@@ -37,9 +37,19 @@ function serve(answer: (s: Sent) => { status: number; body: unknown }): Sent[] {
 }
 afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts() })
 
+const openForm = () => { const b = screen.queryByTestId('commit-form-open'); if (b) fireEvent.click(b) }
+
 describe('Record what you will do', () => {
+  it('is collapsed to one line until pressed (V12 refinement spec 6)', () => {
+    render(<CommitForm sid="s_c" view={view()} onWrote={async () => true} />)
+    expect(screen.queryByTestId('commit-form-action')).toBeNull()
+    expect(screen.getByTestId('commit-form-open').textContent).toBe('Record what you will do')
+    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect(screen.getByTestId('commit-form-action')).toBeTruthy()
+  })
   it('typing keeps the same field and its focus: no field is remounted between keystrokes (Codex UI chat, 16 Nov)', () => {
     render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
+    openForm()
     for (const id of ['commit-form-action', 'commit-form-expect', 'commit-form-reconsider']) {
       const first = screen.getByTestId(id) as HTMLTextAreaElement
       first.focus()
@@ -52,6 +62,7 @@ describe('Record what you will do', () => {
   })
   it('draws the board\'s words, the Proposed tag and the footnote', () => {
     render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
+    openForm()
     expect(screen.getByTestId('commit-form-heading').textContent).toBe('Record what you will do')
     expect(screen.getByTestId('commit-form-proposed').textContent).toBe('Proposed')
     for (const t of ['What will you do?', 'What do you expect to happen?', 'When would you reconsider?']) expect(screen.getByLabelText(t)).toBeTruthy()
@@ -63,6 +74,7 @@ describe('Record what you will do', () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 3 } }))
     let wrote = 0
     render(<CommitForm sid="s_x" view={view()} onWrote={async () => { wrote++; return true }} />)
+    openForm()
     const keep = screen.getByTestId('commit-form-keep') as HTMLButtonElement
     expect(keep.disabled).toBe(true)
     fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Ring the funder' } })
@@ -88,6 +100,7 @@ describe('Record what you will do', () => {
     let wrote = 0
     const pending = view({ version: null, proposal: { id: 9 } as unknown as View['proposal'] })
     render(<CommitForm sid="s_x" view={pending} onWrote={async () => { wrote++; return true }} />)
+    openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('false')
     expect(screen.getByTestId('commit-form-unanchored').textContent).toBe(COMMIT_WORDS.unanchored)
     fill()
@@ -103,6 +116,7 @@ describe('Record what you will do', () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 5 } }))
     putDraft<Record<string, unknown>>('s_x:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: ['d1'], option: 'opt_a', reviewOn: '2027-01-01' }))
     const { unmount } = render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
+    openForm()
     fill()
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     await waitFor(() => expect(sent.some((s) => s.method === 'POST' && /commitments$/.test(s.url))).toBe(true))
@@ -111,6 +125,7 @@ describe('Record what you will do', () => {
     const sent2 = serve(() => ({ status: 201, body: { commitment: 6 } }))
     putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'opt_a' }))
     render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
+    openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('true')
     expect(screen.queryByTestId('commit-form-unanchored')).toBeNull()
     fill()

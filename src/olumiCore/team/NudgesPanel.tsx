@@ -38,19 +38,19 @@ export function NudgesPanel({ sid, view, onWrote }: { sid: string; view: View; o
   return (
     <section data-testid="team-nudges" aria-label="What the team is waiting on" className={`${CARD} grid gap-2`}>
       {c.waiting !== null && (
-        <p className={`${BODY} flex items-center gap-1.5`} data-testid="team-waiting"><Hourglass aria-hidden="true" className="h-3.5 w-3.5 flex-none text-text-light" />{c.waiting}</p>
+        <p className={`${BODY} flex items-center gap-1.5`} data-testid="team-waiting"><Hourglass strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none text-text-light" />{c.waiting}</p>
       )}
       {c.can_reveal && (
         <div className="flex flex-wrap items-center gap-2" data-testid="team-nudge-reveal">
           <span className={BODY}>Everyone has given their view.</span>
           <Button size="sm" data-testid="team-reveal-go" disabled={busy || sending || locked} onClick={() => void reveal()}>
-            <span className="inline-flex items-center gap-1.5"><Eye aria-hidden="true" className="h-3.5 w-3.5" />Reveal everyone’s views</span>
+            <span className="inline-flex items-center gap-1.5"><Eye strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />Reveal everyone’s views</span>
           </Button>
         </div>
       )}
       {open.map((k) => (
         <div key={k.id} className="flex flex-wrap items-center gap-2" data-testid={`team-nudge-outcome-${k.id}`}>
-          <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5 flex-none text-text-light" />
+          <ClipboardCheck strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none text-text-light" />
           <span className={`${BODY} min-w-0 flex-1 break-words`}>{k.action} <span className={META}>· {k.owner} · no outcome yet</span></span>
           <Button size="sm" variant="secondary" onClick={() => record(k.id)}>Record what happened</Button>
         </div>

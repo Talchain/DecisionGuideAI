@@ -1,6 +1,6 @@
 import type { View } from '../../olumiView/client'
 import { effectHeadingsOf, effectsOf, type ViewEffectRun } from '../../olumiView/standin'
-import { AVATAR, CARD, H, META } from './ui'
+import { AVATAR, CARD, H, LABEL, META } from './ui'
 
 /**
  * WHERE YOU DIFFER (capability inventory item 3; TIER-C-DESIGN-QA "Where you differ"; legacy `collab/DisagreementBody.tsx` is the layout
@@ -79,7 +79,7 @@ export function WhereYouDiffer({ view }: { view: View }): JSX.Element | null {
         const model = [...(modelLeads.get(goal) ?? [])].map(heading).filter((h): h is string => h !== null)
         return (
           <div key={goal} className={CARD} data-differ-aim={goal}>
-            <p className={`${META} text-text-header`} data-differ-aim-heading="">{heading(goal)}</p>
+            <p className={LABEL} data-differ-aim-heading="">{heading(goal)}</p>
             {model.length > 0 && headings.model_leader !== undefined ? <p className={META} data-differ-model="">{headings.model_leader}: {model.join(', ')}</p> : null}
             {noModelLeader.has(goal) && headings.no_model_leader !== undefined ? <p className={META} data-differ-no-model-leader="">{headings.no_model_leader}</p> : null}
             {headings.leader !== undefined ? <p className={META} data-differ-leader-label="">{headings.leader}</p> : null}
@@ -87,8 +87,8 @@ export function WhereYouDiffer({ view }: { view: View }): JSX.Element | null {
               {lanes.map((k) => {
                 const people = [...new Set(here.filter((p) => p.leader === (k.id === NONE ? null : k.id)).map((p) => p.by_id))]
                 return (
-                  <li key={k.id} data-differ-option={k.id} className="grid content-start gap-2 rounded-md border border-panel-border bg-canvas p-2">
-                    <p className={`${META} text-text-header`} data-differ-option-heading="">{k.heading}</p>
+                  <li key={k.id} data-differ-option={k.id} className="grid content-start gap-2 rounded-xl border border-panel-border p-3">
+                    <p className={LABEL} data-differ-option-heading="">{k.heading}</p>
                     <ul className="m-0 grid list-none gap-2 p-0">
                       {people.map((id) => {
                         // The same figure given again in a later round, with the same effect, is one line, not two.

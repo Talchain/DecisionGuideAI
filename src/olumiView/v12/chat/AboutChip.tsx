@@ -29,7 +29,7 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
       {cards.map((c) => (
         <button key={c.id} type="button" onClick={() => focusNodeById(c.id)} data-testid="view-about-chip" data-card={c.id}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] max-w-full items-center gap-1 rounded-full border border-panel-border bg-panel px-2 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
-          <Crosshair className="h-3 w-3 flex-none text-info" aria-hidden="true" /><span className="truncate">{aboutWords(c.title)}</span>
+          <Crosshair className="h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" /><span className="truncate">{aboutWords(c.title)}</span>
         </button>
       ))}
     </div>

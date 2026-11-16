@@ -93,12 +93,12 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
   return (
     <section data-testid="team-evidence" aria-label={view.evidence_words.heading} className="grid gap-2">
       <h3 className={H}>{view.evidence_words.heading}</h3>
-      <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-evidence-list">
+      <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-evidence-list">
         {view.evidence.map((e) => {
           const link = e.link !== null ? linkOf(e.link) : null
           return (
             <li key={e.id} data-testid={`team-evidence-${e.id}`} data-stance={e.stance} className={CARD}>
-              <p className={`${META} text-text-header`}>{e.stance_text}</p>
+              <p className={LABEL}>{e.stance_text}</p>
               <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid={`team-evidence-text-${e.id}`}>{e.text}</p>
               {e.bears_on_text !== null && <p className={META} data-testid={`team-evidence-about-${e.id}`}>{e.bears_on_text}</p>}
               {e.source !== null && (

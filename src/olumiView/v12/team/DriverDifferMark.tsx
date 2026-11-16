@@ -14,11 +14,11 @@ export function DriverDifferMark({ people, evidence }: { people: readonly { read
         {two.map((p, i) => (
           <span key={p.id} data-differ-person={p.id}
             className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>
-            <User className="h-3 w-3" />
+            <User strokeWidth={1.75} className="h-3 w-3" />
           </span>
         ))}
       </span>
-      {evidence && <FileText className="h-3 w-3 text-text-body" data-differ-evidence="" />}
+      {evidence && <FileText strokeWidth={1.75} className="h-3 w-3 text-text-body" data-differ-evidence="" />}
     </span>
   )
 }

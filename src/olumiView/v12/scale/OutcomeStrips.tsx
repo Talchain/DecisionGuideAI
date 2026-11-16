@@ -8,7 +8,8 @@ import type { View, ViewCard, ViewModel } from '../../client'
 import { withheldValues } from '../contract'
 import { aimOf, axisOf, fmt, letterOf, modelOf, pctOf, unitOf, type Letters } from './axis'
 
-const INK = 'var(--o-ink, #213238)', GOLD = 'var(--o-goal, #e9bc50)', LIGHT = 'var(--o-light, #687879)', TRACK = 'var(--o-track, #eee6d8)'
+// Design-system tokens only (--text-header, --goal, --text-light, --border-default, --bg-panel): no hex fallback.
+const INK = 'var(--text-header)', GOLD = 'var(--goal)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)'
 const row: CSSProperties = { position: 'relative', height: 16, background: TRACK, borderRadius: 3 }
 const LW = 22
 
@@ -24,7 +25,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
   const bands = bandsOf(card), withheld = withheldValues(card)
   if (waits) {
     const words = card.figure?.title || card.figure?.text || ''
-    return <div data-testid="outcome-pending" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 6px', fontSize: 12, color: LIGHT }}>pending{words ? `: ${words}` : ''}</div>
+    return <div data-testid="outcome-pending" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 8px', fontSize: 12, color: LIGHT }}>pending{words ? `: ${words}` : ''}</div>
   }
   if (bands.length === 0 && withheld.length === 0) return null
   const aim = aimOf(model), unit = unitOf(card, aim)
@@ -36,14 +37,14 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {bands.map((b) => (
           <div key={b.option} data-testid={`strip-${b.option}`} style={row}>
-            <span style={{ position: 'absolute', left: -LW, width: LW - 4, textAlign: 'right', color: INK, fontWeight: 600 }} data-testid={`strip-letter-${b.option}`}>{letterOf(letters, b.option)}</span>
-            <span data-testid={`strip-range-${b.option}`} data-p10={b.p10} data-p90={b.p90} style={{ position: 'absolute', top: 3, height: 10, borderRadius: 2, background: INK, opacity: 0.35, left: `${pctOf(axis, b.p10)}%`, width: `${Math.max(1, pctOf(axis, b.p90) - pctOf(axis, b.p10))}%` }} />
+            <span style={{ position: 'absolute', left: -LW, width: LW - 4, textAlign: 'right', color: LIGHT, fontWeight: 500 }} data-testid={`strip-letter-${b.option}`}>{letterOf(letters, b.option)}</span>
+            <span data-testid={`strip-range-${b.option}`} data-p10={b.p10} data-p90={b.p90} style={{ position: 'absolute', top: 3, height: 10, borderRadius: 2, background: `color-mix(in srgb, ${INK} 35%, transparent)`, left: `${pctOf(axis, b.p10)}%`, width: `${Math.max(1, pctOf(axis, b.p90) - pctOf(axis, b.p10))}%` }} />
             {b.p50 !== null && <span data-testid={`strip-median-${b.option}`} data-p50={b.p50} style={{ position: 'absolute', top: 1, width: 2, height: 14, background: INK, left: `calc(${pctOf(axis, b.p50)}% - 1px)` }} />}
           </div>
         ))}
         {withheld.map((w) => (
-          <div key={w.option} data-testid={`strip-withheld-${w.option}`} style={{ ...row, background: 'transparent', border: `1px dashed ${LIGHT}`, display: 'flex', alignItems: 'center', paddingLeft: 6, height: 16 }}>
-            <span style={{ position: 'absolute', left: -LW - 1, width: LW - 4, textAlign: 'right', color: INK, fontWeight: 600 }}>{letterOf(letters, w.option)}</span>
+          <div key={w.option} data-testid={`strip-withheld-${w.option}`} style={{ ...row, background: 'transparent', border: `1px dashed ${LIGHT}`, display: 'flex', alignItems: 'center', paddingLeft: 8, height: 16 }}>
+            <span style={{ position: 'absolute', left: -LW - 1, width: LW - 4, textAlign: 'right', color: LIGHT, fontWeight: 500 }}>{letterOf(letters, w.option)}</span>
             {/^not calculated/i.test(w.text) ? w.text : `not calculated: ${w.text}`}
           </div>
         ))}
@@ -55,7 +56,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
       </div>
       <div data-testid="outcome-axis" style={{ position: 'relative', height: 14, marginTop: 2, borderTop: `1px solid ${LIGHT}` }}>
         {axis.ticks.map((t) => <span key={t} data-testid="outcome-tick" style={{ position: 'absolute', top: 1, left: `${pctOf(axis, t)}%`, transform: 'translateX(-50%)' }}>{fmt(t)}</span>)}
-        {unit !== null && <span data-testid="outcome-unit" style={{ position: 'absolute', right: 0, top: 1, background: 'var(--o-panel, #fefefe)' }}>{unit}</span>}
+        {unit !== null && <span data-testid="outcome-unit" style={{ position: 'absolute', right: 0, top: 1, background: 'var(--bg-panel)' }}>{unit}</span>}
       </div>
       <div data-testid="outcome-legend" title={card.figure?.title || undefined} style={{ marginTop: 2 }}>middle 80% · median</div>
     </div>

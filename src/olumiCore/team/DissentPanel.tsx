@@ -20,7 +20,7 @@ export function DissentPanel({ sid, view, onWrote }: { sid: string; view: View; 
   return (
     <section data-testid="team-dissent" aria-label="Disagreements" className="grid gap-2">
       <h3 className={H}>Disagreements</h3>
-      <ul className="m-0 grid list-none gap-1.5 p-0">
+      <ul className="m-0 grid list-none gap-4 p-0">
         {view.collab.dissent.map((d) => <DissentRow key={d.id} sid={sid} d={d} you={view.you_id} onWrote={onWrote} />)}
       </ul>
     </section>

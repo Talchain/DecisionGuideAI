@@ -39,7 +39,7 @@ function OptionRows({ card }: { card: Card }) {
 export function ViewBriefBody({ model }: { model: Model }) {
   const run = model.run, options = allOptionCards(model)
   return (
-    <div className="flex flex-col gap-3" data-testid="view-brief-body">
+    <div className="flex flex-col gap-4" data-testid="view-brief-body">
       <h2 className={`${typography.panelHeader} text-text-header`} data-testid="view-brief-question">{model.question.text}</h2>
       {run === null ? null : (
         <section className="flex flex-col gap-1" data-testid="view-brief-run">
@@ -58,8 +58,8 @@ export function ViewBriefBody({ model }: { model: Model }) {
         </section>
       )}
       {options.map((card) => (
-        <section key={card.id} className="flex flex-col gap-0.5" data-testid={`view-brief-option-${card.id}`}>
-          <h3 className={`${typography.panelHeader} text-text-header`} title={card.detail === '' ? undefined : card.detail}>{card.glyph} {card.heading}<MarkOf mark={card.olumi} /></h3>
+        <section key={card.id} className="flex flex-col gap-1" data-testid={`view-brief-option-${card.id}`}>
+          <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`} title={card.detail === '' ? undefined : card.detail}>{card.glyph} {card.heading}<MarkOf mark={card.olumi} /></h3>
           <OptionRows card={card} />
         </section>
       ))}
@@ -84,16 +84,16 @@ export function ViewBriefTrigger({ className = '' }: { className?: string }) {
   return (
     <>
       <button type="button" onClick={() => setOpen((o) => !o)} className={className} aria-expanded={open} aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="view-brief-trigger">
-        <FileText size={14} aria-hidden="true" />
+        <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
       </button>
       {open && createPortal(
         <aside role="complementary" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="view-brief-panel"
-          className="fixed bottom-3 right-3 top-16 z-[1600] flex w-[400px] max-w-[calc(100vw-24px)] flex-col rounded-lg border border-panel-border bg-panel shadow-panel">
-          <div className="flex items-center gap-2 px-4 py-2.5">
-            <span className="text-sm font-semibold text-text-header">{DECISION_BRIEF_TRIGGER_LABEL}</span>
+          className="fixed bottom-3 right-3 top-16 z-[1600] flex w-[400px] max-w-[calc(100vw-24px)] flex-col rounded-xl border border-panel-border bg-panel shadow-panel">
+          <div className="flex items-center gap-2 px-4 py-3">
+            <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
             <span className="flex-1" />
             <button type="button" onClick={close} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="view-brief-close">
-              <X size={14} aria-hidden="true" />
+              <X size={14} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3"><ViewBriefBody model={model} /></div>

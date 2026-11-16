@@ -17,7 +17,7 @@ export function ViewsToggle({ view, className = '' }: { view: View | null; class
     <button type="button" data-testid="views-toggle" aria-pressed={on} title={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'}
       onClick={() => set(!on)}
       className={`inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 text-text-body shadow-sm hover:bg-panel-hover ${typography.viewPanelMeta} ${on ? 'text-text-header' : ''} ${className}`}>
-      <Users aria-hidden="true" className="h-3.5 w-3.5" />Views
+      <Users strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />Views
     </button>
   )
 }

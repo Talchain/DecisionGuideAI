@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
+import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
 import { teamApi, TeamApiError } from '../../../olumiCore/team/api'
 import { useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
-import { BODY, CARD, ERR, FIELD, LABEL, META } from '../../../olumiCore/team/ui'
+import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 
@@ -36,6 +38,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const [error, setError] = useState<string | null>(null)
   const locked = useWriteLocked(key), sending = useWriteSending(key)
   const busy = mine || sending
+  // Collapsed to one quiet line until pressed (V12 refinement spec 6); a draft already typed (here or in the Team tab) keeps it open.
+  const [opened, setOpened] = useState(false)
+  const hasDraft = [d.action, d.expect, d.reconsider].some((t) => t.trim() !== '')
   // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
   // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
   // proposal stays unapproved; nothing here is read from it.
@@ -57,10 +62,20 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const area = (id: string, k: 'action' | 'expect' | 'reconsider') => (
     <textarea id={id} data-testid={id} className={`${FIELD} min-h-[56px]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
   )
+  if (!opened && !hasDraft && !d.open) {
+    return (
+      <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} aria-label={COMMIT_WORDS.heading} className="grid">
+        <button type="button" data-testid="commit-form-open" onClick={() => setOpened(true)}
+          className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
+          <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
+        </button>
+      </section>
+    )
+  }
   return (
     <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} aria-label={COMMIT_WORDS.heading} className={CARD}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className={`${BODY} font-medium text-text-header`} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
+        <h3 className={H} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
         <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid="commit-form-proposed">{COMMIT_WORDS.proposed}</span>
       </div>
       {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
@@ -68,7 +83,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>
       {locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p>}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" data-testid="commit-form-keep" disabled={!ready || busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
         {!busy && !locked && !ready && <span className={META} data-testid="commit-form-why">Answer all three first</span>}
       </div>

@@ -195,7 +195,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
-          <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 text-text-body`} data-view-link-words={`links.${i}`}
+          <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light`} data-view-link-words={`links.${i}`}
             style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
             {notSettled ? <span data-view-link-unsettled={`links.${i}`} title={causal?.text || DIRECTION_NOT_SETTLED} aria-label={causal?.text || DIRECTION_NOT_SETTLED} role="img" style={{ pointerEvents: 'auto' }}>?</span> : null}
             {!signed ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span>}

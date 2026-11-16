@@ -91,7 +91,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }
       {cards.length > 0 ? (
         <button type="button" className={`${BODY} flex items-start gap-1.5 text-left text-text-header`} data-testid={`${at}-focus`}
           title="Show it on the canvas" onClick={() => focusNodeById(cards[0]!)} onFocus={() => ring(cards)} onBlur={() => ring([])}>
-          <Crosshair aria-hidden="true" className="mt-[3px] h-3.5 w-3.5 flex-none text-text-light" />
+          <Crosshair strokeWidth={1.75} aria-hidden="true" className="mt-[3px] h-3.5 w-3.5 flex-none text-text-light" />
           <span><span data-testid={`${at}-label`}>{d.label}</span>{d.goal_label ? <span className="text-text-light"> · {d.goal_label}</span> : null}</span>
         </button>
       ) : <p className={`${BODY} break-words text-text-header`}><span data-testid={`${at}-label`}>{d.label}</span></p>}
@@ -118,7 +118,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }
                 {(d.kind ?? 'figure') === 'figure' && figureOf(s.view) !== null && view.version !== null && (
                   <button type="button" data-testid={`${at}-preview-${s.holder_id}`} disabled={busy} onClick={() => void preview(s.view)}
                     title="Shows the chances with this figure on the canvas, under What if. Nothing is saved."
-                    className="w-fit text-left text-text-light underline underline-offset-2 hover:text-text-body disabled:opacity-50">Preview on the canvas</button>
+                    className="w-fit text-left text-text-light underline underline-offset-2 hover:text-text-body disabled:no-underline disabled:cursor-not-allowed">Preview on the canvas</button>
                 )}</span>
             </li>
           ))}
@@ -161,7 +161,7 @@ function DifferenceCard({ sid, view, data, d, ring, onWrote, sidesSaid = false }
       {d.settle.length > 0 && (
         <div className="grid gap-1" data-testid={`${at}-settle`}>
           <p className={META}>{h.settle}</p>
-          <ul className="m-0 grid list-disc gap-1 pl-4">
+          <ul className="m-0 grid list-disc gap-1 pl-3">
             {d.settle.map((s, i) => <li key={i} className={`${BODY} break-words`} data-settle={s.kind}>{s.text}</li>)}
           </ul>
         </div>

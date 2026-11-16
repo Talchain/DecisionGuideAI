@@ -10,7 +10,7 @@ export const SIMPLE_SWITCH_TESTID = 'view-simple-switch'
 
 export function SimpleSwitch(): JSX.Element {
   const level = useLevel()
-  const seg = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${on ? 'bg-panel-hover font-semibold text-text-header' : 'text-text-light hover:text-text-header'}`
+  const seg = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${on ? 'bg-panel-hover font-medium text-text-header' : 'text-text-light hover:text-text-header'}`
   return (
     <div role="group" aria-label="Level of detail" data-testid={SIMPLE_SWITCH_TESTID} data-level={level}
       className={`pointer-events-auto inline-flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5 shadow-1 ${HIT_44}`}>

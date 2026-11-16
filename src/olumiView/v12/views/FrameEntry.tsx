@@ -4,8 +4,8 @@ import type { View } from '../../client'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
-import { Lock } from 'lucide-react'
-import { BODY, CARD, FIELD, META } from '../../../olumiCore/team/ui'
+import { Lock, Plus } from 'lucide-react'
+import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { nonEmpty } from '../../tipping'
 import { useViewStore } from '../../store'
 import { EMPTY_FRAME, FRAME_LABELS, frameBody, frameIsEmpty, frameOf, frameSupport, giveFrameView, type FrameDraft } from './frame'
@@ -18,6 +18,10 @@ import { FrameLines } from './FrameLines'
  * are drawn as core words them. Folded away until asked for, so the plain private-view box stays the one thing on screen.
  */
 /** Said only when the saved View comes back with no frame: honest, and nothing typed is lost. Chrome words, nothing about the scenario. */
+/** The version a draft was written against has been replaced (Codex 008, J3): the words are kept and nothing is sent until the person moves the
+ *  draft to the current version themselves. Never a silent rebase. */
+export const staleBaseWords = (from: number, to: number): string =>
+  `You wrote this against version ${from}. The model is now version ${to}. Your words are kept here: check them against version ${to}, then send.`
 export const NOT_KEPT = 'Your words were saved, but this version of Olumi did not keep the parts. What you typed is still here.'
 
 /** Sprint-MyView board, fixed chrome (not about the scenario). */
@@ -32,12 +36,14 @@ export const optionSuggestions = (view: View, max: number): string[] =>
 
 /** A labelled field. Defined once at module level: a component made inside the entry's render is a new type every keystroke, so React
  *  remounts the field and the person loses focus after one character (Codex's UI chat, 16 Nov). */
-const L = ({ t, children }: { t: string; children: JSX.Element | JSX.Element[] }) => <label className={`${META} grid gap-0.5`}><span className="text-text-header">{t}</span>{children}</label>
+const L = ({ t, children }: { t: string; children: JSX.Element | JSX.Element[] }) => <label className={`${META} grid gap-1`}><span className="font-medium text-text-header">{t}</span>{children}</label>
 
 export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: string; view: View; onWrote: () => Promise<boolean>; defaultOpen?: boolean }): JSX.Element | null {
   const key = `${sid}:viewframe`                  // its own write key, so a frame give never attaches to the plain view's in-flight write
   const [text, setText, dropText] = useDraft(`${sid}:viewframe:text`, '')
   const [d, setD, dropD] = useDraft<FrameDraft>(`${sid}:viewframe`, EMPTY_FRAME)
+  // The version this draft is written against, fixed at the first keystroke (Codex 008, J3): a later version never relabels these words.
+  const [base, setBase, dropBase] = useDraft<number | null>(`${sid}:viewframe:base`, null)
   const [open, setOpen] = useState(defaultOpen)
   const [ask, setAsk] = useState('')
   const [busy, setBusy] = useState(false)
@@ -59,39 +65,42 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
   // option row still exactly the shared model's own title is never sent as this person's position; only rows they typed or reworded go.
   const own = rows.filter((o) => !suggested.includes(o))
   const frame = frameBody(d, LIM) === null ? null : frameBody({ ...d, options: own }, LIM)
-  const set = (p: Partial<FrameDraft>) => { setD({ ...d, options: rows, ...p }); if (error) setError(null) }
+  const mark = () => { if (base === null) setBase(version) }
+  const stale = base !== null && base !== version
+  const set = (p: Partial<FrameDraft>) => { mark(); setD({ ...d, options: rows, ...p }); if (error) setError(null) }
   // Olumi's own question (core's words) has its own private box; what is typed there goes with the view's words, private until the reveal.
   const prompt = view.collab.private_view_prompt
   const asking = nonEmpty(prompt)
   const words_ = [text.trim(), ask.trim()].filter((t) => t !== '').join('\n\n')
   const give = async () => {
-    if (frame === null) return
+    if (frame === null || stale) return
+    const against = base ?? version
     setBusy(true); setError(null)
     try {
-      const saved = await runWrite(key, { op: true }, { text: words_, version, frame }, (op) => giveFrameView(sid, words_, version, frame, op))
+      const saved = await runWrite(key, { op: true }, { text: words_, version: against, frame }, (op) => giveFrameView(sid, words_, against, frame, op))
       await onWrote()
       // Kept only once core's own View shows the frame back: a 201 with no frame on the View means this core did not keep it, and what was typed stays.
       const mine = useViewStore.getState().view?.collab.mine
       if (mine !== undefined && !mine.some((v) => v.id === saved.contribution && !frameIsEmpty(frameOf(v)))) { setError(NOT_KEPT); return }
-      dropText(); dropD(); setAsk(''); setOpen(false)
+      dropText(); dropD(); dropBase(); setAsk(''); setOpen(false)
     } catch (e) { setError(e instanceof TeamApiError ? e.message : view.team_words.failed) } finally { setBusy(false) }
   }
   if (!open) {
     return <button type="button" data-testid="frame-open" onClick={() => setOpen(true)}
-      className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body`}>{words.heading ?? 'Say my whole view in my own words'}</button>
+      className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 self-start font-medium hover:text-text-body`}><Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{words.heading ?? 'Say my whole view in my own words'}</button>
   }
   return (
-    <div className="grid gap-2" data-testid="frame-entry">
-      <h3 className={`${BODY} font-medium text-text-header`} data-testid="frame-heading">{MYVIEW_WORDS.heading}</h3>
+    <div className="grid gap-4" data-testid="frame-entry">
+      <h3 className={H} data-testid="frame-heading">{MYVIEW_WORDS.heading}</h3>
       <L t={view.collab.placeholder}>
-        <textarea data-testid="frame-text" className={`${FIELD} min-h-[56px]`} value={text} disabled={held} onChange={(e) => { setText(e.target.value); if (error) setError(null) }} />
+        <textarea data-testid="frame-text" className={`${FIELD} min-h-[56px]`} value={text} disabled={held} onChange={(e) => { mark(); setText(e.target.value); if (error) setError(null) }} />
       </L>
       <L t={head('question')}><textarea data-testid="frame-question" className={`${FIELD} min-h-[56px]`} maxLength={LIM.question} value={d.question} disabled={held} onChange={(e) => set({ question: e.target.value })} /></L>
       <L t={head('aim')}><textarea data-testid="frame-aim" className={`${FIELD} min-h-[56px]`} maxLength={LIM.aim} value={d.aim} disabled={held} onChange={(e) => set({ aim: e.target.value })} /></L>
-      <div className="grid gap-1" data-testid="frame-options">
-        <span className={`${META} text-text-header`}>{words.options ?? MYVIEW_WORDS.options}</span>
+      <div className="grid gap-2" data-testid="frame-options">
+        <span className={LABEL}>{words.options ?? MYVIEW_WORDS.options}</span>
         {rows.map((o, i) => (
-          <div key={i} className="grid gap-0.5">
+          <div key={i} className="grid gap-1">
             <input type="text" aria-label={`${head('options')} ${i + 1}`} data-testid={`frame-option-${i}`} className={FIELD} maxLength={LIM.option} value={o} disabled={held}
               onChange={(e) => set({ options: rows.map((x, j) => (j === i ? e.target.value : x)) })} />
             {/* Marked while it is still the shared model's own title; once reworded it is the person's own. */}
@@ -100,12 +109,12 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
         ))}
         {rows.length < LIM.options && <div><Button size="sm" variant="secondary" data-testid="frame-option-add" disabled={held} onClick={() => set({ options: [...rows, ''] })}>Add an option</Button></div>}
       </div>
-      <div className="grid gap-1.5" data-testid="frame-links">
-        <span className={`${META} text-text-header`}>{head('links')}</span>
+      <div className="grid gap-2" data-testid="frame-links">
+        <span className={LABEL}>{head('links')}</span>
         {d.links.map((l, i) => {
           const at = (p: Partial<FrameDraft['links'][number]>) => set({ links: d.links.map((x, j) => (j === i ? { ...x, ...p } : x)) })
           return (
-            <div key={i} className="grid gap-1" data-testid={`frame-link-${i}`}>
+            <div key={i} className="grid gap-2" data-testid={`frame-link-${i}`}>
               <input type="text" aria-label="From" placeholder="From" data-testid={`frame-link-${i}-from`} className={FIELD} value={l.from_label} disabled={held} onChange={(e) => at({ from_label: e.target.value })} />
               <input type="text" aria-label="To" placeholder="To" data-testid={`frame-link-${i}-to`} className={FIELD} value={l.to_label} disabled={held} onChange={(e) => at({ to_label: e.target.value })} />
               <input type="text" aria-label="In your words" placeholder="In your words" data-testid={`frame-link-${i}-words`} className={FIELD} maxLength={LIM.link_words} value={l.words} disabled={held} onChange={(e) => at({ words: e.target.value })} />
@@ -116,19 +125,26 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
       </div>
       {asking && (
         <div className={CARD} data-testid="frame-olumi-asks">
-          <p className={`${META} text-text-header`}><span data-testid="frame-olumi-asks-label">{MYVIEW_WORDS.asks}</span>: <span data-testid="frame-olumi-asks-prompt">{prompt}</span></p>
+          <p className={LABEL}><span data-testid="frame-olumi-asks-label">{MYVIEW_WORDS.asks}</span>: <span data-testid="frame-olumi-asks-prompt">{prompt}</span></p>
           <textarea aria-label={prompt ?? MYVIEW_WORDS.asks} data-testid="frame-olumi-ask" className={`${FIELD} min-h-[56px]`} value={ask} disabled={held} onChange={(e) => { setAsk(e.target.value); if (error) setError(null) }} />
-          <p className={`${META} flex items-center gap-1.5`} data-testid="frame-olumi-ask-private"><Lock aria-hidden="true" className="h-3 w-3 flex-none" />{MYVIEW_WORDS.askOnly}</p>
+          <p className={`${META} flex items-center gap-1.5`} data-testid="frame-olumi-ask-private"><Lock aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{MYVIEW_WORDS.askOnly}</p>
         </div>
       )}
       {words.note && <p className={META} data-testid="frame-note">{words.note}</p>}
-      <p className={`${META} flex items-center gap-1.5`} data-testid="frame-private-note"><Lock aria-hidden="true" className="h-3 w-3 flex-none" />{MYVIEW_WORDS.note}</p>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" data-testid="frame-give" disabled={held || words_ === '' || frame === null} onClick={() => void give()}>{view.team_words.views.give}</Button>
+      <p className={`${META} flex items-center gap-1.5`} data-testid="frame-private-note"><Lock aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{MYVIEW_WORDS.note}</p>
+      {stale && base !== null && (
+        <div className="grid gap-2" data-testid="frame-stale-base" role="status">
+          <p className={META}>{staleBaseWords(base, version)}</p>
+          <div><button type="button" data-testid="frame-use-current" disabled={held} onClick={() => setBase(version)}
+            className={`${META} inline-flex min-h-[24px] cursor-pointer items-center font-medium underline underline-offset-2 hover:text-text-body`}>Use version {version}</button></div>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" data-testid="frame-give" disabled={held || words_ === '' || frame === null || stale} onClick={() => void give()}>{view.team_words.views.give}</Button>
         <button type="button" data-testid="frame-close" disabled={held} onClick={() => setOpen(false)} className={`${META} inline-flex min-h-[24px] cursor-pointer items-center underline underline-offset-2 hover:text-text-body`}>Close</button>
         {!held && (words_ === '' ? <span className={META} data-testid="frame-give-why">Write your view first</span> : frame === null ? <span className={META} data-testid="frame-give-why">Say at least one part in your own words</span> : null)}
       </div>
-      {locked ? <p role="alert" data-testid="frame-error" className="text-danger m-0">{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="frame-error" className="text-danger m-0">{error}</p>}
+      {locked ? <p role="alert" data-testid="frame-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="frame-error" className={ERR}>{error}</p>}
     </div>
   )
 }
@@ -138,7 +154,7 @@ export function MyFrames({ view }: { view: View }): JSX.Element | null {
   const mine = view.collab.mine.filter((v) => !frameIsEmpty(frameOf(v)))
   if (mine.length === 0) return null
   return (
-    <div className="grid gap-1.5" data-testid="frame-mine">
+    <div className="grid gap-4" data-testid="frame-mine">
       {mine.map((v) => (
         <div key={v.id} className="grid gap-1" data-testid={`frame-mine-${v.id}`}>
           <p className={META}>{view.team_words.views.private}</p>

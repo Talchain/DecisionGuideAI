@@ -32,8 +32,8 @@ export function KeepIdea({ sid, turn, text }: { sid: string; turn: number; text:
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="view-keep-idea">
       <button type="button" disabled={state.s === 'busy' || past} onClick={() => void go()} title={past ? PAST_VERSION : KEEP_IDEA_HOVER} data-testid="view-keep-idea-button"
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed`}>
-        <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />{KEEP_IDEA}
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed`}>
+        <Lightbulb className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />{KEEP_IDEA}
       </button>
       {state.s === 'said' ? <span role="alert" className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-keep-idea-said">{state.said}</span> : null}
     </div>

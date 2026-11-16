@@ -20,9 +20,9 @@ export const SUMMARY_LOADING = 'Reading the Summary…'
 export const SUMMARY_FAILED = 'The Summary could not be read. Close it and try again.'
 
 const TAG_CLASS: Record<SummaryBlock['tag'], string> = {
-  h1: `${typography.viewPanelHeadline} text-text-header`,
-  h2: `${typography.panelHeader} mt-5 border-b border-panel-border pb-1 text-text-header`,
-  h3: `${typography.panelHeader} mt-3 text-text-header`,
+  h1: 'text-lg font-medium font-sans leading-snug text-text-header',
+  h2: `${typography.panelHeader} mt-6 border-b border-panel-border pb-2 text-text-header`,
+  h3: `${typography.viewPanelMeta} font-medium mt-4 text-text-header`,
   p: `${typography.viewPanelBody} text-text-body`,
   li: `${typography.viewPanelBody} text-text-body`,
   meta: `${typography.viewPanelMeta} text-text-light`,
@@ -46,9 +46,9 @@ function Block({ block, at }: { block: SummaryBlock; at: number }) {
 /** The Summary's document: every block core sent, in its order, each drawn as its parts say. */
 export function SummaryDocument({ summary }: { summary: Summary }) {
   return (
-    <article className="flex flex-col gap-1.5" data-testid="summary-document">
+    <article className="flex flex-col gap-2" data-testid="summary-document">
       {summaryGroups(summary.blocks).map((g) => (g.list
-        ? <ul key={g.first} className="ml-5 list-disc flex flex-col gap-1">{g.blocks.map((b, i) => <Block key={g.first + i} block={b} at={g.first + i} />)}</ul>
+        ? <ul key={g.first} className="ml-3 list-disc flex flex-col gap-1">{g.blocks.map((b, i) => <Block key={g.first + i} block={b} at={g.first + i} />)}</ul>
         : <Block key={g.first} block={g.blocks[0]!} at={g.first} />))}
     </article>
   )
@@ -81,24 +81,24 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
     if (!e.shiftKey && (here === last || !e.currentTarget.contains(here))) { e.preventDefault(); first.focus() }
     else if (e.shiftKey && (here === first || !e.currentTarget.contains(here))) { e.preventDefault(); last.focus() }
   }
-  const exportLink = 'inline-flex items-center gap-1.5 rounded-md border border-panel-border px-2.5 py-1.5 text-sm text-text-header hover:bg-panel-hover'
+  const exportLink = `inline-flex items-center gap-1.5 rounded-full border border-panel-border px-4 py-2 ${typography.viewPanelMeta} font-medium text-text-header hover:bg-panel-hover`
   return (
     <div role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={trap}
       className="fixed inset-0 z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="flex w-full max-w-[820px] flex-col rounded-lg border border-panel-border bg-panel shadow-panel">
-        <div className="flex items-center gap-2 border-b border-panel-border px-4 py-2.5">
-          <FileText size={14} aria-hidden="true" />
-          <span className="text-sm font-semibold text-text-header">{DECISION_BRIEF_TRIGGER_LABEL}</span>
+      <div className="flex w-full max-w-[820px] flex-col rounded-xl border border-panel-border bg-panel shadow-panel">
+        <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
+          <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
           <span className="flex-1" />
           {/* The exports only beside a Summary this page has read for its own person. */}
           {state !== null && 'summary' in state ? (
             <>
-              <a href={summaryPath(sid, readN, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
-              <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} strokeWidth={1.75} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} strokeWidth={1.75} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
             </>
           ) : null}
           <button ref={closeRef} type="button" onClick={onClose} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="summary-close">
-            <X size={14} aria-hidden="true" />
+            <X size={14} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
@@ -135,7 +135,7 @@ export function ViewSummaryTrigger({ className = '', tooltip = null }: { classNa
     <>
       <Tooltip content={tooltip}>
         <button ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
-          <FileText size={14} aria-hidden="true" />
+          <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </Tooltip>
       {open && createPortal(<SummaryPage sid={sid} at={at} onClose={close} />, document.body)}

@@ -303,17 +303,18 @@ export const typography = {
   viewTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3]',
   viewValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.3] tabular-nums',
   viewLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-[1.5]',
-  viewHeadline: 'text-[length:calc(18px*var(--canvas-label-scale,1))] font-semibold font-sans leading-[1.2] tabular-nums',
+  viewHeadline: 'text-[length:calc(18px*var(--canvas-label-scale,1))] font-medium font-sans leading-[1.2] tabular-nums',
   // R25 (Paul 7 Nov, scale A by role; PL 7 Nov: lane-only): the olumi-core lane's panel, chat and tabs. The shared panel*/chat* tokens
   // keep their legacy sizes for the legacy surfaces that read them.
-  viewPanelMeta: 'text-[12px] font-sans leading-snug',            // 12px — metadata
-  viewPanelBody: 'text-sm font-sans leading-relaxed',             // 14px — reading text, the chat included
-  viewPanelTabular: 'text-sm font-sans leading-relaxed tabular-nums', // 14px — numbers in columns
-  viewPanelHeadline: 'text-lg font-semibold font-sans leading-snug', // 18px — the sparing headline
+  viewPanelMeta: 'text-[12px] font-sans leading-4',               // 12/16 — metadata (V12 spec §1: secondary and meta, --text-light by the caller)
+  viewPanelHeading: 'text-xs font-medium font-sans leading-4',   // 12/500/16 — a block's one heading (colour --text-header by the caller)
+  viewPanelBody: 'text-xs font-sans leading-[18px]',              // 12/18 — reading text, the chat included (V12 spec §1, 16 Nov: 14px was too big for the panel)
+  viewPanelTabular: 'text-xs font-sans leading-[18px] tabular-nums', // 12/18 — numbers in columns
+  viewPanelHeadline: 'text-lg font-medium font-sans leading-snug', // 18/500 — the sparing headline (V12 spec §1: no 600)
   panelHeader: 'text-sm font-medium font-sans leading-snug',      // 14px/500 — section titles, winner name, key emphasis (Paul, 30 Sep: 600 dominated the panel)
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
-  chatMeta: 'text-xs font-sans leading-snug',                     // 12px — the AI chat panel's LABELS: badges, timestamps, captions, markers
+  chatMeta: 'text-xs font-sans leading-4',                     // 12px — the AI chat panel's LABELS: badges, timestamps, captions, markers
 
   /**
    * 12px + tabular figures — the panel's NUMERIC body.

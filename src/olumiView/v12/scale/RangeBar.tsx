@@ -7,7 +7,7 @@ import type { View, ViewCard, ViewModel } from '../../client'
 import { figureRange, linkRole } from '../contract'
 import { aimOf, axisOf, fmt, modelOf, pctOf } from './axis'
 
-const INK = 'var(--o-ink, #213238)', BLUE = 'var(--o-info, #1b7b88)', GOLD = 'var(--o-goal, #e9bc50)', LIGHT = 'var(--o-light, #687879)', TRACK = 'var(--o-track, #eee6d8)'
+const INK = 'var(--text-header)', BLUE = 'var(--info)', GOLD = 'var(--goal)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)'
 
 export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null }) {
   const range = figureRange(card)
@@ -27,7 +27,7 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
         <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
           style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: INK }} />
-        {range.likely !== null && <span data-testid="range-likely" style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: olumi ? BLUE : INK, border: '2px solid var(--o-panel, #fefefe)', left: `calc(${pctOf(axis, range.likely)}% - 5px)` }} />}
+        {range.likely !== null && <span data-testid="range-likely" style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: olumi ? BLUE : INK, border: '2px solid var(--bg-panel)', left: `calc(${pctOf(axis, range.likely)}% - 5px)` }} />}
         {deadline !== null && <span data-testid="range-deadline" style={{ position: 'absolute', top: 0, bottom: 0, borderLeft: `2px solid ${GOLD}`, left: `${pctOf(axis, deadline)}%` }} />}
         {t !== null && <span data-testid="range-tried" data-at={t} style={{ position: 'absolute', top: -2, bottom: -2, borderLeft: `2px dashed ${INK}`, left: `${pctOf(axis, t)}%` }} />}
       </div>

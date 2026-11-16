@@ -8,7 +8,7 @@ import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } from './writes'
 import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
-import { AVATAR, BODY, CARD, ERR, FIELD, H, META } from './ui'
+import { AVATAR, BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 import { sendDoubts, ViewDoubts } from './ViewDoubts'
 import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
@@ -163,7 +163,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           in words true whether or not anyone has shared yet (the DL's final text, 4 Nov). */}
       {view.gated && <p className={META} data-testid="team-revealed-held">{view.team_words.views.held}</p>}
       {!view.gated && c.shared.length > 0 && (
-        <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-revealed">
+        <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-revealed">
           {c.shared.map((v) => (
             <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
               <p className={`${BODY} text-text-header`}>{v.by}{stanceOf(v) !== null && (
@@ -195,10 +195,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
       {!view.gated && <WhereYouDiffer view={view} />}
 
       {c.mine.length > 0 && (
-        <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="team-mine">
+        <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-mine">
           {c.mine.map((v) => (
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
-              <p className={`${META} flex items-center gap-1.5 text-text-header`}><Lock aria-hidden="true" className="h-3 w-3 flex-none" />{view.team_words.views.private}</p>
+              <p className={`${LABEL} flex items-center gap-1.5`}><Lock strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none" />{view.team_words.views.private}</p>
               {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               {itemLines(v)}
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
@@ -220,7 +220,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
                   <Button size="sm" variant="secondary" data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
                     title={view.team_words.views.shareTitle}
                     onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
-                    <span className="inline-flex items-center gap-1.5"><Share2 aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}</span>
+                    <span className="inline-flex items-center gap-1.5"><Share2 strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}</span>
                   </Button>
                 </div>
               )}
@@ -245,8 +245,8 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
               const held = atCap && (typed[card.id] ?? '').trim() === ''
               return (
-              <label key={card.id} className={`${META} grid gap-0.5`} title={card.prompt}>
-                <span className="text-text-header">{card.label}</span>
+              <label key={card.id} className={`${META} grid gap-1`} title={card.prompt}>
+                <span className="font-medium text-text-header">{card.label}</span>
                 {/* D3: this card's own words for what to type (core's `figure.edit.prompt`: its unit and a range in its own scale), whole on
                     a line of its own: as a placeholder in the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov). */}
                 <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.prompt}</span>

@@ -16,5 +16,5 @@ export function methodOfSaid(view: View | null, said: string): { id: string; i: 
 }
 
 export function MethodMark({ id }: { id: string }): JSX.Element {
-  return <MessageCircleQuestion className="mr-1.5 inline h-3.5 w-3.5 flex-none align-text-bottom text-info" aria-hidden="true" data-testid="view-method-chip" data-method={id} />
+  return <MessageCircleQuestion className="mr-1.5 inline h-3.5 w-3.5 flex-none align-text-bottom text-text-light" strokeWidth={1.75} aria-hidden="true" data-testid="view-method-chip" data-method={id} />
 }

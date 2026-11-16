@@ -169,7 +169,8 @@ describe('"From my last reply"', () => {
     const card = render(<ViewComposer />).container.querySelector<HTMLElement>('[data-testid="view-last-reply-card"]')!
     expect(card).toHaveTextContent('From my last reply')
     expect(card.querySelector('[data-testid="view-last-reply-text"]')).toHaveTextContent(`${next.label} ${next.text.map((p) => ('text' in p ? p.text : '')).join('')}`)
-    expect(card.className).toMatch(/border-info/)
+    expect(card.className).toMatch(/border-panel-border/)
+    expect(card.className).not.toMatch(/border-info/)
   })
   it('is not drawn when the next has no words, or when there is no newest next', () => {
     const v = fixture('after-find-first')
