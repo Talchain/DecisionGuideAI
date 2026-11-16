@@ -11,7 +11,7 @@ import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
 import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
-import { resetDrafts } from '../../../../olumiCore/team/drafts'
+import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
 import { groupDifferences, groupOf, countDifferences } from '../differGroups'
 import { frameBody, frameOf, frameWordsOf, EMPTY_FRAME } from '../frame'
 import { FrameEntry, NOT_KEPT } from '../FrameEntry'
@@ -78,6 +78,30 @@ describe('the frame request', () => {
     fireEvent.click(screen.getByTestId('frame-give'))
     await waitFor(() => expect(all.filter((x) => x.method === 'POST')).toHaveLength(1))
     expect(all.find((x) => x.method === 'POST')!.body).toMatchObject({ version: 2 })
+  })
+  it('finding 15: an option row copied from the shared titles and never typed in is never sent as this member\'s own, even after the shared title is renamed', async () => {
+    const all = serve(() => ({ status: 201, body: { contribution: 4 } }))
+    const v1 = view()
+    const v2 = { ...v1, version: { ...v1.version!, n: 2 }, model: { ...v1.model!, cards: v1.model!.cards.map((c) => (c.family === 'option' ? { ...c, heading: `${c.heading} (renamed)` } : c)) } } as View
+    const { rerender } = render(<FrameEntry sid="s_x" view={v1} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    fireEvent.change(screen.getByTestId('frame-text'), { target: { value: 'My view' } })
+    fireEvent.change(screen.getByTestId('frame-question'), { target: { value: 'Grow or hold?' } })
+    rerender(<FrameEntry sid="s_x" view={v2} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-use-current'))
+    fireEvent.click(screen.getByTestId('frame-give'))
+    await waitFor(() => expect(all.filter((x) => x.method === 'POST')).toHaveLength(1))
+    const body = all.find((x) => x.method === 'POST')!.body as { version: number; frame: { options?: string[] } }
+    expect(body.version).toBe(2)
+    expect(body.frame.options ?? []).toEqual([])
+  })
+  it('finding 15: a draft with words but no recorded version is never bound to the latest silently; it asks for review first', () => {
+    putDraft<string>('s_x:viewframe:text', () => 'Words from before')
+    serve(() => ({ status: 201, body: { contribution: 4 } }))
+    render(<FrameEntry sid="s_x" view={view()} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('frame-open'))
+    expect(screen.getByTestId('frame-stale-base').textContent).toContain('before Olumi recorded which version')
+    expect((screen.getByTestId('frame-give') as HTMLButtonElement).disabled).toBe(true)
   })
   it('posts text, the current version and only the parts said, on the existing views route, with an op', async () => {
     const all = serve(() => ({ status: 201, body: { contribution: 4 } }))

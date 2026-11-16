@@ -56,3 +56,17 @@ describe("a first draft reply: core's own label and heading stand apart from the
     expect(container.querySelectorAll('[data-reply-para]')).toHaveLength(2)
   })
 })
+
+describe('a folded first answer never hides Olumi\'s check against the model', () => {
+  it('folds the first answer\'s later detail but keeps the heading and the check', async () => {
+    const { Blocks } = await import('../../../ViewChat')
+    const { FIRST_ANSWER_LABEL, CHECK_HEADING } = await import('../replyLabels')
+    const para = (n: number) => `Point ${n}. ` + 'This paragraph is long enough to take several lines of the panel at twelve pixels wide. '.repeat(2)
+    const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), para(4), CHECK_HEADING, 'Your model says something different about point three.'].join('\n\n')
+    const { container } = render(<Blocks parts={[{ text }]} at="t" fold />)
+    expect(container.querySelector('[data-reply-heading]')?.textContent).toBe(CHECK_HEADING)
+    expect(container.textContent).toContain('Your model says something different')
+    expect(container.textContent).not.toContain('Point 3.')
+    expect(container.querySelector('[data-testid="view-reply-fold"]')?.textContent).toBe('Show the whole first answer')
+  })
+})

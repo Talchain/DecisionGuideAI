@@ -22,6 +22,8 @@ import { FrameLines } from './FrameLines'
  *  draft to the current version themselves. Never a silent rebase. */
 export const staleBaseWords = (from: number, to: number): string =>
   `You wrote this against version ${from}. The model is now version ${to}. Your words are kept here: check them against version ${to}, then send.`
+export const unknownBaseWords = (to: number): string =>
+  `This draft was started before Olumi recorded which version it was for. Your words are kept here: check them against version ${to}, then send.`
 export const NOT_KEPT = 'Your words were saved, but this version of Olumi did not keep the parts. What you typed is still here.'
 
 /** Sprint-MyView board, fixed chrome (not about the scenario). */
@@ -44,6 +46,9 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
   const [d, setD, dropD] = useDraft<FrameDraft>(`${sid}:viewframe`, EMPTY_FRAME)
   // The version this draft is written against, fixed at the first keystroke (Codex 008, J3): a later version never relabels these words.
   const [base, setBase, dropBase] = useDraft<number | null>(`${sid}:viewframe:base`, null)
+  // Which option rows the person has typed in (Codex finding 15): a row copied from the shared model's titles and never touched stays a
+  // suggestion, whatever the shared titles later become; only a typed row is this person's own option.
+  const [authored, setAuthored, dropAuthored] = useDraft<boolean[]>(`${sid}:viewframe:authored`, [])
   const [open, setOpen] = useState(defaultOpen)
   const [ask, setAsk] = useState('')
   const [busy, setBusy] = useState(false)
@@ -62,19 +67,23 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
   const suggested = optionSuggestions(view, LIM.options)
   const rows = d.options.length > 0 ? d.options : suggested
   // The suggestions alone are not a view: a part the person wrote (or reworded) is what makes this a whole view. Silence is not agreement: an
-  // option row still exactly the shared model's own title is never sent as this person's position; only rows they typed or reworded go.
-  const own = rows.filter((o) => !suggested.includes(o))
+  // option row they never typed in is never sent as this person's position, even after the shared titles change (finding 15).
+  const own = rows.filter((o, i) => authored[i] === true && o.trim() !== '')
   const frame = frameBody(d, LIM) === null ? null : frameBody({ ...d, options: own }, LIM)
-  const mark = () => { if (base === null) setBase(version) }
-  const stale = base !== null && base !== version
+  // A draft with words but no recorded version (kept before versions were recorded) is never bound to the latest silently (finding 15).
+  const hasWords = text.trim() !== '' || d.question.trim() !== '' || d.aim.trim() !== '' || d.options.some((o) => o.trim() !== '') || d.links.length > 0
+  const unknownBase = base === null && hasWords
+  const mark = () => { if (base === null && !hasWords) setBase(version) }
+  const stale = (base !== null && base !== version) || unknownBase
+  const typedRow = (i: number) => setAuthored(rows.map((_, j) => j === i || authored[j] === true))
   const set = (p: Partial<FrameDraft>) => { mark(); setD({ ...d, options: rows, ...p }); if (error) setError(null) }
   // Olumi's own question (core's words) has its own private box; what is typed there goes with the view's words, private until the reveal.
   const prompt = view.collab.private_view_prompt
   const asking = nonEmpty(prompt)
   const words_ = [text.trim(), ask.trim()].filter((t) => t !== '').join('\n\n')
   const give = async () => {
-    if (frame === null || stale) return
-    const against = base ?? version
+    if (frame === null || stale || base === null) return
+    const against = base
     setBusy(true); setError(null)
     try {
       const saved = await runWrite(key, { op: true }, { text: words_, version: against, frame }, (op) => giveFrameView(sid, words_, against, frame, op))
@@ -82,7 +91,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
       // Kept only once core's own View shows the frame back: a 201 with no frame on the View means this core did not keep it, and what was typed stays.
       const mine = useViewStore.getState().view?.collab.mine
       if (mine !== undefined && !mine.some((v) => v.id === saved.contribution && !frameIsEmpty(frameOf(v)))) { setError(NOT_KEPT); return }
-      dropText(); dropD(); dropBase(); setAsk(''); setOpen(false)
+      dropText(); dropD(); dropBase(); dropAuthored(); setAsk(''); setOpen(false)
     } catch (e) { setError(e instanceof TeamApiError ? e.message : view.team_words.failed) } finally { setBusy(false) }
   }
   if (!open) {
@@ -102,9 +111,9 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
         {rows.map((o, i) => (
           <div key={i} className="grid gap-1">
             <input type="text" aria-label={`${head('options')} ${i + 1}`} data-testid={`frame-option-${i}`} className={FIELD} maxLength={LIM.option} value={o} disabled={held}
-              onChange={(e) => set({ options: rows.map((x, j) => (j === i ? e.target.value : x)) })} />
+              onChange={(e) => { typedRow(i); set({ options: rows.map((x, j) => (j === i ? e.target.value : x)) }) }} />
             {/* Marked while it is still the shared model's own title; once reworded it is the person's own. */}
-            {suggested.includes(o) && <span className={META} data-testid={`frame-option-${i}-from-model`}>{MYVIEW_WORDS.fromModel}</span>}
+            {authored[i] !== true && o.trim() !== '' && <span className={META} data-testid={`frame-option-${i}-from-model`}>{MYVIEW_WORDS.fromModel}</span>}
           </div>
         ))}
         {rows.length < LIM.options && <div><Button size="sm" variant="secondary" data-testid="frame-option-add" disabled={held} onClick={() => set({ options: [...rows, ''] })}>Add an option</Button></div>}
@@ -132,9 +141,9 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
       )}
       {words.note && <p className={META} data-testid="frame-note">{words.note}</p>}
       <p className={`${META} flex items-center gap-1.5`} data-testid="frame-private-note"><Lock aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{MYVIEW_WORDS.note}</p>
-      {stale && base !== null && (
+      {stale && (
         <div className="grid gap-2" data-testid="frame-stale-base" role="status">
-          <p className={META}>{staleBaseWords(base, version)}</p>
+          <p className={META}>{base === null ? unknownBaseWords(version) : staleBaseWords(base, version)}</p>
           <div><button type="button" data-testid="frame-use-current" disabled={held} onClick={() => setBase(version)}
             className={`${META} inline-flex min-h-[24px] cursor-pointer items-center font-medium underline underline-offset-2 hover:text-text-body`}>Use version {version}</button></div>
         </div>

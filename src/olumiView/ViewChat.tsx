@@ -127,21 +127,28 @@ export function Blocks({ parts, at, first = 1, item, fold = false }: { parts: Sa
     return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join('')) : null
   }
   const lead = groups.length > 0 && lineOf(groups[0]!) === 'label' ? 1 : 0
-  const folded = fold && !whole && groups.length > 2 + lead && est > 8
-  const shown = folded ? groups.slice(0, 2 + lead) : groups
+  // Olumi's check against the model (core's heading line) and everything after it always show: the fold hides only the first answer's later
+  // detail, never the model's check or correction of it (Codex, 16 Nov: a folded reply could show the unverified claim and hide its correction).
+  const check = groups.findIndex((g) => lineOf(g) === 'heading')
+  const head = check === -1 ? groups.length : check
+  const foldable = fold && head > 2 + lead && est > 8
+  const folded = foldable && !whole
+  const before = folded ? groups.slice(0, 2 + lead) : groups.slice(0, head), after = groups.slice(head)
+  const groupEl = (g: { list: boolean; lines: Piece[][] }, gi: number) => lineOf(g) === 'label'
+    ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+    : lineOf(g) === 'heading'
+    ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+    : (g.list
+    ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
+    : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>)
   return (
     <>
-      {shown.map((g, gi) => lineOf(g) === 'label'
-        ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
-        : lineOf(g) === 'heading'
-        ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
-        : (g.list
-        ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
-        : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>))}
-      {fold && groups.length > 2 + lead && est > 8
+      {before.map((g, gi) => groupEl(g, gi))}
+      {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? 'Show the whole reply' : 'Show less'}</button>
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (check === -1 ? 'Show the whole reply' : 'Show the whole first answer') : 'Show less'}</button>
         : null}
+      {after.map((g, gi) => groupEl(g, head + gi))}
     </>
   )
 }
