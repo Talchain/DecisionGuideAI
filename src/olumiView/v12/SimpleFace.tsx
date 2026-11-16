@@ -194,7 +194,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     body = (
       <div className="ok-unsized min-w-[7rem] flex-1" data-simple-face="pending" title={card.figure.title !== '' ? card.figure.title : card.figure.text}>
         <EmptyTrack testid={`${id}-empty-bar`} />
-        {card.figure.text === '' ? null : <p className="ok-caption ok-caption-one" data-simple-pending={id}>{card.figure.text}</p>}
+        {/* Where core sends the working, its operands are listed under the card (v12/cards/MadeOf): the one clipped "waits on …" line is not said twice. */}
+        {card.figure.text === '' || card.worked != null ? null : <p className="ok-caption ok-caption-one" data-simple-pending={id}>{card.figure.text}</p>}
       </div>
     )
   } else if (hasFigure) {
