@@ -30,7 +30,7 @@ describe('layers on the canvas', () => {
     render(<LayerCanvasStyle />)
     const c = css()!
     expect(c).not.toContain('opacity')
-    expect(c).toMatch(/data-id="existing_market_acquisitions"\]::after\{content:"Assumed".*var\(--o-info\)/)
-    expect(c).toMatch(/data-id="starting_customers"\]::after\{content:"No data"/)
+    expect(c).toMatch(/data-id="existing_market_acquisitions"\]::after\{content:"No attached evidence \(Olumi's\)".*var\(--o-info\)/)
+    expect(c).toMatch(/data-id="starting_customers"\]::after\{content:"No attached evidence"/)
   })
 })

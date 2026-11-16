@@ -33,7 +33,11 @@ export const isOlumis = (c: ViewCard): boolean => (c.author != null ? c.author.b
 export const figureCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure !== null && c.status === null)
 
 export type Basis = 'grounded' | 'challenged' | 'unclear' | 'assumed' | 'nodata'
-export const BASIS_LABEL: Record<Basis, string> = { grounded: 'Grounded', challenged: 'Challenged', unclear: 'Evidence unclear', assumed: 'Assumed', nodata: 'No data' }
+/**
+ * What each state says: only what is attached, never a judgement of its quality (Codex 006: "Grounded" claimed more than a stance count
+ * establishes). Authorship stays its own mark (the card's glyph); "(Olumi's)" only separates the two no-evidence groups in the lens list.
+ */
+export const BASIS_LABEL: Record<Basis, string> = { grounded: 'Has supporting evidence', challenged: 'Has challenging evidence', unclear: 'Evidence unclear', assumed: "No attached evidence (Olumi's)", nodata: 'No attached evidence' }
 export const BASIS_ORDER: readonly Basis[] = ['grounded', 'challenged', 'unclear', 'assumed', 'nodata']
 
 /**
