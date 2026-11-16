@@ -359,7 +359,7 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
           {/* R25 (Paul's 6 Nov test: "I can't find manual editing"): wherever core offers an edit, the ✎ shows at rest as the cue, on the
               figure's own line (J1 gate); its words are its label and hover (never a line that appears: DL 9 Nov, the face never changes
               height). Never hidden, so an open editor or its Set button can never be hidden either (R4 witness run 3). */}
-          {card.figure.edit ?? keptEdit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit ?? keptEdit ?? null} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+          {card.figure.edit ?? keptEdit ? <span data-figure-edit-wrap=""><FigureEdit id={card.id} edit={card.figure.edit ?? keptEdit ?? null} glyph label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
             // While a proposal is held core offers no edit: ✎ offers to set it aside and edit (R25), on a figure the approved model has
             // that the person sets (never an outcome core works out from others, which core never offers to edit).
             : card.change?.kind !== 'added' && kind !== 'outcome' ? <span data-figure-edit-wrap=""><HeldEditOffer id={card.id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null}

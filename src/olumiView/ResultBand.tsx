@@ -30,7 +30,7 @@ export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
       <i className="ok-mark-chance" data-chance-mark={id} style={{ left: `${at * 100}%` }} />
       {/* `hidden` at rest (never on the card face, whatever the cascade); olumiLook.css shows it while the track is hovered or focused. Not a
           span, so the track's `> span` (the fill) rule can never reach it. */}
-      {words === null ? null : <small className="ok-range-tip" hidden aria-hidden="true" data-view={`${id}.headline.range`} data-range-caption={id}>{words}</small>}
+      {words === null ? null : <small className="ok-range-tip ok-pop" hidden aria-hidden="true" data-view={`${id}.headline.range`} data-range-caption={id}>{words}</small>}
     </span>
   )
 }
@@ -58,7 +58,7 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
           line is the button's title, and pressing it opens Rests on, which draws every entry's line whole (restsOf). */}
       <span data-rests-neutral={card.id}>{NEUTRAL_REST_WORDS}</span>
     </button>
-    {open && whole ? <p className="ok-share-said nodrag nopan" role="note" data-rests-said={card.id}>{whole}</p> : null}
+    {open && whole ? <p className="ok-pop nodrag nopan" role="note" data-rests-said={card.id}>{whole}</p> : null}
     </span>
   )
 }

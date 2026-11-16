@@ -34,7 +34,7 @@ describe('an open figure editor stays visible, whether or not its card is hovere
   // until hover, focus or selection. The wrapper carries no hiding rule, so the open editor and its Set can never be hidden (R4 run 3).
   it('the card neither hovered nor selected: the ✎ glyph is drawn at rest, opens the editor, and nothing wraps Set in a hiding rule', () => {
     render(<ViewCard card={card} selected={false} />)
-    expect(screen.getByTestId(`view-figure-glyph-${card.id}`).textContent).toBe('✎')
+    expect(screen.getByTestId(`view-figure-glyph-${card.id}`).getAttribute('data-icon')).toBe('edit')
     const wrap = screen.getByTestId(`view-figure-edit-${card.id}`).closest<HTMLElement>('[data-figure-edit-wrap]')!
     expect(wrap.className).toBe('')
     fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))

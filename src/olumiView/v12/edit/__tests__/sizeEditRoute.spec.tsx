@@ -10,7 +10,7 @@ import { RISK_EDIT, SID, install, uninstall, type Stub } from './harness'
 let stub: Stub
 beforeEach(() => { stub = install() })
 afterEach(() => { cleanup(); uninstall() })
-const mount = (edit: Parameters<typeof FigureEdit>[0]['edit']) => render(<ToastProvider><FigureEdit id="slow_ramp" edit={edit} glyph="✎" words={false} label="Change figure" /></ToastProvider>)
+const mount = (edit: Parameters<typeof FigureEdit>[0]['edit']) => render(<ToastProvider><FigureEdit id="slow_ramp" edit={edit} glyph words={false} label="Change figure" /></ToastProvider>)
 
 describe('FigureEdit with core\'s size edit', () => {
   it('a risk\'s chance posts to /size with {record, chance}, never to /edit', async () => {

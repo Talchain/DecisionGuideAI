@@ -15,6 +15,7 @@ import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { shownModel, useViewStore } from './store'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from './whatif'
+import { InfoIcon } from './ds/icons'
 import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
 import { mostLikelyBasisOf } from './standin'
@@ -148,7 +149,7 @@ function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['
   return (
     <div title={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
       <span data-view="run.most_likely.text">{ml.text}</span>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
-      {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${card.heading}`} /></>}
+      {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph words={false} label={`Give your figure for ${card.heading}`} /></>}
     </div>
   )
 }
@@ -259,7 +260,7 @@ function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
         {l.figure?.mark == null ? null : <> <span title={l.figure.mark.title} aria-label={l.figure.mark.title} data-view={`run.science.${i}.figure.mark.glyph`}>{l.figure.mark.glyph}</span></>}
       </p>
       {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
-      {l.figure?.give == null ? null : <div className={typography.viewPanelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
+      {l.figure?.give == null ? null : <div className={typography.viewPanelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
     </div>
   )
 }
@@ -449,7 +450,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
         <span className="font-medium" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
       </p>
       <span role="img" aria-label={row.rationale} title={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
-        className={`${typography.viewPanelMeta} shrink-0 cursor-help`}>ⓘ</span>
+        className={`${typography.viewPanelMeta} shrink-0 cursor-help text-text-light`}><InfoIcon /></span>
     </div>
   )
   return (

@@ -82,7 +82,7 @@ function Operand({ s, option, coefficient = false }: { s: Omit<CoreStep, 'role'>
       <span className="ok-step-name" data-step-coefficient={coefficient ? editId : undefined}>{s.label}</span>{' '}
       <b data-step-coefficient-figure={coefficient ? '' : undefined} title={coefficient ? fig.title : undefined}>{fig.text}</b>
       {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title} data-step-by={author.by}> · {author.text}</span>}
-      {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></>}
+      {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph label="Change figure" words={false} /></span></>}
     </>
   )
 }
@@ -140,7 +140,7 @@ export function WorkedSteps({ view, id, mine, option, open }: { view: View; id: 
                   <span className="ok-step-name">{from?.heading ?? link.from}</span>{' '}
                   <b className="font-medium">{base ? from?.figure?.text ?? '' : effect?.text ?? ''}</b>
                   {mark === null ? null : <span className={`ok-step-by ${mark.olumi ? 'ok-by-olumi' : ''}`}> · {mark.text}</span>}
-                  {own !== null && edit != null ? <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={own.id} edit={edit} place="view-step" glyph="✎" label="Change figure" words={false} /></span></> : null}
+                  {own !== null && edit != null ? <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={own.id} edit={edit} place="view-step" glyph label="Change figure" words={false} /></span></> : null}
                 </li>
               )
             })}

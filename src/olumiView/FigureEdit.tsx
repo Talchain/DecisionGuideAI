@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { tryWhatIf } from './whatif'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
+import { EditIcon } from './ds/icons'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
@@ -26,7 +27,7 @@ import { SizeEditButton } from './v12/edit/SizeEditButton'
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). Hidden by
  *  visibility, never dimmed: nothing is drawn at a lowered opacity at rest (V12 refinement spec). */
 export const QUIET = 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
-/** With a `glyph` the glyph is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
+/** With `glyph` the pencil (ds/icons EditIcon) is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
 export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 
 /**
@@ -74,7 +75,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   }
   if (!open) return (
     <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => setOpen(true)} aria-label={`${label}: ${ASIDE_WORDS.offer}`} title={ASIDE_WORDS.offer}
-      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><span aria-hidden="true">✎</span></button>
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
   )
   return (
     <div className="nodrag nopan grid gap-1" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
@@ -110,7 +111,7 @@ export async function setFigure(sid: string, base: number, id: string, typed: st
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: string; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -176,7 +177,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={openNow} aria-label={label} title={edit.ask}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
-          <span aria-hidden="true" data-testid={`${place}-glyph-${id}`}>{glyph}</span>
+          <EditIcon testid={`${place}-glyph-${id}`} />
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         {/* S1 (Paul's "do now", 11 Nov): core's lead ends on the control ("Give your figure with ✎"); no stop of the UI's after it. */}
         </button></span>

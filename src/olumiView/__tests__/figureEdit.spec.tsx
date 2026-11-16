@@ -112,7 +112,7 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     expect(give.getAttribute('aria-label')).toBe('Give yours')
     expect(give.className).not.toContain(QUIET)
     const glyph = a.querySelector(`[data-testid="view-figure-glyph-${est.id}"]`)!
-    expect(glyph.textContent).toBe('✎')
+    expect([glyph.tagName.toLowerCase(), glyph.getAttribute('data-icon'), glyph.textContent]).toEqual(['svg', 'edit', ''])
     expect(glyph.className).not.toContain('opacity-0')
     expect(a.querySelector(`[data-testid="view-figure-words-${est.id}"]`)).toBeNull()
     a.remove()
@@ -123,7 +123,7 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     const b = render(<ViewCard card={theirs} />).container
     expect(b.querySelector(`[data-view="${theirs.id}.figure.text"]`)?.hasAttribute('data-olumi')).toBe(false)
     expect(b.querySelector(`[data-testid="view-figure-edit-${theirs.id}"]`)?.getAttribute('aria-label')).toBe('Change figure')
-    expect(b.querySelector(`[data-testid="view-figure-glyph-${theirs.id}"]`)?.textContent).toBe('✎')
+    expect(b.querySelector(`[data-testid="view-figure-glyph-${theirs.id}"]`)?.getAttribute('data-icon')).toBe('edit')
   })
 })
 
@@ -189,7 +189,8 @@ describe('worth checking first: the line\'s figure given with its ✎, as core\'
   it('a figure core gives: core\'s words, then the ✎ named for the figure, then the card\'s own edit, by the figure\'s id', async () => {
     const c = render(<ViewChances model={view.model!} />).container
     const give = c.querySelector<HTMLElement>(`[data-testid="worth-give-${fig.id}"]`)!
-    expect(give.textContent).toBe(`${fig.give!.text} ✎`) // S1 (Paul 11 Nov): no stop of the UI's after the ✎
+    expect(give.textContent).toBe(`${fig.give!.text} `) // S1 (Paul 11 Nov): no stop of the UI's after the edit icon
+    expect(give.querySelector('[data-icon="edit"]')).not.toBeNull()
     const btn = screen.getByTestId(`worth-edit-${fig.id}`)
     expect(btn.getAttribute('aria-label')).toBe(`Change ${fig.label}`)
     expect(btn.getAttribute('title')).toBe(fig.give!.edit.ask)
@@ -227,7 +228,7 @@ describe('the most likely line that rests on Olumi\'s estimate: its ✎ is that 
     expect(c.querySelector('[data-view="run.most_likely.text"]')?.textContent).toBe(ml.text)
     const btn = screen.getByTestId(`likely-edit-${est.id}`)
     expect(btn.getAttribute('aria-label')).toBe(`Give your figure for ${est.heading}`)
-    expect(btn.textContent).toBe('✎')
+    expect([btn.textContent, btn.querySelector('[data-icon="edit"]') !== null]).toEqual(['', true])
     fireEvent.click(btn)
     fireEvent.change(screen.getByTestId(`likely-typed-${est.id}`), { target: { value: '40' } })
     fireEvent.click(screen.getByTestId(`likely-set-${est.id}`))

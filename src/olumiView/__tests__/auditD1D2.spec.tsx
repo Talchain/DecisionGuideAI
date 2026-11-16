@@ -34,7 +34,7 @@ describe('D1: the lens bar and the Strategy Overview', () => {
 describe('D2: the figure editor on a card', () => {
   it('D2a catch: on a card the editor is a panel out of the card\'s flow; each of its buttons stays on one line', () => {
     useViewStore.setState({ view, sid: view.id })
-    render(<FigureEdit id={card.id} edit={card.figure!.edit!} glyph="✎" words={false} />)
+    render(<FigureEdit id={card.id} edit={card.figure!.edit!} glyph words={false} />)
     act(() => { fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`)) })
     const form = screen.getByTestId(`view-figure-form-${card.id}`)
     expect(form.className).toMatch(/\babsolute\b/)
@@ -44,7 +44,7 @@ describe('D2: the figure editor on a card', () => {
   })
   it('D2b must not change: the same editor elsewhere (the dock\'s most-likely line) stays in place', () => {
     useViewStore.setState({ view, sid: view.id })
-    render(<FigureEdit id={card.id} edit={card.figure!.edit!} place="likely" glyph="✎" words={false} />)
+    render(<FigureEdit id={card.id} edit={card.figure!.edit!} place="likely" glyph words={false} />)
     act(() => { fireEvent.click(screen.getByTestId(`likely-edit-${card.id}`)) })
     expect(screen.getByTestId(`likely-form-${card.id}`).className).not.toMatch(/\babsolute\b/)
   })

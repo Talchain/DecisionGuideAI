@@ -80,7 +80,8 @@ describe('Analysis in the previous PoC\'s sections', () => {
     // R25 scale A (Paul 7 Nov): the lane's metadata role, 12px (was the shared 11px panelMeta).
     expect([line.parentElement!.contains(give), block !== null, block.className.includes(typography.viewPanelMeta)]).toEqual([false, true, true])
     expect(block.previousElementSibling).toBe(line.parentElement)
-    expect(block.textContent).toBe(`${worth.figure!.give!.text} ✎`) // S1 (Paul 11 Nov): core's words end on the ✎, no stop of the UI's after it
+    expect(block.textContent).toBe(`${worth.figure!.give!.text} `) // S1 (Paul 11 Nov): core's words end on the edit icon, no stop of the UI's after it
+    expect(block.querySelector('[data-icon="edit"]')).not.toBeNull() // the one Lucide pencil (ds/icons), never a text glyph
   })
   it('two worth lines or fewer: no "+N more"', () => {
     const c = render(<ViewChances model={base} />).container

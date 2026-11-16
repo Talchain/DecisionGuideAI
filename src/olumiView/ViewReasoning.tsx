@@ -132,7 +132,7 @@ export function ViewReasoning({ model, brief = null, stated = false }: { model: 
           {settable.map((c) => (
             <div key={c.id} className="group" title={c.figure!.text} data-reasoning-try={c.id}>
               <span data-view={`${c.id}.heading`}>{c.heading}</span>{' '}
-              <FigureEdit id={c.id} edit={c.figure!.edit} place="reasoning" glyph="✎" quiet label="Try a figure" tab="analysisNew" primary="try" />
+              <FigureEdit id={c.id} edit={c.figure!.edit} place="reasoning" glyph quiet label="Try a figure" tab="analysisNew" primary="try" />
             </div>
           ))}
         </SectionRow>

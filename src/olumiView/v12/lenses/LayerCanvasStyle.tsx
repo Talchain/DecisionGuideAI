@@ -28,7 +28,7 @@ export function layerCss(
   const card = (id: string) => `.olumi-look ${node(id)} [role='group'][aria-label][aria-label][aria-label][aria-label]`
   const tag = (id: string, text: string, info: boolean) => out.push(
     `${card(id)}{padding-bottom:22px!important;position:relative}`,
-    `${card(id)}::after{content:${q(text)};position:absolute;left:12px;right:12px;bottom:5px;font-size:12px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${info ? 'var(--o-info)' : 'var(--o-body)'};pointer-events:none}`,
+    `${card(id)}::after{content:${q(text)};position:absolute;left:12px;right:12px;bottom:5px;font-size:12px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${info ? 'var(--info)' : 'var(--o-body)'};pointer-events:none}`,
   )
   for (const [id, text] of m.tags) tag(id, text, false)
   for (const [id, b] of m.basis) tag(id, BASIS_LABEL[b], b === 'assumed')

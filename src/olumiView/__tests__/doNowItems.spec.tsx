@@ -40,7 +40,8 @@ describe('S1: no stop of the UI\'s after the ✎', () => {
     expect(figs.length, 'precondition: core offers a give').toBeGreaterThan(0)
     for (const f of figs) {
       const give = document.querySelector<HTMLElement>(`[data-find-out-give="${f.id}"] [data-testid="worth-give-${f.id}"]`)!
-      expect(give.textContent, f.id).toBe(`${f.give!.text} ✎`)
+      expect(give.textContent, f.id).toBe(`${f.give!.text} `)
+      expect(give.querySelector('[data-icon="edit"]'), f.id).not.toBeNull()
     }
   })
 })

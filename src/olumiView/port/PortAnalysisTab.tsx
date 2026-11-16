@@ -49,7 +49,7 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
         waitsBelow={(run?.waits_on?.items ?? []).some((it) => it.text !== '')}
         nextBelow
         tippingBelow
-        mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place="likely" glyph="✎" words={false} label={`Give your figure for ${mlCard.heading}`} />}
+        mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place="likely" glyph words={false} label={`Give your figure for ${mlCard.heading}`} />}
       >
         <GoalChanceRangeLines model={model} />
         {/* The disclosure keeps only what no section below draws: the trade-offs (`run.compared`). */}
@@ -59,12 +59,12 @@ export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: 
         model={model}
         chat={chat}
         nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
-        waitAction={(it) => (it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph="✎" words={false} label={`Give your figure for ${it.text}`} />)}
+        waitAction={(it) => (it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph words={false} label={`Give your figure for ${it.text}`} />)}
       />
       <Strengthen
         model={model}
-        giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph="✎" words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
-        findOutGive={(f) => (f.give == null ? null : <FigureEdit id={f.id} edit={f.give.edit} place="worth" glyph="✎" words={false} lead={f.give.text} label={`Change ${f.label}`} />)}
+        giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
+        findOutGive={(f) => (f.give == null ? null : <FigureEdit id={f.id} edit={f.give.edit} place="worth" glyph words={false} lead={f.give.text} label={`Change ${f.label}`} />)}
       />
       <YourOptions model={model} />
       <WhatWouldChange model={model} />

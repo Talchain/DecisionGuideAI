@@ -278,7 +278,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
   // "a stray pencil glyph on a row of its own").
   const editCue = card === null || card.figure === null ? null : edit !== null
-    ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><FigureEdit id={id} edit={edit} glyph="✎" label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
+    ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><FigureEdit id={id} edit={edit} glyph label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
     : card.change?.kind !== 'added' && kind !== 'outcome'
       ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text

@@ -52,7 +52,7 @@ function RestsFigures({ line, i, heading, model }: { line: RestsLine; i: number;
           </div>
           {f.give === null ? null : (
             <div className={`${TYPE.meta} text-text-light`} data-testid="port-rests-figure-give">
-              <FigureEdit id={f.id} edit={f.give.edit} place="rests" glyph="✎" words={false} lead={f.give.text} label={`${f.give.text}: ${f.label}`} />
+              <FigureEdit id={f.id} edit={f.give.edit} place="rests" glyph words={false} lead={f.give.text} label={`${f.give.text}: ${f.label}`} />
             </div>
           )}
         </div>
