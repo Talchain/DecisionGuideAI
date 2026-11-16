@@ -35,7 +35,7 @@ export const FIGURE_FIRST_CLOSED = { entry: null, said: null, reading: false, si
 export const useFigureFirst = create<FigureFirstState>()(() => ({ uuid: null, signature: null, entry: null, headings: null, shown: null, said: null, reading: false, typed: '', text: '' }))
 
 const CLOSE = 'inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
-const FIELD = `${typography.viewPanelBody} block w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
+const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 
 /**
  * The blind entry, in core's words: its heading, question, what the figure feeds, the ask (the label of the box the figure is typed in, sent
@@ -63,7 +63,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
               <textarea aria-labelledby="view-ff-question" rows={2} value={text} disabled={busy} className={`${FIELD} resize-none`} data-testid="view-figure-first-text"
                 onChange={(e) => useFigureFirst.setState({ text: e.target.value, said: null })} />
               <button type="submit" disabled={busy || typed.trim() === '' || text.trim() === ''} aria-label="Send" title="Send" data-testid="view-figure-first-send"
-                className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed">
+                className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
                 <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
@@ -138,7 +138,7 @@ export function FigureFirstSideBySide({ given, headings }: { given: FigureFirstG
             ? <span className="absolute top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-text-body" style={{ left: `${axis.theirs.from}%` }} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />
             : <span className="absolute top-2 h-2 min-w-[2px] rounded-full bg-text-body" style={bar(axis.theirs)} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />}
           <span className="absolute bottom-2 h-2 min-w-[2px] rounded-full bg-info" style={bar(axis.olumi)} data-axis="olumi" data-from={axis.olumi.from} data-to={axis.olumi.to} />
-          {axis.likely === null ? null : <span className="absolute bottom-1.5 h-3 w-0.5 -translate-x-1/2 rounded bg-text-body" style={{ left: `${axis.likely}%` }} data-axis="likely" data-from={axis.likely} />}
+          {axis.likely === null ? null : <span className="absolute bottom-1.5 h-3 w-0.5 -translate-x-1/2 rounded-sm bg-text-body" style={{ left: `${axis.likely}%` }} data-axis="likely" data-from={axis.likely} />}
         </div>
         <div className="space-y-0.5">
           <p className={`${typography.chatMeta} text-text-light`} data-ff="headings.basis">{headings.basis}</p>

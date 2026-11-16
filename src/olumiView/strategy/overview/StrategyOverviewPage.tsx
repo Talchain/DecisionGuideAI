@@ -17,7 +17,7 @@ const SHAPE: Record<Family, string> = {
   risk: 'bg-danger [clip-path:polygon(4%_10%,96%_10%,50%_95%)]',
   item: 'border border-panel-border bg-canvas rounded-full',
 }
-const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.viewPanelMeta} font-semibold leading-none text-text-body`
+const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-center rounded-full border border-panel-border bg-canvas ${typography.viewPanelMeta} font-medium leading-none text-text-body`
 
 /** Each holder as a disc with their initial; Olumi as a disc with Olumi's mark (the board's `who ol`), never a letter. */
 function Holders({ holders }: { holders: Holder[] }): JSX.Element {

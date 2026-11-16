@@ -52,7 +52,7 @@ export function byPerson(shared: readonly Shared[]): { by_id: string; by: string
 /** One person as a column: their name, then each of their views as its own record, separated by a hairline. */
 function Person({ p }: { p: { by_id: string; by: string; views: Shared[] } }): JSX.Element {
   return (
-    <section className="grid content-start gap-3 rounded-xl border border-panel-border bg-panel p-4" data-testid={`compare-person-${p.by_id}`} data-by={p.by_id} aria-label={p.by}>
+    <section className="grid content-start gap-3 rounded-md border border-panel-border bg-panel p-4" data-testid={`compare-person-${p.by_id}`} data-by={p.by_id} aria-label={p.by}>
       <h3 className={`${typography.viewPanelBody} m-0 font-medium text-text-header`} data-testid={`compare-person-${p.by_id}-name`}>{p.by}</h3>
       {p.views.map((v, i) => <div key={v.id} className={i === 0 ? '' : 'border-t border-panel-border pt-3'}><ViewBody v={v} /></div>)}
     </section>

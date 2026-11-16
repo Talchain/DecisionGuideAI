@@ -78,7 +78,7 @@ export function HeroEvidenceDisclosure({ model, defaultOpen = false, giveAction,
   return (
     <div className="pt-1" data-testid="port-evidence-disclosure">
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="port-evidence-toggle"
-        className="flex w-full items-center gap-2 rounded px-1 py-1.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
+        className="flex w-full items-center gap-2 rounded-sm px-1 py-1.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
         {/* One view left (the tab's own sections draw the rest): the toggle says that view's own name, never a wider promise. */}
         <span className={`${TYPE.body} min-w-0 flex-1 font-medium text-text-header`} data-view={views.length === 1 ? views[0]!.view : undefined}>{views.length === 1 ? views[0]!.label : 'Why and what could change it'}</span>
         <ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 flex-none text-text-light transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />

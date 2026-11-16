@@ -1,0 +1,8 @@
+/* One offence per V12 stylesheet rule; font-size: 16px in a comment is not scanned. */
+.a { font-size: 16px; }
+.b { font-weight: 600; }
+.c { font-family: serif; }
+.d { color: rgba(0, 0, 0, 0.5); }
+.e { color: #123456; }
+.f { border-radius: 4px; }
+.ok { font-size: 12px; font-weight: 500; border-radius: 12px; color: var(--x, #fff); }

@@ -77,10 +77,10 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
       <label htmlFor={`inspector-figure-${card.id}`} className={`${typography.viewPanelMeta} font-medium text-text-header`} title={edit.ask}>{INSPECTOR_WORDS.yourFigure}: {edit.prompt}</label>
       <input id={`inspector-figure-${card.id}`} data-testid="inspector-figure-typed" autoComplete="off" spellCheck={false} value={typed} disabled={busy}
         onChange={(e) => { setTyped(e.target.value); if (note !== null) setNote(null) }}
-        className="rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />
+        className="rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />
       {note === null ? null : <p role={note.ok ? 'status' : 'alert'} data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} ${note.ok ? 'text-text-body' : 'text-danger'}`}>{note.text}</p>}
       <button type="submit" data-testid="inspector-figure-set" disabled={busy || typed.trim() === '' || base === null}
-        className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded border border-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
+        className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
         {isOlumis(card) ? INSPECTOR_WORDS.changeOlumi : INSPECTOR_WORDS.change}</button>
     </form>
   )
@@ -95,7 +95,7 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
   if (model === null || card.figure === null) return null
   const r = figureRange(card)
   const canTry = triableCards(model).some((c) => c.id === card.id)
-  const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded border border-border px-2 text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
+  const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
   return (
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}

@@ -4760,6 +4760,255 @@
           "sample": "icon: '⚠',"
         }
       }
+    },
+    "v12-scale-tsx": {
+      "mode": "ratchet",
+      "description": "V12 surfaces off the design-system scale (size 12/14/18, weight 400/500, Inter, token colour, token radius, Lucide)",
+      "total": 41,
+      "byFile": {
+        "src/olumiView/v10.tsx": 8,
+        "src/olumiView/ViewChances.tsx": 6,
+        "src/olumiView/port/PortAnalysisTab.tsx": 4,
+        "src/olumiView/v12/scale/OutcomeStrips.tsx": 3,
+        "src/olumiView/ViewLegend.tsx": 2,
+        "src/olumiView/look/WorkedSteps.tsx": 2,
+        "src/olumiView/port/LensTabs.tsx": 2,
+        "src/olumiView/v12/scale/RangeBar.tsx": 2,
+        "src/olumiView/FigureEdit.tsx": 1,
+        "src/olumiView/RevealDock.tsx": 1,
+        "src/olumiView/ViewPreMortemKey.tsx": 1,
+        "src/olumiView/ViewReasoning.tsx": 1,
+        "src/olumiView/ViewTradeOffsKey.tsx": 1,
+        "src/olumiView/ViewWelcome.tsx": 1,
+        "src/olumiView/ViewWhatIfKey.tsx": 1,
+        "src/olumiView/port/ChatFloat.tsx": 1,
+        "src/olumiView/port/StressTest.tsx": 1,
+        "src/olumiView/previous/CoreCard.tsx": 1,
+        "src/olumiView/research/FindEvidence.tsx": 1,
+        "src/olumiView/v12/scale/ConditionalBar.tsx": 1
+      },
+      "signatures": {
+        "v12-scale-tsx :: src/olumiView/FigureEdit.tsx :: glyph: ✎": {
+          "count": 1,
+          "file": "src/olumiView/FigureEdit.tsx",
+          "token": "glyph: ✎",
+          "sample": "className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-l"
+        },
+        "v12-scale-tsx :: src/olumiView/RevealDock.tsx :: radius: rounded-2xl": {
+          "count": 1,
+          "file": "src/olumiView/RevealDock.tsx",
+          "token": "radius: rounded-2xl",
+          "sample": "<div className=\"grid gap-2 rounded-2xl bg-panel-hover p-3\" data-testid=\"reveal-dock-foot\">"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: glyph: ✎": {
+          "count": 2,
+          "file": "src/olumiView/ViewChances.tsx",
+          "token": "glyph: ✎",
+          "sample": "{card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place=\"likely\" glyph=\"✎\" words={false}"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: radius: borderRadius: 4": {
+          "count": 1,
+          "file": "src/olumiView/ViewChances.tsx",
+          "token": "radius: borderRadius: 4",
+          "sample": "const dot = { position: 'absolute', top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4, borderRadius: 4 } as"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: radius: borderRadius: 2": {
+          "count": 2,
+          "file": "src/olumiView/ViewChances.tsx",
+          "token": "radius: borderRadius: 2",
+          "sample": "<div className=\"relative\" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: glyph: ⓘ": {
+          "count": 1,
+          "file": "src/olumiView/ViewChances.tsx",
+          "token": "glyph: ⓘ",
+          "sample": "className={`${typography.viewPanelMeta} shrink-0 cursor-help`}>ⓘ</span>"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewLegend.tsx :: colour: rgba(1": {
+          "count": 2,
+          "file": "src/olumiView/ViewLegend.tsx",
+          "token": "colour: rgba(1",
+          "sample": "<span aria-hidden=\"true\" className=\"relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(13"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewPreMortemKey.tsx :: radius: rounded-[20px]": {
+          "count": 1,
+          "file": "src/olumiView/ViewPreMortemKey.tsx",
+          "token": "radius: rounded-[20px]",
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewReasoning.tsx :: glyph: ✎": {
+          "count": 1,
+          "file": "src/olumiView/ViewReasoning.tsx",
+          "token": "glyph: ✎",
+          "sample": "<FigureEdit id={c.id} edit={c.figure!.edit} place=\"reasoning\" glyph=\"✎\" quiet label=\"Try a figure\" tab=\"analysisNew\" pri"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewTradeOffsKey.tsx :: radius: rounded-[20px]": {
+          "count": 1,
+          "file": "src/olumiView/ViewTradeOffsKey.tsx",
+          "token": "radius: rounded-[20px]",
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewWelcome.tsx :: radius: rounded-2xl": {
+          "count": 1,
+          "file": "src/olumiView/ViewWelcome.tsx",
+          "token": "radius: rounded-2xl",
+          "sample": "<div className=\"w-full rounded-2xl border border-panel-border bg-panel shadow-sm\"><ViewComposer /></div>"
+        },
+        "v12-scale-tsx :: src/olumiView/ViewWhatIfKey.tsx :: radius: rounded-[20px]": {
+          "count": 1,
+          "file": "src/olumiView/ViewWhatIfKey.tsx",
+          "token": "radius: rounded-[20px]",
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+        },
+        "v12-scale-tsx :: src/olumiView/look/WorkedSteps.tsx :: glyph: ✎": {
+          "count": 2,
+          "file": "src/olumiView/look/WorkedSteps.tsx",
+          "token": "glyph: ✎",
+          "sample": "{edit == null ? null : <>{' '}<span className=\"ok-edit\" data-figure-edit-wrap=\"\"><FigureEdit id={editId} edit={edit} pla"
+        },
+        "v12-scale-tsx :: src/olumiView/port/ChatFloat.tsx :: radius: borderRadius: 10": {
+          "count": 1,
+          "file": "src/olumiView/port/ChatFloat.tsx",
+          "token": "radius: borderRadius: 10",
+          "sample": "style={{ zIndex: 300, left: placed.x, top: placed.y, ...size, borderRadius: 10, border: '1px solid var(--border-default)"
+        },
+        "v12-scale-tsx :: src/olumiView/port/LensTabs.tsx :: radius: rounded-[18px]": {
+          "count": 1,
+          "file": "src/olumiView/port/LensTabs.tsx",
+          "token": "radius: rounded-[18px]",
+          "sample": "<div role=\"tablist\" className=\"grid auto-cols-fr grid-flow-col gap-0.5 rounded-[18px] border border-panel-border p-0.5\" "
+        },
+        "v12-scale-tsx :: src/olumiView/port/LensTabs.tsx :: radius: rounded-[16px]": {
+          "count": 1,
+          "file": "src/olumiView/port/LensTabs.tsx",
+          "token": "radius: rounded-[16px]",
+          "sample": "className={`${TYPE.meta} min-h-[32px] min-w-0 rounded-[16px] px-2 py-1 text-center leading-tight [overflow-wrap:anywhere"
+        },
+        "v12-scale-tsx :: src/olumiView/port/PortAnalysisTab.tsx :: glyph: ✎": {
+          "count": 4,
+          "file": "src/olumiView/port/PortAnalysisTab.tsx",
+          "token": "glyph: ✎",
+          "sample": "mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place=\"likely"
+        },
+        "v12-scale-tsx :: src/olumiView/port/StressTest.tsx :: glyph: ✎": {
+          "count": 1,
+          "file": "src/olumiView/port/StressTest.tsx",
+          "token": "glyph: ✎",
+          "sample": "<FigureEdit id={f.id} edit={f.give.edit} place=\"rests\" glyph=\"✎\" words={false} lead={f.give.text} label={`${f.give.text}"
+        },
+        "v12-scale-tsx :: src/olumiView/previous/CoreCard.tsx :: glyph: ✎": {
+          "count": 1,
+          "file": "src/olumiView/previous/CoreCard.tsx",
+          "token": "glyph: ✎",
+          "sample": "? <span className=\"nodrag inline-flex align-middle\" data-figure-edit-wrap=\"\" data-card-action=\"\"><FigureEdit id={id} edi"
+        },
+        "v12-scale-tsx :: src/olumiView/research/FindEvidence.tsx :: radius: rounded-[10px]": {
+          "count": 1,
+          "file": "src/olumiView/research/FindEvidence.tsx",
+          "token": "radius: rounded-[10px]",
+          "sample": "<li key={e.id} className=\"grid gap-1 rounded-[10px] border border-panel-border p-2\" data-evidence={e.id}>"
+        },
+        "v12-scale-tsx :: src/olumiView/v10.tsx :: radius: borderRadius: 3": {
+          "count": 4,
+          "file": "src/olumiView/v10.tsx",
+          "token": "radius: borderRadius: 3",
+          "sample": "<div className=\"relative\" role=\"img\" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borde"
+        },
+        "v12-scale-tsx :: src/olumiView/v10.tsx :: radius: borderRadius: 1": {
+          "count": 2,
+          "file": "src/olumiView/v10.tsx",
+          "token": "radius: borderRadius: 1",
+          "sample": "style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', bo"
+        },
+        "v12-scale-tsx :: src/olumiView/v10.tsx :: radius: borderRadius: 2": {
+          "count": 2,
+          "file": "src/olumiView/v10.tsx",
+          "token": "radius: borderRadius: 2",
+          "sample": "<div className=\"relative flex-1\" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/ConditionalBar.tsx :: radius: borderRadius: 3": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/ConditionalBar.tsx",
+          "token": "radius: borderRadius: 3",
+          "sample": "<div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/OutcomeStrips.tsx :: radius: borderRadius: 3": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
+          "token": "radius: borderRadius: 3",
+          "sample": "const row: CSSProperties = { position: 'relative', height: 16, background: TRACK, borderRadius: 3 }"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/OutcomeStrips.tsx :: radius: borderRadius: 4": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
+          "token": "radius: borderRadius: 4",
+          "sample": "return <div data-testid=\"outcome-pending\" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, bord"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/OutcomeStrips.tsx :: radius: borderRadius: 2": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
+          "token": "radius: borderRadius: 2",
+          "sample": "<span data-testid={`strip-range-${b.option}`} data-p10={b.p10} data-p90={b.p90} style={{ position: 'absolute', top: 3, h"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/RangeBar.tsx :: radius: borderRadius: 2": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/RangeBar.tsx",
+          "token": "radius: borderRadius: 2",
+          "sample": "const band = { position: 'absolute', top: 4, height: 8, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 "
+        },
+        "v12-scale-tsx :: src/olumiView/v12/scale/RangeBar.tsx :: radius: borderRadius: 3": {
+          "count": 1,
+          "file": "src/olumiView/v12/scale/RangeBar.tsx",
+          "token": "radius: borderRadius: 3",
+          "sample": "<div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>"
+        }
+      }
+    },
+    "v12-scale-css": {
+      "mode": "ratchet",
+      "description": "V12 stylesheets off the design-system scale (font-size 12/14/18, weight 400/500, no font-family, token colour, token radius)",
+      "total": 16,
+      "byFile": {
+        "src/olumiView/look/olumiLook.css": 16
+      },
+      "signatures": {
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: colour: rgba(3": {
+          "count": 6,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "colour: rgba(3",
+          "sample": "box-shadow: 0 7px 20px rgba(30, 49, 50, 0.12), 0 1px 3px rgba(30, 49, 50, 0.06);"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 3px": {
+          "count": 4,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 3px",
+          "sample": ".olumi-look .ok-track { display: block; position: relative; height: 3px; border-radius: 3px; background: var(--o-track);"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 10px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 10px",
+          "sample": "background: var(--o-panel); border: 1px solid var(--o-border-emph); border-radius: 10px; padding: calc(6px * var(--o-s))"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 1px": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 1px",
+          "sample": ".olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; ba"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 4px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 4px",
+          "sample": ".ok-step-own { background: var(--bg-panel-hover); border-radius: 4px; }"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 2px": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 2px",
+          "sample": ".olumi-look .ok-rail-whisker { position: absolute; top: -2px; height: 4px; border-radius: 2px; background: var(--o-edge-"
+        }
+      }
     }
   }
 }

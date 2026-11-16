@@ -46,6 +46,16 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(out).toMatch(/production-hex/)
   })
 
+  it('V12: one offence per scale rule in the olumi-core lane is caught and blocks; the scale\'s own values and comments are not', () => {
+    const { status, out } = run(['--root', `${FX}/v12`, '--baseline', empty, '--enforce'])
+    expect(status).toBe(1)
+    // 12 TSX lines and 6 CSS lines offend, one rule each; on-scale.tsx, the CSS `.ok` rule and both comments must add nothing.
+    expect(out).toMatch(/v12-scale-tsx \[ratchet\]: 12\b/)
+    expect(out).toMatch(/v12-scale-css \[ratchet\]: 6\b/)
+    for (const rule of ['size', 'weight', 'family', 'colour', 'radius', 'glyph']) expect(out).toMatch(new RegExp(`off-scale\\.tsx\\s+${rule}:`))
+    expect(out).not.toMatch(/on-scale\.tsx/)
+  })
+
   it('CLEAN: a violation-free tree passes under --enforce', () => {
     const { status } = run(['--root', `${FX}/clean`, '--baseline', empty, '--enforce'])
     expect(status).toBe(0)

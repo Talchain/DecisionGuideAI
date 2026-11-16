@@ -44,7 +44,7 @@ export function SectionRow({ title, Icon, count, defaultOpen = false, testId, ch
     <section aria-label={title} data-testid={`view-reasoning-${testId}`} data-disclosure={open ? 'open' : 'closed'}>
       <h3 className="m-0">
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
-          className={`flex min-h-[24px] w-full items-center gap-3 rounded py-2 text-left hover:opacity-80 ${ACTION_FOCUS}`}>
+          className={`flex min-h-[24px] w-full items-center gap-3 rounded-sm py-2 text-left hover:opacity-80 ${ACTION_FOCUS}`}>
           {Icon === undefined ? null : <span className="flex h-6 w-6 shrink-0 items-center justify-center"><Icon className={`${icon('row')} text-text-light`} aria-hidden={true} /></span>}
           <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{title}</span>
           <Count n={count} testId={`view-reasoning-${testId}-count`} />

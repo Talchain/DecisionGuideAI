@@ -22,7 +22,7 @@ import { chooseLayer, useActiveLayer } from './store'
 
 const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
-const pop = `absolute left-full top-0 ml-3 nodrag nopan z-[1200] rounded-lg border border-border bg-panel shadow-2 ${typography.viewPanelBody}`
+const pop = `absolute left-full top-0 ml-3 nodrag nopan z-[1200] rounded-lg border border-panel-border bg-panel shadow-2 ${typography.viewPanelBody}`
 
 export function LensesMenu(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
@@ -67,9 +67,9 @@ export function LensesMenu(): JSX.Element | null {
         <div role="menu" aria-label={NO_LAYER_LABEL} className={`${pop} w-[240px] p-1`} data-testid={`${LENSES_TESTID}-menu`}>
           {entries.map((e, i) => (
             <div key={e.id} role="none">
-              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className="my-1 border-t border-border" /> : null}
+              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className="my-1 border-t border-panel-border" /> : null}
               <button type="button" role="menuitemradio" aria-checked={e.id === layer} data-layer={e.id} onClick={() => choose(e.id)}
-                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
+                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded-sm px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
                 <span className="min-w-0 truncate">{e.label}</span>
               </button>
             </div>
@@ -81,16 +81,16 @@ export function LensesMenu(): JSX.Element | null {
   )
 }
 
-const th = `${typography.viewPanelMeta} border-b border-border px-2 py-1.5 text-left font-medium text-text-header`
-const td = `${typography.viewPanelTabular} border-b border-border px-2 py-1.5 align-top`
+const th = `${typography.viewPanelMeta} border-b border-panel-border px-2 py-1.5 text-left font-medium text-text-header`
+const td = `${typography.viewPanelTabular} border-b border-panel-border px-2 py-1.5 align-top`
 
 function Head({ title, tag = null, count = null, onClose }: { title: string; tag?: string | null; count?: string | null; onClose: () => void }): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+    <div className="flex items-center justify-between gap-2 border-b border-panel-border px-3 py-2">
       <h2 className={`${typography.viewPanelBody} min-w-0 flex-1 font-medium text-text-header`}>{title}</h2>
       {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
       {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
-      <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
+      <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
         <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>

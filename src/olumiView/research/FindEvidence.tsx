@@ -50,7 +50,7 @@ function Proposal({ sid, item, p, base, onWrote }: { sid: string; item: Research
   const link = linkOf(p.url)
   const l = p.lines
   return (
-    <li data-research-proposal={p.k} data-olumi="" data-provisional="" className="grid gap-1.5 rounded-[12px] border border-dashed border-info/60 bg-panel p-2.5">
+    <li data-research-proposal={p.k} data-olumi="" data-provisional="" className="grid gap-1.5 rounded-md border border-dashed border-info/60 bg-panel p-2.5">
       <p className={`${META} text-info`} title={p.mark} aria-label={p.mark} data-research-line="badge">{l.badge}</p>
       <p className={H}>{link ? <a href={link} target="_blank" rel="noreferrer noopener" className="underline decoration-info/50 underline-offset-2">{p.title}</a> : p.title}</p>
       <p className={META} data-research-line="where">{l.where}</p>

@@ -51,12 +51,12 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
         <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}
           onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-          className={`${typography.viewLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
+          className={`${typography.viewLabel} w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
         <p className={`${typography.viewLabel} m-0 text-text-light`}>{TITLE_WORDS.note}</p>
         {error && <p role="alert" data-testid="scenario-title-error" className={`${typography.viewLabel} m-0 text-danger`}>{error}</p>}
         <div className="flex gap-3">
           <button type="submit" data-testid="scenario-title-save" disabled={sending}
-            className={`${typography.viewLabel} min-h-[28px] cursor-pointer rounded bg-primary px-3 py-0.5 text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:bg-border disabled:text-text-light`}>{TITLE_WORDS.save}</button>
+            className={`${typography.viewLabel} min-h-[28px] cursor-pointer rounded-sm bg-primary px-3 py-0.5 text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:bg-border disabled:text-text-light`}>{TITLE_WORDS.save}</button>
           <button type="button" disabled={sending} onClick={onClose}
             className={`${typography.viewLabel} min-h-[28px] cursor-pointer text-text-light underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{TITLE_WORDS.cancel}</button>
         </div>

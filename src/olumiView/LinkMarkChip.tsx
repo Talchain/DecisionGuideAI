@@ -51,7 +51,7 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
     <EdgeLabelRenderer>
       <button type="button" ref={attach} aria-label={mark.label} title={markHover(mark)} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
-        className={`nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}
+        className={`nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}
         style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${at?.x ?? midX}px, ${at?.y ?? midY}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, pointerEvents: 'auto', ...(at === null ? { visibility: 'hidden' as const } : {}) }}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
@@ -67,7 +67,7 @@ export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
   return (
     <button type="button" aria-label={mark.label} title={markHover(mark)} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
       onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
-      className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-[12px] border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
+      className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-flex flex-none">
         {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
       </span>

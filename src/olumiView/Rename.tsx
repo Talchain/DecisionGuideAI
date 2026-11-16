@@ -55,11 +55,11 @@ export function Rename({ id, heading, shown }: { id: string; heading: string; sh
       <label htmlFor={`view-rename-${id}-input`} className={typography.viewLabel}>{RENAME_WORDS.label}</label>
       <input id={`view-rename-${id}-input`} data-testid={`view-rename-input-${id}`} autoFocus autoComplete="off" maxLength={120}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.viewLabel} w-full rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+        className={`${typography.viewLabel} w-full rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
       {error && <p role="alert" data-testid={`view-rename-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type="submit" data-testid={`view-rename-save-${id}`} disabled={sending || typed.trim() === ''}
-          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded bg-primary px-2 py-0.5 text-text-on-color disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed`}>{RENAME_WORDS.save}</button>
+          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded-sm bg-primary px-2 py-0.5 text-text-on-color disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed`}>{RENAME_WORDS.save}</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>{RENAME_WORDS.cancel}</button>
       </div>

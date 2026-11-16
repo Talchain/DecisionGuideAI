@@ -85,7 +85,7 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
   return (
     <div role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={trap}
       className="fixed inset-0 z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="flex w-full max-w-[820px] flex-col rounded-xl border border-panel-border bg-panel shadow-panel">
+      <div className="flex w-full max-w-[820px] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
         <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
           <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
           <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>

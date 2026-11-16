@@ -67,6 +67,48 @@ const PANEL_TYPO = /\b(?:text-(?:xs|sm|base|lg|xl|2xl|3xl|5xl)|font-(?:medium|se
 const isTest = (p) => /(\.spec\.|\.test\.|__tests__\/|__fixtures__\/)/.test(p)
 const under = (p, dir) => p === dir || p.startsWith(dir + '/')
 
+/*
+ * V12 (Paul 16 Nov: "consistent, strict coded rules so that everything looks premium"): the olumi-core lane's surfaces keep to the design
+ * system's own scale, each rule traced to it: Inter only (tailwind fontFamily.sans); sizes 12/14/18 by role (R25, typography.ts view*);
+ * weights 400/500 only (Paul 7 Nov); colours from tokens (no rgb() literal; hex is production-hex's); radii from the radius tokens
+ * (--radius-sm 8, -md 12, -lg 14, -pill; rounded-full for a ring); Lucide icons, not text glyphs. One token per offence, named by rule.
+ */
+const V12_SIZES = new Set(['12', '14', '18'])
+const V12_RADII = new Set(['0', '8', '12', '14', '999'])
+const V12_TSX = [
+  ['size', /\btext-(?:base|xl|[2-9]xl)\b/g, null],
+  ['size', /\btext-\[(?:length:)?(?:calc\()?(\d+(?:\.\d+)?)px/g, (n) => !V12_SIZES.has(n)],
+  ['size', /\bfontSize:\s*['"]?(\d+(?:\.\d+)?)/g, (n) => !V12_SIZES.has(n)],
+  ['weight', /\bfont-(?:thin|extralight|light|semibold|bold|extrabold|black)\b/g, null],
+  ['weight', /\bfontWeight:\s*['"]?(\d00|bold|bolder|lighter)/g, (w) => w !== '400' && w !== '500'],
+  ['family', /\bfont-(?:serif|mono)\b|\bfontFamily:/g, null],
+  ['colour', /\brgba?\(\s*\d/g, null],
+  // No such colour (tailwind colors.border has only `emphasis`): the class draws nothing and the border falls back to preflight's grey.
+  ['colour', /\bborder-border\b/g, null],
+  ['radius', /\brounded(?:-(?:t|b|l|r|s|e|tl|tr|bl|br|ss|se|es|ee))?-(?:xl|xl2|2xl|3xl|\[[^\]]*\])/g, null],
+  ['radius', /\brounded(?![-\w])/g, null],
+  ['radius', /\bborderRadius:\s*['"]?(\d+(?:\.\d+)?)(?![\d.%])/g, (n) => !V12_RADII.has(n)],
+  ['glyph', /[✎ⓘ✕✗]/g, null],
+]
+const V12_CSS = [
+  ['size', /\bfont-size:\s*(?:calc\()?(\d+(?:\.\d+)?)px/g, (n) => !V12_SIZES.has(n)],
+  ['weight', /\bfont-weight:\s*(\d00|bold|bolder|lighter)/g, (w) => w !== '400' && w !== '500'],
+  ['family', /\bfont-family:/g, null],
+  ['colour', /\brgba?\(\s*\d/g, null],
+  ['colour', /(?<!var\(--[\w-]+,\s*)#[0-9a-fA-F]{3,8}\b/g, null],
+  ['radius', /\bborder-radius:\s*(?:calc\()?(\d+(?:\.\d+)?)px/g, (n) => !V12_RADII.has(n)],
+]
+const v12Tokens = (rules) => (code) => {
+  const out = []
+  for (const [rule, re, bad] of rules) {
+    re.lastIndex = 0
+    let m
+    while ((m = re.exec(code)) !== null) if (bad === null || bad(m[1])) out.push(`${rule}: ${m[0].trim()}`)
+  }
+  return out
+}
+const inV12 = (p) => !isTest(p) && (under(p, 'olumiView') || under(p, 'olumiCore/team'))
+
 /**
  * Each class: how to decide file scope (inScope) and what tokens a line yields
  * (lineTokens). Returning [] means "no violation on this line".
@@ -163,6 +205,23 @@ const CLASSES = [
        under(p, 'canvas/components/model-tab') ||
        p.startsWith('canvas/ui/EdgeInspector')),
     lineTokens: (line) => line.match(PANEL_TYPO) || [],
+  },
+  {
+    id: 'v12-scale-tsx',
+    mode: 'ratchet',
+    description: 'V12 surfaces off the design-system scale (size 12/14/18, weight 400/500, Inter, token colour, token radius, Lucide)',
+    inScope: (p) => inV12(p) && /\.(ts|tsx)$/.test(p),
+    // Comments are documentation (they name the classes they replaced); only code is scanned.
+    stripComments: true,
+    lineTokens: v12Tokens(V12_TSX),
+  },
+  {
+    id: 'v12-scale-css',
+    mode: 'ratchet',
+    description: 'V12 stylesheets off the design-system scale (font-size 12/14/18, weight 400/500, no font-family, token colour, token radius)',
+    inScope: (p) => inV12(p) && /\.css$/.test(p),
+    stripComments: true,
+    lineTokens: v12Tokens(V12_CSS),
   },
   {
     id: 'emoji-icon',

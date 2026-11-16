@@ -37,7 +37,7 @@ export function GoalChanceRangeLines({ model, onOpenLink }: GoalChanceRangeLines
               : (
                 <button key={i} type="button" data-testid="port-range-line" data-link={`${link.from}->${link.to}`} title={link.effect!.title} aria-label={link.effect!.title}
                   onClick={() => onOpenLink(link.from, link.to)}
-                  className="block w-full rounded px-1 py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
+                  className="block w-full rounded-sm px-1 py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info">
                   {words}
                 </button>
               )

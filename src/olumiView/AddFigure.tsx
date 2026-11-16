@@ -86,7 +86,7 @@ export function AddFigure(): JSX.Element | null {
       setTimeout(() => figureBox.current?.focus(), 0) // back to the words, once they are editable again
     }
   }
-  const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded border border-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
+  const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-panel-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
     <div className="relative nodrag nopan">
       {live === null ? null : <button ref={reference} type="button"
@@ -95,13 +95,13 @@ export function AddFigure(): JSX.Element | null {
       </button>}
       {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
-          className={`rounded-lg border border-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`} aria-label="Add to model">
-          <button type="button" role="menuitem" className="min-h-[32px] cursor-pointer rounded px-3 text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2"
+          className={`rounded-lg border border-panel-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`} aria-label="Add to model">
+          <button type="button" role="menuitem" className="min-h-[32px] cursor-pointer rounded-sm px-3 text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2"
             onClick={() => { setBase(live); setError(null); setPanel('form') }}>{ADD_FIGURE_WORDS.open}</button>
         </div>
       </FloatingFocusManager> : null}
       {open ? (
-        <form className={`absolute left-full top-0 ml-3 nodrag nopan w-[260px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
+        <form className={`absolute left-full top-0 ml-3 nodrag nopan w-[260px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
           onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) close() }}>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.name}</span>
             <input autoFocus autoComplete="off" value={label} disabled={sending} data-testid="view-add-figure-name"
@@ -115,7 +115,7 @@ export function AddFigure(): JSX.Element | null {
           {error === null ? null : <p role="alert" className="text-danger" data-testid="view-add-figure-error">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={sending || label.trim() === '' || typed.trim() === ''} data-testid="view-add-figure-add"
-              className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded bg-primary px-3 text-text-on-color disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed`}>{ADD_FIGURE_WORDS.add}</button>
+              className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm bg-primary px-3 text-text-on-color disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed`}>{ADD_FIGURE_WORDS.add}</button>
             <button type="button" disabled={sending} onClick={close} className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>{ADD_FIGURE_WORDS.cancel}</button>
           </div>
         </form>

@@ -392,7 +392,7 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
           {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
         </p>}
         {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
-          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
     </ol>
   )
@@ -1062,7 +1062,7 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
-          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-border disabled:text-text-light disabled:cursor-not-allowed"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
+          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
       : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
@@ -1293,7 +1293,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
   if (goal !== null && !changing) {
     return (
       <div className="flex" data-testid="view-session-goal">
-        <span className={`inline-flex items-center gap-1 rounded-[14px] border border-field bg-panel pl-2.5 pr-1 ${typography.viewPanelBody}`} data-testid="view-session-goal-chip">
+        <span className={`inline-flex items-center gap-1 rounded-lg border border-field bg-panel pl-2.5 pr-1 ${typography.viewPanelBody}`} data-testid="view-session-goal-chip">
           <Target className="h-3.5 w-3.5 text-info" aria-hidden="true" />
           <button type="button" disabled={held} onClick={() => setChanging(true)} title={session.set_by === null ? undefined : `Set by ${session.set_by}`}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
@@ -1459,7 +1459,7 @@ export function ViewChat() {
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
         <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
           <ExternalLink size={14} aria-hidden="true" />
         </button>
       </div>}
@@ -1632,7 +1632,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
           <span>{PAST_HELD}</span>
-          <button type="button" className="rounded px-2 py-1 border border-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
+          <button type="button" className="rounded-sm px-2 py-1 border border-panel-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
         </p>
       )}
       <label className={brief ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>

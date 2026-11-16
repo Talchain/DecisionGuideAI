@@ -105,7 +105,7 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
         return (
           <div key={g.id} className="flex items-baseline gap-2">
             <span className={LABEL}><NodeShapeIndicator nodeKind="goal" size={10} />{labels.goal}</span>
-            <button {...p} title={g.detail} data-glance-goal={g.id} className={`-mx-1 min-h-[24px] min-w-0 max-w-full rounded px-1 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
+            <button {...p} title={g.detail} data-glance-goal={g.id} className={`-mx-1 min-h-[24px] min-w-0 max-w-full rounded-sm px-1 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${ring}`}>
               <span className="block truncate" data-view={`${g.id}.heading`}>{g.heading}</span>
             </button>
           </div>
@@ -116,7 +116,7 @@ export function Spine({ model, brief, labels }: { model: ViewModel; brief: strin
       {rows.map(({ kind, cards }) => (
         <div key={kind} className="flex items-center gap-2" data-testid={`view-reasoning-glance-${TEST_ID[kind]}`}>
           <button type="button" aria-pressed={family === kind} data-glance-family={kind} onClick={() => setFamily((f) => (f === kind ? null : kind))}
-            className={`${LABEL} min-h-[24px] rounded text-left hover:text-text-body ${ACTION_FOCUS} ${family === kind ? 'text-text-header' : ''}`}>
+            className={`${LABEL} min-h-[24px] rounded-sm text-left hover:text-text-body ${ACTION_FOCUS} ${family === kind ? 'text-text-header' : ''}`}>
             <NodeShapeIndicator nodeKind={kind} size={10} />{label[kind]}
           </button>
           {/* UI restore 11 Nov (DL: "the previous tab's top was a compact strip"): one small mark per card on one line, its name on hover and focus

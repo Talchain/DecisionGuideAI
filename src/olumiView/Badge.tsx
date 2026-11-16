@@ -34,7 +34,7 @@ export function Badge({ cardId, badge, at }: { cardId: string; badge: BadgeT; at
   const title = face !== null && said(badge.words) ? (said(badge.title) ? `${badge.words}\n${badge.title}` : badge.words) : badge.title
   return (
     <button
-      type="button" className={`nodrag nopan inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? 'rounded border border-dashed border-info px-1' : ''}`}
+      type="button" className={`nodrag nopan inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? 'rounded-sm border border-dashed border-info px-1' : ''}`}
       title={title} aria-label={badge.label} aria-expanded={badge.open} data-proposed={badge.proposed || undefined} data-badge-words={face === null ? undefined : badge.words}
       onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, badge) }}
     >{face !== null

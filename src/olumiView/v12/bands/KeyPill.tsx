@@ -139,7 +139,7 @@ export function KeyPill() {
       </div>
     </>
   )
-  const box = `flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-1 rounded-xl border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-normal text-text-light whitespace-nowrap`
+  const box = `flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-1 rounded-md border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-normal text-text-light whitespace-nowrap`
   if (above) return (
     <div data-testid="view-key-pill" data-key-folded="" className="pointer-events-none absolute z-[1100]" style={{ right: inset + CHROME_GAP, bottom: CHROME_GAP }}
       onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>

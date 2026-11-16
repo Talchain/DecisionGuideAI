@@ -88,7 +88,7 @@ export function ViewBriefTrigger({ className = '' }: { className?: string }) {
       </button>
       {open && createPortal(
         <aside role="complementary" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="view-brief-panel"
-          className="fixed bottom-3 right-3 top-16 z-[1600] flex w-[400px] max-w-[calc(100vw-24px)] flex-col rounded-xl border border-panel-border bg-panel shadow-panel">
+          className="fixed bottom-3 right-3 top-16 z-[1600] flex w-[400px] max-w-[calc(100vw-24px)] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
           <div className="flex items-center gap-2 px-4 py-3">
             <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
             <span className="flex-1" />

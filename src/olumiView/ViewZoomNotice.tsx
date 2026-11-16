@@ -35,7 +35,7 @@ export function ViewZoomNotice({ onZoom }: { onZoom?: () => void }): JSX.Element
         <ZoomIn className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
         <span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>
         <button type="button" data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`} onClick={zoomIn}
-          className={`${typography.panelMeta} rounded text-info underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{CANVAS_LOD_NOTICE_ACTION}</button>
+          className={`${typography.panelMeta} rounded-sm text-info underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{CANVAS_LOD_NOTICE_ACTION}</button>
       </div>
     </div>
   )

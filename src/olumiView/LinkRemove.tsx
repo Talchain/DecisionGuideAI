@@ -98,7 +98,7 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
   const close = () => { setAsking(false); setError(null); setFocusTo('open') }
   const quiet = `${typography.viewLabel} min-h-[24px] cursor-pointer px-1`
   return (
-    <div className={`nodrag nopan ${typography.viewLabel} max-w-[220px] space-y-1 rounded border border-border bg-panel px-2 py-1 shadow-sm`}
+    <div className={`nodrag nopan ${typography.viewLabel} max-w-[220px] space-y-1 rounded-sm border border-panel-border bg-panel px-2 py-1 shadow-sm`}
       style={{ pointerEvents: 'auto' }} data-link-for={edge} data-testid={`view-link-remove-${id}`}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && asking && !sending) close() }}>
       {asking ? (
@@ -107,7 +107,7 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
           {/* Never `disabled` while sending: a browser takes focus off a disabled control, and the ask then lost its link (Codex delta
               4960db98). They say so (aria-disabled) and ignore a press instead. */}
           <button type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-yes-${id}`} onClick={() => void take()}
-            className={`${quiet} rounded bg-primary text-text-on-color ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.remove}</button>
+            className={`${quiet} rounded-sm bg-primary text-text-on-color ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.remove}</button>
           <button ref={keepRef} type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-keep-${id}`} onClick={() => { if (!sending) close() }} className={`${quiet} text-text-light underline underline-offset-2 ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.keep}</button>
         </div>
       ) : (

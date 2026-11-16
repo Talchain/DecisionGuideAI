@@ -56,10 +56,10 @@ export function ViewWelcome(): JSX.Element | null {
   const [again, setAgain] = useState(false)
   if (reading !== null) return (
     <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-reading" data-reading={reading}>
-      <div role={reading === 'error' ? 'alert' : 'status'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
+      <div role={reading === 'error' ? 'alert' : 'status'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
         <p data-testid="view-reading-words">{reading === 'error' ? error ?? READ_FAILED_WORDS : READING_WORDS}</p>
         {reading === 'error' ? (
-          <button type="button" disabled={again} data-testid="view-reading-again" className="min-h-[44px] rounded-md border border-border px-4 text-text-header hover:bg-panel-hover disabled:cursor-not-allowed"
+          <button type="button" disabled={again} data-testid="view-reading-again" className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:cursor-not-allowed"
             onClick={() => { setAgain(true); void useViewStore.getState().refresh().finally(() => setAgain(false)) }}>Try again</button>
         ) : null}
       </div>
@@ -70,7 +70,7 @@ export function ViewWelcome(): JSX.Element | null {
     <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-welcome">
       <div className="pointer-events-auto flex w-full max-w-[640px] flex-col items-center gap-6">
         <img src="/olumi-logo.png" alt="Olumi" className="h-10 w-auto" />
-        <div className="w-full rounded-2xl border border-border bg-panel shadow-sm"><ViewComposer /></div>
+        <div className="w-full rounded-2xl border border-panel-border bg-panel shadow-sm"><ViewComposer /></div>
       </div>
     </div>
   )

@@ -142,7 +142,7 @@ export async function submitEdit(spec: EditSpec, v: Readonly<Record<string, stri
   }
 }
 
-const inputClass = `${typography.viewPanelBody} w-full min-h-[44px] rounded border border-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
+const inputClass = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-panel-border bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
 
 export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor: { x: number; y: number }; onClose: () => void }): JSX.Element {
   const fields = fieldsOf(spec)
@@ -170,7 +170,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
     <form role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan w-[280px] space-y-2 rounded-lg border border-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan w-[280px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}
       style={{ left, top }} onSubmit={(e) => { e.preventDefault(); void go() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) { e.stopPropagation(); onClose() } }}>
       <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
       {needsFigure ? (
@@ -189,7 +189,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
       {error === null ? null : <p role="alert" className="text-danger" data-testid="lane-edit-error">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"
-          className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded bg-primary px-3 text-text-on-color disabled:cursor-not-allowed disabled:border-border disabled:bg-border disabled:text-text-light`}>{goLabel(spec)}</button>
+          className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm bg-primary px-3 text-text-on-color disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-border disabled:text-text-light`}>{goLabel(spec)}</button>
         <button type="button" disabled={sending} onClick={onClose} data-testid="lane-edit-cancel" className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
           {spec.kind === 'remove-link' ? REMOVE_LINK_WORDS.keep : FORM_WORDS.cancel}</button>
       </div>

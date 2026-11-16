@@ -103,7 +103,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
               <span className="text-text-light">{WHAT_IF_COPY.factor}</span>
               <select value={picked.id} data-testid="view-whatif-key-factor" disabled={running}
                 onChange={(e) => { setPick(e.target.value); setTyped(''); setError(null) }}
-                className={`rounded border border-border bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`}>
+                className={`rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`}>
                 {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
               </select>
             </label>
@@ -112,12 +112,12 @@ export function ViewWhatIfKey(): JSX.Element | null {
               <span className="text-text-light">{picked.figure!.edit!.prompt}</span>
               <input data-testid="view-whatif-key-typed" autoComplete="off" spellCheck={false} value={typed} disabled={running}
                 onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-                className={`rounded border border-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+                className={`rounded-sm border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
             </label>
             {error === null ? null : <p role="alert" data-testid="view-whatif-key-error" className="text-danger">{error}</p>}
             <div className="flex items-center gap-3">
               <button type="submit" data-testid="view-whatif-key-run" disabled={running || typed.trim() === ''}
-                className={`cursor-pointer rounded border border-info/30 px-2 py-0.5 text-info disabled:text-text-light disabled:cursor-not-allowed ${ACTION_FOCUS}`}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</button>
+                className={`cursor-pointer rounded-sm border border-info/30 px-2 py-0.5 text-info disabled:text-text-light disabled:cursor-not-allowed ${ACTION_FOCUS}`}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</button>
               {current === null ? null : <button type="button" data-testid="view-whatif-key-clear" onClick={clearWhatIf}
                 className={`cursor-pointer text-text-light underline underline-offset-2 ${ACTION_FOCUS}`}>{WHAT_IF_COPY.clear}</button>}
             </div>

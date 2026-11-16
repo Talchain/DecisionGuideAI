@@ -9,7 +9,7 @@ export const CHAT_POPOUT_LABEL = 'Open Olumi in floating panel'
 export const CHAT_POPOUT_TITLE = 'Open in floating window'
 // Previous FloatingOlumiPanel's dock control (A2 stop/float, DL 10 Nov).
 const DOCK_LABEL = 'Dock to panel'
-const TARGET = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
+const TARGET = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
 
 type Position = { x: number; y: number }
 type Viewport = { width: number; height: number }

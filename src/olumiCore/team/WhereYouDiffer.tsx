@@ -87,7 +87,7 @@ export function WhereYouDiffer({ view }: { view: View }): JSX.Element | null {
               {lanes.map((k) => {
                 const people = [...new Set(here.filter((p) => p.leader === (k.id === NONE ? null : k.id)).map((p) => p.by_id))]
                 return (
-                  <li key={k.id} data-differ-option={k.id} className="grid content-start gap-2 rounded-xl border border-panel-border p-3">
+                  <li key={k.id} data-differ-option={k.id} className="grid content-start gap-2 rounded-md border border-panel-border p-3">
                     <p className={LABEL} data-differ-option-heading="">{k.heading}</p>
                     <ul className="m-0 grid list-none gap-2 p-0">
                       {people.map((id) => {

@@ -89,7 +89,7 @@ function Press({ id, children, ring }: { id: string; children: React.ReactNode; 
   return (
     <button type="button" data-rack-press={id} aria-pressed={selected} onClick={() => pressCard(id)}
       onMouseEnter={() => ring(id)} onMouseLeave={() => ring(null)} onFocus={() => ring(id)} onBlur={() => ring(null)}
-      className={`-mx-1 block w-[calc(100%+0.5rem)] min-h-[24px] rounded px-1 py-0.5 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${selected ? 'ring-2 ring-text-header' : ''}`}>
+      className={`-mx-1 block w-[calc(100%+0.5rem)] min-h-[24px] rounded-sm px-1 py-0.5 text-left hover:bg-panel-hover ${ACTION_FOCUS} ${selected ? 'ring-2 ring-text-header' : ''}`}>
       {children}
     </button>
   )
@@ -180,7 +180,7 @@ export function Rack({ model }: { model: ViewModel }) {
         const through = throughOf(model, o), premises = (o.premises ?? []).flatMap((p, j) => (challenged.has(p.text) ? [] : [{ p, j }]))
         const rests = restsOf(model, o)
         return (
-          <div key={o.id} className="space-y-2 rounded-xl border border-panel-border p-2" data-rack-option={o.id}>
+          <div key={o.id} className="space-y-2 rounded-md border border-panel-border p-2" data-rack-option={o.id}>
             <Press id={o.id} ring={setHover}>
               <span className={`${typography.panelHeader} block text-text-header`} data-view={`${o.id}.heading`}>{o.heading}</span>
               {o.author == null ? null : <span className={`${TYPE.meta} block ${o.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} data-view={`${o.id}.author.text`}>{o.author.text}</span>}

@@ -28,7 +28,7 @@ export function ReviewStrip({ model, review }: { model: ViewModel; review: strin
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="view-reasoning-review">
       {flagged.length === 0 ? null : (
-        <button type="button" onClick={next} className={`${typography.viewPanelMeta} rounded text-info underline ${ACTION_FOCUS}`} data-testid="view-reasoning-to-review">
+        <button type="button" onClick={next} className={`${typography.viewPanelMeta} rounded-sm text-info underline ${ACTION_FOCUS}`} data-testid="view-reasoning-to-review">
           <span data-count={flagged.length}>{flagged.length}</span> <span>{review}</span>
         </button>
       )}
