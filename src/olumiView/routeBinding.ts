@@ -18,9 +18,14 @@ export function followAddress(route: string | null | undefined): boolean {
   if (typeof route !== 'string' || coreScenarioIdOf(route) === null) return false
   const now = useCanvasStore.getState().currentScenarioId, shown = useViewStore.getState().uuid
   if (now === route && shown === route) return false
-  // Words typed for the scenario left behind are never sent into this one: the composer's text, its held challenge and its last refusal are
-  // that scenario's (the advisor's check on 006 #1: text typed on A was still in the composer on B, one press from being saved in B).
-  if (shown !== null && shown !== route) useViewChat.setState({ text: '', said: null, held: null, gone: null })
+  // Words typed for another scenario, or before any (a brief on a blank canvas), are never sent into this one: the composer is emptied and
+  // the last refusal dropped (006 #1 and its delta review: text typed on A was still in the composer on B, one press from being saved in B).
+  // A held challenge is kept, since it carries its own scenario and op (`ViewChat` `resendOf`), and its words return when the page is back on it.
+  // A refused move (`gone`) is keyed by its scenario already.
+  if (shown !== route) {
+    const held = useViewChat.getState().held
+    useViewChat.setState({ text: held !== null && held.uuid === route ? held.text : '', said: null })
+  }
   if (now !== route) {
     useCanvasStore.setState(scenarioIdWrite(now, route))
     setCurrentScenarioId(route)

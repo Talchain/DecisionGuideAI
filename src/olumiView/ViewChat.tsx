@@ -587,7 +587,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
 /** A write core saved whose View could not then be read: it is not lost, and it is not shown yet (review 00052 #7). */
 export const SAVED_NOT_SHOWN = 'Saved, but Olumi could not show it just now. Reload the page to see it.'
 
-interface ViewChatState {
+export interface ViewChatState {
   /** What is typed in the composer. */
   readonly text: string
   /**
@@ -619,16 +619,19 @@ const toComposer = (said: string | null): void => useViewChat.setState({ said })
 async function act(f: () => Promise<unknown>, changesModel = false, sink: (said: string | null) => void = toComposer): Promise<boolean> {
   if (useViewChat.getState().busy) return false
   if (useViewStore.getState().at !== null) { sink(PAST_HELD); return false }
+  // A write that settles after the page has moved to another scenario says nothing there: its words belong to the scenario it was made in
+  // (delta review of 006 #1: A's refusal appeared in B's composer).
+  const at = useViewStore.getState().uuid, here = () => useViewStore.getState().uuid === at
   useViewChat.setState({ busy: true })
   sink(null)
   try {
     await f()
     const views = useViewStore.getState()
     const shown = await (changesModel ? views.modelChanged() : views.refresh())
-    if (!shown) sink(SAVED_NOT_SHOWN)
+    if (!shown && here()) sink(SAVED_NOT_SHOWN)
     return true
   } catch (e) {
-    sink(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
+    if (here()) sink(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     return false
   } finally { useViewChat.setState({ busy: false }) }
 }
@@ -794,18 +797,29 @@ function say(text: string): Promise<boolean> {
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }
 
+/**
+ * The held challenge a Send resends: only the one made in the scenario on screen, and only for its own words. A challenge held for another
+ * scenario is neither resent here (the address guard, `team/api.ts`, would refuse it) nor dropped: it waits for its own scenario.
+ */
+export function resendOf(held: ViewChatState['held'], text: string, here: string | null): { readonly again: ViewChatState['held']; readonly drop: boolean } {
+  const mine = held !== null && held.uuid === here ? held : null
+  const again = mine !== null && mine.text === text ? mine : null
+  return { again, drop: mine !== null && again === null }
+}
+
 async function send(): Promise<void> {
   const { text, held } = useViewChat.getState()
   if (text.trim() === '') return
-  const again = held !== null && held.text === text ? held : null
-  if (held !== null && again === null) useViewChat.setState({ held: null })
+  const { again, drop } = resendOf(held, text, useViewStore.getState().uuid)
+  if (drop) useViewChat.setState({ held: null })
   if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text)))) return
   if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
 }
 
 /**
  * A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). A resend goes to
- * the scenario it was made in, with that scenario's op, whichever scenario is on screen now (review 00003 #2): it is the same write.
+ * the scenario it was made in, with that scenario's op (review 00003 #2): it is the same write. Since Codex 006 #1 it is sent only while that
+ * scenario is on screen (`resendOf`; the address guard refuses any other), and its words return to the composer when the page is back on it.
  */
 /** The four challenge kinds core's challenge route takes (writes.challenge), as the chips and asks send them. */
 export const CHALLENGE_KINDS = ['assumption', 'opposite', 'disconfirming', 'outside'] as const
@@ -1020,7 +1034,7 @@ const keptWhileBusy = (text: string): boolean => {
   return true
 }
 /** An ask from the canvas that did not go through (core refused it, or its answer never came) keeps its words beside core's sentence. */
-const keptIfNotSent = (text: string) => (sent: boolean) => { if (!sent) keep(text) }
+const keptIfNotSent = (text: string, at = useViewStore.getState().uuid) => (sent: boolean) => { if (!sent && useViewStore.getState().uuid === at) keep(text) }
 
 /** The canvas's asks, answered by this writer: one set for the page, so every holder registers the same functions. */
 const ASKS = {

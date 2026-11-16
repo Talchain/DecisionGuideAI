@@ -15,6 +15,7 @@ import { useCanvasStore } from '../../canvas/store'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { STILL_ANSWERING, ViewChat, ViewComposer, useAnswersAsks, useViewChat } from '../ViewChat'
+import { followAddress } from '../routeBinding'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/pricing.view.json'), 'utf8'))
 const card = view.model!.cards.find((c) => c.family === 'quantity')!
@@ -34,6 +35,7 @@ beforeEach(() => {
   useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
 })
 afterEach(() => {
+  window.location.hash = ''
   setTeamFetch(null)
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
   useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
@@ -91,18 +93,39 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     expect(useViewChat.getState().held).toBeNull()
   })
 
-  it('a lost challenge resent after the page moved to another scenario goes to ITS scenario, with its op (review 00003 #2)', async () => {
+  it('a lost challenge waits for ITS scenario: on another it is neither resent nor dropped; back on its own, Send resends it with its op (review 00003 #2, as Codex 006 #1 bounds it)', async () => {
+    // Codex 006 #1 refuses any write for a scenario other than the one the address names (team/api.ts writeTargetsAddress), so the resend
+    // that review 00003 #2 sent from another scenario is now made from its own: the same write, the same op, to the same scenario.
+    const B = '00000000-0000-4000-8000-000000000002'
     let n = 0
     answer(() => { n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ proposal: null }), { status: 201 }) })
     const { container } = render(<><ViewChat /><ViewComposer /></>)
-    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    window.location.hash = `#/scenario/${UUID}`
+    useCanvasStore.setState({ currentScenarioId: UUID, selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } } as never)
     await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
     await waitFor(() => expect(useViewChat.getState().text).toBe('Challenge this'))
-    act(() => { useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000002', sid: 's_000000000002' }) })
+    const held = useViewChat.getState().held
+    expect(held).toMatchObject({ sid: SID, uuid: UUID, text: 'Challenge this' })
+    // To B by its address: the box is emptied, the challenge kept for A.
+    window.location.hash = `#/scenario/${B}`
+    await act(async () => { followAddress(B) })
+    expect(useViewChat.getState().text).toBe('')
+    expect(useViewChat.getState().held).toEqual(held)
+    // The same words typed on B are B's own message, never A's challenge.
+    act(() => { useViewChat.setState({ text: 'Challenge this' }) })
     await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
     await waitFor(() => expect(posts).toHaveLength(2))
-    expect(posts[1]).toEqual(posts[0])
-    expect(posts[1]!.url).toBe(`/api/scenarios/${SID}/challenge`)
+    expect(posts[1]!.url).toBe('/api/scenarios/s_000000000002/messages')
+    expect(useViewChat.getState().held, 'A\'s challenge still waits').toEqual(held)
+    // Back on A: its words are in the box, and Send resends that challenge with its op.
+    window.location.hash = `#/scenario/${UUID}`
+    await act(async () => { followAddress(UUID) })
+    expect(useViewChat.getState().text).toBe('Challenge this')
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(3))
+    expect(posts[2]).toEqual(posts[0])
+    expect(posts[2]!.url).toBe(`/api/scenarios/${SID}/challenge`)
+    window.location.hash = ''
   })
 
   it('changed words after a lost challenge are a new message, not the challenge', async () => {
