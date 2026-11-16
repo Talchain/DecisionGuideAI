@@ -40,3 +40,34 @@ export function cardKindOf(card: ViewCard, model: ViewModel | null, view: View |
   if (!isCalculated(card, model, view)) return INPUT
   return { shape: 'calculated', state: card.figure?.state === 'waits' ? 'pending' : withheldValues(card).length > 0 ? 'withheld' : 'done' }
 }
+
+/** The design system's kinds (Olumi_Design_System_v5 section 10): shape says what a thing is. One mapping for the badge and the border hue. */
+export type DsKind = 'factor' | 'option' | 'goal' | 'outcome' | 'risk' | 'decision'
+
+/** A BaseNode / layout kind mapped into the DS set. Anything the DS has no shape for falls to the nearest: an action is the thing a person does (option). */
+function dsKindOfDraw(draw: string | null | undefined): DsKind {
+  switch (draw) {
+    case 'option': case 'action': return 'option'
+    case 'goal': return 'goal'
+    case 'outcome': return 'outcome'
+    case 'risk': return 'risk'
+    case 'decision': case 'question': return 'decision'
+    default: return 'factor'
+  }
+}
+
+/** The DS kind of a card: option -> option, input -> factor, calculated -> outcome, aim -> goal, risk -> risk, assumption -> factor (drawn dashed,
+ *  see `isAssumptionShape`), other -> the kind the board already draws it as (`drawKind`, layout.ts drawKindOf). */
+export function dsKindOf(shape: CardShape | null | undefined, drawKind?: string | null): DsKind {
+  switch (shape) {
+    case 'option': return 'option'
+    case 'input': case 'assumption': return 'factor'
+    case 'calculated': return 'outcome'
+    case 'aim': return 'goal'
+    case 'risk': return 'risk'
+    default: return dsKindOfDraw(drawKind)
+  }
+}
+
+/** An assumption is unverified: the DS doubt meaning, so its shape outline is dashed. */
+export const isAssumptionShape = (shape: CardShape | null | undefined): boolean => shape === 'assumption'

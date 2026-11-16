@@ -24,7 +24,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
   const bands = bandsOf(card), withheld = withheldValues(card)
   if (waits) {
     const words = card.figure?.title || card.figure?.text || ''
-    return <div data-testid="outcome-pending" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 6px', fontSize: 11.5, color: LIGHT }}>pending{words ? `: ${words}` : ''}</div>
+    return <div data-testid="outcome-pending" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 6px', fontSize: 12, color: LIGHT }}>pending{words ? `: ${words}` : ''}</div>
   }
   if (bands.length === 0 && withheld.length === 0) return null
   const aim = aimOf(model), unit = unitOf(card, aim)
@@ -32,7 +32,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
   const axis = axisOf(Math.min(...bands.map((b) => b.p10), 0), Math.max(...bands.map((b) => b.p90), deadline?.value ?? -Infinity, 0))
   const u = unit === null ? '' : ` ${unit}`
   return (
-    <div data-testid="outcome-strips" data-card={card.id} style={{ position: 'relative', margin: '6px 0 2px', paddingLeft: LW, fontSize: 11, color: LIGHT }}>
+    <div data-testid="outcome-strips" data-card={card.id} style={{ position: 'relative', margin: '6px 0 2px', paddingLeft: LW, fontSize: 12, color: LIGHT }}>
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 4 }}>
         {bands.map((b) => (
           <div key={b.option} data-testid={`strip-${b.option}`} style={row}>
@@ -49,7 +49,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
         ))}
         {deadline !== null && (
           <span data-testid="outcome-deadline" data-at={deadline.value} style={{ position: 'absolute', top: -4, bottom: -4, width: 0, borderLeft: `2px solid ${GOLD}`, left: `${pctOf(axis, deadline.value)}%` }}>
-            <span style={{ position: 'absolute', top: -13, left: 3, whiteSpace: 'nowrap', color: INK, fontSize: 10.5 }}>{fmt(deadline.value)}{u} deadline</span>
+            <span style={{ position: 'absolute', top: -13, left: 3, whiteSpace: 'nowrap', color: INK, fontSize: 12 }}>{fmt(deadline.value)}{u} deadline</span>
           </span>
         )}
       </div>

@@ -21,7 +21,7 @@ import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
-import { DIRECTION_NOT_SETTLED, INK, effectDash, linkStyle } from '../../olumiView/v12/links/styles'
+import { DIRECTION_NOT_SETTLED, INK, effectDash, effectStroke, effectWidth, linkStyle } from '../../olumiView/v12/links/styles'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
@@ -172,7 +172,10 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // an unsized/words-only claim is dashed. Core's doubt, pending changes and disagreement retain their cue. Olumi's ink stays blue;
   // the typed sign keeps its own direction colour. No magnitude becomes width.
   const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? '#62B290' : link.label === '−' ? '#D6336C' : byOlumi ? 'var(--semantic-info)' : '#A9AAA5'
-  const stroke = styled !== null ? styled.stroke : !modelled && causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : INK
+  // DS (Edge polarity tokens): a modelled effect's colour is its direction, whatever else marks it (a driver is wider, a quiet rail thinner, never re-coloured).
+  // A reason link (typed `causal`, no effect role) keeps its ink as drawn today.
+  const reasonOnly = role === 'reason'
+  const stroke = styled !== null ? styled.stroke : !modelled && causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : reasonOnly ? INK : effectStroke(causal?.sign)
   const dash = styled !== null ? styled.dash : modelled || causal !== null ? effectDash(link.doubt) : link.doubt || byOlumi ? '5 5' : null
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   const arrow = `view-link-arrow-${i}`
@@ -181,7 +184,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
       <title>{title}</title>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} colour={stroke} /></defs>
       <BaseEdge id={id} path={path} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
-        style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : styled?.width ?? 1.5, ...(dash !== null ? { strokeDasharray: dash } : {}), ...(styled?.dash ? { strokeLinecap: 'round' as const } : {}) }} />
+        style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : styled?.width ?? (modelled && !reasonOnly ? effectWidth(causal?.strength.share) : 1.5), ...(dash !== null ? { strokeDasharray: dash } : {}), ...(styled?.dash ? { strokeLinecap: 'round' as const } : {}) }} />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} title={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (

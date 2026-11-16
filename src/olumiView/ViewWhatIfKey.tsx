@@ -142,7 +142,7 @@ export function WhatIfBar({ label, canKeep, keeping, onKeep, onDiscard }: { labe
     <div role="group" aria-label={label} data-testid="view-whatif-bar"
       className={`pointer-events-auto absolute bottom-[72px] left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1 shadow-2 ${typography.viewPanelBody}`}>
       <span className="font-medium text-text-header">{label}</span>
-      <span data-testid="view-whatif-bar-proposed" className="rounded-full border border-panel-border px-1.5 text-[11px] leading-4 text-text-light">{WHAT_IF_BAR.proposed}</span>
+      <span data-testid="view-whatif-bar-proposed" className="rounded-full border border-panel-border px-1.5 text-xs leading-4 text-text-light">{WHAT_IF_BAR.proposed}</span>
       <button type="button" data-testid="view-whatif-bar-discard" onClick={onDiscard} className={`${btn} text-text-body hover:bg-panel-hover`}>{WHAT_IF_BAR.discard}</button>
       <button type="button" data-testid="view-whatif-bar-keep" aria-disabled={!canKeep || keeping || undefined} title={canKeep ? undefined : WHAT_IF_BAR.tryFirst}
         onClick={() => { if (canKeep && !keeping) onKeep() }}

@@ -165,7 +165,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   // DL 06:57Z (1): another card's own words open this figure's editor (the aim's question opens its target's), the words as the button.
   const panel = place === 'view-figure' || opener !== undefined
   if (!open && opener !== undefined) {
-    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} title={edit.ask} className="nodrag cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header">{opener}</button>
+    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} title={edit.ask} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>
   }
   if (!open) {
     return (

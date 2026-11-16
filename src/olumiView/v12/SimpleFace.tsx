@@ -25,8 +25,8 @@ import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LetterChip, OlumiAsksMar
 import { chanceParts, headlineChanceRow, unsizedWords, withheldField, withheldWords } from './cards/words'
 
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
-/** Type on a compact card: a fixed 13 px (BaseNode compact), so 10.4 px on screen at Simple's 0.8 floor. */
-const SMALL = 'text-[13px] font-sans leading-[1.3]'
+/** Type on a compact card, by DS role: 14 for figures and reading text, 12 for state words (typography tokens). */
+const SMALL = typography.viewValue, SMALL_META = typography.viewLabel
 const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)', ORANGE = 'var(--olumi-mark-orange)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
@@ -123,13 +123,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       return (
         <div className="min-w-0" data-simple-face="no-chance" title={[reason ?? h.text, h.add].filter((x) => x != null && x !== '').join('\n')}>
           <WithheldChance id={id} state={h.text} reason={reason} press={press} />
-          {reason !== null ? null : <span className={`${SMALL} block text-text-light`} data-simple-state={id}>{withheld ?? h.text}</span>}
+          {reason !== null ? null : <span className={`${SMALL_META} block text-text-light`} data-simple-state={id}>{withheld ?? h.text}</span>}
         </div>
       )
     })() : (
       // A chance the card cannot place on the track: core's own words in full, one short line, and a small dashed bar beside it.
       <div className="flex items-center gap-2" data-simple-face="no-chance" title={h.title !== '' ? h.title : h.text}>
-        <span className={`${SMALL} flex-none whitespace-nowrap text-text-light`} data-simple-state={id}>{h.text}</span>
+        <span className={`${SMALL_META} flex-none whitespace-nowrap text-text-light`} data-simple-state={id}>{h.text}</span>
         <span className="w-8 flex-none"><EmptyTrack testid={`${id}-empty-bar`} /></span>
       </div>
     )

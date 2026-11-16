@@ -10,17 +10,23 @@ import type { ViewModel } from '../../client'
 import { cardLinks, drawnModelOf } from '../../layout'
 import { useViewStore } from '../../store'
 import { linkRole } from '../contract'
-import { DOUBT_DASH, INK, LINK_STYLES } from '../links/styles'
+import { DOUBT_DASH, EFFECT_STROKES, LINK_STYLES } from '../links/styles'
+import { typography } from '../../../styles/typography'
 import { OlumiMark } from '../cards/marks'
 
 // The key's line samples are the canvas's own line styles (links/styles.ts), so the key can never say what the lines do not.
 type Sample = { stroke: string; dash: string | null; end: 'arrow' | 'dot' | 'none'; w: number }
 const fromStyle = (s: (typeof LINK_STYLES)[keyof typeof LINK_STYLES]): Sample => ({ stroke: s.stroke, dash: s.dash, end: s.end, w: s.width })
+/** An effect's polarity samples: the canvas's effect line in the direction colours it is drawn in (links/styles.ts EFFECT_STROKES). */
+export const EFFECT_POLARITY = [
+  { id: 'increases', word: 'increases', sample: { ...fromStyle(LINK_STYLES.effect), stroke: EFFECT_STROKES.increases } },
+  { id: 'decreases', word: 'decreases', sample: { ...fromStyle(LINK_STYLES.effect), stroke: EFFECT_STROKES.decreases } },
+] as const
 const SAMPLES: Readonly<Record<string, Sample>> = {
   effect: fromStyle(LINK_STYLES.effect),
   input: fromStyle(LINK_STYLES.input),
   size: fromStyle(LINK_STYLES.size),
-  doubted: { ...fromStyle(LINK_STYLES.effect), dash: DOUBT_DASH, end: 'none' },
+  doubted: { ...fromStyle(LINK_STYLES.effect), stroke: EFFECT_STROKES.neutral, dash: DOUBT_DASH, end: 'none' },
   measures: fromStyle(LINK_STYLES.measures),
   target: fromStyle(LINK_STYLES.target),
 }
@@ -47,9 +53,9 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
   return (model.key ?? []).flatMap((k) => ((KEY_LINE_IDS as readonly string[]).includes(k.id) && present.has(k.id as KeyLineId) ? [{ id: k.id as KeyLineId, text: k.text }] : []))
 }
 
-function LineSample({ id }: { id: KeyLineId }) {
-  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className="grid h-3.5 w-3.5 place-items-center rounded-full border-[1.5px] text-[10px] font-semibold leading-none" style={{ borderColor: INK }}>?</span>
-  const s = SAMPLES[id]!
+function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample }) {
+  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center rounded-full border-[1.5px] font-semibold leading-none`} style={{ borderColor: EFFECT_STROKES.neutral }}>?</span>
+  const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
       <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} style={{ stroke: s.stroke }} strokeWidth={s.w} strokeDasharray={s.dash ?? undefined} strokeLinecap={s.dash === '1 4' ? 'round' : undefined} fill="none" />
@@ -80,10 +86,13 @@ export function KeyPill() {
   const item = 'flex items-center gap-1'
   return (
     <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + 12 }}
-      className="pointer-events-none absolute bottom-[14px] z-[1100] flex flex-col items-start justify-center gap-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 text-[11px] font-medium leading-none text-text-body whitespace-nowrap shadow-1">
+      className={`pointer-events-none absolute bottom-[14px] z-[1100] flex flex-col items-start justify-center gap-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
       {lines.length === 0 ? null : (
         <div className="flex items-center gap-2.5" data-key-row="lines">
-          {lines.map((l) => <span key={l.id} className={item} data-key-item={l.id}><LineSample id={l.id} />{l.text}</span>)}
+          {lines.map((l) => l.id === 'effect'
+            // The effect shows its direction colours: core's own words, then the two fixed notation words (UI chrome) beside their samples.
+            ? <span key={l.id} className={item} data-key-item="effect">{l.text}{EFFECT_POLARITY.map((p) => <span key={p.id} className={item} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} />{p.word}</span>)}</span>
+            : <span key={l.id} className={item} data-key-item={l.id}><LineSample id={l.id} />{l.text}</span>)}
         </div>
       )}
       <div className="flex items-center gap-2.5" data-key-row="marks">

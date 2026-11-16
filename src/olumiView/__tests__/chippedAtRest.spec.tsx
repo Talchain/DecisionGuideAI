@@ -4,7 +4,6 @@
  * keeps its sign's colour (V11): never two encodings. Bound by link index on the studio golden (links.4, a reason link; links.2, a '+' link),
  * with core's capacity chip (fixtures/disagree x2-stances) set on the record each line holds.
  */
-import { INK } from '../v12/links/styles'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -58,13 +57,13 @@ describe('a link that carries a disagreement chip is drawn at rest', () => {
   it('CR4 must not change: on an earlier version the chipped reason link waits for focus again', () => {
     expect(line(edge(viewWith(4, true), 4, 1), 4)).toBeNull()
   })
-  it('CR5 ruling 1 (V12 rule 2): a chipped link is the one ink like any modelled effect, drawn as its unchipped self; the chip alone marks the disagreement', () => {
+  it('CR5 ruling 1 (V12 rule 2): a chipped link is its direction colour like any modelled effect, drawn as its unchipped self; the chip alone marks the disagreement', () => {
     const plain = edge(viewWith(2, false), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
     cleanup()
     const c = edge(viewWith(2, true), 2)
     const marked = c.querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
     expect(marked).toBe(plain)
-    expect(marked.toLowerCase()).toBe(INK.toLowerCase())
+    expect(marked).toMatch(/^var\(--edge-(positive|negative|neutral)\)$/)
     expect(c.querySelector('[data-link-mark="links.2"]')?.getAttribute('aria-label')).toBe(chip.label)
   })
 })

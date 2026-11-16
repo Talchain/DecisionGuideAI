@@ -38,7 +38,7 @@ import { SimpleFace } from '../v12/SimpleFace'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
 import { isBaseline, withheldValues } from '../v12/contract'
-import { cardKindOf } from '../v12/cards/kind'
+import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
@@ -204,7 +204,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // On the lane's own canvas the node carries core's card or question (canvas.ts drawViewCanvas), no kind: the kind is the one the board
   // draws it as (layout.ts drawKindOf), the name core's heading or question, and the width the one the lane's layout placed it at.
   const hosted = (props.data as { kind?: string }).kind === undefined
-  const kind = ((props.data as { kind?: string }).kind ?? (id === QUESTION ? 'decision' : card !== null && model !== null ? drawKindOf(card, model) : 'factor')) as NodeType
+  const viewNow = useViewStore((s) => s.view)
+  // V12 (canvas rule 5): the card's shape by kind and, for a calculated card, its state: read from the View's structure (v12/cards/kind.ts),
+  // drawn by the look (olumiLook.css, `data-ok-shape` / `data-ok-state`). The option's letter is core's option card order (cards/letters.ts).
+  const shape = useMemo(() => (card === null ? null : cardKindOf(card, model, viewNow)), [card, model, viewNow])
+  // The design system's kind (shape says what a thing is) feeds the face's shape badge and border hue only (data-ok-kind, olumiLook.css). The
+  // BaseNode keeps the board's own kind: its behaviour (anchor card, far title, missing-threshold overlay) is keyed on it and does not change.
+  const drawKind = id === QUESTION ? 'decision' : card !== null && model !== null ? drawKindOf(card, model) : 'factor'
+  const kind = ((props.data as { kind?: string }).kind ?? drawKind) as NodeType
+  const dsKind = dsKindOf(shape?.shape, drawKind)
   const width = (props.data as { width?: number }).width
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
   // Core's face title (FL1: the person's words, Olumi's caption, or the name), as the retired card drew it; the heading stays the card's
@@ -235,10 +243,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const preMortem = usePreMortemOf(id), tried = useTriedOn(id)
   const tryOn = useTryOn(card)
   const versionN = useViewStore((s) => s.view?.version?.n ?? null)
-  const viewNow = useViewStore((s) => s.view)
-  // V12 (canvas rule 5): the card's shape by kind and, for a calculated card, its state: read from the View's structure (v12/cards/kind.ts),
-  // drawn by the look (olumiLook.css, `data-ok-shape` / `data-ok-state`). The option's letter is core's option card order (cards/letters.ts).
-  const shape = useMemo(() => (card === null ? null : cardKindOf(card, model, viewNow)), [card, model, viewNow])
   const letters = useMemo(() => optionLetters(model), [model]), letter = card?.family === 'option' ? letters.get(id) ?? null : null
   // The options core could not calculate this figure for, each with core's own reason (contract.ts withheldValues).
   const heldValues = useMemo(() => new Set(card === null ? [] : withheldValues(card).map((w) => w.option)), [card])
@@ -265,7 +269,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
-    : <p className={`${typography.nodeLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
+    : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-body'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
   // The figure's ✎ (R25): on the figure's own line, as the retired card drew it. A figure with no value yet (Olumi's question, not yet
   // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
   // "a stray pencil glyph on a row of its own").
@@ -278,12 +282,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // Olumi's question about this card, by its number in the panel's list (questionRingOf): on the card's corner where nothing else holds it.
   const ring = card === null ? null : questionRingOf(model, id)
   const ringMark = ring === null ? null
-    : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.nodeLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
+    : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.viewLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
-    : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.nodeLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
+    : <span className={`max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
-    : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
+    : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   // THE FACE (DL-529, the component sheet's nine faces), core's words verbatim; nothing formatted, rounded or worked out here.
   //  - an option: its headline as the View serves it: a chance (core's words up to its own first clause as the one headline, the clause
   //    under it), a fixed result said as fixed, or no chance yet (core's words as a quiet pill, "Why not" opening core's reason, and core's
@@ -402,23 +406,23 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}
       style={letter === null ? undefined : ({ '--ok-letter': `"${letter}"` } as CSSProperties)}>
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
-      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.nodeLabel} !leading-tight text-info shrink-0`} /></>}
+      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
         // V12 Simple: the question alone, a slim pill (its notes, its date and the chance sentence are the panel's, the date also its hover).
         ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text} />
         : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
-          data-ok-shape={shape?.shape} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
-          {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.nodeLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
+          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
+          {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} extra={<>{card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />}{editCue}{badgeLine}</>} withheld={card.headline != null && card.headline.state === 'none' ? <WithheldWords id={id} h={card.headline} /> : undefined}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
-                <p className={`${typography.nodeValue} line-clamp-1 font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+                <p className={`${typography.viewValue} line-clamp-1 font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
                 {card.figure == null || card.figure.text === '' ? null
-                  : <p className={`${typography.nodeLabel} line-clamp-1 text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></p>}
-                {tryOn.said === null ? null : <p className={`${typography.nodeLabel} line-clamp-2 text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+                  : <p className={`${typography.viewLabel} line-clamp-1 text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></p>}
+                {tryOn.said === null ? null : <p className={`${typography.viewLabel} line-clamp-2 text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               </div>
             )} /> : <>
           {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
@@ -445,15 +449,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
             <div className="nodrag grid gap-1 rounded-lg bg-panel-hover px-2 py-1.5" data-card-try={id}>
-              <p className={`${typography.nodeValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></p>
-              {tryOn.said === null ? null : <p className={`${typography.nodeLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+              <p className={`${typography.viewValue} font-semibold text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></p>
+              {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
-                className={`${typography.nodeLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
+                className={`${typography.viewLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
             </div>
           )}
           {tryOn?.kind !== 'option' ? null : (
             // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.
-            <p className={`${typography.nodeLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
+            <p className={`${typography.viewLabel} text-text-body`} title={`${tryOn.words}\n${tryOn.row.title}`} data-option-try={id}>
               {WHAT_IF_COPY.whatIf}: <span className="font-semibold text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
             </p>
           )}
@@ -462,16 +466,16 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
             {/* Core's change mark, here only where no other line can carry it (changeOn, above). */}
             {changeOn === 'band' ? changeMark : null}
-            {card.committed == null ? null : <span className={`${typography.nodeLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
+            {card.committed == null ? null : <span className={`${typography.viewLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
             {/* K5 If it failed: one mark per Olumi failure story resting on this card, core's number with Olumi's glyph, the story on hover; on an
                 option, the story most within the team's control, in core's words. All Olumi's (../k5.ts). */}
             {failedOf(card).map((f, j) => (
-              <span key={`f${f.n}`} className={`${typography.nodeLabel} text-info`} title={`${f.olumi.title} · ${f.title}`} aria-label={`${f.olumi.title} · ${f.title}`} data-failed={`${id}.${f.n}`}>
+              <span key={`f${f.n}`} className={`${typography.viewLabel} text-info`} title={`${f.olumi.title} · ${f.title}`} aria-label={`${f.olumi.title} · ${f.title}`} data-failed={`${id}.${f.n}`}>
                 <span data-view={`${id}.failed.${j}.olumi.glyph`}>{f.olumi.glyph}</span>{f.n}
               </span>
             ))}
             {(() => { const r = failedReasonOf(card); return r === null ? null : (
-              <span className={`${typography.nodeLabel} text-info`} title={`${r.olumi.title} · ${r.title}`} aria-label={`${r.olumi.title} · ${r.text} · ${r.title}`} data-failed-reason={id}>
+              <span className={`${typography.viewLabel} text-info`} title={`${r.olumi.title} · ${r.title}`} aria-label={`${r.olumi.title} · ${r.text} · ${r.title}`} data-failed-reason={id}>
                 <span data-view={`${id}.failed_reason.olumi.glyph`}>{r.olumi.glyph}</span> <span data-view={`${id}.failed_reason.text`}>{r.text}</span>
               </span>
             ) })()}

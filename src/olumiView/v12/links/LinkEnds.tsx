@@ -23,5 +23,5 @@ export function OlumiLineMark({ i, x, y, title }: { i: number; x: number; y: num
 
 /** A size wire's word, set on the wire. */
 export function SizeLabel({ i, x, y, text }: { i: number; x: number; y: number; text: string }): JSX.Element {
-  return <text data-view-link-size-label={`links.${i}`} x={x} y={y - 4} textAnchor="middle" fontSize="10" style={{ fill: INPUT_GREY, paintOrder: 'stroke', stroke: 'var(--bg-canvas)', strokeWidth: 3 }}>{text}</text>
+  return <text data-view-link-size-label={`links.${i}`} x={x} y={y - 4} textAnchor="middle" fontSize="12" style={{ fill: INPUT_GREY, paintOrder: 'stroke', stroke: 'var(--bg-canvas)', strokeWidth: 3 }}>{text}</text>
 }

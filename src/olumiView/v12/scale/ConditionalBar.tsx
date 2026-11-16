@@ -20,7 +20,7 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
   const lo = Math.min(d.low, d.high) * 100, hi = Math.max(d.low, d.high) * 100
   const dot = (p: number, id: string) => <span data-testid={id} data-p={p} style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: OPT, left: `calc(${p * 100}% - 5px)` }} />
   return (
-    <div data-testid="conditional-bar" data-card={card.id} title={card.driver?.title || undefined} style={{ margin: '4px 0', fontSize: 11, color: LIGHT }}>
+    <div data-testid="conditional-bar" data-card={card.id} title={card.driver?.title || undefined} style={{ margin: '4px 0', fontSize: 12, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
         <span style={{ position: 'absolute', top: 7, height: 2, background: INK, opacity: 0.4, left: `${lo}%`, width: `${hi - lo}%` }} />
         {dot(d.low, 'conditional-low')}{dot(d.high, 'conditional-high')}

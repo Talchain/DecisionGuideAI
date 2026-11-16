@@ -18,7 +18,7 @@ import { useMe } from '../../../../olumiCore/me'
 import { CoreCard } from '../../../previous/CoreCard'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, SimpleFace } from '../../SimpleFace'
-import { cardKindOf } from '../kind'
+import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
 import { OLUMI_ASKS } from '../marks'
 import { chanceParts, headlineChanceRow, unsizedWords } from '../words'
@@ -100,14 +100,22 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
     }
   })
 
-  it('K5 the look holds a frame for every kind and state, and reads the option\'s letter (jsdom draws no CSS, so the stylesheet is read)', () => {
+  it('K6 each V12 shape maps to one DS kind (shape says what a thing is); the real card carries it with the assumption mark, bound by card id', () => {
+    expect([dsKindOf('option'), dsKindOf('input'), dsKindOf('calculated'), dsKindOf('aim'), dsKindOf('risk'), dsKindOf('assumption')]).toEqual(['option', 'factor', 'outcome', 'goal', 'risk', 'factor'])
+    expect([dsKindOf('other', 'decision'), dsKindOf('other', 'action'), dsKindOf('other', 'unknown')]).toEqual(['decision', 'option', 'factor'])
+    const got = (['second_oven', 'oven_price', 'sales', 'sell_360', 'oven_repair'] as const).map((id) => { const f = faceOf(draw(ASKED, id, 'working'), id); cleanup(); return [id, f.getAttribute('data-ok-kind'), f.hasAttribute('data-ok-assumption')] })
+    expect(got).toEqual([['second_oven', 'option', false], ['oven_price', 'factor', false], ['sales', 'outcome', false], ['sell_360', 'goal', false], ['oven_repair', 'risk', false]])
+    const a = faceOf(draw(EU, 'customer_flow_assumptions', 'working'), 'customer_flow_assumptions')
+    expect([a.getAttribute('data-ok-kind'), a.hasAttribute('data-ok-assumption')]).toEqual(['factor', true])
+  })
+
+  it('K5 the look draws the design system\'s shape for every kind (DS v5 §10), keyed on data-ok-kind only, and reads the option\'s letter (jsdom draws no CSS, so the stylesheet is read)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    for (const shape of ['option', 'input', 'calculated', 'aim', 'assumption', 'risk']) expect(css, shape).toContain(`:has([data-ok-shape='${shape}'])`)
-    for (const state of ['pending', 'withheld']) expect(css, state).toContain(`:has([data-ok-state='${state}'])`)
-    // The double outline's inner line is the card's ::before; its ::after belongs to the layers' note (LayerCanvasStyle), never both on one.
-    expect(css).toMatch(/:has\(\[data-ok-shape='calculated'\]\) \[role='group'\]\[aria-label\]::before \{[^}]*border: 1px solid;/)
-    expect(css).not.toMatch(/data-ok-(shape|state)[^{]*\[role='group'\]\[aria-label\]::after/)
-    expect(css).toMatch(/:has\(\[data-option-letter\]\) \[data-testid='node-title'\]::before \{[^}]*content: var\(--ok-letter, ''\);/)
+    for (const kind of ['factor', 'option', 'goal', 'decision', 'risk', 'outcome']) expect(css, kind).toContain(`:has([data-ok-kind='${kind}'])`)
+    expect(css).toContain(':has([data-ok-assumption])')
+    // The V12 boards' own shape language (pills, double outlines, state dashes) is gone: nothing styles a card from data-ok-shape or data-ok-state.
+    expect(css).not.toMatch(/data-ok-(shape|state)/)
+    expect(css).toMatch(/:has\(\[data-ok-kind='option'\]\) \[data-testid='node-title'\]::before \{[^}]*content: var\(--ok-letter, ''\);/)
   })
 })
 

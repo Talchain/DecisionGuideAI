@@ -23,7 +23,7 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
   const band = { position: 'absolute', top: 4, height: 8, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
   return (
-    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize: 11, color: LIGHT }}>
+    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize: 12, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
         <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
           style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: INK }} />

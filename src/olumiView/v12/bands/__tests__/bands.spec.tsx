@@ -17,6 +17,7 @@ import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { KeyPill, keyLinesOf } from '../KeyPill'
+import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
 import { showSimple, showWholeModel } from '../../simpleStore'
@@ -121,6 +122,19 @@ describe('bands: the key pill', () => {
     expect(pill.querySelector('[data-key-row="lines"]')!.querySelectorAll('[data-key-item]')).toHaveLength(2)
     expect(container.querySelector('[data-key-item="effect"]')).toHaveTextContent('core says effect')
     expect(pill.querySelector('[data-key-row="marks"]')!.textContent).toBe("Olumi'sa person's")
+  })
+  it('K5 the effect sample shows polarity in the canvas\'s own tokens at 12 px, with no raw pixel size class', () => {
+    const m = withKey(['effect', 'unsettled'], [{ ...model.links[0]!, role: 'effect' }, { ...model.links[1]!, causal: { sign: 'unknown' } }])
+    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
+    const { container } = render(<KeyPill />)
+    const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).style.stroke
+    expect(stroke('increases')).toBe(EFFECT_STROKES.increases)
+    expect(stroke('decreases')).toBe(EFFECT_STROKES.decreases)
+    expect(container.querySelector('[data-key-polarity="decreases"]')).toHaveTextContent('decreases')
+    expect(stroke('decreases')).not.toBe(INK)
+    expect(screen.getByTestId('view-key-pill').className).not.toMatch(/text-\[(9|10|11)px\]/)
+    expect(screen.getByTestId('view-key-pill').className).toContain('text-[12px]')
+    expect(container.querySelector('[data-key-sample="unsettled"]')!.className).toContain('text-[12px]')
   })
   it('K4 with no role in the View, the pill still draws its marks and no line sample', () => {
     useViewStore.setState({ sid: view.id, view: { ...view, model: { ...model, key: key(['input']) } }, status: 'ready' } as never)

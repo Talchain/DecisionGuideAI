@@ -989,6 +989,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // A core card (olumiView/previous/CoreCard.tsx): what is missing is said by core, in the card's body, never by this frame's own rule; and
   // its name is core's, drawn whole at full size (nothing of core's is cut; only the zoomed-out face shows less, and says so).
   const isCoreCard = (data as { core?: boolean } | undefined)?.core === true
+  // DS type scale (12 / 14 / 18, Paul 7 Nov 2026): a core card sets its title and values at 14 and its labels at 12 (the view* tokens); the old
+  // non-core canvas keeps its node* tokens.
+  const titleType = isCoreCard ? typography.viewTitle : typography.nodeTitle
+  const titleTypeWide = isCoreCard ? typography.viewTitle : typography.nodeTitleWide
+  const labelType = isCoreCard ? typography.viewLabel : typography.nodeLabel
   // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line): three lines on the face, the whole
   // heading as the title's hover; the card's accessible name keeps it whole (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
   // V12 Simple (`data.compact`): a compact card, two title lines at most, the whole heading on hover.
@@ -2727,8 +2732,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 onSave={(next) => useCanvasStore.getState().updateNodeLabel(id, next)}
                 autoEdit
                 onEditEnd={() => setRenamingOnCard(false)}
-                className={`${isAnchorCard ? typography.nodeTitleWide : typography.nodeTitle} text-text-body`}
-                counterClassName={typography.nodeLabel}
+                className={`${isAnchorCard ? titleTypeWide : titleType} text-text-body`}
+                counterClassName={labelType}
                 wrap
               />
             </div>
@@ -2758,7 +2763,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
                 : lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-body break-words ${titleClamp}`
+                ? `${titleType} font-semibold text-text-body break-words ${titleClamp}`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2772,8 +2777,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                    (`.node` sets no title colour; #3F3F3E). The anchors were
                    #262626 at the repeated cards' 14px; the step is now size. */
                 : isAnchorCard
-                  ? `${typography.nodeTitleWide} font-semibold text-text-body break-words ${titleClamp}`
-                  : `${typography.nodeTitle} text-text-body break-words ${titleClamp}`
+                  ? `${titleTypeWide} font-semibold text-text-body break-words ${titleClamp}`
+                  : `${titleType} text-text-body break-words ${titleClamp}`
             )}
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
@@ -2958,7 +2963,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* Expanded description (markdown) */}
       {isExpanded && description && (
         <div
-          className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
+          className={`${labelType} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via safeRichText (sanitizeMarkdown shim)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
@@ -3045,7 +3050,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           {/* The person's model holds this item; the calculation does not include it yet (`livingModelCanvas.ts`). One
               quiet line, in the words the goal card's list used to carry. */}
           {livingOnly !== null && (
-            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${typography.edgeLabel} text-text-light mt-1`}>
+            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${isCoreCard ? typography.viewLabel : typography.edgeLabel} text-text-light mt-1`}>
               {notInCalculationWords(livingOnly)}
             </div>
           )}
@@ -3064,7 +3069,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               <BottomCardMark><Target size={9} data-testid="factor-constraint-mark" className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`} aria-hidden="true" /></BottomCardMark>
               {constraintLines.map((text, i) => (
                 <div key={i} className="flex items-start gap-1">
-                  <span className={`${typography.edgeLabel} text-text-body`}>
+                  <span className={`${isCoreCard ? typography.viewLabel : typography.edgeLabel} text-text-body`}>
                     {/* "Limit" names what the number IS. The formatter supplies
                         the operator, the unit and any "· Inferred limit"
                         provenance; nothing here re-derives them. */}
@@ -3115,7 +3120,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 data-testid="node-lod-line-text"
                 // `!leading-tight`: one line whose box fits the blanked body's
                 // one-body-line height exactly (see `LOD_BLANKED_BODY_STYLE`).
-                className={`${typography.nodeLabel} !leading-tight text-text-body truncate`}
+                className={`${labelType} !leading-tight text-text-body truncate`}
               >
                 {lodBodyLine}
               </span>
@@ -3141,7 +3146,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                      muted beside a body-ink number — the disclosure fainter
                      than the figure, the defect this line exists to close.
                      On the white card body ink is 10.4:1, muted 5.2:1. */
-                  className={`${typography.nodeLabel} !leading-tight text-text-body italic shrink-0`}
+                  className={`${labelType} !leading-tight text-text-body italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
                 </span>
