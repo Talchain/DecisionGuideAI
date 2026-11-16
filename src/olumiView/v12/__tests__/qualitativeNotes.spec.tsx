@@ -31,6 +31,13 @@ describe('an option with no chance shows the notes that bear on it (16 Nov: the 
     expect(notesOpenOn(mixed, { ...noChance, premises: [] })).toBe(false)
     expect(notesOpenOn(mixed, { ...noChance, family: 'quantity' })).toBe(false)
   })
+  it('open on an aim nothing is counted against (bound.measured false) that carries notes, in a model that has options; closed on a measured aim and on one with no notes', () => {
+    const words = { ...aim, premises: [premise], bound: { text: 'Kept in words', title: '', olumi: null, measured: false } }
+    expect(notesOpenOn(mixed, words)).toBe(true)
+    expect(notesOpenOn(mixed, { ...words, bound: { ...words.bound, measured: true } })).toBe(false)
+    expect(notesOpenOn(mixed, { ...words, bound: null })).toBe(false)
+    expect(notesOpenOn(mixed, { ...words, premises: [] })).toBe(false)
+  })
   it('a qualitative model (no option, no figure) still opens them on every card, as before', () => {
     expect(notesOpenOn({ cards: [aim] }, { ...aim, premises: [] })).toBe(true)
   })
