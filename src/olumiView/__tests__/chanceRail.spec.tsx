@@ -74,4 +74,12 @@ describe('the shared chance rail', () => {
     expect(grid, 'the text column is its own grid column').toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
     for (const [sel, rule] of [['label', label], ['fig', fig]] as const) expect(rule, sel).not.toMatch(/white-space:\s*nowrap|text-overflow|line-clamp/)
   })
+  it('R4 a comparison rail needs something to compare: with ONE option the question bar draws no rail (the option\'s own card keeps its chance and conditions); with two or more it stays', () => {
+    const one = structuredClone(RUN2); one.model!.cards = one.model!.cards.filter((c) => c.family !== 'option' || c.id === SEEK)
+    expect(chanceRailOf(one.model)!.rows.map((r) => r.id)).toEqual([SEEK]) // precondition: the data still has the one worked-out option
+    expect(drawQuestion(one).querySelector('[data-chance-rail]')).toBeNull()
+    cleanup()
+    const two = structuredClone(RUN2); two.model!.cards = two.model!.cards.filter((c) => c.family !== 'option' || c.id === SEEK || c.id === ANGEL)
+    expect(drawQuestion(two).querySelector('[data-chance-rail]')).not.toBeNull()
+  })
 })

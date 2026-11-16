@@ -20,6 +20,8 @@ export function ChanceRail(): JSX.Element | null {
   const model = useViewStore((s) => s.view?.model ?? null)
   const rail = useMemo(() => chanceRailOf(model), [model])
   if (rail === null) return null
+  // A comparison needs two things to compare: with one option the rail only squeezed the question's text (seen live at 1232x704); that option's own card keeps its chance, conditions and challenge mark.
+  if (rail.rows.length + rail.rest.length < 2) return null
   const n = rail.rows.length
   return (
     <div className="ok-rail nodrag" data-chance-rail="">
