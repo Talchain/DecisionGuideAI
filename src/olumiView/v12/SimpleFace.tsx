@@ -81,9 +81,11 @@ export type SimpleFaceProps = {
   readonly noted: boolean
   /** The card's own controls that stay (the figure's edit, core's fold badge). */
   readonly extra?: ReactNode
+  /** A withheld chance's "Why not" press (CoreCard `WithheldWords`), so Simple never shows the bare "No chance yet" where core gives a reason. */
+  readonly withheld?: ReactNode
 }
 
-export function SimpleFace({ card, model, noted, extra }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, extra, withheld }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -109,7 +111,10 @@ export function SimpleFace({ card, model, noted, extra }: SimpleFaceProps): JSX.
     ) : (
       // Withheld, or a chance state the card cannot place: core's own state words in full, one short line, and a small dashed bar beside it; core's reason on hover; never "no chance".
       <div className="flex items-center gap-2" data-simple-face="no-chance" title={(h.why ?? '') !== '' ? h.why! : h.title !== '' ? h.title : h.text}>
-        <span className={`${SMALL} flex-none whitespace-nowrap text-text-light`} data-simple-state={id}>{h.text}</span>
+        {/* Contract 3 (ONE-PLAN) and Codex 007 rule 4: where core withholds the chance with a reason, the face is the "Why not" press that
+            opens core's whole reason, never the bare state words; the state words only where core sends no reason. */}
+        {h.state === 'none' && withheld !== undefined ? <span className="min-w-0" data-simple-state={id}>{withheld}</span>
+          : <span className={`${SMALL} flex-none whitespace-nowrap text-text-light`} data-simple-state={id}>{h.text}</span>}
         <span className="w-8 flex-none"><Dashed testid={`${id}-empty-bar`} /></span>
       </div>
     )

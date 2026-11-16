@@ -11,6 +11,7 @@ import { drawnModelOf } from '../../layout'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { SimpleSwitch } from '../SimpleSwitch'
+import { WithheldWords } from '../../previous/CoreCard'
 
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
 vi.mock('../../../canvas/hydrate/serverGraphHydration', async (real) => ({ ...(await real<object>()), hydrateCanvasFromServer: vi.fn(async () => 'merged') }))
@@ -72,6 +73,22 @@ describe('V12 Simple faces', () => {
     expect(words.className, 'the words may shrink: never the unshrinkable line that ran across the canvas').not.toContain('flex-none')
     expect(words.closest('[data-simple-face="gauge"]')!.querySelector('.ok-track'), 'the track keeps its own row').not.toBeNull()
     expect(words.parentElement!.className, 'the track and the words are stacked, not one row').not.toContain('flex')
+  })
+
+  it('S2c a withheld chance with core\'s reason: the face is "Why not" opening that reason, never the bare "No chance yet" (Contract 3, Codex 007 #4)', () => {
+    const base = card('broader_entry')
+    const why = 'The chance is not worked out: in 170 samples a figure went outside what it can be, such as below zero.'
+    const withheld = { ...base, headline: { ...base.headline!, state: 'none' as const, text: 'No chance yet', why, title: why, range: null } }
+    const { container } = render(<SimpleFace card={withheld} model={model} noted={false} withheld={<WithheldWords id="broader_entry" h={withheld.headline} />} />)
+    const face = container.querySelector('[data-simple-face="no-chance"]')!
+    expect(face.querySelector('summary')?.textContent).toBe('Why not')
+    expect(face.textContent).toContain(why)
+    expect(face.textContent, 'never the bare state words where core gives a reason').not.toContain('No chance yet')
+    // CONTRAST: core sends no reason: its own state words are the face, whole.
+    const bare = { ...withheld, headline: { ...withheld.headline, why: null, title: '' } }
+    const b = render(<SimpleFace card={bare} model={model} noted={false} withheld={<WithheldWords id="broader_entry" h={bare.headline} />} />).container
+    expect(b.querySelector('[data-simple-face="no-chance"]')!.textContent).toContain('No chance yet')
+    expect(b.querySelector('summary')).toBeNull()
   })
 
   it('S4 a figure with a modelled band is one range bar per option on one axis, inside 0 to 100', () => {
