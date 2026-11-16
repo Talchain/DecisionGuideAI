@@ -9,7 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } 
 import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
-import { DoubtsFailure, sendDoubts, ViewDoubts } from './ViewDoubts'
+import { DoubtsFailure, sendDoubts, useDoubtsSending, ViewDoubts } from './ViewDoubts'
 import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
 
@@ -130,7 +130,9 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const viewLocked = useWriteLocked(`${sid}:view`)
   // A write still on its way (this panel drawn again meanwhile) keeps its buttons held: it is never sent twice.
   const viewSending = useWriteSending(`${sid}:view`), revealSending = useWriteSending(`${sid}:reveal`)
-  const sending = viewSending || revealSending
+  // A saved view's second save on its way (a retry included) holds the form too: the next view is never given under it (Codex reply 021 #1).
+  const doubtsSending = useDoubtsSending(sid)
+  const sending = viewSending || revealSending || doubtsSending
   // A share has no operation id either: one whose answer was lost is not sent again.
   const locks = useWrites((s) => s.locked)
   const shareLocked = (id: number) => locks[`${sid}:share:${id}`] === true
@@ -274,7 +276,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
           >{view.team_words.views.skip}</button>
         </div>
         {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
-        <DoubtsFailure sid={sid} />
+        <DoubtsFailure sid={sid} onWrote={onWrote} />
       </div>
     </section>
   )

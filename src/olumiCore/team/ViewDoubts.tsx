@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { create } from 'zustand'
 import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { call, TeamApiError } from './api'
+import { runWrite, useWrites, useWriteSending } from './writes'
 import { BODY, ERR, FIELD, LABEL, META } from './ui'
 import { useDifferences } from './differences'
 
@@ -14,15 +14,21 @@ import { useDifferences } from './differences'
  * differ"). Held here until the view is given, then sent with its id; dropped with the view's draft.
  */
 type Remove = NonNullable<NonNullable<View['model']>['links'][number]['remove']>
-/** `pending`: a send that failed after the view was saved: the saved view's id and the stance, so a retry sends these alone, never the view again. */
-interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly error?: string | null; readonly pending?: { readonly view: number; readonly stance: string | null } | null }
+interface DoubtsDraft { readonly picked: Readonly<Record<string, Remove>>; readonly missing: string; readonly error?: string | null }
 const useDoubts = create<Record<string, DoubtsDraft>>()(() => ({}))
+/** A second save that failed after its view was saved, by scenario and saved view id: exactly what was sent, so a retry sends that and only
+ *  that (never the view again, never what is typed for the next view). `uncertain`: the answer was lost, so it may have been saved and is
+ *  not sent again from this page (writes.ts locks it; core keeps one per view and refuses a second). */
+interface Pending { readonly body: { readonly links: readonly Remove[]; readonly missing: string | null; readonly stance: string | null }; readonly error: string; readonly uncertain: boolean }
+const usePending = create<Record<string, Readonly<Record<number, Pending>>>>()(() => ({}))
 const keyOf = (r: Remove) => `${r.record}|${r.part ?? ''}`
 const EMPTY: DoubtsDraft = { picked: {}, missing: '' }
 export const MAX_MISSING = 200
+/** The write key of one saved view's second save (writes.ts): its own lock and "on its way" state, apart from the view's. */
+export const doubtsKey = (sid: string, view: number): string => `${sid}:doubts:${view}`
 
-/** For specs. */
-export function resetDoubts(): void { useDoubts.setState({}, true) }
+/** For specs, and when the person is forgotten (signout.ts). */
+export function resetDoubts(): void { useDoubts.setState({}, true); usePending.setState({}, true) }
 
 /** The links a member can name, each once: core's `model.holdable` in its own words, a drawn line's hover its line's title; on a core before
  *  `holdable`, the lines `links[].remove` offers, by their cards' headings, as before. Shared with the stance form (LinkStance.tsx). */
@@ -40,33 +46,63 @@ export async function sendDoubts(sid: string, view: number, stance: string | nul
   const d = useDoubts.getState()[sid] ?? EMPTY
   const links = Object.values(d.picked), missing = d.missing.trim()
   if (links.length === 0 && missing === '' && stance === null) return
+  // What was named belongs to this saved view now: it leaves the fields at once, so whatever is typed next is the next view's, and a retry
+  // of this one never reads or clears it (Codex reply 021 #1).
+  useDoubts.setState((s) => ({ ...s, [sid]: EMPTY }))
+  await post(sid, view, { links, missing: missing === '' ? null : missing, stance })
+}
+
+/** One send of a saved view's second save, through the team's one write path (writes.ts): a send still on its way is not sent again, and a
+ *  lost answer locks it. True when core saved it. */
+async function post(sid: string, view: number, body: Pending['body']): Promise<boolean> {
   try {
-    await call<{ doubt: number }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/views/${view}/doubts`, { links, missing: missing === '' ? null : missing, stance })
-    useDoubts.setState((s) => ({ ...s, [sid]: EMPTY }))
+    await runWrite(doubtsKey(sid, view), { op: false }, null, () => call<{ doubt: number }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/views/${view}/doubts`, body))
+    usePending.setState((s) => { const { [view]: _done, ...rest } = s[sid] ?? {}; return { ...s, [sid]: rest } })
+    return true
   } catch (e) {
-    const said = e instanceof TeamApiError ? e.message : 'That did not go through.'
-    useDoubts.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? EMPTY), error: DOUBTS_FAILED(said), pending: { view, stance } } }))
+    // A lost answer may have been saved (reply 021 #3): said as such, and not offered again; anything else is core's refusal, said in its words.
+    const uncertain = e instanceof TeamApiError && e.uncertain
+    const error = uncertain ? DOUBTS_MAY_HAVE_SAVED : DOUBTS_FAILED(e instanceof TeamApiError ? e.message : 'That did not go through.')
+    usePending.setState((s) => ({ ...s, [sid]: { ...(s[sid] ?? {}), [view]: { body, error, uncertain } } }))
+    return false
   }
 }
+
+/** A retry of one saved view's second save: the same body, nothing else; once core saves it, the scenario is read again (reply 021 #2). */
+export async function retryDoubts(sid: string, view: number, onWrote: () => Promise<boolean>): Promise<void> {
+  const p = usePending.getState()[sid]?.[view]
+  if (p === undefined || p.uncertain) return
+  if (await post(sid, view, p.body)) await onWrote()
+}
+
 /** Said where the view's second save failed (core's words after the colon). The view itself is saved: never said as the view failing. */
 export const DOUBTS_FAILED = (said: string): string => `Your view is saved; what you added with it was not: ${said}`
+/** Said where the second save's answer was lost: it may have been saved, so it is not sent again (as writes.ts MAY_HAVE_SAVED). */
+export const DOUBTS_MAY_HAVE_SAVED = 'Your view is saved. What you added with it may have been saved too: the connection dropped before Olumi answered. It is not sent again from this page: reload the page to see what Olumi holds.'
 export const DOUBTS_RETRY = 'Try again'
+
+/** Is any saved view's second save on its way for this scenario? The Views panel holds its form while one is (reply 021 #1). */
+export const useDoubtsSending = (sid: string): boolean => useWrites((s) => Object.keys(s.sending).some((k) => k.startsWith(`${sid}:doubts:`)))
 
 /**
  * Codex 17:35:59Z (UI half): the view's second save (its stance, links, factor) can fail after the view is saved. Its failure is said here,
  * drawn by the Views panel outside every model-gated field (before any approved model, the link and factor fields are not drawn, and the form
  * closes once the view is saved), with one retry that sends the same saved view's id and what was named, never the view's text again.
  */
-export function DoubtsFailure({ sid }: { sid: string }): JSX.Element | null {
-  const d = useDoubts((s) => s[sid] ?? EMPTY)
-  const [busy, setBusy] = useState(false)
-  if (!d.error || !d.pending) return null
-  const pending = d.pending
+export function DoubtsFailure({ sid, onWrote }: { sid: string; onWrote: () => Promise<boolean> }): JSX.Element | null {
+  const pending = usePending((s) => s[sid])
+  const views = Object.keys(pending ?? {}).map(Number)
+  if (pending === undefined || views.length === 0) return null
+  return <>{views.map((v) => <Failure key={v} sid={sid} view={v} p={pending[v]!} onWrote={onWrote} />)}</>
+}
+
+function Failure({ sid, view, p, onWrote }: { sid: string; view: number; p: Pending; onWrote: () => Promise<boolean> }): JSX.Element {
+  const sending = useWriteSending(doubtsKey(sid, view))
   return (
-    <div className="grid gap-1.5" data-testid="team-view-doubts-failure">
-      <p role="alert" className={ERR} data-testid="team-view-doubts-error">{d.error}</p>
-      <div><Button size="sm" variant="secondary" data-testid="team-view-doubts-retry" disabled={busy}
-        onClick={() => { setBusy(true); void sendDoubts(sid, pending.view, pending.stance).finally(() => setBusy(false)) }}>{DOUBTS_RETRY}</Button></div>
+    <div className="grid gap-1.5" data-testid="team-view-doubts-failure" data-view={view}>
+      <p role="alert" className={ERR} data-testid="team-view-doubts-error">{p.error}</p>
+      {p.uncertain ? null : <div><Button size="sm" variant="secondary" data-testid="team-view-doubts-retry" disabled={sending}
+        onClick={() => { void retryDoubts(sid, view, onWrote) }}>{DOUBTS_RETRY}</Button></div>}
     </div>
   )
 }

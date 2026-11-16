@@ -9,7 +9,8 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { setPagePerson, setTeamFetch } from '../team/api'
-import { DOUBTS_FAILED, DoubtsFailure, resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
+import { DOUBTS_FAILED, DOUBTS_MAY_HAVE_SAVED, DoubtsFailure, resetDoubts, retryDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
+import { resetWrites } from '../team/writes'
 import { resetDifferences, useDifferences, type Differences } from '../team/differences'
 import { ViewsPanel } from '../team/ViewsPanel'
 import { draftOf, resetDrafts } from '../team/drafts'
@@ -41,7 +42,7 @@ function serve(status: number, body: unknown): Sent[] {
   return sent
 }
 afterEach(() => {
-  cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetDoubts(); resetDifferences(); useMe.setState({ me: null, status: 'none' })
+  cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetDoubts(); resetWrites(); resetDifferences(); useMe.setState({ me: null, status: 'none' })
   useViewStore.setState(useViewStore.getInitialState(), true)
   useViewChat.setState(useViewChat.getInitialState(), true)
   usePreMortemGate.setState(usePreMortemGate.getInitialState(), true)
@@ -75,7 +76,7 @@ describe('a private view\'s links and factor', () => {
     expect(none.filter((s) => s.method === 'POST')).toHaveLength(0)
     serve(400, { error: 'each link must be one the model shows' })
     supported()
-    render(<><ViewDoubts sid="s_x" view={view()} disabled={false} /><DoubtsFailure sid="s_x" /></>)
+    render(<><ViewDoubts sid="s_x" view={view()} disabled={false} /><DoubtsFailure sid="s_x" onWrote={async () => true} /></>)
     fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'x' } })
     await act(async () => { await sendDoubts('s_x', 7) })
     expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe(DOUBTS_FAILED('each link must be one the model shows'))
@@ -85,7 +86,8 @@ describe('a private view\'s links and factor', () => {
     let sent = serve(409, { error: 'Nothing to hold yet.' })
     // Before any approved model: the link and factor fields are not drawn (no version), so the failure has to stand outside them.
     const unapproved = { ...view(), version: null } as View
-    render(<ViewsPanel sid="s_x" view={unapproved} onWrote={async () => true} />)
+    const read = vi.fn(async () => true)
+    render(<ViewsPanel sid="s_x" view={unapproved} onWrote={read} />)
     expect(screen.queryByTestId('team-view-doubts')).toBeNull()
     await act(async () => { await sendDoubts('s_x', 7, 'suspect') })
     expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe(DOUBTS_FAILED('Nothing to hold yet.'))
@@ -94,6 +96,60 @@ describe('a private view\'s links and factor', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('team-view-doubts-retry')) })
     await vi.waitFor(() => expect(screen.queryByTestId('team-view-doubts-failure')).toBeNull())
     expect(sent.filter((x) => x.method === 'POST')).toEqual([{ method: 'POST', url: '/api/scenarios/s_x/views/7/doubts', body: { links: [], missing: null, stance: 'suspect' } }])
+    // Codex reply 021 #2: once core saves it, the scenario is read again (the panel's own refresh), once.
+    expect(read).toHaveBeenCalledTimes(1)
+  })
+
+  it('Codex reply 021 #1: a retry sends the failed view\'s own words and leaves what is typed for the next view alone', async () => {
+    serve(400, { error: 'Try that again.' })
+    supported()
+    render(<><ViewDoubts sid="s_x" view={view()} disabled={false} /><DoubtsFailure sid="s_x" onWrote={async () => true} /></>)
+    fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'staff absence' } })
+    await act(async () => { await sendDoubts('s_x', 7) })
+    expect((screen.getByTestId('team-view-missing') as HTMLInputElement).value).toBe('')
+    fireEvent.change(screen.getByTestId('team-view-missing'), { target: { value: 'a new hire leaving' } })
+    const sent = serve(201, { doubt: 9 })
+    await act(async () => { fireEvent.click(screen.getByTestId('team-view-doubts-retry')) })
+    await vi.waitFor(() => expect(screen.queryByTestId('team-view-doubts-failure')).toBeNull())
+    expect(sent.filter((x) => x.method === 'POST').map((x) => x.body)).toEqual([{ links: [], missing: 'staff absence', stance: null }])
+    expect((screen.getByTestId('team-view-missing') as HTMLInputElement).value).toBe('a new hire leaving')
+  })
+
+  it('Codex reply 021 #1: while a retry is on its way the view form is held; it opens again once core answers', async () => {
+    serve(400, { error: 'Try that again.' })
+    const unapproved = { ...view(), version: null } as View
+    render(<ViewsPanel sid="s_x" view={unapproved} onWrote={async () => true} />)
+    await act(async () => { await sendDoubts('s_x', 7, 'suspect') })
+    let answer: (r: Response) => void = () => {}
+    setTeamFetch((async (url: string) => url === '/api/me'
+      ? new Response(JSON.stringify({ me: null }), { status: 200, headers: { 'content-type': 'application/json' } })
+      : new Promise<Response>((r) => { answer = r })) as unknown as typeof fetch)
+    expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).disabled).toBe(false)
+    await act(async () => { fireEvent.click(screen.getByTestId('team-view-doubts-retry')) })
+    await vi.waitFor(() => expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).disabled).toBe(true))
+    expect((screen.getByTestId('team-view-doubts-retry') as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => { answer(new Response(JSON.stringify({ doubt: 9 }), { status: 201, headers: { 'content-type': 'application/json' } })) })
+    await vi.waitFor(() => expect((screen.getByTestId('team-view-text') as HTMLTextAreaElement).disabled).toBe(false))
+    expect(screen.queryByTestId('team-view-doubts-failure')).toBeNull()
+  })
+
+  it('Codex reply 021 #3: a lost answer says it may have been saved, offers no retry and is never sent again (core keeps one per view)', async () => {
+    const posts: string[] = []
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (url === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200, headers: { 'content-type': 'application/json' } })
+      posts.push(`${init?.method} ${url}`)
+      throw new TypeError('the connection dropped')
+    }) as unknown as typeof fetch)
+    const unapproved = { ...view(), version: null } as View
+    const read = vi.fn(async () => true)
+    render(<ViewsPanel sid="s_x" view={unapproved} onWrote={read} />)
+    await act(async () => { await sendDoubts('s_x', 7, 'suspect') })
+    expect((await screen.findByTestId('team-view-doubts-error')).textContent).toBe(DOUBTS_MAY_HAVE_SAVED)
+    expect(screen.getByTestId('team-view-doubts-error').textContent).not.toContain('was not')
+    expect(screen.queryByTestId('team-view-doubts-retry')).toBeNull()
+    await act(async () => { await retryDoubts('s_x', 7, read); await sendDoubts('s_x', 7, 'suspect') })
+    expect(posts.filter((x) => x.startsWith('POST'))).toEqual(['POST /api/scenarios/s_x/views/7/doubts'])
+    expect(read).not.toHaveBeenCalled()
   })
 
 
