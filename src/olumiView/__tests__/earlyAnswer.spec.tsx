@@ -67,4 +67,31 @@ describe('the early answer on a chat turn', () => {
     const plain = show(base, <ViewChat />)
     expect(plain.querySelector('[data-testid="view-chat-early"]')).toBeNull()
   })
+  it('FOLD: beside a model-grounded reply the early answer is ONE CLOSED line, its label the summary; open, it holds every word', () => {
+    const base = golden('whatif'), i = base.chat.findIndex((t) => t.answer !== null)
+    const withEarly = { ...base, chat: base.chat.map((t, j) => (j === i ? { ...t, early: { text: TEXT } } : t)) } as unknown as View
+    const c = show(withEarly, <ViewChat />)
+    const mine = [...c.querySelectorAll('[data-view-turn]')].find((t) => t.getAttribute('data-view-turn') === `chat.${i}`)!
+    const fold = mine.querySelector('[data-testid="view-chat-early-fold"]') as HTMLDetailsElement
+    expect(fold.tagName).toBe('DETAILS')
+    expect(fold.open).toBe(false)
+    const summary = fold.querySelector(':scope > summary')!
+    expect(summary.textContent).toBe(EARLY_LABEL)
+    expect(summary.getAttribute('data-testid')).toBe('view-chat-early-label')
+    // The label is said once (the summary), the text is inside the fold, and the whole text is there to open.
+    expect(mine.querySelectorAll('[data-testid="view-chat-early-label"]')).toHaveLength(1)
+    expect(fold.contains(mine.querySelector('[data-testid="view-chat-early-text"]'))).toBe(true)
+    expect(mine.querySelector('[data-testid="view-chat-early-text"]')?.textContent).toContain('Start with the shortest route.')
+    expect(mine.querySelector('[data-testid="view-chat-answer"]')!.closest('details[data-testid="view-chat-early-fold"]')).toBeNull()
+  })
+
+  it('FOLD: with no model-grounded reply yet the early answer is drawn open, exactly as before (no fold)', () => {
+    const base = golden('whatif'), i = base.chat.findIndex((t) => t.answer !== null)
+    const noAnswer = { ...base, chat: base.chat.map((t, j) => (j === i ? { ...t, answer: null, early: { text: TEXT } } : t)) } as unknown as View
+    const c = show(noAnswer, <ViewChat />)
+    const mine = [...c.querySelectorAll('[data-view-turn]')].find((t) => t.getAttribute('data-view-turn') === `chat.${i}`)!
+    expect(mine.querySelector('[data-testid="view-chat-early-fold"]')).toBeNull()
+    expect(mine.querySelector('[data-testid="view-chat-early-label"]')?.tagName).toBe('P')
+    expect(mine.querySelector('[data-testid="view-chat-early-label"]')?.textContent).toBe(EARLY_LABEL)
+  })
 })

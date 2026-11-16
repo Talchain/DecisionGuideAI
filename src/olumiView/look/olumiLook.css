@@ -240,7 +240,9 @@
   content: ''; position: absolute; left: -12px; top: 0.7em; width: 4px; height: 4px; border-radius: 999px; background: #aab2ae;
 }
 .ok-reply sup { color: #687879; font-size: 0.72em; margin-left: 1px; }
-.ok-reply details > summary { color: #687879; cursor: pointer; }
+.ok-reply details > summary, .ok-early-fold > summary { color: #687879; cursor: pointer; }
+/* The early answer beside a model-grounded reply is one closed line, as the reply's own "Why" is (EarlyAnswer fold). */
+.ok-early-fold[open] > summary { margin-bottom: 6px; }
 /* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
 .ok-reply .ok-lead { font-size: 15.5px; line-height: 1.5; font-weight: 500; color: #213238; margin: 0; }
 .ok-reply .ok-reply-more { margin-top: 2px; }

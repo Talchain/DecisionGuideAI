@@ -135,3 +135,20 @@ export function useCardClearOfRegions(): void {
   }, [getViewport, setViewport])
 }
 
+
+/**
+ * The head band a frame was made under (`headAtFit`, the HEAD's foot when the camera last framed the board; null before it has).
+ * The lens bar draws unplaced, then slides to its place (ViewLensBar, 200 ms), and the fit can read its foot before that: the question then
+ * framed under the bar (live first funding draft, 1232x704, 15 Nov). The fit key does not change when the bar is placed, so when a head
+ * control's slide ends under a different head than the last frame used, `fit` runs once more, unless the person has taken the camera.
+ */
+export function useRefitWhenHeadSettles(headAtFit: { readonly current: number | null }, userMoved: { readonly current: boolean }, fit: () => void): void {
+  useEffect(() => {
+    const onEnd = (e: TransitionEvent) => {
+      if (userMoved.current || headAtFit.current === null || !(e.target instanceof Element) || !e.target.matches(HEAD_CONTROLS.join(','))) return
+      if (regionsOf().head.bottom !== headAtFit.current) fit()
+    }
+    document.addEventListener('transitionend', onEnd, true)
+    return () => document.removeEventListener('transitionend', onEnd, true)
+  }, [headAtFit, userMoved, fit])
+}

@@ -219,7 +219,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
-      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" fold={t.answer !== null} />}
       {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}

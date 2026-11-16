@@ -55,7 +55,7 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
 import { ViewZoomNotice } from './ViewZoomNotice'
-import { frameTop, useCardClearOfRegions } from './regions'
+import { frameTop, regionsOf, useCardClearOfRegions, useRefitWhenHeadSettles } from './regions'
 import { DraftingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
@@ -215,12 +215,14 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => void {
   // into view, its question readable without panning; never on a later approval, never on a reload (no held first model seen before).
   const seen = useRef<{ held: boolean; n: number | null } | null>(null)
   const aim = useRef<string | null>(null)
+  const headAtFit = useRef<number | null>(null)
   const fit = useCallback(() => {
     const drawn = viewNodes(getNodes()), zoom = getViewport().zoom
     if (drawn.length > 0) snaps.current = { ...snaps.current, [faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
     const v = cameraFrame(snaps.current, pane.current, undefined, aim.current)
-    if (v) void setViewport(v, { duration: DURATION })
+    if (v) { headAtFit.current = regionsOf().head.bottom; void setViewport(v, { duration: DURATION }) }
   }, [getNodes, getViewport, setViewport])
+  useRefitWhenHeadSettles(headAtFit, userMoved, fit)
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
   const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}` })
   useEffect(() => {
