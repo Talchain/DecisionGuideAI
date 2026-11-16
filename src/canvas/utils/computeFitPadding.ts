@@ -214,6 +214,13 @@ export const SIDEBAR_SELECTOR = 'nav[aria-label="Canvas tools"]'
 export const OVERLAY_BAND_SELECTOR = '[data-canvas-overlay-band]'
 
 /**
+ * The V12 key pill (olumiView/v12/bands/KeyPill.tsx), above the overlay band. Criteria 1-4: bottom-anchored, not user-movable, not
+ * dismissible (it has no close), persistent while a model is on the canvas. Added 16 Nov 2026 after Paul's test: unreserved, it sat over the
+ * bottom band of cards (the aims). Declared as a literal for the same reason as the band above.
+ */
+export const KEY_PILL_SELECTOR = '[data-testid="view-key-pill"]'
+
+/**
  * THE DECLARED CONTRIBUTOR SET — the whole of it, and the only thing standing
  * between this function and the reservation it exists to have abolished.
  *
@@ -237,6 +244,7 @@ export const FIT_PADDING_CONTRIBUTORS = [
   TOP_BAR_SELECTOR,
   LENS_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
+  KEY_PILL_SELECTOR,
 ] as const
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
 const MAX_PADDING_FRACTION = 0.8
@@ -344,6 +352,12 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     const band = rectOf(OVERLAY_BAND_SELECTOR)
     if (band) {
       const overlap = Math.max(0, flowRect.bottom - band.top)
+      if (overlap > 0) bottom = Math.max(bottom, overlap + GAP)
+    }
+    // The V12 key above the band: cards are laid out and framed above it, never under it.
+    const key = rectOf(KEY_PILL_SELECTOR)
+    if (key) {
+      const overlap = Math.max(0, flowRect.bottom - key.top)
       if (overlap > 0) bottom = Math.max(bottom, overlap + GAP)
     }
 

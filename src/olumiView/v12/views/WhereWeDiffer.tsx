@@ -43,7 +43,9 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
     <section data-testid={revealed ? 'differ-after' : 'differ-before'} aria-label={shown?.heading ?? view.collab.heading} className="grid gap-4">
       <NudgesPanel sid={sid} view={view} onWrote={onWrote} />
       <ViewsPanel sid={sid} view={view} onWrote={onWrote} />
-      <FrameEntry sid={sid} view={view} onWrote={onWrote} defaultOpen={!revealed && view.collab.mine.length === 0} />
+      {/* Collapsed to its own button: opened by default it drew a second "Your view, private until revealed" form under the team panel's
+          (Paul's 15:00Z test). The team panel's form takes the view; this one adds its question, aim, options and links when asked for. */}
+      <FrameEntry sid={sid} view={view} onWrote={onWrote} />
       <MyFrames view={view} />
       {revealed && (
         <div className="grid gap-2" data-testid="differ-differences">

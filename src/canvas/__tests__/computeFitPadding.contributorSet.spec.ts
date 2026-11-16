@@ -33,6 +33,7 @@ import {
   TOP_BAR_SELECTOR,
   OVERLAY_BAND_SELECTOR,
   LENS_BAR_SELECTOR,
+  KEY_PILL_SELECTOR,
 } from '../utils/computeFitPadding'
 
 const SOURCE_PATH = resolve(__dirname, '../utils/computeFitPadding.ts')
@@ -69,6 +70,9 @@ const TOKEN_TO_SELECTOR: Record<string, string> = {
   // Added with the lens bar (19 Oct 2026). Criteria 1-4: top-anchored (fixed on the pill's row or the row below), not
   // user-movable, not dismissible (it switches lenses and has no close), persistent while a model is on the canvas.
   LENS_BAR_SELECTOR,
+  // Added with the V12 key pill (16 Nov 2026). Criteria 1-4: bottom-anchored above the overlay band, not user-movable, not dismissible,
+  // persistent while a model is on the canvas. Unreserved, it covered the bottom band of cards in Paul's test.
+  KEY_PILL_SELECTOR,
 }
 
 describe('computeFitPadding — the declared contributor set is derived from the bytes', () => {

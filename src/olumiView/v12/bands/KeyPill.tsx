@@ -65,6 +65,9 @@ function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample })
   )
 }
 
+/** Room kept clear at the canvas's bottom-left for the zoom controls (14 px from the edge, about 160 px wide), so the key wraps instead of covering them. */
+const ZOOM_CONTROLS_ROOM = 190
+
 /** The dock's inset from the window's right edge, kept current (the dock opens, closes and resizes without the window moving). */
 function useDockInset(): number {
   const [inset, setInset] = useState(measureDockInset)
@@ -85,10 +88,12 @@ export function KeyPill() {
   const lines = keyLinesOf(model)
   const item = 'flex items-center gap-1'
   return (
-    <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + 12 }}
-      className={`pointer-events-none absolute bottom-[64px] z-[1100] flex flex-col items-start justify-center gap-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
+    // One line where the canvas is wide enough (both groups side by side), wrapping where it is not. The canvas reserves the key's height
+    // (computeFitPadding KEY_PILL_SELECTOR), so cards are laid out above it, never under it.
+    <div role="group" aria-label="Key" data-testid="view-key-pill" style={{ right: inset + 12, maxWidth: `calc(100% - ${inset + 24 + ZOOM_CONTROLS_ROOM}px)` }}
+      className={`pointer-events-none absolute bottom-[64px] z-[1100] flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-2 rounded-[14px] border border-panel-border bg-panel px-3 py-2 ${typography.viewPanelMeta} font-medium text-text-body whitespace-nowrap shadow-1`}>
       {lines.length === 0 ? null : (
-        <div className="flex items-center gap-2.5" data-key-row="lines">
+        <div className="flex flex-wrap items-center gap-2.5" data-key-row="lines">
           {lines.map((l) => l.id === 'effect'
             // The effect shows its direction colours: core's own words, then the two fixed notation words (UI chrome) beside their samples.
             ? <span key={l.id} className={item} data-key-item="effect">{l.text}{EFFECT_POLARITY.map((p) => <span key={p.id} className={item} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} />{p.word}</span>)}</span>
