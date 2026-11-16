@@ -11,12 +11,16 @@ import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { coreScenarioIdOf } from '../olumiCore/team/sid'
 import { useViewStore } from './store'
+import { useViewChat } from './ViewChat'
 
 /** Moves the page to the addressed scenario; true when it moved. An address naming no core scenario moves nothing. */
 export function followAddress(route: string | null | undefined): boolean {
   if (typeof route !== 'string' || coreScenarioIdOf(route) === null) return false
-  const now = useCanvasStore.getState().currentScenarioId
-  if (now === route && useViewStore.getState().uuid === route) return false
+  const now = useCanvasStore.getState().currentScenarioId, shown = useViewStore.getState().uuid
+  if (now === route && shown === route) return false
+  // Words typed for the scenario left behind are never sent into this one: the composer's text, its held challenge and its last refusal are
+  // that scenario's (the advisor's check on 006 #1: text typed on A was still in the composer on B, one press from being saved in B).
+  if (shown !== null && shown !== route) useViewChat.setState({ text: '', said: null, held: null, gone: null })
   if (now !== route) {
     useCanvasStore.setState(scenarioIdWrite(now, route))
     setCurrentScenarioId(route)

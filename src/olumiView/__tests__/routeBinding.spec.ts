@@ -10,6 +10,7 @@ import { call, NOT_THIS_SCENARIO, setTeamFetch, writeTargetsAddress } from '../.
 import { useAddressIsTheScenario } from '../routeBinding'
 import { useViewStore } from '../store'
 import type { View } from '../client'
+import { useViewChat } from '../ViewChat'
 
 const A = '00000000-0000-4000-8000-0000000000aa', B = '00000000-0000-4000-8000-0000000000bb'
 const viewOf = (sid: string) => ({ schema: 'olumi.view/3', id: sid, title: sid }) as unknown as View
@@ -36,6 +37,15 @@ describe('the address is the scenario on the core lane', () => {
     expect(useViewStore.getState().sid).toBe('s_0000000000bb')
     expect(useViewStore.getState().view, 'nothing of A is drawn while B loads').toBeNull()
     expect(fetched.some((u) => u.startsWith('/api/scenarios/s_0000000000bb/view')), 'B is read').toBe(true)
+  })
+
+  it('words typed for A are not carried to B: the composer is cleared when the address moves between two scenarios', () => {
+    useViewChat.setState({ text: 'typed for A', said: 'A refused', held: null, gone: 'pre_mortem' })
+    const { rerender } = renderHook(({ route }) => useAddressIsTheScenario(true, route), { initialProps: { route: A } })
+    expect(useViewChat.getState().text, 'CONTRAST: staying on A keeps what was typed').toBe('typed for A')
+    window.location.hash = `#/scenario/${B}`
+    rerender({ route: B })
+    expect(useViewChat.getState()).toMatchObject({ text: '', said: null, held: null, gone: null })
   })
 
   it('off the core lane nothing moves', () => {
