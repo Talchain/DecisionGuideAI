@@ -74,7 +74,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     reads.push(url); return new Response(JSON.stringify(view), { status: 200 })
   }) as unknown as typeof fetch)
   beforeEach(() => { posts = []; reads = []; useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view, error: null, status: 'ready' }) })
-  afterEach(() => { setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }) })
+  // The address is reset too: the first-answer rows move it (`/#/scenario/<uuid>`), and a write for another scenario is refused under it (Codex 006 #1).
+  afterEach(() => { window.history.replaceState(null, '', '/'); setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }) })
 
   // The tab draws the conversation; the dock's footer holds the composer (review 00052 #3). Both read one store.
   const renderTab = () => render(<><ViewChat /><ViewComposer /></>)

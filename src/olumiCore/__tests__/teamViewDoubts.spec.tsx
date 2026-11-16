@@ -103,6 +103,8 @@ describe('a private view\'s links and factor', () => {
     const show = (v: View) => useViewStore.setState({ uuid, sid: 's_x', view: v, status: 'ready' })
     const panels = (v: View) => <><ViewsPanel sid="s_x" view={v} onWrote={async () => true} /><ViewChat /><ViewComposer /><ViewPreMortemKey /></>
     const openEntry = async () => {
+      // V12: core's questions sit in the composer's ⋯ list (one action system), opened first.
+      if (screen.queryByTestId('view-session-menu') === null) await act(async () => { fireEvent.click(screen.getByTestId('view-actions-button')) })
       const button = screen.getByTestId('view-session-menu').querySelector('[data-method="figure_first"]')!
       expect(button.textContent).toBe('Let us give our figure first')
       await act(async () => { fireEvent.click(button) })
