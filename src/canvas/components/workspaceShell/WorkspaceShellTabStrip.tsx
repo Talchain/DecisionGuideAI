@@ -30,7 +30,7 @@
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
+import { Activity, AlertTriangle, BarChart3, ChevronLeft, ChevronRight, Clock, FlaskConical, HelpCircle, Info, MoreHorizontal, Shuffle, Users } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
@@ -72,6 +72,19 @@ const ROW_ICON_CONTROL =
 export const tabDomId = (id: OutputTab): string => `outputs-dock-tab-${id}`
 export const railTabDomId = (id: OutputTab): string => `outputs-dock-rail-tab-${id}`
 export const DOCK_PANEL_DOM_ID = 'outputs-dock-panel'
+
+/**
+ * v10 review item 8: on the olumi-core lane an unselected dock tab is its icon alone (name in `title` and `aria-label`), the selected tab
+ * icon plus word. Same icon map as the collapsed rail in `OutputsDock`; Olumi keeps its own mark.
+ */
+const LANE_TAB_ICON: Partial<Record<OutputTab, typeof Activity>> = {
+  results: BarChart3,
+  analysisNew: FlaskConical,
+  compare: Shuffle,
+  journey: Clock,
+  team: Users,
+  diagnostics: Activity,
+}
 
 /** The accessible name shared by both strips. Written once, used by both. */
 export const DOCK_TABLIST_LABEL = 'Outputs sections'
@@ -513,7 +526,7 @@ export function WorkspaceShellTabStrip({
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
               // Vision spec §3 (23 Oct): the Olumi tab is the brand mark alone, so its name is the label.
-              aria-label={surface.id === 'olumi' ? surface.label : undefined}
+              aria-label={surface.id === 'olumi' || coreLane ? surface.label : undefined}
               data-testid={`outputs-dock-tab-${surface.id}`}
               // ⚠ `px-2` (8px, the contract's `padding:10px 8px` horizontal),
               // and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
@@ -550,7 +563,7 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative ${laneWrapped ? 'flex-none before:hidden' : narrowLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative ${laneWrapped ? 'flex-none before:hidden' : coreLane ? `before:hidden ${narrowLane ? 'flex-auto shrink-0' : 'flex-auto'}` : narrowLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
@@ -577,12 +590,23 @@ export function WorkspaceShellTabStrip({
                   // mark that reads as a slab; elsewhere the mark alone (vision spec §3).
                   <>
                     <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
-                    {coreLane ? <span className="truncate tracking-tight">{surface.label}</span> : null}
+                    {coreLane && isActive ? <span className="truncate tracking-tight">{surface.label}</span> : null}
                   </>
+                ) : coreLane && !isActive ? (
+                  (() => {
+                    const Icon = LANE_TAB_ICON[surface.id] ?? Activity
+                    return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
+                  })()
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
                   // five fit the 347px dock whole; the legacy lane is unchanged.
-                  <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
+                  <>
+                    {coreLane ? (() => {
+                      const Icon = LANE_TAB_ICON[surface.id] ?? Activity
+                      return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
+                    })() : null}
+                    <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
+                  </>
                 )}
                 {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (

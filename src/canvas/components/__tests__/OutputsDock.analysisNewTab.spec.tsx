@@ -407,7 +407,9 @@ describe('B · THE NEW TAB IS MOUNTED (the default from 9 Sep 2026 until 26 Sep 
     renderDock()
     const tab = screen.getByTestId(NEW_TAB)
     expect(tab).toBeInTheDocument()
-    expect(tab).toHaveTextContent('Reasoning')
+    // CHANGED BY DESIGN (v10 review item 8): an unselected lane tab is an icon named by title and aria-label.
+    expect(tab).toHaveAttribute('title', 'Reasoning')
+    expect(tab).toHaveAttribute('aria-label', 'Reasoning')
   })
 
   // ⚠ REVERSED AGAIN, 26 Sep 2026: the 25 Sep design prototype (the locked

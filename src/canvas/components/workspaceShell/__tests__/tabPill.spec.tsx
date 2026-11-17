@@ -64,3 +64,27 @@ describe('DL 06:57Z (2): on the narrow lane dock (1128: 317 px) the tabs keep on
     expect(cls(pillOf(screen.getByTestId('outputs-dock-tab-results')))).not.toContain('px-0.5')
   })
 })
+
+describe('v10 review item 8: lane dock tabs are icons, the selected tab icon plus word', () => {
+  it('T8a catch: unselected tab is an icon with title and aria-label, no visible word, no separator; selected has icon plus word', () => {
+    draw()
+    const off = screen.getByTestId('outputs-dock-tab-compare')
+    expect(off.getAttribute('title')).toBe('Compare')
+    expect(off.getAttribute('aria-label')).toBe('Compare')
+    expect(off.textContent).toBe('')
+    expect(screen.getByRole('tab', { name: 'Compare' })).toBe(off)
+    expect(off.querySelector('[data-testid="outputs-dock-tab-icon-compare"]')).not.toBeNull()
+    expect(cls(off)).toContain('before:hidden')
+    const on = screen.getByTestId('outputs-dock-tab-results')
+    expect(on.textContent).toBe('Analysis')
+    expect(on.querySelector('[data-testid="outputs-dock-tab-icon-results"]')).not.toBeNull()
+  })
+  it('T8b contrast: the legacy lane keeps words on every tab and no lane icons', () => {
+    lane.core = false
+    draw()
+    const off = screen.getByTestId('outputs-dock-tab-compare')
+    expect(off.textContent).toBe('Compare')
+    expect(off.querySelector('[data-testid="outputs-dock-tab-icon-compare"]')).toBeNull()
+    expect(cls(off)).not.toContain('before:hidden')
+  })
+})
