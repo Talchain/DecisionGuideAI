@@ -262,6 +262,10 @@ export interface LinkLookAnswer {
   readonly weight: null
   /** Whether the link is a causal belief (`direction` is not null). */
   readonly causal: boolean
+  /** The link's typed sign (`causal.sign`: increases raises, decreases lowers, else unknown), on ANY line that carries one, beside `direction`;
+   *  null where none is typed. Codex 00:50:51Z and the UI builder's ruling (00:57:02Z): a calculation's term, a sum part or a stock flow keeps
+   *  its sign colour from this, though `direction` is null on it (it is not a causal belief). Never a strength, never a direction of its own. */
+  readonly sign: Direction | null
   /** Where `direction` came from. */
   readonly source: FieldSource
   readonly directionState: FieldState
@@ -294,16 +298,17 @@ function inferredDirection(link: ViewLink): { direction: Direction | null; basis
 
 /** How a link is drawn by meaning (ruling item 4): core's direction and confidence where sent (993eb784), else today's rule (`LinkBasis`). */
 export function linkLook(link: ViewLink): LinkLookAnswer {
+  const typed = link.causal ?? null, sign: Direction | null = typed === null ? null : DIRECTION_OF_SIGN[typed.sign] ?? 'unknown'
   const directionState = stateOf(link, 'direction', isDirection), confidenceState = stateOf(link, 'confidence', isConfidence)
   const w = valueOf(link, 'weight'), weightState = w === undefined ? 'absent' : w === null ? 'null' : 'ignored'
   const confidence = confidenceState === 'present' ? (valueOf(link, 'confidence') as Confidence) : confidenceState === 'unrecognised' ? 'unknown' : null
   if (directionState === 'absent') {
     const { direction, basis } = inferredDirection(link)
-    return { direction, confidence, weight: null, causal: direction !== null, source: 'inferred', directionState, confidenceState, weightState, basis }
+    return { direction, confidence, weight: null, causal: direction !== null, sign, source: 'inferred', directionState, confidenceState, weightState, basis }
   }
   // Core sent the field: a value from the set, null (not a causal belief), or a value this page does not know (a belief of unknown direction).
   const direction = directionState === 'present' ? (valueOf(link, 'direction') as Direction) : directionState === 'null' ? null : 'unknown'
-  return { direction, confidence, weight: null, causal: direction !== null, source: 'view', directionState, confidenceState, weightState, basis: null }
+  return { direction, confidence, weight: null, causal: direction !== null, sign, source: 'view', directionState, confidenceState, weightState, basis: null }
 }
 
 // ─── 5. card.needs ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -62,26 +62,27 @@ describe('linkLook', () => {
   })
 
   it('ABSENT: real legacy links read by today\'s rule, bound by from, to and kind', () => {
-    const rows: [ViewModel, string, string, ViewLink['kind'], string | null, string | null, string][] = [
-      // model, from, to, kind, linkRole, direction, basis
-      [T08, 'opt_push', 'annual_rent', 'plain', 'effect', 'lowers', 'typed-causal'],
-      [T08, 'opt_push', 'annual_rent', 'through', 'effect', null, 'calculation'],
-      [T08, 'f_rent_ask', 'annual_rent', 'replaces', null, null, 'untyped'],
-      [T08, 'risk_landlord_holds', 'opt_push', 'plain', null, null, 'untyped'],
-      [T08, 'ev_offer', 'opt_push', 'reason', 'reason', null, 'reason'],
-      [T09, 'opt_robots', 'aim_pay', 'plain', 'effect', 'unknown', 'typed-causal'],
-      [T09, 'opt_carry_on', 'aim_pay', 'plain', null, null, 'untyped'],
-      [STUDIO.model!, 'evening_classes', 'member_mood', 'plain', null, 'raises', 'typed-causal'],
-      [STUDIO_FACE.model!, 'evening_classes', 'member_mood', 'plain', null, 'raises', 'legacy-label'],
-      [REVEAL.model!, 'speed_to_value', 'pilot_conversion', 'plain', null, 'lowers', 'legacy-label'],
+    const rows: [ViewModel, string, string, ViewLink['kind'], string | null, string | null, string, string | null][] = [
+      // model, from, to, kind, linkRole, direction, basis, sign (the typed causal.sign, on any line that carries one)
+      [T08, 'opt_push', 'annual_rent', 'plain', 'effect', 'lowers', 'typed-causal', 'lowers'],
+      [T08, 'opt_push', 'annual_rent', 'through', 'effect', null, 'calculation', null],
+      [T08, 'f_rent_ask', 'annual_rent', 'replaces', null, null, 'untyped', null],
+      [T08, 'risk_landlord_holds', 'opt_push', 'plain', null, null, 'untyped', null],
+      [T08, 'ev_offer', 'opt_push', 'reason', 'reason', null, 'reason', null],
+      [T09, 'opt_robots', 'aim_pay', 'plain', 'effect', 'unknown', 'typed-causal', 'unknown'],
+      [T09, 'opt_carry_on', 'aim_pay', 'plain', null, null, 'untyped', null],
+      [STUDIO.model!, 'evening_classes', 'member_mood', 'plain', null, 'raises', 'typed-causal', 'raises'],
+      [STUDIO_FACE.model!, 'evening_classes', 'member_mood', 'plain', null, 'raises', 'legacy-label', null],
+      [REVEAL.model!, 'speed_to_value', 'pilot_conversion', 'plain', null, 'lowers', 'legacy-label', null],
       // causal.disputed is true here and is not read: the producer says `depends` for this very line, which the legacy record cannot tell.
-      [STUDIO.model!, 'member_mood', 'members', 'plain', null, 'unknown', 'typed-causal'],
-      [BAKERY.model!, 'second_oven', 'sales', 'through', null, null, 'calculation'],
+      [STUDIO.model!, 'member_mood', 'members', 'plain', null, 'unknown', 'typed-causal', 'unknown'],
+      // The UI builder's ruling (00:57:02Z): a calculation's term keeps its sign colour. No direction (not a causal belief), but its sign.
+      [BAKERY.model!, 'second_oven', 'sales', 'through', null, null, 'calculation', 'raises'],
     ]
-    for (const [model, from, to, kind, role, direction, basis] of rows) {
+    for (const [model, from, to, kind, role, direction, basis, sign] of rows) {
       const link = linkOf(model, from, to, kind), id = `${from}->${to}:${kind}`
       expect(linkRole(link), `${id}: today's role`).toBe(role)
-      expect(linkLook(link), id).toEqual({ direction, confidence: null, weight: null, causal: direction !== null, source: 'inferred', directionState: 'absent', confidenceState: 'absent', weightState: 'absent', basis })
+      expect(linkLook(link), id).toEqual({ direction, confidence: null, weight: null, causal: direction !== null, sign, source: 'inferred', directionState: 'absent', confidenceState: 'absent', weightState: 'absent', basis })
     }
   })
 
@@ -132,7 +133,8 @@ describe('linkLook', () => {
   })
 
   it('NULL: core\'s null means not a causal belief, over a typed sign; null confidence stays null', () => {
-    expect(linkLook(withFields(LOWERS, { direction: null, confidence: null }))).toEqual({ direction: null, confidence: null, weight: null, causal: false, source: 'view', directionState: 'null', confidenceState: 'null', weightState: 'absent', basis: null })
+    // Core's null direction is not a causal belief; the line's typed sign still stands beside it (the UI builder's ruling, 00:57:02Z).
+    expect(linkLook(withFields(LOWERS, { direction: null, confidence: null }))).toEqual({ direction: null, confidence: null, weight: null, causal: false, sign: 'lowers', source: 'view', directionState: 'null', confidenceState: 'null', weightState: 'absent', basis: null })
     expect(linkLook(LOWERS).direction, 'CONTRAST: the same link with nothing sent').toBe('lowers')
   })
 })
