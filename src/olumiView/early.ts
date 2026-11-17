@@ -31,7 +31,7 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[] }
 
 /** The model-less conversation (`view.floor`, additive, read defensively like `early`): well-formed entries only, in core's order; none where absent. */
 export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; text: string }): FloorTurn[] => {
@@ -42,7 +42,8 @@ export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; tex
     if (row === null || typeof row !== 'object' || typeof row.text !== 'string' || !row.text.trim() ||
       typeof row.said !== 'string' || typeof row.job !== 'number' || typeof row.at !== 'string') continue
     if (alreadyShown && row.job === alreadyShown.job && row.text === alreadyShown.text) continue
-    rows.push({ job: row.job, at: row.at, by: typeof row.by === 'string' ? row.by : '', by_id: typeof row.by_id === 'string' ? row.by_id : '', said: row.said, text: row.text })
+    const prose = Array.isArray(row.prose) && row.prose.length > 0 && row.prose.every((p: unknown) => typeof p === 'string') ? { prose: row.prose as string[] } : {}
+    rows.push({ job: row.job, at: row.at, by: typeof row.by === 'string' ? row.by : '', by_id: typeof row.by_id === 'string' ? row.by_id : '', said: row.said, text: row.text, ...prose })
   }
   return rows
 }

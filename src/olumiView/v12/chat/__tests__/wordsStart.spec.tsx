@@ -61,6 +61,7 @@ beforeEach(() => {
   useCanvasStore.setState({ currentScenarioId: UUID } as never)
   setTeamFetch((async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return answer(url) }
+    if (url === '/api/me') return new Response(JSON.stringify({ me: { id: '7', name: 'Ada' } }), { status: 200 }) // core's answer to whose link this is (api.ts stillThisPerson)
     const v = served(url)
     return v === null ? new Response(JSON.stringify({ error: 'not found' }), { status: 404 }) : new Response(JSON.stringify(v), { status: 200 })
   }) as unknown as typeof fetch)
