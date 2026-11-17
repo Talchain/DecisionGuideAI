@@ -195,8 +195,8 @@
 @media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
-/* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). Their name is inside it only where a
-   colleague has written in the thread (ViewChat `aloneIn`). */
+/* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). Their name is inside it, as on
+   every message: whose words these are is always drawn. */
 .ok-said {
   background: var(--bg-panel-hover) !important;
   border: 0 !important;
@@ -259,7 +259,7 @@
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: none; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Approve is the person's one filled action: Olumi's green with an ink label (Paul, 17 Nov: no black buttons; existing colours only). */
-.ok-pinned .ok-actions button[data-testid='view-approve'] { background: var(--success) !important; border-color: var(--success) !important; color: var(--text-header) !important; }
+.ok-pinned .ok-actions button[data-testid='view-approve']:not(:disabled) { background: var(--success) !important; border-color: var(--success) !important; color: var(--text-header) !important; }
 .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--success-hover) !important; border-color: var(--success-hover) !important; color: var(--text-header) !important; }
 .ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 0; }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type ReactNode } from 'react'
+import { memo, useCallback, useRef, useState, type ReactNode } from 'react'
 import { MessageCircleQuestion } from 'lucide-react'
 import { OkIcon, OkIconButton } from '../../olumiView/look/icons'
 import { useCanvasStore } from '../store'
@@ -54,6 +54,25 @@ import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 
 /** Guard window for the single-flight ref — long enough to swallow a double-click. */
 const REFIRE_GUARD_MS = 500
+
+/** The fold's two names (fixed chrome). */
+export const SELECTION_DETAIL_WORDS = { hide: 'Hide this card’s details', show: 'Show this card’s details' } as const
+
+/**
+ * What the lane says about the selected card (whose it is, what its headline rests on, its next step, its explanation: core's words), drawn
+ * OPEN when a card is selected, so authorship and the headline's basis are read without a press (Codex, 17 Nov: they were behind a closed
+ * fold). The person may fold it; a newly selected card opens again (keyed by the selection).
+ */
+function SelectionDetail({ children }: { children: ReactNode }): JSX.Element {
+  const [open, setOpen] = useState(true)
+  const words = open ? SELECTION_DETAIL_WORDS.hide : SELECTION_DETAIL_WORDS.show
+  return (
+    <details className="basis-full" data-testid="selection-detail" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="inline-flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full text-text-light hover:text-text-header" aria-label={words} title={words} data-testid="selection-detail-toggle"><OkIcon id="info-more" size={14} decorative /></summary>
+      <div className="ok-selected flex flex-wrap items-center gap-1.5">{children}</div>
+    </details>
+  )
+}
 
 /** `after`: what a lane offers for this selection at the end of the row (the olumi-core lane: a card's Rename, DL 7 Nov); none elsewhere. */
 export const SelectionPill = memo(function SelectionPill({ after, mark, chip = false }: { /** The chip's kind shape: the selected card's own mark (olumiView/SelectedRename `selectedKindMark`), drawn before "About:". */ mark?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
@@ -115,12 +134,7 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
           {canAsk ? <OkIconButton id="ask-about-this" words={`Ask about ${label}`} testid="selection-ask-chip" size={14} className="h-6 w-6 hover:text-text-header" onClick={ask} /> : null}
           <OkIconButton id="cancel-close" words="Clear the selection" testid="selection-pill-clear" size={12} className="h-6 w-6 rounded-full hover:text-text-header" onClick={() => useCanvasStore.getState().clearSelection()} />
         </span>
-        {extra == null ? null : (
-          <details className="basis-full" data-testid="selection-detail">
-            <summary className="inline-flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full text-text-light hover:text-text-header" aria-label="More about this card" title="More about this card"><OkIcon id="info-more" size={14} decorative /></summary>
-            <div className="ok-selected flex flex-wrap items-center gap-1.5">{extra}</div>
-          </details>
-        )}
+        {extra == null ? null : <SelectionDetail key={selection.id}>{extra}</SelectionDetail>}
       </div>
     )
   }

@@ -20,7 +20,8 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
-import { aloneIn, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { SELECTION_DETAIL_WORDS } from '../../../../canvas/components/SelectionPill'
 import { aboutCountWords } from '../AboutChip'
 import { draftKeyOf } from '../OlumiAsks'
 import { typography } from '../../../../styles/typography'
@@ -79,7 +80,11 @@ describe('1. one quiet footer row per reply', () => {
     expect(stamp.className).toContain('text-text-light') // small and light: viewPanelMeta
     expect(stamp.className).toContain(typography.viewPanelMeta)
     expect(icon.contains(words)).toBe(false) // beside the icon, not inside it
-    if (t.status !== null) expect(stamp.querySelector('[data-view$=".status"]')!.textContent).toBe(t.status)
+    if (t.status !== null) {
+      const status = stamp.querySelector<HTMLElement>('[data-view$=".status"]')!
+      expect(status.textContent).toBe(t.status)
+      expect(status.closest('.sr-only')).toBeNull() // visible: a hidden status would fail here
+    }
   })
 })
 
@@ -115,24 +120,27 @@ describe('2. the pending proposal is ONE line at the thread\'s foot, above the c
   })
 })
 
-describe('3. the person\'s own name is hidden when alone, shown with a colleague', () => {
+describe('3. whose words a message holds is always drawn', () => {
+  // CHANGED BY DESIGN (Codex NO-GO on 07657eb3; review 008: authorship stays legible): the person's own name is drawn on their own message
+  // whether or not anyone else has written. It was kept for screen readers only while they were alone in the thread.
   const nameOf = (c: ParentNode, i: number) => c.querySelector<HTMLElement>(`[data-view="chat.${i}.by"]`)!
-  it('alone: every bubble\'s name is kept for readers but not drawn', () => {
+  it('alone in the thread: every message draws its writer\'s name, in core\'s words', () => {
     const view = session('after-find-first')
-    expect(aloneIn(view.you_id, view.chat)).toBe(true)
+    expect(new Set(view.chat.map((t) => t.by_id)).size).toBe(1) // one writer: the case that used to hide the name
     const c = mount(view)
-    view.chat.forEach((_, i) => expect(nameOf(c, i).className).toContain('sr-only'))
+    view.chat.forEach((t, i) => {
+      expect(nameOf(c, i).textContent).toBe(t.by)
+      expect(nameOf(c, i).className).not.toContain('sr-only')
+      expect(nameOf(c, i).closest('.sr-only')).toBeNull()
+    })
   })
-  it('with a colleague in the thread: both names are drawn (CONTRAST: the same turns, one by another person)', () => {
+  it('with a colleague in the thread: both names are drawn, each on its own message (bound by the turn, not the position)', () => {
     const base = session('after-find-first')
     const view = { ...base, chat: base.chat.map((t, i) => (i === 0 ? { ...t, by: 'Ben', by_id: '2' } : t)) } as View
-    expect(aloneIn(view.you_id, view.chat)).toBe(false)
     const c = mount(view)
-    expect(nameOf(c, 0).className).not.toContain('sr-only')
-    expect(nameOf(c, 1).className).not.toContain('sr-only') // my own name returns once someone else has written
-  })
-  it('an unknown viewer is never treated as alone', () => {
-    expect(aloneIn(null, session('after-find-first').chat)).toBe(false)
+    expect(nameOf(c, 0).textContent).toBe('Ben')
+    expect(nameOf(c, 1).textContent).toBe(base.chat[1]!.by)
+    for (const i of [0, 1]) expect(nameOf(c, i).className).not.toContain('sr-only')
   })
 })
 
@@ -153,6 +161,24 @@ describe('4. the selected card is a chip inside the composer', () => {
     expect(sendChip).not.toHaveBeenCalled()
     fireEvent.click(q(chip, 'selection-pill-clear')!)
     expect(clear).toHaveBeenCalledTimes(1)
+  })
+  it('the selected card\'s own words are drawn OPEN (whose it is, what its headline rests on): read without a press; the person may fold them', () => {
+    // Codex NO-GO on 07657eb3: these were behind a closed fold. Bound by the card: the author line drawn is this card's, in core's words.
+    const view = golden('bakery')
+    const card = view.model!.cards.find((x) => x.author != null && (x.headline?.title ?? '') !== '')!
+    expect(card).toBeDefined() // the fixture has a card with an author line and a headline basis
+    selection.value = { id: card.id, label: card.heading, kind: 'node' }
+    const c = mount(view)
+    const detail = q(q(c, 'view-composer')!, 'selection-detail') as HTMLDetailsElement
+    expect(detail.open).toBe(true)
+    const author = q(detail, 'selected-author')!
+    expect(author.textContent).toBe(card.author!.text)
+    expect(author.getAttribute('data-view')).toBe(`${card.id}.author.text`)
+    expect(q(detail, 'selected-headline-title')!.textContent).toBe(card.headline!.title) // what the headline rests on, core's sentence, whole
+    const toggle = q(detail, 'selection-detail-toggle')!
+    expect(toggle.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.hide)
+    detail.open = false; fireEvent(detail, new Event('toggle'))
+    expect(q(detail, 'selection-detail-toggle')!.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.show)
   })
   it('D2: a visible ask control keeps data-testid="selection-ask-chip" (hover: "Ask about <label>") and is the only thing that sends; the card\'s own kind shape leads', () => {
     selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
@@ -348,7 +374,10 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
     const bar = q(q(c, 'view-proposal-actions')!, 'view-change-mix')!
     const seg = [...bar.children] as HTMLElement[]
     expect(seg.map((x) => [x.dataset['family'], x.dataset['n'], x.style.background])).toEqual([['quantity', '2', 'var(--factor)'], ['option', '1', 'var(--option)'], ['goal', '1', 'var(--goal)'], ['claim', '1', 'var(--border-emphasis)']])
-    expect(bar.getAttribute('aria-hidden')).toBe('true')
+    expect(seg.map((x) => x.style.flexGrow)).toEqual(['2', '1', '1', '1']) // as wide as its count: removing the width fails here
+    expect(bar.getAttribute('role')).toBe('img')
+    expect(bar.getAttribute('aria-label')).toBe('Kinds of change: quantity 2, option 1, goal 1, claim 1') // the bar in words
+    expect(bar.getAttribute('aria-hidden')).toBeNull()
     expect(q(c, 'view-proposal-row')!.contains(bar)).toBe(false) // beside the row, so core\'s words stay exactly the row's text
     cleanup()
     const older = structuredClone(golden('proposal'))

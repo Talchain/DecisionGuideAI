@@ -248,7 +248,7 @@ export function stepTurnOf(view: View | null, sid: string | null, gone: string |
 export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
-function Turn({ t, at, latest = false, moves = false, primary = false, me, floor, alone = false }: { t: ViewTurn; /** Nobody but the viewer has written in this scenario's thread: their own bubble then carries no name (17 Nov, the calm panel). */ alone?: boolean; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
+function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const gone = useViewChat((st) => st.gone ?? null)
@@ -270,7 +270,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // DL-538 (the target panel): the bubble names whose words it holds, inside it (core's `by`): another person's name in ink, the viewer's own
   // quieter. A turn core names no one for has none.
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
-  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}${alone && !other ? ' sr-only' : ''}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
+  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
   const early = earlyOf(t)
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
@@ -404,7 +404,7 @@ function AskAgain({ words }: { words: string }) {
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
-function FloorLine({ f, me, latest, alone = false }: { f: FloorTurn; me?: string | null; latest: boolean; alone?: boolean }) {
+function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z and 04:41:16Z): core offers what can be kept on this row (`prose`: each line of Olumi's
   // own prose, as served, one entry each). Each entry is offered on the line that draws it and kept VERBATIM (Codex root 05:32:34Z): no length
@@ -422,7 +422,7 @@ function FloorLine({ f, me, latest, alone = false }: { f: FloorTurn; me?: string
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
-        {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}${alone && !other ? ' sr-only' : ''}`} data-testid="view-said-by">{f.by}</p>}
+        {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-testid="view-said-by">{f.by}</p>}
         <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
@@ -438,15 +438,8 @@ function FloorLine({ f, me, latest, alone = false }: { f: FloorTurn; me?: string
     </li>
   )
 }
-/** True when the viewer is the only person who has written in this scenario's thread (saved turns, floor exchanges and the turn in flight): their own
- *  bubble then needs no name (17 Nov, the calm panel). A colleague's words, once there, bring the names back on every bubble. Unknown viewer: false. */
-export function aloneIn(me: string | null | undefined, chat: View['chat'], floor: readonly FloorTurn[] = [], turn?: View['turn']): boolean {
-  if (me == null) return false
-  const mine = (id: string | null | undefined) => id == null || id === '' || id === me
-  return chat.every((t) => mine(t.by_id)) && floor.every((f) => mine(f.by_id)) && (turn == null || mine(turn.by_id))
-}
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
-export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me, alone = false }: { alone?: boolean; chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
+export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
@@ -457,13 +450,13 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
     <ol className={`${typography.viewPanelBody} space-y-6`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
-        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} alone={alone} />
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
         const t = chat[row.index]!
         const next = rows[position + 1]
         // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
         if (next?.index === row.index + 1 && row.floor === null && earlyOf(t) === null && retriedAt(chat, row.index)) return null
         const latestAnswer = row.index === newestSaved
-        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} alone={alone} />
+        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} />
       })}
     </ol>
   )
@@ -482,7 +475,7 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 }
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
-export function TurnInFlight({ turn, me, shown = false, alone = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean; alone?: boolean }) {
+export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean }) {
   const running = turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -494,7 +487,7 @@ export function TurnInFlight({ turn, me, shown = false, alone = false }: { turn:
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
         {shown ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}${alone && turn.by_id === me ? ' sr-only' : ''}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
+          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
         {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
@@ -1655,7 +1648,6 @@ export function ViewChat() {
   // PANEL-SPEC 1: the ONE next step, chosen as core's state says (v12/actions.ts nextStepFor), drawn once, at the top under the tabs.
   const step = view === null ? null : nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
   const pinned = step?.kind === 'approve'
-  const alone = view === null ? false : aloneIn(view.you_id, view.chat, floorShown(view), view.turn)
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
@@ -1671,8 +1663,8 @@ export function ViewChat() {
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move: in the Next step card when it is the step; under the reply, quiet, while another step (Olumi's
                 proposal) is the one filled button (PANEL-SPEC 1). */}
-            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves me={view.you_id} alone={alone} />}
-            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} alone={alone} />}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves me={view.you_id} />}
+            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
