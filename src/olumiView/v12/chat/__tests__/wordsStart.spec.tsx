@@ -7,6 +7,9 @@
  * 2. A scenario started in words takes messages, never a second brief; the method icons wait for a model.
  * 3. Keep from core's typed prose on the floor row (`floor[].prose`): each of Olumi's approaches on its own, never the host's lines; the
  *    paired row Codex names (menu press, floor reply, two individual ideas, Keep, develop, reopen with the source kept by `kept.from`).
+ * 4. "Build a model from this", only where core offers it (`build_model`), in core's words.
+ * 5. A saved message whose reply failed stays in the conversation (`floor[].unanswered`, sx-team 08:51Z; UI reviewer 08:43Z): their words under
+ *    their name and core's own sentence, no reply, no Keep, no retry but the newest turn's, one bubble per job.
  * All words are invented.
  */
 import '@testing-library/jest-dom/vitest'
@@ -23,6 +26,7 @@ import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { BUILD_FIELD, buildOfferOf, startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { floorEntryOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
+import { floorOf, floorShown } from '../../../early'
 import { ideaDetailOf, IdeaPanel } from '../../bands/IdeaPanel'
 import { IDEA_PREFIX } from '../../bands/bands'
 import { VIEW_IDEA } from '../../bands/BandNodes'
@@ -348,5 +352,66 @@ describe('4. "Build a model from this": one plain item in the existing menu, onl
     const d = show(withOffer())
     await openMenu(d)
     expect((q(d, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(false)
+  })
+})
+
+describe('5. A saved message whose reply failed stays in the conversation (floor[].unanswered), in core\'s words, with no reply, Keep or retry of its own', () => {
+  const B_SAID = 'Could the second workshop share the van with the first?', C_SAID = 'How many repairs a week would it need to cover rent?'
+  const FAILED = 'Olumi could not answer this time.', C_REPLY = 'About forty repairs a week would cover a small unit.', C_PROSE = ['About forty repairs a week would cover a small unit.']
+  const bFailed = { job: 11, at: AT, by: 'Ben', by_id: '8', said: B_SAID, text: '', unanswered: { status: 'failed', words: FAILED } }
+  const cAnswered = { job: 12, at: AT, by: 'Cleo', by_id: '9', said: C_SAID, text: C_REPLY, prose: C_PROSE }
+  const bTurn = { job: 11, status: 'failed', said: B_SAID, ask: 'message', by: 'Ben', by_id: '8', words: FAILED, started: AT, at: AT }
+  const bubblesOf = (c: ParentNode, said: string) => [...c.querySelectorAll('.ok-said')].filter((b) => b.textContent?.includes(said))
+
+  it('PAIRED (B fails, C answers, cold read): B\'s words under Ben with core\'s failed sentence and no reply, Keep or Try again; C under Cleo with its reply and Keep; CONTRAST: the same empty row with no `unanswered` is not drawn', () => {
+    const c = show(inWords({ floor: [bFailed, cAnswered] }))
+    expect(qa(c, 'view-floor-turn').map((t) => t.getAttribute('data-floor-job'))).toEqual(['11', '12'])
+    const b = floorTurn(c, 11)!, cc = floorTurn(c, 12)!
+    expect(b.getAttribute('data-unanswered')).toBe('failed')
+    expect(b.querySelector('[data-testid="view-floor-said"]')?.textContent).toBe(B_SAID)
+    expect(b.querySelector('.ok-said-by')?.textContent).toBe('Ben')
+    expect(b.querySelector('[data-testid="view-floor-unanswered"]')?.textContent).toBe(FAILED)
+    expect(b.querySelector('[data-testid="view-floor-reply"]')).toBeNull()
+    expect(b.querySelectorAll('[data-testid="view-keep-idea"]')).toHaveLength(0)
+    expect(q(c, 'view-chat-turn-again')).toBeNull() // no historical retry
+    expect(bubblesOf(c, B_SAID)).toHaveLength(1)
+    expect(cc.querySelector('.ok-said-by')?.textContent).toBe('Cleo')
+    expect(cc.querySelector('[data-testid="view-floor-reply-text"]')?.textContent).toContain(C_REPLY)
+    expect(cc.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(1)
+    expect(cc.getAttribute('data-unanswered')).toBeNull()
+    cleanup()
+    const { unanswered: _, ...bare } = bFailed
+    const d = show(inWords({ floor: [bare, cAnswered] }))
+    expect(qa(d, 'view-floor-turn').map((t) => t.getAttribute('data-floor-job'))).toEqual(['12'])
+    expect(bubblesOf(d, B_SAID)).toHaveLength(0)
+  })
+
+  it('while B is still the newest turn it shows ONCE, with its one Try again, even if the floor also carried that job; CONTRAST: an earlier send of the same words (another job) stays its own row', () => {
+    useMe.setState({ me: { id: '8', name: 'Ben' } } as never)
+    const c = show(inWords({ you_id: '8', you: 'Ben', floor: [cAnswered, bFailed], turn: bTurn }))
+    expect(bubblesOf(c, B_SAID)).toHaveLength(1)
+    expect(floorTurn(c, 11)).toBeNull()
+    expect(qa(c, 'view-chat-turn-again')).toHaveLength(1)
+    expect(q(c, 'view-chat-turn-job')!.contains(q(c, 'view-chat-turn-again'))).toBe(true)
+    expect(qa(c, 'view-chat-turn-words').map((w) => w.textContent)).toEqual([FAILED])
+    cleanup()
+    const d = show(inWords({ you_id: '8', you: 'Ben', floor: [{ ...bFailed, job: 10 }, cAnswered], turn: bTurn }))
+    expect(bubblesOf(d, B_SAID)).toHaveLength(2) // two sends, two jobs: never merged by their words
+    expect(floorTurn(d, 10)?.getAttribute('data-unanswered')).toBe('failed')
+    expect(qa(d, 'view-chat-turn-again')).toHaveLength(1)
+  })
+
+  it('readers: only a well-typed `unanswered` on an empty reply keeps the row; a reply with text stays an ordinary reply; floorShown drops a floor copy of the newest turn by job alone', () => {
+    const rows = (floor: unknown[]) => floorOf({ floor })
+    expect(rows([bFailed])).toEqual([{ job: 11, at: AT, by: 'Ben', by_id: '8', said: B_SAID, text: '', unanswered: { status: 'failed', words: FAILED } }])
+    expect(rows([{ ...bFailed, unanswered: { status: 'lost', words: null } }])[0]?.unanswered).toEqual({ status: 'lost', words: null })
+    expect(rows([{ ...bFailed, unanswered: { status: 'stopped', words: FAILED } }])).toEqual([])
+    expect(rows([{ ...bFailed, unanswered: { status: 'failed', words: 3 } }])).toEqual([])
+    expect(rows([{ ...bFailed, said: ' ' }])).toEqual([])
+    expect(rows([{ ...bFailed, prose: ['x'] }])[0]?.prose).toBeUndefined()
+    expect(rows([{ ...cAnswered, unanswered: { status: 'failed', words: FAILED } }])[0]?.unanswered).toBeUndefined()
+    expect(floorShown({ floor: [bFailed, cAnswered], turn: { job: 11 } } as never).map((f) => f.job)).toEqual([12])
+    expect(floorShown({ floor: [bFailed, cAnswered], turn: { job: 13 } } as never).map((f) => f.job)).toEqual([11, 12])
+    expect(floorShown({ floor: [cAnswered], turn: { job: 12 } } as never).map((f) => f.job)).toEqual([12]) // an answered row is never dropped
   })
 })

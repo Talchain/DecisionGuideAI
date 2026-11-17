@@ -370,15 +370,20 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
     const entry = floorEntryOf(entries, line)
     return entry === null ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
   }
+  // A saved message whose reply failed or was lost (core `floor[].unanswered`): their words, then core's own sentence for that job as a quiet
+  // line. No reply, no Keep and no Try again here: only the newest turn (`turn`) retries, and it is never also in the floor.
+  const un = f.unanswered
   return (
-    <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
-      <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">
+    <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
+      <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
         {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`}>{f.by}</p>}
         <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
-      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section></div>
+      {un !== undefined
+        ? un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>
+        : <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section></div>}
     </li>
   )
 }

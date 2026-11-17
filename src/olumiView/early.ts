@@ -31,7 +31,13 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[] }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered }
+export type Unanswered = { status: 'failed' | 'lost'; words: string | null }
+const unansweredOf = (u: unknown): Unanswered | null => {
+  if (u === null || typeof u !== 'object') return null
+  const { status, words } = u as { status?: unknown; words?: unknown }
+  return (status === 'failed' || status === 'lost') && (words === null || typeof words === 'string') ? { status, words } : null
+}
 
 /** The model-less conversation (`view.floor`, additive, read defensively like `early`): well-formed entries only, in core's order; none where absent. */
 export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; text: string }): FloorTurn[] => {
@@ -39,11 +45,17 @@ export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; tex
   if (!Array.isArray(f)) return []
   const rows: FloorTurn[] = []
   for (const row of f) {
-    if (row === null || typeof row !== 'object' || typeof row.text !== 'string' || !row.text.trim() ||
+    if (row === null || typeof row !== 'object' || typeof row.text !== 'string' ||
       typeof row.said !== 'string' || typeof row.job !== 'number' || typeof row.at !== 'string') continue
+    const by = typeof row.by === 'string' ? row.by : '', by_id = typeof row.by_id === 'string' ? row.by_id : ''
+    // A saved message whose reply failed stays in the conversation (sx-team 08:51Z): core says so by a typed `unanswered` on an empty reply,
+    // never by reading words. Its own text and any prose are not drawn: there is no reply to draw or keep.
+    const unanswered = row.text.trim() === '' && row.said.trim() !== '' ? unansweredOf(row.unanswered) : null
+    if (unanswered !== null) { rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: '', unanswered }); continue }
+    if (!row.text.trim()) continue
     if (alreadyShown && row.job === alreadyShown.job && row.text === alreadyShown.text) continue
     const prose = Array.isArray(row.prose) && row.prose.length > 0 && row.prose.every((p: unknown) => typeof p === 'string') ? { prose: row.prose as string[] } : {}
-    rows.push({ job: row.job, at: row.at, by: typeof row.by === 'string' ? row.by : '', by_id: typeof row.by_id === 'string' ? row.by_id : '', said: row.said, text: row.text, ...prose })
+    rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: row.text, ...prose })
   }
   return rows
 }
@@ -82,11 +94,14 @@ export function entriesOf(draft: unknown): Entry[] | null {
 }
 
 /** The board draws the brief's early answer. Only its actual job can refer to that same brief. */
-export const floorShown = (view: { draft?: unknown } | null): FloorTurn[] => {
+export const floorShown = (view: { draft?: unknown; turn?: { job?: unknown } | null } | null): FloorTurn[] => {
   const boardAnswer = earlyOf(view?.draft)
-  if (boardAnswer === null) return floorOf(view)
-  const briefJob = entriesOf(view?.draft)?.find(e => e.kind === 'brief')?.job ?? (view?.draft as { job?: number } | null)?.job
-  return floorOf(view, { job: briefJob, text: boardAnswer })
+  const briefJob = boardAnswer === null ? undefined : entriesOf(view?.draft)?.find(e => e.kind === 'brief')?.job ?? (view?.draft as { job?: number } | null)?.job
+  const rows = boardAnswer === null ? floorOf(view) : floorOf(view, { job: briefJob, text: boardAnswer })
+  // The newest turn draws its own message, status and the one Try again (`turn`). Core never serves that job in the floor as well; if it did,
+  // the floor's copy is dropped by job identity (never by words), so the message shows once and only the newest keeps its retry.
+  const turnJob = view?.turn?.job
+  return typeof turnJob === 'number' ? rows.filter(f => !(f.unanswered !== undefined && f.job === turnJob)) : rows
 }
 
 type ThreadRow = { seq: number; index: number | null; floor: FloorTurn | null }
