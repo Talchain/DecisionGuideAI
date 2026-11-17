@@ -1751,6 +1751,10 @@ export type View = {
         label: string
         heading: string | null
       }
+      lead?: {
+        opening: string
+        points: Array<string>
+      }
     } | null
     broke: string | null
     problem: string | null
@@ -1970,6 +1974,10 @@ export type View = {
     said: string
     text: string
     prose?: Array<string>
+    lead?: {
+      opening: string
+      points: Array<string>
+    }
     held?: true
     unanswered?: {
       status: "failed" | "lost"

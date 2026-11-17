@@ -1740,7 +1740,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const box = useRef<HTMLTextAreaElement>(null)
   // The paperclip (Paul, 15 Nov: "I don't want to lose the functions and the icons within the AI panel text box"): one file read in this browser,
   // its text added to the box for the person to check before they send (BriefDocumentUpload, the old composer's own reader); nothing is uploaded.
-  const attach = useBriefDocumentUpload({ draft: text, setDraft: (t) => useViewChat.setState({ text: t }), onAdded: () => box.current?.focus(), inChat: !takesBrief(sid, view) })
+  // #26: the read belongs to the page it was chosen on (the scenario's address, as `act` binds a write); one that ends after a move adds nothing.
+  const page = useViewStore((s) => s.uuid)
+  const attach = useBriefDocumentUpload({ draft: text, setDraft: (t) => useViewChat.setState({ text: t }), onAdded: () => box.current?.focus(), inChat: !takesBrief(sid, view), page })
   // Fit up to six lines, including restored text; clearing returns to one (pre-screen 4b92d394 row 13).
   useEffect(() => {
     const el = box.current

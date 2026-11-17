@@ -13,7 +13,7 @@
  * Scope: the empty-canvas composer only. Adding a document to an existing
  * model is a later slice.
  */
-import { useCallback, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Loader2, Paperclip } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { ACCEPT_ATTRIBUTE, assembleBrief, extractBriefDocument } from '../brief-ingest'
@@ -41,9 +41,15 @@ interface UseBriefDocumentUploadArgs {
    * shows only once something was read or failed, so a footer composer carries no standing text.
    */
   inChat?: boolean
+  /**
+   * The page this composer writes for (the V12 chat composer: the scenario's address, `useViewStore` `uuid`). A read that finishes after the
+   * page changed, or after the composer unmounted, adds nothing and says nothing, and the page that is shown starts with no feedback of another's
+   * (#26: a file chosen in A finished into B's box). Omitted: the composer serves one page for its whole life.
+   */
+  page?: string | null
 }
 
-export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = false }: UseBriefDocumentUploadArgs): {
+export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = false, page }: UseBriefDocumentUploadArgs): {
   trigger: ReactNode
   feedback: ReactNode
 } {
@@ -56,6 +62,15 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = fals
   // copy captured when it started — that would silently drop what was typed.
   const draftRef = useRef(draft)
   draftRef.current = draft
+  // One read counts: a newer read, a page change or an unmount retires the one in flight, so it writes no text and no feedback when it ends.
+  const read = useRef(0)
+  useLayoutEffect(() => {
+    read.current++
+    setBusy(false)
+    setError(null)
+    setAdded(null)
+  }, [page])
+  useEffect(() => () => { read.current++ }, [])
 
   const handleChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -63,18 +78,20 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = fals
       // Reset so choosing the same file again still fires a change.
       event.target.value = ''
       if (!file) return
+      const mine = ++read.current, current = () => read.current === mine
       setBusy(true)
       setError(null)
       try {
         const extraction = await extractBriefDocument(file)
+        if (!current()) return
         const result = assembleBrief(draftRef.current, file.name, extraction)
         setDraft(result.text)
         setAdded({ block: result.added, summary: result.summary })
         onAdded?.()
       } catch (err) {
-        setError(err instanceof Error && err.name === 'BriefIngestError' ? err.message : BRIEF_UPLOAD_COPY.unexpected)
+        if (current()) setError(err instanceof Error && err.name === 'BriefIngestError' ? err.message : BRIEF_UPLOAD_COPY.unexpected)
       } finally {
-        setBusy(false)
+        if (current()) setBusy(false)
       }
     },
     [setDraft, onAdded],
