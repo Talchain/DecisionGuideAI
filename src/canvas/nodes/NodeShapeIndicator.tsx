@@ -57,85 +57,65 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverrid
       ? { stroke, strokeWidth: strokeWidth ?? 0.6, strokeLinejoin: 'round' as const }
       : {}
 
+  let shape: JSX.Element
   switch (nodeKind) {
     case 'factor':
       // Circle
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="5" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <circle cx="6" cy="6" r="5" fill={fill} {...outline} />
+      break
 
     case 'option':
       // Square
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <rect x="1" y="1" width="10" height="10" rx="1" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <rect x="1" y="1" width="10" height="10" rx="1" fill={fill} {...outline} />
+      break
 
     case 'goal':
       // Diamond
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <polygon points="6,1 11,6 6,11 1,6" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <polygon points="6,1 11,6 6,11 1,6" fill={fill} {...outline} />
+      break
 
     case 'decision':
       // Hexagon — FLAT-TOP, pointed left and right (contract v3.1 FRAME-03:
       // question `M6 2h12l6 10-6 10H6L0 12z`, ÷2 into this 12-unit box and inset
       // half a unit so an outline stroke is never clipped at the viewBox edge).
       // It was pointy-top, which read as a rotated option square at 11px.
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <polygon points="3.25,1.5 8.75,1.5 11.5,6 8.75,10.5 3.25,10.5 0.5,6" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <polygon points="3.25,1.5 8.75,1.5 11.5,6 8.75,10.5 3.25,10.5 0.5,6" fill={fill} {...outline} />
+      break
 
     case 'risk':
       // Inverted triangle (pointing down). Contract v3.1 OR-09: `M1 2h22L12 22z`
       // ÷2 — 11 wide × 10 tall, the SAME extents as the outcome triangle below,
       // so ▲ and ▼ differ only in direction, never in optical size.
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <polygon points="0.5,1 11.5,1 6,11" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <polygon points="0.5,1 11.5,1 6,11" fill={fill} {...outline} />
+      break
 
     case 'outcome':
       // Upward triangle (positive result — outcome achieved). Contract v3.1
       // OR-09: `m12 2 11 20H1z` ÷2, in the same 12-unit box as every other kind
       // (it was the lone 14-unit box, so ▲ and ▼ rendered at different sizes).
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <polygon points="6,1 11.5,11 0.5,11" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <polygon points="6,1 11.5,11 0.5,11" fill={fill} {...outline} />
+      break
 
     case 'action':
       // Small filled circle (same as outcome, different colour)
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="5" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <circle cx="6" cy="6" r="5" fill={fill} {...outline} />
+      break
 
     case 'constraint':
       // A limit (DL from Paul's test, 17 Nov: a limit read as a goal): an outlined square in the kind's grey, the key's own limit glyph,
       // so it never reads as an option's filled square or a goal's diamond. Dashed where it is an assumption.
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill={fillOverride ?? 'var(--bg-panel)'} stroke={kindFill} strokeWidth={1.5} {...(dashedOutline ? { strokeDasharray: '2 1.5' } : {})} />
-        </svg>
-      )
+      shape = <rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill={fillOverride ?? 'var(--bg-panel)'} stroke={kindFill} strokeWidth={1.5} {...(dashedOutline ? { strokeDasharray: '2 1.5' } : {})} />
+      break
 
     default:
       // Small square (constraint falls through: shape exists but CEE never emits constraint nodes — see NodeTypeEnum JSDoc)
-      return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <rect x="1" y="1" width="10" height="10" rx="2" fill={fill} {...outline} />
-        </svg>
-      )
+      shape = <rect x="1" y="1" width="10" height="10" rx="2" fill={fill} {...outline} />
+      break
   }
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className === undefined ? 'shrink-0' : `shrink-0 ${className}`}>
+      {shape}
+    </svg>
+  )
 }
