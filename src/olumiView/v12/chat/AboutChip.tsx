@@ -4,7 +4,7 @@
  * and a press focuses and selects the card on the canvas (the same focus channel the Reasoning tab uses). A pointer to a record the canvas does not
  * draw names nothing, and a reply with no pointer draws no chip. "About" and "on the canvas" are the board's fixed chrome.
  */
-import { Crosshair } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { typography } from '../../../styles/typography'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import type { View, ViewTurn } from '../../client'
@@ -35,8 +35,8 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
     <div className="flex" data-testid="view-about-chips">
       <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
         title={cards.map((c) => aboutWords(c.title)).join('\n')} data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-info hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-        <Crosshair className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        <OkIcon id="on-canvas" size={14} decorative /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
       </button>
     </div>
   )

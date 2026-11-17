@@ -586,13 +586,12 @@ export function WorkspaceShellTabStrip({
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
                 {surface.id === 'olumi' ? (
-                  // DL round 5: on the olumi-core lane the Olumi tab is named like the others (its mark beside its name), so no tab is a bare
-                  // mark that reads as a slab; elsewhere the mark alone (vision spec §3).
+                  // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named "Olumi" on hover
+                  // (title and aria-label above), never a word beside it. The selected tab is told apart by its pill.
                   <>
                     <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
-                    {coreLane && isActive ? <span className="truncate tracking-tight">{surface.label}</span> : null}
                   </>
-                ) : coreLane && !isActive ? (
+                ) : coreLane ? (
                   (() => {
                     const Icon = LANE_TAB_ICON[surface.id] ?? Activity
                     return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />

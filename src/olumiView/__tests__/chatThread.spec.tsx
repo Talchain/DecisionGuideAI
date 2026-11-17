@@ -459,7 +459,10 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     show(real)
     const { getByTestId, queryByTestId, queryByText } = render(<ViewChat />)
     const scroll = getByTestId('view-chat-scroll')
+    // CHANGED BY DESIGN (17 Nov, calm panel mock v2, Paul: ONE question at a time with progressive disclosure of the rest): was all three painted at once.
+    // Now the first is painted and the other two are in the page, in core's words, hidden until Skip (or a progress dash) reaches them.
     for (const at of [0, 1, 2]) {
+      if (at > 0) fireEvent.click(getByTestId('view-question-skip'))
       const el = getByTestId(at === 0 ? 'view-model-question-text' : `view-model-question-text-${at}`)
       expect([el.textContent, el.getAttribute('data-view')], `question ${at}`).toEqual([qs[at], `model.coaching_questions.${at}`])
       // painted: rendered in the open panel, not hidden or clipped by a class; reachable: inside the panel's own scroll

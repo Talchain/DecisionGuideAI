@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
-import { Info, MessageCircleQuestion, X } from 'lucide-react'
+import { MessageCircleQuestion } from 'lucide-react'
+import { OkIcon, OkIconButton } from '../../olumiView/look/icons'
 import { useCanvasStore } from '../store'
 import { typo } from '../../styles/typography'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -55,7 +56,7 @@ import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 const REFIRE_GUARD_MS = 500
 
 /** `after`: what a lane offers for this selection at the end of the row (the olumi-core lane: a card's Rename, DL 7 Nov); none elsewhere. */
-export const SelectionPill = memo(function SelectionPill({ after, chip = false }: { after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
+export const SelectionPill = memo(function SelectionPill({ after, mark, chip = false }: { /** The chip's kind shape: the selected card's own mark (olumiView/SelectedRename `selectedKindMark`), drawn before "About:". */ mark?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
   const selection = useSelectionContext()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
@@ -103,22 +104,20 @@ export const SelectionPill = memo(function SelectionPill({ after, chip = false }
   // V11 pixel pass (9 Nov): on the olumi-core lane the row is on Paul's three sizes (12 px, never the legacy 11).
   const meta: 'viewPanelMeta' | 'panelMeta' = isOlumiCoreLane() ? 'viewPanelMeta' : 'panelMeta'
   if (chip) {
-    const extra = after?.(selection)
+    const extra = after?.(selection), shape = mark?.(selection)
     return (
       <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5" data-testid="ai-panel-selection-pill" data-selection-kind={selection.kind} data-selection-actionable={canAsk ? 'true' : 'false'}>
-        <span className={`inline-flex min-w-0 max-w-full items-center gap-0.5 rounded-full border border-panel-border bg-panel-hover pl-2 ${typo(meta, 'text-text-body')}`} data-testid="selection-chip">
-          {canAsk ? (
-            <button type="button" onClick={ask} aria-label={`Ask about ${label}`} title={`Ask about ${label}`} data-testid="selection-pill-ask"
-              className="min-w-0 break-words rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info">About: {label}</button>
-          ) : <span className="min-w-0 break-words">About: {label}</span>}
-          <button type="button" onClick={() => useCanvasStore.getState().clearSelection()} aria-label="Clear the selection" title="Clear the selection" data-testid="selection-pill-clear"
-            className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
-            <X size={12} strokeWidth={1.75} aria-hidden="true" />
-          </button>
+        {/* D2 (independent review of 833c1609): "About: <label>" is a label, never a button that sends; asking is its own visible control beside it
+            (the registry's ask-about-this, neutral, with its hover), keeping the chip's test id. The card's own kind shape leads the label. */}
+        <span className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-panel-border bg-panel-hover pl-2 ${typo(meta, 'text-text-body')}`} data-testid="selection-chip">
+          {shape == null ? null : <span aria-hidden="true" className="inline-flex flex-none">{shape}</span>}
+          <span className="min-w-0 break-words" data-testid="selection-chip-label">About: {label}</span>
+          {canAsk ? <OkIconButton id="ask-about-this" words={`Ask about ${label}`} testid="selection-ask-chip" size={14} className="h-6 w-6 hover:text-text-header" onClick={ask} /> : null}
+          <OkIconButton id="cancel-close" words="Clear the selection" testid="selection-pill-clear" size={12} className="h-6 w-6 rounded-full hover:text-text-header" onClick={() => useCanvasStore.getState().clearSelection()} />
         </span>
         {extra == null ? null : (
           <details className="basis-full" data-testid="selection-detail">
-            <summary className="inline-flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full text-text-light hover:text-text-body" aria-label="More about this card" title="More about this card"><Info size={14} strokeWidth={1.75} aria-hidden="true" /></summary>
+            <summary className="inline-flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full text-text-light hover:text-text-header" aria-label="More about this card" title="More about this card"><OkIcon id="info-more" size={14} decorative /></summary>
             <div className="ok-selected flex flex-wrap items-center gap-1.5">{extra}</div>
           </details>
         )}

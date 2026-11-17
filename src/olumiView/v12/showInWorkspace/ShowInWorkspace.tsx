@@ -10,7 +10,7 @@
  * Both labels are this control's chrome. Focus is the page's own neutral ring (`*:focus-visible`), not one of its own.
  */
 import { useEffect, useMemo, useRef } from 'react'
-import { ArrowLeft, LocateFixed } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { useHasShowCamera } from './cameraPort'
 import { typography, useInputsOpen, useLevel, useViewStore } from './deps'
 import { leave, returnToBefore, showInWorkspace, useShown } from './show'
@@ -46,8 +46,8 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
         title={shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown
-          ? <ArrowLeft className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />
-          : <LocateFixed className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
+          ? <OkIcon id="show-in-workspace" variant="alt" size={14} decorative />
+          : <OkIcon id="show-in-workspace" size={14} decorative />}
         {/* v10 review item 6: an icon in the reply's one row; the words stay for readers and on hover (the Return words are drawn while shown). */}
         <span className={shown ? '' : 'sr-only'}>{shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}</span>
       </button>

@@ -251,7 +251,8 @@
 .ok-pinned [data-review-body] > * + * { margin-top: 8px; }
 /* Opened, the row stays at the box's top as its header (the box scrolls under it); its upward shadow covers the box's top padding, so no
    line scrolled away shows above it. */
-.ok-pinned [data-testid='view-proposal-row'] { flex: 1 1 0; min-width: 0; }
+/* D3 (independent review of 833c1609): core's heading has a real basis, so Review, Approve and Set aside wrap below it before the heading is squeezed to a few characters at the 1232 x 704 panel width. */
+.ok-pinned [data-testid='view-proposal-row'] { flex: 1 1 12rem; min-width: 0; }
 /* Contract 3 (Codex 15 Nov, held 329 with nine changes: the list was squeezed to 0 px at 1232 by the step's words and core's warning lines,
    which do not shrink). The list never shrinks: where the box cannot hold the words, the list and the actions, the pinned box itself
    (overflow-y auto) is the ONE scroll body for all of them, the actions sticky at its foot, so the checklist is always drawn whole. */

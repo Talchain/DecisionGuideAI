@@ -38,11 +38,12 @@ function draw() {
 }
 
 describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
-  it('draws the mark and no visible word (on the olumi-core lane, the mark beside its name, as the other tabs are named: DL round 5)', () => {
+  // CHANGED BY DESIGN (17 Nov, calm panel mock v2, Paul): the Olumi tab is just Olumi's logo on the core lane too; "Olumi" is its hover and label (DL round 5 had drawn the word beside the mark while selected).
+  it('draws the mark and no visible word, on every lane', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-olumi')
     expect(tab.querySelector('[data-testid="outputs-dock-tab-olumi-mark"][data-icon="olumi-ai"]')).not.toBeNull()
-    expect(tab.textContent).toBe(isOlumiCoreLane() ? 'Olumi' : '')
+    expect(tab.textContent).toBe('')
   })
 
   it('on the olumi-core lane the dock\'s controls sit in a header above the tabs, not in the tab row (DL round 5)', () => {

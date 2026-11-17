@@ -43,7 +43,7 @@ import {
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchX, Shapes,
-  ShieldAlert, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
+  ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
   UnfoldVertical, Unlink, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
 } from 'lucide-react'
@@ -140,6 +140,7 @@ export const ICONS = {
   'approve-ticked': e(CheckCheck, 'Approve only the changes you ticked', '--text-light', 'icon-plus-word', 'person-action'),
   'review-changes': e(ListChecks, 'Review the changes', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success' }),
   'set-aside': e(ArchiveX, 'Set aside', '--text-light', 'icon-only', 'person-action'),
+  'skip-question': e(SkipForward, 'Skip', '--text-light', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
   'next-step': e(Footprints, 'Next step', '--text-light', 'icon-only', 'person-action'),
   'move-tap': e(ArrowRight, 'Next', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's next.label" }),
   add: e(Plus, 'Add a figure', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--text-header' }),

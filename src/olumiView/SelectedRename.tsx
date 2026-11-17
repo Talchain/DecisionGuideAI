@@ -10,6 +10,8 @@ import { Rename } from './Rename'
 import { useViewStore } from './store'
 import { typography } from '../styles/typography'
 import { SelectedExplain } from './look/SelectedExplain'
+import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
+import { drawKindOf } from './layout'
 
 function SelectedRename({ id }: { id: string }): JSX.Element | null {
   const heading = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
@@ -40,3 +42,13 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
 /** "Find evidence" (research/FindEvidence.tsx) is not offered in N1: web research returns in N2 once its checks pass review. */
 export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (s.kind === 'node' ? <SelectedRename id={s.id} /> : null)
+
+/**
+ * The selected card's own kind shape (the composer's selection chip, 17 Nov calm panel): the same shape the canvas draws it with (`drawKindOf`,
+ * NodeShapeIndicator), never a new mark. A link's selection, or an id core's model does not hold, draws none. A stable function (SelectionPill `mark`).
+ */
+function SelectedKind({ id }: { id: string }): JSX.Element | null {
+  const kind = useViewStore((s) => { const m = s.view?.model, c = m?.cards.find((x) => x.id === id); return m == null || c === undefined ? null : drawKindOf(c, m) })
+  return kind === null ? null : <span className="inline-flex flex-none" data-testid="selection-kind-shape" data-kind={kind}><NodeShapeIndicator nodeKind={kind} size={12} /></span>
+}
+export const selectedKindMark = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (s.kind === 'node' ? <SelectedKind id={s.id} /> : null)

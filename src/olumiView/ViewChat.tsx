@@ -39,7 +39,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, MessageSquare, RefreshCw, RotateCcw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw, X } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -54,16 +54,18 @@ import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot, RecordStepButton } from './v12/team'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
+import { OlumiAsks } from './v12/chat/OlumiAsks'
+import { ChangeMix } from './v12/chat/ChangeMix'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { OkIcon, OkIconButton } from './look/icons'
 import { SelectionPill } from '../canvas/components/SelectionPill'
-import { selectedRename } from './SelectedRename'
+import { selectedKindMark, selectedRename } from './SelectedRename'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
-import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
+import { CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -333,20 +335,18 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
-  // v10 review item 6: core's status line (for example "Suggested, not yet accepted") is a small icon with its words on hover; it is drawn in full only
-  // while an Approve waits on the model. Core's words are unchanged and stay in the page for readers.
   const waiting = whole?.proposal != null
-  // The reply's ONE footer row (17 Nov, the calm panel: "one quiet footer row per reply in place of the stacked chips"): the cards it is about
-  // (one icon with a count, Olumi's blue), show in the workspace, keep as an idea (Olumi's blue), and the version stamp as a small icon whose hover
-  // is core's version and status words. Core's words stay in the page (sr-only), and its status line is drawn in full only while an Approve waits.
+  // The reply's ONE footer row (17 Nov, the calm panel): the cards it is about, show in the workspace, keep as an idea, and the version stamp.
+  // D1 (independent review of 833c1609): core's version and status words are CONTENT, drawn visibly beside the version-tag icon, small and light
+  // (viewPanelMeta, --text-light); the icon keeps its hover. They were an sr-only span inside the icon, so a sighted reader never saw them.
   const stampWords = t.status === null ? t.version : `${t.version} · ${t.status}`
   const stamp = (
-    <span className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
+    <span className={`inline-flex min-w-0 flex-wrap items-center gap-1 text-text-light ${typography.viewPanelMeta}`} data-testid="view-chat-version">
       <span tabIndex={0} role="img" aria-label={stampWords} title={stampWords} className="inline-flex" data-testid={t.status === null || waiting ? 'view-chat-version-icon' : 'view-chat-status-icon'}>
         <OkIcon id="version-tag" size={14} decorative />
-        <span className="sr-only"><span data-view={`${at}.version`}>{t.version}</span>{t.status === null || waiting ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
       </span>
-      {t.status === null || !waiting ? null : <span title={t.status} data-view={`${at}.status`}>{t.status}</span>}
+      <span data-view={`${at}.version`}>{t.version}</span>
+      {t.status === null ? null : <><span aria-hidden="true">·</span><span title={t.status} data-view={`${at}.status`}>{t.status}</span></>}
     </span>
   )
   const tools = (
@@ -1232,6 +1232,9 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
+/** The person's filled act in the panel (Paul, 17 Nov: no black buttons): Olumi's green with an ink label, over the shared Button's primary fill. */
+const GREEN_ACT = '!border-success !bg-success !text-text-header hover:!bg-success-hover hover:!border-success-hover active:!bg-success-active'
+
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
 export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
@@ -1241,8 +1244,8 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
-          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><ArrowRight className="h-4 w-4" aria-hidden="true" /></button>
-      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
+          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-success text-text-header hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><OkIcon id="move-tap" size={16} decorative /></button>
+      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} className={primary ? GREEN_ACT : ''} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
 
@@ -1362,12 +1365,13 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   // filled button and Set aside as an icon (Proposal's actions). The mark is beside core's words, never in their place.
   const lead = (
     <>
-      <button type="button" className="flex min-h-[44px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
+      <button type="button" className="flex min-h-[44px] min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <OkIcon id="olumi-mark" size={16} decorative />
         {/* One flowing line: the heading, the dot and the version wrap together as one inline run, never three flex columns (DL look at 1500x904 at 1.33). */}
         <span className="min-w-0 flex-1"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
       </button>
+      <ChangeMix changes={p.changes} />
       <button type="button" className={`${typography.viewPanelHeading} inline-flex min-h-[44px] items-center gap-1 px-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         Review{open ? <ChevronUp className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
@@ -1494,7 +1498,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
     return (
       <div className="flex" data-testid="view-session-goal">
         <span className={`inline-flex items-center gap-1 rounded-lg border border-field bg-panel pl-2.5 pr-1 ${typography.viewPanelBody}`} data-testid="view-session-goal-chip">
-          <Target className="h-3.5 w-3.5 text-info" aria-hidden="true" />
+          <OkIcon id="goal" size={14} decorative />
           <button type="button" disabled={held} onClick={() => setChanging(true)} title={session.set_by === null ? undefined : `Set by ${session.set_by}`}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
             className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed">
@@ -1679,26 +1683,14 @@ export function ViewChat() {
                 first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
                 held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
                 An older core sends no trial_questions: as before. */}
-            {(() => {
-              // PANEL-SPEC 4: one input for one thing. The figure the Next step asks for has its box there; its question is not drawn again here.
-              const qs = chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)
-              if (qs.length === 0) return null
-              const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
-              const body = (q: (typeof qs)[number]) => <QuestionLine text={q.text} id={q.id} edit={q.edit} />
-              const testid = (i: number) => (i === 0 ? 'view-model-question-text' : `view-model-question-text-${i}`)
-              return (
-                <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-model-question" aria-label={head}>
-                  <p className={`${typography.viewPanelHeading} text-text-header`}>{head}</p>
-                  {qs.length === 1
-                    ? <div data-testid={testid(0)} data-view={qs[0]!.view} data-question-id={qs[0]!.id ?? undefined}>{body(qs[0]!)}</div>
-                    : (
-                      <ol className="m-0 list-decimal space-y-1 pl-5" data-testid="view-model-questions">
-                        {qs.map((q, i) => <li key={q.key} data-testid={testid(i)} data-view={q.view} data-question-id={q.id ?? undefined}>{body(q)}</li>)}
-                      </ol>
-                    )}
-                </section>
-              )
-            })()}
+            {/* 17 Nov (calm panel mock v2): the questions are ONE card, one question at a time with the rest behind it (v12/chat/OlumiAsks). */}
+            <OlumiAsks
+              // PANEL-SPEC 4: one input for one thing. The figure the Next step asks for has its box there; its question is not drawn again.
+              questions={chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)}
+              body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
+              held={held}
+              onAnswer={(q, answer) => say(`${q.text}\n\n${answer}`)}
+              onMethod={(prefix) => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); document.getElementById('view-chat-text')?.focus() }} />
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
@@ -1711,7 +1703,7 @@ export function ViewChat() {
       {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
       {away ? (
         <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
-          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />Latest</button>
+          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><OkIcon id="go-latest" size={14} decorative />Latest</button>
         </div>
       ) : null}
       {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
@@ -1820,7 +1812,6 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
-  const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
@@ -1841,7 +1832,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
-        <SelectionPill chip after={selectedRename} />
+        <SelectionPill chip after={selectedRename} mark={selectedKindMark} />
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
           rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
@@ -1851,16 +1842,11 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {held ? null : <span className="flex items-center" data-testid="view-composer-attach">{attach.trigger}</span>}
           {!methods ? null : (
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
-              {V10_METHODS.map(({ key, label, prefix }) => {
-                const Icon = METHOD_GLYPHS[key]
-                return (
-                  <button key={key} type="button" aria-label={label} title={label} data-testid={`view-composer-method-${key}`}
-                    className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header"
-                    onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }}>
-                    <Icon className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
-                  </button>
-                )
-              })}
+              {/* The four methods are the registry's method icons, neutral (Paul, 17 Nov: icons carry no hue); the method's own label is the hover. */}
+              {V10_METHODS.map(({ key, label, prefix }) => (
+                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-composer-method-${key}`} size={14} className="h-7 w-7 rounded-md hover:bg-panel-hover"
+                  onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }} />
+              ))}
             </span>
           )}
           {/* V12 one action system: the ⋯ opens core's questions in core's order, what they came for, and the tools folded in from the Reasoning
@@ -1871,26 +1857,22 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {/* v10 review item 10: the popout moved here from a 44 px strip above every conversation; same control, same test id, drawn in the composer's icon row. */}
           {popped ? null : (
-            <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE} className={quiet}>
-              <ExternalLink size={14} aria-hidden="true" />
-            </button>
+            <OkIconButton id="popout" words={CHAT_POPOUT_TITLE} testid="view-chat-popout" size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
           )}
           {analysisAction === undefined ? null : (
-            <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
-              title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
-              <RefreshCw strokeWidth={1.75} className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
-            </button>
+            <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse" size={14}
+              className={`h-6 w-6 rounded-md hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />
           )}
           {/* Words-start (17 Nov): the one deliberate choice for a new brief, beside Send; Send still builds a model (the default). */}
           {!brief ? null : (
             <button type="button" disabled={sendHeld} title={TALK_FIRST_HOVER} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
               className={`${typography.viewPanelHeading} inline-flex min-h-[32px] items-center gap-1 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
-              <MessageSquare className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />{TALK_FIRST}
+              <OkIcon id="talk-first" size={14} />{TALK_FIRST}
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-header text-text-on-color focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default">
-            <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" /><span className="sr-only">Send</span>
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-border disabled:bg-border disabled:text-text-light">
+            <OkIcon id="send" size={14} decorative /><span className="sr-only">Send</span>
           </button>
         </div>
         </div>
@@ -1901,5 +1883,5 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   )
 }
 
-/** DGAI's reasoning-move glyphs (ComposerMoves), on v10's four methods in the same order. */
-const METHOD_GLYPHS: Readonly<Record<(typeof V10_METHODS)[number]['key'], typeof Zap>> = { assumption: Zap, opposite: FlipVertical2, disconfirming: SearchX, outside: Globe }
+/** The registry's method icons, on v10's four methods in the same order (neutral: icons carry no hue). */
+const METHOD_ICON: Readonly<Record<(typeof V10_METHODS)[number]['key'], 'method-challenge' | 'method-opposite' | 'method-disprove' | 'method-outside'>> = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' }

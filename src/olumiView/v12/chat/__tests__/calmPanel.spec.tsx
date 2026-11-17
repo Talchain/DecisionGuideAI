@@ -4,6 +4,8 @@
  * 2. The pending proposal is ONE line pinned at the thread's foot, above the composer, outside the scrolling thread.
  * 3. The person's own name is hidden while they are alone in the thread, and shown once a colleague has written.
  * 4. The selected card is a chip inside the composer ("About: <heading>" with an X), not a box above it.
+ * 5-9 (calm panel mock v2, Paul 17 Nov, and the three defects D1-D3 of the independent review of 833c1609): icons carry no hue, one type scale, Olumi's question
+ *   card (one at a time), the composer's green Send, core's version words visible, the ask control kept, the heading's basis, the change-mix bar.
  * Each row names what fails if the change is reverted.
  */
 import '@testing-library/jest-dom/vitest'
@@ -20,6 +22,7 @@ import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aloneIn, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { aboutCountWords } from '../AboutChip'
+import { typography } from '../../../../styles/typography'
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => selection.value }))
@@ -59,7 +62,8 @@ describe('1. one quiet footer row per reply', () => {
     expect(chip).toHaveTextContent(aboutCountWords(n)) // and its words for readers ("2 cards")
     expect(chip.title.length).toBeGreaterThan(0) // the hover lists the cards
   })
-  it('the version stamp is a small icon whose hover is core\'s version and status words; they stay in the page for readers', () => {
+  // CHANGED BY DESIGN (D1, independent review of 833c1609): core's version and status words are content, drawn visibly beside the icon (they were an sr-only span inside it).
+  it('D1: the version stamp is a small icon whose hover is core\'s version and status words, AND those words are drawn visibly beside it', () => {
     const view = session('after-find-first')
     const c = mount(view)
     const stamp = q(q(c, 'view-chat-latest')!, 'view-chat-version')!
@@ -67,8 +71,13 @@ describe('1. one quiet footer row per reply', () => {
     const t = view.chat[view.chat.length - 1]!
     expect(icon.title).toContain(t.version)
     expect(icon.getAttribute('aria-label')).toBe(icon.title)
-    expect(stamp.querySelector(`[data-view$=".version"]`)!.textContent).toBe(t.version)
-    expect(stamp.querySelector('[data-view$=".version"]')!.closest('.sr-only')).not.toBeNull()
+    const words = stamp.querySelector<HTMLElement>('[data-view$=".version"]')!
+    expect(words.textContent).toBe(t.version)
+    expect(words.closest('.sr-only')).toBeNull() // visible, not for readers only
+    expect(stamp.className).toContain('text-text-light') // small and light: viewPanelMeta
+    expect(stamp.className).toContain(typography.viewPanelMeta)
+    expect(icon.contains(words)).toBe(false) // beside the icon, not inside it
+    if (t.status !== null) expect(stamp.querySelector('[data-view$=".status"]')!.textContent).toBe(t.status)
   })
 })
 
@@ -126,22 +135,203 @@ describe('3. the person\'s own name is hidden when alone, shown with a colleague
 })
 
 describe('4. the selected card is a chip inside the composer', () => {
+  // CHANGED BY DESIGN (D2, independent review of 833c1609): "About: <heading>" is a label and sends nothing; asking is its own visible control
+  // (selection-ask-chip, the registry's ask-about-this), and the card's own kind shape leads the label.
   it('"About: <heading>" with an X, inside the composer box; no "Selected:" box; the X clears the selection', () => {
     selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
-    useGuidanceStore.setState({ _sendChip: vi.fn() } as never)
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip } as never)
     const clear = vi.spyOn(useCanvasStore.getState(), 'clearSelection').mockImplementation(() => {})
     const c = mount(session('after-find-first'))
     const composer = q(c, 'view-composer')!
     const chip = q(composer, 'selection-chip')!
     expect(chip).toHaveTextContent('About: per specialist')
-    expect(q(chip, 'selection-pill-ask')!.title).toBe('Ask about per specialist') // the hover detail is kept
     expect(composer.textContent).not.toContain('Selected:')
+    fireEvent.click(q(chip, 'selection-chip-label')!) // the words are a label: nothing is sent
+    expect(sendChip).not.toHaveBeenCalled()
     fireEvent.click(q(chip, 'selection-pill-clear')!)
     expect(clear).toHaveBeenCalledTimes(1)
+  })
+  it('D2: a visible ask control keeps data-testid="selection-ask-chip" (hover: "Ask about <label>") and is the only thing that sends; the card\'s own kind shape leads', () => {
+    selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip } as never)
+    const c = mount(session('after-find-first'))
+    const chip = q(q(c, 'view-composer')!, 'selection-chip')!
+    const ask = q(chip, 'selection-ask-chip')!
+    expect(ask.title).toBe('Ask about per specialist')
+    expect(ask.getAttribute('aria-label')).toBe('Ask about per specialist')
+    expect(ask.querySelector('svg')).not.toBeNull() // drawn, not hidden
+    expect(ask.style.color).toBe('var(--text-light)') // neutral
+    fireEvent.click(ask)
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip.mock.calls[0]![0]).toBe('Ask about per specialist')
+    const shape = q(chip, 'selection-kind-shape')!
+    expect(['factor', 'outcome']).toContain(shape.dataset['kind']) // per_specialist is a figure: its own canvas shape
+    expect(chip.firstElementChild!.contains(shape)).toBe(true) // leads the label
   })
   it('nothing selected: no chip', () => {
     const c = mount(session('after-find-first'))
     expect(q(c, 'selection-chip')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// Mock v2 (Paul, 17 Nov): icons carry no hue; one type scale; Olumi's question card; green Send; D3; the change mix.
+const HUE_CLASS = /^(?:[a-z-]+:)*text-(?:info|success|warning|danger|option|goal|factor)$/
+const GREYS = new Set(['var(--text-light)', 'var(--text-header)', 'var(--text-body)', 'var(--border-default)'])
+const everything = (root: Element): HTMLElement[] => [...root.querySelectorAll<HTMLElement>('*')]
+const hued = (root: Element): string[] => {
+  const out: string[] = []
+  for (const el of everything(root)) {
+    const col = el.style.color
+    if (col !== '' && !GREYS.has(col) && el.querySelector('[data-icon="olumi-ai"]') === null && el.getAttribute('data-icon') !== 'olumi-ai') out.push(`${el.getAttribute('aria-label') ?? el.tagName}:${col}`)
+  }
+  for (const svg of root.querySelectorAll('svg')) {
+    if (svg.getAttribute('data-icon') === 'olumi-ai' || svg.closest('[data-icon="olumi-ai"]') !== null) continue
+    for (let e: Element | null = svg; e !== null && e !== root; e = e.parentElement) if ((e.getAttribute('class') ?? '').split(/\s+/).some((t) => HUE_CLASS.test(t)) && e.querySelector('[data-icon="olumi-ai"]') === null) { out.push(`svg under .${e.getAttribute('class')}`); break }
+  }
+  return out
+}
+
+describe('5. icons carry no hue (Paul, 17 Nov: "that\'s one less thing that\'s busy")', () => {
+  it('every icon the panel draws (a reply with its footer row, the composer with its method icons, a selection chip) is a grey token', () => {
+    selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
+    useGuidanceStore.setState({ _sendChip: vi.fn() } as never)
+    const c = mount(session('after-find-first'))
+    expect(c.querySelectorAll('svg').length).toBeGreaterThan(5) // precondition: icons are drawn
+    expect(hued(c)).toEqual([])
+  })
+  it('the proposal strip too: Olumi\'s mark is the one blue; Set aside and the chevron are grey (CONTRAST: an icon in --danger or under text-info is caught)', () => {
+    const c = mount(golden('proposal'))
+    expect(hued(c)).toEqual([])
+    expect(q(c, 'view-chat-pinned')!.querySelector('[data-icon="olumi-ai"]')).not.toBeNull()
+    const probe = document.createElement('div')
+    probe.innerHTML = '<span role="img" style="color: var(--danger)"><svg/></span><span class="text-info"><svg/></span>'
+    expect(hued(probe)).toHaveLength(2)
+  })
+})
+
+describe('6. one type scale: 12/18 reading, 12/16 meta, 12 medium heading, 18 medium headline only', () => {
+  const OFF = /^(?:[a-z-]+:)*text-(?:sm|base|xl|2xl|3xl|\[(?:11|13|14|15|16)px\]|\[length:calc\((?:13|14|15|16)px.*)$/
+  const sizes = (root: Element): string[] => everything(root).flatMap((el) => {
+    const toks = (el.getAttribute('class') ?? '').split(/\s+/)
+    const bad = toks.filter((t) => OFF.test(t) || (/^text-lg$/.test(t) && !toks.includes('font-medium')))
+    return bad.map((t) => `${el.tagName}.${t}`)
+  })
+  it('no panel text class is 11, 13, 14, 15 or 16 px (a thread, its footer row, the composer, the pinned proposal, Olumi\'s question card)', () => {
+    const q3 = golden('s_ce285b3617bb')
+    for (const v of [session('after-find-first'), golden('proposal'), q3]) { cleanup(); expect(sizes(mount(v))).toEqual([]) }
+    const probe = document.createElement('div'); probe.innerHTML = '<p class="text-[14px]">x</p><p class="text-base">y</p><p class="text-lg">z</p>'
+    expect(sizes(probe)).toHaveLength(3) // CONTRAST: the check does see off-scale classes
+  })
+  it('the question text is viewPanelBody, the same as every reading text', () => {
+    const c = mount(golden('s_ce285b3617bb'))
+    const card = q(c, 'view-model-question')!
+    expect(card.className).toContain(typography.viewPanelBody)
+  })
+})
+
+describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
+  const asked = () => golden('s_ce285b3617bb')
+  const visible = (c: ParentNode) => [...c.querySelectorAll<HTMLElement>('[data-view^="model.coaching_questions"]')].filter((e) => !e.hidden && e.closest('[hidden]') === null)
+  it('shows one question, "1 of 3", three progress dashes; the other two stay in the page, hidden, in core\'s words', () => {
+    const view = asked(), qs = view.model!.coaching_questions!
+    const c = mount(view)
+    const card = q(c, 'view-model-question')!
+    expect(visible(card)).toHaveLength(1)
+    expect(visible(card)[0]!.textContent).toBe(qs[0])
+    expect(q(card, 'view-question-count')!.textContent).toBe('1 of 3')
+    expect(qa(card, 'view-question-dashes').length).toBe(1)
+    expect(card.querySelectorAll('[data-testid^="view-question-dash-"]')).toHaveLength(3)
+    expect(q(card, 'view-model-question-text-1')!.hidden).toBe(true)
+    expect(q(card, 'view-model-question-text-1')!.textContent).toBe(qs[1])
+    expect(card.querySelector(`[data-testid="view-model-question-text-3"]`)).toBeNull() // three at most
+    expect(card.className).toContain('border-info/40') // Olumi\'s card: a token at opacity, no new colour
+  })
+  it('Skip (a neutral icon) moves to the next question and "2 of 3"; the last has no Skip (CONTRAST: a single question draws no count)', () => {
+    const view = asked(), qs = view.model!.coaching_questions!
+    const c = mount(view)
+    const card = q(c, 'view-model-question')!
+    const skip = q(card, 'view-question-skip')!
+    expect(skip.textContent).toBe('')
+    expect(skip.title).toBe('Skip')
+    expect(skip.style.color).toBe('var(--text-light)')
+    fireEvent.click(skip)
+    expect(q(card, 'view-question-count')!.textContent).toBe('2 of 3')
+    expect(visible(card)[0]!.textContent).toBe(qs[1])
+    fireEvent.click(q(card, 'view-question-skip')!)
+    expect(q(card, 'view-question-count')!.textContent).toBe('3 of 3')
+    expect(q(card, 'view-question-skip')).toBeNull()
+    cleanup()
+    const one = asked(); one.model!.coaching_questions = [qs[0]!]
+    const c1 = mount(one)
+    expect(q(c1, 'view-question-count')).toBeNull()
+    expect(q(c1, 'view-question-skip')).toBeNull()
+  })
+  it('"Use this" is green and idle until words are typed; it sends the question and the answer through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
+    const bodies: string[] = []
+    setTeamFetch((async (_u: unknown, init?: RequestInit) => { bodies.push(String(init?.body ?? '')); return new Response('{}', { status: 201 }) }) as never)
+    const view = asked(), qs = view.model!.coaching_questions!
+    const c = mount(view)
+    const card = q(c, 'view-model-question')!
+    const use = q(card, 'view-question-use') as HTMLButtonElement
+    expect(use.textContent).toBe('Use this')
+    expect(use.disabled).toBe(true)
+    expect(use.className).toContain('bg-success')
+    expect(use.className).toContain('text-text-header')
+    expect(use.className).not.toContain('bg-text-header')
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'By the end of June' } })
+    expect(use.disabled).toBe(false)
+    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.style.color).toBe('var(--text-light)')
+    fireEvent.click(q(card, 'view-question-method-opposite')!)
+    expect(bodies).toEqual([]) // an ask-for-more icon only fills the message box
+    expect(useViewChat.getState().text).not.toBe('')
+    useViewChat.setState({ text: '' })
+    await act(async () => { fireEvent.click(use) })
+    await vi.waitFor(() => expect(bodies.some((b) => b.includes('By the end of June') && b.includes(qs[0]!.slice(0, 20)))).toBe(true))
+    expect(bodies.filter((b) => b.includes('By the end of June'))).toHaveLength(1)
+  })
+})
+
+describe('8. Send is the person\'s green act, never black', () => {
+  it('the composer Send is --success with an ink arrow; hover and active are the success family; disabled is one solid neutral', () => {
+    const c = mount(session('after-find-first'))
+    const send = q(c, 'view-composer-send')!
+    for (const t of ['bg-success', 'text-text-header', 'hover:bg-success-hover', 'active:bg-success-active', 'disabled:bg-border']) expect(send.className, t).toContain(t)
+    expect(send.className).not.toMatch(/(^|\s)bg-text-header(\s|$)/)
+    expect(send.className).not.toContain('text-text-on-color')
+    expect(send.querySelector('svg')).not.toBeNull()
+    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).style.color).toBe('var(--text-header)') // the ink glyph (registry send)
+  })
+})
+
+describe('9. the proposal line: heading basis (D3) and the change mix', () => {
+  it('D3: core\'s heading has a real flex basis (never 0), in the class and in the pinned box\'s own rule, so Review, Approve and Set aside wrap before it is squeezed', () => {
+    const c = mount(golden('proposal'))
+    const row = q(c, 'view-proposal-row')!
+    expect(row.className).toContain('flex-[1_1_12rem]')
+    expect(row.className).not.toMatch(/(^|\s)flex-1(\s|$)/)
+    const css = readFileSync(path.join(DIR, 'look/olumiLook.css'), 'utf8')
+    const rule = /\.ok-pinned \[data-testid='view-proposal-row'\]\s*\{([^}]*)\}/.exec(css)![1]!
+    expect(/flex:\s*1 1 12rem/.test(rule)).toBe(true)
+    expect(/flex:\s*1 1 0\b/.test(rule)).toBe(false)
+    expect(q(c, 'view-proposal-actions')!.className).toContain('flex-wrap')
+  })
+  it('the strip carries a stacked change-mix bar: one segment per change family, in that kind\'s token, as wide as its count; none where the changes carry no family', () => {
+    const view = structuredClone(golden('proposal'))
+    const ch = view.proposal!.changes!
+    view.proposal!.changes = [{ ...ch[0]!, family: 'quantity' }, { ...ch[1]!, family: 'quantity' }, { ...ch[0]!, id: 'o1', family: 'option' }, { ...ch[0]!, id: 'g1', family: 'goal' }, { ...ch[0]!, id: 'x1', family: 'claim' }]
+    const c = mount(view)
+    const bar = q(q(c, 'view-proposal-actions')!, 'view-change-mix')!
+    const seg = [...bar.children] as HTMLElement[]
+    expect(seg.map((x) => [x.dataset['family'], x.dataset['n'], x.style.background])).toEqual([['quantity', '2', 'var(--factor)'], ['option', '1', 'var(--option)'], ['goal', '1', 'var(--goal)'], ['claim', '1', 'var(--border-emphasis)']])
+    expect(bar.getAttribute('aria-hidden')).toBe('true')
+    expect(q(c, 'view-proposal-row')!.contains(bar)).toBe(false) // beside the row, so core\'s words stay exactly the row's text
+    cleanup()
+    const older = structuredClone(golden('proposal'))
+    older.proposal!.changes = older.proposal!.changes!.map((x) => ({ ...x, family: '' }))
+    expect(q(mount(older), 'view-change-mix')).toBeNull()
   })
 })
 
