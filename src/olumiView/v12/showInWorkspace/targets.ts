@@ -27,7 +27,8 @@
  *
  * AFTER UNFOLDING the caller resolves again on the View core then sends: a record that has become a card is its own target (rule 1), one
  * still inside an open badge is its host (4a). A second pass that still asks for a badge means the unfolding did not land: the caller
- * stops there and says so, it does not loop.
+ * stops there and says so, it does not loop. (A card a badge handed out may stand behind one of Simple's folds, rule 2: the caller opens
+ * those once and resolves a last time, show.ts.)
  */
 import type { Box, Pane, Viewport } from './cameraPort'
 import { QUESTION, cardGroupsOf, causalPathOf, drawnModelOf, failureStoriesOf, groupOpen, inputIdsOf, inputsFolded, layerEntries, linkCards, marksOf, type LayerId, type View, type ViewLens, type ViewModel, type ViewTurn } from './deps'

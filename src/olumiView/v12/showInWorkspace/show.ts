@@ -3,7 +3,8 @@
  * model: opening a badge is a new READ of the View (store.ts `setOpened`); everything else is this page's own view state.
  *
  * SHOW     snapshot (the first one stands across further shows) → hold the board's own framing → open what is folded and AWAIT the read
- *          → wait for the board to settle → resolve the reply's ids AGAIN on the View now → step aside only a layer, lens or selection
+ *          → wait for the board to settle → resolve the reply's ids AGAIN on the View now (and open, once, a fold of Simple's that a
+ *          card the badge handed out stands behind) → step aside only a layer, lens or selection
  *          that would set a target back (and settle again if the layer changed: a layer's notes change card heights) → where something
  *          was unfolded and the person does not hold the camera, let the board frame itself first → move the camera, as the person's
  *          own move, only if the cards are still not whole in view → pulse the cards once → release the hold.
@@ -158,8 +159,18 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     }
     if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
     // Resolved again, on the View core has now sent: what was a record behind a badge may be a card of its own.
-    const now = useViewStore.getState()
-    const again = planShow(now.view, next, boardNow(now.sid))
+    let now = useViewStore.getState()
+    let again = planShow(now.view, next, boardNow(now.sid))
+    // A card a badge has just handed out may itself stand behind one of Simple's folds (a note in its row's group, an input among the
+    // folded inputs). Those open now, once, and the ids are resolved a last time. Only after a badge opened: a fold this show had
+    // already asked for and that is still shut did not land, and that is a failure, not a second try.
+    if (again !== null && plan.open.length > 0 && again.open.length === 0 && (again.inputs || again.groups.length > 0) && now.sid !== null) {
+      if (again.inputs) setInputsOpen(now.sid, true)
+      for (const g of again.groups) setGroupOpen(now.sid, g)
+      if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
+      now = useViewStore.getState()
+      again = planShow(now.view, next, boardNow(now.sid))
+    }
     if (again === null || again.open.length > 0 || again.inputs || again.groups.length > 0) { failed = COULD_NOT_SHOW; return }
     const cards = again.cards
     if (stepAside(now.view, now.sid, cards)) {
