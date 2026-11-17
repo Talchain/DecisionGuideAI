@@ -1,7 +1,7 @@
 /**
  * DL 07:48Z (3), by layout: at rest no card's label or figure line is under the foot controls; (camera) after the first approval the
  * primary aim is in view. Boxes are the served twin's (engine 4352bfa3, cut13, approved) as drawn at 1232x704 (14 Nov): cards 248 x 180 in
- * rows 285 px apart, the foot controls' gutter the bottom 88 px of the 704 px window.
+ * rows 285 px apart, the foot gutter (FOOT_GUTTER, the drawn foot band) the bottom 96 px of the 704 px window (v10d; was 88).
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'

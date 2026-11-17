@@ -22,7 +22,8 @@ type Box = { y: number; h: number }
 /** How many cards are not wholly in view below the free canvas's foot, at the camera's place (DL-538: a goal cut at its foot counts). */
 export const cardsBelowOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
   let n = 0
-  for (const c of cards) if ((c.y + c.h) * zoom + ty > height - FOOT_BAND) n += 1
+  // Half a pixel's tolerance (as cardsRightOf): the whole-board fit ends exactly on this line (FOOT_GUTTER = FOOT_BAND), so rounding is not a card below.
+  for (const c of cards) if ((c.y + c.h) * zoom + ty > height - FOOT_BAND + 0.5) n += 1
   return n
 }
 /** How far one press pans the board up: to its foot, so one press brings the last row (the measure and the goal) wholly into view
