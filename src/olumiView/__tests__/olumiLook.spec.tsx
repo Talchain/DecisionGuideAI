@@ -152,7 +152,7 @@ describe('slice (3): an option\'s limits are drawn in the same structure as its 
     expect(row.getAttribute('title'), 'core\'s reason, whole, on the row\'s hover').toContain(r.text!)
     expect(row.querySelector('details, summary, .ok-q, .ok-empty, [data-testid$="-empty-bar"]'), 'no press, no "?", no empty track').toBeNull()
     const state = (r as { state_text?: string | null }).state_text
-    expect(row.querySelector(`[data-withheld-row="${o.id}.rows.${i}"]`)?.textContent ?? null, 'core\'s state words where it sends them').toBe(state != null && state !== '' ? state : null)
+    expect(row.querySelector(`[data-withheld-row="${o.id}.rows.${i}"]`)?.textContent ?? null, 'core\'s state words where it sends them, else core\'s own reason: never the name alone (Line reviewer F2)').toBe(state || r.text || null)
     expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)).toBeNull()
   })
 })

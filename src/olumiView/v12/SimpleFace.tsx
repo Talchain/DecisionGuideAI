@@ -6,11 +6,14 @@
  *  - an option with no chance is ONE quiet line in core's own words for what is missing (its next step `headline.add`, else its headline's text),
  *    its long reason whole on hover: no "?", no "Why not" and no empty track at rest (R6, 16 Nov); unknown is never drawn as zero;
  *  - a figure with a modelled band (`values[]`: p10 / p50 / p90) is a range bar per option on one shared axis, positions only; an option
- *    core could not calculate (contract.ts withheldValues) is a dashed row with core's reason;
- *  - a figure with a stated value shows core's words, one line; one that waits or has no value is a dashed, empty bar with core's words;
+ *    core could not calculate (contract.ts withheldValues) is named by its letter, then core's reason;
+ *  - a figure with a stated value shows core's words, one line; one that waits or has no value is core's words alone, once, one quiet line (R6: no empty track);
  *  - an aim or limit shows its bound (core's words, one line), in the goal's colour where it is measured;
  *  - authorship is a mark (Olumi's, or a person's), the words on hover; Olumi's question is its mark in a ring on its card.
  * The marks and shapes are v12/cards (marks.tsx, kind.ts); the card's own outline by kind is the look's (look/olumiLook.css).
+ * D2 (the lead, 17 Nov: shorter cards on Simple): ONE visual (the gauge, the bands, the range bar, the figure, or the aim's bound) and ONE quiet line,
+ * on one line, whole on hover: core's `description` where it sends one (fields.ts cardTitle), else the card's state line above (the chance's qualifier,
+ * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
 import type { ReactNode } from 'react'
 import type { ViewCard, ViewModel } from '../client'
@@ -19,11 +22,12 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
-import { isBaseline, limitLeadOf, withheldValues } from './contract'
+import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LetterChip, OlumiAsksMark, OlumiMark, UnsizedFigure } from './cards/marks'
-import { chanceParts, headlineChanceRow, noChanceLineOf, unsizedWords } from './cards/words'
+import { AuthorMark, BaselinePill, KindTag, LetterChip, OlumiAsksMark, OlumiMark } from './cards/marks'
+import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
+import { cardTitle, needsOf } from './fields/fields'
 
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
 /** Type on a compact card, by DS role: 14 for figures and reading text, 12 for state words (typography tokens). */
@@ -62,8 +66,6 @@ export function chanceWordsOf(card: ViewCard): string | null {
 /** The Olumi / person mark (cards/marks.tsx AuthorMark): Olumi's own mark or a person's; core's author words on hover. */
 export const AuthorGlyph = ({ card }: { card: ViewCard }): JSX.Element | null => <AuthorMark card={card} simple />
 
-type RowLike = { kind: 'chance' | 'limit' | 'none'; aim_id?: string | null; aim?: string; value?: string; chance?: number | null; title?: string; text?: string; state_text?: string }
-
 export type SimpleFaceProps = {
   readonly card: ViewCard
   readonly model: ViewModel | null
@@ -84,62 +86,51 @@ export type SimpleFaceProps = {
   readonly below?: ReactNode
 }
 
+/** The card's state line: core's words, their whole as the hover, and the data marks its readers bind by. */
+type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>> }
+
 export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
   const held = card.family === 'option' ? [] : withheldValues(card)
   const hasFigure = card.figure != null && card.figure.text !== ''
-  const aim = card.bound != null
-  let body: ReactNode = null
+  const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
+  let visual: ReactNode = null
+  let state: StateLine | null = null
   if (card.family === 'option') {
-    // Every chance row of the option, one compact gauge per aim (the headline's first, as the Detailed face leads with it), then its limits:
-    // structure is never dropped, only the sentences. A withheld or odd state shows core's own state words, core's reason on hover.
-    const headAim = h === null ? null : h.aim_id
-    const rest = card.rows.map((r, i) => ({ r: r as RowLike, i })).filter(({ r }) => r.aim_id == null ? h === null : r.aim_id !== headAim || h === null)
-    const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
-    const lead = h === null ? null : h.state === 'chance' && at !== null ? (() => {
-      // Codex 006 #3: core's value words can be a qualified sentence ("about 31% chance, on Olumi's assumption for '…'"). The track takes the
-      // card's width; under it core's words, verbatim: the number's own words, then core's qualifier on its own line (V12: "in this model,
-      // on … timing"), with Olumi's mark where the chance rests on Olumi's figures (`rows[].olumi`). Two lines at most; the whole basis is
-      // the hover. No figure is read from the words, and none of them is dropped or reordered (the ", " between the parts is kept, unseen).
+    if (h !== null && h.state === 'chance' && at !== null) {
+      // The chance: a gauge with core's own words for the number (Codex 006 #3); its qualifier, core's words after the number, is the state line, with Olumi's
+      // mark beside the number where the chance rests on Olumi's figures (`rows[].olumi`). No figure is read from the words; none is dropped or reordered.
       const parts = words === null ? null : chanceParts(words), row = headlineChanceRow(card)
-      const mark = row?.olumi == null ? null : <OlumiMark words={row.olumi.title} size={12} />
-      return (
-        <div className="min-w-0" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
+      visual = (
+        <div className="min-w-0 basis-full" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
           <p className={`${SMALL} mt-1 min-w-0 break-words font-medium tabular-nums text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
-            {parts === null || parts.qualifier === null ? (mark === null ? null : <span className="ml-1 inline-flex align-middle">{mark}</span>) : <>
-              <span className="sr-only">, </span>
-              <span className="ok-simple-qual block" data-simple-qual={id}>{mark}{parts.qualifier}</span>
-            </>}
+            {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} size={12} /></span>}
           </p>
         </div>
       )
-    })() : limitLeadOf(card) !== null ? (() => {
+      if (parts !== null && parts.qualifier !== null) state = { text: parts.qualifier, title: [words, h.title].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-qual': id } }
+    } else if (limitLeadOf(card) !== null) {
       // DL 16 Nov: no goal-type aim, but a worked-out result on a limit: that result leads (core's limit name and value), not "No chance…".
       const l = limitLeadOf(card)!
-      return <p className={`${SMALL} break-words text-text-body`} data-simple-face="limit" title={l.title !== '' ? l.title : undefined}>{nameOf(l.aim_id)} {l.value}</p>
-    })() : h.state === 'fixed' ? (
-      <p className={`${SMALL} break-words text-text-body`} data-simple-face="fixed" title={h.title !== '' ? h.title : h.text}>{h.text}</p>
-    ) : (() => {
+      state = { text: `${nameOf(l.aim_id)} ${l.value}`, title: l.title, marks: { 'data-simple-face': 'limit' } }
+    } else if (h !== null && h.state === 'fixed') {
+      state = { text: h.text, title: h.title !== '' ? h.title : h.text, marks: { 'data-simple-face': 'fixed' } }
+    } else if (h !== null && sharedNoChanceOf(model, h.aim_id) === null) {
       // R6 (16 Nov): an option with no chance is ONE quiet line, core's own words for what is missing (words.ts noChanceLineOf); the long reason is the hover.
+      // Where every option waits for one shared reason, the aim card says it once and the options say nothing (words.ts sharedNoChanceOf).
       const { line, hover } = noChanceLineOf(h)
-      return <p className="ok-quiet" data-simple-face="no-chance" data-simple-state={id} title={hover}>{line}</p>
-    })()
-    // ONE visual row (compact face): the headline gauge. The other aims' gauges and limits are the row's hover, in core's own words, one line each.
-    const more = rest.map(({ r }) => `${nameOf(r.aim_id, r.aim)} ${r.kind === 'none' ? r.state_text ?? r.text ?? '' : r.value ?? ''}`.trim()).filter((t) => t !== '')
-    body = (
-      <div className="min-w-[7rem] flex-1" data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
-        {lead}
-      </div>
-    )
+      state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id } }
+    }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
-    body = (
-      // ONE visual row: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
-      <div className="grid min-w-0 flex-1 gap-px" data-simple-face="range" title={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+    visual = (
+      // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
+      // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
+      <div className="grid min-w-0 basis-full gap-px" data-simple-face="range" title={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.slice(0, 4).map((b) => (
           <div key={b.option} title={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
             <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--border-default)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
@@ -148,57 +139,67 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             </span>
           </div>
         ))}
-        {/* Canvas rules 4 and 5: an option core could not calculate is its own dashed row (its letter, an empty track), with core's real reason. */}
-        {held.map((w, i) => (
-          <div key={w.option} className="ok-withheld mt-0.5" title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
-            <div className="ok-withheld-row">
-              {letters.has(w.option) ? <LetterChip letter={letters.get(w.option)!} words={headingOf(w.option)} /> : null}
-              <EmptyTrack testid={`${id}-${w.option}-empty-bar`} />
-            </div>
-            {/* ONE meta line at rest: the first held option's reason; the others' are the row's hover (title above). */}
-            {i === 0 ? <p className="ok-caption" data-simple-withheld-why={w.option}>{w.text}</p> : null}
+        {held.length === 0 ? null : (
+          <div className="ok-withheld-row" data-simple-withheld-group={id} title={held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n')}>
+            {held.map((w) => (
+              <span key={w.option} title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
+                {letters.has(w.option) ? <LetterChip letter={letters.get(w.option)!} words={headingOf(w.option)} /> : null}
+              </span>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     )
-  } else if (aim) {
-    const olumi = card.bound!.olumi != null
+    if (held.length > 0) state = { text: held[0]!.text, title: held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n'), marks: { 'data-simple-withheld-why': held[0]!.option } }
+  } else if (card.bound != null) {
+    const olumi = card.bound.olumi != null
     // The aim's question opens its target figure's own editor, as the Detailed face does (core's `target`, targets.ts); none where core offers none.
     const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
-    const words = <span className="min-w-0 break-words text-text-header">{card.bound!.text}</span>
-    body = (
+    const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
+    visual = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
-      <p className={`${SMALL} flex min-w-[7rem] flex-1 items-center gap-1`} data-simple-face="target" title={card.bound!.title !== '' ? card.bound!.title : card.bound!.text} style={{ color: card.bound!.measured ? GOAL : undefined }}>
+      <p className={`${SMALL} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
         <span className="ok-pill ok-bound min-w-0">
-          {target === null ? words : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />}
-          {olumi ? <OlumiMark words={card.bound!.olumi!.title} size={12} /> : null}
+          {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
+          {olumi ? <OlumiMark words={card.bound.olumi!.title} size={12} /> : null}
         </span>
       </p>
     )
   } else if (card.figure?.state === 'waits') {
-    // Canvas rule 5, pending: a calculated figure that waits on an input is a dashed, empty bar with core's own "waits on …" words.
-    body = (
-      <div className="ok-unsized min-w-[7rem] flex-1" data-simple-face="pending" title={card.figure.title !== '' ? card.figure.title : card.figure.text}>
-        <EmptyTrack testid={`${id}-empty-bar`} />
-        {/* Where core sends the working, its operands are listed open under the card (look/WorkedSteps): the "waits on …" line is not said twice. */}
-        {card.figure.text === '' || card.worked != null ? null : <p className="ok-caption" data-simple-pending={id}>{card.figure.text}</p>}
-      </div>
-    )
+    // Canvas rule 5, pending, quiet (R6): a calculated figure that waits on an input says so in core's own "waits on …" words; what it waits on (core's
+    // `needs`, fields.ts needsOf) is the hover, one per line, after core's title.
+    const needs = needsOf(card).needs.map((n) => n.label)
+    if (card.figure.text !== '') state = { text: card.figure.text, title: [card.figure.title !== '' ? card.figure.title : card.figure.text, ...needs].join('\n'), marks: { 'data-simple-face': 'pending', 'data-simple-pending': id } }
+  } else if (figureRange(card) !== null && scale != null) {
+    // A figure with a range: the range bar is its one visual (its ends labelled, its unit); core's words for the figure are the hover.
+    visual = <div className="min-w-0 basis-full" data-simple-scale={id} title={card.figure?.title || card.figure?.text || undefined}>{scale}</div>
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    body = <p className={`${typography.viewValue} min-w-[7rem] flex-1 break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    visual = <p className={`${typography.viewValue} min-w-0 basis-full break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
   } else if (card.figure != null) {
-    // An input not sized yet: a dashed, empty bar and core's own words for the gap ("not sized yet · …"), one line, whole on hover.
-    body = <div className="min-w-[7rem] flex-1" data-simple-face="no-figure"><UnsizedFigure id={id} words={unsizedWords(card)} /></div>
+    // An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover (R6). No empty track.
+    const gap = unsizedWords(card)
+    if (gap !== null) state = { text: onceWords(gap), title: gap, marks: { 'data-simple-face': 'no-figure', 'data-unsized': id, 'data-unsized-words': id } }
   }
+  // The reason every option shares for having no chance on this aim, once, here (words.ts sharedNoChanceOf); the aim's own state stays in the hover.
+  const once = card.family === 'option' ? null : sharedNoChanceOf(model, id)
+  if (once !== null) state = { text: once.text, title: [noChanceLineOf(once).hover, state?.text].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-face': 'no-chance', 'data-simple-no-chance-once': id } }
   // Codex 006 (what-if): Simple drew only the SAVED figure while a different one was being tried, so the card and the what-if disagreed with
   // nothing to say why. While a figure is tried, its card says so in place, and names the saved figure beside it.
-  if (trying !== undefined && card.family !== 'option') body = trying
+  if (trying !== undefined && card.family !== 'option') visual = <div className="min-w-0 basis-full">{trying}</div>
+  // D2: core's description where it sends one, else the state line; one line, whole on hover (both where both are sent).
+  const description = cardTitle(card).description
+  const quiet: StateLine | null = description === null ? state
+    : { text: description, title: [description, state === null ? null : state.title !== '' ? state.title : state.text].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-description': id } }
+  // An option's other aims' gauges and its limits: one line each in core's own words, the card's hover (the visual shows the headline's aim only).
+  const more = card.family !== 'option' ? [] : card.rows.filter((r) => (r.aim_id == null ? h === null : h === null || r.aim_id !== h.aim_id))
+    .map((r) => { const row = r as { kind: string; aim_id?: string | null; aim?: string; value?: string; text?: string; state_text?: string }; return `${nameOf(row.aim_id, row.aim)} ${row.kind === 'none' ? row.state_text ?? row.text ?? '' : row.value ?? ''}`.trim() })
+    .filter((t) => t !== '')
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id}>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
+      {visual}
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
-      {body}
-      {scale == null ? null : <div className="min-w-0 basis-full" data-simple-scale={id}>{scale}</div>}
+      {quiet === null ? null : <p className="ok-quiet ok-one-line min-w-0 flex-1" title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

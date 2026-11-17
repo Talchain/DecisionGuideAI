@@ -34,7 +34,8 @@ import { ToastProvider } from '../canvas/ToastContext'
 import { MaybeConversationProvider } from '../canvas/ReactFlowGraph'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
-import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, GROUP_LINK, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, viewLaying } from './canvas'
+import { GroupLinkEdge } from './v12/bands/GroupLinkEdge'
 import { drawKindOf, drawnModelOf } from './layout'
 import { boardKeyOf, CORE_LANE_FIT_FLOOR, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, MIN_CARD_TEXT_PX, reducedFaceSize, wholeAtTopViewport } from './camera'
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
@@ -80,7 +81,7 @@ import { useQualitativeNotes } from './v12/qualitativeNotes'
 import { clearLayoutUndo } from './v12/edit/undo'
 import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
-import { useFocusPath } from './v12/bands/focusPath'
+import { fadeOffPath, focusIdOf, useFocusPath } from './v12/bands/focusPath'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { KeyPill } from './v12/bands/KeyPill'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
@@ -88,10 +89,8 @@ import { keptIdeasOf } from './v12/ideas'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
-/** A card off the lit path fades to production's own opacity (canvas/nodes/BaseNode opacity-25). */
-const OFF_PATH_OPACITY = 0.25
 const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard, [VIEW_IDEA]: IdeaCard, [VIEW_FOLD]: FoldCard }
-const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge }
+const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge, [GROUP_LINK]: GroupLinkEdge }
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
 const SELECT_PAN_BUTTONS = [1]
@@ -165,8 +164,8 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
   const v = frameOf(snaps, pane, free, simple)
   // DL 07:48Z (3): at rest no card's label or figure is under the foot controls (footClear.ts); after the first approval, the aim in view.
   const nodes = (snaps.full ?? snaps.body ?? snaps.line)?.nodes
-  // V12 Simple frames the whole board at the largest zoom that fits it above the foot gutter (simpleFrame): a board that does not fit is shown from its top
-  // and the cue counts what is below, so the board is not pushed down to put a row wholly under the fold (R1 priority 2, 16 Nov).
+  // V12 Simple frames itself (simpleFrame): the whole board above the foot gutter where it fits at the floor or above; else from its top at the zoom its
+  // type draws 11 px, a zoom at which no card is cut by the foot (zoomClearOfFoot), and the cue counts what is below. restClearOfFoot is Detailed's.
   if (v === null || nodes === undefined || simple) return v
   return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top), anchor)
 }
@@ -176,7 +175,7 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   // drawn, it is drawn once at the top of its band to measure it. Then: the whole board where it fits in the full band; else the full face
   // as wide as the stage allows (within the band), its top under the free canvas's top; what does not fit is panned to, never shrunk.
   // V12 Simple: compact faces at the type scale the board was laid out for, so their heights do not change with zoom and there is no face regime
-  // to measure: the whole model at the largest zoom that fits (never past 1), never below Simple's floor, 0.5; what still does not fit is below.
+  // to measure: the whole model at the largest zoom that fits (never past 1) where that is the floor, 0.5, or more; else from its top at the readable zoom.
   if (simple) { const n = snaps.full ?? snaps.body ?? snaps.line; return n === undefined ? null : simpleFrame(n.nodes, pane, free) }
   const full = snaps.full
   if (full === undefined) {
@@ -275,13 +274,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
   // V12: the level is part of the board's key, so switching Simple / Working frames the board it made (a reveal of one card does not).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}|${level}` })
-  useEffect(() => {
-    if (version === '') return
-    userMoved.current = false
-    snaps.current = {}
-    const now = useViewStore.getState().view
-    aim.current = aimAfterFirstApproval(seen.current, now)
-    seen.current = boardSeenOf(now)
+  /**
+   * The bounded settle: frame the board once it has settled (every card measured; its heights, places, the camera and the free canvas's insets unchanged
+   * across a frame), and again if the settled board changed, at most MAX_FITS times; a pan or zoom by the person ends it. Returns its stop.
+   */
+  const settle = useCallback((): (() => void) => {
     let raf = 0, since = performance.now(), last = '', fitted = '', fits = 0
     // V12 Simple: the frame it asked for, checked once its move has had time to finish. A move the canvas did not take (it was asked before the
     // pane was ready: the board then stood at 0,0 at scale 1 until Fit was pressed) is asked for again, up to MAX_FITS.
@@ -293,12 +290,14 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
         target = null
         if (Math.abs(v.zoom - t.zoom) > 0.01 || Math.abs(v.x - t.x) > 2 || Math.abs(v.y - t.y) > 2) fitted = ''
       }
-      // The cards the canvas holds (Simple may fold some inputs away, and draws kept ideas), so the settle signal waits for what is drawn.
+      // The cards the canvas holds (Simple may fold some inputs away, and draws kept ideas and group cards), so the settle signal waits for what is drawn.
       const held = new Set(getNodes().map((n) => n.id))
       const cards = useViewStore.getState().view?.model?.cards ?? []
       const ids = settleIdsOf(held, cards)
       const drawn = measuredOf(getNodes(), ids)
-      const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}`
+      // D3 (17 Nov): the free canvas's insets are part of the board (the lens bar or the panel placed late, a resize): the camera frames the room it has.
+      const room = JSON.stringify(paddingToInsets(computeFitPadding()))
+      const board = `${drawnHeightsKey(drawn)}#${drawn.map((n) => `${n.position.x},${n.position.y}`).join('|')}#${room}`
       const now = `${board}@${getViewport().zoom}`
       const settled = drawn.length === ids.size && now === last && !viewLaying()
       last = now
@@ -317,9 +316,26 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [version, fit, getNodes, getViewport, userMoved])
-  // The free canvas changes size (the window, the dock): frame again, unless the person has taken the camera.
-  useEffect(() => { if (!userMoved.current) fit() }, [width, height, fit, userMoved])
+  }, [fit, getNodes, getViewport, userMoved])
+  // One settle at a time: a new one stops the one before it.
+  const settling = useRef<() => void>(() => undefined)
+  useEffect(() => () => settling.current(), [])
+  useEffect(() => {
+    if (version === '') return
+    userMoved.current = false
+    snaps.current = {}
+    const now = useViewStore.getState().view
+    aim.current = aimAfterFirstApproval(seen.current, now)
+    seen.current = boardSeenOf(now)
+    settling.current(); settling.current = settle()
+  }, [version, settle, userMoved])
+  // The free canvas changes size (the window, the dock): the board is laid out again for the new room (canvas.ts useSimpleBudgetKey), so the camera
+  // settles again on what is then drawn (D3: a resize from 2000 to 1232 left the question behind the lens bar until Fit), never over the person's own move.
+  useEffect(() => {
+    if (userMoved.current) return
+    snaps.current = {}
+    settling.current(); settling.current = settle()
+  }, [width, height, settle, userMoved])
   return fit
 }
 
@@ -360,17 +376,16 @@ function ViewFlow() {
   const hovered = useViewHover((h) => h.id)
   const lit = useMemo(() => {
     if (!simple || view?.model == null) return null
-    const selected = stored.find((n) => n.selected === true && n.type === VIEW_CARD)?.id ?? null
-    const focus = hovered !== null && stored.some((n) => n.id === hovered && n.type === VIEW_CARD) ? hovered : selected
-    return causalPathOf(drawnModelOf(view.model), focus)
+    return causalPathOf(drawnModelOf(view.model), focusIdOf(stored, hovered, VIEW_CARD))
   }, [stored, hovered, simple, view])
-  useEffect(() => { useFocusPath.setState({ path: lit }) }, [lit])
+  // The lit path is a module-wide store the links read: written while this canvas stands, dropped when it goes (a later canvas never inherits a fade).
+  useEffect(() => { useFocusPath.setState({ path: lit }); return () => useFocusPath.setState({ path: null }) }, [lit])
   const nodes = useMemo(() => {
     const base = withOpenCard(withChipsAbove(stored, chipCards), openCard)
     // V12 Simple: the board is drawn at the type scale it was laid out for (layout.ts simpleScaleOf), the same on every card: heights then do not
     // change as the person zooms, so nothing re-flows under their hand. Both variables, the canvas's and the look's own (--o-s is substituted at the root).
     const scaled = !simple ? base : base.map((n) => { const s = (n.data as { scale?: number }).scale; return s === undefined ? n : { ...n, style: { ...n.style, '--canvas-label-scale': s, '--o-s': s } as CSSProperties } })
-    return lit === null ? scaled : scaled.map((n) => (n.id === QUESTION || lit.has(n.id) ? n : { ...n, style: { ...n.style, opacity: OFF_PATH_OPACITY, transition: 'opacity 300ms ease' }, className: `${n.className ?? ''} v12-off-path`.trim() }))
+    return fadeOffPath(scaled, lit, QUESTION)
   }, [stored, chipCards, openCard, simple, lit])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])

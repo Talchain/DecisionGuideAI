@@ -8,7 +8,8 @@
  *  - MEASURED: the heights the lead read in the browser from the first Simple build (1232 x 704, funding): 84, 87, 101 (x7), 108, 118, 118, 151 and
  *    the question 114. They are the old faces' and are kept as the worst case: nothing may overlap on them.
  *  - COMPACT: one title line and one visual row: 60 px, the question 44 (the lead's target, 56 to 64 and about 40).
- * GEOMETRY (Paul, 16 Nov, R1): production's. Cards share their row and grow to its fair share of the row budget, between 260 and 400; cards are
+ * GEOMETRY (Paul, 16 Nov, R1; the lead's D3, 17 Nov): production's. Cards share their row and grow to its fair share of the row budget, never under
+ * production's repeated-card width (a lone card takes the share of two; was capped at 400, so short rows stood as a cluster at the centre); cards are
  * 24 apart and rows 48 apart; the camera fits down to production's 0.5. Bound by card id.
  */
 import { describe, expect, it } from 'vitest'
@@ -20,6 +21,7 @@ import { SIMPLE_FIT_FLOOR } from '../../camera'
 import { FOOT_GUTTER } from '../../footClear'
 import { allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleScaleOf, simpleStageRow, stageRow } from '../../layout'
 import { labelCounterScale, LABEL_COUNTER_SCALE_CAP } from '../../../canvas/utils/zoomLegibility'
+import { REPEATED_CARD_W } from '../../../canvas/utils/nodeLayoutConstants'
 import { cameraFrame } from '../../ViewCanvas'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
@@ -52,6 +54,30 @@ function framed(boxes: Box[], pane: { width: number; height: number }, free: Fre
 const report = (name: string, boxes: Box[], v: { zoom: number }) =>
   // eslint-disable-next-line no-console
   console.log('SIMPLE-FIT', name, JSON.stringify({ perBand: rowsOf(boxes).map((r) => r.length), rows: rowsOf(boxes).length, zoom: +v.zoom.toFixed(3), boardW: Math.max(...boxes.map((b) => b.x + b.w)), boardH: Math.max(...boxes.map((b) => b.y + b.h)) }))
+
+/**
+ * THE FIT PREDICATE ON HEIGHTS MEASURED IN THE BROWSER (D3, 17 Nov), not invented ones: the flow boxes the l1 build drew at 1232 x 704 with the panel open
+ * (the fit probe: each node's place and its measured size, the board's type scale 1.64), ids invented (the scenarios are private). The free canvas is
+ * the real one: the lens bar's foot at 98 plus 16, the tool column's edge at 54 plus 16, the panel from 885 plus 16, the foot gutter below.
+ *  - A seeded first draft, after D1 to D3 (8 nodes): it fits whole, its 12 px type drawn at 11 px or more.
+ *  - The owner's approved 19-card model, after D1 to D3 (14 nodes, five card rows, 1300 flow units tall): it does NOT fit; its outcome and both aims
+ *    stay below (the lead's priority not met on this model; recorded, never asserted as met).
+ */
+const DRAFT_MEASURED: [string, number, number, number, number][] = [['q', 0, 0, 1392, 78], ['c1', 0, 126, 448, 105], ['c2', 472, 126, 448, 135], ['c3', 944, 126, 448, 144], ['c4', 0, 318, 684, 122], ['c5', 708, 318, 684, 44], ['c6', 348, 488, 696, 44], ['c7', 348, 580, 696, 180]]
+const APPROVED_MEASURED: [string, number, number, number, number][] = [['q', 0, 0, 1392, 105], ['c1', 0, 153, 684, 222], ['c2', 708, 153, 684, 135], ['c3', 0, 423, 330, 194], ['c4', 354, 423, 330, 194], ['c5', 708, 423, 330, 194], ['c6', 1062, 423, 330, 135], ['c7', 0, 665, 330, 139], ['c8', 354, 665, 330, 194], ['c9', 708, 665, 330, 194], ['c10', 1062, 665, 330, 44], ['c11', 348, 907, 696, 168], ['c12', 0, 1123, 684, 177], ['c13', 708, 1123, 684, 177]]
+const MEASURED_SCALE = 1.64
+describe('D3: the fit predicate on heights measured from the real faces (1232 x 704, panel open)', () => {
+  const free = { top: 98 + 16, right: 1232 - 885 + 16, bottom: 0, left: 54 + 16 }
+  const boxesOf = (rows: typeof DRAFT_MEASURED): Box[] => rows.map(([id, x, y, w, h]) => ({ id, x, y, w, h }))
+  it('F1 the first draft fits whole, nothing under the foot controls, its 12 px type at 11 px or more on screen', () => {
+    const { v, outside } = framed(boxesOf(DRAFT_MEASURED), { width: 1232, height: 704 }, free)
+    expect([outside, 12 * MEASURED_SCALE * v.zoom >= 11]).toEqual([[], true])
+  })
+  it('F1 CONTRAST: the approved 19-card model (five card rows) does not: its outcome and both aims are below, at the 11 px zoom', () => {
+    const { v, outside } = framed(boxesOf(APPROVED_MEASURED), { width: 1232, height: 704 }, free)
+    expect([outside, 12 * MEASURED_SCALE * v.zoom >= 11]).toEqual([['c11', 'c12', 'c13'], true])
+  })
+})
 
 describe('Simple: the whole scenario in view', () => {
   it('880 x 560, compact faces: 5 across, every card inside the fitted viewport, zoom >= 0.5, none overlap', async () => {
@@ -92,12 +118,15 @@ describe('Simple: the whole scenario in view', () => {
     expect(rowsOf(wide.boxes).length).toBeLessThanOrEqual(rowsOf(narrow.boxes).length)
   })
 
-  it('R1: cards share their row at its fair share (260 to 400), 24 apart across and 48 apart down; the question spans the options\' first row', async () => {
+  // CHANGED BY DESIGN (the lead's D3, 17 Nov: rows spread, cards up to their fair-share width): no 400 cap; was "260 to 400".
+  it('R1/D3: cards share their row at its fair share (never under the repeated-card width), 24 apart across and 48 apart down; the question spans the options\' first row', async () => {
     const { boxes, row } = await laidOut(880, COMPACT)
     const q = boxes.find((b) => b.id === QUESTION)!, cards = boxes.filter((b) => b.id !== QUESTION)
     for (const r of rowsOf(cards)) {
       expect(new Set(r.map((b) => b.w)).size, 'one width in a row').toBe(1)
-      expect(r[0]!.w).toBeGreaterThanOrEqual(260); expect(r[0]!.w).toBeLessThanOrEqual(400)
+      expect(r[0]!.w).toBeGreaterThanOrEqual(REPEATED_CARD_W)
+      // A full row of two or more spans the row budget (to the floor of its share): the rows spread across the board, never a cluster at its centre.
+      if (r.length >= 2) expect(row.budget - (r.length * r[0]!.w + (r.length - 1) * 24), `a row of ${r.length} spans the budget`).toBeLessThan(r.length)
       const xs = [...r].sort((a, b) => a.x - b.x)
       for (let i = 1; i < xs.length; i += 1) expect(xs[i]!.x - (xs[i - 1]!.x + xs[i - 1]!.w), 'cards are 24 apart').toBe(24)
     }
@@ -137,6 +166,6 @@ describe('Simple type scale (R1 priority 3, 16 Nov): production\'s counter-scale
     const scales = new Set([...places.values()].map((p) => p.s))
     expect(scales.size, 'one scale for the whole board').toBe(1)
     expect([...scales][0]).toBeGreaterThanOrEqual(1)
-    expect([...places].filter(([id]) => id !== QUESTION).every(([, p]) => p.w !== undefined && p.w >= 260 && p.w <= 400), 'cards: 260 to 400 (the question spans its row)').toBe(true)
+    expect([...places].filter(([id]) => id !== QUESTION).every(([, p]) => p.w !== undefined && p.w >= REPEATED_CARD_W), 'cards: their row\'s fair share, never under the repeated-card width (D3; was 260 to 400)').toBe(true)
   })
 })

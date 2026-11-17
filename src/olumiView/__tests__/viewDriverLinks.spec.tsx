@@ -4,7 +4,8 @@
  * wire, whose options name their drivers (second oven: extra sold per oven, folded into "sales"; longer hours: extra hours sold).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, render } from '@testing-library/react'
@@ -63,5 +64,20 @@ describe('What would change on the links', () => {
     expect(c.querySelector('[data-driver-link]')).toBeNull()
     // R1/R5 (Paul, 16 Nov): a plain link at rest is production's 2 px neutral, the foot of the width ladder; a driver link is the 4 px band above it.
     expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
+  })
+
+  it('R5: a driver link is the 4 px rung at least and never thinner than its own strength earns (share 0.8 is the 5 px rung; no share is 4)', () => {
+    useViewStore.setState({ view })
+    act(() => useViewLens.setState({ lens: 'what_changes' }))
+    const sized = model.links.findIndex((l) => l.from === 'one_oven' && l.to === 'sales')
+    const withShare = (share: number | null) => {
+      const link = { ...model.links[sized]!, causal: { sign: 'increases', of: 'x', target: model.links[sized]!.to, disputed: false, author: null, text: '', strength: { state: 'sized', figure: null, low: null, likely: null, share } } } as unknown as typeof model.links[number]
+      return render(<ReactFlowProvider><EdgeLabelLayer><svg>
+        <Edge id="d" source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: sized }} />
+      </svg></EdgeLabelLayer></ReactFlowProvider>).container
+    }
+    const width = (c: HTMLElement) => ({ driver: c.querySelector('[data-driver-link]') !== null, w: c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth })
+    expect(width(withShare(0.8))).toEqual({ driver: true, w: '5' }); cleanup()
+    expect(width(withShare(null))).toEqual({ driver: true, w: '4' })
   })
 })

@@ -17,11 +17,10 @@ export const resetQualitativeNotes = (): void => openedOnce.clear()
 /** A model with no option and no figure: the question, its aims and notes only. */
 export const isQualitative = (model: { cards: readonly { family: string }[] } | null | undefined): boolean =>
   model != null && !model.cards.some((c) => c.family === 'option' || c.family === 'quantity')
-/** A card whose notes are its picture, so core's `premises` are drawn open on it: every card of a qualitative model. On any other model they stay behind the card's
- *  "Rests on N" press and the Rests on lens (R1 priorities 1 and 2, 16 Nov): an option with no chance and an aim nothing is counted against once drew their whole
- *  lists open, three times the height of any other card, so the whole model was never in view. */
-export const notesOpenOn = (model: { cards: readonly { family: string }[] } | null | undefined, _card?: { family: string; rows?: readonly { kind: string }[]; premises?: readonly unknown[]; bound?: { measured: boolean } | null }): boolean =>
-  isQualitative(model)
+/** A card whose notes are its picture, so core's `premises` are drawn open on it: every card of a qualitative model (there the notes ARE the picture). On any
+ *  other model they stay closed at rest behind the card's "Rests on N" press and the Rests on lens (the lead's D2, 17 Nov: what a card rests on is closed at
+ *  rest; an option with no chance and an aim nothing is counted against once drew their whole lists open, three cards tall, so the model was never in view). */
+export const notesOpenOn = (model: { cards: readonly { family: string }[] } | null | undefined): boolean => isQualitative(model)
 /** True where the model is only a question and its aims, and the question holds folded notes not yet open. */
 export function qualitativeNotesToOpen(view: View | null): boolean {
   const m = view?.model

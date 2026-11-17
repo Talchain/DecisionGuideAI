@@ -18,25 +18,17 @@ const aim = { ...fx.model!.cards.find((c) => c.family === 'goal')!, id: 'aim_pur
 const qualitative = (over: Partial<NonNullable<View['model']>> = {}): View => ({ ...fx, model: { ...fx.model!, question: { ...fx.model!.question, badge }, cards: [aim], ...over } } as View)
 afterEach(() => { resetQualitativeNotes(); vi.restoreAllMocks() })
 
-describe('notes open on a card only where they are the picture (R1 priorities 1 and 2, 16 Nov: the whole model in view; was: an option with no chance and an unmeasured aim drew them open)', () => {
+// CHANGED BY DESIGN (the lead's D2, 17 Nov: "worked steps, premises and what it rests on are closed at rest behind their existing count"): on a model
+// with an option or a figure, a card's notes are closed at rest, the no-chance option and the unmeasured aim included (the 16 Nov rows opened them there).
+describe('notes open on a card only where they are the picture: a qualitative model (D2, 17 Nov: closed at rest on every other model)', () => {
   const option = fx.model!.cards.find((c) => c.family === 'option')!
-  const premise = { glyph: '⊢', text: 'An invented prerequisite', title: '', id: 'cond_invented', olumi: null }
   const mixed = { cards: [aim, option] }
-  it('closed on an option that has premises and no chance row, as on one with a chance: they stay behind its "Rests on N" press and the lens', () => {
-    const noChance = { ...option, rows: option.rows.filter((r) => r.kind !== 'chance'), premises: [premise] }
-    expect(notesOpenOn(mixed, noChance), 'an option with notes and no chance: the old rule opened them, three cards tall').toBe(false)
-    const chanceRow = { kind: 'chance' } as (typeof option.rows)[number]
-    expect(notesOpenOn(mixed, { ...noChance, rows: [chanceRow] })).toBe(false)
+  it('closed on a model that has an option: the no-chance option and the unmeasured aim keep them behind "Rests on N" and the lens', () => {
+    expect(notesOpenOn(mixed)).toBe(false)
+    expect(notesOpenOn({ cards: [aim, { family: 'quantity' }] }), 'a figure makes it not qualitative too').toBe(false)
   })
-  it('closed on an aim nothing is counted against (bound.measured false) that carries notes, in a model that has options, as on a measured one', () => {
-    const words = { ...aim, premises: [premise], bound: { text: 'Kept in words', title: '', olumi: null, measured: false } }
-    expect(notesOpenOn(mixed, words)).toBe(false)
-    expect(notesOpenOn(mixed, { ...words, bound: { ...words.bound, measured: true } })).toBe(false)
-  })
-  it('a qualitative model (no option, no figure) still opens them on every card: there the notes ARE the picture', () => {
-    expect(notesOpenOn({ cards: [aim] }, { ...aim, premises: [] })).toBe(true)
-    const words = { ...aim, premises: [premise], bound: { text: 'Kept in words', title: '', olumi: null, measured: false } }
-    expect(notesOpenOn({ cards: [aim] }, words)).toBe(true)
+  it('CONTRAST: the same aim in a qualitative model (no option, no figure) opens them: there the notes ARE the picture', () => {
+    expect(notesOpenOn({ cards: [aim] })).toBe(true)
   })
 })
 

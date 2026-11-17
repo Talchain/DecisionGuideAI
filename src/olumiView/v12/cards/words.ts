@@ -2,7 +2,7 @@
  * Which of core's words a V12 card face draws where. Core's words only, picked by field or by core's own line shape; nothing here writes,
  * formats or rounds a word.
  */
-import type { ViewCard } from '../../client'
+import type { ViewCard, ViewModel } from '../../client'
 
 type Headline = NonNullable<ViewCard['headline']>
 
@@ -29,6 +29,18 @@ export function noChanceLineOf(h: Headline): { line: string; hover: string } {
 }
 
 /**
+ * The reason every option shares, said ONCE on the aim card (DL, 17 Nov): where every option waits (`run.all_withheld`), the options that head aim
+ * `aimId` with no chance, core's shared headline (`headline.shared`) and no step of their own (`headline.add`) say nothing each; the aim card says
+ * their headline. Null unless every such option's words agree, so one line never speaks for options that differ. Read by field, never by words.
+ */
+export function sharedNoChanceOf(model: ViewModel | null, aimId: string | null | undefined): Headline | null {
+  if (model === null || aimId == null || model.run?.all_withheld !== true || !model.cards.some((c) => c.id === aimId)) return null
+  const heads = model.cards.flatMap((c) => (c.family === 'option' && c.headline != null && c.headline.aim_id === aimId ? [c.headline] : []))
+  const shared = heads.filter((h) => h.state === 'none' && h.shared === true && (h.add ?? '') === '')
+  return shared.length > 0 && shared.length === heads.length && shared.every((h) => h.text === shared[0]!.text) ? shared[0]! : null
+}
+
+/**
  * Core makes a chance line in one place (core src/view/run-lines.ts chanceFace): `${bare} chance`, then its clauses, each after ", ". The
  * words up to the first clause are the number's own; the rest is the qualifier, drawn as its own line. A line not in that shape is whole.
  */
@@ -50,4 +62,15 @@ export function headlineChanceRow(card: ViewCard): Extract<ViewCard['rows'][numb
 export function unsizedWords(card: ViewCard): string | null {
   const f = card.figure
   return f != null && f.text === '' && f.title !== '' ? f.title : null
+}
+
+/**
+ * Core's gap words once: a line of clauses joined by " · " ("not sized yet · Not sized yet.") says the same clause twice where core's two strings agree.
+ * Display only: a clause is dropped when it equals the one before it ignoring case and a closing full stop; no word is changed or reordered. The whole
+ * string stays the hover.
+ */
+export function onceWords(words: string): string {
+  const same = (a: string, b: string): boolean => a.replace(/\.$/, '').trim().toLowerCase() === b.replace(/\.$/, '').trim().toLowerCase()
+  const parts = words.split(' · ')
+  return parts.filter((p, i) => i === 0 || !same(p, parts[i - 1]!)).join(' · ')
 }

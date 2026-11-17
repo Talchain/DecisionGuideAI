@@ -6,8 +6,10 @@ import { act, fireEvent, render, renderHook, screen } from '@testing-library/rea
 import type { View } from '../../client'
 import { useCanvasStore } from '../../../canvas/store'
 import { useViewStore } from '../../store'
-import { useSimpleCols, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../canvas'
-import { drawnModelOf } from '../../layout'
+import { useSimpleBudgetKey, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../canvas'
+import { cardLinks, drawnModelOf } from '../../layout'
+import { cardGroupsOf } from '../bands/groups'
+import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { SimpleSwitch } from '../SimpleSwitch'
@@ -32,19 +34,26 @@ beforeEach(() => {
 })
 afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }) })
 
-describe('V12 Simple draws the whole model', () => {
-  it('S1 Simple and Detailed draw every card and every link of the model, in the same places', async () => {
+// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the lead's D1): Simple folds Olumi's unreviewed proposals and the approved notes into one group card per
+// row (v12/bands/groups.ts); Detailed draws every card. Was: Simple and Detailed draw every card.
+const groups = cardGroupsOf(whole, european), grouped = new Set(groups.flatMap((g) => g.cards))
+const drawnOnSimple = whole.cards.filter((c) => !grouped.has(c.id)).map((c) => c.id)
+describe('V12 Simple draws the whole model, its groups folded (D1)', () => {
+  it('S1 Simple draws every card but the grouped ones, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
     const { rerender } = renderHook(() => useViewCanvas(true))
     const ids = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
+    const counts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
     const links = () => useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK).length
     expect(levelOf(SID)).toBe('simple')
-    await vi.waitFor(() => expect(ids()).toEqual(whole.cards.map((c) => c.id)))
-    const simpleLinks = links()
+    expect(grouped.size, 'precondition: the fixture has cards Simple folds').toBeGreaterThan(0)
+    await vi.waitFor(() => expect(ids()).toEqual(drawnOnSimple))
+    expect(counts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
     expect(whole.cards.length, 'CONTRAST: a model with many cards').toBeGreaterThan(10)
-    expect(simpleLinks).toBeGreaterThan(10)
+    expect(links()).toBeGreaterThan(5)
     act(() => showWholeModel(SID)); rerender()
     await vi.waitFor(() => expect(ids()).toEqual(whole.cards.map((c) => c.id)))
-    expect(links()).toBe(simpleLinks)
+    expect(counts(), 'Detailed folds nothing').toEqual([])
+    expect(links()).toBe(cardLinks(whole).length)
   })
 })
 
@@ -57,7 +66,7 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
   it('S1b a narrower room lays the Simple board out again with fewer cards across; a wider one with more', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 2400, configurable: true })
     const { rerender } = renderHook(() => useViewCanvas(true))
-    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).length).toBe(whole.cards.length))
+    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).length).toBe(drawnOnSimple.length))
     const atWide = wide()
     widthIs(1000); rerender()
     await vi.waitFor(() => expect(wide(), 'the board is laid out again, narrower').toBeLessThan(atWide))
@@ -68,7 +77,7 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
 
   it('S1c a few pixels change nothing; Detailed does not follow the room', () => {
     Object.defineProperty(window, 'innerWidth', { value: 1600, configurable: true })
-    const simple = renderHook(() => useSimpleCols(true, true)), detailed = renderHook(() => useSimpleCols(true, false))
+    const simple = renderHook(() => useSimpleBudgetKey(true, true)), detailed = renderHook(() => useSimpleBudgetKey(true, false))
     const n = simple.result.current
     widthIs(1606)
     expect(simple.result.current).toBe(n)
@@ -85,20 +94,25 @@ describe('V12 Simple faces', () => {
     expect(words).not.toBeNull()
     const { container } = face('broader_entry')
     expect(container.querySelector('[data-simple-face="gauge"]')).not.toBeNull()
-    expect(container.querySelector(`[data-simple-chance="broader_entry"]`)!.textContent).toBe(words)
+    // D2 (CHANGED BY DESIGN): the number's own words with the gauge; core's qualifier after them is the card's one quiet line.
+    expect(container.querySelector(`[data-simple-chance="broader_entry"]`)!.textContent).toBe(chanceParts(words!).head)
     expect(container.querySelector('.ok-track')).not.toBeNull()
     expect(container.querySelector('[data-simple-face="no-chance"]')).toBeNull()
   })
 
-  it('S2b core\'s value words as a qualified sentence (Codex 006 #3) wrap under the track in two lines, verbatim, and can shrink', () => {
+  // CHANGED BY DESIGN (the lead's D2, 17 Nov: one quiet line, on one line, whole on hover): the qualifier is the quiet line, cut with an ellipsis, its whole
+  // words the hover; was: the number and the qualifier wrapped whole under the track.
+  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words whole under the track, the qualifier the one quiet line, the whole words its hover', () => {
     const long = 'about 31% chance, on Olumi\'s assumption for \'Weeks until the second venue opens if nothing else changes\''
     const base = card('broader_entry'), h = base.headline!
     const c = { ...base, rows: base.rows.map((r) => (r.kind === 'chance' && (r as { aim_id?: string | null }).aim_id === h.aim_id ? { ...r, value: long } : r)) } as typeof base
     expect(chanceWordsOf(c)).toBe(long)
     const { container } = render(<SimpleFace card={c} model={model} noted={false} />)
     const words = container.querySelector<HTMLElement>('[data-simple-chance="broader_entry"]')!
-    expect(words.textContent, 'core\'s words, every one').toBe(long)
-    expect(words.className, 'R6: no word is cut, so the words wrap whole').not.toContain('line-clamp')
+    const qual = container.querySelector<HTMLElement>('[data-simple-qual="broader_entry"]')!
+    expect([words.textContent, qual.textContent, qual.classList.contains('ok-one-line')], 'core\'s words, every one, in order').toEqual([chanceParts(long).head, chanceParts(long).qualifier, true])
+    expect(qual.title.split('\n')[0], 'the whole words are the hover').toBe(long)
+    expect(words.className, 'the number\'s words wrap whole').not.toContain('line-clamp')
     expect(words.className).toContain('break-words')
     expect(words.className).toContain('min-w-0')
     expect(words.className, 'the words may shrink: never the unshrinkable line that ran across the canvas').not.toContain('flex-none')

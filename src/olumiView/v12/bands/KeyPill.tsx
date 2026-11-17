@@ -5,6 +5,7 @@
  * "How to read this" (ViewLegend) stays as the popover.
  */
 import { useEffect, useState } from 'react'
+import { HelpCircle } from 'lucide-react'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { ViewModel } from '../../client'
 import { cardLinks, drawnModelOf } from '../../layout'
@@ -56,7 +57,8 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
 }
 
 function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample }) {
-  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center rounded-full border-[1.5px] font-medium leading-none`} style={{ borderColor: EFFECT_STROKES.neutral }}>?</span>
+  // D4 (17 Nov): the canvas's own small icon for a direction not settled (canvas/edges/ViewLinkEdge VERDICTLESS_ICON), never a "?" text glyph.
+  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none`} style={{ color: EFFECT_STROKES.neutral }}><HelpCircle size={14} strokeWidth={1.75} /></span>
   const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>

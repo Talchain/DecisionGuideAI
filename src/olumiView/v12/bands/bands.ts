@@ -5,6 +5,7 @@
 import type { ViewCard, ViewModel } from '../../client'
 import { cardLinks, drawKindOf, QUESTION } from '../../layout'
 import { linkRole } from '../contract'
+import { MODEL_GROUP_TITLE } from '../../../canvas/domain/vocabulary'
 
 export type BandId = 'options' | 'inputs' | 'outcomes' | 'aims' | 'ideas'
 /** Top to bottom. Aims are always their own row, never sharing the outcomes row. */
@@ -22,8 +23,10 @@ export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>
  *  positions and other notes are associated with the question by reasons, not drivers of it, so "What drives it" would claim a cause. */
 export const INPUTS_ASSOCIATED_LABEL = 'Points raised'
 /** The band's label for this model: the inputs band says "What drives it" only where one of its cards is in a causal link (a link that is not a
- *  reason and not a size); otherwise its neutral label. Every other band keeps its fixed label. */
+ *  reason and not a size); otherwise its neutral label. The outcomes band holding a risk is "Outcomes & risks", the product's own label for that row
+ *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). Every other band keeps its fixed label. */
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
+  if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
   if (band !== 'inputs' || model === null) return BANDS[band].label
   const inputs = new Set(inputIdsOf(model))
   // Driver wording stays for a true causal or quantitative input (Codex 18:21:40Z): a figure in the band keeps it, linked or not.

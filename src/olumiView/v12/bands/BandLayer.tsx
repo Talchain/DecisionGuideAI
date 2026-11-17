@@ -1,6 +1,6 @@
 /**
  * V12 Simple band furniture, drawn in the canvas's own coordinates (so it pans and zooms with the cards): the label and small shape icon above
- * each band's first row, the "not linked" mark on a figure no link touches, and the fold control for 15 or more inputs. Positions are read from the
+ * each band's first row, the "not linked" mark on a figure no link touches (in the row gap over the card's top right corner, clear of its frame and its kind marker), and the fold control for 15 or more inputs. Positions are read from the
  * nodes as placed; no word here is core's: they are the boards' fixed notation chrome.
  */
 import { useMemo, type CSSProperties } from 'react'
@@ -13,6 +13,7 @@ import { useViewStore } from '../../store'
 import { levelOf, useSimpleLevel } from '../simpleStore'
 import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
 import { setInputsOpen, useInputsOpen } from './foldStore'
+import { groupBandOf } from './groups'
 
 const INK = 'var(--text-light)'
 export const NOT_LINKED = 'not linked'
@@ -32,7 +33,7 @@ function Shape({ shape }: { shape: BandShape }) {
 
 /** The band a drawn node stands in, by id. */
 const bandOfNode = (id: string, model: ViewModel | null): BandId | null =>
-  id === FOLD_ID ? 'inputs' : id.startsWith(IDEA_PREFIX) ? 'ideas' : model === null ? null : (() => { const c = model.cards.find((x) => x.id === id); return c === undefined ? null : bandOf(c, model) })()
+  id === FOLD_ID ? 'inputs' : id.startsWith(IDEA_PREFIX) ? 'ideas' : groupBandOf(id) ?? (model === null ? null : (() => { const c = model.cards.find((x) => x.id === id); return c === undefined ? null : bandOf(c, model) })())
 
 /**
  * Each present band's first row: its top, and the one column every label shares, the board's left edge (production's arrangement, canvas/nodes/
@@ -78,7 +79,7 @@ export function BandLayer() {
           </div>
         ))}
         {nodes.filter((n) => unlinked.has(n.id)).map((n) => (
-          <span key={n.id} data-not-linked={n.id} title="No link touches this figure" style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200) - 4, top: n.position.y - 7, transform: 'translateX(-100%)', pointerEvents: 'none', fontSize: 'calc(12px * var(--o-s, 1))', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
+          <span key={n.id} data-not-linked={n.id} title="No link touches this figure" style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200), top: n.position.y - SIMPLE_LABEL_GAP, transform: 'translate(-100%, -100%)', pointerEvents: 'none', fontSize: 'calc(12px * var(--o-s, 1))', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
             className="whitespace-nowrap rounded-full border border-dashed border-panel-border bg-panel px-2 py-0.5 font-medium leading-none text-text-light">{NOT_LINKED}</span>
         ))}
       </div>

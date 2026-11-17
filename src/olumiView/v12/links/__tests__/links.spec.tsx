@@ -12,8 +12,7 @@ import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, effectWidth, linkStyle } from '../styles'
 import { effectMidpoint } from '../geometry'
 import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
-import { useFocusPath } from '../../bands/focusPath'
-import { EDGE_OFF_PATH_OPACITY } from '../../../../canvas/edges/ViewLinkEdge'
+import { LINK_OFF_PATH_OPACITY as EDGE_OFF_PATH_OPACITY, useFocusPath } from '../../bands/focusPath'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const first = view.model!.links[0]!
@@ -81,6 +80,13 @@ describe('a modelled effect', () => {
     cleanup()
     expect(line(draw(withCausal('increases'))).style.strokeWidth).toBe(String(PLAIN_WIDTH))
   })
+  it('R1/R5 the ladder is drawn by the edge itself, a literal width per rung (share 0.25 is 3, 0.8 is 5, none is 2); a `reason` link carrying a share is still 2 px. NOTE: the quantity behind `share` is unconfirmed by the engine (production\'s cuts were written for weight)', () => {
+    const shared = (share: number | null, extra: Partial<ViewLink> = {}) => { const l = withCausal('increases', extra); l.causal = { ...l.causal!, strength: { ...l.causal!.strength, share } as never }; return l }
+    expect([0.25, 0.8, 0.1, null].map((x) => { const c = draw(shared(x)); const w = line(c).style.strokeWidth; cleanup(); return w })).toEqual(['3', '5', '2', '2'])
+    // CONTRAST: a plain structural line is 2 px whatever the share beside it says; a reason link too.
+    const plain = { ...shared(0.8), causal: null, role: null, kind: 'reason' } as unknown as ViewLink
+    expect(line(draw(plain)).style.strokeWidth).toBe('2')
+  })
   it('is dashed only when doubted (not when unsized or proposed)', () => {
     expect(line(draw(withCausal('increases', { doubt: true }))).style.strokeDasharray).not.toBe('')
     cleanup()
@@ -95,11 +101,21 @@ describe('a modelled effect', () => {
     cleanup()
     expect(draw(withCausal('increases')).querySelector('[data-view-link-olumi-mark]')).toBeNull()
   })
-  it('an unsettled direction gets a ? badge with the fixed words, or core\'s when it sends them', () => {
+  // CHANGED BY DESIGN (the lead's D4, 17 Nov: depends, disputed and unknown are no-verdict grey, each with its own small icon): the bare "?" text glyph
+  // is a Lucide icon now (no text glyph as an icon); the words are unchanged.
+  it('an unsettled direction gets its own small icon (no "?" text) with the fixed words, or core\'s when it sends them; core\'s `depends` gets a different one', () => {
     const l = withCausal('unknown'); l.causal!.text = ''
     const c = draw(l)
-    expect(document.body.querySelector('[data-view-link-unsettled="links.0"]')?.textContent).toBe('?')
+    const mark = document.body.querySelector('[data-view-link-unsettled="links.0"]')!
+    expect([mark.textContent, mark.querySelector('svg') !== null, mark.getAttribute('data-link-direction')]).toEqual(['', true, 'unknown'])
     expect(document.body.querySelector('[data-view-link-unsettled]')?.getAttribute('title')).toBe(DIRECTION_NOT_SETTLED)
+    const icon = mark.querySelector('svg')!.getAttribute('class')
+    cleanup()
+    // core's own direction (fields.ts linkLook): `depends` draws its own icon, not the unknown one, on the neutral line.
+    const d = { ...withCausal('unknown'), direction: 'depends' } as unknown as ViewLink
+    const dc = draw(d)
+    const dm = document.body.querySelector('[data-view-link-unsettled="links.0"]')!
+    expect([dm.getAttribute('data-link-direction'), dm.querySelector('svg')!.getAttribute('class') !== icon, line(dc).style.stroke]).toEqual(['depends', true, EDGE_NEUTRAL])
     cleanup(); void c
     const m = withCausal('unknown'); m.causal!.text = 'Which way this moves is not settled'
     draw(m)
@@ -107,6 +123,19 @@ describe('a modelled effect', () => {
     cleanup()
     draw(withCausal('increases'))
     expect(document.body.querySelector('[data-view-link-unsettled]')).toBeNull()
+  })
+})
+
+describe('a first draft marks no link as Olumi\'s proposal (R3, 16 Nov)', () => {
+  // A plain (not modelled) link Olumi proposed: blue inside an approved model, the neutral grey on a first draft; a doubted link is dashed on both.
+  const plain = (extra: object = {}) => ({ ...first, doubt: false, alert: false, proposed: true, causal: null, role: null, kind: 'relation', ...extra }) as unknown as ViewLink
+  const withView = (v: object) => useViewStore.setState({ view: { ...view, ...v } as View })
+  it('proposed, and a version: Olumi\'s blue; proposed and a proposal with no version: neutral', () => {
+    withView({ proposal: null, version: { id: 'v1', n: 1 } })
+    expect(line(draw(plain())).style.stroke, 'an approved model keeps the mark').toBe('var(--semantic-info)'); cleanup()
+    withView({ proposal: { id: 'p1' }, version: null })
+    expect(line(draw(plain())).style.stroke, 'a first draft marks nothing').toBe(EDGE_NEUTRAL); cleanup()
+    expect(line(draw(plain({ doubt: true }))).style.strokeDasharray, 'CONTRAST: a doubted link is dashed on a first draft').toBe(DOUBT_DASH)
   })
 })
 
@@ -122,14 +151,14 @@ describe('link roles', () => {
     expect(c.querySelector('marker circle')).not.toBeNull()
     expect(c.querySelector('marker path')).toBeNull()
   })
-  it('measures: the DS goal colour, no polarity, no arrowhead', () => {
+  it('measures: the DS goal colour, no polarity, no arrowhead (R5 exception, ruled by the lead: the goal\'s gold is the aim\'s own colour, not an effect\'s direction colour; width 2 px, never the ladder)', () => {
     const c = draw(role('measures'))
     expect(line(c).style.stroke).toBe(GOLD)
     expect(GOLD).toBe('var(--goal)')
     expect(line(c).getAttribute('marker-end')).toBeNull()
     expect(g(c).getAttribute('data-link-role')).toBe('measures')
   })
-  it('target: a gold line', () => { expect(line(draw(role('target'))).style.stroke).toBe(GOLD) })
+  it('target: a gold line, 2 px (the same R5 exception as measures)', () => { const c = draw(role('target')); expect([line(c).style.stroke, line(c).style.strokeWidth]).toEqual([GOLD, '2']) })
   it('a link with a typed `causal` is an effect whatever its role says: direction colour and arrowhead, never the role\'s dots (R5)', () => {
     const c = draw({ ...withCausal('decreases'), role: 'input' } as ViewLink)
     expect(line(c).style.stroke).toBe(EFFECT_STROKES.decreases)

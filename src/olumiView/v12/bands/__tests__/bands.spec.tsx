@@ -11,8 +11,9 @@ import { cleanup, render, screen } from '@testing-library/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
-import { BANDS, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs } from '../bands'
+import { BANDS, bandLabelOf, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs, type BandId } from '../bands'
 import { bandLabelsOf } from '../BandLayer'
+import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
@@ -27,7 +28,7 @@ const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/
 const model = view.model!
 const H = 60
 
-async function placed(m: ViewModel, extras: { id: string; band: 'inputs' | 'ideas'; h: number }[] = []) {
+async function placed(m: ViewModel, extras: { id: string; band: BandId; h: number }[] = []) {
   const row = simpleStageRow(1650)
   const size = new Map([[QUESTION, { width: questionBarWidth(m, row), height: 44 }], ...m.cards.map((c) => [c.id, { width: row.cardW, height: H }] as const), ...extras.map((e) => [e.id, { width: row.cardW, height: e.h }] as const)])
   const places = await causalPlaces(m, size, { row, extras })
@@ -48,6 +49,11 @@ describe('bands: where a card stands', () => {
   it('B2 the band words are the decided chrome', () => {
     expect(Object.values(BANDS).map((b) => b.label)).toEqual(['Options you could take', 'What drives it (uncertain)', 'What happens (worked out)', 'Aims', 'Ideas you kept'])
     expect(Object.values(BANDS).map((b) => b.shape)).toEqual(['square', 'pill', 'double', 'diamond', 'idea'])
+  })
+  it('B2b D5 (17 Nov): the row holding a risk is "Outcomes & risks" (the product\'s own label), never "worked out"; CONTRAST: without the risk it keeps its label', () => {
+    expect(bandLabelOf('outcomes', model)).toBe(MODEL_GROUP_TITLE.outcomesRisks)
+    const noRisk = { ...model, cards: model.cards.filter((c) => c.id !== 'oven_repair') }
+    expect(bandLabelOf('outcomes', noRisk)).toBe(BANDS.outcomes.label)
   })
 })
 
@@ -177,6 +183,19 @@ describe('bands: kept ideas', () => {
     expect(extras.map((e) => e.id)).toEqual([`${IDEA_PREFIX}i1`])
     const { y } = await placed(model, extras)
     for (const id of model.cards.map((c) => c.id)) expect(y(`${IDEA_PREFIX}i1`), id).toBeGreaterThan(y(id))
+  })
+})
+
+describe('bands: a kept idea is as tall as its whole text (R6: unclamped), and the layout uses the MEASURED height, not the 60 reserved', () => {
+  it('I4 six ideas stand in two rows; a measured height above IDEA_H pushes the next row down by exactly that height and a gap, so nothing overlaps; CONTRAST: the reserved height does not', async () => {
+    const extras = Array.from({ length: 6 }, (_, i) => ({ id: `${IDEA_PREFIX}i${i}`, band: 'ideas' as const, h: 60 }))
+    const row = simpleStageRow(1650)
+    const sizeOf = (h: number) => new Map([[QUESTION, { width: questionBarWidth(model, row), height: 44 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: H }] as const), ...extras.map((e) => [e.id, { width: row.cardW, height: h }] as const)])
+    const tall = await causalPlaces(model, sizeOf(240), { row, extras }), reserved = await causalPlaces(model, sizeOf(60), { row, extras })
+    const rowsOf = (pl: Map<string, { y: number }>) => [...new Set(extras.map((e) => pl.get(e.id)!.y))].sort((a, b) => a - b)
+    const [t1, t2] = rowsOf(tall), [r1, r2] = rowsOf(reserved)
+    expect(rowsOf(tall).length, 'two rows of ideas').toBe(2)
+    expect([t2! - t1!, r2! - r1!], 'the second row sits one measured height and one 48 gap below the first').toEqual([240 + SIMPLE_GAP_Y, 60 + SIMPLE_GAP_Y])
   })
 })
 

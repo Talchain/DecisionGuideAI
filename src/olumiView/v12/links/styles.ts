@@ -36,6 +36,8 @@ export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
  */
 export const effectWidth = (share: number | null | undefined): number =>
   typeof share === 'number' && Number.isFinite(share) ? EDGE_STROKE_WIDTH_BANDS[getCanvasStrengthBand(Math.abs(share)).id] : PLAIN_WIDTH
+/** A driver link (what would change, the lens): the ladder's 4 px rung at least. */
+export const DRIVER_WIDTH = EDGE_STROKE_WIDTH_BANDS.strong
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
 /** The one dash: a doubted link. */

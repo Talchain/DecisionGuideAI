@@ -39,8 +39,9 @@ import { RestsOn } from '../v12/cards/RestsOn'
 import { notesOpenOn } from '../v12/qualitativeNotes'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
-import { isBaseline, isFirstDraft, limitLeadOf, withheldValues } from '../v12/contract'
-import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
+import { isBaseline, limitLeadOf, withheldValues } from '../v12/contract'
+import { cardKind, cardTitle, firstDraft as firstDraftOf, type CardKindName } from '../v12/fields/fields'
+import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
@@ -169,6 +170,10 @@ export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id:
   return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
 }
 
+/** Core's card kind (fields.ts) in the design system's kinds, which draw the frame's hue and the marker (olumiLook.css `data-ok-kind`). A note and another
+ *  person's position have no shape of their own in the design system: they keep the factor's, as today's rule draws them. */
+const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
+
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
@@ -196,13 +201,17 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // BaseNode keeps the board's own kind: its behaviour (anchor card, far title, missing-threshold overlay) is keyed on it and does not change.
   const drawKind = id === QUESTION ? 'decision' : card !== null && model !== null ? drawKindOf(card, model) : 'factor'
   const kind = ((props.data as { kind?: string }).kind ?? drawKind) as NodeType
-  const dsKind = dsKindOf(shape?.shape, drawKind)
+  // D4: the kind is core's (`card.kind`, fields.ts cardKind; today's rule where an older core sends none), drawn in the design system's kinds.
+  const dsKind = card === null ? dsKindOf(null, drawKind) : DS_OF_KIND[cardKind(card, model, viewNow).kind]
   const width = (props.data as { width?: number }).width
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
   // Core's face title (FL1: the person's words, Olumi's caption, or the name), as the retired card drew it; the heading stays the card's
   // accessible name and its quick actions' label (`label`). Where core sends none, or the same words, the heading.
   const faceTitle = card?.face?.title?.text ?? ''
-  const titleOverride = faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
+  // D2 (the lead, 17 Nov): on Simple the title is core's short title where it sends one, else the heading (fields.ts cardTitle), two lines at most
+  // (olumiLook.css), the whole heading the hover; Detailed keeps the face title.
+  const shortTitle = simple && card !== null ? cardTitle(card).title : null
+  const titleOverride = shortTitle !== null ? (shortTitle !== label ? shortTitle : undefined) : faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
   const question = id === QUESTION ? model?.question ?? null : null
   const coreValue = card === null ? null : coreHoverValueOf(card)
   // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
@@ -216,11 +225,17 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // R3 (Paul, 16 Nov): on a FIRST DRAFT (a proposal and no approved version) everything is proposed, so a card is not marked for being new: its
   // frame is its kind's own and solid, and the panel's approval card says "proposed" once. Inside an approved model a card Olumi proposes keeps
   // its dashed blue frame, and a doubted card stays dashed.
-  const firstDraft = isFirstDraft(viewNow)
+  const firstDraft = viewNow !== null && firstDraftOf(viewNow).firstDraft === true
   const proposed = !firstDraft && (card?.change != null || question?.proposed === true)
   // DL ruling (12 Nov, A13d): one meaning everywhere: dashed = provisional (core doubts it, or Olumi proposes it and it is not yet the
   // person's), solid = settled or the person's own. The card's words already say which ("Proposed by Olumi", "not yet sized").
-  const doubt = card?.doubt === true || (!firstDraft && card?.change != null && card.author?.by === 'olumi'), challenged = card?.challenged === true
+  // On a first draft core sets `doubt` on every card Olumi proposed (it is unapproved): that is the proposal itself, not a doubt of its own, so it is no
+  // dash (R3: a first draft is not drawn all dashed). A figure that waits on an input is provisional in its own right and stays dashed, as does a doubt
+  // on a card nobody proposed. Read from structure (`change`, `author`, `figure.state`), never from words. UNVERIFIED by the engine: it should say which
+  // (needs_from_engine).
+  const proposedByOlumi = card?.change != null && card.author?.by === 'olumi'
+  const doubt = card?.doubt === true ? !(firstDraft && proposedByOlumi && card.figure?.state !== 'waits') : !firstDraft && proposedByOlumi
+  const challenged = card?.challenged === true
   const frame = doubt || proposed || challenged
     ? `${challenged ? 'border-[var(--olumi-mark-orange)]' : proposed ? 'border-info' : (nodeColors[kind as keyof typeof nodeColors] ?? nodeColors.factor).frame} ${doubt ? 'border-dashed' : ''}`
     : undefined
@@ -302,7 +317,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           // for the figure it waits on as the one next step: no "?", no empty track, no "Why not".
           <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={[r.title, r.text].filter((x) => x != null && x !== '').join('\n') || undefined}>
             <span className="ok-limit-name">{nameOf(r.aim_id!)}</span>
-            {r.state_text == null || r.state_text === '' ? null : <p className="ok-quiet" data-withheld-row={`${id}.rows.${i}`}>{r.state_text}</p>}
+            {(r.state_text || r.text) ? <p className="ok-quiet" data-withheld-row={`${id}.rows.${i}`}>{r.state_text || r.text}</p> : null}
             {r.question == null || r.question === '' ? null : <p className="ok-next" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
           </div>
         ) : (
@@ -402,7 +417,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
-          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={card.figure?.state === 'waits' && card.worked != null && viewNow !== null ? <WorkedSteps view={viewNow} id={id} open inline /> : notesOpenOn(model, card) ? <RestsOn card={card} open /> : null}
+          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>

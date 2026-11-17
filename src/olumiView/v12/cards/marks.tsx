@@ -59,12 +59,13 @@ export const BaselinePill = ({ id }: { id: string }): JSX.Element => <span class
 /** A kind's tag on the card ("assumption"). */
 export const KindTag = ({ id, tag }: { id: string; tag: string }): JSX.Element => <span className="ok-tag" data-kind-tag={tag} data-kind-tag-of={id}>{tag}</span>
 
-/** A dashed, empty track: nothing to place yet. Named by core's words for the gap where it sends them. */
+/** A dashed, empty track: nothing to place yet (Detailed only; Simple draws a quiet line, R6). Named by core's words for the gap where it sends them. */
 export const EmptyTrack = ({ testid, words }: { testid: string; words?: string | null }): JSX.Element => (
   <span className="ok-empty" data-testid={testid} {...named(words)} />
 )
 
-/** A figure with no value yet: a dashed empty bar and core's own words for the gap, one line and whole on hover. */
+/** A figure with no value yet (Detailed): a dashed empty bar and core's own words for the gap, one line and whole on hover. Simple draws the words alone, once,
+ *  as the card's quiet line (SimpleFace, R6 and D2): no empty track at rest. */
 export function UnsizedFigure({ id, words }: { id: string; words: string | null }): JSX.Element {
   return (
     <div className="ok-unsized" data-unsized={id} title={words ?? undefined}>

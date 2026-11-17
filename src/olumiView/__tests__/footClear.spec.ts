@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Node } from '@xyflow/react'
-import { FOOT_GUTTER, LABEL_FIGURE_H, restClearOfFoot } from '../footClear'
+import { FOOT_GUTTER, LABEL_FIGURE_H, restClearOfFoot, zoomClearOfFoot } from '../footClear'
 import { aimAfterFirstApproval, boardSeenOf, primaryAimOf } from '../ViewCanvas'
 import type { View } from '../client'
 
@@ -33,6 +33,29 @@ describe('at rest the board keeps every card\'s label and figure clear of the fo
     const v = restClearOfFoot({ x: 0, y: TOP, zoom: 1 }, board, H, TOP, 'aim')
     const a = drawn(v).find((c) => c.id === 'aim')!
     expect([a.top >= TOP, a.top + a.h <= G, clearOfGutter(v)]).toEqual([true, true, true])
+  })
+})
+
+describe('V12 Simple: no card is cut by the foot gutter (R1 priority 1, 16 Nov: controls never cover card text)', () => {
+  // Boxes in flow units, the board's top at TOP; a card is cut when the gutter's line crosses it.
+  const cards = [{ y: 0, h: 100 }, { y: 150, h: 300 }, { y: 560, h: 100 }, { y: 800, h: 200 }]
+  const line = H - FOOT_GUTTER
+  const cutBy = (z: number) => cards.filter((c) => TOP + c.y * z < line - 0.5 && TOP + (c.y + c.h) * z > line + 0.5).length
+  it('FC7 from a zoom at which the gutter cuts a card, the nearest larger zoom (at most a fifth more) that cuts none; the card is then wholly above the line or wholly below the fold', () => {
+    const z0 = 0.8
+    expect(cutBy(z0), 'precondition: at 0.8 the gutter cuts a card').toBeGreaterThan(0)
+    const z = zoomClearOfFoot(cards, 0, TOP, H, z0, 1)
+    expect([cutBy(z), z > z0, z <= z0 * 1.2 + 1e-9]).toEqual([0, true, true])
+  })
+  it('FC7 CONTRAST: a zoom already clear is returned as it is; where nothing within a fifth clears it, the zoom is returned unchanged (nothing is pushed out of view)', () => {
+    const clear = zoomClearOfFoot(cards, 0, TOP, H, 0.8, 1)
+    expect(zoomClearOfFoot(cards, 0, TOP, H, clear, 1)).toBe(clear)
+    const wall = [{ y: 0, h: 10000 }]
+    expect(zoomClearOfFoot(wall, 0, TOP, H, 0.6, 1), 'one card as tall as the board: no zoom clears it').toBe(0.6)
+    expect(zoomClearOfFoot([], 0, TOP, H, 0.6, 1)).toBe(0.6)
+  })
+  it('FC7 the zoom never passes the camera\'s own maximum', () => {
+    expect(zoomClearOfFoot(cards, 0, TOP, H, 0.95, 1)).toBeLessThanOrEqual(1)
   })
 })
 

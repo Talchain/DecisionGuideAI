@@ -28,10 +28,9 @@ export const reducedFaceSize = (zoom: number): number =>
 
 /**
  * V12 Simple's fit floor: production's own (LABEL_LEGIBLE_ZOOM, 0.5). Simple draws its type at production's counter-scale, fixed when the board is
- * laid out from the zoom its WIDTH fits across the room at (layout.ts simpleScaleOf), so 12 px type draws 11 px or more only where the board's zoom
- * stays at or above 11 / (12 x 1.64) = 0.56, and about 9.8 px at the floor. The type is NOT under 11 px only at the floor: a board whose height binds
- * (the camera zooms below the width-fit zoom to keep the whole model in view) draws it smaller by the same ratio. The whole model in view outranks
- * 11 px text (R1 priorities 2 and 3), so the camera fits down to 0.5; below it the cards would draw their reduced face (LOD_BODY_HIDDEN_ZOOM, 0.45).
+ * laid out from the zoom its WIDTH fits across the room at (layout.ts simpleScaleOf). R1 priority 2 outranks 3: where the whole model fits at the floor
+ * or above, it is framed whole (its type then draws 9.8 px at the floor); where it does not (ViewCanvas simpleFrame), the camera opens at the zoom the
+ * board's own type draws 11 px, its top in view, and the "N more below" cue counts the rest. Below 0.5 cards would near their reduced face (LOD_BODY_HIDDEN_ZOOM, 0.45).
  */
 export const SIMPLE_FIT_FLOOR = LABEL_LEGIBLE_ZOOM
 

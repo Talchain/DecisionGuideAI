@@ -2771,6 +2771,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                  unclamped height at the bound, so a longer title costs its row
                  height, never a word. Only the FAR rung (`line`, the identity
                  chip, #25) clamps, at its own readable size (`FAR_TITLE_TYPE`). */
+              /* R6 (16 Nov): the one deliberate exception to "no title is cut": below the legibility floor (0.45) that the person zooms to themselves, V12 Simple
+                 frames at 0.5 at the lowest, so never on arrival. The whole title is the card's hover (`title` above). */
               lodBodyHidden
                 ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? `${titleStrong} text-text-header line-clamp-1` : `${titleInk} line-clamp-2`}`
                 : lodBoostTitle

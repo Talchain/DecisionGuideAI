@@ -146,6 +146,12 @@
 .olumi-look .react-flow__node [data-testid='node-title'] {
   display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; overflow-wrap: break-word;
 }
+/* D2 (the lead, 17 Nov: shorter cards on Simple): a card's title is drawn on two lines at most, a clean ellipsis after, the whole title its hover
+   (BaseNode `title`) and on Detailed; its one quiet line is one line. The question is never cut. */
+.olumi-look .react-flow__node:not(.react-flow__node-viewQuestion) [data-simple-compact] [data-testid='node-title'] {
+  display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2 !important; overflow: hidden !important;
+}
+.olumi-look .ok-one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* The card's quick actions (the previous frame's rail at the foot, "ask Olumi about this") show on hover, focus or selection, over the
    foot's right end, instead of reserving a row on every card at rest (31px x every band of the board). */
@@ -243,7 +249,7 @@
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: none; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 /* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
-.ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--info) !important; border-color: var(--info) !important; color: var(--bg-panel) !important; }
+.ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--text-header) !important; border-color: var(--text-header) !important; color: var(--bg-panel) !important; }
 .ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 8px 0 12px; box-shadow: 0 -8px 8px -8px color-mix(in srgb, var(--text-header) 12%, transparent); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */

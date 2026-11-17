@@ -44,3 +44,6 @@ export function unitOf(card: ViewCard, aim: AimLike | null): string | null {
 
 export type Letters = ReadonlyMap<string, string> | Readonly<Record<string, string>>
 export const letterOf = (l: Letters, option: string): string => (l instanceof Map ? l.get(option) : (l as Record<string, string>)[option]) ?? ''
+
+/** The scale's own text: 12 px at the board's type scale (`--o-s`, the look's counter-scale), so an axis label is the card's own size, never a bare 12 flow px that draws at half. */
+export const LABEL_PX = 'calc(12px * var(--o-s, 1))'

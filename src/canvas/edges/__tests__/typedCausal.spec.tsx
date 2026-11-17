@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import { ViewLinkEdge } from '../ViewLinkEdge'
@@ -29,7 +30,7 @@ afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('a link renders the typed causal meaning, with no inferred strength scale', () => {
   // DS edge polarity: a modelled effect's colour is its direction (positive, negative, neutral for none/unknown); an arrowhead; no +/- glyph. The
-  // sign is still the producer's (data-causal-sign), never the legacy label's; "unknown" is a "?" badge.
+  // sign is still the producer's (data-causal-sign), never the legacy label's; "unknown" is its own small icon (D4).
   it.each([['increases'], ['decreases'], ['none'], ['unknown']] as const)
     ('%s is drawn in its direction colour with an arrowhead, its sign read from the producer and never from a legacy label', (sign) => {
       const got = draw(causal(sign), { label: sign === 'increases' ? '−' : '+' })
@@ -39,7 +40,8 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
       expect(got.r.querySelector('[data-view="links.0.label"]')).toBeNull()
       expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
       const unsettled = document.body.querySelector('[data-view-link-unsettled="links.0"]')
-      if (sign === 'unknown') expect(unsettled?.textContent).toBe('?'); else expect(unsettled).toBeNull()
+      // CHANGED BY DESIGN (the lead's D4, 17 Nov: no verdict is grey with its own small icon): the "unknown" badge is a Lucide icon, not a "?" text glyph.
+      if (sign === 'unknown') expect([unsettled?.textContent, unsettled?.querySelector('svg') !== null]).toEqual(['', true]); else expect(unsettled).toBeNull()
     })
   it('a link is dashed only where core doubts it: a sized zero, an unsized or a words-only link is solid', () => {
     expect(draw(causal('none')).p.style.strokeDasharray).toBe('')

@@ -13,7 +13,7 @@ import { balancedRowSizes, layoutGraph, solveLayoutCardWidths } from '../canvas/
 import { labelCounterScale, LABEL_COUNTER_SCALE_CAP } from '../canvas/utils/zoomLegibility'
 import { packRows } from '../canvas/utils/packRows'
 import { ascending, leftToRight } from './geometry/rowOrder'
-import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_MAX_W, REPEATED_CARD_W, ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
+import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W, ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
@@ -118,9 +118,10 @@ export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option'
 
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'
-/** The nodes the canvas waits on before it settles: the question, each model card it holds, and the kept ideas and folded-inputs group it draws (picking, so here). */
+/** The nodes the canvas waits on before it settles: the question, each model card it holds, and the kept ideas and group cards it draws (the folded
+ *  inputs' `group:inputs` and each row's `group:<kind>:<band>`, v12/bands/groups.ts) (picking, so here). */
 export const settleIdsOf = (held: ReadonlySet<string>, cards: readonly { id: string }[]): Set<string> =>
-  new Set([QUESTION, ...cards.map((c) => c.id).filter((id) => held.has(id)), ...[...held].filter((id) => id.startsWith('idea:') || id === 'group:inputs')])
+  new Set([QUESTION, ...cards.map((c) => c.id).filter((id) => held.has(id)), ...[...held].filter((id) => id.startsWith('idea:') || id.startsWith('group:'))])
 
 /** How wide the question's card is: two cards and the gap between them, as the original canvas draws its decision card (DL 4 Nov, the
  *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
@@ -201,7 +202,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 
 /**
  * V12 Simple GEOMETRY, production's arithmetic (canvas/utils/nodeLayoutConstants + layout.ts tierCardWidth; Paul, 16 Nov: R1). Cards share their
- * row: each band's cards take their row's fair share of the row budget, never under REPEATED_CARD_W nor over REPEATED_CARD_MAX_W (400); cards are
+ * row: each band's cards take their row's fair share of the row budget, never under REPEATED_CARD_W (simpleCardW); cards are
  * 24 flow units apart and rows 48 apart (the band's label stands in that gap). The budget is production's own (ROW_BUDGET_W) or, in a narrower
  * room, the room at the zoom at which type at the counter-scale cap draws 11 px.
  */
@@ -212,10 +213,12 @@ export const SIMPLE_READABLE_ZOOM = 11 / (12 * LABEL_COUNTER_SCALE_CAP)
 export const SIMPLE_LABEL_GAP = 4
 /** One Simple placement: its place, the width its band gives it and the type scale the board is drawn at (the same on every card). */
 export type SimplePlace = { x: number; y: number; w?: number; s?: number }
-/** A card's width in a row of `k` cards sharing `budget`: the fair share, held between the repeated-card width and its cap (tierCardWidth). */
+/** A card's width in a row of `k` cards sharing `budget`: its fair share of the row (D3, the lead, 17 Nov: rows spread across the canvas, cards up to their
+ *  fair-share width; was capped at production's REPEATED_CARD_MAX_W, 400, so a short row stood as a cluster at the board's centre), never under the
+ *  repeated-card width; a card alone in its row takes the share of two, so it never spans the board. */
 export const simpleCardW = (budget: number, k: number): number =>
-  Math.max(REPEATED_CARD_W, Math.min(REPEATED_CARD_MAX_W, Math.floor((budget - (Math.max(1, k) - 1) * SIMPLE_GAP_X) / Math.max(1, k))))
-/** The budget moves in steps of two gaps, so a few pixels of window change nothing (canvas.ts useSimpleCols lays the board out again only when it moves). */
+  Math.max(REPEATED_CARD_W, Math.floor((budget - (Math.max(1, k) - 1) * SIMPLE_GAP_X) / Math.max(2, k)))
+/** The budget moves in steps of two gaps, so a few pixels of window change nothing (canvas.ts useSimpleBudgetKey lays the board out again only when it moves). */
 const BUDGET_STEP = 2 * SIMPLE_GAP_X
 /** The Simple row for a stage `roomW` wide (canvas.ts roomOf, the real pane less its insets). `roomW` is kept for the type scale. */
 export function simpleStageRow(roomW: number): { cardW: number; gapX: number; perRow: number; simple: true; budget: number; roomW: number } {
