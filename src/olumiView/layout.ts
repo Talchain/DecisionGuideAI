@@ -381,7 +381,7 @@ export function isFirstLook(view: View | null): boolean {
  *  it), else the record's own label, and core's note on why (`why`, absent on a core before it). */
 export type LeftOut = { readonly id: string; readonly quote: string | null; readonly label: string | null; readonly why: string | null }
 export type BriefAccount = {
-  readonly brief: string; readonly by: string | null; readonly version: string | null; readonly versionAt: string | null
+  readonly brief: string; readonly version: string | null; readonly versionAt: string | null
   readonly used: readonly string[]; readonly inferred: readonly string[]; readonly leftOut: readonly LeftOut[]
   readonly noAim: boolean; readonly noChances: boolean; readonly notes: null
   readonly question: { readonly label: string | null; readonly text: string } | null
@@ -395,7 +395,9 @@ export function briefAccountOf(view: View): BriefAccount {
   const by = (who: readonly string[]) => cards.filter((c) => c.author != null && who.includes(c.author.by)).map((c) => c.heading)
   const next = view.chat.at(-1)?.answer?.next ?? null
   return {
-    brief: view.brief, by: view.chat[0]?.by ?? null, version: view.version?.label ?? null, versionAt: view.version?.at_text ?? null,
+    // No writer's name: the first chat turn's writer is not the brief's (a teammate may speak first), and View/3 does not serve who wrote
+    // the brief (core's `brief_by` is not in schema/view.v3.json). Nothing stands in for it until core serves it.
+    brief: view.brief, version: view.version?.label ?? null, versionAt: view.version?.at_text ?? null,
     used: by(['person', 'brief', 'mixed']), inferred: by(['olumi']),
     leftOut: view.collab.records.flatMap((r) => (r.family === 'left_out' && (r.quote != null || r.label !== null)
       ? [{ id: r.id, quote: r.quote ?? null, label: r.label, why: r.why ?? null }] : [])),

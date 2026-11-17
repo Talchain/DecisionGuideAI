@@ -82,6 +82,14 @@ describe('the brief panel’s version line carries core’s save date (core ad57
     render(<BriefPanel />)
     const meta = screen.getByTestId('brief-panel-meta')
     expect(meta.querySelector('[data-view="version.at_text"]')!.textContent).toBe('9 Nov 2026')
-    expect(meta.textContent).toBe(`${now.version!.label} · 9 Nov 2026 · ${now.chat[0]!.by}`)
+    expect(meta.textContent).toBe(`${now.version!.label} · 9 Nov 2026`)
+  })
+  it('never names the first chat turn’s writer as the brief’s: a teammate who spoke first is not shown in the meta line', () => {
+    const other = 'A teammate who spoke first'
+    useViewStore.setState({ view: { ...now, chat: [{ ...now.chat[0]!, by: other, by_id: 'p_other' }, ...now.chat.slice(1)] }, sid: now.id })
+    render(<BriefPanel />)
+    const meta = screen.getByTestId('brief-panel-meta')
+    expect(meta.textContent).toBe(now.version!.label)
+    expect(screen.getByTestId('brief-panel').textContent).not.toContain(other)
   })
 })
