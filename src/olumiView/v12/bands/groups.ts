@@ -54,9 +54,19 @@ const UNSIZED_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver'
 const olumiUnsized = (card: ViewCard, kind: CardKindName): boolean =>
   card.change == null && card.author?.by === 'olumi' && UNSIZED_KINDS.has(kind) && (unsizedWords(card) !== null || card.figure?.state === 'waits')
 
+/** The active cards D1c keeps drawn, as the canvas hook subscribes to them (Codex UI reviewer 008 v9 reactivity: a getState() read alone is not an
+ *  input the board is derived from). `tried`: the what-if shown on this View's scenario; `pressed`: What if just pressed; `inspected`: the card
+ *  open in details. */
+export type FoldActive = { readonly tried: string | null; readonly pressed: string | null; readonly inspected: string | null }
+/** The same ids read once from the existing stores, for a caller that is not subscribed (Show in workspace's targets, a one-off layout). */
+export function foldActiveNow(view: View | null): FoldActive {
+  const shown = useWhatIf.getState().shown, open = useLaneInspector.getState().target
+  return { tried: shown !== null && (view === null || shown.sid === view.id) ? shown.quantity : null, pressed: useWhatIfFocus.getState().id, inspected: open?.kind === 'card' ? open.id : null }
+}
+
 /** The cards D1c never folds: what the newest reply points at (its `next.at` and `next.about`), the figure being tried (the what-if shown, or the
- *  one just pressed) and the card open in the details panel. Read from the View and the existing stores; nothing is worked out. */
-export function foldKeepOf(view: View | null): ReadonlySet<string> {
+ *  one just pressed) and the card open in the details panel. Read from the View and the active ids; nothing is worked out. */
+export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow(view)): ReadonlySet<string> {
   const keep = new Set<string>(), chat = view?.chat ?? []
   for (let i = chat.length - 1; i >= 0; i--) {
     const a = chat[i]!.answer
@@ -65,12 +75,7 @@ export function foldKeepOf(view: View | null): ReadonlySet<string> {
     for (const id of a.next.about) keep.add(id)
     break
   }
-  const shown = useWhatIf.getState().shown
-  if (shown !== null && (view === null || shown.sid === view.id)) keep.add(shown.quantity)
-  const pressed = useWhatIfFocus.getState().id
-  if (pressed !== null) keep.add(pressed)
-  const open = useLaneInspector.getState().target
-  if (open?.kind === 'card') keep.add(open.id)
+  for (const id of [active.tried, active.pressed, active.inspected]) if (id !== null) keep.add(id)
   return keep
 }
 

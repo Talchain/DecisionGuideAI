@@ -21,7 +21,10 @@ import { VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
 import { withoutInputs } from './v12/bands/bands'
-import { cardGroupsOf, groupLinksOf, withoutGrouped, type GroupLink } from './v12/bands/groups'
+import { cardGroupsOf, foldActiveNow, foldKeepOf, groupLinksOf, withoutGrouped, type FoldActive, type GroupLink } from './v12/bands/groups'
+import { useWhatIf } from './whatif'
+import { useWhatIfFocus } from './v12/inspect/whatIfFocus'
+import { useLaneInspector } from './v12/edit/inspectorStore'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
 /** The previous graph's line from the question to each of its options (RULING 1): core states the card is an option of this question; the
@@ -194,12 +197,13 @@ export async function layViewCanvas(core: ViewModel): Promise<boolean> {
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
  *  proposals and the approved notes, until the person opens that row's group) and the inputs while 15 or more of core's are folded (rule 7), with the nodes Simple adds (kept ideas, the folded group, the group cards) and the grouped cards' links run to their group card. Detailed
  *  draws core's model as it is. */
-export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>> = useInputsOpen.getState().open): { model: ViewModel; extras: BandExtra[]; links: GroupLink[] } {
+export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>> = useInputsOpen.getState().open, active?: FoldActive): { model: ViewModel; extras: BandExtra[]; links: GroupLink[] } {
   const { sid, view } = useViewStore.getState(), drawn = drawnModelOf(core)
   if (levelOf(sid) !== 'simple') return { model: drawn, extras: [], links: [] }
   // Rule 7 counts core's inputs as before D1 (a row it folds holds its group cards' cards too), so D1 never unfolds a board rule 7 folded.
   const folded = inputsFolded(sid, drawn, open)
-  const groups = cardGroupsOf(drawn, view).filter((g) => !groupOpen(sid, g.id, open) && !(folded && g.band === 'inputs'))
+  // D1c keeps the active cards drawn: the canvas hook passes the ids it subscribes to (useViewCanvas); any other caller reads them once.
+  const groups = cardGroupsOf(drawn, view, foldKeepOf(view, active ?? foldActiveNow(view))).filter((g) => !groupOpen(sid, g.id, open) && !(folded && g.band === 'inputs'))
   const grouped = withoutGrouped(drawn, groups)
   // One numbering for every drawn link and every rerouted one: the drawn model's (rule 7's fold leaves the links in place; cardLinks skips an undrawn end).
   const model = folded ? { ...withoutInputs(grouped), links: drawn.links } : grouped, extras = extrasOf(view, sid, folded ? drawn : null, groups)
@@ -297,7 +301,13 @@ export function useViewCanvas(on: boolean): void {
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const open = useInputsOpen((s) => s.open)
-  const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open)), [view, open, level])
+  // D1c's active cards (Codex UI reviewer 008 v9 reactivity): the figure being tried, What if just pressed and the card open in details are inputs
+  // the board is derived from, so opening or closing one on an unchanged View draws or folds that card.
+  const viewId = view?.id ?? null
+  const tried = useWhatIf((s) => (s.shown !== null && (viewId === null || s.shown.sid === viewId) ? s.shown.quantity : null))
+  const pressed = useWhatIfFocus((s) => s.id)
+  const inspected = useLaneInspector((s) => (s.target?.kind === 'card' ? s.target.id : null))
+  const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open, { tried, pressed, inspected })), [view, open, level, tried, pressed, inspected])
   const model = board?.model ?? null
   // Kept ideas outlive the model they were kept beside: with no model they are drawn alone (ideasOnlyOf), never with a fabricated card.
   const sidNow = useViewStore((s) => s.sid)

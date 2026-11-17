@@ -9,6 +9,8 @@ import { useViewStore } from '../../store'
 import { useSimpleBudgetKey, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../canvas'
 import { cardLinks, drawnModelOf } from '../../layout'
 import { cardGroupsOf } from '../bands/groups'
+import { useLaneInspector } from '../edit/inspectorStore'
+import { useWhatIf } from '../../whatif'
 import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
@@ -34,7 +36,7 @@ beforeEach(() => {
   useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null })
   useViewStore.setState({ uuid: 'a', sid: SID, view: european, status: 'ready', error: null })
 })
-afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }) })
+afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }); useLaneInspector.setState({ target: null }); useWhatIf.setState({ shown: null }) })
 
 // CHANGED BY DESIGN (the owner's ruling, 17 Nov; the DL's correction ~03:50Z the same day): on Simple, Olumi's unreviewed proposals fold into one group
 // card per row, and APPROVED records that are only a sentence (core's kind `note`: assumptions, claims, conditions, notes; no figure) into one notes
@@ -85,6 +87,22 @@ describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals
     // CONTRAST: approved structural cards, Olumi's included, are drawn.
     for (const id of ['horizon', 'customers', 'reach_customer_target', 'investment_limit', 'broader_entry']) expect(drawn(), id).toContain(id)
     expect(groupCounts()).toEqual(approvedGroups.map((g) => [g.id, g.cards.length]))
+  })
+  // Codex UI reviewer 008 v9 reactivity: the active card is an input the mounted board is derived from, on an UNCHANGED View.
+  it('S1b on the mounted canvas, with the View unchanged: opening Olumi\'s folded figure in details draws it and closing folds it again; a what-if on it holds it the same way', async () => {
+    renderHook(() => useViewCanvas(true))
+    await vi.waitFor(() => expect(drawn()).toEqual(drawnApproved))
+    expect(drawn(), 'precondition: folded at rest').not.toContain('profitability')
+    const before = useViewStore.getState().view
+    act(() => useLaneInspector.getState().open({ kind: 'card', id: 'profitability' }))
+    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
+    act(() => useLaneInspector.getState().close())
+    await vi.waitFor(() => expect(drawn()).not.toContain('profitability'))
+    act(() => useWhatIf.setState({ shown: { sid: european.id, base: 1, quantity: 'profitability', typed: '5', variant: {} as never } }))
+    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
+    act(() => useWhatIf.setState({ shown: null }))
+    await vi.waitFor(() => expect(drawn()).not.toContain('profitability'))
+    expect(useViewStore.getState().view, 'the View never changed').toBe(before)
   })
 })
 
