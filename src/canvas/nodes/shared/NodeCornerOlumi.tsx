@@ -34,6 +34,9 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 export const NODE_CORNER_OLUMI_TESTID_PREFIX = 'node-corner-olumi-'
 
+/** The prefill a card's "Ask Olumi about" puts in the composer, and its name: one place for the corner and the V12 card's moves (CardMoves). */
+export const askAboutOf = (name: string): { text: string; label: string } => ({ text: `About ${name}: `, label: `Ask Olumi about ${name}` })
+
 /** The badge's box and how far it hangs over the card edge, at glyph scale 1; both follow `--canvas-glyph-scale`. */
 const BADGE_PX = 24
 const OVERHANG_PX = 8
@@ -63,7 +66,7 @@ export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     useCanvasStore.getState().selectNodeWithoutHistory?.(nodeId)
-    const landed = requestAsk({ text: `About ${nodeLabel}: `, label: `Ask Olumi about ${nodeLabel}`, targetId: nodeId, source: 'node-coaching-icon' })
+    const landed = requestAsk({ ...askAboutOf(nodeLabel), targetId: nodeId, source: 'node-coaching-icon' })
     if (landed === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning')
   }, [nodeId, nodeLabel, showToast])
 
@@ -71,7 +74,7 @@ export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected 
   if (!canAsk) return null
 
   const hasNote = hasGuidance || hasAttention
-  const name = `Ask Olumi about ${nodeLabel}`
+  const name = askAboutOf(nodeLabel).label
   const visible = selected || hasNote
   // `opacity` and `pointer-events` share every variant (see the header), so the badge can never hit-test unseen.
   const visibility = visible

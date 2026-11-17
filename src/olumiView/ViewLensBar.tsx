@@ -1,13 +1,17 @@
 /**
- * THE LENS BAR ON THE CORE LANE: the legacy bar's control (its place, its look, its words and icons, `LensBar.tsx`) with the lenses the
- * View fills (`lens.ts`). One press switches; the arrow keys move along it. Rests on carries the count of Olumi's figures and
- * assumptions to check or set. What would change needs a Run that names what each option moves with: before one it is shown but
- * cannot be chosen, and says how to get one.
+ * THE LENS BAR ON THE CORE LANE: the legacy bar's control (its words and icons, `LensBar.tsx`) with the lenses the View fills (`lens.ts`).
+ * One press switches; the arrow keys move along it. Rests on carries the count of Olumi's figures and assumptions to check or set. What would
+ * change needs a Run that names what each option moves with: before one it is shown but cannot be chosen, and says how to get one.
  *
- * V11 (Paul 6 Nov, "Navigation": reduce the six equal-weight lens pills to Model, Explore and Team; within Explore, retain the existing
- * lenses as contextual choices): with `nav`, the same bar, in the same place, holds three: Model (no lens), Explore (a menu of the other
- * lenses, each with its own words, icon and count; the lens on is named on the button) and Team (opens the Team tab). Without `nav`, the
- * six pills as before, so switching back is one prop at the call site (ViewCanvas.tsx).
+ * ICONS ONLY, ALWAYS ON THE TOP ROW (Paul, 17 Nov: "make the top floating menu all icons so it always fits on the top of the screen and not
+ * underneath the main left-hand top menu"; experience contract section 8). Each lens is one icon button: its words (core's `lens_words`) are
+ * its hover and its name, the lens in use is pressed, and Rests on keeps its count as a small number. The bar sits directly right of the
+ * scenario pill on the pill's row; the pill gives way to make that room (TeamPresence `topRowLimit`, read by the avatars and useTopBarFit),
+ * and the bar waits, hidden, while it does. Only on a window narrower than Paul's three sizes, with the pill at its tightest and still no
+ * room, does the bar take the row under the pill rather than run over the dock.
+ *
+ * V11 (Paul 6 Nov) `nav`: the same bar, in the same place, holding three: Model (no lens), Explore (a menu of the other lenses) and Team.
+ * Paul withdrew it on 11 Nov; the canvas mounts the six (ViewCanvas.tsx).
  */
 import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type RefObject } from 'react'
 import { Compass } from 'lucide-react'
@@ -17,7 +21,8 @@ import { HIT_44 } from '../styles/hitArea'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { TOP_PILL_HEIGHT_PX, TOP_PILL_TOP_PX } from '../components/layout/TopBar'
-import { LENS_BAR_TESTID, lensBarFitsBesidePill, lensBarFitsCanvas, placeLensBar } from '../canvas/artefacts/LensBar'
+import { TIGHT_MAX } from '../components/layout/useTopBarFit'
+import { LENS_BAR_TESTID } from '../canvas/artefacts/LensBar'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { useViewStore } from './store'
 import { useOverview } from './strategy/overview/useOverview'
@@ -25,8 +30,21 @@ import { useReveal } from './reveal'
 import { forgetLanded } from './revealReturn'
 import { allBut } from './layout'
 import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from './lens'
+import { DOCK_GAP, TOP_ROW_BAR } from './TeamPresence'
 
-export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: boolean; /** Spike: placed exactly as the previous product's bar is (`placeLensBar`), on the previous canvas. */ previousPlace?: boolean } = {}): JSX.Element | null {
+type Place = { left: number; top: number }
+
+/**
+ * Where the bar stands: directly right of the pill on its row when it fits before the dock; else, with the pill at its tightest (every avatar
+ * folded and every step of useTopBarFit taken), on the row under the pill; else nowhere yet (null: hidden while the pill makes room). Pure.
+ */
+export function lensBarPlace(at: { readonly pill: { left: number; right: number; bottom: number } | null; readonly barWidth: number; readonly viewportWidth: number; readonly dockInset: number; readonly tightest: boolean }): Place | null {
+  const left = at.pill === null ? DOCK_GAP : Math.round(at.pill.right + DOCK_GAP)
+  if (left + at.barWidth <= at.viewportWidth - at.dockInset - DOCK_GAP) return { left, top: TOP_PILL_TOP_PX }
+  return at.tightest && at.pill !== null ? { left: Math.round(at.pill.left), top: Math.round(at.pill.bottom + 8) } : null
+}
+
+export function ViewLensBar({ nav = false }: { nav?: boolean; /** @deprecated One place now (lensBarPlace); kept so the canvas's mount line need not change. */ previousPlace?: boolean } = {}): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
   const overviewOpen = useOverview((s) => s.open)
   // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
@@ -36,39 +54,26 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
   const usable = (id: ViewLens) => id !== 'what_changes' || !waits
   const bar = useRef<HTMLDivElement>(null)
   const buttons = useRef(new Map<ViewLens, HTMLButtonElement>())
-  const [place, setPlace] = useState<{ left: number; top: number } | null>(null)
-  // Icon-only (each label on hover) when the labelled bar does not fit beside the pill, so the bar keeps the top row (R3 pristine). The
-  // labelled width is kept from the last labelled draw, so the bar turns its labels back on once there is room for them.
-  const [compact, setCompact] = useState(false)
-  const compactNow = useRef(false), labelledWidth = useRef(0)
+  const [place, setPlace] = useState<Place | null>(null)
   useLayoutEffect(() => {
     const measure = () => {
-      const pill = document.querySelector('[role="banner"]')?.getBoundingClientRect()
-      const width = bar.current?.getBoundingClientRect().width ?? 0
-      if (!compactNow.current) labelledWidth.current = width
-      const at = { viewportWidth: window.innerWidth, pillRight: pill && pill.width > 0 ? pill.right : 0, dockInset: measureDockInset() }
-      // J1 step 5 (the prototype's labelled Model / Explore / Team bar): when the labelled bar does not fit beside the pill, it takes its own
-      // row on the canvas, at the pill's left under it, and keeps its labels; it is never drawn icon-only.
-      const beside = lensBarFitsBesidePill({ ...at, barWidth: labelledWidth.current })
-      // PL-155: a bar wider than the canvas column, on a row of its own, ran under the dock at 900 px. Then it is icon-only (each label on hover and
-      // for a reader), as the previous product's bar was at narrow widths. The labelled width is remembered, so the labels return when room does.
-      const fitsCanvas = lensBarFitsCanvas({ viewportWidth: at.viewportWidth, dockInset: at.dockInset, barWidth: labelledWidth.current })
-      if (compactNow.current === fitsCanvas) { compactNow.current = !fitsCanvas; setCompact(!fitsCanvas); return } // measured again once drawn
-      // J1 gate: under the core lane's full-width header strip the bar sits on the canvas's top-left, as the prototype's does.
-      const strip = pill !== undefined && pill.width >= window.innerWidth - 1
-      const next = previousPlace ? placeLensBar({ ...at, barWidth: width }) : strip ? { left: 12, top: Math.floor(pill.bottom + 12) } : beside || !pill ? placeLensBar({ ...at, barWidth: width }) : { left: Math.floor(pill.left), top: Math.floor(pill.bottom + 8) }
-      setPlace((held) => (held && held.left === next.left && held.top === next.top ? held : next))
-      // UI restore stage 1, row 2: the left toolbar starts under this bar when the bar sits under the pill (it hid the toolbar's "+").
-      document.documentElement.style.setProperty('--view-nav-bottom', pill && next.top >= pill.bottom ? `${next.top + 36}px` : '0px')
+      const banner = document.querySelector('[role="banner"]'), pill = banner?.getBoundingClientRect()
+      const tightest = banner?.getAttribute('data-tight') === String(TIGHT_MAX) && banner.querySelector('[data-presence-disc]') === null
+      const next = lensBarPlace({ pill: pill !== undefined && pill.width > 0 ? pill : null, barWidth: bar.current?.getBoundingClientRect().width ?? 0, viewportWidth: window.innerWidth, dockInset: measureDockInset(), tightest })
+      setPlace((held) => (held === next || (held !== null && next !== null && held.left === next.left && held.top === next.top) ? held : next))
+      // The left toolbar starts under the bar only on the narrow window's fallback row (it hid the toolbar's "+"); on the top row, never.
+      document.documentElement.style.setProperty('--view-nav-bottom', next !== null && next.top > TOP_PILL_TOP_PX ? `${next.top + TOP_PILL_HEIGHT_PX}px` : '0px')
     }
     measure()
     window.addEventListener('resize', measure)
     window.addEventListener('outputs-dock-opened', measure)
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     for (const el of [bar.current, document.querySelector('[role="banner"]'), document.querySelector('aside[aria-label="Outputs dock"]')]) if (el && ro) ro.observe(el)
-    return () => { window.removeEventListener('resize', measure); window.removeEventListener('outputs-dock-opened', measure); ro?.disconnect(); document.documentElement.style.removeProperty('--view-nav-bottom') }
+    // The pill's steps change its width (observed) and its `data-tight` (not a size): read again on the pill's own beat as well.
+    const t = setInterval(measure, 500)
+    return () => { clearInterval(t); window.removeEventListener('resize', measure); window.removeEventListener('outputs-dock-opened', measure); ro?.disconnect(); document.documentElement.style.removeProperty('--view-nav-bottom') }
   }, [])
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     e.preventDefault()
     const step = e.key === 'ArrowRight' ? 1 : VIEW_LENSES.length - 1
@@ -80,22 +85,21 @@ export function ViewLensBar({ nav = false, previousPlace = false }: { nav?: bool
   // D1 (strategy canvas audit, 10 Nov; the design owner's call): the bar is a canvas control, so while the Strategy Overview stands in
   // place of the canvas it is not drawn (it sat over the overview's title); the overview has its own Close, and Escape closes it.
   if (W === null || overviewOpen) return null
-  if (nav) return <NavBar barRef={bar} place={place} compact={compact} W={W} />
+  if (nav) return <NavBar barRef={bar} place={place} W={W} />
   return (
-    <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown}
-      data-compact={compact || undefined}
+    <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown} {...{ [TOP_ROW_BAR]: '' }}
       className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top] duration-200 ease-out"
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
           <button key={id} ref={(el) => { if (el) buttons.current.set(id, el); else buttons.current.delete(id) }} type="button" role="radio"
-            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : compact || id === 'tradeoffs' ? W.label[id] : W.hint[id]}
+            aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : W.label[id]}
             aria-label={id === 'rests_on' ? W.rests_on_label : W.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
-            className={`${typography.viewPanelMeta} inline-flex h-full items-center gap-1.5 rounded-full border px-3 font-medium transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
+            className={`${typography.viewPanelMeta} ${HIT_44} inline-flex h-full min-w-8 items-center justify-center gap-1 rounded-full border px-2 font-medium transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
             <Icon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
-            <span className={compact ? 'sr-only' : undefined} data-lens-label={id}>{W.label[id]}</span>
+            <span className="sr-only" data-lens-label={id}>{W.label[id]}</span>
             {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : null}
           </button>
         )
@@ -110,9 +114,9 @@ const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
 const SEGMENT = `${typography.viewPanelMeta} inline-flex h-full items-center gap-1.5 rounded-full border px-3 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
 const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-canvas text-text-light hover:text-text-header'}`
 
-/** V11's three: Model, Explore (a menu of the lenses), Team. Placed and measured by ViewLensBar, exactly as the six pills. */
+/** V11's three: Model, Explore (a menu of the lenses), Team. Placed by ViewLensBar, exactly as the six icons. */
 type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
-function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElement>; place: { left: number; top: number } | null; compact: boolean; W: LensWords }): JSX.Element {
+function NavBar({ barRef, place, W }: { barRef: RefObject<HTMLDivElement>; place: Place | null; W: LensWords }): JSX.Element {
   const lens = useViewLens((s) => s.lens)
   const { olumi } = useRestsOn()
   const waits = useDrivers().size === 0
@@ -148,18 +152,18 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
   }
   const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
   return (
-    <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" data-compact={compact || undefined}
+    <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" {...{ [TOP_ROW_BAR]: '' }}
       className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
       style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
       <button type="button" aria-pressed={modelOn} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
         onClick={pressModel} className={segment(modelOn)}>
-<span className={compact ? 'sr-only' : undefined}>{W.label.full}</span>
+<span>{W.label.full}</span>
       </button>
       <div className="relative h-full">
         <button ref={exploreBtn} type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={exploring} data-testid={`${LENS_BAR_TESTID}-explore`}
           onClick={() => setOpen((o) => !o)} className={segment(exploring || open)}>
           {exploring ? <ExploreIcon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" /> : null}
-          <span className={compact ? 'sr-only' : undefined}>{exploring ? W.label[lens] : W.explore}</span>
+          <span>{exploring ? W.label[lens] : W.explore}</span>
         </button>
         {!open ? null : (
           <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
@@ -187,7 +191,7 @@ function NavBar({ barRef, place, compact, W }: { barRef: RefObject<HTMLDivElemen
         // panel steps aside and Team's own titled panel shows (V11 lane 10 Nov, journey step 6.3).
         setOpen(false); forgetLanded(); useReveal.getState().select(null); useUIStore.getState().forceActivateOutputTab('team')
       }} className={segment(dockTab === 'team')}>
-<span className={compact ? 'sr-only' : undefined}>{W.team}</span>
+<span>{W.team}</span>
       </button>
     </div>
   )

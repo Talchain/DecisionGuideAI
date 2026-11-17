@@ -85,6 +85,7 @@ import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { KeyPill } from './v12/bands/KeyPill'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
 import { keptIdeasOf } from './v12/ideas'
+import { CanvasMoves } from './v12/moves/CanvasMoves'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
@@ -507,6 +508,8 @@ function ViewFlow() {
       <IdeaPanel />
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
+      {/* V12 (contract section 8): Olumi's questions for this scenario as a rail of icons, under the tool column (v12/moves). */}
+      <CanvasMoves />
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} /> : null}
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}

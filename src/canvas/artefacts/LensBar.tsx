@@ -35,23 +35,6 @@ interface Placement { readonly left: number; readonly top: number }
  * Where the bar goes: centred in the free run on the pill's row, or one row down when that run is too narrow. Pure, so
  * the rule is tested without a layout engine.
  */
-/**
- * Whether the bar, at `barWidth`, fits beside the pill on the top row (the run between the pill and the dock). The View lane's bar asks this
- * of its labelled width and draws icon-only (each label on hover) when it does not, so it stays on the top row (R3 pristine).
- */
-export function lensBarFitsBesidePill(input: { readonly viewportWidth: number; readonly pillRight: number; readonly dockInset: number; readonly barWidth: number }): boolean {
-  return input.viewportWidth - input.dockInset - GAP_PX - (input.pillRight + GAP_PX) >= input.barWidth
-}
-
-/**
- * Whether the bar, at `barWidth`, fits the canvas column at all: its own row, from the band's left edge to the dock's (the one place it can
- * stand when it does not fit beside the pill). A bar wider than this runs under the dock, so the lane's bar then draws icon-only, each
- * label on hover (UI restore 11 Nov, PL-155: at 900 px the labelled bar overlapped the dock's top).
- */
-export function lensBarFitsCanvas(input: { readonly viewportWidth: number; readonly dockInset: number; readonly barWidth: number }): boolean {
-  return input.viewportWidth - input.dockInset - GAP_PX - OVERLAY_BAND_LEFT_PAD >= input.barWidth
-}
-
 export function placeLensBar(input: {
   readonly viewportWidth: number
   readonly pillRight: number

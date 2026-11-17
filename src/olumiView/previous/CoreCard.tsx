@@ -46,6 +46,7 @@ import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, EmptyTrack, KindTag, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
 import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
+import { CardMoves } from '../v12/moves/CardMoves'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
 export { withheldField, withheldWords }
@@ -486,6 +487,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         </div>
       )}
     </BaseNode>
+    {card === null ? null : <CardMoves id={id} selected={props.selected === true} />}
     </div>
   )
 }
