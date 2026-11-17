@@ -38,7 +38,9 @@ const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--e
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
 
 /** The option letters (A, B, ...) in the model's order (cards/letters.ts): a short name for a row, its heading on hover. */
-export const optionLetterOf = (model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
+/** The quiet status's least width on its line (DL BUILD 3, 1232: "n" / "o" beside "4 figures, 3 calculations"): grows from 7rem, never below. */
+export const QUIET_BASIS = 'flex-[1_1_7rem]'
+export const optionLetterOf =(model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
 
 /** The served bands of one card (not the withheld ones) and the axis they share: the same axisOf / pctOf / unitOf as the Detailed strips (scale/OutcomeStrips.tsx). */
 type Bands = { readonly values: ReadonlyArray<NonNullable<ViewCard['values']>[number]>; readonly axis: Axis; readonly unit: string | null; readonly goal: number | null }
@@ -244,7 +246,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
       {visual}
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
-      {quiet === null ? null : <p className={`ok-quiet min-w-0 flex-1 ${visual === null && !hasFigure ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
+          and the chips drop below (QUIET_BASIS). */}
+      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS} ${visual === null && !hasFigure ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

@@ -17,7 +17,7 @@ import { useViewStore } from '../../../store'
 import { useMe } from '../../../../olumiCore/me'
 import { CoreCard } from '../../../previous/CoreCard'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
-import { bandRowsOf, chanceWordsOf, optionLetterOf, SimpleFace } from '../../SimpleFace'
+import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
 import { OLUMI_ASKS } from '../marks'
@@ -445,6 +445,12 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     const plain = cardOf(FACE, 'second_oven')
     expect(chanceParts(headlineChanceRow(plain)!.value).qualifier, 'CONTRAST: this chance has no condition').toBeNull()
     expect(lineOf(draw(described(FACE, plain.id), plain.id, 'simple'))?.hasAttribute('data-simple-description'), 'so its description is its line').toBe(true)
+  })
+  it('P2b the quiet line keeps a least width on its row (DL BUILD 3: never single letters beside the chips); it takes its line rather than shrink', () => {
+    // Bound on the class the browser lays out by: grow from 7rem, never flex-1's zero basis (which let "no" narrow to one letter a line at 1232).
+    const line = lineOf(draw(described(ASKED, 'spend'), 'spend', 'simple'))!
+    expect([line.classList.contains(QUIET_BASIS), line.classList.contains('flex-1'), QUIET_BASIS]).toEqual([true, false, 'flex-[1_1_7rem]'])
+    expect(line.parentElement!.classList.contains('flex-wrap'), 'its row wraps, so the chips drop below').toBe(true)
   })
   it('P3 the shared no-chance line stays on the aim card with a description sent, and the options stay silent', () => {
     const v = described(APP, 'boss_discussion')
