@@ -5,7 +5,7 @@ import { NOTICES } from '../notices'
 import { signOutOfOlumi } from '../signout'
 import { clearDeleteWarning } from '../deleteWarning'
 import { adoptPagePerson, TeamApiError } from '../team/api'
-import { accountsApi, type Account, type Person } from './api'
+import { accountsApi, signupSaysOf, type Account, type Person, type SignupSays } from './api'
 
 /**
  * The frames the PoC account pages share: a centred card for signing in, signing up and joining, and a page with the account
@@ -20,7 +20,7 @@ export const ERR = `${typography.bodySmall} text-danger m-0`
 export const CARD = 'rounded-[14px] border border-panel-border bg-panel p-5'
 export const LINK = 'text-info underline underline-offset-2 hover:no-underline'
 
-export type Who = { status: 'loading' } | { status: 'out' } | { status: 'in'; me: Person; account: Account | null } | { status: 'error'; message: string }
+export type Who = { status: 'loading' } | { status: 'out'; signup: SignupSays | null } | { status: 'in'; me: Person; account: Account | null; signup: SignupSays | null } | { status: 'error'; message: string }
 /** Who this browser is signed in as, read from core (`GET /api/me`), with their account when they have one. */
 export function useWho(): Who {
   const [who, setWho] = useState<Who>({ status: 'loading' })
@@ -32,7 +32,8 @@ export function useWho(): Who {
         // The page's person (so Delete my data and every write here is refused if another tab switches this browser to someone else), and a person is signed in again.
         adoptPagePerson(r?.me?.id ?? null)
         if (r?.me) clearDeleteWarning()
-        setWho(r?.me ? { status: 'in', me: r.me, account: r.account ?? null } : { status: 'out' })
+        const signup = signupSaysOf(r?.signup)
+        setWho(r?.me ? { status: 'in', me: r.me, account: r.account ?? null, signup } : { status: 'out', signup })
       },
       (e) => { if (live) setWho({ status: 'error', message: e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.' }) },
     )

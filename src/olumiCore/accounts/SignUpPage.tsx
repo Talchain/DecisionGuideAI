@@ -32,7 +32,8 @@ export function PersonFields({ name, setName, email, setEmail, password, setPass
  * Add an email and password (core `POST /api/account/signup`). Core refuses an open sign-up with a 403 (accounts start from an invitation),
  * so the form is drawn ONLY for someone a private link signed in: it adds the email and password to that same person, keeping their
  * scenarios, and starts the organisation they own. Anyone else is told how accounts start, without a form that could only be refused.
- * Core's `/api/me` carries no "sign-up needs an invitation" flag, so that sentence is page chrome (same meaning as core's refusal).
+ * Where core says so itself (`/api/me` `signup`, core c4c1f139) the page draws CORE'S sentence and draws the form only while core says an
+ * account can be made here; an older core sends no such signal, and then the sentence is page chrome with the same meaning as core's refusal.
  */
 export default function SignUpPage(): JSX.Element {
   const who = useWho()
@@ -58,6 +59,17 @@ export default function SignUpPage(): JSX.Element {
   // The invitation page is for a person core has confirmed is signed in by nothing. Until core has answered (or when it could not), no claim is made about them.
   if (who.status === 'loading') return <GuestFrame testid="account-signup-loading" title="Olumi" lead="Loading…" />
   if (who.status === 'error') return <GuestFrame testid="account-signup-unread" title="Olumi" lead={<p role="alert" className={ERR}>{who.message}</p>} />
+  // Core's own word on sign-up here, when it sends one: closed with its sentence, or open (a person a private link signed in).
+  const says = who.signup
+  if (says !== null && !says.open) {
+    return (
+      <GuestFrame testid="account-signup-closed" title="Your Olumi account"
+        lead={says.words === null ? undefined : <span data-testid="account-signup-core-words">{says.words}</span>}>
+        <p className={META}>If you were not given a link, ask the person who invited you.</p>
+        <p className={META}>Already have an account? <Link to="/signin" className={LINK}>Sign in</Link></p>
+      </GuestFrame>
+    )
+  }
   if (!linked) {
     return (
       <GuestFrame testid="account-signup-invitation" title="Olumi accounts start from an invitation"

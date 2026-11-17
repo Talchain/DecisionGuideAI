@@ -129,6 +129,40 @@ describe('no open sign-up without an invitation', () => {
   })
 })
 
+describe('core\'s own word on sign-up (`/api/me` signup, core c4c1f139)', () => {
+  const CORE_WORDS = 'Olumi accounts start from an invitation. Open the link you were given, then add an email and password.'
+  it('signed out and core says closed: the page draws CORE\'S sentence, verbatim, and no form; the page\'s own invitation sentence gives way', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: null, signup: { open: false, words: CORE_WORDS } } } : undefined)
+    at('/signup', <SignUpPage />)
+    const page = await screen.findByTestId('account-signup-closed')
+    expect(screen.getByTestId('account-signup-core-words').textContent).toBe(CORE_WORDS)
+    expect(screen.queryByTestId('account-signup-invitation')).toBeNull()
+    expect(page.querySelector('form')).toBeNull()
+    expect(screen.queryByTestId('account-signup-go')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
+    expect(posts()).toEqual([])
+  })
+  it('a person a private link signed in: core says open, so the form is drawn; core says closed for them, so its sentence is drawn and no form (any sentence, as sent)', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null, signup: { open: true, words: null } } } : undefined)
+    at('/signup', <SignUpPage />)
+    await screen.findByTestId('account-signup-go')
+    expect(screen.queryByTestId('account-signup-closed')).toBeNull()
+    cleanup()
+    const OTHER = 'Core says something else here.'
+    core((_m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null, signup: { open: false, words: OTHER } } } : undefined)
+    at('/signup', <SignUpPage />)
+    expect((await screen.findByTestId('account-signup-core-words')).textContent).toBe(OTHER)
+    expect(screen.queryByTestId('account-signup-go')).toBeNull()
+  })
+  it('CONTRAST: a signal that is not core\'s shape is never drawn as core\'s; the page\'s own sentence stands, as on an older core', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: null, signup: { open: 'no', words: 7 } } } : undefined)
+    at('/signup', <SignUpPage />)
+    await screen.findByTestId('account-signup-invitation')
+    expect(screen.queryByTestId('account-signup-closed')).toBeNull()
+    expect(screen.queryByTestId('account-signup-core-words')).toBeNull()
+  })
+})
+
 describe('My scenarios (home)', () => {
   it('lists exactly the scenarios core lists, in its order, each opening its own scenario; New scenario starts one from a brief', async () => {
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: SCENARIOS } } : undefined)
@@ -475,6 +509,18 @@ describe('joining an organisation by link', () => {
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.body).toEqual({ token: 'tok-1', name: 'Bo', email: 'bo@example.com', password: 'correct horse battery' })
     expect(screen.queryByTestId('account-join-same-person')).toBeNull()
+  })
+  it('an organisation invitation is its own route: core saying ordinary sign-up is closed never hides the join form', async () => {
+    core((m, p) => {
+      if (p === '/api/me') return { body: { me: null, account: null, signup: { open: false, words: 'Olumi accounts start from an invitation. Open the link you were given, then add an email and password.' } } }
+      if (p === '/api/org/join/tok-1') return { body: { org: { name: 'Northwind' }, by: 'Olu', expires: '2026-11-24T00:00:00.000Z' } }
+      return undefined
+    })
+    at('/join/tok-1', <JoinPage />, '/join/:token')
+    await screen.findByText('Join Northwind on Olumi')
+    expect(screen.getByLabelText('Email')).toBeTruthy()
+    expect(screen.getByTestId('account-join-go')).toBeTruthy()
+    expect(screen.queryByTestId('account-signup-core-words')).toBeNull()
   })
 
   it('PL: a slow identity read cannot create a second person while the organisation invitation is ready', async () => {

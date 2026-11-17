@@ -8,6 +8,19 @@ import { call, TeamApiError } from '../team/api'
 
 export type Role = 'owner' | 'member'
 export interface Person { readonly id: string; readonly name: string }
+/**
+ * What core says about `POST /api/account/signup` for this browser, before anything is submitted (core c4c1f139, `GET /api/me`): whether an
+ * account can be made here, and core's own sentence when it cannot. It is about that route ONLY: an organisation invitation's join form
+ * never reads it. Absent on an older core.
+ */
+export interface SignupSays { readonly open: boolean; readonly words: string | null }
+/** Core's signal, or null when core sent none or not in this shape (then the page says nothing in core's name). */
+export function signupSaysOf(x: unknown): SignupSays | null {
+  if (x === null || typeof x !== 'object') return null
+  const { open, words } = x as { open?: unknown; words?: unknown }
+  if (typeof open !== 'boolean' || !(words === null || (typeof words === 'string' && words !== ''))) return null
+  return { open, words }
+}
 export interface Account { readonly email: string; readonly org: { readonly id: string; readonly name: string; readonly role: Role } }
 /** One scenario this person can open, as core lists it: `open` is its address, `version` the saved model's number (null: none yet). */
 export interface MyScenario {
@@ -20,7 +33,7 @@ export interface OrgInvite { readonly id: string; readonly by: string; readonly 
 export interface SignedIn { readonly me: Person; readonly account: Account }
 
 export const accountsApi = {
-  whoami: () => call<{ me: Person | null; account?: Account | null }>('GET', '/api/me'),
+  whoami: () => call<{ me: Person | null; account?: Account | null; signup?: unknown }>('GET', '/api/me'),
   signIn: (email: string, password: string) => call<SignedIn>('POST', '/api/account/signin', { email, password }),
   /** `attach`: add the email and password to the person this browser's private link signed in, keeping their scenarios. */
   signUp: (b: { name: string; email: string; password: string; org?: string; attach?: boolean }) => call<SignedIn>('POST', '/api/account/signup', b),
