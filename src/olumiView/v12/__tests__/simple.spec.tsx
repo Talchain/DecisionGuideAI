@@ -13,6 +13,8 @@ import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { SimpleSwitch } from '../SimpleSwitch'
+import { figureRange } from '../contract'
+import { RangeBar } from '../scale/RangeBar'
 
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
 vi.mock('../../../canvas/hydrate/serverGraphHydration', async (real) => ({ ...(await real<object>()), hydrateCanvasFromServer: vi.fn(async () => 'merged') }))
@@ -114,6 +116,18 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
 })
 
 describe('V12 Simple faces', () => {
+  it('S2r a ranged figure says core\'s own figure words at rest, above its range bar; the bar\'s ends are only its axis (UI reviewer #27: "50,000 GBP" read as a £30,000 limit)', () => {
+    // The served shape (contract `figure.range`, as scale.spec adds it), on a person's figure whose words are core's; invented values.
+    const base = model.cards.find((c) => c.family === 'quantity' && c.figure != null)!
+    const r = { ...base, author: { by: 'person', text: 't', title: 't' }, figure: { ...base.figure!, text: 'at most 30,000 GBP', range: { low: 0, likely: null, high: 30000, unit: 'GBP' } } } as typeof base
+    expect(figureRange(r), 'precondition: a range the bar draws').not.toBeNull()
+    const { container } = render(<SimpleFace card={r!} model={model} noted={false} scale={<RangeBar card={r!} view={model} />} />)
+    const words = container.querySelector(`[data-simple-figure-text="${r!.id}"]`)
+    expect(words?.textContent).toBe(r!.figure!.text)
+    const bar = container.querySelector('[data-testid="range-bar"]')
+    expect(bar).not.toBeNull()
+    expect(words!.compareDocumentPosition(bar!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // the words lead, the bar under them
+  })
   it('S2 an option with a chance is a gauge: core\'s own value words and a track, no sentence', () => {
     const c = card('broader_entry'), words = chanceWordsOf(c)
     expect(words).not.toBeNull()

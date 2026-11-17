@@ -171,8 +171,15 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const needs = needsOf(card).needs.map((n) => n.label)
     if (card.figure.text !== '') state = { text: card.figure.text, title: [card.figure.title !== '' ? card.figure.title : card.figure.text, ...needs].join('\n'), marks: { 'data-simple-face': 'pending', 'data-simple-pending': id } }
   } else if (figureRange(card) !== null && scale != null) {
-    // A figure with a range: the range bar is its one visual (its ends labelled, its unit); core's words for the figure are the hover.
-    visual = <div className="min-w-0 basis-full" data-simple-scale={id} title={card.figure?.title || card.figure?.text || undefined}>{scale}</div>
+    // A figure with a range: core's own words for the figure first, at rest (UI reviewer #27, 17 Nov: testers read the axis end "50,000 GBP" as a £30,000
+    // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
+    const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
+    visual = (
+      <div className="min-w-0 basis-full" data-simple-scale={id} title={card.figure?.title || words || undefined}>
+        {words === '' ? null : <p className={`${typography.viewValue} min-w-0 break-words`} data-simple-figure-text={id} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{words}</p>}
+        {scale}
+      </div>
+    )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
     visual = <p className={`${typography.viewValue} min-w-0 basis-full break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
