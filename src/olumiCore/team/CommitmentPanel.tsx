@@ -11,6 +11,7 @@ import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
 import { CommitForm } from '../../olumiView/v12/team/CommitForm'
+import { ReviewOnField } from './ReviewOnField'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
 /** DL 10 Nov (two-person rehearsal on 55c0c03f, bounded-trial blocker): a next action can be gathering evidence before any option is
@@ -152,8 +153,7 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
               })}
             </div>
           )}
-          <label htmlFor="team-c-review-on" className={LABEL}>When to review it (optional)</label>
-          <input id="team-c-review-on" type="date" data-testid="team-c-review-on" className={FIELD} value={reviewOn} disabled={busy} onChange={(e) => put({ reviewOn: e.target.value })} />
+          <ReviewOnField id="team-c-review-on" value={reviewOn} disabled={busy} onChange={(v) => put({ reviewOn: v })} />
           {c.dissent.length > 0 && (
             <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid="team-c-keeps">
               <legend className={LABEL}>Disagreement this keeps open (optional)</legend>

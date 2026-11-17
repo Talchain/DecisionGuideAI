@@ -13,6 +13,7 @@ import { differencesShape, resetDifferences, type Differences } from '../../../.
 import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
 import { CommitForm, COMMIT_WORDS } from '../CommitForm'
 import { CommitmentPanel } from '../../../../olumiCore/team/CommitmentPanel'
+import { REVIEW_ON_LABEL } from '../../../../olumiCore/team/ReviewOnField'
 import { DriverDifferMark } from '../DriverDifferMark'
 import { FrameEntry } from '../../views/FrameEntry'
 import { emptyConsequence, groupDifferences, NOTHING_CALCULATED } from '../../views/differGroups'
@@ -112,15 +113,16 @@ describe('Record what you will do', () => {
     for (const k of ['option', 'version', 'trigger', 'review_on']) expect(Object.keys(post[0]!.body as object)).not.toContain(k)
     expect(sent.some((s) => /proposal|approve/.test(s.url))).toBe(false)
   })
-  it('contrast: an option stored in the shared draft is never sent without an approved version, and with one it still is', async () => {
+  it('contrast: an option stored in the shared draft is never sent without an approved version, and with one it still is; the shared draft\'s review date is shown and sent either way', async () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 5 } }))
     putDraft<Record<string, unknown>>('s_x:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: ['d1'], option: 'opt_a', reviewOn: '2027-01-01' }))
     const { unmount } = render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
     openForm()
+    expect((screen.getByTestId('commit-form-review-on') as HTMLInputElement).value).toBe('2027-01-01')
     fill()
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     await waitFor(() => expect(sent.some((s) => s.method === 'POST' && /commitments$/.test(s.url))).toBe(true))
-    expect(sent.find((s) => /commitments$/.test(s.url))!.body).toEqual({ action: 'Ask three customers', owner: '1', expect: 'Two say they would pay', reconsider: 'If none will talk to us', keeps: [] })
+    expect(sent.find((s) => /commitments$/.test(s.url))!.body).toEqual({ action: 'Ask three customers', owner: '1', expect: 'Two say they would pay', reconsider: 'If none will talk to us', keeps: [], review_on: '2027-01-01' })
     unmount(); resetWrites()
     const sent2 = serve(() => ({ status: 201, body: { commitment: 6 } }))
     putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'opt_a' }))
@@ -132,6 +134,20 @@ describe('Record what you will do', () => {
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     await waitFor(() => expect(sent2.some((s) => s.method === 'POST')).toBe(true))
     expect(sent2.find((s) => s.method === 'POST')!.body).toMatchObject({ option: 'opt_a', version: 1 })
+  })
+  it('a review date picked in the short form before approval is sent as review_on, with no option, version or trigger; left empty, none is sent', async () => {
+    const sent = serve(() => ({ status: 201, body: { commitment: 7 } }))
+    let wrote = 0
+    render(<CommitForm sid="s_r" view={view({ version: null })} onWrote={async () => { wrote++; return true }} />)
+    openForm()
+    expect(screen.getByLabelText(REVIEW_ON_LABEL)).toBe(screen.getByTestId('commit-form-review-on'))
+    fill()
+    fireEvent.change(screen.getByTestId('commit-form-review-on'), { target: { value: '2027-02-01' } })
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(wrote).toBe(1))
+    const body = sent.find((s) => s.method === 'POST' && /\/commitments$/.test(s.url))!.body as Record<string, unknown>
+    expect(body['review_on']).toBe('2027-02-01')
+    for (const k of ['option', 'version', 'trigger']) expect(Object.keys(body)).not.toContain(k)
   })
   it('the Team tab\'s panel keeps its option commitment behind an approved version: with none there is no option picker, only the unanchored form', () => {
     render(<CommitmentPanel sid="s_x" view={view({ version: null })} onWrote={async () => true} />)

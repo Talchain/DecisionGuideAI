@@ -7,6 +7,7 @@ import { teamApi, TeamApiError } from '../../../olumiCore/team/api'
 import { useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
+import { ReviewOnField } from '../../../olumiCore/team/ReviewOnField'
 import { useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 
@@ -42,8 +43,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const [opened, setOpened] = useState(false)
   const hasDraft = [d.action, d.expect, d.reconsider].some((t) => t.trim() !== '')
   // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
-  // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
-  // proposal stays unapproved; nothing here is read from it.
+  // person expects, with no option, version, trigger or kept dissent (record-writes.ts commit takes option:null). A pending proposal stays
+  // unapproved; nothing here is read from it. The review date is not a model field: core takes it with or without a version, so it is sent
+  // whenever the person picked one.
   const anchored = view.version !== null
   const owner = d.owner === '' ? view.you_id : d.owner
   const ready = [d.action, d.expect, d.reconsider].every((t) => t.trim() !== '') && view.collab.owners.some((o) => o.id === owner)
@@ -52,7 +54,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     if (!ready || locked || busy) return
     setBusy(true); setError(null)
     try {
-      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: anchored && d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
+      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: anchored && d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
       drop()
       await onWrote()
     } catch (e) {
@@ -82,6 +84,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       <L id="commit-form-action" t={COMMIT_WORDS.action}>{area('commit-form-action', 'action')}</L>
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>
+      <ReviewOnField id="commit-form-review-on" value={d.reviewOn ?? ''} disabled={busy || locked} onChange={(v) => put({ reviewOn: v })} />
       {locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" data-testid="commit-form-keep" disabled={!ready || busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
