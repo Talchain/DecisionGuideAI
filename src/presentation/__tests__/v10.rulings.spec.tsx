@@ -3,7 +3,7 @@
  *
  *   1. Nothing dims. Under v10 a card the Changes view would subdue, or a selection or lens would dim, stays at full
  *      strength. The same store in the current design still dims (the contrast).
- *   2. Blue means Olumi only. The person's primary buttons resolve to ink #262626 (hover #3F3F3E, disabled the 35% look, solid) inside
+ *   2. Blue means Olumi only. The person's primary buttons resolve to Olumi's green, var(--success) (hover --success-hover, disabled one solid neutral; CHANGED BY DESIGN, Paul 17 Nov: no black buttons) inside
  *      a v10 subtree; the same markup outside it is untouched, and Olumi's own info elements are not matched.
  */
 import '@testing-library/jest-dom/vitest'
@@ -125,8 +125,9 @@ describe('v10 ruling 1: nothing dims', () => {
 
 // ── CSS: the v10 sheet, applied to real markup in jsdom ──────────────────────────────────────────────────────────
 const CSS = readFileSync(resolve(__dirname, '../v10.css'), 'utf8')
-const INK = 'rgb(38, 38, 38)'
-const INK_HOVER = 'rgb(63, 63, 62)'
+/** CHANGED BY DESIGN (Paul, 17 Nov: no black buttons; the existing green): the person's filled action and its hover, as declared. */
+const INK = 'var(--success)'
+const INK_HOVER = 'var(--success-hover)'
 
 describe('v10 ruling 2: blue means Olumi only', () => {
   let sheet: HTMLStyleElement
@@ -165,21 +166,21 @@ describe('v10 ruling 2: blue means Olumi only', () => {
     expect(bg(mount(html, 'v10'))).toBe(INK)
   })
 
-  it('the composer send button, painted inline with var(--primary), is overridden to ink (and #3F3F3E on hover)', () => {
+  it('the composer send button, painted inline with var(--primary), is overridden to green (and --success-hover on hover)', () => {
     const send = mount('<button class="send-btn" style="background: var(--primary, #277A9D)">Send</button>', 'v10')
-    expect(importantRule(send, 'background-color', '#262626')).toBe(true)
+    expect(importantRule(send, 'background-color', INK)).toBe(true)
     const hover = rules().find((r) => r.selectorText.includes('.send-btn:not(:disabled):hover'))
-    expect(hover?.style.getPropertyValue('background-color')).toBe('#3F3F3E')
+    expect(hover?.style.getPropertyValue('background-color')).toBe(INK_HOVER)
     expect(hover?.style.getPropertyPriority('background-color')).toBe('important')
     const outside = mount('<button class="send-btn" style="background: var(--primary, #277A9D)">Send</button>', 'current')
-    expect(importantRule(outside, 'background-color', '#262626')).toBe(false)
+    expect(importantRule(outside, 'background-color', INK)).toBe(false)
   })
 
   it('the disabled send button is the 35% ink look as one solid colour (nothing faded at rest, 9 Nov audit) with a white arrow', () => {
     const send = mount('<button class="send-btn" disabled><svg></svg></button>', 'v10')
-    expect(importantRule(send, 'background-color', '#B3B3B3')).toBe(true)
+    expect(importantRule(send, 'background-color', 'var(--border-default)')).toBe(true)
     expect(getComputedStyle(send).opacity).toBe('1')
-    expect(importantRule(send.querySelector('svg')!, 'stroke', '#fff')).toBe(true)
+    expect(importantRule(send.querySelector('svg')!, 'stroke', 'var(--text-light)')).toBe(true)
   })
 
   it('CONTRAST: the same markup outside v10 keeps the primary colour', () => {
@@ -190,13 +191,13 @@ describe('v10 ruling 2: blue means Olumi only', () => {
     expect(bg(mount('<span class="bg-info">mark</span>', 'v10'))).toBe('rgb(39, 122, 157)')
   })
 
-  it('hover is #3F3F3E and disabled is the 35% ink look, solid (opacity 1)', () => {
-    expect(CSS).toMatch(/:hover:not\(:disabled\)[\s\S]*?background-color:\s*#3F3F3E/i)
+  it('hover is --success-hover and disabled is one solid neutral (opacity 1)', () => {
+    expect(CSS).toMatch(/:hover:not\(:disabled\)[\s\S]*?background-color:\s*var\(--success-hover\)/i)
     const el = mount('<button class="bg-primary" disabled>Save</button>', 'v10')
-    expect(bg(el)).toBe('rgb(179, 179, 179)')
+    expect(bg(el)).toBe('var(--border-default)')
     expect(getComputedStyle(el).opacity).toBe('1')
     expect(bg(mount('<button class="bg-primary">Save</button>', 'v10'))).toBe(INK) // contrast: enabled stays ink
-    expect(INK_HOVER).toBe('rgb(63, 63, 62)')
+    expect(INK_HOVER).toBe('var(--success-hover)')
   })
 
   it('the dim markers are neutralised in v10 (backstop for anything still carrying one)', () => {
@@ -227,7 +228,7 @@ describe('v10 scope reaches roots portalled into document.body', () => {
     mountProvider('v10')
     const send = screen.getByTestId('portalled-send')
     expect(send.closest('[data-presentation="v10"]')).not.toBeNull() // it is outside the wrapper div, so this is <html>
-    expect(v10Rules().some((r) => send.matches(r.selectorText) && r.style.getPropertyValue('background-color') === '#262626')).toBe(true)
+    expect(v10Rules().some((r) => send.matches(r.selectorText) && r.style.getPropertyValue('background-color') === INK)).toBe(true)
   })
 
   it('CONTRAST: the same portalled button under the current design is not matched', () => {
@@ -246,10 +247,10 @@ describe('v10 scope reaches roots portalled into document.body', () => {
     current.unmount()
   })
 
-  it('the expanded legacy draft button, whose label carries the keyboard hint, gets the disabled ink', () => {
+  it('the expanded legacy draft button, whose label carries the keyboard hint, gets the disabled solid neutral (CHANGED BY DESIGN, 17 Nov: was the 35% ink)', () => {
     mountProvider('v10')
     document.body.insertAdjacentHTML('beforeend', '<button disabled aria-label="Generate draft (Enter to send, Shift+Enter for new line)"></button>')
     const el = document.body.querySelector('button[aria-label^="Generate draft"]')!
-    expect(v10Rules().some((r) => el.matches(r.selectorText) && /b3b3b3|179, 179, 179/i.test(r.style.getPropertyValue('background-color')) && r.style.getPropertyValue('opacity') === '1')).toBe(true)
+    expect(v10Rules().some((r) => el.matches(r.selectorText) && r.style.getPropertyValue('background-color') === 'var(--border-default)' && r.style.getPropertyValue('opacity') === '1')).toBe(true)
   })
 })

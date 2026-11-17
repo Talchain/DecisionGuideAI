@@ -130,7 +130,7 @@ describe('v10 on the core lane', () => {
     unmount()
     expect(document.documentElement.dataset['presentation']).toBeUndefined()
     const css = readFileSync(path.resolve('src/presentation/v10.css'), 'utf8')
-    expect(css).toMatch(/\[data-presentation="v10"\] button:is\(\.bg-primary[^{]*\{\s*background-color: #262626 !important;/)
+    expect(css).toMatch(/\[data-presentation="v10"\] button:is\(\.bg-primary[^{]*\{\s*background-color: var\(--success\) !important;/) // CHANGED BY DESIGN (Paul, 17 Nov): green, never ink
     expect(css).toMatch(/\[data-presentation="v10"\] \[data-selection-dimmed="true"\] \{\s*opacity: 1 !important;/)
   })
 

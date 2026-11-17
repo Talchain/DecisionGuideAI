@@ -252,8 +252,9 @@
    (overflow-y auto) is the ONE scroll body for all of them, the actions sticky at its foot, so the checklist is always drawn whole. */
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: none; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
-/* Above the v10 presentation's primary-button rule ([data-presentation=v10] button:is(.bg-primary), important). */
-.ok-pinned .ok-actions button[data-testid='view-approve'], .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--text-header) !important; border-color: var(--text-header) !important; color: var(--bg-panel) !important; }
+/* Approve is the person's one filled action: Olumi's green with an ink label (Paul, 17 Nov: no black buttons; existing colours only). */
+.ok-pinned .ok-actions button[data-testid='view-approve'] { background: var(--success) !important; border-color: var(--success) !important; color: var(--text-header) !important; }
+.ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--success-hover) !important; border-color: var(--success-hover) !important; color: var(--text-header) !important; }
 .ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 8px 0 12px; box-shadow: 0 -8px 8px -8px color-mix(in srgb, var(--text-header) 12%, transparent); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */

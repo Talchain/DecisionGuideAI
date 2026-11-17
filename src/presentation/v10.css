@@ -6,9 +6,10 @@
  *    first block is the backstop for anything that still carries a dim marker, so no card or link is ever left
  *    below full strength. What matters is shown by emphasis (the changed card's outline and word, the lit ring).
  *
- * 2. BLUE MEANS OLUMI ONLY. The person's own primary actions (Run analysis, Save, Confirm, Send) are ink #262626
- *    with white text; hover #3F3F3E; disabled is ink at 35%. Olumi's own elements keep --info: its mark, the
- *    pointing ring, chips naming records and notes. Only buttons are targeted, never every .bg-info.
+ * 2. BLUE MEANS OLUMI ONLY. The person's own primary actions (Run analysis, Save, Confirm, Send) are Olumi's green
+ *    (--success, hover --success-hover, active --success-active) with an ink label (--text-header): Paul, 17 Nov, "there should be no
+ *    black buttons… Maybe we use the green for interaction buttons" and "Don't add completely new colours" (was ink #262626). Disabled is
+ *    one solid neutral (--border-default) with a light label. Olumi's own elements keep --info. Only buttons are targeted, never every .bg-info.
  */
 
 /* ── 1. Nothing dims ─────────────────────────────────────────────────────────────────────────────────────────── */
@@ -24,9 +25,14 @@
 [data-presentation="v10"] button[class*="graphPatchAccept"],
 /* Inline-styled buttons that paint var(--primary): the composer's send and Generate model, the draft box's submit. */
 [data-presentation="v10"] button[style*="var(--primary"] {
-  background-color: #262626 !important;
+  background-color: var(--success) !important;
   border-color: transparent;
-  color: #fff;
+  color: var(--text-header) !important;
+}
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):not(:disabled) svg,
+[data-presentation="v10"] button[style*="var(--primary"]:not(:disabled) svg,
+[data-presentation="v10"] .send-btn:not(:disabled) svg {
+  stroke: var(--text-header) !important;
 }
 
 [data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):hover:not(:disabled),
@@ -35,26 +41,31 @@
 [data-presentation="v10"] button[style*="var(--primary"]:hover:not(:disabled),
 [data-presentation="v10"] .send-btn:not(:disabled):hover,
 [data-presentation="v10"] .inline-gen-btn[data-active]:hover {
-  background-color: #3F3F3E !important;
+  background-color: var(--success-hover) !important;
   opacity: 1;
 }
+[data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):active:not(:disabled),
+[data-presentation="v10"] button[style*="var(--primary"]:active:not(:disabled),
+[data-presentation="v10"] .send-btn:not(:disabled):active {
+  background-color: var(--success-active) !important;
+}
 
-/* Disabled: the look of the ink at about 35% on the panel, as one solid colour (Paul's gate, 8 Nov: nothing faded at rest; the 1232 audit on
-   0186d369 found the composer's Send at opacity 0.35), whichever recipe the button came in. */
+/* Disabled: one solid neutral with a light label (Paul's gate, 8 Nov: nothing faded at rest; the 1232 audit on 0186d369 found the composer's Send
+   at opacity 0.35), whichever recipe the button came in. */
 [data-presentation="v10"] button:is(.bg-primary, .bg-info, .bg-info-500, .bg-info-600):disabled,
 [data-presentation="v10"] button[class*="graphPatchAccept"]:disabled,
 [data-presentation="v10"] .send-btn:disabled,
 [data-presentation="v10"] button[aria-label^="Generate draft"]:disabled,
 [data-presentation="v10"] button[aria-label^="Rebuild model"]:disabled {
-  background-color: #B3B3B3 !important;
+  background-color: var(--border-default) !important;
   border-color: transparent !important;
-  color: #fff !important;
+  color: var(--text-light) !important;
   opacity: 1;
 }
 
-/* The send arrow and the draft box's glyph are inline-stroked in grey while disabled; keep them white on the ink. */
+/* The send arrow and the draft box's glyph while disabled: the light label colour on the solid neutral. */
 [data-presentation="v10"] .send-btn:disabled svg {
-  stroke: #fff !important;
+  stroke: var(--text-light) !important;
 }
 
 /* ── 3. A proposal's ghost (core lane: the shell marks it, `data-proposed-card`, from core's `change.kind`) ────────────────────────── */
