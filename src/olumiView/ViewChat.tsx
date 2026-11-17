@@ -918,7 +918,7 @@ export function tryAgain(): Promise<boolean> {
  * "Build a model from this" (DL 06:0xZ; Codex UI review 05:44:59Z): core's offer to draft a model from the reasoning so far (the conversation with
  * its writers, revealed views, kept ideas as Olumi's provisional ones). Core sends ONE View field shaped as `draft.stop` ({ label, title }) only
  * where a press would draft from the current reasoning; the page draws the offer only then, in core's words, and never decides it itself.
- * PROVISIONAL path until sx-team posts the field's exact path (BUILD_FIELD is the one place it is read).
+ * The path is core's (sx-team 06:11:29Z): top-level `build_model: { label, title }`, absent everywhere else; BUILD_FIELD is the one place it is read.
  */
 export const BUILD_FIELD = 'build_model'
 export function buildOfferOf(view: View | null): { label: string; title: string } | null {

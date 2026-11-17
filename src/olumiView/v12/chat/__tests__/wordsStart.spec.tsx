@@ -303,7 +303,8 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
 })
 
 describe('4. "Build a model from this": one plain item in the existing menu, only where core offers it, in core\'s words', () => {
-  const OFFER = { label: 'Build a model from this', title: 'Olumi drafts a model from the conversation so far, with your kept ideas as its provisional ones.' }
+  // Core's words for the offer (sx-team 06:11:29Z): top-level `build_model`, present only where a press would draft from the current reasoning.
+  const OFFER = { label: 'Build a model from this', title: 'Olumi drafts a model from the conversation so far and the ideas kept, each under its author, for you to review.' }
   const withOffer = (over: Record<string, unknown> = {}) => inWords({ floor: [row(9)], [BUILD_FIELD]: OFFER, ...over })
   const openMenu = async (c: HTMLElement) => { await press(q(c, 'view-actions-button')) }
 
