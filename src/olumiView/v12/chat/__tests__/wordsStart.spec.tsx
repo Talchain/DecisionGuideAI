@@ -22,8 +22,11 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
-import { challengeQuestionOf, developQuestionOf, floorEntryOf, ideaMethodOf, ideaTextOf, keptIdeasOf } from '../../ideas'
-import { ideaDetailOf } from '../../bands/IdeaPanel'
+import { floorEntryOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
+import { ideaDetailOf, IdeaPanel } from '../../bands/IdeaPanel'
+import { IDEA_PREFIX } from '../../bands/bands'
+import { VIEW_IDEA } from '../../bands/BandNodes'
+import { V10_METHODS } from '../../../../presentation/V10MethodChips'
 import { sessionOf } from '../../../layout'
 import { KEPT_IDEA } from '../../KeepIdea'
 
@@ -57,7 +60,7 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/')
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setPagePerson(null); useMe.setState({ me: { id: '7', name: 'Ada' } } as never)
-  useCanvasStore.setState({ currentScenarioId: UUID } as never)
+  useCanvasStore.setState({ currentScenarioId: UUID, nodes: [] } as never)
   setTeamFetch((async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return answer(url) }
     if (url === '/api/me') return new Response(JSON.stringify({ me: { id: '7', name: 'Ada' } }), { status: 200 }) // core's answer to whose link this is (api.ts stillThisPerson)
@@ -173,11 +176,11 @@ describe('2. a scenario started in words takes messages, never a second brief', 
     expect(takesBrief(SID, inWords({ start: undefined }))).toBe(true)
   })
 
-  it('what the person sends there is a message to THIS scenario, and the composer shows no method icons and no second choice', async () => {
+  it('what the person sends there is a message to THIS scenario; the composer keeps its four method icons (they only fill the box) and offers no second choice', async () => {
     answer = () => new Response(JSON.stringify({ job: 42, status_url: null }), { status: 202 })
     const c = show(inWords({ floor: [row(9)] }))
     expect(qa(c, 'view-composer-talk-first')).toHaveLength(0)
-    expect(c.querySelectorAll('[data-testid^="view-composer-method-"]')).toHaveLength(0)
+    expect([...c.querySelectorAll('[data-testid^="view-composer-method-"]')].map((b) => b.getAttribute('data-testid'))).toEqual(V10_METHODS.map((m) => `view-composer-method-${m.key}`))
     type(c, SAID)
     await press(q(c, 'view-composer-send'))
     await waitFor(() => expect(posts).toHaveLength(1))
@@ -238,7 +241,7 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: LINE_2 } })
   })
 
-  it('numbered lines and a long paragraph: each entry core serves (markers dropped) keeps its Keep; a long entry sends its opening whole sentences; CONTRAST: a line that only ends with an entry after a word is not it', async () => {
+  it('numbered lines and a long paragraph: each entry core serves (markers dropped) keeps its Keep and is sent VERBATIM, with no length cap; CONTRAST: a line that only ends with an entry after a word is not it', async () => {
     const LONG = Array.from({ length: 6 }, (_, k) => `Step ${k + 1} of the trial is to count the walk-in repairs on a different weekday and write down which jobs were turned away for lack of a bench.`).join(' ')
     expect([...LONG].length).toBeGreaterThan(400)
     answer = () => new Response(JSON.stringify({ kept: 70 + posts.length }), { status: 201 })
@@ -248,8 +251,7 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(keeps).toHaveLength(3)
     for (const k of keeps) await press(k)
     await waitFor(() => expect(posts).toHaveLength(3))
-    expect(posts.map((p) => p.body['text'])).toEqual([IDEA_A, IDEA_B, ideaTextOf({ answer: [{ text: LONG }] } as never)])
-    expect([...String(posts[2]!.body['text'])].length).toBeLessThanOrEqual(400)
+    expect(posts.map((p) => p.body['text'])).toEqual([IDEA_A, IDEA_B, LONG])
     expect(floorEntryOf([IDEA_A], `Never ${IDEA_A}`)).toBeNull()
     expect(floorEntryOf([IDEA_A], `• ${IDEA_A}`)).toBe(IDEA_A)
   })
@@ -269,19 +271,24 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(ideaDetailOf(inWords({ floor: [ideasRow(21, said, undefined)] }), chatIdea).source).toBe('From a reply that is not in this conversation')
   })
 
-  it('Develop and Challenge on a kept floor idea put its exact words in the box; on a words scenario Send asks it as a message, answered on the floor', async () => {
+  it('Develop and Challenge, pressed on the opened kept floor idea, put its exact words in the box; Send asks it on THIS scenario as a message (the floor path)', async () => {
     answer = () => new Response(JSON.stringify({ job: 43, status_url: null }), { status: 202 })
-    const c = show(inWords({ floor: [ideasRow(21, SAID, [IDEA_A, IDEA_B])], kept: [keptRow(50, 21, IDEA_A, 'floor')] }))
-    const idea = keptIdeasOf(useViewStore.getState().view)[0]!
-    for (const ask of [developQuestionOf(idea), challengeQuestionOf(idea)]) {
+    const view = inWords({ floor: [ideasRow(21, SAID, [IDEA_A, IDEA_B])], kept: [keptRow(50, 21, IDEA_A, 'floor')] })
+    const idea = keptIdeasOf(view)[0]!
+    useCanvasStore.setState({ nodes: [{ id: IDEA_PREFIX + idea.id, type: VIEW_IDEA, selected: true, position: { x: 0, y: 0 }, data: {} }] } as never)
+    useViewStore.setState({ uuid: UUID, sid: SID, view, status: 'ready', error: null, stale: false, at: null })
+    const c = render(<><IdeaPanel /><ViewChat /><ViewComposer /></>).container
+    expect(q(c, 'view-idea-panel-source')?.textContent).toBe(`From Olumi’s reply to “${SAID}”`)
+    for (const button of ['view-idea-develop', 'view-idea-challenge']) {
       posts = []
-      type(c, ask)
+      await press(q(c, button))
+      const ask = useViewChat.getState().text
+      expect(ask).toContain(`“${IDEA_A}”`)
       await press(q(c, 'view-composer-send'))
       await waitFor(() => expect(posts).toHaveLength(1))
-      expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/messages`)
-      expect(posts[0]!.body['text']).toBe(ask)
-      expect(String(posts[0]!.body['text'])).toContain(IDEA_A)
+      expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/messages`, body: { text: ask, op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
     }
+    useCanvasStore.setState({ nodes: [] } as never)
   })
 
   it('a refusal is core\'s own words beside that Keep, and nothing is shown as kept', async () => {

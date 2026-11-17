@@ -103,9 +103,6 @@ export function floorEntryOf(entries: readonly string[], line: string): string |
   const w = line.replace(/\s+/g, ' ').trim()
   return entries.find((e) => w === e || (w.endsWith(` ${e}`) && /^[^\p{L}\s]{1,4}$/u.test(w.slice(0, w.length - e.length - 1)))) ?? null
 }
-/** The words a Keep on that entry sends: the whole entry, or, where it is longer than an idea may be, its opening whole sentences (ideaTextOf). */
-export const floorKeepWordsOf = (entry: string): string | null =>
-  [...entry].length <= IDEA_MAX ? entry : ideaTextOf({ answer: [{ text: entry }] } as unknown as NonNullable<ViewTurn['answer']>)
 
 /** An idea the scenario holds (View `strategy.items[kind='idea']`: Olumi's idea, the reply it came from, the person who kept it). */
 export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null; /** Kept from a floor reply (View `kept[].from: "floor"`, words-start CONTRACT 5): `sourceTurn` is that reply's `floor[].job`, not a `chat[].id`. */ fromFloor?: true }

@@ -50,7 +50,7 @@ import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
-import { approachOf, approachesOf, floorEntryOf, floorKeepWordsOf, ideaTextOf, isCoachedReply } from './v12/ideas'
+import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
@@ -362,13 +362,13 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z and 04:41:16Z): core offers what can be kept on this row (`prose`: each line of Olumi's
-  // own prose, as served, one entry each). Each entry is offered on its own line, as it is; nothing is read from the text (which also holds the
-  // host's lines) and no entry is split or rejoined here. Core stays the only authority on what may be kept.
+  // own prose, as served, one entry each). Each entry is offered on the line that draws it and kept VERBATIM (Codex root 05:32:34Z): no length
+  // cap, no list rule, nothing read from the text (which also holds the host's lines). Core stays the only authority on what may be kept.
   const sid = useViewStore((st) => st.sid)
   const entries = sid === null ? [] : f.prose ?? []
   const keepEach = sid === null || entries.length === 0 ? undefined : (line: string) => {
-    const entry = floorEntryOf(entries, line), words = entry === null ? null : floorKeepWordsOf(entry)
-    return words === null ? null : <KeepIdea sid={sid} turn={f.job} text={words} inline floor />
+    const entry = floorEntryOf(entries, line)
+    return entry === null ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
   }
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
@@ -930,8 +930,6 @@ const holdsKept = (view: View): boolean => { const k = (view as { kept?: unknown
  *  so it holds before the first reply and after any reopen. Never inferred from what is absent. What the person sends there is a message in that
  *  scenario, answered on the floor, never a new brief. */
 export const startedInWords = (view: View | null): boolean => view !== null && (view as { start?: unknown }).start === 'words'
-/** Started in words and still without a model (Try again may build one later, CONTRACT 3): the method icons wait, as they do with no model. */
-const wordsNoModel = (view: View): boolean => startedInWords(view) && view.version === null && view.proposal === null
 export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view) && !holdsKept(view) && !startedInWords(view))
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
@@ -1725,7 +1723,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const submit = () => { if (!sendHeld) void send() }
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
-  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) && !wordsNoModel(view)
+  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
