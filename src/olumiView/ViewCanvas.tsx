@@ -150,6 +150,20 @@ export const FACE_RANGE: Record<FaceRegime, readonly [number, number]> = {
 /** The board as last drawn with each face: its places and heights, and the zoom it was drawn at. */
 export type FaceSnap = { readonly zoom: number; readonly nodes: readonly Node[] }
 
+/** The camera's stand-in for the top of the kept ideas' label room (never drawn). */
+export const IDEAS_TOP = 'frame:ideas-top'
+/**
+ * The nodes the camera frames. Kept ideas with no model (Test pilot, pair v3, 06:29Z: "Ideas you kept" sat under the top bar at all three sizes):
+ * ideasOnlyPlaces lays the first row out at SIMPLE_GAP_Y and leaves the band label's room above it, from y 0; the label is not a node, so a frame
+ * from the nodes alone put the first row at the top of the free canvas and the label under the bar. That room is the board's top: a zero-size
+ * stand-in at y 0 joins the nodes framed. A board with a model is framed from its nodes as before (its question card is its top).
+ */
+export function frameNodesOf(nodes: readonly Node[], ideasOnly: boolean): Node[] {
+  if (!ideasOnly || nodes.length === 0) return [...nodes]
+  const x = Math.min(...nodes.map((n) => n.position.x))
+  return [...nodes, { id: IDEAS_TOP, position: { x, y: 0 }, data: {}, width: 0, height: 0, measured: { width: 0, height: 0 } }]
+}
+
 /**
  * ORDER-UI-5 (4), DL-408: the one frame for a board, from heights MEASURED with the faces that frame will draw. The old rule framed the
  * board as drawn at the moment, so a fit from one face's heights landed in another face's band, the cards changed height, and the camera
@@ -266,7 +280,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
   const seen = useRef<{ held: boolean; n: number | null } | null>(null)
   const aim = useRef<string | null>(null)
   const fit = useCallback(() => {
-    const drawn = viewNodes(getNodes()), zoom = getViewport().zoom
+    const drawn = frameNodesOf(viewNodes(getNodes()), useViewStore.getState().view?.model == null), zoom = getViewport().zoom
     const simple = levelOf(useViewStore.getState().sid) === 'simple'
     if (drawn.length > 0) snaps.current = { ...snaps.current, [simple ? 'full' : faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
     const v = cameraFrame(snaps.current, pane.current, undefined, aim.current, simple)
@@ -276,7 +290,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
   // V12: the level is part of the board's key, so switching Simple / Working frames the board it made (a reveal of one card does not).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
-  const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}|${level}` })
+  // Kept ideas with no model are a board too (one camera, pair v3): each kept set is framed once, as a version is.
+  const version = useViewStore((s) => { const k = boardKeyOf(s.sid, s.view) || ideasBoardKeyOf(s.sid, s.view); return k === '' ? '' : `${k}|${openBadgesKeyOf(s.view)}|${level}` })
   /**
    * The bounded settle: frame the board once it has settled (every card measured; its heights, places, the camera and the free canvas's insets unchanged
    * across a frame), and again if the settled board changed, at most MAX_FITS times; a pan or zoom by the person ends it. Returns its stop.
@@ -295,8 +310,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
       }
       // The cards the canvas holds (Simple may fold some inputs away, and draws kept ideas and group cards), so the settle signal waits for what is drawn.
       const held = new Set(getNodes().map((n) => n.id))
-      const cards = useViewStore.getState().view?.model?.cards ?? []
-      const ids = settleIdsOf(held, cards)
+      const model = useViewStore.getState().view?.model ?? null
+      const ids = settleIdsOf(held, model?.cards ?? [], model !== null)
       const drawn = measuredOf(getNodes(), ids)
       // D3 (17 Nov): the free canvas's insets are part of the board (the lens bar or the panel placed late, a resize): the camera frames the room it has.
       const room = JSON.stringify(paddingToInsets(computeFitPadding()))
@@ -342,27 +357,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
   return fit
 }
 
-/**
- * The camera for the ideas-only board (no model, so the model's own framing has nothing to frame, camera.ts boardKeyOf): the kept ideas are put in
- * view once every card is measured, never over a move the person made, and again when Fit is pressed. Returns that framing.
- */
-function useFrameIdeas(active: boolean, userMoved: React.MutableRefObject<boolean>): () => void {
-  const { fitView, getNodes } = useReactFlow()
-  const ids = useCanvasStore((s) => s.nodes.filter((n) => n.type === VIEW_IDEA).map((n) => n.id).join('|'))
-  const frame = useCallback(() => { void fitView({ nodes: getNodes().filter((n) => n.type === VIEW_IDEA), padding: 0.25, minZoom: 0.8, maxZoom: FRAME_MAX_ZOOM, duration: 0 }) }, [fitView, getNodes])
-  useEffect(() => {
-    if (!active || ids === '') return undefined
-    let raf = 0, tries = 0
-    const tick = () => {
-      if (userMoved.current) return
-      const held = getNodes().filter((n) => n.type === VIEW_IDEA)
-      if (held.length > 0 && held.every((n) => (n.measured?.width ?? 0) > 0)) { frame(); return }
-      if (++tries < 120) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [active, ids, frame, getNodes, userMoved])
-  return frame
+/** The board key of kept ideas with no model (camera.ts boardKeyOf has none: no version, no proposal): the scenario and the kept set. */
+export const ideasBoardKeyOf = (sid: string | null, view: View | null): string => {
+  if (sid === null || view === null || view.model != null) return ''
+  const kept = keptIdeasOf(view)
+  return kept.length === 0 ? '' : `${sid}:ideas:${kept.map((i) => i.id).join(',')}`
 }
 
 function ViewFlow() {
@@ -474,7 +473,6 @@ function ViewFlow() {
   // Codex 008e #1: kept ideas with no model are the board (their band alone), so the welcome does not stand over them. The dock's own message
   // box takes the words then (DockComposer draws it whenever no welcome is up). No toolbar or model control is shown for a model that is not there.
   const ideasOnly = useViewStore((s) => s.view !== null && s.view.model == null && keptIdeasOf(s.view).length > 0)
-  const frameIdeas = useFrameIdeas(ideasOnly, userMoved)
   const level = useLevel()
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
@@ -515,7 +513,7 @@ function ViewFlow() {
         // Fit is the person's own deliberate move too: a reply's pending pan and pulse (replyInView.ts) are cancelled, and the camera stays theirs for QUIET_MS.
         // Bumping movedAt also releases any reveal, open-in-view or try-in-view pan still pending (revealCamera.ts), so none of them moves the camera after Fit: deliberate.
         // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
-        onFitView={() => { userMoved.current = false; hand(); if (ideasOnly) frameIdeas(); else fit() }}
+        onFitView={() => { userMoved.current = false; hand(); fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; clearLayoutUndo(); if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}

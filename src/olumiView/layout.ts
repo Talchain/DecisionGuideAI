@@ -119,9 +119,10 @@ export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option'
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'
 /** The nodes the canvas waits on before it settles: the question, each model card it holds, and the kept ideas and group cards it draws (the folded
- *  inputs' `group:inputs` and each row's `group:<kind>:<band>`, v12/bands/groups.ts) (picking, so here). */
-export const settleIdsOf = (held: ReadonlySet<string>, cards: readonly { id: string }[]): Set<string> =>
-  new Set([QUESTION, ...cards.map((c) => c.id).filter((id) => held.has(id)), ...[...held].filter((id) => id.startsWith('idea:') || id.startsWith('group:'))])
+ *  inputs' `group:inputs` and each row's `group:<kind>:<band>`, v12/bands/groups.ts) (picking, so here). Kept ideas with no model have no question
+ *  card to wait on (`hasModel` false): waiting on one held their frame to the FRAME_WAIT_MS cap. */
+export const settleIdsOf = (held: ReadonlySet<string>, cards: readonly { id: string }[], hasModel = true): Set<string> =>
+  new Set([...(hasModel ? [QUESTION] : []), ...cards.map((c) => c.id).filter((id) => held.has(id)), ...[...held].filter((id) => id.startsWith('idea:') || id.startsWith('group:'))])
 
 /** How wide the question's card is: two cards and the gap between them, as the original canvas draws its decision card (DL 4 Nov, the
  *  original look; core's page drew it as wide as its columns, up to 900px, which ran under the dock at a readable zoom). The causal
