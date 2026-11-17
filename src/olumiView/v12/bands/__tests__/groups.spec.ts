@@ -45,10 +45,10 @@ describe('which cards fold on Simple (D1a, D1b): read from change, author.by and
   // REBOUND (DL 17 Nov ~03:50Z): v2 drew every approved note (an over-reading of "approved never grouped", which was about structural cards); the approved
   // funding board became a tangle of sentence cards. Approved sentence-only records fold again; structural approved cards never do (G2b).
   it('G2 an approved note folds into the notes stack (D1b), whoever wrote it; the same note in the proposal by Olumi is in the proposal group instead', () => {
-    for (const by of [person, olumi]) { const note = as('fitting', 'note', by, null); expect(groupKindOf(note, withCards([note]).model, withCards([note]).view)).toBe('notes') }
-    const mine = as('fitting', 'note', person, null)
-    expect(groupKindOf(mine, withCards([mine]).model, withCards([mine]).view)).toBe('notes')
-    const proposed = as('fitting', 'note', olumi, added)
+    // A record that is only a sentence holds no figure: the fixture card is spread with `figure: null` (its own figure would make it a figure, G2b).
+    const sentence = (by: typeof olumi, change: typeof added | null) => ({ ...as('fitting', 'note', by, change), figure: null }) as ViewCard
+    for (const by of [person, olumi]) { const note = sentence(by, null); expect(groupKindOf(note, withCards([note]).model, withCards([note]).view), by.by).toBe('notes') }
+    const proposed = sentence(olumi, added)
     expect(groupKindOf(proposed, withCards([proposed]).model, withCards([proposed]).view)).toBe('proposed')
   })
 })
