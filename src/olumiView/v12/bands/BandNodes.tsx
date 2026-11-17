@@ -43,10 +43,10 @@ export function IdeaCard({ data }: NodeProps) {
   return (
     <div data-view-idea={idea.id} data-testid="view-idea-card" role="button" tabIndex={0} aria-expanded={open} data-idea-open={open ? 'true' : 'false'}
       onClick={toggle} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); toggle() } }} title={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
-      className="nodrag nopan relative cursor-pointer rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+      className="nopan relative cursor-pointer rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {idea.olumis ? <span data-idea-mark="olumi" aria-label="Olumi's idea" role="img" className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-panel border border-panel-border"><Sparkles size={10} style={{ color: 'var(--semantic-info)' }} aria-hidden="true" /></span> : null}
       {/* The kept words as the conversation draws the reply they came from (DL, pair v3: the card showed `**` and "## " raw), at the board's type size. */}
-      <div className="space-y-1 break-words" data-testid="view-idea-text" style={open ? undefined : { maxHeight: IDEA_CLAMP_MAX, overflow: 'hidden' }}><ReplyBlocks text={idea.text} /></div>
+      <div className="space-y-1 break-words" data-testid="view-idea-text" style={open ? undefined : { maxHeight: IDEA_CLAMP_MAX, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: IDEA_CLAMP_LINES, WebkitBoxOrient: 'vertical' }}><ReplyBlocks text={idea.text} /></div>
     </div>
   )
 }

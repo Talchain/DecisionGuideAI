@@ -444,10 +444,10 @@
 }
 
 /* The prototype's outlined Share: ink words on no fill, a quiet edge. */
+/* v11: Share is one icon button; it keeps the 44 px hit area the other icon controls have (below). */
 .coreShare {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   height: 38px;
   width: 38px;
   justify-content: center;
@@ -456,8 +456,6 @@
   border-radius: 999px;
   background: transparent;
   color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
 }
 
@@ -469,11 +467,13 @@
 /* V11 pixel pass (9 Nov, Paul's look rule: 44 px targets): the top bar's icon controls and the home mark keep their drawn size and
  * take a 44 px hit area, centred, as the comps do (`.btn-sm::after`). The kebab composes .iconButton, so it has one too. */
 .iconButton,
-.logoLink {
+.logoLink,
+.coreShare {
   position: relative;
 }
 .iconButton::after,
-.logoLink::after {
+.logoLink::after,
+.coreShare::after {
   content: '';
   position: absolute;
   left: 50%;

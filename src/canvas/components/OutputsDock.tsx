@@ -971,7 +971,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // surface invariant ("never both at once") still holds.
   // Paul 14 Oct 2026: all five tabs shown from the start. Compare is no longer held back until a run pair
   // exists (supersedes workstream D, 8 Oct); before then its body shows its own "No comparison yet" state.
-  const effectiveActiveTab = state.activeTab
+  // v11 item D: before a model exists the lane shows Olumi and Team only (Team: a member core holds gives their own view first, laneOwnViewFirst),
+  // so a remembered other tab is not drawn and the Olumi body is (review).
+  const effectiveActiveTab = coreEmpty && state.activeTab !== 'olumi' && state.activeTab !== 'team' ? 'olumi' : state.activeTab
 
   /**
    * ⭐⭐ ONE DERIVATION OF "THIS RUN START WILL FRONT THE ANALYSIS TAB", read by
@@ -2847,7 +2849,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
   const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
-    () => (coreEmpty ? getOutputTabsForParity().filter(t => t.id === 'olumi') : getOutputTabsForParity()),
+    () => (coreEmpty ? getOutputTabsForParity().filter(t => t.id === 'olumi' || t.id === 'team') : getOutputTabsForParity()),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     // No `isJourneyTabEnabled()` here: `getOutputTabsForParity` no longer reads
     // it (journey is hidden by contract), so listing it would re-run this memo
