@@ -34,26 +34,42 @@ beforeEach(() => {
 })
 afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }) })
 
-// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the lead's D1): Simple folds Olumi's unreviewed proposals and the approved notes into one group card per
-// row (v12/bands/groups.ts); Detailed draws every card. Was: Simple and Detailed draw every card.
-const groups = cardGroupsOf(whole, european), grouped = new Set(groups.flatMap((g) => g.cards))
-const drawnOnSimple = whole.cards.filter((c) => !grouped.has(c.id)).map((c) => c.id)
-describe('V12 Simple draws the whole model, its groups folded (D1)', () => {
-  it('S1 Simple draws every card but the grouped ones, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
+// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the DL's ruling the same day): Simple folds ONLY Olumi's unreviewed proposals into one group card per row
+// (v12/bands/groups.ts); an approved card, a note included, is always drawn; Detailed draws every card. Was: approved notes folded into a notes stack too.
+// The served european model is approved throughout, so nothing in it folds (S1a). S1 puts two of Olumi's own figures into a pending proposal
+// (core's `change` mark, an invented title), the one field that makes them unreviewed.
+const PENDING = { glyph: '+', title: 'An invented proposal', kind: 'added' }
+const PROPOSED = ['horizon', 'existing_market_acquisitions']
+const proposing = { ...european, model: { ...model, cards: model.cards.map((c) => (PROPOSED.includes(c.id) ? { ...c, kind: 'driver', change: PENDING } : c)) } } as unknown as View
+const wholeP = drawnModelOf(proposing.model!)
+const groups = cardGroupsOf(wholeP, proposing), grouped = new Set(groups.flatMap((g) => g.cards))
+const drawnOnSimple = wholeP.cards.filter((c) => !grouped.has(c.id)).map((c) => c.id)
+const drawn = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
+const groupCounts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
+describe('V12 Simple draws the whole model, only Olumi\'s unreviewed proposals folded (D1)', () => {
+  it('S1 Simple draws every card but Olumi\'s unreviewed proposals, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
+    act(() => useViewStore.setState({ view: proposing }))
     const { rerender } = renderHook(() => useViewCanvas(true))
-    const ids = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
-    const counts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
     const links = () => useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK).length
     expect(levelOf(SID)).toBe('simple')
-    expect(grouped.size, 'precondition: the fixture has cards Simple folds').toBeGreaterThan(0)
-    await vi.waitFor(() => expect(ids()).toEqual(drawnOnSimple))
-    expect(counts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
-    expect(whole.cards.length, 'CONTRAST: a model with many cards').toBeGreaterThan(10)
+    expect([...grouped].sort(), 'precondition: exactly the two proposed figures fold, both authored by Olumi').toEqual([...PROPOSED].sort())
+    expect(PROPOSED.map((id) => card(id).author?.by)).toEqual(['olumi', 'olumi'])
+    await vi.waitFor(() => expect(drawn()).toEqual(drawnOnSimple))
+    expect(groupCounts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
+    expect(wholeP.cards.length, 'CONTRAST: a model with many cards').toBeGreaterThan(10)
     expect(links()).toBeGreaterThan(5)
     act(() => showWholeModel(SID)); rerender()
-    await vi.waitFor(() => expect(ids()).toEqual(whole.cards.map((c) => c.id)))
-    expect(counts(), 'Detailed folds nothing').toEqual([])
-    expect(links()).toBe(cardLinks(whole).length)
+    await vi.waitFor(() => expect(drawn()).toEqual(wholeP.cards.map((c) => c.id)))
+    expect(groupCounts(), 'Detailed folds nothing').toEqual([])
+    expect(links()).toBe(cardLinks(wholeP).length)
+  })
+  it('S1a CONTRAST: the approved model as served (no pending proposal) folds nothing on Simple: every card is drawn, its approved assumption and notes included', async () => {
+    expect([european.proposal ?? null, cardGroupsOf(whole, european)]).toEqual([null, []])
+    renderHook(() => useViewCanvas(true))
+    expect(levelOf(SID)).toBe('simple')
+    await vi.waitFor(() => expect(drawn()).toEqual(whole.cards.map((c) => c.id)))
+    expect(drawn()).toContain('customer_flow_assumptions')
+    expect(groupCounts()).toEqual([])
   })
 })
 

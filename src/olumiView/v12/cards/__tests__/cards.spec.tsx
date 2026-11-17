@@ -457,3 +457,20 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     expect(lineOf(draw(APP, id, 'simple'))).toBeNull()
   })
 })
+
+describe('an option\'s other results say core\'s whole sentence on hover (DL 17 Nov: a result\'s condition must be reachable, not only its short value)', () => {
+  type Other = { aim?: string; aim_id: string; value: string; title: string }
+  const o = cardOf(EU, 'broader_entry')
+  const others = o.rows.filter((r) => r.aim_id != null && r.aim_id !== o.headline!.aim_id) as unknown as Other[]
+  const short = (r: Other) => `${r.aim ?? cardOf(EU, r.aim_id).heading} ${r.value}`
+  const hoverOf = (v: View) => draw(v, o.id, 'simple').querySelector<HTMLElement>(`[data-simple-card="${o.id}"]`)!.title.split('\n')
+  it('M1 Simple: each other result is its name and short value, then core\'s sentence (`title`), in core\'s row order', () => {
+    expect(others.map((r) => r.aim_id), 'the served option has two results besides its headline').toEqual(['investment_limit', 'proposed_churn_guardrail'])
+    expect(others.every((r) => r.title !== '' && r.title !== short(r))).toBe(true)
+    expect(hoverOf(EU)).toEqual(others.flatMap((r) => [short(r), r.title]))
+  })
+  it('M2 CONTRAST: a result core sends no sentence for is its short line only; nothing is made up', () => {
+    const bare = withCard(EU, { ...o, rows: o.rows.map((r) => (r.aim_id === 'investment_limit' ? { ...r, title: '' } : r)) } as unknown as ViewCard)
+    expect(hoverOf(bare)).toEqual([short(others[0]!), short(others[1]!), others[1]!.title])
+  })
+})
