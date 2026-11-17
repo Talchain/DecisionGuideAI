@@ -17,7 +17,7 @@ import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
-import { KeyPill, keyLinesOf } from '../KeyPill'
+import { KeyLines, keyLinesOf } from '../KeyPill'
 import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -73,7 +73,7 @@ describe('bands: Simple layout', () => {
     expect(maxY(of('inputs'))).toBeLessThan(minY(of('outcomes')))
     expect(maxY(of('outcomes'))).toBeLessThan(minY(of('aims')))
   })
-  it('B5 each present band has one label, in one left column (the board\'s left edge), standing over its first row in the 48 unit row gap (R1)', async () => {
+  it('B5 CHANGED BY DESIGN (Paul 17 Nov, compact centred rows): each present band has one label, over its OWN first row\'s left edge, in the 48 unit row gap (R1)', async () => {
     const { places, y } = await placed(model)
     const nodes = [...places].map(([id, position]) => ({ id, position }))
     const labels = bandLabelsOf(nodes, model)
@@ -82,8 +82,12 @@ describe('bands: Simple layout', () => {
     const topOfOptions = Math.min(...allOptionCards(model).map((c) => y(c.id)))
     expect(labels[0]!.y).toBe(topOfOptions)
     expect(topOfOptions - (places.get(QUESTION)!.y + 44), 'the label has the 48 unit row gap above the first row').toBe(SIMPLE_GAP_Y)
-    expect(new Set(labels.map((l) => l.x)).size, 'one column').toBe(1)
-    expect(labels[0]!.x, 'at the board\'s left edge').toBe(Math.min(...model.cards.map((c) => places.get(c.id)!.x)))
+    // Each label's x is its band's first row's leftmost card (was one shared column at the board's left edge).
+    const firstRowLeft = (band: string) => { const ids = model.cards.filter((c) => bandOf(c, model) === band).map((c) => c.id); const top = Math.min(...ids.map(y)); return Math.min(...ids.filter((id) => Math.abs(y(id) - top) <= 1).map((id) => places.get(id)!.x)) }
+    for (const l of labels) expect(l.x, `${l.band} over its own row`).toBe(firstRowLeft(l.band))
+    // CONTRAST: a band whose first row is narrower than the board's widest row is labelled right of the board's left edge, not at it.
+    const boardLeft = Math.min(...model.cards.map((c) => places.get(c.id)!.x))
+    expect(labels.some((l) => l.x > boardLeft) || labels.every((l) => l.x === boardLeft)).toBe(true)
   })
 })
 
@@ -129,11 +133,11 @@ describe('bands: the key pill', () => {
     expect(keyLinesOf(withKey(['doubted', 'unsettled'], [model.links[0]!])).map((l) => l.id)).toEqual([])
     expect(keyLinesOf(withKey([], [{ ...model.links[0]!, causal: { sign: 'increases' } }]))).toEqual([])
   })
-  it('K3 the pill is on the canvas with two rows: samples, then Olumi\'s and a person\'s marks', () => {
+  it('K3 CHANGED BY DESIGN (Paul 17 Nov: one key, in the left menu): the key\'s lines and marks are two rows, samples then Olumi\'s and a person\'s marks', () => {
     const m = withKey(['effect', 'size'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'size', causal: null }])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
-    const { container } = render(<KeyPill />)
-    const pill = screen.getByTestId('view-key-pill')
+    const { container } = render(<KeyLines />)
+    const pill = screen.getByTestId('view-key-lines')
     expect(pill.querySelector('[data-key-row="lines"]')!.querySelectorAll('[data-key-item]')).toHaveLength(2)
     expect(container.querySelector('[data-key-item="effect"]')).toHaveTextContent('core says effect')
     expect(pill.querySelector('[data-key-row="marks"]')!.textContent).toBe("Olumi'sa person's")
@@ -141,20 +145,20 @@ describe('bands: the key pill', () => {
   it('K5 the effect sample shows polarity in the canvas\'s own tokens at 12 px, with no raw pixel size class', () => {
     const m = withKey(['effect', 'unsettled'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, causal: { sign: 'unknown' } }])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
-    const { container } = render(<KeyPill />)
+    const { container } = render(<KeyLines />)
     const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).style.stroke
     expect(stroke('increases')).toBe(EFFECT_STROKES.increases)
     expect(stroke('decreases')).toBe(EFFECT_STROKES.decreases)
     expect(container.querySelector('[data-key-polarity="decreases"]')).toHaveTextContent('decreases')
     expect(stroke('decreases')).not.toBe(INK)
-    expect(screen.getByTestId('view-key-pill').className).not.toMatch(/text-\[(9|10|11)px\]/)
-    expect(screen.getByTestId('view-key-pill').className).toContain('text-[12px]')
+    expect(screen.getByTestId('view-key-lines').className).not.toMatch(/text-\[(9|10|11)px\]/)
+    expect(screen.getByTestId('view-key-lines').className).toContain('text-[12px]')
     expect(container.querySelector('[data-key-sample="unsettled"]')!.className).toContain('text-[12px]')
   })
-  it('K4 with no role in the View, the pill still draws its marks and no line sample', () => {
+  it('K4 with no role in the View, the key still draws its marks and no line sample', () => {
     useViewStore.setState({ sid: view.id, view: { ...view, model: { ...model, key: key(['input']) } }, status: 'ready' } as never)
-    render(<KeyPill />)
-    const pill = screen.getByTestId('view-key-pill')
+    render(<KeyLines />)
+    const pill = screen.getByTestId('view-key-lines')
     expect(pill.querySelector('[data-key-row="lines"]')).toBeNull()
     expect(pill.querySelector('[data-key-item="olumi-mark"]')).not.toBeNull()
   })

@@ -275,8 +275,10 @@
 .viewportControls {
   padding: 0;
 }
+/* Paul, 17 Nov: "that left-hand bottom menu should be vertical, not horizontal". The column stands in the left gutter the canvas already keeps
+   clear for the tool rail above it (computeFitPadding: the sidebar's right edge), so it covers no card at rest. */
 .viewportControls .group {
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
 }
 .viewportControls .iconButton,

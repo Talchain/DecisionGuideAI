@@ -39,21 +39,22 @@ const bandOfNode = (id: string, model: ViewModel | null): BandId | null =>
   id === FOLD_ID ? 'inputs' : id.startsWith(IDEA_PREFIX) ? 'ideas' : groupBandOf(id) ?? (model === null ? null : (() => { const c = model.cards.find((x) => x.id === id); return c === undefined ? null : bandOf(c, model) })())
 
 /**
- * Each present band's first row: its top, and the one column every label shares, the board's left edge (production's arrangement, canvas/nodes/
- * TierLanes: one left column, never above a card's own x). The label stands above that row, in the row gap, clear of the kind markers' overhang.
- * `model` null: core holds none, and only the kept ideas' band stands (Codex 008e #1).
+ * Each present band's first row: its top, and that row's own left edge, so the label stands over the cards it names (Paul, 17 Nov: cards keep a max
+ * width and rows stand centred and compact, so the board's far-left column left a short row's label floating away from it; was one shared column).
+ * The label stands above that row, in the row gap, clear of the kind markers' overhang. `model` null: only the kept ideas' band stands (Codex 008e #1).
  */
 export function bandLabelsOf(nodes: readonly Pick<Node, 'id' | 'position'>[], model: ViewModel | null): { band: BandId; x: number; y: number }[] {
   const tops = new Map<BandId, number>()
-  let left = Infinity
+  const inBand: { b: BandId; x: number; y: number }[] = []
   for (const n of nodes) {
     const b = bandOfNode(n.id, model)
     if (b === null) continue
-    left = Math.min(left, n.position.x)
+    inBand.push({ b, x: n.position.x, y: n.position.y })
     const t = tops.get(b)
     if (t === undefined || n.position.y < t) tops.set(b, n.position.y)
   }
-  return [...tops].map(([band, y]) => ({ band, x: left, y }))
+  // The first row's left: the leftmost card whose top is the band's top (within a pixel).
+  return [...tops].map(([band, y]) => ({ band, x: Math.min(...inBand.filter((n) => n.b === band && Math.abs(n.y - y) <= 1).map((n) => n.x)), y }))
 }
 
 /** v10 review item 7: a band label whose row's top is at or below the foot fade's top is not drawn (it would stand half faded under the foot). */

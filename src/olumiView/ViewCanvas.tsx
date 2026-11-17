@@ -88,7 +88,6 @@ import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
 import { fadeOffPath, focusIdOf, useFocusPath } from './v12/bands/focusPath'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
-import { KeyPill } from './v12/bands/KeyPill'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
 import { keptIdeasOf } from './v12/ideas'
 
@@ -546,8 +545,7 @@ function ViewFlow() {
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
       {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}
-      {/* V12: the key, always visible, two rows (v12/bands/KeyPill); "How to read this" stays the popover. */}
-      {hasModel ? <KeyPill /> : null}
+      {/* Paul, 17 Nov: no always-on key at the bottom right; the one key is "How to read this" in the left foot menu (ViewLegend, KeyLines). */}
       {/* Hand edits (the right-click menu's forms, the details panel and Undo's keys), inside the toast provider. */}
       <LaneEditingLayer />
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}

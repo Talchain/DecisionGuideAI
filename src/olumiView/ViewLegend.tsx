@@ -8,6 +8,7 @@ import { typography } from '../styles/typography'
 import { useViewStore } from './store'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import type { NodeType } from '../canvas/domain/nodes'
+import { KeyLines } from './v12/bands/KeyPill'
 
 /** A key item that names a card kind is drawn with the card's own marker (the shape on the canvas), by core's item id; core's words stay the
  *  label. Every other item keeps core's glyph (17 Nov: a limit read as a goal; the key now shows the limit's outlined square, the aim's diamond). */
@@ -42,6 +43,8 @@ export function ViewLegend({ open, onOpenChange }: Props) {
       <div role="dialog" aria-label="How to read this" data-testid="view-legend"
         className="absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] bg-panel border border-panel-border rounded-lg shadow-3 p-3 z-[1200]">
         <div className={`${typography.viewPanelMeta} text-text-body font-medium mb-2 shrink-0`}>How to read this</div>
+        {/* The one key (Paul, 17 Nov): the link lines and marks the bottom-right pill used to show, then core's own key. */}
+        <div className="mb-2 shrink-0 border-b border-panel-border pb-2"><KeyLines /></div>
         <ul className="min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-3 gap-y-1">
           {key.map((k, i) => (
             <li key={i} className={`${typography.viewPanelBody} text-text-body flex items-baseline gap-1.5`} data-view-key={i}>
