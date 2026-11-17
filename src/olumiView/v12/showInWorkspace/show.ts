@@ -20,7 +20,7 @@
 import { create } from 'zustand'
 import { onShowCameraPort, samePane, showCameraPort, type ShowCameraPort } from './cameraPort'
 import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type View } from './deps'
-import { restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
+import { noteUnfolded, restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
 
 /** Chrome words, said only where core gave none of its own for the read that failed. Each says what did not happen and what to do next. */
@@ -92,6 +92,13 @@ function watch(): void {
   unwatch = () => { for (const off of offs) off() }
 }
 
+/** Open Simple's folds a plan asks for (each is shut now, or the plan would not ask), and note them for the return. */
+function unfold(sid: string, what: { readonly inputs: boolean; readonly groups: readonly string[] }): void {
+  if (snapshot !== null) noteUnfolded(snapshot, what)
+  if (what.inputs) setInputsOpen(sid, true)
+  for (const g of what.groups) setGroupOpen(sid, g)
+}
+
 /** The board settled, or false: aborted, or not settled within SETTLE_MS (told apart by the signal). */
 async function settledWithin(port: ShowCameraPort, signal: AbortSignal): Promise<boolean> {
   const inner = new AbortController()
@@ -139,10 +146,7 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
   let held = port.capture().held
   let failed: string | null = null, overtaken = false
   try {
-    if (st.sid !== null) {
-      if (plan.inputs) setInputsOpen(st.sid, true)
-      for (const g of plan.groups) setGroupOpen(st.sid, g)
-    }
+    if (st.sid !== null) unfold(st.sid, plan)
     if (plan.open.length > 0) {
       const opened = useViewStore.getState().opened, open = new Map(opened.open)
       for (const b of plan.open) open.set(b.host, b.records)
@@ -165,8 +169,7 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     // folded inputs). Those open now, once, and the ids are resolved a last time. Only after a badge opened: a fold this show had
     // already asked for and that is still shut did not land, and that is a failure, not a second try.
     if (again !== null && plan.open.length > 0 && again.open.length === 0 && (again.inputs || again.groups.length > 0) && now.sid !== null) {
-      if (again.inputs) setInputsOpen(now.sid, true)
-      for (const g of again.groups) setGroupOpen(now.sid, g)
+      unfold(now.sid, again)
       if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
       now = useViewStore.getState()
       again = planShow(now.view, next, boardNow(now.sid))
