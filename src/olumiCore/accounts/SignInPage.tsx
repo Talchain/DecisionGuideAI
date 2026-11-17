@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { TeamApiError } from '../team/api'
 import { accountsApi, nav } from './api'
-import { ERR, FIELD, GuestFrame, LABEL, LINK, META } from './Frame'
+import { ERR, FIELD, GuestFrame, LABEL, META } from './Frame'
 
 /** Sign in with an email and password (core `POST /api/account/signin`). Core's refusal is shown in its own words. */
 export default function SignInPage(): JSX.Element {
@@ -33,7 +32,6 @@ export default function SignInPage(): JSX.Element {
         {said && <p role="alert" className={ERR} data-testid="account-signin-error">{said}</p>}
         <Button type="submit" disabled={busy || email.trim() === '' || password === ''} data-testid="account-signin-go">{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
-      <p className={META}>New to Olumi? <Link to="/signup" className={LINK}>Create an account</Link></p>
       <p className={META}>Have a private link from a colleague? Open it and you are in.</p>
     </GuestFrame>
   )
