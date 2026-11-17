@@ -1,0 +1,23 @@
+/*
+ * OLUMI'S SHARED CONTROL CLASSES (UI clean-up, 17 Nov 2026). One class per role, every value a token from brand.css: a component names the
+ * class and carries no colour, size or focus styling of its own.
+ *
+ * WHERE THESE SIT IN THE CASCADE. Everything is in Tailwind's `components` layer, so it lands after the base reset (a filled button keeps
+ * its fill against preflight's `[type='button']`) and before the utilities (a site can still place or size a control with a utility).
+ * Every class here is safelisted in tailwind.config.js, so it is emitted whether or not a file names it yet; controls.spec binds the two lists.
+ */
+@layer components {
+  /* ── The one focus ring: keyboard only, 2 px. Its colour is the neutral one index.css sets for every ring (never blue). ── */
+  .ok-focus { @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header; }
+
+  /* ── Icon colour roles (the icon registry, src/olumiView/look/icons.tsx). Icons carry no hue: grey at rest, ink when active or on a filled
+        act; colour stays only where it is the meaning. One class per token the registry names (ICON_HUE); icons.spec binds the two. ── */
+  .ok-hue-light { color: var(--text-light); }
+  .ok-hue-body { color: var(--text-body); }
+  .ok-hue-ink { color: var(--text-header); }
+  .ok-hue-line { color: var(--border-default); }
+  .ok-hue-olumi { color: var(--info); }
+  .ok-hue-danger { color: var(--danger); }
+  .ok-hue-warning { color: var(--warning); }
+  .ok-hue-option { color: var(--option); }
+}

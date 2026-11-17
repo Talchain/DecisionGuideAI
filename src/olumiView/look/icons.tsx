@@ -4,6 +4,10 @@
  * never a new colour), whether it stands alone or sits beside words, and its group. Designed in output/icon-system-20261117/icon-system.json.
  * This file is the registry only: no call site is migrated here.
  *
+ * COLOUR IS A CLASS, NEVER AN INLINE STYLE (17 Nov clean-up): each colour token an entry may name has one class in src/styles/controls.css
+ * (`ICON_HUE`), and `OkIcon` puts that class on the glyph's own span. A press (`OkIconButton`) wraps the same span, so the glyph's colour is the
+ * registry's in every state and the button carries the one focus ring (`OK_FOCUS`).
+ *
  * Words that come from core (data-view paths) are content: an icon may sit beside them, never replace them. Where an entry names such words it
  * carries `keepWords`, and a site draws them (or passes them as `words`, which becomes the hover and label).
  *
@@ -38,10 +42,10 @@
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
-  Calculator, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
+  Calculator, Check, CheckCheck, ChevronDown, ChevronRight, ChevronUp, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
-  Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
+  Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, MoveDown, MoveRight, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
   UnfoldVertical, Unlink, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
@@ -65,16 +69,35 @@ export interface IconDrawProps {
 /** A Lucide icon, the brand mark, or one of the three small drawn shapes below. */
 export type IconComponent = LucideIcon | ComponentType<IconDrawProps>
 
+/**
+ * The colours an icon may draw in: a brand.css token, and the class in src/styles/controls.css that carries it. An entry's `colour` and
+ * `activeColour` are keys of this map, so a token with no class does not compile.
+ */
+export const ICON_HUE = {
+  '--text-light': 'ok-hue-light',
+  '--text-body': 'ok-hue-body',
+  '--text-header': 'ok-hue-ink',
+  '--border-default': 'ok-hue-line',
+  '--info': 'ok-hue-olumi',
+  '--danger': 'ok-hue-danger',
+  '--warning': 'ok-hue-warning',
+  '--option': 'ok-hue-option',
+} as const
+export type IconHue = keyof typeof ICON_HUE
+
+/** The one focus ring, for every press on the lane (src/styles/controls.css `.ok-focus`): keyboard only, 2 px. */
+export const OK_FOCUS = 'ok-focus'
+
 export interface IconEntry {
   Icon: IconComponent
   /** The state variant of the same meaning (a fold/unfold pair, held/shown), never a second meaning. */
   alt?: IconComponent
   /** The words on hover; `{card}` and the like are filled by the site, or core's own label is passed as `words`. */
   hover: string
-  /** A token in src/styles/brand.css, including the leading `--`. */
-  colour: string
+  /** A token in src/styles/brand.css, including the leading `--`: one of the colours an icon may draw in (`ICON_HUE`). */
+  colour: IconHue
   /** The token while the thing is happening (Olumi running the analysis). */
-  activeColour?: string
+  activeColour?: IconHue
   /** The token under the pointer, where the rest colour is lighter. */
   hoverColour?: string
   /** The person's filled actions: the fill token. The icon or label sits on it in `colour` (--text-header). */
@@ -88,20 +111,22 @@ export interface IconEntry {
 const ICON_STROKE = 1.75
 const DEFAULT_SIZE = 16
 
+const withClass = (own: string, className?: string) => (className ? `${own} ${className}` : own)
+
 const BandShapes = ({ size = 12, className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-flex', gap: 2, ...style }} {...rest}>
+  <span className={withClass('inline-flex gap-0.5', className)} style={style} {...rest}>
     {(['option', 'factor', 'outcome', 'risk', 'goal'] as const).map((k) => (
       <NodeShapeIndicator key={k} nodeKind={k} size={Number(size)} />
     ))}
   </span>
 )
 const LimitShape = ({ size = 12, className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-flex', ...style }} {...rest}>
+  <span className={withClass('inline-flex', className)} style={style} {...rest}>
     <NodeShapeIndicator nodeKind="constraint" size={Number(size)} dashedOutline />
   </span>
 )
 const Hairline = ({ className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-block', width: 16, borderTop: '1px solid var(--border-default)', ...style }} {...rest} />
+  <span className={withClass('inline-block w-4 border-t border-panel-border', className)} style={style} {...rest} />
 )
 
 const OLUMI_STATIC: IconComponent = OlumiAiIcon as IconComponent
@@ -109,7 +134,7 @@ const OLUMI_STATIC: IconComponent = OlumiAiIcon as IconComponent
 const e = (
   Icon: IconComponent,
   hover: string,
-  colour: string,
+  colour: IconHue,
   mode: IconMode,
   group: IconGroup,
   extra: Partial<Omit<IconEntry, 'Icon' | 'hover' | 'colour' | 'mode' | 'group'>> = {},
@@ -228,6 +253,11 @@ export const ICONS = {
   duplicate: e(Copy, 'Duplicate', '--text-light', 'icon-only', 'chrome'),
   'selected-row': e(MousePointer2, 'Selected', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
+  // disclosure and "more this way": a chevron opens a thing in place, a long arrow says the board goes on (one icon, one meaning)
+  disclose: e(ChevronDown, 'Show more', '--text-light', 'icon-plus-word', 'chrome', { alt: ChevronUp, keepWords: "the control's own words stay (Review, Rests on); the chevron sits beside them, `alt` while open" }),
+  'disclose-row': e(ChevronRight, 'Open', '--text-light', 'icon-plus-word', 'chrome', { keepWords: "the row's own words stay; the site turns the chevron (rotate-90) while the row is open" }),
+  'more-below': e(MoveDown, 'More below', '--text-light', 'icon-only', 'navigate'),
+  'more-right': e(MoveRight, 'More to the right', '--text-light', 'icon-only', 'navigate'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS
@@ -263,7 +293,12 @@ interface OkIconProps {
   className?: string
 }
 
-const colourVar = (token: string) => `var(${token})`
+/** The class of the colour this entry draws in: light while disabled, the `activeColour` while active, else its `colour`. */
+function hueClass(entry: IconEntry, active?: boolean, disabled?: boolean): string {
+  return ICON_HUE[disabled ? '--text-light' : active && entry.activeColour ? entry.activeColour : entry.colour]
+}
+
+const MARK_BOX = 'inline-flex shrink-0 items-center justify-center'
 
 function pick(id: IconId, variant?: 'alt'): IconComponent {
   const entry: IconEntry = ICONS[id]
@@ -280,18 +315,16 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, decora
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
-  const token = active && entry.activeColour ? entry.activeColour : entry.colour
-  const style: CSSProperties = { color: colourVar(token) }
-  const cls = `inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`
+  const cls = withClass(`${MARK_BOX} ${hueClass(entry, active)}`, className)
   if (hidden) {
     return (
-      <span aria-hidden="true" className={cls} style={style}>
+      <span aria-hidden="true" className={cls}>
         <Glyph id={id} size={size} variant={variant} />
       </span>
     )
   }
   return (
-    <span role="img" aria-label={label} title={label} className={cls} style={style}>
+    <span role="img" aria-label={label} title={label} className={cls}>
       <Glyph id={id} size={size} variant={variant} />
     </span>
   )
@@ -309,11 +342,10 @@ interface OkIconButtonProps {
   className?: string
 }
 
-/** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
+/** An icon-only press: a 44 px hit area, the hover words as both aria-label and title, the one focus ring; the glyph keeps the registry's colour (light while disabled). */
 export function OkIconButton({ id, onClick, words, variant, active, disabled, testid, size = DEFAULT_SIZE, className }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
-  const token = active && entry.activeColour ? entry.activeColour : entry.colour
   return (
     <button
       type="button"
@@ -322,10 +354,11 @@ export function OkIconButton({ id, onClick, words, variant, active, disabled, te
       aria-label={label}
       title={label}
       data-testid={testid}
-      className={`${HIT_44} inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`}
-      style={{ color: disabled ? colourVar('--text-light') : colourVar(token) }}
+      className={withClass(`${HIT_44} ${OK_FOCUS} inline-flex shrink-0 items-center justify-center`, className)}
     >
-      <Glyph id={id} size={size} variant={variant} />
+      <span aria-hidden="true" className={`${MARK_BOX} ${hueClass(entry, active, disabled)}`}>
+        <Glyph id={id} size={size} variant={variant} />
+      </span>
     </button>
   )
 }

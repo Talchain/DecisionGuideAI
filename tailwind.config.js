@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  // The shared control classes of src/styles/controls.css (Tailwind's components layer): always emitted, so a class that a file builds
+  // from parts, or that nothing names yet, still exists. controlsCss.spec keeps this list and that file the same.
+  safelist: [
+    'ok-focus',
+    'ok-hue-light', 'ok-hue-body', 'ok-hue-ink', 'ok-hue-line', 'ok-hue-olumi', 'ok-hue-danger', 'ok-hue-warning', 'ok-hue-option',
+  ],
   theme: {
     extend: {
       // Typography - Single font family (Inter) for everything

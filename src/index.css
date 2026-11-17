@@ -2,6 +2,8 @@
 
 /* Olumi Design System Tokens */
 @import './styles/brand.css';
+/* Olumi's shared control classes (Tailwind's components layer; see the file's header) */
+@import './styles/controls.css';
 
 @tailwind base;
 @tailwind components;

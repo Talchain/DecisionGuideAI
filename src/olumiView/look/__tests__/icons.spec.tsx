@@ -7,9 +7,10 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Check, Plus, Trash2 } from 'lucide-react'
-import { ICONS, OkIcon, OkIconButton, duplicateIconIds, type IconEntry, type IconId } from '../icons'
+import { ICONS, ICON_HUE, OK_FOCUS, OkIcon, OkIconButton, duplicateIconIds, type IconEntry, type IconId } from '../icons'
 
 const brand = readFileSync(path.resolve('src/styles/brand.css'), 'utf8')
+const controlsCss = readFileSync(path.resolve('src/styles/controls.css'), 'utf8')
 const defined = new Set([...brand.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]!))
 const entries = Object.entries(ICONS) as [IconId, IconEntry][]
 
@@ -77,7 +78,7 @@ describe('OkIcon and OkIconButton', () => {
     render(<OkIcon id="delete" />)
     const img = screen.getByRole('img', { name: ICONS.delete.hover })
     expect(img.getAttribute('title')).toBe(ICONS.delete.hover)
-    expect(img.style.color).toBe('var(--danger)')
+    expect([img.classList.contains(ICON_HUE['--danger']), img.getAttribute('style')]).toEqual([true, null])
   })
 
   it("core's own words win over the registry's hover", () => {
@@ -109,5 +110,48 @@ describe('OkIcon and OkIconButton', () => {
     expect(btn.getAttribute('title')).toBe('Send it')
     fireEvent.click(btn)
     expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
+describe('colour is a class, never an inline style (17 Nov clean-up)', () => {
+  const hues = (el: Element) => [...el.classList].filter((c) => c.startsWith('ok-hue-'))
+
+  it('H1 every colour an entry names has a class, and controls.css gives that class exactly that token; CONTRAST: another token does not satisfy it', () => {
+    const named = new Set(entries.flatMap(([, e]) => [e.colour, e.activeColour].filter((t): t is NonNullable<typeof t> => t !== undefined)))
+    expect(named.size).toBeGreaterThan(4)
+    expect([...named].filter((t) => !(t in ICON_HUE))).toEqual([])
+    const ruleFor = (cls: string, token: string) => new RegExp(`\\.${cls}\\s*\\{\\s*color:\\s*var\\(${token}\\);\\s*\\}`).test(controlsCss)
+    expect(Object.entries(ICON_HUE).filter(([token, cls]) => !ruleFor(cls, token))).toEqual([])
+    expect(ruleFor(ICON_HUE['--danger'], '--info')).toBe(false)
+  })
+
+  it('H2 every id draws its colour as one class on the glyph span and carries no inline style, at rest and active', () => {
+    for (const [id, e] of entries) {
+      for (const active of [false, true]) {
+        const { container, unmount } = render(<OkIcon id={id} active={active} />)
+        const span = container.firstElementChild!
+        expect([id, active, hues(span), span.getAttribute('style')]).toEqual([id, active, [ICON_HUE[active && e.activeColour ? e.activeColour : e.colour]], null])
+        unmount()
+      }
+    }
+  })
+
+  it('H3 a press carries the one focus ring and no inline style; its glyph span is the registry colour, the active colour while active, light while disabled', () => {
+    const draw = (id: IconId, props: { active?: boolean; disabled?: boolean }) => {
+      const { container, unmount } = render(<OkIconButton id={id} onClick={() => {}} {...props} />)
+      const btn = container.querySelector('button')!, span = btn.firstElementChild!
+      const out = [btn.classList.contains(OK_FOCUS), btn.getAttribute('style'), hues(btn), hues(span), span.getAttribute('style')]
+      unmount()
+      return out
+    }
+    expect(draw('delete', {})).toEqual([true, null, [], [ICON_HUE['--danger']], null])
+    expect(draw('run-analysis', {})).toEqual([true, null, [], [ICON_HUE['--text-light']], null])
+    expect(draw('run-analysis', { active: true })).toEqual([true, null, [], [ICON_HUE['--text-header']], null])
+    expect(draw('delete', { disabled: true })).toEqual([true, null, [], [ICON_HUE['--text-light']], null])
+  })
+
+  it('H4 the disclosure chevrons and the "more this way" arrows are in the registry', () => {
+    for (const id of ['disclose', 'disclose-row', 'more-below', 'more-right'] as IconId[]) expect(ICONS[id].hover.trim().length, id).toBeGreaterThan(0)
+    expect(ICONS.disclose.alt).toBeDefined()
   })
 })
