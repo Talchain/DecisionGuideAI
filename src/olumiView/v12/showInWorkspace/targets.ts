@@ -209,6 +209,13 @@ export function selectionSetsBack(model: ViewModel | null, level: 'simple' | 'wo
 }
 
 /**
+ * A card standing ON the free canvas's edge is in view. The board's own framing stands its outermost cards exactly on that edge (the same
+ * insets, computeFitPadding), and edge = place x zoom + offset is not exact: without this a card of a board just framed whole read as out
+ * of view by a rounding error, and the camera jumped to centre it (seen served at 2000 x 1205, 17 Nov). One screen pixel.
+ */
+export const ON_EDGE = 1
+
+/**
  * Where the camera goes so that the whole of `box` is in the free canvas: null when it all is already (nothing moves). Centred on the
  * cards at the person's own zoom, lowered only as far as the cards need to fit and never raised. There is no floor: the person asked to
  * see these cards, so a zoom at which some of them stay out of view is never chosen.
@@ -217,7 +224,7 @@ export function cameraFor(box: Box, pane: Pane, v: Viewport): Viewport | null {
   const i = pane.inset, pad = 24
   const fw = pane.size.w - i.left - i.right, fh = pane.size.h - i.top - i.bottom
   const sx = box.x * v.zoom + v.x, sy = box.y * v.zoom + v.y
-  if (sx >= i.left && sy >= i.top && sx + box.w * v.zoom <= pane.size.w - i.right && sy + box.h * v.zoom <= pane.size.h - i.bottom) return null
+  if (sx >= i.left - ON_EDGE && sy >= i.top - ON_EDGE && sx + box.w * v.zoom <= pane.size.w - i.right + ON_EDGE && sy + box.h * v.zoom <= pane.size.h - i.bottom + ON_EDGE) return null
   const zoom = Math.min(v.zoom, (fw - 2 * pad) / box.w, (fh - 2 * pad) / box.h)
   if (!(zoom > 0)) return null // no free canvas to show them in
   return { x: i.left + fw / 2 - (box.x + box.w / 2) * zoom, y: i.top + fh / 2 - (box.y + box.h / 2) * zoom, zoom }

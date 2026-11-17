@@ -406,6 +406,19 @@ describe('T11 where the camera goes: the cards whole inside the free canvas, nev
   it('cards already whole inside the free canvas: no move', () => {
     expect(cameraFor({ x: 100, y: 100, w: 300, h: 200 }, pane, { x: 0, y: 0, zoom: 1 })).toBeNull()
   })
+  it('a board the canvas has just framed whole stands its outer cards ON the free canvas\'s edges; the sum is not exact, and a card a rounding error past the edge is in view: no move', () => {
+    // The free canvas is x 0..812, y 56..704; the box is flush with all four edges at this zoom, then a rounding error beyond each.
+    const zoom = 0.93599, flush = { x: 0, y: 56 / zoom, w: 812 / zoom, h: 648 / zoom }
+    const past = { x: flush.x - 1e-9, y: flush.y - 1e-9, w: flush.w + 3e-9, h: flush.h + 3e-9 }
+    expect(inside(past, { x: 0, y: 0, zoom }), 'the fixture: strictly, it IS past the edge').toBe(false)
+    expect(cameraFor(past, pane, { x: 0, y: 0, zoom })).toBeNull()
+    expect(cameraFor(flush, pane, { x: 0, y: 0, zoom })).toBeNull()
+  })
+  it('contrast: three pixels under the dock is not "on the edge": the camera moves', () => {
+    const box = { x: 515, y: 100, w: 300, h: 200 }, was = { x: 0, y: 0, zoom: 1 }
+    expect(onScreen(box, was).right).toBe(815)
+    expect(cameraFor(box, pane, was)).not.toBeNull()
+  })
   it('contrast: the same cards under the dock are centred in the free canvas at the zoom the person has', () => {
     const box = { x: 700, y: 100, w: 300, h: 200 }, was = { x: 0, y: 0, zoom: 1 }
     expect(inside(box, was)).toBe(false)
