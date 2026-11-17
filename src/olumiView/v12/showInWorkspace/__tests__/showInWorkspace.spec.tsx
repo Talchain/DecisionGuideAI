@@ -32,7 +32,7 @@ import userEvent from '@testing-library/user-event'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, inputIdsOf, inputsFolded, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type LayerId, type Opened, type View } from '../deps'
 import { setLevel, showSimple, showWholeModel } from '../../simpleStore'
-import { registerShowCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
+import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
 import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore } from '../show'
 import { RETURN_TO_BEFORE, SHOW_IN_WORKSPACE, ShowInWorkspace } from '../ShowInWorkspace'
@@ -89,13 +89,23 @@ const rf = {
   /** A canvas whose `fit` answers nothing (it frames, but does not say where to). */
   silent: false,
   easing: null as number | null,
+  /** Cards taller than the rest (their measured height). */
+  tall: new Map<string, number>(),
+  /** What the board does when a move changes the zoom (Detailed lays itself out again for the zoom): called once per such move. */
+  onZoom: null as (() => void) | null,
 }
 /** The board's own framing eases to its frame (ViewCanvas DURATION); a later setViewport interrupts it, as React Flow's does. */
 const FIT_MS = 400
 const side: CanvasSide = {
   getViewport: () => ({ ...rf.vp }),
-  setViewport: (to, opts) => { if (rf.easing !== null) { cancelAnimationFrame(rf.easing); rf.easing = null }; rf.sets.push({ to: { ...to }, opts: { ...opts }, holds: showHolds() }); rf.vp = { ...to }; return Promise.resolve(true) },
-  getInternalNode: (id) => { const p = rf.at.get(id); return p === undefined ? undefined : { measured: { width: W, height: H }, internals: { positionAbsolute: { ...p } } } },
+  setViewport: (to, opts) => {
+    if (rf.easing !== null) { cancelAnimationFrame(rf.easing); rf.easing = null }
+    const zoomed = to.zoom !== rf.vp.zoom
+    rf.sets.push({ to: { ...to }, opts: { ...opts }, holds: showHolds() }); rf.vp = { ...to }
+    if (zoomed) rf.onZoom?.()
+    return Promise.resolve(true)
+  },
+  getInternalNode: (id) => { const p = rf.at.get(id); return p === undefined ? undefined : { measured: { width: W, height: rf.tall.get(id) ?? H }, internals: { positionAbsolute: { ...p } } } },
   userMoved: rf.userMoved,
   hand: () => { rf.hands += 1 },
   fit: () => {
@@ -129,7 +139,7 @@ function layOut(places: Readonly<Record<string, At>> = {}, dy = 0): void {
   const ids = [QUESTION, ...board.cards.map((c) => c.id)]
   rf.at = new Map(ids.map((id, i) => [id, places[id] ?? placeOf(i, dy)]))
   const was = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, n]))
-  const nodes = ids.map((id) => ({ id, type: id === QUESTION ? 'viewQuestion' : VIEW_CARD, data: {}, position: rf.at.get(id)!, measured: { width: W, height: H }, ...(was.get(id)?.selected === true ? { selected: true } : {}) }))
+  const nodes = ids.map((id) => ({ id, type: id === QUESTION ? 'viewQuestion' : VIEW_CARD, data: {}, position: rf.at.get(id)!, measured: { width: W, height: rf.tall.get(id) ?? H }, ...(was.get(id)?.selected === true ? { selected: true } : {}) }))
   const drawn = new Set(ids)
   const edges = board.links.filter((l) => drawn.has(l.from) && drawn.has(l.to)).map((l) => ({ id: `${l.from}->${l.to}:${l.kind}`, source: l.from, target: l.to, type: 'viewLink', data: {} }))
   useCanvasStore.setState({ nodes: nodes as never, edges: edges as never })
@@ -145,7 +155,8 @@ function boxOf(ids: readonly string[]): Box {
   const x1 = Math.max(...ps.map((p) => p.x + W)), y1 = Math.max(...ps.map((p) => p.y + H))
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
-const pane = (): Pane => clone(paneNow.value)
+/** The free canvas as the REAL port reads it (the mocked pane less the foot gutter): every expected camera is worked out in the room the show itself sees. */
+const pane = (): Pane => showCameraPort()!.pane()!
 const pulsing = (): string[] => Array.from(document.querySelectorAll('.react-flow__node.v10-pulse'), (e) => e.getAttribute('data-id') ?? '').sort()
 
 // ── core's reads ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -205,7 +216,7 @@ async function enter(user: ReturnType<typeof userEvent.setup>): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'Date'] })
-  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.fitsHeld = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0; rf.frame = null; rf.silent = false; rf.easing = null
+  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.fitsHeld = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0; rf.frame = null; rf.silent = false; rf.easing = null; rf.tall = new Map(); rf.onZoom = null
   paneNow.value = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }
   reads = []; route = () => null; core()
   const el = document.createElement('div'); el.className = 'react-flow'; document.body.appendChild(el)
@@ -1240,4 +1251,64 @@ describe('S12 one move after an unfold: the board says where it is framing to (g
     act(() => { useInputsOpen.setState({ open: {} }) })
     return box
   }
+})
+
+// ── S13 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S13 what counts as in view at the foot, and a board that lays itself out again for the zoom', () => {
+  const two = pointing(nextOf(golden, 14), 'opening_cash', ['opening_cash', 'monthly_burn'])
+  const TWO = ['opening_cash', 'monthly_burn']
+  /** The mocked pane is 704 tall: the foot gutter is its last 88 px (y 616 to 704). */
+  const at = (footY: number) => ({ opening_cash: { x: 20, y: 80 }, monthly_burn: { x: 300, y: footY - H } })
+  it('the fixture: the real port\'s free canvas ends 88 px above the pane\'s foot (the foot gutter), whatever the fit padding says', () => {
+    expect(paneNow.value.inset.bottom).toBe(0)
+    expect(pane().inset.bottom).toBe(88)
+  })
+  it('a card whose foot stands in the foot gutter is not in view: the show moves; contrast: the same card just above the gutter moves nothing', async () => {
+    install(golden); lay(at(660))
+    const c = mount(14, two)
+    await press(c.button()!); await run(300)
+    expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(TWO), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
+    c.unmount(); act(() => { resetShow() }); rf.sets = []; rf.vp = { ...V0 }; rf.userMoved.current = false
+    lay(at(610))
+    const d = mount(14, two)
+    await press(d.button()!); await run(300)
+    expect(rf.sets).toStrictEqual([])
+    expect(d.button()!.textContent).toBe(RETURN_TO_BEFORE)
+  })
+  it('Simple: a taller card standing beside the named card reaches into the gutter; the foot edge would rise over that whole row, so the show moves and the box it shows reaches that card\'s foot; contrast: on Detailed (no foot edge) nothing moves', async () => {
+    const S = golden.id, places = { opening_cash: { x: 20, y: 80 }, monthly_burn: { x: 300, y: 300 }, add_angel_bridge: { x: 560, y: 300 } }
+    rf.tall.set('add_angel_bridge', 380) // foot at 680: in the gutter; monthly_burn's own foot is at 450
+    install(golden); setLevel('simple', S); lay(places)
+    const c = mount(14, two)
+    await press(c.button()!); await run(300)
+    const named = boxOf(TWO), shownBox = { ...named, h: 680 - named.y }
+    expect(cameraFor(named, pane(), V0), 'the fixture: the two named cards alone are whole in view').toBeNull()
+    expect(rf.sets).toStrictEqual([{ to: cameraFor(shownBox, pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
+    c.unmount(); act(() => { resetShow(); setLevel('working', S) }); rf.sets = []; rf.vp = { ...V0 }; rf.userMoved.current = false
+    lay(places)
+    const d = mount(14, two)
+    await press(d.button()!); await run(300)
+    expect(rf.sets).toStrictEqual([])
+  })
+  it('a move that changes the zoom makes the board lay itself out again: once it is still the cards are looked for again, once, and end whole in view; contrast: a board that stays as it was is moved once', async () => {
+    const far = { opening_cash: { x: 2000, y: 2000 }, monthly_burn: { x: 4200, y: 2000 } } // too far apart for zoom 1: the move lowers the zoom
+    const after = { opening_cash: { x: 2000, y: 4600 }, monthly_burn: { x: 4200, y: 4600 } } // the board, laid out again for that zoom: the cards are now far below
+    install(golden); lay(far)
+    rf.onZoom = () => { layOut(after) }
+    const c = mount(14, two)
+    await press(c.button()!); await run(600)
+    const first = cameraFor({ x: 2000, y: 2000, w: 2200 + W, h: H }, pane(), V0)!
+    expect(first.zoom).toBeLessThan(1)
+    expect(rf.sets).toHaveLength(2)
+    expect(rf.sets[0]!.to).toStrictEqual(first)
+    expect(cameraFor(boxOf(TWO), pane(), first), 'the fixture: where the first move arrived, the cards no longer are').not.toBeNull()
+    expect(rf.sets[1]!.to).toStrictEqual(cameraFor(boxOf(TWO), pane(), first))
+    expect(cameraFor(boxOf(TWO), pane(), rf.vp), 'where the camera ended, the cards are whole in view').toBeNull()
+    expect(c.button()!.textContent).toBe(RETURN_TO_BEFORE)
+    c.unmount(); act(() => { resetShow() }); rf.sets = []; rf.vp = { ...V0 }; rf.userMoved.current = false; rf.onZoom = null
+    lay(far)
+    const d = mount(14, two)
+    await press(d.button()!); await run(600)
+    expect(rf.sets).toHaveLength(1)
+  })
 })

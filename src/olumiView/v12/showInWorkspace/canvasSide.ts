@@ -14,7 +14,7 @@
  */
 import type { ReactFlowInstance } from '@xyflow/react'
 import { takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
-import { QUESTION, VIEW_CARD, boardOf, freePane, useCanvasStore, useViewStore, viewLaying } from './deps'
+import { FOOT_GUTTER, QUESTION, VIEW_CARD, boardOf, freePane, levelOf, useCanvasStore, useViewStore, viewLaying } from './deps'
 
 export interface CanvasSide {
   getViewport(): Viewport
@@ -59,7 +59,11 @@ function placesOf(c: CanvasSide): string | null {
 export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
   const pane = (): Pane | null => {
     const el = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
-    return el === null ? null : freePane(el)
+    if (el === null) return null
+    // The foot gutter is not free canvas (footClear.ts FOOT_GUTTER): the foot controls stand in it, and on Simple the board's foot edge
+    // covers whatever is behind it (BelowCue). A card whose foot is in it is not in view, whatever the fit padding says.
+    const p = freePane(el)
+    return { size: p.size, inset: { ...p.inset, bottom: Math.max(p.inset.bottom, FOOT_GUTTER) } }
   }
   return {
     capture: () => ({ viewport: c.getViewport(), held: c.userMoved.current }),
@@ -86,6 +90,19 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
         if (n === undefined || !n.measured.width || !n.measured.height) return null
         const at = n.internals.positionAbsolute
         x0 = Math.min(x0, at.x); y0 = Math.min(y0, at.y); x1 = Math.max(x1, at.x + n.measured.width); y1 = Math.max(y1, at.y + n.measured.height)
+      }
+      // On Simple a row is top-aligned, and the board's foot edge rises to the top of any card the foot cuts, hiding that whole row
+      // (BelowCue footEdgeHeightOf). So the box reaches down to the foot of every card that starts above the named cards' own foot:
+      // with the box in view none of those can be cut, and the edge stays below the cards being shown.
+      if (levelOf(useViewStore.getState().sid) === 'simple') {
+        const foot = y1
+        for (const node of useCanvasStore.getState().nodes) {
+          if (node.type !== VIEW_CARD) continue
+          const n = c.getInternalNode(node.id)
+          if (n === undefined || !n.measured.height) continue
+          const top = n.internals.positionAbsolute.y
+          if (top < foot) y1 = Math.max(y1, top + n.measured.height)
+        }
       }
       return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
     },

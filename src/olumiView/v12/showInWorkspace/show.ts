@@ -29,6 +29,8 @@ export const COULD_NOT_RETURN = 'That did not go back just now. Try again.'
 
 /** The camera's move to the cards, as a new reply's own move takes (replyInView.ts); none under reduced motion. */
 export const MOVE_MS = 300
+/** The most moves one show makes: the first, and one more each time the board laid itself out again for the zoom it was moved to. */
+export const MAX_MOVES = 3
 /** The longest the board is waited for. A board that has not settled by then is a failure that is said, never a move made anyway. */
 export const SETTLE_MS = 8000
 
@@ -199,11 +201,30 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     }
     const box = port.boxOf(cards), pane = port.pane()
     if (box === null) { failed = COULD_NOT_SHOW; return }
-    const to = pane === null ? null : cameraFor(box, pane, framing ?? port.capture().viewport)
     const still = reducedMotion()
     // A camera the show moved is the person's own choice: the board does not refit under it.
-    if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true }
-    pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, (to === null && framing === null) || still ? 0 : MOVE_MS + 20)
+    // A move that changes the zoom can make the board lay itself out again (Detailed draws its cards for the zoom they are seen at), and
+    // the cards are then somewhere else. So after such a move, once the board is still, the cards are looked for again and the camera
+    // goes the rest of the way: at most MAX_MOVES moves in all (seen served on Detailed at 1232 x 704, 17 Nov: the camera arrived where
+    // the card had been). A move that only pans changes no layout and is the last.
+    let from = framing ?? port.capture().viewport
+    let to = pane === null ? null : cameraFor(box, pane, from)
+    let movedAt: number | null = null
+    for (let moves = 1; to !== null; moves += 1) {
+      port.moveTo(to, { duration: still ? 0 : MOVE_MS })
+      movedAt = performance.now()
+      held = true
+      if (to.zoom === from.zoom || moves >= MAX_MOVES) break
+      await frames(2)
+      if (signal.aborted) return
+      if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
+      const where = port.boxOf(cards), room = port.pane()
+      from = port.capture().viewport
+      to = where === null || room === null ? null : cameraFor(where, room, from)
+    }
+    // The cards are pulsed once the camera has arrived: after the last move the show made, or after the board's own framing.
+    const arrives = still ? 0 : movedAt !== null ? Math.max(0, MOVE_MS + 20 - (performance.now() - movedAt)) : framing !== null ? MOVE_MS + 20 : 0
+    pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, arrives)
     useShown.setState({ turn, busy: false, said: null })
   } finally {
     // Overtaken by the person's own read: the board is theirs now and so is the canvas's word on who holds the camera. Nothing is written.

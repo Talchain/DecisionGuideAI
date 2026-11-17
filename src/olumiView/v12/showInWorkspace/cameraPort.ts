@@ -26,9 +26,12 @@ export interface ShowCameraPort {
    * running. False when `signal` aborts. A state, not a delay: it never resolves on a timer alone.
    */
   settled(signal: AbortSignal): Promise<boolean>
-  /** The box around these nodes, in the board's own coordinates; null until every one of them is on the canvas and measured. */
+  /**
+   * The box around these nodes, in the board's own coordinates; null until every one of them is on the canvas and measured. On Simple
+   * it reaches down to the foot of the cards standing beside them (a card the foot cuts hides its whole row behind the foot edge).
+   */
   boxOf(ids: readonly string[]): Box | null
-  /** The free canvas (the pane less the dock and the header), as the board's own framing reads it; null with no pane on the page. */
+  /** The free canvas (the pane less the dock, the header and the foot gutter), as the board's own framing reads it; null with no pane on the page. */
   pane(): Pane | null
   /** Move the camera as the person's own move: pending pans stand down and the board's own framing leaves it alone afterwards. */
   moveTo(to: Viewport, opts: { readonly duration: number }): void
