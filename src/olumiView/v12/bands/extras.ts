@@ -16,7 +16,7 @@ export function extrasOf(view: View | null, sid: string | null, foldedModel: Vie
   // Olumi's own words for its proposal of these cards: the proposal's mark on their change (`proposal.changes[].olumi.title`), verbatim; null where core sends none.
   const olumiWords = (ids: readonly string[]): string | null => view?.proposal?.changes.find((ch) => ids.includes(ch.id) && ch.olumi != null)?.olumi?.title ?? null
   const grouped = shown.map((g): BandExtra => ({ id: g.id, band: g.band, h: FOLD_H, type: VIEW_FOLD, data: { count: g.cards.length, sid, group: {
-    id: g.id, kind: g.kind, kinds: g.kinds, words: olumiWords(g.cards), hover: g.cards.map((id) => cards.get(id)?.heading ?? '').filter((x) => x !== '').join('\n'),
+    id: g.id, kind: g.kind, kinds: g.kinds, words: g.kind === 'proposed' ? olumiWords(g.cards) : null, hover: g.cards.map((id) => cards.get(id)?.heading ?? '').filter((x) => x !== '').join('\n'),
     challenged: view?.model == null ? 0 : challengedIn(view.model, g),
   } } }))
   return [...fold, ...grouped, ...keptIdeasOf(view).map((idea): BandExtra => ({ id: IDEA_PREFIX + idea.id, band: 'ideas', h: IDEA_H, type: VIEW_IDEA, data: { idea } }))]
