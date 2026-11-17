@@ -240,10 +240,12 @@ describe('T7 an id core does not send this reader', () => {
     const v = clone(opened)
     v.model!.cards = v.model!.cards.filter((c) => c.id !== 'rival_sales')
     v.model!.links = v.model!.links.filter((l) => l.from !== 'rival_sales' && l.to !== 'rival_sales')
-    for (const c of v.model!.cards) { c.premises = c.premises.filter((p) => p.id !== 'rival_sales'); if (c.badge != null) c.badge.records = c.badge.records.filter((r) => r !== 'rival_sales') }
     return v
   })()
   const next = pointing(nextOf(opened, 4), 'rival_sales', ['rival_sales', 'newsletter'])
+  it('the fixture: no other card names it as a premise and no badge holds it, so removing the card and its links removes every trace', () => {
+    expect(JSON.stringify(opened.model!.cards.filter((c) => c.id !== 'rival_sales').map((c) => [c.premises, c.badge?.records ?? []]))).not.toContain('rival_sales')
+  })
   it('the pair differs by exactly that card', () => {
     const ids = (v: View) => v.model!.cards.map((c) => c.id)
     expect(ids(opened).filter((id) => !ids(readers).includes(id))).toStrictEqual(['rival_sales'])

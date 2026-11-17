@@ -18,7 +18,8 @@
  *
  * THE HOST RULE (4b and 5: several badges, or several cards, hold the same record). The hosts are a fixed greedy cover of the ids waiting:
  *   - the host that holds the most of those ids;
- *   - on a tie, the host that holds the fewest records in all (for a badge, the least is unfolded);
+ *   - on a tie, the host that holds the fewest records in all (for a badge, the least is unfolded; for a card's premises, the card
+ *     that rests on the least else is the one most about this record);
  *   - on a tie, the first in the View's order (the question, then its cards).
  * It is repeated until every such id has a host. Never "the first host found".
  *
@@ -53,9 +54,11 @@ export interface ShowPlan {
 /** Something that holds records: a badge (the question's or a card's) or a card's premises. `at` is its place in the View's order. */
 interface Host { readonly id: string; readonly records: readonly string[]; readonly at: number }
 
+type Badge = Host & { readonly open: boolean }
+
 /** Every badge in the View, in the View's order: the question's, then each card's. */
-function badgesOf(model: ViewModel): (Host & { readonly open: boolean })[] {
-  const out: (Host & { readonly open: boolean })[] = []
+function badgesOf(model: ViewModel): Badge[] {
+  const out: Badge[] = []
   const q = model.question.badge
   if (q != null) out.push({ id: QUESTION, records: q.records, open: q.open, at: 0 })
   model.cards.forEach((c, i) => { if (c.badge != null) out.push({ id: c.id, records: c.badge.records, open: c.badge.open, at: i + 1 }) })

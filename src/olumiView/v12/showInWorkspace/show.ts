@@ -7,7 +7,8 @@
  *          that would set a target back (and settle again if the layer changed: a layer's notes change card heights) → move the camera
  *          as the person's own move → pulse the cards once → release the hold.
  * RETURN   cancel anything pending → hold → put back layer, lens, inputs and badges and AWAIT the read → wait for the board to settle
- *          → put back the selection and the camera → release the hold with "the person holds the camera" as it was before the show.
+ *          → put back the selection and the camera → release the hold with "the person holds the camera" as it was before the show
+ *          (or held, where putting the badges back changed the board: its own framing must not replace the camera just put back).
  *
  * Nothing is announced that did not happen: a read that fails moves nothing and says so, in core's own words where it gave any. A first
  * show that fails leaves nothing behind. A run that something newer overtook writes nothing more, whenever it finishes. A snapshot whose
@@ -16,7 +17,7 @@
  */
 import { create } from 'zustand'
 import { onShowCameraPort, showCameraPort, type ShowCameraPort } from './cameraPort'
-import { VIEW_CARD, levelOf, pulseCards, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type View } from './deps'
+import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type View } from './deps'
 import { restoreLocal, restoreSelection, restoreStores, samePane, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
 
@@ -213,16 +214,23 @@ export async function returnToBefore(): Promise<void> {
   let held = port.capture().held
   const notBack = (words: string): void => { useShown.setState({ busy: false, said: turn === null ? null : { turn, words } }) }
   try {
+    const boardWas = openBadgesKeyOf(useViewStore.getState().view)
     const ok = await restoreStores(snap)
     if (signal.aborted) return
     if (!ok) { notBack(useViewStore.getState().error ?? COULD_NOT_RETURN); return }
     if (!(await settledWithin(port, signal))) { if (!signal.aborted) notBack(COULD_NOT_RETURN); return }
     restoreSelection(snap)
-    // A camera the board had framed, for a pane that has since changed size (the dock opened or closed), is the board's to frame again;
-    // otherwise the camera goes back exactly.
-    if (!snap.held && !samePane(snap.pane, port.pane())) port.refit()
-    else port.moveTo(snap.viewport, { duration: 0 })
-    held = snap.held // as it was before the show
+    // A camera the board had framed, for a pane that has since changed size (the dock opened or closed), is the board's to frame again.
+    // Otherwise the camera goes back exactly, and a camera already there is not touched. Where putting the badges back made the board
+    // another board (the canvas's own key for that, `openBadgesKeyOf`), the canvas's framing of it is waiting on this return: the camera
+    // just put back is then kept as the person's (as the canvas's own reveal-return keeps it), so that framing does not replace it.
+    // With the board unchanged, "the person holds the camera" is as it was before the show.
+    if (!snap.held && !samePane(snap.pane, port.pane())) { port.refit(); held = false }
+    else {
+      const now = port.capture().viewport
+      if (now.x !== snap.viewport.x || now.y !== snap.viewport.y || now.zoom !== snap.viewport.zoom) port.moveTo(snap.viewport, { duration: 0 })
+      held = openBadgesKeyOf(useViewStore.getState().view) !== boardWas ? true : snap.held
+    }
     forget()
     useShown.setState({ turn: null, busy: false, said: null })
   } finally {

@@ -8,6 +8,7 @@
 export type { View, ViewModel, ViewCard, ViewTurn, Opened } from '../../client'
 export { QUESTION, linkCards, drawnModelOf } from '../../layout'
 export { VIEW_CARD, boardOf, viewLaying } from '../../canvas'
+export { openBadgesKeyOf } from '../../camera'
 export { causalPathOf, inputIdsOf } from '../bands/bands'
 export { inputsFolded, setInputsOpen, useInputsOpen } from '../bands/foldStore'
 export { levelOf, useLevel, useSimpleLevel } from '../simpleStore'

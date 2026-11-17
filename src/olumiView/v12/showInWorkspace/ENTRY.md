@@ -19,5 +19,6 @@ Neither is applied by this lane. Each was checked with `git apply --cached --che
 
 - Names this folder takes from files it does not own are all in `deps.ts`, one adapter. A rename there breaks one file.
 - `canvasSide.ts` needs of the canvas only: `getViewport`, `setViewport`, `getInternalNode`, the `userMoved` ref, `hand`, `fit`. A new port object discards a kept "where you were", so the registration effect must not re-run on every render (its deps are the stable React Flow calls and `fit`).
+- After a Return that changed the board (`openBadgesKeyOf` differs: the show had opened a badge), the camera put back is kept as the person's, exactly as `registerRevealReturnCamera` keeps it: the board does not refit under it until the next board change or Fit. With the board unchanged, `userMoved` is as it was before the show.
 - The hold covers the board's own framing and the resize refit. It does NOT cover `useCardClearOfRegions`, `BelowCue`, or a new reply's own pan (`useReplyInView`) that arrives while a show is on its way; `hand()` stands down pans already pending.
 - If `camera.ts` or the framing loop changes shape, the rule to keep is the second line above; the lines themselves are yours to place.

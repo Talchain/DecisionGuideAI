@@ -8,6 +8,7 @@
  * What each member needs of the canvas is the `CanvasSide` below: React Flow's own three camera calls and the three things only the
  * canvas knows (whether the person holds the camera, the one function every person-made move goes through, and its own framing).
  */
+import type { ReactFlowInstance } from '@xyflow/react'
 import { takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
 import { QUESTION, VIEW_CARD, boardOf, freePane, useCanvasStore, useViewStore, viewLaying } from './deps'
 
@@ -22,6 +23,13 @@ export interface CanvasSide {
   /** The board's own framing of the board on screen (the canvas's `fit`). */
   fit(): unknown
 }
+
+/**
+ * Compile-time only: what the canvas owner's registration passes (React Flow's own three calls, the canvas's ref, `hand` and `fit`) IS a
+ * `CanvasSide`. The type check of this folder fails here, before the owner applies the hunk, if either side changes shape.
+ */
+type Is<T extends true> = T
+export type CanvasPassesACanvasSide = Is<(Pick<ReactFlowInstance, 'getViewport' | 'setViewport' | 'getInternalNode'> & { userMoved: { current: boolean }; hand: () => void; fit: () => Viewport | null }) extends CanvasSide ? true : false>
 
 const frame = (f: () => void): void => { if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => f()); else setTimeout(f, 16) }
 
