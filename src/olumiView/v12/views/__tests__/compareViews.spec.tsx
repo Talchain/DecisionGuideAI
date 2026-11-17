@@ -26,10 +26,11 @@ const base = core.differences[0]
 const figure = { ...base, status: 'changes', steps: [] }
 const payload = (differences: unknown[]) => ({ ...core, differences })
 // Two members, each with a whole view in words of their own (core's `frame`), distinct in every part.
-const frames = {
+// Typed by the View's own `frame` (core's schema since dc2335fc), so a frame here can only be one core could serve.
+const frames: Record<8 | 9, NonNullable<View['collab']['shared'][number]['frame']>> = {
   8: { question: 'Grow or hold this year?', aim: 'Keep the team whole', options: ['Hire two'], links: [] },
   9: { question: 'Which client first?', aim: 'Win the account', options: ['Wait a quarter'], links: [] },
-} as const
+}
 const withFrames = (order: readonly (8 | 9)[] = [8, 9]): View => {
   const byId = new Map(fx.collab.shared.map((s) => [s.id, s]))
   const shared = order.map((id) => ({ ...byId.get(id)!, frame: frames[id] }))
