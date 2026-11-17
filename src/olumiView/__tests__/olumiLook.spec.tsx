@@ -14,6 +14,8 @@ import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { CoreCard, farChanceOf, leadLineOf, withheldWords } from '../previous/CoreCard'
+import { sharedQualifier } from '../v12/detailed/said'
+import { ROW_WORDS_MAX } from '../v12/detailed/marks'
 import { isWorkedOut, joinOf, workedStepsOf } from '../look/WorkedSteps'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
@@ -29,18 +31,26 @@ afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view
 const cardOf = (v: View, pick: (c: ViewCard) => boolean) => v.model!.cards.find(pick)!
 
 describe('slice (1): the option card shows its headline as the View serves it', () => {
-  it('L1 a chance: core\'s words up to core\'s own first clause are the one headline; the clause is the qualifier under it, never cut into the headline', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): every option with a chance here carries the
+  // same clause, so the question's rail says it once (v12/detailed/said.ts sharedQualifier) and the option draws none; a clause of its own is its line.
+  it('L1 a chance: core\'s words up to core\'s own first clause are the one headline; the clause is the qualifier under it unless every option says it (then the rail says it once), never cut into the headline', () => {
     const o = cardOf(RUN1, (c) => c.family === 'option' && c.headline?.state === 'chance')
     const head = farChanceOf(o)!
     expect(head, 'precondition: core\'s chance line has its clause').not.toBe(o.headline!.text)
+    const clause = o.headline!.text.slice(head.length + 2)
+    expect(sharedQualifier(RUN1.model!), 'precondition: every option with a chance carries this clause').toBe(clause)
     const el = draw(RUN1, o)
-    expect([el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)?.textContent])
-      .toEqual([head, o.headline!.text.slice(head.length + 2)])
-    // DL-543: the qualifier is the chance's condition and is never cut to shorten the card
-    expect(el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)!.className).not.toMatch(/line-clamp/)
+    expect([el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)]).toEqual([head, null])
     // the track is core's number at true scale (rows[].chance), bound by the headline's aim
     const row = o.rows.find((r) => r.kind === 'chance' && r.aim_id === o.headline!.aim_id) as { chance: number }
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)
+    cleanup()
+    // CONTRAST: a clause of this option's own (invented) is its qualifier line, whole; DL-543: never cut to shorten the card
+    const ownClause = 'on an invented condition of this option alone'
+    const own = { ...o, headline: { ...o.headline!, text: `${head}, ${ownClause}` } }
+    const mine = draw({ ...RUN1, model: { ...RUN1.model!, cards: RUN1.model!.cards.map((c) => (c.id === o.id ? own : c)) } }, own)
+    expect(mine.querySelector(`[data-view="${o.id}.headline.qualifier"]`)?.textContent).toBe(ownClause)
+    expect(mine.querySelector(`[data-view="${o.id}.headline.qualifier"]`)!.className).not.toMatch(/line-clamp/)
   })
 
   it('L2 no chance yet (R6, 16 Nov; contract 3): the face is ONE quiet line, core\'s next step (headline.add); its why and the step are the hover; never the bare "No chance yet", no press, no "?", no empty track', () => {
@@ -94,20 +104,27 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect(el.querySelector('.ok-chance'), 'CONTRAST: no chance headline').toBeNull()
   })
 
-  it('L4 Olumi\'s estimate is underlined in Olumi\'s blue and says whose it is on the face; the person\'s figure is solid with their author line', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): whose a figure is, is the author mark at the
+  // card's foot with core's words as its name; the words are no longer drawn.
+  it('L4 Olumi\'s estimate is underlined in Olumi\'s blue and carries Olumi\'s mark; the person\'s figure is solid with the person\'s mark, core\'s author words its name', () => {
     const est = cardOf(RUN2, (c) => c.family === 'quantity' && c.olumi != null && (c.figure?.text ?? '') !== '' && c.figure?.edit != null && c.author?.by === 'olumi')
     const theirs = cardOf(RUN2, (c) => c.family === 'quantity' && (c.figure?.text ?? '') !== '' && c.author?.by === 'person')
     const a = draw(RUN2, est)
-    expect([a.querySelector(`[data-core-lead-clamp="${est.id}"]`)?.className.includes('ok-fig-olumi'), a.querySelector(`[data-core-author="${est.id}"]`)?.className.includes('ok-by-olumi')]).toEqual([true, true]); cleanup()
+    expect([a.querySelector(`[data-core-lead-clamp="${est.id}"]`)?.className.includes('ok-fig-olumi'), a.querySelector(`[data-core-author="${est.id}"] [data-author-mark]`)?.getAttribute('data-author-mark')]).toEqual([true, 'olumi']); cleanup()
     const b = draw(RUN2, theirs)
-    expect([b.querySelector(`[data-core-lead-clamp="${theirs.id}"]`)?.className.includes('ok-fig-olumi'), b.querySelector(`[data-core-author="${theirs.id}"]`)?.textContent]).toEqual([false, theirs.author!.text])
+    const mark = b.querySelector<HTMLElement>(`[data-core-author="${theirs.id}"] [data-author-mark]`)!
+    expect([b.querySelector(`[data-core-lead-clamp="${theirs.id}"]`)?.className.includes('ok-fig-olumi'), mark.getAttribute('data-author-mark'), mark.getAttribute('aria-label')?.startsWith(theirs.author!.text)]).toEqual([false, 'person', true])
+    expect(b.querySelector(`[data-core-author="${theirs.id}"]`)?.textContent, 'the words are the mark\'s name, not drawn').toBe('')
   })
 
-  it('L5 the aim: its target with core\'s mark, and whose the target and the aim are, both on the face (core\'s bound.olumi.title and author.text)', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): Olumi's target is Olumi's mark beside it, and
+  // whose the aim is the author mark, core's words the names of both.
+  it('L5 the aim: its target with Olumi\'s mark named by core\'s bound.olumi.title, and whose the aim is as the author mark named by core\'s author.text; neither sentence drawn', () => {
     const g = cardOf(RUN2, (c) => c.bound?.olumi != null)
     const el = draw(RUN2, g)
-    expect(el.querySelector(`[data-view="${g.id}.bound.olumi.title"]`)?.textContent).toContain(g.bound!.olumi!.title)
-    expect(el.querySelector(`[data-core-author="${g.id}"]`)?.textContent).toBe(g.author!.text)
+    expect(el.querySelector(`[data-view="${g.id}.bound.olumi"] [data-olumi-mark]`)?.getAttribute('aria-label')).toBe(g.bound!.olumi!.title)
+    expect(el.querySelector(`[data-core-author="${g.id}"] [data-author-mark]`)?.getAttribute('aria-label')?.startsWith(g.author!.text)).toBe(true)
+    expect(el.querySelector(`[data-core-card="${g.id}"]`)?.textContent).not.toContain(g.bound!.olumi!.title)
   })
 })
 
@@ -136,23 +153,30 @@ describe('slice (3): an option\'s limits are drawn in the same structure as its 
   const WS = load('live-loop11-workshop-r3-pending.view.json')
   const limitRows = (c: ViewCard) => c.rows.map((r, i) => ({ r: r as { kind: string; aim_id?: string | null; value?: string | null; text?: string | null }, i })).filter(({ r }) => r.aim_id != null && r.aim_id !== c.headline?.aim_id)
 
-  it('M1 a worked-out limit: core\'s row value under the headline, bound by the row; the headline\'s own aim is not drawn twice', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): an option's result on a limit is on the limit's
+  // own card, by the option's letter (v12/detailed/marks.tsx AimResults); the option card no longer names the limit.
+  it('M1 a worked-out limit: core\'s row value on the limit\'s card, in the option\'s row, bound by the row; the option card draws no limit row', () => {
     const o = cardOf(WS, (c) => c.family === 'option' && limitRows(c).some(({ r }) => r.kind === 'limit'))
     const { r, i } = limitRows(o).find(({ r }) => r.kind === 'limit')!
-    const el = draw(WS, o)
-    expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)?.textContent).toBe(r.value)
-    expect(el.querySelectorAll(`[data-ok-limit="${o.headline!.aim_id}"]`).length, 'CONTRAST: the aim stays the headline').toBe(0)
+    const aim = cardOf(WS, (c) => c.id === r.aim_id)
+    const el = draw(WS, aim)
+    expect(el.querySelector(`[data-aim-result="${o.id}"] [data-view="${o.id}.rows.${i}.value"]`)?.textContent).toBe(r.value)
+    cleanup()
+    const card = draw(WS, o)
+    expect([card.querySelectorAll('[data-ok-limit]').length, card.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)], 'CONTRAST: not on the option card').toEqual([0, null])
   })
 
   it('M2 (R6, 16 Nov) a limit not worked out: its name and ONE quiet line of core\'s own state words, its reason the hover; no "Why not", no "?", no track; never a value', () => {
+    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): the row is on the limit's card, by the option's letter; a long reason is one press away (v12/detailed/marks.tsx RowWords).
     const o = cardOf(WS, (c) => c.family === 'option' && limitRows(c).some(({ r }) => r.kind === 'none'))
     const { r, i } = limitRows(o).find(({ r }) => r.kind === 'none')!
-    const el = draw(WS, o)
+    const el = draw(WS, cardOf(WS, (c) => c.id === r.aim_id))
     const row = el.querySelector<HTMLElement>(`[data-view="${o.id}.rows.${i}"]`)!
     expect(row.getAttribute('title'), 'core\'s reason, whole, on the row\'s hover').toContain(r.text!)
     expect(row.querySelector('details, summary, .ok-q, .ok-empty, [data-testid$="-empty-bar"]'), 'no press, no "?", no empty track').toBeNull()
     const state = (r as { state_text?: string | null }).state_text
-    expect(row.querySelector(`[data-withheld-row="${o.id}.rows.${i}"]`)?.textContent ?? null, 'core\'s state words where it sends them, else core\'s own reason: never the name alone (Line reviewer F2)').toBe(state || r.text || null)
+    const words = state || r.text || null, said = row.querySelector<HTMLElement>(`[data-row-words="${o.id}.rows.${i}"]`)!
+    expect(words!.length > ROW_WORDS_MAX ? said.querySelector('button')?.getAttribute('aria-label') : said.textContent, 'core\'s state words where it sends them, else core\'s own reason: never the name alone (Line reviewer F2)').toBe(words)
     expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)).toBeNull()
   })
 })

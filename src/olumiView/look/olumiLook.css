@@ -58,7 +58,7 @@
    height here and nowhere else; what a line is for is its colour alone (light: meta, body: reading, ink: emphasis), set on its own rule. */
 .olumi-look .ok-face [data-stated-figure], .olumi-look .ok-qual, .olumi-look .ok-status, .olumi-look .ok-count, .olumi-look .ok-tag,
 .olumi-look .ok-caption, .olumi-look .ok-by, .olumi-look .ok-limit, .olumi-look .ok-next, .olumi-look .ok-steps li, .olumi-look .ok-quiet,
-.olumi-look .ok-rail-label, .olumi-look .ok-rail-rest, .olumi-look .ok-pop { font-size: calc(12px * var(--o-s)); line-height: 1.4; }
+.olumi-look .ok-pop { font-size: calc(12px * var(--o-s)); line-height: 1.4; }
 /* The one headline: an option's chance. */
 .olumi-look .ok-chance {
   font-size: calc(18px * var(--o-s)); line-height: 1.15; font-weight: 500; color: var(--text-header);
@@ -279,20 +279,7 @@
 
 /* The lens bar is the pill (Paul, 16 Nov, R24 9cce33fa): drawn by ViewLensBar's own classes alone, no override here. */
 
-/* UI-BRIEF-20261115 s3: the shared chance rail on the question bar (ChanceRail.tsx). One scale for every option; neutral ink, one accent. */
-.olumi-look .ok-rail { display: grid; gap: calc(6px * var(--o-s)); margin-top: calc(8px * var(--o-s)); }
-.olumi-look .ok-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 1.1fr); column-gap: calc(14px * var(--o-s)); row-gap: calc(4px * var(--o-s)); align-items: center; }
-.olumi-look .ok-rail-label { grid-column: 1; min-width: 0; overflow-wrap: break-word; margin: 0; color: var(--text-body); }
-.olumi-look .ok-rail-fig { font-weight: 500; color: var(--text-header); }
-.olumi-look .ok-rail-track { grid-column: 2; position: relative; align-self: stretch; min-height: calc(18px * var(--o-s)); }
-.olumi-look .ok-rail-axis { position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-left: 1px solid var(--border-emphasis); border-right: 1px solid var(--border-emphasis); }
-.olumi-look .ok-rail-tick { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--border-emphasis); }
-.olumi-look .ok-rail-lane { position: absolute; left: 0; right: 0; height: 0; }
-.olumi-look .ok-rail-lane::before { content: ''; position: absolute; left: 0; right: 0; top: -0.5px; border-top: 1px solid var(--border-default); }
-.olumi-look .ok-rail-whisker { position: absolute; top: -2px; height: 4px; border-radius: 999px; background: var(--edge-neutral); }
-.olumi-look .ok-rail-dot { position: absolute; top: -5px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--text-header); box-shadow: 0 0 0 2px var(--bg-panel); }
-.olumi-look .ok-rail-rest { margin: 0; color: var(--text-light); }
-.olumi-look .ok-rail-caption { font-weight: 500; }
+/* Core's challenge mark on an option's lane of the question's rail (v12/detailed/charts.tsx), in the challenge orange; pressing it opens the fold. */
 .olumi-look .ok-rail-challenge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; border: 1px solid var(--olumi-mark-orange); color: var(--olumi-mark-orange); font-weight: 500; font-size: calc(12px * var(--o-s)); line-height: 1; vertical-align: 1px; cursor: pointer; }
 /* DL 15 Nov: what a result rests on, shown whole on press under its label, out of the card's flow (as "Why not"): the card never grows. */
 .olumi-look .ok-share-wrap { position: relative; display: block; max-width: 100%; }
@@ -370,3 +357,99 @@
 
 /* Band labels ("Options you could take"): 12 / 500, sentence case, light. The label's colour is set inline by BandLayer, so only !important wins. */
 .olumi-look [data-band-label] { color: var(--text-light) !important; font-size: calc(12px * var(--o-s)); font-weight: 500 !important; text-transform: none; letter-spacing: 0; }
+
+/* ── V12 DETAILED (17 Nov 2026; Paul: "a much better version of the detailed view to make it not overwhelming but truly valuable with rich
+   data"). Scoped to the Detailed face (`data-ok-detailed`, CoreCard); Simple's rules above are untouched. Each fact said once on the board
+   (v12/detailed/said.ts), whose it is a mark, a text action an icon with its words on hover, a chart where the View gives numbers. Type is the
+   card's own 12 / 14 / 18 at the board's scale; tokens only. ── */
+/* The card is as wide as its content needs, from a floor up to the layout's slot (BaseNode sets the slot as width and max-width inline). */
+.olumi-look .react-flow__node:not(.react-flow__node-viewQuestion):has([data-ok-detailed]) [role='group'][aria-label] {
+  width: fit-content !important; min-width: calc(208px * var(--o-s)) !important;
+}
+/* A long title shows three lines; the rest is one press away (marks.tsx WholeTitle) and on hover. The question is never cut. */
+.olumi-look .react-flow__node:not(.react-flow__node-viewQuestion):has([data-ok-detailed]) [data-testid='node-title'] {
+  display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 3 !important; overflow: hidden !important;
+}
+/* The foot: one row of marks, whose it is at the right. */
+.olumi-look .ok-dt-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s));
+  color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: 1.4;
+}
+.olumi-look .ok-dt-foot:empty { display: none; }
+.olumi-look .ok-dt-foot > .ok-dt-whose { margin-left: auto; display: inline-flex; align-items: center; }
+.olumi-look .ok-dt-foot > .ok-dt-whose:empty { display: none; }
+.olumi-look .ok-dt-foot .ok-author { margin-right: 0; }
+.olumi-look .ok-dt-icon, .olumi-look .ok-dt-badge, .olumi-look .ok-dt-date { display: inline-flex; align-items: center; gap: calc(4px * var(--o-s)); color: var(--text-light); }
+.olumi-look .ok-dt-date { color: var(--text-body); }
+.olumi-look .ok-dt-badge, .olumi-look .ok-dt-press { min-width: 24px; min-height: 24px; justify-content: center; padding: 0 calc(4px * var(--o-s)); border-radius: 8px; cursor: pointer; font-size: calc(12px * var(--o-s)); }
+.olumi-look .ok-dt-badge:hover, .olumi-look .ok-dt-press:hover { color: var(--text-body); background: var(--bg-panel-hover); }
+.olumi-look .ok-dt-badge-proposed { border: 1px dashed var(--info); color: var(--info); }
+.olumi-look .ok-dt-olumi { color: var(--info); }
+.olumi-look .ok-dt-whole { position: relative; display: inline-flex; }
+.olumi-look .ok-dt-whole[hidden] { display: none; }
+.olumi-look .ok-dt-num-mark { display: inline-flex; margin-left: calc(4px * var(--o-s)); vertical-align: -0.1em; }
+/* The working (look/WorkedSteps) as the calculator mark: core's words stay its name and hover, read by a screen reader, not drawn. */
+.olumi-look [data-ok-detailed] .ok-dt-foot .ok-steps > summary {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; border-radius: 8px; text-decoration: none; color: var(--text-light);
+}
+.olumi-look [data-ok-detailed] .ok-dt-foot .ok-steps > summary:hover { color: var(--text-body); background: var(--bg-panel-hover); }
+.olumi-look [data-ok-detailed] .ok-dt-foot .ok-steps > summary > span,
+.olumi-look [data-ok-detailed] [data-rests-neutral] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.olumi-look [data-ok-detailed] .ok-dt-foot .ok-steps > summary::before {
+  content: ''; width: 14px; height: 14px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='16' height='20' x='4' y='2' rx='2'/%3E%3Cline x1='8' x2='16' y1='6' y2='6'/%3E%3Cline x1='16' x2='16' y1='14' y2='18'/%3E%3Cpath d='M16 10h.01'/%3E%3Cpath d='M12 10h.01'/%3E%3Cpath d='M8 10h.01'/%3E%3Cpath d='M12 14h.01'/%3E%3Cpath d='M8 14h.01'/%3E%3Cpath d='M12 18h.01'/%3E%3Cpath d='M8 18h.01'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='16' height='20' x='4' y='2' rx='2'/%3E%3Cline x1='8' x2='16' y1='6' y2='6'/%3E%3Cline x1='16' x2='16' y1='14' y2='18'/%3E%3Cpath d='M16 10h.01'/%3E%3Cpath d='M12 10h.01'/%3E%3Cpath d='M8 10h.01'/%3E%3Cpath d='M12 14h.01'/%3E%3Cpath d='M8 14h.01'/%3E%3Cpath d='M12 18h.01'/%3E%3Cpath d='M8 18h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* How much of a chance rests on Olumi's estimates: the two-tone bar alone, core's words its hover; pressing it opens what it rests on. */
+.olumi-look [data-ok-detailed] .ok-share { width: 100%; cursor: pointer; }
+/* No chance yet: an outlined empty track the gauge's size (never dashed, never a zero). */
+.olumi-look .ok-dt-mini { position: relative; display: block; height: calc(4px * var(--o-s)); border-radius: 999px; background: var(--border-default); overflow: hidden; }
+.olumi-look .ok-dt-mini > i { display: block; height: 100%; background: var(--text-light); border-radius: 999px; }
+.olumi-look .ok-dt-mini-empty { background: transparent; box-sizing: border-box; height: calc(6px * var(--o-s)); border: 1px solid var(--text-light); }
+.olumi-look .ok-dt-gauge-empty { width: 100%; margin: calc(4px * var(--o-s)) 0 calc(2px * var(--o-s)); }
+/* An option's other aims: the aim's marker, a mini track, core's value; the aim's name on hover (said on its own card). */
+.olumi-look .ok-dt-aims { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-aim {
+  display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(48px * var(--o-s)), 1fr) auto auto; align-items: center;
+  column-gap: calc(6px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4; color: var(--text-body);
+}
+.olumi-look .ok-dt-aim-mark { width: calc(10px * var(--o-s)); height: calc(10px * var(--o-s)); }
+.olumi-look .ok-dt-aim-val { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.olumi-look .ok-dt-aim[data-aim-row='none'] .ok-dt-aim-val { font-weight: 400; color: var(--text-light); white-space: normal; }
+/* What every option says alike, said once here: the empty track's mark and core's words. */
+.olumi-look .ok-dt-said { display: grid; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-said-line { display: flex; align-items: center; gap: calc(6px * var(--o-s)); margin: 0; color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: 1.4; }
+.olumi-look .ok-dt-said-line > .ok-dt-mini-empty { flex: none; width: calc(24px * var(--o-s)); }
+/* The question's rail: the options by letter on one 0..100% scale (quarter ticks), a dot and core's range whisker, core's number at the right. */
+.olumi-look .ok-dt-rail { position: relative; display: grid; gap: calc(6px * var(--o-s)); margin-top: calc(8px * var(--o-s)); max-width: calc(560px * var(--o-s)); }
+.olumi-look .ok-dt-rail-row {
+  display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(0, 1fr) calc(120px * var(--o-s)); align-items: center;
+  column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
+}
+.olumi-look .ok-dt-rail .ok-letter, .olumi-look .ok-dt-strips .ok-letter, .olumi-look .ok-dt-aims .ok-letter { margin-right: 0; }
+.olumi-look .ok-dt-rail-axis { position: absolute; top: 0; bottom: 0; left: calc(20px * var(--o-s)); right: calc(128px * var(--o-s)); pointer-events: none; }
+.olumi-look .ok-dt-rail-axis > i { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--border-default); }
+.olumi-look .ok-dt-rail-lane { position: relative; display: block; height: calc(10px * var(--o-s)); }
+.olumi-look .ok-dt-rail-lane::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--border-default); }
+.olumi-look .ok-dt-rail-lane-empty { height: calc(6px * var(--o-s)); box-sizing: border-box; border: 1px solid var(--text-light); border-radius: 999px; background: transparent; }
+.olumi-look .ok-dt-rail-lane-empty::before { display: none; }
+.olumi-look .ok-dt-rail-whisker { position: absolute; top: 50%; height: 4px; margin-top: -2px; border-radius: 999px; background: var(--edge-neutral); }
+.olumi-look .ok-dt-rail-dot { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--text-header); box-shadow: 0 0 0 2px var(--bg-panel); }
+.olumi-look .ok-dt-rail-val { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
+.olumi-look .ok-dt-strips { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-strip {
+  display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(64px * var(--o-s)), 1fr) minmax(0, 55%); align-items: center;
+  column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
+}
+.olumi-look .ok-dt-strip-lane { position: relative; display: block; height: calc(8px * var(--o-s)); border-radius: 3px; background: var(--border-default); }
+.olumi-look .ok-dt-strip-lane.ok-dt-rail-lane-empty { height: calc(6px * var(--o-s)); }
+.olumi-look .ok-dt-strip-band { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--text-header) 45%, transparent); }
+.olumi-look .ok-dt-olumi-band { background: color-mix(in srgb, var(--info) 60%, transparent); }
+.olumi-look .ok-dt-strip-mid { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
+.olumi-look .ok-dt-goal-tick { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--goal); }
+.olumi-look .ok-dt-strip-val { min-width: 0; color: var(--text-body); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
+.olumi-look .ok-dt-strip-axis { color: var(--text-light); }
+.olumi-look .ok-dt-strip-ends { display: flex; justify-content: space-between; gap: calc(8px * var(--o-s)); white-space: nowrap; }
+.olumi-look .ok-dt-quiet { color: var(--text-light); white-space: normal; }
+.olumi-look .ok-dt-ia { margin-left: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-rail-val .ok-rail-challenge { margin-left: calc(4px * var(--o-s)); }

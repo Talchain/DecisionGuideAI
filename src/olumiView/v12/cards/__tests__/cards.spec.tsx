@@ -170,11 +170,16 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
   const o = cardOf(ASKED, 'second_oven'), h = o.headline!
   const gone = '.ok-q, summary, details, .ok-empty, .ok-track, [data-testid$="-empty-bar"], [data-withheld-chance]'
 
-  it('W1 Detailed: core\'s next step is the one line, its reason and the step the hover; no "?", no "Why not", no empty track', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): every option on this board says the same step, so the aim
+  // says it once and the option keeps the outlined empty track (detailed.spec DT1); the option's own line is checked where its step is its own.
+  it('W1 Detailed: core\'s next step is the one line where it is the option\'s own, its reason and the step the hover; said once where every option says it; no "?", no "Why not"', () => {
     expect([h.state, (h.why ?? '') !== '', h.why !== h.text, (h.add ?? '') !== ''], 'precondition: withheld, with a reason and a next step').toEqual(['none', true, true, true])
-    const face = draw(ASKED, o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
+    const shared = draw(ASKED, o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
+    expect([shared.hasAttribute('data-said-once'), shared.querySelectorAll('.ok-quiet').length], 'said once on the aim, not here').toEqual([true, 0]); cleanup()
+    const STEP = 'An invented next step for this option alone.'
+    const face = draw(withCard(ASKED, { ...o, headline: { ...h, add: STEP } }), o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
     const line = face.querySelector<HTMLElement>('.ok-quiet')!
-    expect([line.textContent, line.getAttribute('title')]).toEqual([h.add, `${h.why}\n${h.add}`])
+    expect([line.textContent, line.getAttribute('title')]).toEqual([STEP, `${h.why}\n${STEP}`])
     expect(face.querySelectorAll('.ok-quiet').length, 'one line').toBe(1)
     expect(face.querySelector(gone), 'nothing of the old withheld furniture').toBeNull()
     expect(face.textContent, 'unknown is never drawn as zero').not.toMatch(/\?|0%/)
@@ -269,18 +274,25 @@ describe('the qualifier under a chance is its own line, with Olumi\'s mark where
     expect(words.querySelector('[data-olumi-mark]')?.getAttribute('aria-label')).toBe(row.olumi!.title)
   })
 
-  it('Q3 Detailed: Olumi\'s mark leads the qualifier line and core\'s glyph is not drawn a second time beside the number', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): every option here carries the same clause, so the
+  // question's rail says it once and the option keeps Olumi's mark beside its number; a clause of its own is its line, Olumi's mark leading.
+  it('Q3 Detailed: a clause every option carries is said once (no qualifier line; Olumi\'s mark beside the number); a clause of the option\'s own is its line, led by Olumi\'s mark; core\'s text glyph is never drawn', () => {
     const el = draw(EU, o.id)
-    const qual = el.querySelector<HTMLElement>(`[data-view="${o.id}.headline.qualifier"]`)!
-    expect([qual.textContent, qual.querySelector('[data-olumi-mark]')?.getAttribute('aria-label')]).toEqual([parts.qualifier, row.olumi!.title])
-    expect(el.querySelector(`[data-view="${o.id}.row.olumi.glyph"]`)).toBeNull()
+    expect([el.querySelector(`[data-view="${o.id}.headline.qualifier"]`), el.querySelector(`[data-view="${o.id}.row.olumi"] [data-olumi-mark]`)?.getAttribute('aria-label')]).toEqual([null, row.olumi!.title])
+    expect(el.querySelector(`[data-view="${o.id}.row.olumi.glyph"]`)).toBeNull(); cleanup()
+    const CLAUSE = 'on an invented condition of this option alone'
+    const mine = draw(withCard(EU, { ...o, headline: { ...o.headline!, text: `${parts.head}, ${CLAUSE}` } }), o.id)
+    const qual = mine.querySelector<HTMLElement>(`[data-view="${o.id}.headline.qualifier"]`)!
+    expect([qual.textContent, qual.querySelector('[data-olumi-mark]')?.getAttribute('aria-label')]).toEqual([CLAUSE, row.olumi!.title])
+    expect(mine.querySelector(`[data-view="${o.id}.row.olumi.glyph"]`)).toBeNull()
   })
 
   it('Q4 CONTRAST: a chance with no clause has no qualifier line; its mark stays beside the number (core\'s glyph in Detailed, Olumi\'s mark in Simple)', () => {
     const plain = cardOf(FACE, 'second_oven'), r = headlineChanceRow(plain)!
     expect(r.olumi).not.toBeNull()
     const detailed = draw(FACE, plain.id)
-    expect([detailed.querySelector(`[data-view="${plain.id}.headline.qualifier"]`), detailed.querySelector(`[data-view="${plain.id}.row.olumi.glyph"]`)?.getAttribute('title')]).toEqual([null, r.olumi!.title]); cleanup()
+    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: marks, not text glyphs): Olumi's mark beside the number in Detailed too, core's words its name.
+    expect([detailed.querySelector(`[data-view="${plain.id}.headline.qualifier"]`), detailed.querySelector(`[data-view="${plain.id}.row.olumi"] [data-olumi-mark]`)?.getAttribute('aria-label')]).toEqual([null, r.olumi!.title]); cleanup()
     const simple = draw(FACE, plain.id, 'simple').querySelector<HTMLElement>(`[data-simple-chance="${plain.id}"]`)!
     expect([simple.querySelector('[data-simple-qual]'), simple.textContent, simple.querySelector('[data-olumi-mark]')?.getAttribute('aria-label')]).toEqual([null, r.value, r.olumi!.title]); cleanup()
     const own = cardOf(FACE, 'carry_on')
@@ -320,11 +332,13 @@ describe('authorship: Olumi\'s mark and a person\'s are distinct on the card, co
     expect([b.getAttribute('data-simple-author'), b.querySelector('[data-person-mark]') !== null, b.querySelector('[data-olumi-mark]'), b.getAttribute('title')]).toEqual(['person', true, null, said(theirs)])
   })
 
-  it('M2 Detailed: the author line leads with the same mark and still says core\'s author words, nothing added to them', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): the author line is the mark alone, core's author
+  // words its name and hover, as Simple draws it.
+  it('M2 Detailed: whose a card is, is the same mark as Simple, core\'s author words its name; the words are not drawn', () => {
     const a = draw(EU, olumis.id).querySelector<HTMLElement>(`[data-core-author="${olumis.id}"]`)!
-    expect([a.querySelector('[data-author-mark]')?.getAttribute('data-author-mark'), a.querySelector('[data-olumi-mark]') !== null, a.textContent?.includes(olumis.author!.text)]).toEqual(['olumi', true, true]); cleanup()
+    expect([a.querySelector('[data-author-mark]')?.getAttribute('data-author-mark'), a.querySelector('[data-olumi-mark]') !== null, a.textContent, a.querySelector('[data-author-mark]')?.getAttribute('aria-label')?.startsWith(olumis.author!.text)]).toEqual(['olumi', true, '', true]); cleanup()
     const b = draw(EU, theirs.id).querySelector<HTMLElement>(`[data-core-author="${theirs.id}"]`)!
-    expect([b.querySelector('[data-author-mark]')?.getAttribute('data-author-mark'), b.querySelector('[data-person-mark]') !== null, b.querySelector('[data-olumi-mark]'), b.textContent]).toEqual(['person', true, null, theirs.author!.text])
+    expect([b.querySelector('[data-author-mark]')?.getAttribute('data-author-mark'), b.querySelector('[data-person-mark]') !== null, b.querySelector('[data-olumi-mark]'), b.textContent]).toEqual(['person', true, null, ''])
   })
 
   it('M3 a card core says is mixed wears both marks; a card with no author and no Olumi mark wears none', () => {
@@ -351,16 +365,18 @@ describe('a calculated figure core could not calculate for an option says so, wi
   const REASON = 'core\'s own reason for this option'
   const held = withCard(ASKED, { ...sales, values: sales.values!.filter((v) => v.option !== 'longer_hours'), values_withheld: [{ option: 'longer_hours', text: REASON }] } as ViewCard)
 
-  it('H1 Detailed: the outcome strips give the option its own dashed row (its letter, a dashed empty track, core\'s reason) and no value line or range strip; the card\'s state is withheld', () => {
-    const el = draw(held, 'sales'), row = el.querySelector<HTMLElement>('[data-testid="strip-withheld-longer_hours"]')!
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): each option's value is one strip row by its letter
+  // (band, median, core's words: v12/detailed/charts.tsx Strips); a withheld option is its letter, an outlined lane and core's reason.
+  it('H1 Detailed: the strips give the withheld option its own row (its letter, an outlined empty lane, core\'s reason) and no band or value; the card\'s state is withheld', () => {
+    const el = draw(held, 'sales'), row = el.querySelector<HTMLElement>('[data-strip-withheld="longer_hours"]')!
     expect(row, 'the withheld option has its own row').not.toBeNull()
     expect(faceOf(el, 'sales').getAttribute('data-ok-state')).toBe('withheld')
-    expect([row.querySelector('span')?.textContent, row.textContent, row.style.border.includes('dashed')]).toEqual(['B', `Bnot calculated: ${REASON}`, true])
-    expect(el.querySelector('[data-testid="strip-range-longer_hours"]'), 'no band for it').toBeNull()
-    expect(el.querySelectorAll('[data-core-value="sales.longer_hours"]').length, 'no value line for it').toBe(0)
-    expect(el.querySelectorAll('[data-testid="strip-withheld-longer_hours"]').length, 'drawn once').toBe(1)
-    expect(el.querySelector('[data-core-value="sales.second_oven"] b')?.textContent, 'CONTRAST: a calculated option keeps its value line').toBe(sales.values!.find((v) => v.option === 'second_oven')!.text)
-    expect(el.querySelector('[data-testid="strip-range-second_oven"]'), 'CONTRAST: and its strip').not.toBeNull()
+    expect([row.querySelector('.ok-letter')?.textContent, row.querySelector('.ok-dt-strip-val')?.textContent, row.querySelector('.ok-dt-rail-lane-empty') !== null]).toEqual(['B', REASON, true])
+    expect(el.querySelector('[data-strip="longer_hours"]'), 'no band for it').toBeNull()
+    expect(el.querySelectorAll('[data-core-value="sales.longer_hours"]').length, 'no value for it').toBe(0)
+    expect(el.querySelectorAll('[data-strip-withheld="longer_hours"]').length, 'drawn once').toBe(1)
+    expect(el.querySelector('[data-core-value="sales.second_oven"] .ok-dt-strip-val')?.textContent, 'CONTRAST: a calculated option keeps its value').toBe(sales.values!.find((v) => v.option === 'second_oven')!.text)
+    expect(el.querySelector('[data-strip="second_oven"] [data-band-from]'), 'CONTRAST: and its band').not.toBeNull()
   })
 
   it('H2 Simple (R6, quiet): no band for the withheld option; it is named by its letter, then core\'s reason, with no dashed row and no empty track; CONTRAST: the served card draws none', () => {

@@ -8,7 +8,8 @@ import path from 'node:path'
 
 const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selectors: m[1]!.split(',').map((s) => s.trim()), body: m[2]! }))
-const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-tag', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next', '.ok-rail-label', '.ok-rail-rest']
+// CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov): the question's rail names options by letter (v12/detailed/charts.tsx); its label and rest lines are gone.
+const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-tag', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next']
 
 describe("the look's recipes, each written once", () => {
   it("a card's small text takes its size and line height from one rule (the compact card draws at the board's scale like every card, R4, 16 Nov)", () => {
