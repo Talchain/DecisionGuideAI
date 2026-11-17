@@ -83,6 +83,12 @@ export type View = {
           }>
         } | null
         state?: "waits"
+        range?: {
+          low: number
+          likely: number | null
+          high: number
+          unit: string
+        }
       } | null
       premises: Array<{
         glyph: string
@@ -163,6 +169,7 @@ export type View = {
         aim_id: string | null
         text: string
         title: string
+        computed?: true
         timing?: string
         timing_title?: string
         state?: "shown" | "withheld" | "not_computable"
@@ -220,6 +227,12 @@ export type View = {
           title: string
         } | null
       }> | null
+      values_withheld?: Array<{
+        option: string
+        text: string
+        cause: "invalid_domain" | "not_covered" | "unknown"
+      }>
+      baseline?: true
       worked?: {
         form: "sum" | "product" | "stock" | "effect"
         steps: Array<{
@@ -698,7 +711,31 @@ export type View = {
         why: string | null
         add: string | null
         shared: boolean
+        of?: string
       } | null
+      title_short?: string | null
+      description?: string | null
+      kind?: "option" | "driver" | "result" | "risk" | "aim" | "position" | "note"
+      aim?: "goal" | "limit" | null
+      needs?: Array<{
+        id: string
+        label: string
+        edit: {
+          prompt: string
+          ask: string
+        } | {
+          prompt: string
+          ask: string
+          route: "size"
+          record: string
+          note: string | null
+          fields: Array<{
+            key: "typed" | "chance" | "change"
+            prompt: string
+            ask: string
+          }>
+        } | null
+      }>
     }>
     links: Array<{
       from: string
@@ -709,6 +746,11 @@ export type View = {
       alert: boolean
       proposed: boolean
       title: string
+      role?: "effect" | "input" | "size" | "measures" | "target" | "reason"
+      sizes?: {
+        from: string
+        to: string
+      }
       records: Array<string>
       effect: {
         text: string
@@ -770,6 +812,8 @@ export type View = {
         }
         text: string
       } | null
+      direction?: "raises" | "lowers" | "depends" | "disputed" | "unknown" | null
+      confidence?: "likely" | "unsure" | "unknown" | null
     }>
     run: {
       aim: string | null
@@ -842,6 +886,10 @@ export type View = {
           range: boolean
         }
       }>
+      earlier?: {
+        text: string
+        title: string
+      }
       ask?: {
         text: string
         about: Array<string>
@@ -1091,6 +1139,19 @@ export type View = {
       }>
     } | null
     edit_base: number | null
+    undo?: {
+      available: true
+      version: number
+      n: number
+      label: string
+      why_not: null
+    } | {
+      available: false
+      version: null
+      n: null
+      label: null
+      why_not: string
+    } | null
     holdable?: Array<{
       link: {
         record: string
@@ -1151,6 +1212,7 @@ export type View = {
       rationale: string
       move: string | null
     }>
+    first_draft?: boolean
   } | null
   proposal: {
     id: number
@@ -1215,6 +1277,17 @@ export type View = {
       keep: string
       use: string
       approve: string
+    }
+    to_read?: {
+      lines: Array<number>
+      groups: Array<{
+        heading: string
+        lines: Array<number>
+      }> | null
+      noted: {
+        text: string
+        lines: Array<number>
+      } | null
     }
   } | null
   collab: {
@@ -1297,6 +1370,35 @@ export type View = {
         source: string | null
         pill: string
       }>
+      frame?: {
+        question?: string
+        aim?: string
+        options?: Array<string>
+        links?: Array<{
+          from: string
+          to: string
+          from_label: string
+          to_label: string
+          words: string
+        }>
+      }
+      frame_words?: {
+        heading: string
+        question: string
+        aim: string
+        options: string
+        links: string
+        not_expressed: string
+        note: string
+        limits: {
+          question: number
+          aim: number
+          option: number
+          options: number
+          link_words: number
+          links: number
+        }
+      }
     }>
     mine: Array<{
       id: number
@@ -1324,6 +1426,35 @@ export type View = {
       }>
       can_share: boolean
       earlier: boolean
+      frame?: {
+        question?: string
+        aim?: string
+        options?: Array<string>
+        links?: Array<{
+          from: string
+          to: string
+          from_label: string
+          to_label: string
+          words: string
+        }>
+      }
+      frame_words?: {
+        heading: string
+        question: string
+        aim: string
+        options: string
+        links: string
+        not_expressed: string
+        note: string
+        limits: {
+          question: number
+          aim: number
+          option: number
+          options: number
+          link_words: number
+          links: number
+        }
+      }
     }>
     placeholder: string
     can_reveal: boolean
@@ -1415,6 +1546,23 @@ export type View = {
         tell: string | null
       } | null
     }>
+    frame_words?: {
+      heading: string
+      question: string
+      aim: string
+      options: string
+      links: string
+      not_expressed: string
+      note: string
+      limits: {
+        question: number
+        aim: number
+        option: number
+        options: number
+        link_words: number
+        links: number
+      }
+    }
     effect_headings: {
       changes: string
       moves: string
@@ -1599,6 +1747,10 @@ export type View = {
           unit?: string | null
         }>
       }>
+      first_answer?: {
+        label: string
+        heading: string | null
+      }
     } | null
     broke: string | null
     problem: string | null
@@ -1685,6 +1837,7 @@ export type View = {
     }
   }
   brief: string
+  brief_by?: string
   gated: boolean
   session: {
     goal: {
@@ -1806,7 +1959,7 @@ export type View = {
       ask: "message" | "challenge" | "method" | "move" | "consider" | null
       proposal: number | null
       discussion: boolean | null
-      state: "building" | "applied" | "checked" | "not_in_model" | null
+      state: "building" | "applied" | "checked" | "not_in_model" | "given" | null
     }>
   } | null
   floor?: Array<{
@@ -1816,7 +1969,14 @@ export type View = {
     by_id: string
     said: string
     text: string
+    prose?: Array<string>
+    held?: true
   }>
+  start?: "words"
+  build_model?: {
+    label: string
+    title: string
+  }
   turn?: {
     job: number
     status: "answering" | "failed" | "lost"
@@ -1842,12 +2002,12 @@ export type View = {
   strategy?: {
     items: Array<{
       id: string
-      kind: "claim" | "assumption" | "question" | "risk" | "choice"
+      kind: "claim" | "assumption" | "question" | "risk" | "choice" | "idea"
       kind_text: string
       text: string
       at: string
-      by: string
-      by_id: string
+      by: string | null
+      by_id: string | null
       concerns: Array<{
         id: string
         family: string | null
@@ -1863,6 +2023,12 @@ export type View = {
       locus: "ours" | "world" | null
       locus_text: string | null
       signpost: string | null
+      origin_by?: "olumi"
+      source_turn?: number
+      kept_by?: {
+        id: string
+        name: string
+      } | null
     }>
     views: Array<{
       view: number
@@ -1925,6 +2091,19 @@ export type View = {
       overview: string
     }
   }
+  kept?: Array<{
+    id: number
+    turn: number
+    text: string
+    by: "olumi"
+    kept_by: {
+      id: string
+      name: string
+    }
+    at: string
+    concerns: Array<string>
+    from?: "floor"
+  }>
   evidence_words: {
     heading: string
     close: string
