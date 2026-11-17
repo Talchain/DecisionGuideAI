@@ -22,7 +22,7 @@ export function CanvasHeadBand(): JSX.Element | null {
   if (box.h === 0) return null
   return (
     <div aria-hidden="true" data-testid="view-canvas-head-band"
-      className="pointer-events-none fixed left-0 top-0 z-[4] bg-canvas shadow-[0_10px_14px_-10px_rgba(38,38,38,0.16)]"
+      className="pointer-events-none fixed left-0 top-0 z-[4] bg-canvas shadow-2"
       style={{ height: box.h, right: box.right }} />
   )
 }

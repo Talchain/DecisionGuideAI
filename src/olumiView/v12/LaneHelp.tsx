@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { regionsOf } from '../regions'
 import { HELP_EVENTS } from '../../components/layout/TopBar'
 import { KeyboardLegend, useKeyboardLegend } from '../../canvas/help/KeyboardLegend'
 import { InfluenceExplainer, useInfluenceExplainer } from '../../components/assistants/InfluenceExplainer'
@@ -8,10 +9,30 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../../components/assi
  * The top bar sends the same two events it always has; the previous canvas answered them and this one now does too, with the same two
  * panels: the legend lists only the keys that work on this canvas (KeyboardLegend's lane sections), and the explainer is the product's own.
  */
+/** Where the toast stands: below the head band (top bar, lens pill) and left of the dock, read from the page's own regions. */
+function useToastAnchor(active: boolean): { top: string; right: string } {
+  const fallback = { top: 'calc(var(--topbar-h, 0px) + 1rem)', right: '1rem' }
+  const [at, setAt] = useState(fallback)
+  useEffect(() => {
+    if (!active) return
+    const place = () => {
+      const { head, dock } = regionsOf(), W = window.innerWidth
+      const next = { top: head.bottom > 0 ? `${Math.round(head.bottom + 12)}px` : fallback.top, right: `${Math.round(W - dock.left + 16)}px` }
+      setAt((a) => (a.top === next.top && a.right === next.right ? a : next))
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+  return at
+}
+
 export function LaneHelp(): JSX.Element {
   const legend = useKeyboardLegend()
   const influence = useInfluenceExplainer()
   const { open } = legend, { show } = influence
+  const anchor = useToastAnchor(influence.shouldShow)
   useEffect(() => {
     const keys = () => open(), how = () => show()
     window.addEventListener(HELP_EVENTS.SHOW_KEYBOARD_LEGEND, keys)
@@ -24,8 +45,8 @@ export function LaneHelp(): JSX.Element {
   return (
     <>
       {influence.shouldShow ? (
-        <div className="absolute z-[1200] flex flex-col items-end gap-3" style={{ top: 'calc(var(--topbar-h, 0px) + 1rem)', right: '1rem' }} data-testid="lane-influence-explainer">
-          <InfluenceExplainer forceShow={influence.forceShow} onDismiss={influence.hide} compact />
+        <div className="fixed z-[1200] flex w-[min(20rem,calc(100vw-2rem))] flex-col items-end gap-3" style={anchor} data-testid="lane-influence-explainer">
+          <InfluenceExplainer forceShow={influence.forceShow} onDismiss={influence.hide} compact variant="panel" />
         </div>
       ) : null}
       <KeyboardLegend isOpen={legend.isOpen} onClose={legend.close} />

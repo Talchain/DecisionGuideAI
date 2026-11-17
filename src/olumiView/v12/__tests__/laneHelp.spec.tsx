@@ -17,4 +17,20 @@ describe('Help on the V12 canvas', () => {
     act(() => { window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_INFLUENCE_EXPLAINER)) })
     expect(screen.getByTestId('lane-influence-explainer')).toBeInTheDocument()
   })
+
+  it('the influence toast is on panel tokens, in plain words, with no code type, and sits fixed clear of the head band and the dock (v10 review item 1)', () => {
+    render(<LaneHelp />)
+    act(() => { window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_INFLUENCE_EXPLAINER)) })
+    const wrap = screen.getByTestId('lane-influence-explainer')
+    const toast = screen.getByTestId('influence-explainer-panel')
+    expect(wrap).toHaveClass('fixed')
+    expect(wrap.style.top).not.toBe('')
+    expect(wrap.style.right).not.toBe('')
+    expect(toast).toHaveClass('bg-panel', 'border-panel-border', 'text-text-body')
+    expect(toast.className).not.toMatch(/sky-|font-mono/)
+    expect(toast.querySelector('.font-mono')).toBeNull()
+    expect(toast).toHaveTextContent('Factors are the things that matter, links show what moves what')
+    // contrast: no node/edge/weight jargon in the lane toast
+    expect(toast.textContent).not.toMatch(/Nodes|Edges|Weights/)
+  })
 })
