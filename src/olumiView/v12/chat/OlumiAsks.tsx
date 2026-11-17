@@ -19,7 +19,7 @@ export interface AskedQuestion { readonly key: string; readonly view: string; re
 
 export const USE_THIS = 'Use this'
 /** The green act: Olumi's green with an ink label (Paul, 17 Nov: no black buttons). */
-const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-border disabled:bg-border disabled:text-text-light`
+const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`
 const METHOD_ICON = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' } as const
 
 export function OlumiAsks({ questions, body, held, onAnswer, onMethod }: {

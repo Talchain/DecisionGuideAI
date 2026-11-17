@@ -146,7 +146,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(latest.textContent).toBe('Latest')
     expect(latest).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'text-text-body', 'border-panel-border', 'bg-panel')
     expect(latest).not.toHaveClass('text-info')
-    expect(latest.querySelector('svg.lucide-arrow-down')).not.toBeNull()
+    // CHANGED BY DESIGN (17 Nov, icons carry no hue): the arrow is the registry's go-latest icon (grey), drawn as an svg inside a decorative span.
+    expect(latest.querySelector('span[aria-hidden="true"] svg.lucide-arrow-down-to-line')).not.toBeNull()
     act(() => show(fixture))
     expect(scroll.scrollTop).toBe(200)
     act(() => show({ ...fixture, turn: running }))
@@ -559,8 +560,8 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
     expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')
-    // CHANGED BY DESIGN (17 Nov, the calm panel): the row is no longer a sticky header at the box's top; it is the first item of the actions line at the foot.
-    expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/flex: 1 1 0/)
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the row is no longer a sticky header at the box's top; it is the first item of the actions line at the foot. D3: its basis is 12rem, never 0, so core's heading is not squeezed before the controls wrap.
+    expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/flex: 1 1 12rem/)
     expect(rule(".ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden])")).toMatch(/display: contents/)
   })
 

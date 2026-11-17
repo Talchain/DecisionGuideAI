@@ -649,8 +649,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
     // Codex 13:33Z (2), 14:3xZ: every block of the step and of the proposal is watched (the rows, the actions, and what stands above,
     // between and below them: the step's words, the heading, the note, the list of changes), so whichever of them changes size, the rows
     // are placed again. The two wrappers are `display: contents` (olumiLook.css), so these blocks are the box's own layout. Contract 3: the
-    // one-row review's wrapper and its open body are `display: contents` too, so its own blocks (the row with the heading, the step's words)
-    // are watched by themselves; a wrapper with no box of its own reports no size.
+    // one-row review's wrapper and its open body are `display: contents` too, so its own blocks (the step's words; the heading's row sits in
+    // the actions line, watched as the actions) are watched by themselves; a wrapper with no box of its own reports no size.
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(land)
     if (observer !== null) {
       observer.observe(box)
@@ -1244,7 +1244,7 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
-          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-success text-text-header hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><OkIcon id="move-tap" size={16} decorative /></button>
+          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-success text-text-header hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><OkIcon id="move-tap" size={16} decorative /></button>
       : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} className={primary ? GREEN_ACT : ''} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
@@ -1871,7 +1871,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-border disabled:bg-border disabled:text-text-light">
+            className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light">
             <OkIcon id="send" size={14} decorative /><span className="sr-only">Send</span>
           </button>
         </div>

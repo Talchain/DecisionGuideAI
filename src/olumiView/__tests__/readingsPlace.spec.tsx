@@ -135,16 +135,19 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     expect(b.style.maxHeight).toBe('458px')
     expect(whole()).toBe(true)
   })
-  it('Codex 14:3xZ: a row that grows, and a block ABOVE the rows that grows (the proposal\'s heading), each place the rows again', () => {
+  it('Codex 14:3xZ: a row that grows, and a block ABOVE the rows that grows (the step\'s words), each place the rows again', () => {
     show(held)
     const b = boxOf()!
     ROWS = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 160] } // the second row grew
     expect(whole()).toBe(false)
     expect(resized(screen.getByTestId('view-reading-1'))).toBe(1)
     expect(whole()).toBe(true)
-    ROWS = { 'view-reading-0': [340, 143], 'view-reading-1': [491, 160] } // the heading above grew by 40 px: the rows moved down
+    ROWS = { 'view-reading-0': [340, 143], 'view-reading-1': [491, 160] } // the block above grew by 40 px: the rows moved down
     expect(whole()).toBe(false)
-    const heading = document.querySelector('[data-view="proposal.heading"]')!.parentElement!
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the proposal's heading moved into the actions line at the foot (watched as the actions, the
+    // test above). The block above the rows is now the step's own words, a direct child of the open review body.
+    const heading = document.querySelector('[data-review-body] > p')!
+    expect(heading.textContent).not.toBe('')
     expect(resized(heading)).toBe(1)
     expect(whole()).toBe(true)
     expect(b.scrollTop).toBe(332)

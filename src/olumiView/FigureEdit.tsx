@@ -85,7 +85,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
-          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded-sm bg-primary px-2 py-0.5 text-text-on-color disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed`}>{ASIDE_WORDS.confirm}</button>
+          className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded-sm bg-primary px-2 py-0.5 text-text-on-color disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed`}>{ASIDE_WORDS.confirm}</button>
         <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
@@ -211,9 +211,9 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
       {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === '' || live === null} onClick={primary === 'set' ? undefined : () => void save()}
-          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-panel-border text-text-body'}`}>Set figure</button>
+          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'set' ? 'bg-primary text-text-on-color' : 'border border-panel-border text-text-body'}`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === '' || live === null} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-panel-border text-text-body hover:text-text-header'}`}>Try without saving</button>
+          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed ${primary === 'try' ? 'order-first bg-primary text-text-on-color' : 'border border-panel-border text-text-body hover:text-text-header'}`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>

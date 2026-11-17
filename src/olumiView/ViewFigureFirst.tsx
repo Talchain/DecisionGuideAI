@@ -63,7 +63,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
               <textarea aria-labelledby="view-ff-question" rows={2} value={text} disabled={busy} className={`${FIELD} resize-none`} data-testid="view-figure-first-text"
                 onChange={(e) => useFigureFirst.setState({ text: e.target.value, said: null })} />
               <button type="submit" disabled={busy || typed.trim() === '' || text.trim() === ''} aria-label="Send" title="Send" data-testid="view-figure-first-send"
-                className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
+                className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
                 <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>

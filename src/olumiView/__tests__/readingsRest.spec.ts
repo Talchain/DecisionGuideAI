@@ -150,7 +150,8 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(card).not.toContain('ok-why')
   })
   it('CONTRAST: the other next-step kinds keep the "Next step" header and the bordered card', () => {
-    expect(chat).toContain('<p className={typography.panelHeader}>Next step</p>')
+    // CHANGED BY DESIGN (17 Nov, one type scale in the panel): the header is the panel's 12px heading in ink.
+    expect(chat).toContain('<p className={`${typography.viewPanelHeading} text-text-header`}>Next step</p>')
     expect(chat).toContain('data-step={step.kind} aria-label="Next step"')
   })
 })

@@ -120,7 +120,7 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
         <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
-          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
           <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </form>

@@ -58,7 +58,8 @@ describe('1. one quiet footer row per reply', () => {
     const chip = q(row, 'view-about-chip')!
     const n = (chip.dataset['cards'] ?? '').split(' ').length
     expect(chip.querySelector('svg')).not.toBeNull() // an icon
-    expect(chip.querySelector('[aria-hidden="true"]:not(svg)')!.textContent).toBe(String(n)) // with its count
+    const count = Array.from(chip.children).find((c) => c.tagName === 'SPAN' && c.getAttribute('aria-hidden') === 'true' && c.querySelector('svg') === null)!
+    expect(count.textContent).toBe(String(n)) // with its count (the icon's own span is decorative too, so the count is the one without an svg)
     expect(chip).toHaveTextContent(aboutCountWords(n)) // and its words for readers ("2 cards")
     expect(chip.title.length).toBeGreaterThan(0) // the hover lists the cards
   })
@@ -298,7 +299,7 @@ describe('8. Send is the person\'s green act, never black', () => {
   it('the composer Send is --success with an ink arrow; hover and active are the success family; disabled is one solid neutral', () => {
     const c = mount(session('after-find-first'))
     const send = q(c, 'view-composer-send')!
-    for (const t of ['bg-success', 'text-text-header', 'hover:bg-success-hover', 'active:bg-success-active', 'disabled:bg-border']) expect(send.className, t).toContain(t)
+    for (const t of ['bg-success', 'text-text-header', 'hover:bg-success-hover', 'active:bg-success-active', 'disabled:bg-panel-border']) expect(send.className, t).toContain(t)
     expect(send.className).not.toMatch(/(^|\s)bg-text-header(\s|$)/)
     expect(send.className).not.toContain('text-text-on-color')
     expect(send.querySelector('svg')).not.toBeNull()

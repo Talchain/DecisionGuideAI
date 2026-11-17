@@ -29,7 +29,7 @@ describe('a control that cannot act yet is solid, not faded', () => {
     expect(VIEW_CHIP_CLASS).not.toMatch(FADE)
     expect(VIEW_CHIP_PRIMARY_CLASS).not.toMatch(FADE)
     expect(VIEW_CHIP_CLASS.split(/\s+/)).toContain('disabled:text-text-light')
-    expect(VIEW_CHIP_PRIMARY_CLASS.split(/\s+/)).toEqual(expect.arrayContaining(['disabled:bg-border', 'disabled:text-text-light']))
+    expect(VIEW_CHIP_PRIMARY_CLASS.split(/\s+/)).toEqual(expect.arrayContaining(['disabled:bg-panel-border', 'disabled:text-text-light']))
   })
   // Contrast: the legacy chat chips these derive from keep their own recipe (not this lane's), so the probe sees the token where it is.
   it('NF3 contrast: the probe sees the fade where it still is (the legacy chip recipe the lane derives from)', async () => {
