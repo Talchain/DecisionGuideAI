@@ -72,18 +72,16 @@ describe('the far face draws a chance whole (DL-424)', () => {
   })
 
   // CATCH (fails before: the pill drew headline.text "No chance yet" and the reason sat behind a closed "Why not" details).
-  it('the full face of a withheld chance is one "Why not" press (DL 15 Nov: the face carries less); it opens core\'s why, named by its data-view path, and its next step, whole', () => {
+  it('the full face of a withheld chance is ONE quiet line (R6, 16 Nov): core\'s next step, named by its data-view path, its why and the step the hover; no press, no pill, no "?"', () => {
     const { card, c } = mount('cut_monthly_spending_to_stretch_the_runway', 'full')
     const face = c.querySelector<HTMLElement>(`[data-core-lead="${card.id}"][data-ok-face="none"]`)!
-    const press = face.querySelector<HTMLDetailsElement>('details.ok-why')!
-    expect(press.querySelector('summary')!.textContent).toBe('Why not')
-    const words = press.querySelector<HTMLElement>(`[data-core-lead-clamp="${card.id}"]`)!
-    expect(words.textContent).toBe(card.headline!.why)
-    expect(words.getAttribute('data-view')).toBe(`${card.id}.headline.why`)
-    // CATCH: no reason, next step or "No chance yet" on the face itself; nothing on the face clamps.
-    expect(face.querySelector('.ok-pill')).toBeNull()
+    const line = face.querySelector<HTMLElement>('.ok-quiet')!
+    expect(card.headline!.add, 'precondition: core sent a next step').toBeTruthy()
+    expect([line.textContent, line.getAttribute('data-view'), line.getAttribute('title')]).toEqual([card.headline!.add, `${card.id}.headline.add`, `${card.headline!.why}\n${card.headline!.add}`])
+    // CATCH: no press, pill, "?", empty track, reason or "No chance yet" on the face itself; nothing on the face clamps.
+    expect(face.querySelector('details, summary, .ok-pill, .ok-q, .ok-empty')).toBeNull()
     for (const e of face.querySelectorAll('*')) expect(e.className.toString()).not.toMatch(/line-clamp|truncate/)
     expect(face.textContent).not.toContain('No chance yet')
-    expect(press.querySelector(`[data-view="${card.id}.headline.add"]`)!.textContent).toBe(card.headline!.add)
+    expect(face.textContent).not.toContain(card.headline!.why!)
   })
 })

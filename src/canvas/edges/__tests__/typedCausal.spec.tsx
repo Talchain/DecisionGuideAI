@@ -6,7 +6,7 @@ import { ViewLinkEdge } from '../ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 import type { ViewLink } from '../../../olumiView/client'
 import { useViewStore } from '../../../olumiView/store'
-import { effectDash, effectStroke } from '../../../olumiView/v12/links/styles'
+import { DOUBT_DASH, effectStroke } from '../../../olumiView/v12/links/styles'
 import proposal from '../../../olumiView/golden/proposal.view.json'
 
 type Causal = NonNullable<ViewLink['causal']>
@@ -46,7 +46,7 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     for (const state of ['unsized', 'in_words'] as const) {
       cleanup(); expect(draw(causal('unknown', state)).p.style.strokeDasharray).toBe('')
     }
-    cleanup(); expect(draw(causal('increases'), { doubt: true }).p.style.strokeDasharray).toBe(effectDash(true))
+    cleanup(); expect(draw(causal('increases'), { doubt: true }).p.style.strokeDasharray).toBe(DOUBT_DASH)
   })
   it('a pending link is solid, a disputed one keeps its marker and words, and a doubted one is the one that is dashed', () => {
     const pending = draw(causal('increases'), { proposed: true })
@@ -54,26 +54,29 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(pending.r.querySelector('g[data-view-link]')?.getAttribute('data-proposed')).toBe('true')
     cleanup()
     const disputed = draw(causal('decreases', 'sized', true), { doubt: true })
-    expect(disputed.p.style.strokeDasharray).toBe(effectDash(true))
+    expect(disputed.p.style.strokeDasharray).toBe(DOUBT_DASH)
     expect(disputed.r.querySelector('g[data-view-link]')?.getAttribute('data-causal-disputed')).toBe('true')
     expect(disputed.r.querySelector('g[data-view-link] > title')?.textContent).toContain('Sam supplied this provisional link.')
     expect(disputed.r.querySelector('g[data-view-link] > title')?.textContent).toContain('The original source words.')
   })
-  it('the same default line width holds for different supplied magnitudes: no relative width is manufactured', () => {
+  it('the same default line width holds for different supplied magnitudes: no relative width is manufactured (R1, 16 Nov: the default is production\'s thinnest rung, 2 px)', () => {
     for (const n of [1e-12, 1e12]) {
       const c = causal('increases'); Object.assign(c.strength, { low: n, high: n, likely: n })
-      cleanup(); expect(draw(c).p.style.strokeWidth).toBe('1.5')
+      cleanup(); expect(draw(c).p.style.strokeWidth).toBe('2')
     }
   })
   it('a size does not erase core\'s doubt or Olumi\'s authorship: the line is dashed by doubt, and Olumi\'s mark is on it, with its direction colour', () => {
     const c = causal('increases'); c.author = { by: 'olumi', text: 'Olumi inferred', title: 'Olumi proposed this link.' }
     const got = draw(c, { doubt: true })
-    expect([got.p.style.stroke, got.p.style.strokeDasharray]).toEqual([effectStroke('increases'), effectDash(true)])
+    expect([got.p.style.stroke, got.p.style.strokeDasharray]).toEqual([effectStroke('increases'), DOUBT_DASH])
     expect(got.r.querySelector('[data-view-link-olumi-mark="links.0"]')).not.toBeNull()
     expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
   })
-  it('a noncausal line retains its existing treatment; an alert retains its priority', () => {
-    expect(draw(null, { label: '+', doubt: true }).p.style.stroke).toBe('var(--edge-positive)') // the same #62B290, as its token (brand.css --edge-positive)
+  it('a noncausal line is plain (R5, 16 Nov): 2 px and neutral, its "+" label colours nothing and only doubt dashes it; an alert retains its priority', () => {
+    const plain = draw(null, { label: '+', doubt: true })
+    expect([plain.p.style.stroke, plain.p.style.strokeWidth, plain.p.style.strokeDasharray]).toEqual(['var(--edge-neutral)', '2', DOUBT_DASH])
+    cleanup()
+    expect(draw(null, { label: '+' }).p.style.stroke, 'an effect\'s colour is never borrowed for a line with no typed causal').toBe('var(--edge-neutral)')
     cleanup()
     expect(draw(causal('decreases'), { alert: true }).p.style.stroke).toBe('var(--olumi-mark-orange)')
   })

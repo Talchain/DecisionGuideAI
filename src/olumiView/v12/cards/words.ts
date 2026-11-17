@@ -19,6 +19,16 @@ export function withheldWords(h: Headline): string | null {
 }
 
 /**
+ * R6 (Paul, 16 Nov): an option with no chance says what is missing in ONE quiet line, core's own words: its next step (`headline.add`) where it
+ * sends one, else its headline's text. Core's long reason (`why`, else the `title` every option shares) and the next step are the card's hover,
+ * never a "?", a "Why not" or an empty track at rest. Unknown is never drawn as zero; no sentence is cut.
+ */
+export function noChanceLineOf(h: Headline): { line: string; hover: string } {
+  const hover = [withheldField(h) === 'text' ? null : withheldWords(h), h.add].filter((x) => x != null && x !== '').join('\n')
+  return { line: h.add != null && h.add !== '' ? h.add : h.text, hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text }
+}
+
+/**
  * Core makes a chance line in one place (core src/view/run-lines.ts chanceFace): `${bare} chance`, then its clauses, each after ", ". The
  * words up to the first clause are the number's own; the rest is the qualifier, drawn as its own line. A line not in that shape is whole.
  */

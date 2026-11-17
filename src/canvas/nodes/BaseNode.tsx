@@ -998,12 +998,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const titleInk = isCoreCard ? 'text-text-header' : 'text-text-body'
   const titleTypeWide = isCoreCard ? typography.viewTitle : typography.nodeTitleWide
   const labelType = isCoreCard ? typography.viewLabel : typography.nodeLabel
-  // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line): three lines on the face, the whole
-  // heading as the title's hover; the card's accessible name keeps it whole (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
-  // V12 Simple (`data.compact`): a compact card, two title lines at most, the whole heading on hover.
+  // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line); the card's accessible name keeps it whole and
+  // the title's hover too (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
+  // V12 Simple (`data.compact`): a compact card, its type at the board's own scale and its quick actions below the card.
   const compact = isCoreCard && (data as { compact?: boolean } | undefined)?.compact === true
-  // One title line on a compact card (the question: two), the whole heading on hover.
-  const titleClamp = compact ? (nodeType === 'decision' ? 'line-clamp-2' : 'line-clamp-1') : isCoreCard ? 'line-clamp-3' : 'line-clamp-2'
+  // A core card's name is never clamped (R6, 16 Nov: a title is not cut so that its end is lost); the other cards keep their two lines.
+  const titleClamp = isCoreCard ? '' : 'line-clamp-2'
   const isIncomplete = isCoreCard ? false : (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
@@ -2567,7 +2567,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           filter: 'drop-shadow(0 0 1px var(--bg-panel))',
         }}
       >
-        <NodeShapeIndicator nodeKind={nodeType} size={CONNECTOR_GLYPH_PX} className="h-full w-full" stroke="var(--bg-panel)" strokeWidth={0.6} />
+        {/* V12 core cards hand the DS kind their frame is drawn in (`data.glyphKind`), so the marker and the frame's hue are one answer (CoreCard); an
+            unverified assumption is outlined and dashed. Every other card draws its own kind, as before. */}
+        <NodeShapeIndicator nodeKind={isCoreCard ? (data as { glyphKind?: NodeType } | undefined)?.glyphKind ?? nodeType : nodeType} size={CONNECTOR_GLYPH_PX} className="h-full w-full" stroke="var(--bg-panel)" strokeWidth={0.6}
+          dashedOutline={isCoreCard && (data as { glyphDashed?: boolean } | undefined)?.glyphDashed === true} />
       </span>
 
       {/* "Rests on": the figure's number, on the card's top edge at the left, clear of the kind glyph at the centre.

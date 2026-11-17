@@ -112,7 +112,12 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
   it('K5 the look draws the design system\'s shape for every kind (DS v5 §10), keyed on data-ok-kind only, and reads the option\'s letter (jsdom draws no CSS, so the stylesheet is read)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     for (const kind of ['factor', 'option', 'goal', 'decision', 'risk', 'outcome']) expect(css, kind).toContain(`:has([data-ok-kind='${kind}'])`)
-    expect(css).toContain(':has([data-ok-assumption])')
+    // R1, R2 (16 Nov): the marker is BaseNode's real shape (CoreCard hands it the same kind, F4 below), so the stylesheet draws none of its own, hides none, and
+    // the frame is the kind's full hue, never the 30 % mix.
+    expect(css).not.toMatch(/\[role='group'\]\[aria-label\]::before/)
+    expect(css).not.toMatch(/node-type-glyph'\] \{ display: none/)
+    expect(css).toMatch(/border-color: var\(--ok-kc\) !important/)
+    expect(css).not.toMatch(/color-mix\(in srgb, var\(--(ok-kc|option|factor|goal)\) 30%/)
     // The V12 boards' own shape language (pills, double outlines, state dashes) is gone: nothing styles a card from data-ok-shape or data-ok-state.
     expect(css).not.toMatch(/data-ok-(shape|state)/)
     expect(css).toMatch(/:has\(\[data-ok-kind='option'\]\) \[data-testid='node-title'\]::before \{[^}]*content: var\(--ok-letter, ''\);/)
@@ -139,38 +144,36 @@ describe('an option card: its letter, and "baseline" only where core marks it', 
   })
 })
 
-describe('a withheld chance gives its real reason at rest (canvas rule 4)', () => {
+describe('an option with no chance says what is missing in one quiet line (R6, 16 Nov; was canvas rule 4)', () => {
   const o = cardOf(ASKED, 'second_oven'), h = o.headline!
+  const gone = '.ok-q, summary, details, .ok-empty, .ok-track, [data-testid$="-empty-bar"], [data-withheld-chance]'
 
-  it('W1 Detailed: "?" and a dashed empty track named by core\'s state words, core\'s reason as the caption, "Why not" kept for the long form', () => {
-    expect([h.state, (h.why ?? '') !== '', h.why !== h.text], 'precondition: withheld, with a reason').toEqual(['none', true, true])
+  it('W1 Detailed: core\'s next step is the one line, its reason and the step the hover; no "?", no "Why not", no empty track', () => {
+    expect([h.state, (h.why ?? '') !== '', h.why !== h.text, (h.add ?? '') !== ''], 'precondition: withheld, with a reason and a next step').toEqual(['none', true, true, true])
     const face = draw(ASKED, o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
-    const part = face.querySelector<HTMLElement>(`[data-withheld-chance="${o.id}"]`)!
-    expect(part.querySelector('.ok-q')?.textContent).toBe('?')
-    expect(part.querySelector(`[data-testid="${o.id}-empty-bar"]`)?.getAttribute('aria-label')).toBe(h.text)
-    const caption = part.querySelector<HTMLElement>(`[data-withheld-caption="${o.id}"]`)!
-    expect([caption.textContent, caption.getAttribute('title')]).toEqual([h.why, h.why])
-    expect(part.querySelector('details.ok-why summary')?.textContent).toBe('Why not')
-    expect(face.querySelector('.ok-track'), 'no chance track: nothing is placed').toBeNull()
+    const line = face.querySelector<HTMLElement>('.ok-quiet')!
+    expect([line.textContent, line.getAttribute('title')]).toEqual([h.add, `${h.why}\n${h.add}`])
+    expect(face.querySelectorAll('.ok-quiet').length, 'one line').toBe(1)
+    expect(face.querySelector(gone), 'nothing of the old withheld furniture').toBeNull()
+    expect(face.textContent, 'unknown is never drawn as zero').not.toMatch(/\?|0%/)
   })
 
-  it('W2 Simple: the same parts on the compact face, the reason whole on hover with core\'s next step; never the bare state words', () => {
+  it('W2 Simple: the same one line on the compact face; the reason whole on hover with core\'s next step; never the bare state words', () => {
     const face = draw(ASKED, o.id, 'simple').querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
-    expect(face.querySelector(`[data-withheld-caption="${o.id}"]`)?.textContent).toBe(h.why)
-    expect(face.querySelector(`[data-testid="${o.id}-empty-bar"]`)).not.toBeNull()
+    expect(face.textContent).toBe(h.add)
     expect(face.getAttribute('title')).toBe(`${h.why}\n${h.add}`)
-    expect(face.querySelector('summary')?.textContent).toBe('Why not')
+    expect(face.querySelector(gone)).toBeNull()
     expect(face.textContent).not.toContain(h.text)
   })
 
-  it('W3 CONTRAST: where core sends no reason, its own state words stand under the track and no caption is made up; a chance draws none of this', () => {
-    const bare = { ...o, headline: { ...h, why: null, title: '' } } as ViewCard
+  it('W3 CONTRAST: where core sends no next step its headline\'s own words are the line, and no reason is made up; a chance draws none of this', () => {
+    const bare = { ...o, headline: { ...h, why: null, title: '', add: null } } as ViewCard
     const face = render(<SimpleFace card={bare} model={ASKED.model} noted={false} />).container
-    expect([face.querySelector('[data-withheld-caption]'), face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent]).toEqual([null, h.text])
+    expect([face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent, face.querySelector<HTMLElement>(`[data-simple-state="${o.id}"]`)?.title]).toEqual([h.text, h.text])
     cleanup()
     const chance = cardOf(FACE, 'second_oven')
     expect(chance.headline!.state).toBe('chance')
-    for (const level of ['working', 'simple'] as const) { expect(draw(FACE, chance.id, level).querySelector('[data-withheld-chance]'), level).toBeNull(); cleanup() }
+    for (const level of ['working', 'simple'] as const) { expect(draw(FACE, chance.id, level).querySelector('.ok-quiet'), level).toBeNull(); cleanup() }
   })
 })
 
@@ -197,8 +200,12 @@ describe('a figure with no value yet, and one that waits', () => {
     expect([detailed.getAttribute('data-ok-face'), detailed.hasAttribute('data-ok-pending'), detailed.querySelector('[data-testid="spend-empty-bar"]') !== null, detailed.querySelector('.ok-status [data-core-lead-clamp]')?.textContent])
       .toEqual(['worked', true, true, spend.figure!.text])
     expect(detailed.querySelector('.ok-fig')).toBeNull(); cleanup()
-    const simple = draw(ASKED, 'spend', 'simple').querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([simple.querySelector('[data-testid="spend-empty-bar"]') !== null, simple.querySelector('[data-simple-pending="spend"]')?.textContent, simple.getAttribute('title')]).toEqual([true, spend.figure!.text, spend.figure!.title]); cleanup()
+    // R7 (16 Nov): where core sends the working (`worked`), its steps are drawn OPEN in the card's flow (look/WorkedSteps), so the one clipped "waits on" line is not said twice.
+    const el = draw(ASKED, 'spend', 'simple'), simple = el.querySelector<HTMLElement>('[data-simple-face="pending"]')!
+    expect([simple.querySelector('[data-testid="spend-empty-bar"]') !== null, simple.querySelector('[data-simple-pending="spend"]'), simple.getAttribute('title')]).toEqual([true, null, spend.figure!.title])
+    const steps = el.querySelector<HTMLDetailsElement>('[data-simple-below="spend"] details.ok-steps-inline')!
+    expect([steps.open, steps.querySelectorAll('li').length, steps.querySelector('li')?.getAttribute('data-step-from')]).toEqual([true, spend.worked!.steps.length, spend.worked!.steps[0]!.id])
+    cleanup()
     expect(draw(ASKED, 'base_sales', 'simple').querySelector('[data-simple-face="pending"]'), 'CONTRAST: a stated figure').toBeNull()
   })
 })
@@ -324,5 +331,38 @@ describe('a calculated figure core could not calculate for an option says so, wi
     cleanup()
     expect(bandRowsOf(sales, ASKED.model).map((b) => b.option)).toContain('longer_hours')
     for (const level of ['working', 'simple'] as const) { expect(draw(ASKED, 'sales', level).querySelector('[data-testid^="strip-withheld-"], [data-simple-withheld]'), level).toBeNull(); cleanup() }
+  })
+})
+
+describe('a first draft marks nothing as proposed (R3, 16 Nov); inside an approved model a proposal keeps its dashed blue frame', () => {
+  const proposed = { ...cardOf(ASKED, 'second_oven'), change: { kind: 'added', glyph: '+', title: 'Olumi added this' }, author: { by: 'olumi', text: 'Proposed by Olumi', title: '' }, doubt: false, challenged: false } as unknown as ViewCard
+  const approved = withCard(ASKED, proposed)
+  const draft = { ...approved, version: null, proposal: { id: 'p1' } } as unknown as View
+  const frame = (el: HTMLElement) => el.querySelector<HTMLElement>('[role="group"]')!.className
+  it('F1 an approved model: the card Olumi proposes is Olumi\'s blue and dashed', () => {
+    expect([approved.version != null, approved.proposal]).toEqual([true, null])
+    const c = frame(draw(approved, proposed.id))
+    expect(c).toContain('border-info'); expect(c).toContain('border-dashed')
+  })
+  it('F2 a first draft (a proposal and no approved version): the same card is its kind\'s own solid frame, neither blue nor dashed, and no banner is added', () => {
+    const el = draw(draft, proposed.id), c = frame(el)
+    expect(c).not.toContain('border-info'); expect(c).not.toContain('border-dashed')
+    expect(c, 'the kind\'s own frame').toContain('border-option')
+    expect(el.querySelector('[role="status"], [data-testid="draft-banner"]')).toBeNull()
+  })
+  it('F3 a doubted card stays dashed on a first draft, in its kind\'s hue (never blue); a challenged one keeps core\'s orange', () => {
+    const c = frame(draw({ ...draft, model: { ...draft.model!, cards: draft.model!.cards.map((x) => (x.id === proposed.id ? { ...proposed, doubt: true } : x)) } } as View, proposed.id))
+    expect(c).toContain('border-dashed'); expect(c).not.toContain('border-info'); expect(c).toContain('border-option')
+    cleanup()
+    const o = frame(draw({ ...draft, model: { ...draft.model!, cards: draft.model!.cards.map((x) => (x.id === proposed.id ? { ...proposed, challenged: true } : x)) } } as View, proposed.id))
+    expect(o).toContain('olumi-mark-orange')
+  })
+  it('F4 the marker is the real shape of the card\'s kind, one source with its frame hue: an option draws its square, an assumption its dashed outline', () => {
+    const el = draw(approved, proposed.id)
+    expect(el.querySelector('[data-testid="node-type-glyph"] svg rect'), 'the option\'s square').not.toBeNull()
+    expect(el.querySelector('[data-ok-kind="option"]')).not.toBeNull()
+    cleanup()
+    const a = draw(EU, 'customer_flow_assumptions')
+    expect(a.querySelector('[data-testid="node-type-glyph"] svg [stroke-dasharray]'), 'an assumption\'s marker is outlined and dashed').not.toBeNull()
   })
 })

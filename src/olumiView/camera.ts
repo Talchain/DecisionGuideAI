@@ -4,7 +4,7 @@
  * whole of core's model is in view on first open and after each new version; the person zooms in from there.
  */
 import type { View } from './client'
-import { labelCounterScale, LABEL_SCALE_QUANTUM } from '../canvas/utils/zoomLegibility'
+import { labelCounterScale, LABEL_LEGIBLE_ZOOM, LABEL_SCALE_QUANTUM } from '../canvas/utils/zoomLegibility'
 
 export const CORE_LANE_FIT_FLOOR = 0.25
 
@@ -26,8 +26,14 @@ export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
 export const reducedFaceSize = (zoom: number): number =>
   Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil(labelCounterScale(zoom) * LABEL_SCALE_QUANTUM) / LABEL_SCALE_QUANTUM : 0
 
-/** V12 Simple: its compact faces draw 13 px type at a fixed size (no counter-scale), so 0.8 keeps every word at 10.4 px or more on screen. */
-export const SIMPLE_FIT_FLOOR = 0.8
+/**
+ * V12 Simple's fit floor: production's own (LABEL_LEGIBLE_ZOOM, 0.5). Simple draws its type at production's counter-scale, fixed when the board is
+ * laid out from the zoom its WIDTH fits across the room at (layout.ts simpleScaleOf), so 12 px type draws 11 px or more only where the board's zoom
+ * stays at or above 11 / (12 x 1.64) = 0.56, and about 9.8 px at the floor. The type is NOT under 11 px only at the floor: a board whose height binds
+ * (the camera zooms below the width-fit zoom to keep the whole model in view) draws it smaller by the same ratio. The whole model in view outranks
+ * 11 px text (R1 priorities 2 and 3), so the camera fits down to 0.5; below it the cards would draw their reduced face (LOD_BODY_HIDDEN_ZOOM, 0.45).
+ */
+export const SIMPLE_FIT_FLOOR = LABEL_LEGIBLE_ZOOM
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
  *  12px; was 0.8 (DL 4 Nov, R3). */

@@ -1,10 +1,9 @@
 /**
  * The V12 card marks, shared by the Simple and Detailed faces (previous/CoreCard.tsx, v12/SimpleFace.tsx). Shapes and marks only: every
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter, "baseline",
- * "assumption", the "?" of a withheld chance and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
+ * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
  */
 import { User } from 'lucide-react'
-import type { ReactNode } from 'react'
 import type { ViewCard } from '../../client'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 
@@ -65,29 +64,12 @@ export const EmptyTrack = ({ testid, words }: { testid: string; words?: string |
   <span className="ok-empty" data-testid={testid} {...named(words)} />
 )
 
-/**
- * A withheld chance (canvas rule 4): "?" and a dashed empty track, then core's real reason at rest as the caption, ONE line at rest (V12 refinement) and whole
- * on hover. `press` is the "Why not" press for the long form. Where core gives no reason, its own state words stand under the track instead.
- */
-export function WithheldChance({ id, state, reason, press }: { id: string; state: string; reason: string | null; press?: ReactNode }): JSX.Element {
-  return (
-    <div className="ok-withheld" data-withheld-chance={id}>
-      <div className="ok-withheld-row">
-        <span className="ok-q" aria-hidden="true">?</span>
-        <EmptyTrack testid={`${id}-empty-bar`} words={state} />
-        {press}
-      </div>
-      {reason === null ? null : <p className="ok-caption ok-caption-one" title={reason} data-withheld-caption={id}>{reason}</p>}
-    </div>
-  )
-}
-
 /** A figure with no value yet: a dashed empty bar and core's own words for the gap, one line and whole on hover. */
 export function UnsizedFigure({ id, words }: { id: string; words: string | null }): JSX.Element {
   return (
     <div className="ok-unsized" data-unsized={id} title={words ?? undefined}>
       <EmptyTrack testid={`${id}-empty-bar`} />
-      {words === null ? null : <p className="ok-caption ok-caption-one" data-unsized-words={id}>{words}</p>}
+      {words === null ? null : <p className="ok-caption" data-unsized-words={id}>{words}</p>}
     </div>
   )
 }

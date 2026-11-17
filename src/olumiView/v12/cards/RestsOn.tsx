@@ -28,7 +28,7 @@ export function RestsOn({ card, open: initial }: { card: ViewCard; open: boolean
           {premises.map((p, i) => (
             <li key={p.id ?? i} title={p.title} className={`${typography.viewLabel} flex items-start gap-1 text-text-body`} data-view={`${card.id}.premises.${i}.text`}>
               {p.olumi != null ? <OlumiMark words={p.olumi.title} size={12} /> : <span aria-hidden="true" className="text-text-light">{p.glyph}</span>}
-              <span className="line-clamp-3 min-w-0 break-words">{p.text}</span>
+              <span className="min-w-0 break-words">{p.text}</span>
             </li>
           ))}
         </ul>

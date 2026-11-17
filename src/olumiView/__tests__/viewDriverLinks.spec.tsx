@@ -56,12 +56,12 @@ describe('What would change on the links', () => {
     act(() => useViewLens.setState({ lens: 'what_changes' }))
     c = edge(sized)
     expect(c.querySelector('[data-driver-link]')).not.toBeNull()
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2.5')
+    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('4')
     expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)?.textContent).toBe(model.links[sized]!.effect!.text)
     cleanup()
     c = edge(plain)
     expect(c.querySelector('[data-driver-link]')).toBeNull()
-    // A plain link at rest is the prototype's 1.5 px (J1 gate 2946366a); only a quiet rail round the board is 1 px (be89ce54).
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('1.5')
+    // R1/R5 (Paul, 16 Nov): a plain link at rest is production's 2 px neutral, the foot of the width ladder; a driver link is the 4 px band above it.
+    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
   })
 })

@@ -7,6 +7,8 @@
  * `reason` and an unknown role are not here: they are drawn as before (`linkStyle` returns null).
  */
 import { linkRole, type LinkRole } from '../contract'
+import { getCanvasStrengthBand } from '../../../canvas/domain/vocabulary'
+import { EDGE_STROKE_WIDTH_BANDS } from '../../../canvas/utils/graphDisplayCalculations'
 
 export type LineEnd = 'arrow' | 'dot' | 'none'
 export interface LinkStyle { stroke: string; dash: string | null; end: LineEnd; label: string | null; width: number }
@@ -25,24 +27,26 @@ export const effectStroke = (sign: string | null | undefined, isDark = false): s
   const t = isDark ? EFFECT_STROKES_DARK : EFFECT_STROKES
   return sign === 'increases' ? t.increases : sign === 'decreases' ? t.decreases : t.neutral
 }
-export const EFFECT_WIDTH_MIN = 1.5
-export const EFFECT_WIDTH_MAX = 3
+/** Every line that is not a sized effect: 2 px (production's thinnest rung, Paul 16 Nov, R5). */
+export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
 /**
- * Strength is thickness where the View gives one that can be compared: `strength.share` (a unit-free share, 0 to 1). Raw low/likely/high are
- * in the link's own units, so they are never compared across links (SCI-16); with no share the line is the default width.
+ * Production's width ladder, 2 / 3 / 4 / 5 (canvas/utils/graphDisplayCalculations EDGE_STROKE_WIDTH_BANDS, keyed on its strength bands, canvas/domain/vocabulary),
+ * for an effect the engine gives a `strength.share` (a unit-free share, 0 to 1; raw low/likely/high are in the link's own units, so never compared
+ * across links, SCI-16). With no share the line is the thinnest rung: a size is not a certainty. Screen px: the line does not scale with the camera.
  */
 export const effectWidth = (share: number | null | undefined): number =>
-  typeof share === 'number' && Number.isFinite(share) ? EFFECT_WIDTH_MIN + (EFFECT_WIDTH_MAX - EFFECT_WIDTH_MIN) * Math.min(1, Math.abs(share)) : EFFECT_WIDTH_MIN
+  typeof share === 'number' && Number.isFinite(share) ? EDGE_STROKE_WIDTH_BANDS[getCanvasStrengthBand(Math.abs(share)).id] : PLAIN_WIDTH
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
+/** The one dash: a doubted link. */
 export const DOUBT_DASH = '5 4'
 
 export const LINK_STYLES: Readonly<Record<StyledRole, LinkStyle>> = {
-  effect: { stroke: EDGE_NEUTRAL, dash: null, end: 'arrow', label: null, width: 1.5 },
-  input: { stroke: INPUT_GREY, dash: '1 4', end: 'dot', label: null, width: 1.5 },
-  measures: { stroke: GOLD, dash: null, end: 'none', label: null, width: 2 },
-  target: { stroke: GOLD, dash: null, end: 'arrow', label: null, width: 2 },
-  size: { stroke: INPUT_GREY, dash: '1 4', end: 'none', label: 'size', width: 1.5 },
+  effect: { stroke: EDGE_NEUTRAL, dash: null, end: 'arrow', label: null, width: PLAIN_WIDTH },
+  input: { stroke: INPUT_GREY, dash: null, end: 'dot', label: null, width: PLAIN_WIDTH },
+  measures: { stroke: GOLD, dash: null, end: 'none', label: null, width: PLAIN_WIDTH },
+  target: { stroke: GOLD, dash: null, end: 'arrow', label: null, width: PLAIN_WIDTH },
+  size: { stroke: INPUT_GREY, dash: null, end: 'none', label: 'size', width: PLAIN_WIDTH },
 }
 
 /** The style for a link's role; null for `reason`, an unknown role and no role (drawn as today). */
@@ -51,5 +55,3 @@ export const linkStyle = (link: object): (LinkStyle & { role: StyledRole }) | nu
   return role === null || role === 'reason' ? null : { ...LINK_STYLES[role], role }
 }
 
-/** A modelled effect's dash: only where core doubts the link. */
-export const effectDash = (doubt: boolean): string | null => (doubt ? DOUBT_DASH : null)

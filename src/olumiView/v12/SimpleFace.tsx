@@ -3,7 +3,8 @@
  * colour systems"; coaching text belongs in the AI panel). Every card and link stays; only the sentences go. Nothing here is worked out:
  *  - an option's chance is a gauge bar with core's own value text (`rows[chance].value`) and its position (`rows[chance].chance`); core's
  *    words after the number are the qualifier, on their own line, with Olumi's mark where the chance rests on Olumi's figures;
- *  - a withheld chance is "?" and a dashed, empty track with core's real reason under it (canvas rule 4), whole on hover;
+ *  - an option with no chance is ONE quiet line in core's own words for what is missing (its next step `headline.add`, else its headline's text),
+ *    its long reason whole on hover: no "?", no "Why not" and no empty track at rest (R6, 16 Nov); unknown is never drawn as zero;
  *  - a figure with a modelled band (`values[]`: p10 / p50 / p90) is a range bar per option on one shared axis, positions only; an option
  *    core could not calculate (contract.ts withheldValues) is a dashed row with core's reason;
  *  - a figure with a stated value shows core's words, one line; one that waits or has no value is a dashed, empty bar with core's words;
@@ -21,12 +22,12 @@ import { targetCardOf } from '../model/targets'
 import { isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LetterChip, OlumiAsksMark, OlumiMark, UnsizedFigure, WithheldChance } from './cards/marks'
-import { chanceParts, headlineChanceRow, unsizedWords, withheldField, withheldWords } from './cards/words'
+import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LetterChip, OlumiAsksMark, OlumiMark, UnsizedFigure } from './cards/marks'
+import { chanceParts, headlineChanceRow, noChanceLineOf, unsizedWords } from './cards/words'
 
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
 /** Type on a compact card, by DS role: 14 for figures and reading text, 12 for state words (typography tokens). */
-const SMALL = typography.viewValue, SMALL_META = typography.viewLabel
+const SMALL = typography.viewValue
 const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)', ORANGE = 'var(--olumi-mark-orange)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
@@ -77,15 +78,13 @@ export type SimpleFaceProps = {
   /** The figure's range bar (v12/scale RangeBar), on a full-width row of its own above the foot: squeezed into the foot it was only as wide as
    *  its labels, which then ran together ("0 months5 months", Paul's 15:00Z test). */
   readonly scale?: ReactNode
-  /** A withheld chance's "Why not" press (CoreCard `WithheldWords`), so Simple never shows the bare "No chance yet" where core gives a reason. */
-  readonly withheld?: ReactNode
   /** The figure tried on a copy (What if), drawn in place of the saved figure with the saved one named beside it (CoreCard). */
   readonly trying?: ReactNode
   /** A full-width row under the foot (what the card rests on, v12/cards/RestsOn): its lines wrap within the card, never run out of it. */
   readonly below?: ReactNode
 }
 
-export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, withheld, trying, below }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -109,7 +108,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       return (
         <div className="min-w-0" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
-          <p className={`${SMALL} mt-1 line-clamp-2 min-w-0 break-words font-medium tabular-nums text-text-header`} data-simple-chance={id}>
+          <p className={`${SMALL} mt-1 min-w-0 break-words font-medium tabular-nums text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
             {parts === null || parts.qualifier === null ? (mark === null ? null : <span className="ml-1 inline-flex align-middle">{mark}</span>) : <>
               <span className="sr-only">, </span>
@@ -121,27 +120,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     })() : limitLeadOf(card) !== null ? (() => {
       // DL 16 Nov: no goal-type aim, but a worked-out result on a limit: that result leads (core's limit name and value), not "No chance…".
       const l = limitLeadOf(card)!
-      return <p className={`${SMALL} line-clamp-2 text-text-body`} data-simple-face="limit" title={l.title !== '' ? l.title : undefined}>{nameOf(l.aim_id)} {l.value}</p>
+      return <p className={`${SMALL} break-words text-text-body`} data-simple-face="limit" title={l.title !== '' ? l.title : undefined}>{nameOf(l.aim_id)} {l.value}</p>
     })() : h.state === 'fixed' ? (
-      <p className={`${SMALL} line-clamp-2 text-text-body`} data-simple-face="fixed" title={h.title !== '' ? h.title : h.text}>{h.text}</p>
-    ) : h.state === 'none' ? (() => {
-      // Canvas rule 4: a withheld chance is "?" and a dashed, empty track, with core's real reason at rest under it (two lines, whole on
-      // hover, with core's own next step for it); "Why not" stays for the long form. Where core sends no reason, its own state words.
-      const reason = withheldField(h) === 'text' ? null : withheldWords(h)
-      const press = reason === null ? undefined : withheld === undefined ? undefined : <span className="flex-none" data-simple-state={id}>{withheld}</span>
-      return (
-        <div className="min-w-0" data-simple-face="no-chance" title={[reason ?? h.text, h.add].filter((x) => x != null && x !== '').join('\n')}>
-          <WithheldChance id={id} state={h.text} reason={reason} press={press} />
-          {reason !== null ? null : <span className={`${SMALL_META} block text-text-light`} data-simple-state={id}>{withheld ?? h.text}</span>}
-        </div>
-      )
-    })() : (
-      // A chance the card cannot place on the track: core's own words in full, one short line, and a small dashed bar beside it.
-      <div className="flex items-center gap-2" data-simple-face="no-chance" title={h.title !== '' ? h.title : h.text}>
-        <span className={`${SMALL_META} flex-none whitespace-nowrap text-text-light`} data-simple-state={id}>{h.text}</span>
-        <span className="w-8 flex-none"><EmptyTrack testid={`${id}-empty-bar`} /></span>
-      </div>
-    )
+      <p className={`${SMALL} break-words text-text-body`} data-simple-face="fixed" title={h.title !== '' ? h.title : h.text}>{h.text}</p>
+    ) : (() => {
+      // R6 (16 Nov): an option with no chance is ONE quiet line, core's own words for what is missing (words.ts noChanceLineOf); the long reason is the hover.
+      const { line, hover } = noChanceLineOf(h)
+      return <p className="ok-quiet" data-simple-face="no-chance" data-simple-state={id} title={hover}>{line}</p>
+    })()
     // ONE visual row (compact face): the headline gauge. The other aims' gauges and limits are the row's hover, in core's own words, one line each.
     const more = rest.map(({ r }) => `${nameOf(r.aim_id, r.aim)} ${r.kind === 'none' ? r.state_text ?? r.text ?? '' : r.value ?? ''}`.trim()).filter((t) => t !== '')
     body = (
@@ -170,7 +156,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
               <EmptyTrack testid={`${id}-${w.option}-empty-bar`} />
             </div>
             {/* ONE meta line at rest: the first held option's reason; the others' are the row's hover (title above). */}
-            {i === 0 ? <p className="ok-caption ok-caption-one" data-simple-withheld-why={w.option}>{w.text}</p> : null}
+            {i === 0 ? <p className="ok-caption" data-simple-withheld-why={w.option}>{w.text}</p> : null}
           </div>
         ))}
       </div>
@@ -179,7 +165,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const olumi = card.bound!.olumi != null
     // The aim's question opens its target figure's own editor, as the Detailed face does (core's `target`, targets.ts); none where core offers none.
     const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
-    const words = <span className="line-clamp-1 min-w-0 text-text-header">{card.bound!.text}</span>
+    const words = <span className="min-w-0 break-words text-text-header">{card.bound!.text}</span>
     body = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
       <p className={`${SMALL} flex min-w-[7rem] flex-1 items-center gap-1`} data-simple-face="target" title={card.bound!.title !== '' ? card.bound!.title : card.bound!.text} style={{ color: card.bound!.measured ? GOAL : undefined }}>
@@ -194,13 +180,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     body = (
       <div className="ok-unsized min-w-[7rem] flex-1" data-simple-face="pending" title={card.figure.title !== '' ? card.figure.title : card.figure.text}>
         <EmptyTrack testid={`${id}-empty-bar`} />
-        {/* Where core sends the working, its operands are listed under the card (v12/cards/MadeOf): the one clipped "waits on …" line is not said twice. */}
-        {card.figure.text === '' || card.worked != null ? null : <p className="ok-caption ok-caption-one" data-simple-pending={id}>{card.figure.text}</p>}
+        {/* Where core sends the working, its operands are listed open under the card (look/WorkedSteps): the "waits on …" line is not said twice. */}
+        {card.figure.text === '' || card.worked != null ? null : <p className="ok-caption" data-simple-pending={id}>{card.figure.text}</p>}
       </div>
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    body = <p className={`${typography.viewValue} line-clamp-2 min-w-[7rem] flex-1 break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    body = <p className={`${typography.viewValue} min-w-[7rem] flex-1 break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
   } else if (card.figure != null) {
     // An input not sized yet: a dashed, empty bar and core's own words for the gap ("not sized yet · …"), one line, whole on hover.
     body = <div className="min-w-[7rem] flex-1" data-simple-face="no-figure"><UnsizedFigure id={id} words={unsizedWords(card)} /></div>

@@ -42,7 +42,9 @@ describe('what a card rests on, on the Simple face', () => {
     const open = render(<RestsOn card={withPremises} open={isQualitative(qual([]))} />)
     expect(screen.getByTestId('rests-on-aim_purpose').textContent).toBe(RESTS_ON(2))
     const items = [...screen.getByTestId('rests-on-aim_purpose-list').querySelectorAll('li')]
-    expect(items.map((li) => [li.querySelector('.line-clamp-3')?.textContent, li.getAttribute('title')])).toEqual(premises.map((p) => [p.text, p.title]))
+    // R6 (16 Nov): a premise is drawn whole and wrapped (no line-clamp), so its end is never lost.
+    expect(items.map((li) => [li.querySelector('.break-words')?.textContent, li.getAttribute('title')])).toEqual(premises.map((p) => [p.text, p.title]))
+    expect(items.every((li) => li.querySelector('[class*="line-clamp"]') === null)).toBe(true)
     expect(items.map((li) => li.querySelector('[role="img"], svg') !== null)).toEqual([true, false])
     expect(items[1]!.textContent).toBe(`${premises[1]!.glyph}${premises[1]!.text}`)
     open.unmount()

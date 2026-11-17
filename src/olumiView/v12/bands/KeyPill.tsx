@@ -38,9 +38,11 @@ type KeyLineId = (typeof KEY_LINE_IDS)[number]
 export function keyPresent(model: ViewModel): ReadonlySet<KeyLineId> {
   const out = new Set<KeyLineId>()
   for (const { link } of cardLinks(drawnModelOf(model))) {
+    // One predicate with the canvas (ViewLinkEdge, R5): a link with a typed `causal` is drawn as a modelled effect whatever its role says; only a link
+    // with none is drawn by its role (input, size, measures, target).
     const role = linkRole(link), causal = (link as { causal?: { sign?: string } | null }).causal ?? null
-    if (role === 'effect' || (role === null && causal !== null)) out.add('effect')
-    if (role === 'input' || role === 'size' || role === 'measures' || role === 'target') out.add(role)
+    if (causal !== null) out.add('effect')
+    else if (role === 'input' || role === 'size' || role === 'measures' || role === 'target') out.add(role)
     if (link.doubt) out.add('doubted')
     if (causal?.sign === 'unknown') out.add('unsettled')
   }
@@ -58,7 +60,7 @@ function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample })
   const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
-      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} style={{ stroke: s.stroke }} strokeWidth={s.w} strokeDasharray={s.dash ?? undefined} strokeLinecap={s.dash === '1 4' ? 'round' : undefined} fill="none" />
+      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} style={{ stroke: s.stroke }} strokeWidth={s.w} strokeDasharray={s.dash ?? undefined} fill="none" />
       {s.end === 'arrow' ? <path d="M2 9 6 14 10 9" style={{ stroke: s.stroke }} strokeWidth={s.w} fill="none" /> : null}
       {s.end === 'dot' ? <circle cx="6" cy="13" r="2.5" style={{ fill: s.stroke }} /> : null}
     </svg>

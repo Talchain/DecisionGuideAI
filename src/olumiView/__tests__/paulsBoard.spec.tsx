@@ -230,15 +230,25 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     const doubtful = m.cards.find((c) => c.doubt && c.change != null && !c.challenged)!, plain = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by !== 'olumi')!
     const olumis = m.cards.find((c) => !c.doubt && c.change != null && !c.challenged && c.author?.by === 'olumi')!
     const chal = m.cards.find((c) => c.challenged)!
-    const f1 = frame(draw(EU, doubtful.id)); cleanup()
-    const f2 = frame(draw(EU, plain.id)); cleanup()
+    // R3 (16 Nov): this fixture is a FIRST DRAFT (a proposal, no approved version), where nothing is marked for being proposed; the approved model carries the marks.
+    expect([EU.proposal != null, EU.version], 'precondition: the fixture is a first draft').toEqual([true, null])
+    const APPROVED = { ...EU, proposal: null, version: { id: 1, n: 1, label: 'Version 1', changed: [], at: '2026-11-02T00:00:00.000Z', at_text: '2 Nov 2026' } } as unknown as View
+    const d1 = frame(draw(EU, doubtful.id)); cleanup()
+    const d2 = frame(draw(EU, plain.id)); cleanup()
+    const d4 = frame(draw(EU, olumis.id)); cleanup()
+    expect([d1.includes('border-dashed'), d1.includes('border-info')], 'a doubted card on a first draft: dashed in its kind\'s hue, never blue').toEqual([true, false])
+    expect([d2.includes('border-dashed'), d2.includes('border-info')], 'a proposed card on a first draft: solid, not blue').toEqual([false, false])
+    expect([d4.includes('border-dashed'), d4.includes('border-info')], 'Olumi\'s proposed card on a first draft: solid, not blue, not dashed').toEqual([false, false])
+    const f1 = frame(draw(APPROVED, doubtful.id)); cleanup()
+    const f2 = frame(draw(APPROVED, plain.id)); cleanup()
     const f3 = frame(draw(EU, chal.id))
     expect([f1.includes('border-dashed'), f1.includes('border-info')]).toEqual([true, true])
     expect([f2.includes('border-dashed'), f2.includes('border-info')], 'the person\'s own proposed card is solid').toEqual([false, true])
     cleanup()
-    const f4 = frame(draw(EU, olumis.id))
-    expect([f4.includes('border-dashed'), f4.includes('border-info')], 'DL ruling 12 Nov: Olumi\'s proposed card is provisional, dashed').toEqual([true, true])
-    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt || (chal.change != null && chal.author?.by === 'olumi')])
+    const f4 = frame(draw(APPROVED, olumis.id))
+    expect([f4.includes('border-dashed'), f4.includes('border-info')], 'DL ruling 12 Nov: Olumi\'s proposed card is provisional, dashed (inside an approved model)').toEqual([true, true])
+    // On this first draft only core's own doubt dashes (R3: a proposal is not a mark).
+    expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt])
   })
 
   it('FT3 change: core\'s change mark on every changed card, its words as hover and accessible name', () => {
@@ -259,7 +269,8 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   it('FT5 (DERIVED: the European question given a date Olumi set, and held as proposed): its date with core\'s hover in Olumi\'s blue, a solid blue frame. CONTRAST: none, nothing', () => {
     const q = EU.model!.question
-    const dated = { ...EU, model: { ...EU.model!, question: { ...q, proposed: true, decide_by: { text: 'by 1 March', title: 'Olumi\'s reading of your brief', olumi: true } } } } as View
+    // Inside an approved model (R3: on a first draft the question is not marked as proposed either).
+    const dated = { ...EU, proposal: null, version: { id: 1, n: 1, label: 'Version 1', changed: [], at: '2026-11-02T00:00:00.000Z', at_text: '2 Nov 2026' }, model: { ...EU.model!, question: { ...q, proposed: true, decide_by: { text: 'by 1 March', title: 'Olumi\'s reading of your brief', olumi: true } } } } as unknown as View
     const c = draw(dated, QUESTION), el = c.querySelector<HTMLElement>('[data-view="question.decide_by.text"]')!
     expect([el.textContent, el.title, el.className.includes('text-info')]).toEqual(['by 1 March', 'Olumi\'s reading of your brief', true])
     expect([frame(c).includes('border-info'), frame(c).includes('border-dashed')]).toEqual([true, false])
@@ -338,13 +349,14 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     for (let a: Element | null = clamp ?? null; a !== null && a !== lead.parentElement; a = a.parentElement) expect(a.className, 'no clamp above it either').not.toMatch(/line-clamp|truncate/)
   })
 
-  it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the title is three lines on the face, the whole heading its hover; core\'s words unchanged', () => {
+  it('FT15 (Codex PL-500, DERIVED: a 280-character core heading with no face line, as the fresh draft\'s challenge): the title is drawn whole (R6, no clamp), the whole heading its hover; core\'s words unchanged', () => {
     const c0 = EU.model!.cards.find((c) => c.family === 'condition') ?? EU.model!.cards[0]!
     const long = ('A different view comes from later investors: a larger pre-seed round raises the bar for the next raise, because they expect progress in line with the money raised. ').repeat(2).trim()
     expect(long.length).toBeGreaterThan(200)
     const v = withCard(EU, c0.id, (c) => ({ ...c, heading: long, face: { ...(c.face ?? {}), title: null, line: null } as never }))
     const t = draw(v, c0.id).querySelector<HTMLElement>('[data-testid="node-title"]')!
-    expect([t.className.includes('line-clamp-3'), t.title, t.textContent!.includes(long)]).toEqual([true, long, true])
+    // R6 (16 Nov): a title is never clamped so that its end is lost: the whole heading is drawn, and it stays the hover.
+    expect([t.className.includes('line-clamp'), t.title, t.textContent!.includes(long)]).toEqual([false, long, true])
   })
 
   // DL-529 (14 Nov, the component sheet): whose a card is is a first-class mark at its foot, the person's as Olumi's, never hover-only

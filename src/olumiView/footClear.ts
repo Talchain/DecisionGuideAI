@@ -46,3 +46,18 @@ export function restClearOfFoot(v: Viewport, nodes: readonly Node[], paneH: numb
   // (where no bounded move clears the foot, the frame is left as the fit made it: nothing is ever pushed out of view to pass the rule)
   return best === 0 ? v : { ...v, y: v.y + Math.ceil(best) }
 }
+
+/**
+ * V12 Simple, a board that does not fit whole (the foot is never a card's cover): the zoom, from `zoom` upward by at most a fifth, at which no card
+ * is cut by the foot gutter's line, so each card is wholly above the gutter or wholly below the fold (the cue counts those). Whole cards, not the label
+ * and figure line `restClearOfFoot` keeps clear: on Simple a card is short enough that a part under the controls is words under them (R1, 16 Nov).
+ * `boxes` are flow units; the board's top sits at `top` (screen px) at every zoom. Where no zoom in that range clears every card, `zoom` is returned
+ * and the frame is as the fit made it (nothing is pushed out of view to pass the rule).
+ */
+export function zoomClearOfFoot(boxes: readonly { y: number; h: number }[], boardTop: number, top: number, paneH: number, zoom: number, maxZoom: number): number {
+  if (boxes.length === 0 || paneH <= 0) return zoom
+  const line = paneH - FOOT_GUTTER, up = Math.min(maxZoom, zoom * 1.2)
+  const cut = (z: number): boolean => boxes.some((b) => { const t = top + (b.y - boardTop) * z, e = t + b.h * z; return t < line - 0.5 && e > line + 0.5 })
+  for (let z = zoom; z <= up + 1e-9; z += 0.005) if (!cut(z)) return z
+  return zoom
+}

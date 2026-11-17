@@ -21,12 +21,16 @@ import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
-import { DIRECTION_NOT_SETTLED, INK, effectDash, effectStroke, effectWidth, linkStyle } from '../../olumiView/v12/links/styles'
+import { DIRECTION_NOT_SETTLED, EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, effectWidth, linkStyle, DOUBT_DASH } from '../../olumiView/v12/links/styles'
+import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
+import { isFirstDraft } from '../../olumiView/v12/contract'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
+/** The opacity of a link off the lit path: production's own (canvas/edges/StyledEdge EDGE_SELECTION_DIM_OPACITY, 0.18). */
+export const EDGE_OFF_PATH_OPACITY = 0.18
 
 export type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 /**
@@ -48,14 +52,20 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const notSettled = causal?.sign === 'unknown'
   const role = linkRole(link)
   const style = linkStyle(link)
-  const styled = style !== null && style.role !== 'effect' ? style : null
-  const modelled = styled === null && (causal !== null || role === 'effect')
+  // R5 (Paul, 16 Nov): only a link the engine marks as a causal effect (`causal`) is a modelled effect, coloured by its direction and weighted on the
+  // width ladder, whatever its role says; every other line is a plain 2 px line (a role's own colour and end stay, its dots and weights do not).
+  const styled = causal === null && style !== null && style.role !== 'effect' ? style : null
+  const modelled = styled === null && causal !== null
   const labelWord = useViewStore((s) => causal === null ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
   const hovered = useViewHover((h) => h.id)
   const simple = useLevel() === 'simple'
+  // A path is lit while a card is hovered or selected (focusPath.ts): the links off it fade to production's 0.18, and only then.
+  const offPath = useFocusPath((f) => f.path !== null && !(f.path.has(source) && f.path.has(target)))
+  // R3: on a first draft (a proposal and no approved version) everything is proposed, so a proposal is no mark on a link.
+  const firstDraft = useViewStore((s) => isFirstDraft(s.view))
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
@@ -162,29 +172,25 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
   // V12 Simple draws every link at rest (the structure is the reasoning; only text is removed): reason links and route rails included, quiet.
   if (styled === null && !simple && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
-  // J1 gate (the prototype's links): full strength, 1.5 px, an arrowhead where it arrives, its sign as its colour (core's "+" green, "−"
-  // pink), which outranks Olumi's colour (both prototypes); a link Olumi inferred is dashed, and in Olumi's colour where it has no sign.
-  // DL round 5 (rehearsal item 10): a rail round the board is quiet at rest, the neutral link grey at 1 px, so the rails are not the first
-  // thing the eye meets; near (either card hovered or selected, the link selected or focused) it takes its sign's colour and full weight.
-  // Never faded: a quieter colour, not opacity (nothing dims). An alert, a proposal or a driver link is never quiet.
+  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour and production's width ladder (2 / 3 / 4 / 5); every other line,
+  // a plain structural one and a reason link (a note, a route "considered against this aim") included, is 2 px and neutral, and an effect's
+  // colour is never borrowed for it. A dash means doubt and nothing else. Nothing fades at rest: a link fades only while a path is lit (`offPath`).
+  // An alert (core's orange) and a driver link (the lens) are never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model
+  // already approved; on a first draft everything is proposed, so it marks nothing (R3).
   const quiet = rail !== null && !near && !link.alert && !link.proposed && !marked && !removing
-  // SCI-16: core's typed sign and sizing state are authoritative. A default-width solid line has a size, not greater certainty;
-  // an unsized/words-only claim is dashed. Core's doubt, pending changes and disagreement retain their cue. Olumi's ink stays blue;
-  // the typed sign keeps its own direction colour. No magnitude becomes width.
-  const legacyStroke = link.alert ? 'var(--olumi-mark-orange)' : link.proposed ? 'var(--semantic-info)' : driver ? 'var(--text-header)' : quiet ? 'var(--edge-neutral)' : link.label === '+' ? 'var(--edge-positive)' : link.label === '−' ? 'var(--edge-negative)' : byOlumi ? 'var(--semantic-info)' : 'var(--edge-neutral)'
-  // DS (Edge polarity tokens): a modelled effect's colour is its direction, whatever else marks it (a driver is wider, a quiet rail thinner, never re-coloured).
-  // A reason link (typed `causal`, no effect role) keeps its ink as drawn today.
-  const reasonOnly = role === 'reason'
-  const stroke = styled !== null ? styled.stroke : !modelled && causal === null ? legacyStroke : link.alert ? 'var(--olumi-mark-orange)' : reasonOnly ? INK : effectStroke(causal?.sign)
-  const dash = styled !== null ? styled.dash : modelled || causal !== null ? effectDash(link.doubt) : link.doubt || byOlumi ? '5 5' : null
+  const reasonOnly = link.kind === 'reason' || role === 'reason'
+  const olumiInk = (link.proposed || byOlumi) && !firstDraft && !reasonOnly
+  const stroke = styled !== null ? styled.stroke : link.alert ? 'var(--olumi-mark-orange)' : modelled ? effectStroke(causal?.sign) : driver ? 'var(--text-header)' : olumiInk ? 'var(--semantic-info)' : EDGE_NEUTRAL
+  const dash = link.doubt ? DOUBT_DASH : null
+  const width = driver ? 4 : modelled ? effectWidth(causal?.strength.share) : styled?.width ?? PLAIN_WIDTH
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined}>
+    <g data-view-link={`links.${i}`} data-rail={rail ? '' : undefined} data-quiet={quiet || undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-width={width} data-off-path={offPath || undefined} style={{ opacity: offPath ? EDGE_OFF_PATH_OPACITY : undefined, transition: 'opacity 300ms ease' }}>
       <title>{title}</title>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} colour={stroke} /></defs>
       <BaseEdge id={id} path={path} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
-        style={{ stroke, strokeWidth: driver ? 2.5 : quiet ? 1 : styled?.width ?? (modelled && !reasonOnly ? effectWidth(causal?.strength.share) : 1.5), ...(dash !== null ? { strokeDasharray: dash } : {}), ...(styled?.dash ? { strokeLinecap: 'round' as const } : {}) }} />
+        style={{ stroke, strokeWidth: width, vectorEffect: 'non-scaling-stroke', ...(dash !== null ? { strokeDasharray: dash } : {}) }} />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} title={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (

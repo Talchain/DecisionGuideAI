@@ -70,7 +70,9 @@ describe('the shared chance rail', () => {
     const label = ruleOf('.olumi-look .ok-rail-label'), fig = ruleOf('.olumi-look .ok-rail-fig'), grid = ruleOf('.olumi-look .ok-rail-grid')
     expect(label, 'precondition: the label rule is in the look').not.toBe('')
     expect(label).toMatch(/min-width:\s*0/)
-    expect(label).toMatch(/overflow-wrap:\s*anywhere/)
+    // R6 (16 Nov): a word is never cut mid-word, so the long-word break is `break-word` (a word that fits its line is kept whole), not `anywhere`.
+    expect(label).toMatch(/overflow-wrap:\s*break-word/)
+    expect(label).not.toMatch(/overflow-wrap:\s*anywhere/)
     expect(grid, 'the text column is its own grid column').toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
     for (const [sel, rule] of [['label', label], ['fig', fig]] as const) expect(rule, sel).not.toMatch(/white-space:\s*nowrap|text-overflow|line-clamp/)
   })

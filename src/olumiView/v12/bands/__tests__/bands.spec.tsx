@@ -10,7 +10,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { cleanup, render, screen } from '@testing-library/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
-import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_LABEL_H } from '../../../layout'
+import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
 import { BANDS, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs } from '../bands'
 import { bandLabelsOf } from '../BandLayer'
 import { extrasOf } from '../extras'
@@ -67,14 +67,17 @@ describe('bands: Simple layout', () => {
     expect(maxY(of('inputs'))).toBeLessThan(minY(of('outcomes')))
     expect(maxY(of('outcomes'))).toBeLessThan(minY(of('aims')))
   })
-  it('B5 each present band has one label, above its first row and clear of the row above it', async () => {
+  it('B5 each present band has one label, in one left column (the board\'s left edge), standing over its first row in the 48 unit row gap (R1)', async () => {
     const { places, y } = await placed(model)
     const nodes = [...places].map(([id, position]) => ({ id, position }))
     const labels = bandLabelsOf(nodes, model)
     expect(labels.map((l) => l.band)).toEqual(['options', 'inputs', 'outcomes', 'aims'])
+    // The label is anchored to the row's top (BandLayer lifts it clear of the kind marker); the room above the row is the row gap, as wide as production's.
     const topOfOptions = Math.min(...allOptionCards(model).map((c) => y(c.id)))
-    expect(labels[0]!.y).toBe(topOfOptions - SIMPLE_LABEL_H)
-    expect(labels[0]!.y).toBeGreaterThanOrEqual(places.get(QUESTION)!.y + 44)
+    expect(labels[0]!.y).toBe(topOfOptions)
+    expect(topOfOptions - (places.get(QUESTION)!.y + 44), 'the label has the 48 unit row gap above the first row').toBe(SIMPLE_GAP_Y)
+    expect(new Set(labels.map((l) => l.x)).size, 'one column').toBe(1)
+    expect(labels[0]!.x, 'at the board\'s left edge').toBe(Math.min(...model.cards.map((c) => places.get(c.id)!.x)))
   })
 })
 
@@ -104,18 +107,24 @@ describe('bands: the key pill', () => {
   const key = (ids: string[]) => ids.map((id) => ({ id, glyph: '·', text: `core says ${id}` }))
   const withKey = (ids: string[], links: unknown[] = model.links as unknown[]): ViewModel => ({ ...model, key: key(ids), links } as ViewModel)
   it('K1 only the key items core sends are drawn, and only for a role that stands on the canvas', () => {
-    const m = withKey(['effect', 'input', 'measures', 'olumi'], [{ ...model.links[0]!, role: 'effect' }, { ...model.links[1]!, role: 'measures' }])
+    // R5 (16 Nov): one predicate with the canvas: a link with a typed `causal` is a modelled effect; one with none stands as its role.
+    const m = withKey(['effect', 'input', 'measures', 'olumi'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'measures', causal: null }])
     expect(keyLinesOf(m).map((l) => l.id)).toEqual(['effect', 'measures'])
     expect(keyLinesOf(m).map((l) => l.text)).toEqual(['core says effect', 'core says measures'])
+  })
+  it('K1b a link whose role says input but which carries a typed `causal` is drawn as an effect, so the key says "effect", never "input"; with no causal it is the role', () => {
+    const typed = { ...model.links[0]!, role: 'input', causal: { sign: 'increases' } }, plain = { ...model.links[0]!, role: 'input', causal: null }
+    expect(keyLinesOf(withKey(['effect', 'input'], [typed])).map((l) => l.id)).toEqual(['effect'])
+    expect(keyLinesOf(withKey(['effect', 'input'], [plain])).map((l) => l.id)).toEqual(['input'])
   })
   it('K2 doubted and not-settled follow the links; a role core has not sent draws nothing', () => {
     const doubted = { ...model.links[0]!, doubt: true }, unsure = { ...model.links[1]!, causal: { sign: 'unknown' } }
     expect(keyLinesOf(withKey(['doubted', 'unsettled'], [doubted, unsure])).map((l) => l.id)).toEqual(['doubted', 'unsettled'])
     expect(keyLinesOf(withKey(['doubted', 'unsettled'], [model.links[0]!])).map((l) => l.id)).toEqual([])
-    expect(keyLinesOf(withKey([], [{ ...model.links[0]!, role: 'effect' }]))).toEqual([])
+    expect(keyLinesOf(withKey([], [{ ...model.links[0]!, causal: { sign: 'increases' } }]))).toEqual([])
   })
   it('K3 the pill is on the canvas with two rows: samples, then Olumi\'s and a person\'s marks', () => {
-    const m = withKey(['effect', 'size'], [{ ...model.links[0]!, role: 'effect' }, { ...model.links[1]!, role: 'size' }])
+    const m = withKey(['effect', 'size'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'size', causal: null }])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
     const { container } = render(<KeyPill />)
     const pill = screen.getByTestId('view-key-pill')
@@ -124,7 +133,7 @@ describe('bands: the key pill', () => {
     expect(pill.querySelector('[data-key-row="marks"]')!.textContent).toBe("Olumi'sa person's")
   })
   it('K5 the effect sample shows polarity in the canvas\'s own tokens at 12 px, with no raw pixel size class', () => {
-    const m = withKey(['effect', 'unsettled'], [{ ...model.links[0]!, role: 'effect' }, { ...model.links[1]!, causal: { sign: 'unknown' } }])
+    const m = withKey(['effect', 'unsettled'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, causal: { sign: 'unknown' } }])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
     const { container } = render(<KeyPill />)
     const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).style.stroke

@@ -43,26 +43,20 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)
   })
 
-  it('L2 no chance yet (contract 3, DL 15 Nov: the face carries less): the face is one "Why not" press, never the bare "No chance yet"; it opens core\'s why and core\'s ONE next step (headline.add), each once', () => {
+  it('L2 no chance yet (R6, 16 Nov; contract 3): the face is ONE quiet line, core\'s next step (headline.add); its why and the step are the hover; never the bare "No chance yet", no press, no "?", no empty track', () => {
     const o = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.headline.add != null)
     const el = draw(RUN2, o)
-    // CATCH (fails on the old CoreCard line `{h.text}`): the pill's words are headline.why, bound by the clamp span's data-view path, not the bare text.
     expect(o.headline!.why, 'precondition: core sent a reason').toBeTruthy()
     expect(o.headline!.text, 'precondition: the bare text is not the reason').not.toBe(o.headline!.why)
-    const face = el.querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!, press = face.querySelector<HTMLDetailsElement>('details.ok-why')!
-    expect([press.querySelector('summary')!.textContent, press.open]).toEqual(['Why not', false])
-    const why = press.querySelector(`[data-core-lead-clamp="${o.id}"]`)!
-    expect([why.textContent, why.getAttribute('data-view')]).toEqual([o.headline!.why, `${o.id}.headline.why`])
-    expect(face.querySelector('.ok-pill'), 'no pill on the face').toBeNull()
+    const face = el.querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!, line = face.querySelector<HTMLElement>('.ok-quiet')!
+    expect([line.textContent, line.getAttribute('data-view'), line.getAttribute('title')]).toEqual([o.headline!.add, `${o.id}.headline.add`, `${o.headline!.why}\n${o.headline!.add}`])
+    expect(face.querySelectorAll('.ok-quiet').length, 'one line').toBe(1)
+    expect(face.querySelector('details, summary, .ok-pill, .ok-empty, .ok-q, [data-testid$="-empty-bar"]'), 'no press, no pill, no "?", no empty track').toBeNull()
     expect(face.textContent, 'the bare words are not drawn').not.toContain(o.headline!.text)
-    expect(el.querySelectorAll(`[data-view="${o.id}.headline.why"]`).length).toBe(1)
-    // DL 15 Nov: the next step is behind the same press, whole, once; nothing on the face clamps.
-    const next = el.querySelectorAll(`[data-view="${o.id}.headline.add"]`)
-    expect([next.length, next[0]?.textContent, next[0]?.closest('details.ok-why') === press]).toEqual([1, o.headline!.add, true])
     for (const e of face.querySelectorAll('*')) expect(e.className.toString()).not.toMatch(/line-clamp|truncate/)
   })
 
-  it('L2b withheldWords picks by field: why, else title, else text; the words are bound by the field used (behind "Why not"; the bare text alone is the face). CONTRAST: a chance and a fixed result have none', () => {
+  it('L2b withheldWords picks by field: why, else title, else text; they are the quiet line\'s hover with the next step, and the line is the step (else the bare text). CONTRAST: a chance and a fixed result have none', () => {
     const o = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.headline.add != null)
     const other = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'none' && c.id !== o.id && (c.headline.why ?? '') !== '')
     const h = o.headline!
@@ -78,15 +72,15 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     for (const [name, card, words, field] of variants) {
       expect(withheldWords(card.headline!), name).toBe(words)
       expect(leadLineOf(card), `${name}: the zoomed-out lead line`).toBe(words)
-      const el = draw(RUN2, card)
-      const pill = el.querySelector(`[data-core-lead="${card.id}"] [data-core-lead-clamp]`)!
-      expect([name, pill.textContent, pill.getAttribute('data-view')]).toEqual([name, words, `${card.id}.headline.${field}`])
-      // Never the bare text where a field above it exists, and never "Why not". A catch only where core sends a why (the first variant): the old
-      // CoreCard drew headline.text and a "Why not" for it; with no why the old product drew no "Why not" either (must-not-change).
-      if (field !== 'text') expect([name, pill.textContent === h.text]).toEqual([name, false])
-      expect([name, el.querySelector(`[data-core-lead="${card.id}"] .ok-why`) !== null]).toEqual([name, field !== 'text'])
+      const line = draw(RUN2, card).querySelector<HTMLElement>(`[data-core-lead="${card.id}"] .ok-quiet`)!
+      // The face is the next step whatever field the reason came from; the reason is the hover, and the bare text is never the reason's stand-in.
+      expect([name, line.textContent, line.getAttribute('title')]).toEqual([name, h.add, field === 'text' ? h.add : `${words}\n${h.add}`])
       cleanup()
     }
+    // With no next step the headline's own text is the line.
+    const noStep = { ...o, headline: { ...h, add: null } } as ViewCard
+    expect(draw(RUN2, noStep).querySelector(`[data-core-lead="${o.id}"] .ok-quiet`)?.textContent).toBe(h.text)
+    cleanup()
     const chance = cardOf(RUN1, (c) => c.family === 'option' && c.headline?.state === 'chance')
     const fixed = cardOf(RUN2, (c) => c.family === 'option' && c.headline?.state === 'fixed')
     expect([withheldWords(chance.headline!), withheldWords(fixed.headline!)]).toEqual([null, null])
@@ -150,11 +144,15 @@ describe('slice (3): an option\'s limits are drawn in the same structure as its 
     expect(el.querySelectorAll(`[data-ok-limit="${o.headline!.aim_id}"]`).length, 'CONTRAST: the aim stays the headline').toBe(0)
   })
 
-  it('M2 a limit not worked out: core\'s reason behind "Why not", as the aim\'s is; never a value', () => {
+  it('M2 (R6, 16 Nov) a limit not worked out: its name and ONE quiet line of core\'s own state words, its reason the hover; no "Why not", no "?", no track; never a value', () => {
     const o = cardOf(WS, (c) => c.family === 'option' && limitRows(c).some(({ r }) => r.kind === 'none'))
     const { r, i } = limitRows(o).find(({ r }) => r.kind === 'none')!
     const el = draw(WS, o)
-    expect(el.querySelector(`[data-view="${o.id}.rows.${i}.why"] p`)?.textContent).toBe(r.text)
+    const row = el.querySelector<HTMLElement>(`[data-view="${o.id}.rows.${i}"]`)!
+    expect(row.getAttribute('title'), 'core\'s reason, whole, on the row\'s hover').toContain(r.text!)
+    expect(row.querySelector('details, summary, .ok-q, .ok-empty, [data-testid$="-empty-bar"]'), 'no press, no "?", no empty track').toBeNull()
+    const state = (r as { state_text?: string | null }).state_text
+    expect(row.querySelector(`[data-withheld-row="${o.id}.rows.${i}"]`)?.textContent ?? null, 'core\'s state words where it sends them').toBe(state != null && state !== '' ? state : null)
     expect(el.querySelector(`[data-view="${o.id}.rows.${i}.value"]`)).toBeNull()
   })
 })

@@ -55,3 +55,11 @@ export const limitLeadOf = (card: { headline?: { state?: string; aim_id?: string
     .find((x) => x.kind === 'limit' && typeof x.aim_id === 'string' && typeof x.value === 'string' && x.value !== '')
   return r === undefined ? null : { aim_id: r.aim_id!, value: r.value!, title: r.title ?? '' }
 }
+
+/**
+ * A FIRST DRAFT (Paul, 16 Nov, R3): the View holds a proposal and no approved version, so everything on the board is proposed. Nothing is
+ * then marked as proposed (no blue, no dash for being new): the panel's approval card says it once. Inside an approved model a proposal keeps
+ * its marks. Read from the View's structure (`proposal`, `version`), never its words.
+ */
+export const isFirstDraft = (view: { proposal?: unknown; version?: unknown } | null | undefined): boolean =>
+  view != null && view.proposal != null && view.version == null

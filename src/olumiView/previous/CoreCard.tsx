@@ -36,17 +36,16 @@ import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
 import { SimpleFace } from '../v12/SimpleFace'
 import { RestsOn } from '../v12/cards/RestsOn'
-import { MadeOf } from '../v12/cards/MadeOf'
 import { notesOpenOn } from '../v12/qualitativeNotes'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
-import { isBaseline, limitLeadOf, withheldValues } from '../v12/contract'
+import { isBaseline, isFirstDraft, limitLeadOf, withheldValues } from '../v12/contract'
 import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, OlumiMark, UnsizedFigure, WithheldChance } from '../v12/cards/marks'
-import { chanceParts, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
+import { AuthorMark, BaselinePill, EmptyTrack, KindTag, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
+import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
 export { withheldField, withheldWords }
@@ -89,24 +88,6 @@ export function coreHoverValueOf(card: ViewCard): { text: string; source: string
   if (bound !== '') return { text: bound, source: card.bound?.olumi?.title ?? null }
   const state = card.figure != null ? card.author?.text ?? '' : ''
   return state === '' ? null : { text: state, source: null }
-}
-
-/**
- * Contract 3 and DL 15 Nov: a withheld chance's "Why not" press opens core's whole reason (and core's next step for it, where it sends one)
- * beside the card, never cut and never changing the card's height (olumiLook.css .ok-why). Never "No chance yet" where core gives a reason.
- * V12 (canvas rule 4, 16 Nov): the face also carries that reason at rest as a short caption under "?" and a dashed empty track
- * (v12/cards/marks.tsx WithheldChance); this press stays for the long form. Words are core's only.
- */
-export function WithheldWords({ id, h }: { id: string; h: NonNullable<ViewCard['headline']> }): JSX.Element {
-  // Where core gives no reason (no why, no title), its own short state is the face, whole; there is nothing to open.
-  if (withheldField(h) === 'text') return <span className="ok-status" data-testid={`${id}-withheld-words`} data-core-lead-clamp={id} data-view={`${id}.headline.text`}>{h.text}</span>
-  return (
-    <details className="ok-why nodrag nowheel nopan" data-testid={`${id}-withheld-words`} onClick={(e) => e.stopPropagation()}>
-      <summary>Why not</summary>
-      <p><span data-core-lead-clamp={id} data-view={`${id}.headline.${withheldField(h)}`}>{withheldWords(h)}</span>
-        {h.add == null || h.add === '' ? null : <><br /><span data-view={`${id}.headline.add`}>{h.add}</span></>}</p>
-    </details>
-  )
 }
 
 /** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
@@ -225,17 +206,21 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const question = id === QUESTION ? model?.question ?? null : null
   const coreValue = card === null ? null : coreHoverValueOf(card)
   // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, simple])
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, simple, dsKind, shape?.shape])
   const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
   // The frame says three things, each on its own channel, as the retired cards did: dashes only where core doubts it; Olumi's blue where
   // Olumi proposes it (the card, or the question); core's orange where it is challenged (RULING 6's link rule, on the card).
-  const proposed = card?.change != null || question?.proposed === true
+  // R3 (Paul, 16 Nov): on a FIRST DRAFT (a proposal and no approved version) everything is proposed, so a card is not marked for being new: its
+  // frame is its kind's own and solid, and the panel's approval card says "proposed" once. Inside an approved model a card Olumi proposes keeps
+  // its dashed blue frame, and a doubted card stays dashed.
+  const firstDraft = isFirstDraft(viewNow)
+  const proposed = !firstDraft && (card?.change != null || question?.proposed === true)
   // DL ruling (12 Nov, A13d): one meaning everywhere: dashed = provisional (core doubts it, or Olumi proposes it and it is not yet the
   // person's), solid = settled or the person's own. The card's words already say which ("Proposed by Olumi", "not yet sized").
-  const doubt = card?.doubt === true || (card?.change != null && card.author?.by === 'olumi'), challenged = card?.challenged === true
+  const doubt = card?.doubt === true || (!firstDraft && card?.change != null && card.author?.by === 'olumi'), challenged = card?.challenged === true
   const frame = doubt || proposed || challenged
     ? `${challenged ? 'border-[var(--olumi-mark-orange)]' : proposed ? 'border-info' : (nodeColors[kind as keyof typeof nodeColors] ?? nodeColors.factor).frame} ${doubt ? 'border-dashed' : ''}`
     : undefined
@@ -290,20 +275,19 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.viewLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
-    : <span className={`max-w-[180px] truncate rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
+    : <span className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
   // THE FACE (DL-529, the component sheet's nine faces), core's words verbatim; nothing formatted, rounded or worked out here.
   //  - an option: its headline as the View serves it: a chance (core's words up to its own first clause as the one headline, the clause
-  //    under it), a fixed result said as fixed, or no chance yet (core's words as a quiet pill, "Why not" opening core's reason, and core's
-  //    ONE next step, `headline.add`, in the next-step slot);
+  //    under it), a fixed result said as fixed, or no chance yet (ONE quiet line, core's next step `headline.add` else its text, its
+  //    why the hover: R6, 16 Nov);
   //  - a figure: Olumi's estimate underlined in Olumi's blue, the person's solid, ✎ on its line; each option's value as quiet status lines;
   //  - an aim or limit: its target with core's mark; whose the target and the aim are, on the foot;
-  //  - anything else: core's line, three lines at most, whole on hover.
+  //  - anything else: core's line, whole.
   // DL-529 slice (3): an option's LIMITS, drawn in the same structure as its aim's headline, from core's rows for every aim but the one the
-  // headline is about (rows[].aim_id): a worked-out value (core's row value, its marks, its title on hover); not worked out (core's reason
-  // behind "Why not", and core's question for the figure it waits on as the one next step). Core sends a limit no short state words of its
-  // own (the aim's "No chance yet"), so none are made up here; named in the channel with DL-525's unification.
+  // headline is about (rows[].aim_id): a worked-out value (core's row value, its marks, its title on hover); not worked out (core's state words
+  // as one quiet line, its reason the hover, and core's question for the figure it waits on as the one next step).
   const limitsOf = (): JSX.Element | null => {
     if (card === null || card.family !== 'option') return null
     const aim = card.headline?.aim_id ?? null
@@ -314,14 +298,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     return (
       <div className="ok-limits" data-view={`${id}.limits`}>
         {rows.map(({ r, i }) => r.kind === 'none' ? (
-          <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
+          // R6: a limit nothing can be said of yet is its name and ONE quiet line, core's own state words (its reason is the hover), then core's question
+          // for the figure it waits on as the one next step: no "?", no empty track, no "Why not".
+          <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={[r.title, r.text].filter((x) => x != null && x !== '').join('\n') || undefined}>
             <span className="ok-limit-name">{nameOf(r.aim_id!)}</span>
-            {/* V12 (canvas rule 4): not worked out is "?" and a dashed empty track, named by core's own state words for the row; the reason opens beside it. */}
-            <div className="ok-withheld-row" data-withheld-row={`${id}.rows.${i}`}>
-              <span className="ok-q" aria-hidden="true">?</span>
-              <EmptyTrack testid={`${id}-rows-${i}-empty-bar`} words={r.state_text} />
-            </div>
-            {r.text == null || r.text === '' ? null : <details className="ok-why nodrag" data-view={`${id}.rows.${i}.why`}><summary>Why not</summary><p>{r.text}</p></details>}
+            {r.state_text == null || r.state_text === '' ? null : <p className="ok-quiet" data-withheld-row={`${id}.rows.${i}`}>{r.state_text}</p>}
             {r.question == null || r.question === '' ? null : <p className="ok-next" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
           </div>
         ) : (
@@ -362,13 +343,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (limitsOf draws it); no "No chance…" line too.
     if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {
-      // V12 (canvas rule 4): "?" and a dashed empty track, with core's real reason at rest as a short caption (whole on hover and behind
-      // "Why not"). Never the bare "No chance yet" where core sends a reason (contract 3); where it sends none, its own state words.
-      const reasoned = withheldField(h) !== 'text'
+      const { line, hover: why } = noChanceLineOf(h)
       return (
-        <div data-core-lead={id} data-ok-face="none" title={hover} className="flex flex-col gap-1">
-          <WithheldChance id={id} state={h.text} reason={reasoned ? withheldWords(h) : null} press={reasoned ? <WithheldWords id={id} h={h} /> : undefined} />
-          <div className="ok-row">{reasoned ? null : <WithheldWords id={id} h={h} />}{trail}</div>
+        <div data-core-lead={id} data-ok-face="none" title={hover}>
+          <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>
+          <div className="ok-row">{trail}</div>
         </div>
       )
     }
@@ -423,14 +402,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
-          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={card.figure?.state === 'waits' && card.worked != null ? <MadeOf card={card} drawn={(x) => model?.cards.some((c) => c.id === x) ?? false} /> : notesOpenOn(model, card) ? <RestsOn card={card} open /> : null} withheld={card.headline != null && card.headline.state === 'none' ? <WithheldWords id={id} h={card.headline} /> : undefined}
+          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={card.figure?.state === 'waits' && card.worked != null && viewNow !== null ? <WorkedSteps view={viewNow} id={id} open inline /> : notesOpenOn(model, card) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
-                <p className={`${typography.viewValue} line-clamp-1 text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
+                <p className={`${typography.viewValue} break-words text-text-header`} title={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</p>
                 {card.figure == null || card.figure.text === '' ? null
-                  : <p className={`${typography.viewLabel} line-clamp-1 text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></p>}
-                {tryOn.said === null ? null : <p className={`${typography.viewLabel} line-clamp-2 text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
+                  : <p className={`${typography.viewLabel} break-words text-text-light`} title={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></p>}
+                {tryOn.said === null ? null : <p className={`${typography.viewLabel} break-words text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               </div>
             )} /> : <>
           {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
@@ -439,7 +418,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {card.figure != null && card.figure.text === '' ? <UnsizedFigure id={id} words={unsizedWords(card)} /> : null}
           {card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />}
           {limitsOf()}
-          {reading === null ? null : <p className={`ok-qual line-clamp-2 ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
+          {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
           {(card.values?.length ?? 0) > 1 ? <>
             <StatedFigure id={id} card={card} />
             {card.values!.map((v, i) => heldValues.has(v.option) ? null : (
@@ -452,7 +431,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {/* V12 (canvas rules 4 and 5): an option core could not calculate this figure for is drawn once, by the outcome strips below
               (OutcomeStrips: its letter, a dashed row and core's real reason): never silent, never a value. */}
           {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
-          {card.unused == null || card.unused === '' ? null : <p className="ok-qual line-clamp-2" title={card.unused} data-view={`${id}.unused`}>{card.unused}</p>}
+          {card.unused == null || card.unused === '' ? null : <p className="ok-qual" title={card.unused} data-view={`${id}.unused`}>{card.unused}</p>}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
