@@ -511,7 +511,7 @@ describe('joining an organisation by link', () => {
     expect(screen.queryByTestId('account-join-same-person')).toBeNull()
   })
   it('an organisation invitation is its own route: core saying ordinary sign-up is closed never hides the join form', async () => {
-    core((m, p) => {
+    core((_m, p) => {
       if (p === '/api/me') return { body: { me: null, account: null, signup: { open: false, words: 'Olumi accounts start from an invitation. Open the link you were given, then add an email and password.' } } }
       if (p === '/api/org/join/tok-1') return { body: { org: { name: 'Northwind' }, by: 'Olu', expires: '2026-11-24T00:00:00.000Z' } }
       return undefined
