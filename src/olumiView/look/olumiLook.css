@@ -152,6 +152,10 @@
   display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2 !important; overflow: hidden !important;
 }
 .olumi-look .ok-one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* v10 review item 3: a card with no sized figure (its basis line is its only text) may take two lines, so "unverified" is not cut; the whole words stay the hover. */
+.olumi-look .ok-two-lines { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* v10 review item 2: the "Saved results" pill is quiet: light ink, hover shows core's sentence. */
+.olumi-look .ok-pill.ok-saved { color: var(--text-light); align-self: flex-start; }
 
 /* The card's quick actions (the previous frame's rail at the foot, "ask Olumi about this") show on hover, focus or selection, over the
    foot's right end, instead of reserving a row on every card at rest (31px x every band of the board). */

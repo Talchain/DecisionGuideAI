@@ -7,7 +7,7 @@ import type { View, ViewCard, ViewModel } from '../../client'
 import { figureRange, linkRole } from '../contract'
 import { aimOf, axisOf, fmt, LABEL_PX, modelOf, pctOf } from './axis'
 
-const INK = 'var(--text-header)', BLUE = 'var(--info)', GOLD = 'var(--goal)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)'
+const INK = 'var(--text-header)', BODY = 'var(--text-body)', BLUE = 'var(--info)', GOLD = 'var(--goal)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)'
 
 export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null }) {
   const range = figureRange(card)
@@ -20,13 +20,15 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   const olumi = (card as { author?: { by?: unknown } | null }).author?.by === 'olumi'
   const vals = [range.low, range.high, ...(range.likely === null ? [] : [range.likely]), ...(t === null ? [] : [t]), ...(deadline === null ? [] : [deadline])]
   const axis = axisOf(Math.min(...vals), Math.max(...vals), 1)
+  // v10 review item 4: a single value (low equals high) with no deadline or tried mark is a track with one dot and two labels that say nothing more than the card's words: draw nothing.
+  if (range.low === range.high && deadline === null && t === null) return null
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
-  const band = { position: 'absolute', top: 4, height: 8, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
+  const band = { position: 'absolute', top: 5, height: 6, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
   return (
     <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize: LABEL_PX, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
         <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
-          style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: INK }} />
+          style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: `color-mix(in srgb, ${BODY} 55%, transparent)` }} />
         {range.likely !== null && <span data-testid="range-likely" style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: olumi ? BLUE : INK, border: '2px solid var(--bg-panel)', left: `calc(${pctOf(axis, range.likely)}% - 5px)` }} />}
         {deadline !== null && <span data-testid="range-deadline" style={{ position: 'absolute', top: 0, bottom: 0, borderLeft: `2px solid ${GOLD}`, left: `${pctOf(axis, deadline)}%` }} />}
         {t !== null && <span data-testid="range-tried" data-at={t} style={{ position: 'absolute', top: -2, bottom: -2, borderLeft: `2px dashed ${INK}`, left: `${pctOf(axis, t)}%` }} />}

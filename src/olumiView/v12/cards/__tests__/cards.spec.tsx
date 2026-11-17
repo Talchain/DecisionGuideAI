@@ -423,7 +423,7 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
   const APP = golden('app-launch.view.json')
   const DESC = 'A short description from core'
   const described = (v: View, id: string): View => withCard(v, { ...cardOf(v, id), description: DESC } as unknown as ViewCard)
-  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-one-line')
+  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-one-line, .ok-quiet.ok-two-lines')
   it('P1 a result that waits keeps core\'s "waits on" words as the line with a description sent; the description joins the hover', () => {
     const spend = cardOf(ASKED, 'spend')
     expect(spend.figure?.state).toBe('waits')
@@ -453,6 +453,8 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
     const line = lineOf(draw(described(APP, id), id, 'simple'))!
     expect([line.textContent, line.hasAttribute('data-simple-description'), line.title]).toEqual([DESC, true, DESC])
+    // CHANGED BY DESIGN (v10 review item 3): a card with no sized figure may take two lines for this basis line, so its last words are not cut.
+    expect([line.classList.contains('ok-two-lines'), line.classList.contains('ok-one-line')]).toEqual([true, false])
     cleanup()
     expect(lineOf(draw(APP, id, 'simple'))).toBeNull()
   })
