@@ -40,14 +40,16 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
   }, [shown, busy, view])
   if (!canvas || (plan === null && !shown)) return null
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="show-in-workspace">
+    <div className="flex flex-wrap items-center gap-1" data-testid="show-in-workspace">
       <button ref={button} type="button" data-shown={shown || undefined} aria-busy={busy || undefined} data-testid="show-in-workspace-button"
         onClick={() => { void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
+        title={shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown
           ? <ArrowLeft className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />
           : <LocateFixed className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
-        {shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}
+        {/* v10 review item 6: an icon in the reply's one row; the words stay for readers and on hover (the Return words are drawn while shown). */}
+        <span className={shown ? '' : 'sr-only'}>{shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}</span>
       </button>
       {said === null ? null : <span role="status" className={`${typography.viewPanelMeta} text-text-body`} data-testid="show-in-workspace-said">{said}</span>}
     </div>

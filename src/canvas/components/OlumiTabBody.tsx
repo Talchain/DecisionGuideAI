@@ -265,8 +265,9 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   // spec (23 Oct) retires the route label for users ("internal; means nothing to a user"). A tester checks the engine
   // with `?diag=1` (DL-3, 20 Oct, kept for testers).
   const comparisonLabel = shouldShowDebugPanel() ? aiComparisonBadge() : null
+  // v10 review item 10: with no debug label the float-out control is a corner icon over the conversation, not a strip that takes a row above it.
   const topControls = comparisonLabel || onFloatOut ? (
-    <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
+    <div className={comparisonLabel ? 'flex items-center justify-between gap-2 px-2 pt-1 pb-0.5' : 'absolute right-1 top-1 z-10 flex items-center'} data-testid="olumi-tab-top-controls">
       {comparisonLabel ? (
         <span
           className={typo('chatMeta', 'rounded border border-border px-1.5 py-0.5 text-text-light')}
@@ -293,7 +294,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
 
   if (isEmptyConversation) {
     return (
-      <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
+      <div className="relative flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-empty">
         {topControls}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
           {/*
@@ -316,7 +317,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   }
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-body">
+    <div className="relative flex flex-1 min-h-0 flex-col" data-testid="olumi-tab-body">
       {topControls}
       <div className="flex flex-1 min-h-0 flex-col">
         <ConversationPanel
