@@ -30,7 +30,7 @@ export function placeMenu(button: { top: number; left: number; right: number }, 
   return { left: at - button.left, width, maxHeight: Math.max(160, Math.min(win.height * 0.6, button.top - 2 * EDGE)) }
 }
 
-export function ActionsMenu({ menu, held, goal, onMethod, onTool }: { menu: Menu; held: boolean; goal: ReactNode; onMethod: (id: string) => void; onTool: (id: ToolId) => void }) {
+export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { menu: Menu; held: boolean; goal: ReactNode; onMethod: (id: string) => void; onTool: (id: ToolId) => void; /** Core's offer to build a model from the reasoning so far, in core's words (`label`, its `title` as the hover); absent where core makes none. */ build?: { label: string; title: string; onPress: () => void } }) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLSpanElement>(null)
   const [place, setPlace] = useState<MenuPlace | null>(null)
@@ -79,8 +79,9 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool }: { menu: Menu
               </button>
             ))}
           </div>
-          {menu.tools.length === 0 ? null : (
+          {menu.tools.length === 0 && build === undefined ? null : (
             <div className="space-y-0.5 border-t border-panel-border pt-2" data-testid="view-actions-tools">
+              {build === undefined ? null : <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={item} data-testid="view-build-model">{build.label}</button>}
               {menu.tools.map((t) => (
                 <button key={t} type="button" disabled={held} onClick={() => { setOpen(false); onTool(t) }} className={item} data-tool={t} data-testid={`view-tool-${t}`}>{TOOL_WORDS[t]}</button>
               ))}

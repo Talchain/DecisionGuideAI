@@ -914,6 +914,25 @@ export function tryAgain(): Promise<boolean> {
   return write('redraft', `${sid}:${view!.draft!.job ?? ''}`, (op) => writes.redraft(sid, op))
 }
 
+/**
+ * "Build a model from this" (DL 06:0xZ; Codex UI review 05:44:59Z): core's offer to draft a model from the reasoning so far (the conversation with
+ * its writers, revealed views, kept ideas as Olumi's provisional ones). Core sends ONE View field shaped as `draft.stop` ({ label, title }) only
+ * where a press would draft from the current reasoning; the page draws the offer only then, in core's words, and never decides it itself.
+ * The path is core's (sx-team 06:11:29Z): top-level `build_model: { label, title }`, absent everywhere else; BUILD_FIELD is the one place it is read.
+ */
+export const BUILD_FIELD = 'build_model'
+export function buildOfferOf(view: View | null): { label: string; title: string } | null {
+  const b = view === null ? undefined : (view as unknown as Record<string, unknown>)[BUILD_FIELD] as { label?: unknown; title?: unknown } | null | undefined
+  return b != null && typeof b.label === 'string' && b.label.trim() !== '' && typeof b.title === 'string' ? { label: b.label, title: b.title } : null
+}
+/** The press: the same write as Try again (POST …/draft, its op kept until core has it), only while core offers it; the first model then drafts
+ *  on the DraftingBoard as any first draft, and its proposal is reviewed as any other. */
+export function buildModel(): Promise<boolean> {
+  const { sid, view } = useViewStore.getState()
+  if (sid === null || buildOfferOf(view) === null) return Promise.resolve(false)
+  return write('build', sid, (op) => writes.redraft(sid, op))
+}
+
 /** Stop (core API v1.34): only while core offers it (`draft.stop`, the draft's author, while it drafts); then the View is read again. */
 export function stopDraft(): Promise<boolean> {
   const { sid, view } = useViewStore.getState(), d = view?.draft
@@ -1726,7 +1745,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
-  const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
+  const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
@@ -1770,7 +1789,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {/* V12 one action system: the ⋯ opens core's questions in core's order, what they came for, and the tools folded in from the Reasoning
               tab (it replaces the "More ways" disclosure). Core sends no session block, or the scenario has no model yet: no ⋯. */}
           {menu === null || session === null ? null : (
-            <ActionsMenu menu={menu} held={held} onMethod={runMethod} onTool={runTool} goal={<SessionGoal session={session} held={held} />} />
+            <ActionsMenu menu={menu} held={held} onMethod={runMethod} onTool={runTool} goal={<SessionGoal session={session} held={held} />} build={build === null ? undefined : { ...build, onPress: () => void buildModel() }} />
           )}
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {analysisAction === undefined ? null : (

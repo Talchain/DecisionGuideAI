@@ -21,7 +21,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
-import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { BUILD_FIELD, buildOfferOf, startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { floorEntryOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
 import { ideaDetailOf, IdeaPanel } from '../../bands/IdeaPanel'
 import { IDEA_PREFIX } from '../../bands/bands'
@@ -299,5 +299,54 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     await press(first.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(first.querySelector('[data-testid="view-keep-idea-said"]')?.textContent).toBe(REFUSED))
     expect(floorTurn(c, 21)!.querySelector('[data-testid="view-keep-idea-kept"]')).toBeNull()
+  })
+})
+
+describe('4. "Build a model from this": one plain item in the existing menu, only where core offers it, in core\'s words', () => {
+  // Core's words for the offer (sx-team 06:11:29Z): top-level `build_model`, present only where a press would draft from the current reasoning.
+  const OFFER = { label: 'Build a model from this', title: 'Olumi drafts a model from the conversation so far and the ideas kept, each under its author, for you to review.' }
+  const withOffer = (over: Record<string, unknown> = {}) => inWords({ floor: [row(9)], [BUILD_FIELD]: OFFER, ...over })
+  const openMenu = async (c: HTMLElement) => { await press(q(c, 'view-actions-button')) }
+
+  it('drawn in the menu with core\'s label and core\'s title as its hover; a press posts the same write as Try again (POST …/draft with an op); CONTRAST: without core\'s field there is no such item', async () => {
+    answer = () => new Response(JSON.stringify({ scenario: SID, job: { id: 30 }, proposal: null, status_url: null }), { status: 202 })
+    const c = show(withOffer())
+    await openMenu(c)
+    const item = q(c, 'view-build-model')
+    expect(item?.textContent).toBe(OFFER.label)
+    expect(item?.getAttribute('title')).toBe(OFFER.title)
+    expect(q(c, 'view-actions-menu')!.querySelectorAll('[data-testid="view-build-model"]')).toHaveLength(1)
+    await press(item)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/draft`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+    expect(q(c, 'view-actions-menu')).toBeNull() // the menu closes on the press
+    cleanup()
+    const d = show(inWords({ floor: [row(9)] }))
+    await openMenu(d)
+    expect(q(d, 'view-actions-menu')).not.toBeNull()
+    expect(q(d, 'view-build-model')).toBeNull()
+    expect(buildOfferOf(inWords())).toBeNull()
+  })
+
+  it('an answer that does not come back keeps the op: the next press asks core again by the SAME op (one draft, never two)', async () => {
+    let n = 0
+    answer = () => ((n += 1) === 1 ? new Response(JSON.stringify({ error: 'Olumi could not do that this time. Try again in a moment.' }), { status: 503 }) : new Response(JSON.stringify({ scenario: SID, job: { id: 30 }, proposal: null, status_url: null }), { status: 202 }))
+    const c = show(withOffer())
+    await openMenu(c); await press(q(c, 'view-build-model'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await openMenu(c); await press(q(c, 'view-build-model'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.body['op']).toBe(posts[0]!.body['op'])
+  })
+
+  it('held while a past version is on the canvas (nothing is written there); CONTRAST: on the latest it can be pressed', async () => {
+    const c = show(withOffer())
+    useViewStore.setState({ at: 3 } as never)
+    await openMenu(c)
+    expect((q(c, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(true)
+    cleanup()
+    const d = show(withOffer())
+    await openMenu(d)
+    expect((q(d, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(false)
   })
 })
