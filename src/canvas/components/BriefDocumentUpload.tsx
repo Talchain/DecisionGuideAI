@@ -13,7 +13,7 @@
  * Scope: the empty-canvas composer only. Adding a document to an existing
  * model is a later slice.
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Loader2, Paperclip } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { ACCEPT_ATTRIBUTE, assembleBrief, extractBriefDocument } from '../brief-ingest'
@@ -64,13 +64,13 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = fals
   draftRef.current = draft
   // One read counts: a newer read, a page change or an unmount retires the one in flight, so it writes no text and no feedback when it ends.
   const read = useRef(0)
+  // The page's own cleanup retires the read, at the same commit for a page change and for an unmount (Codex UI reviewer 12:30:39Z).
   useLayoutEffect(() => {
-    read.current++
     setBusy(false)
     setError(null)
     setAdded(null)
+    return () => { read.current++ }
   }, [page])
-  useEffect(() => () => { read.current++ }, [])
 
   const handleChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
