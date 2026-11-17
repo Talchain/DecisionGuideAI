@@ -92,4 +92,17 @@ describe('the brief panel’s version line carries core’s save date (core ad57
     expect(meta.textContent).toBe(now.version!.label)
     expect(screen.getByTestId('brief-panel').textContent).not.toContain(other)
   })
+  it('names the brief’s writer from core’s brief_by and the members, never the first chat turn’s writer; CONTRAST: a brief_by that is no member names no one', () => {
+    const other = 'A teammate who spoke first', writer = 'The brief’s own writer'
+    const base = { ...now, members: [...now.members, { id: 'p_writer', name: writer }, { id: 'p_other', name: other }], chat: [{ ...now.chat[0]!, by: other, by_id: 'p_other' }, ...now.chat.slice(1)] }
+    useViewStore.setState({ view: { ...base, brief_by: 'p_writer' }, sid: now.id })
+    const { unmount } = render(<BriefPanel />)
+    expect(screen.getByTestId('brief-panel-meta').textContent).toBe(`${now.version!.label} · ${writer}`)
+    expect(screen.getByTestId('brief-panel-meta').querySelector('[data-view="brief_by"]')!.textContent).toBe(writer)
+    expect(screen.getByTestId('brief-panel-meta').textContent).not.toContain(other)
+    unmount()
+    useViewStore.setState({ view: { ...base, brief_by: 'p_gone' }, sid: now.id })
+    render(<BriefPanel />)
+    expect(screen.getByTestId('brief-panel-meta').textContent).toBe(now.version!.label)
+  })
 })
