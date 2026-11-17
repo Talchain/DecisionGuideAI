@@ -41,7 +41,7 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
   if (!canvas || (plan === null && !shown)) return null
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="show-in-workspace">
-      <button ref={button} type="button" data-shown={shown || undefined} data-testid="show-in-workspace-button"
+      <button ref={button} type="button" data-shown={shown || undefined} aria-busy={busy || undefined} data-testid="show-in-workspace-button"
         onClick={() => { void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown

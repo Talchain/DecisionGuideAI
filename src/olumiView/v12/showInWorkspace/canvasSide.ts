@@ -24,7 +24,7 @@ export interface CanvasSide {
   readonly userMoved: { current: boolean }
   /** Every control that moves the camera for the person says so through this one function (the canvas's `hand`): pending pans stand down. */
   hand(): void
-  /** The board's own framing of the board on screen (the canvas's `fit`). */
+  /** The board's own framing of the board on screen (the canvas's `fit`); it answers the frame it asked for, if any. */
   fit(): unknown
 }
 
@@ -91,7 +91,12 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
     },
     pane,
     moveTo: (to, { duration }) => { c.userMoved.current = true; c.hand(); void c.setViewport(to, { duration }) },
-    refit: () => { c.userMoved.current = false; c.hand(); void c.fit() },
+    refit: () => {
+      c.userMoved.current = false
+      c.hand()
+      const v = c.fit() as Partial<Viewport> | null | undefined
+      return v != null && typeof v.x === 'number' && typeof v.y === 'number' && typeof v.zoom === 'number' ? { x: v.x, y: v.y, zoom: v.zoom } : null
+    },
     hold: () => {
       const end = takeShowHold()
       c.hand()

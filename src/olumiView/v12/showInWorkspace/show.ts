@@ -6,8 +6,8 @@
  *          → wait for the board to settle → resolve the reply's ids AGAIN on the View now (and open, once, a fold of Simple's that a
  *          card the badge handed out stands behind) → step aside only a layer, lens or selection
  *          that would set a target back (and settle again if the layer changed: a layer's notes change card heights) → where something
- *          was unfolded and the person does not hold the camera, let the board frame itself first → move the camera, as the person's
- *          own move, only if the cards are still not whole in view → pulse the cards once → release the hold.
+ *          was unfolded and the person does not hold the camera, the board frames itself, and says where to → move the camera, as
+ *          the person's own move, only if the cards will not be whole in view there → pulse the cards once → release the hold.
  * RETURN   cancel anything pending → hold → put back layer, lens, folds and badges and AWAIT the read → wait for the board to settle
  *          → put back the selection and the camera → release the hold with "the person holds the camera" as it was before the show
  *          (or held, where putting the badges back changed the board: its own framing must not replace the camera just put back).
@@ -18,7 +18,7 @@
  * restored.
  */
 import { create } from 'zustand'
-import { onShowCameraPort, samePane, showCameraPort, type ShowCameraPort } from './cameraPort'
+import { onShowCameraPort, samePane, showCameraPort, type ShowCameraPort, type Viewport } from './cameraPort'
 import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type View } from './deps'
 import { noteUnfolded, restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
@@ -181,23 +181,29 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
       if (signal.aborted) return
       if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
     }
-    // What the show unfolded made the board another board, and the board frames it first, as it does for any change of its own (the
-    // whole model in view): always after a badge opened, which the canvas frames whoever held the camera; after the inputs or a row's
-    // group opened, where the person does not hold it. The show then moves only if the cards are still not whole in view.
+    // What the show unfolded made the board another board, and the board frames it, as it does for any change of its own: always
+    // after a badge opened, which the canvas frames whoever held the camera; after the inputs or a row's group opened, where the
+    // person does not hold it. The canvas says where it is framing to, so ONE move is made: the board's own where the cards will be
+    // whole in view there, else straight to the cards from that frame (a board too tall for the room is framed at its top, and the
+    // cards may be below it; framing first and moving after was two moves in a row, seen served at 1500 x 904, 17 Nov).
+    let framing: Viewport | null = null
     if (plan.open.length > 0 || ((plan.inputs || plan.groups.length > 0) && !held)) {
-      port.refit()
+      framing = port.refit()
       held = false
-      await frames(2)
-      if (signal.aborted) return
-      if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
+      if (framing === null) {
+        // A canvas that does not say where it framed: wait for its framing to land and read the camera then.
+        await frames(2)
+        if (signal.aborted) return
+        if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
+      }
     }
     const box = port.boxOf(cards), pane = port.pane()
     if (box === null) { failed = COULD_NOT_SHOW; return }
-    const to = pane === null ? null : cameraFor(box, pane, port.capture().viewport)
+    const to = pane === null ? null : cameraFor(box, pane, framing ?? port.capture().viewport)
     const still = reducedMotion()
     // A camera the show moved is the person's own choice: the board does not refit under it.
     if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true }
-    pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, to === null || still ? 0 : MOVE_MS + 20)
+    pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, (to === null && framing === null) || still ? 0 : MOVE_MS + 20)
     useShown.setState({ turn, busy: false, said: null })
   } finally {
     // Overtaken by the person's own read: the board is theirs now and so is the canvas's word on who holds the camera. Nothing is written.

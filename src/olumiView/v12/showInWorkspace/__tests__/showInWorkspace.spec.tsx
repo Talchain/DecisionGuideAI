@@ -84,14 +84,34 @@ const rf = {
   fitsHeld: 0,
   hands: 0,
   userMoved,
+  /** The frame the board's own framing asks for next: null is "where the camera is" (the board framed the same). */
+  frame: null as Viewport | null,
+  /** A canvas whose `fit` answers nothing (it frames, but does not say where to). */
+  silent: false,
+  easing: null as number | null,
 }
+/** The board's own framing eases to its frame (ViewCanvas DURATION); a later setViewport interrupts it, as React Flow's does. */
+const FIT_MS = 400
 const side: CanvasSide = {
   getViewport: () => ({ ...rf.vp }),
-  setViewport: (to, opts) => { rf.sets.push({ to: { ...to }, opts: { ...opts }, holds: showHolds() }); rf.vp = { ...to }; return Promise.resolve(true) },
+  setViewport: (to, opts) => { if (rf.easing !== null) { cancelAnimationFrame(rf.easing); rf.easing = null }; rf.sets.push({ to: { ...to }, opts: { ...opts }, holds: showHolds() }); rf.vp = { ...to }; return Promise.resolve(true) },
   getInternalNode: (id) => { const p = rf.at.get(id); return p === undefined ? undefined : { measured: { width: W, height: H }, internals: { positionAbsolute: { ...p } } } },
   userMoved: rf.userMoved,
   hand: () => { rf.hands += 1 },
-  fit: () => { rf.fits += 1; if (showHolds()) rf.fitsHeld += 1 },
+  fit: () => {
+    rf.fits += 1; if (showHolds()) rf.fitsHeld += 1
+    const v = rf.frame === null ? { ...rf.vp } : { ...rf.frame }
+    // Eased frame by frame, as the real camera is: while it eases, the camera is not still.
+    if (rf.easing !== null) cancelAnimationFrame(rf.easing)
+    const from = { ...rf.vp }, t0 = performance.now()
+    const step = (): void => {
+      const k = Math.min(1, (performance.now() - t0) / FIT_MS)
+      rf.vp = k >= 1 ? { ...v } : { x: from.x + (v.x - from.x) * k, y: from.y + (v.y - from.y) * k, zoom: from.zoom + (v.zoom - from.zoom) * k }
+      rf.easing = k >= 1 ? null : requestAnimationFrame(step)
+    }
+    rf.easing = requestAnimationFrame(step)
+    return rf.silent ? undefined : v
+  },
 }
 let unregister: (() => void) | null = null
 /** The canvas registers its port (a new one each call, as a remounted canvas would). */
@@ -185,7 +205,7 @@ async function enter(user: ReturnType<typeof userEvent.setup>): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'Date'] })
-  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.fitsHeld = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0
+  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.fitsHeld = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0; rf.frame = null; rf.silent = false; rf.easing = null
   paneNow.value = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }
   reads = []; route = () => null; core()
   const el = document.createElement('div'); el.className = 'react-flow'; document.body.appendChild(el)
@@ -1168,4 +1188,56 @@ describe('S11 Simple\'s row groups (golden turn 14: core\'s own reply names a no
     expect(rf.vp).toStrictEqual(V0)
     expect(c.button()!.textContent).toBe(SHOW_IN_WORKSPACE)
   })
+})
+
+// ── S12 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S12 one move after an unfold: the board says where it is framing to (golden turn 14 on Simple, the notes group opened)', () => {
+  const SID = golden.id, next = nextOf(golden, 14)
+  const THREE = ['reported_cash_and_spend_basis', 'opening_cash', 'monthly_burn']
+  /** Zoomed well out, so that a move worked out from this camera and one worked out from the board's frame differ (the zoom is never raised). */
+  const vp0: Viewport = { x: 4, y: 8, zoom: 0.3 }
+  async function shown(frame: (box: Box) => Viewport | null, silent = false) {
+    install(golden); setLevel('simple', SID); lay()
+    rf.vp = { ...vp0 }
+    const c = mount(14, next)
+    await press(c.button()!); await run(300)
+    lay()
+    const box = boxOf(THREE)
+    rf.frame = frame(box); rf.silent = silent
+    await run(FIT_MS + 600)
+    return { c, box }
+  }
+  it('the board\'s own frame shows the cards whole: that framing is the one move; the show makes none of its own and the camera stays the board\'s', async () => {
+    const F = cameraFor(boxOf0(), pane(), { x: 0, y: 0, zoom: 0.6 })!
+    const { c, box } = await shown(() => F)
+    expect(cameraFor(box, pane(), F), 'the fixture: under the board\'s frame the three cards are whole in view').toBeNull()
+    expect(rf.sets).toStrictEqual([])
+    expect([rf.fits, rf.fitsHeld]).toStrictEqual([1, 1])
+    expect(rf.vp, 'the board\'s framing landed').toStrictEqual(F)
+    expect(rf.userMoved.current).toBe(false)
+    expect(c.button()!.textContent).toBe(RETURN_TO_BEFORE)
+  })
+  it('the board\'s own frame leaves the cards out (a board too tall for the room, framed at its top): ONE move straight to the cards, from the board\'s frame, never from the camera as it stood', async () => {
+    const TOP: Viewport = { x: 0, y: 56, zoom: 1.3 }
+    const { box } = await shown(() => TOP)
+    const to = cameraFor(box, pane(), TOP)!
+    expect(to).not.toBeNull()
+    expect(to, 'the fixture: the two bases give different cameras').not.toStrictEqual(cameraFor(box, pane(), vp0))
+    expect(rf.sets).toStrictEqual([{ to, opts: { duration: MOVE_MS }, holds: true }])
+    expect(rf.vp, 'the board\'s framing was interrupted by that one move and did not land after it').toStrictEqual(to)
+    expect(rf.userMoved.current).toBe(true)
+  })
+  it('a canvas that does not say where it framed: the show waits for its framing to land, then moves from the camera as it then stands', async () => {
+    const TOP: Viewport = { x: 0, y: 56, zoom: 1.3 }
+    const { box } = await shown(() => TOP, true)
+    expect(rf.sets).toStrictEqual([{ to: cameraFor(box, pane(), TOP), opts: { duration: MOVE_MS }, holds: true }])
+    expect(rf.userMoved.current).toBe(true)
+  })
+  /** The three cards' box on the opened board, before any row has laid it out (the fake canvas's places are fixed by the board's order). */
+  function boxOf0(): Box {
+    install(golden); setLevel('simple', SID); act(() => { setGroupOpen(SID, 'group:notes:inputs') }); lay()
+    const box = boxOf(THREE)
+    act(() => { useInputsOpen.setState({ open: {} }) })
+    return box
+  }
 })

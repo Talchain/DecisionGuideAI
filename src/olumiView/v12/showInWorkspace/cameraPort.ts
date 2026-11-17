@@ -32,8 +32,12 @@ export interface ShowCameraPort {
   pane(): Pane | null
   /** Move the camera as the person's own move: pending pans stand down and the board's own framing leaves it alone afterwards. */
   moveTo(to: Viewport, opts: { readonly duration: number }): void
-  /** Hand the camera back to the board: its own framing of the board now on screen, asked for once. */
-  refit(): void
+  /**
+   * Hand the camera back to the board: its own framing of the board now on screen, asked for once. Answers the frame the board is now
+   * easing to, where the canvas says it (so the caller can tell at once whether its cards will be whole in view there); null where it
+   * does not, or where the board has nothing to frame.
+   */
+  refit(): Viewport | null
   /**
    * Hold the board's own framing off until the release is called (always, in a `finally`). The release takes what "the person holds the
    * camera" should read afterwards: true after a show that moved the camera; after a return, true where it changed
