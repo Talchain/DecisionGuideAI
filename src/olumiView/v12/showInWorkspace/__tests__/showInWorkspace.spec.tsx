@@ -79,6 +79,8 @@ const rf = {
   at: new Map<string, At>(),
   sets: [] as { to: Viewport; opts: { duration: number }; holds: boolean }[],
   fits: 0,
+  /** The fits asked for while a show or a return held the board: the show's own, never the canvas's. */
+  fitsHeld: 0,
   hands: 0,
   userMoved,
 }
@@ -88,7 +90,7 @@ const side: CanvasSide = {
   getInternalNode: (id) => { const p = rf.at.get(id); return p === undefined ? undefined : { measured: { width: W, height: H }, internals: { positionAbsolute: { ...p } } } },
   userMoved: rf.userMoved,
   hand: () => { rf.hands += 1 },
-  fit: () => { rf.fits += 1 },
+  fit: () => { rf.fits += 1; if (showHolds()) rf.fitsHeld += 1 },
 }
 let unregister: (() => void) | null = null
 /** The canvas registers its port (a new one each call, as a remounted canvas would). */
@@ -182,7 +184,7 @@ async function enter(user: ReturnType<typeof userEvent.setup>): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'Date'] })
-  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0
+  rf.vp = { ...V0 }; rf.at = new Map(); rf.sets = []; rf.fits = 0; rf.fitsHeld = 0; rf.hands = 0; rf.userMoved.current = false; movedLog.length = 0
   paneNow.value = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }
   reads = []; route = () => null; core()
   const el = document.createElement('div'); el.className = 'react-flow'; document.body.appendChild(el)
@@ -287,7 +289,7 @@ describe('S2 show with a badge to open (bookshop: closed on screen, open as read
     expect(rf.sets).toStrictEqual([]) // the fake canvas still holds the closed board
     expect(showHolds()).toBe(true)
     lay()
-    await run(100)
+    await run(200)
     const to = cameraFor(boxOf(['visits', 'spend_per_visit']), pane(), V0)
     expect(rf.sets).toStrictEqual([{ to, opts: { duration: MOVE_MS }, holds: true }])
     expect(to).not.toStrictEqual(cameraFor(boxOf(['monthly_revenue']), pane(), V0))
@@ -392,7 +394,7 @@ describe('S3 Return restores exactly what the show changed', () => {
     await enter(user)
     await run(100)
     expect(document.activeElement).toBe(button)
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.sets).toHaveLength(2)
     expect(rf.sets[1]).toStrictEqual({ to: vp0, opts: { duration: 0 }, holds: true })
     expect(rf.userMoved.current, movedLog.join('\n')).toBe(true)
@@ -415,11 +417,11 @@ describe('S3 Return restores exactly what the show changed', () => {
     const c = mount(1, atInput)
     await press(c.button()!); await run(100)
     expect(useInputsOpen.getState().open).toStrictEqual({ [S]: true })
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.sets).toHaveLength(1)
     await press(c.button()!); await run(100)
     expect(useInputsOpen.getState().open).toStrictEqual({ [S]: false })
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.sets).toHaveLength(2)
     expect(rf.sets[1]).toStrictEqual({ to: vp0, opts: { duration: 0 }, holds: true })
     expect(rf.userMoved.current).toBe(false)
@@ -535,11 +537,11 @@ describe('S5 Simple\'s folded inputs (european-22cards)', () => {
     await press(c.button()!); await run(300)
     expect(useInputsOpen.getState().open).toStrictEqual({ [SID]: true })
     expect(rf.sets).toStrictEqual([])
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(['starting_customers']), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
     await press(c.button()!); await run(100)
     expect(useInputsOpen.getState().open).toStrictEqual({})
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.at.has('starting_customers')).toBe(false)
     expect(rf.sets[1]).toStrictEqual({ to: V0, opts: { duration: 0 }, holds: true })
     expect(reads).toHaveLength(0)
@@ -606,7 +608,7 @@ describe('S7 a failed read and an overtaken read (bookshop turn 4)', () => {
     route = (r) => ok(hasMonthly(r) ? opened : closed)
     const c = mount(4, next)
     await press(c.button()!); await run(50)
-    lay(); await run(100)
+    lay(); await run(200)
     expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(['visits', 'spend_per_visit']), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
     expect(c.said()).toBeNull()
   })
@@ -884,8 +886,9 @@ describe('S10 beside the canvas\'s own framing, as ENTRY-canvas.patch leaves it'
     await press(button); await run(50)
     await answer(reads[0]!, ok(opened)); boardChanged()
     lay(); await run(400)
+    // The board framed the opened board itself first, at the show's asking and under its hold; the cards being out of view still, the show moved.
+    expect([rf.fits, rf.fitsHeld]).toStrictEqual([1, 1])
     expect(rf.sets).toHaveLength(1)
-    expect(rf.fits).toBe(0)
     expect(rf.userMoved.current).toBe(true)
     await press(button); await run(50) // Return
     expect(reads).toHaveLength(2)
@@ -893,22 +896,46 @@ describe('S10 beside the canvas\'s own framing, as ENTRY-canvas.patch leaves it'
     lay(); await run(400)
     expect(rf.sets).toHaveLength(2)
     expect(rf.sets[1]).toStrictEqual({ to: vp0, opts: { duration: 0 }, holds: true })
-    expect(rf.fits, 'the board\'s own framing did not replace the camera Return put back').toBe(0)
+    expect(rf.fits, 'the board\'s own framing did not replace the camera Return put back').toBe(1)
     expect(rf.vp).toStrictEqual(vp0)
     expect(button.textContent).toBe(SHOW_IN_WORKSPACE)
   })
-  it('a show that opens a badge and finds the cards already in view: nothing moves, and the board\'s framing of the opened board does not carry them off', async () => {
+  it('a show that opens a badge: the board frames the opened board itself first; the cards then being whole in view, the show moves nothing and the camera stays the board\'s', async () => {
     install(closed); lay()
     const c = mount(4, next)
     await press(c.button()!); await run(50)
     await answer(reads[0]!, ok(opened)); boardChanged()
-    lay({ visits: { x: 100, y: 100 }, spend_per_visit: { x: 400, y: 100 } }) // both whole inside the free canvas at the start viewport
+    lay({ visits: { x: 100, y: 100 }, spend_per_visit: { x: 400, y: 100 } }) // both whole inside the free canvas
     await run(400)
     expect(cameraFor(boxOf(['visits', 'spend_per_visit']), pane(), V0)).toBeNull()
+    expect(rf.fitsHeld, 'asked for once by the show, under its hold').toBe(1)
     expect(rf.sets).toStrictEqual([])
-    expect(rf.fits).toBe(0)
-    expect(rf.userMoved.current).toBe(true)
+    expect(rf.userMoved.current).toBe(false)
+    expect(rf.fits, 'and the canvas\'s own waiting loop frames the same board once it is let go').toBe(2)
     expect(c.button()!.textContent).toBe(RETURN_TO_BEFORE)
+  })
+  it('the same for a camera the person held: a badge opening frames the board whoever held the camera, as the canvas itself does', async () => {
+    install(closed); lay()
+    rf.userMoved.current = true
+    const c = mount(4, next)
+    await press(c.button()!); await run(50)
+    await answer(reads[0]!, ok(opened)); boardChanged()
+    lay({ visits: { x: 100, y: 100 }, spend_per_visit: { x: 400, y: 100 } })
+    await run(400)
+    expect(rf.fitsHeld).toBe(1)
+    expect(rf.sets).toStrictEqual([])
+    expect(rf.userMoved.current).toBe(false)
+  })
+  it('contrast: Simple\'s inputs opened under a camera the person holds: the board is not asked to frame itself, and the show moves to the card', async () => {
+    const S = european.id
+    install(european); setLevel('simple', S); lay()
+    rf.userMoved.current = true
+    const c = mount(1, atInput)
+    await press(c.button()!); await run(100)
+    lay(); await run(200)
+    expect(rf.fitsHeld).toBe(0)
+    expect(rf.sets).toHaveLength(1)
+    expect(rf.userMoved.current).toBe(true)
   })
   const DOCK_CLOSED: Pane = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 0, bottom: 0 } }
   const IN_VIEW = { reported_cash_and_spend_basis: { x: 20, y: 80 }, opening_cash: { x: 300, y: 80 }, monthly_burn: { x: 20, y: 300 } }

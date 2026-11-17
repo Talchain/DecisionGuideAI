@@ -36,7 +36,7 @@ export interface ShowCameraPort {
   refit(): void
   /**
    * Hold the board's own framing off until the release is called (always, in a `finally`). The release takes what "the person holds the
-   * camera" should read afterwards: true after a show that moved the camera or unfolded something; after a return, true where it changed
+   * camera" should read afterwards: true after a show that moved the camera; after a return, true where it changed
    * the open badges (the board's framing must not replace the camera it put back), else the value captured before the show; and null
    * from a run that something newer overtook, which must write nothing.
    */

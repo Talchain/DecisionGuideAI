@@ -9,7 +9,7 @@
  *
  * Both labels are this control's chrome. Focus is the page's own neutral ring (`*:focus-visible`), not one of its own.
  */
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ArrowLeft, LocateFixed } from 'lucide-react'
 import { useHasShowCamera } from './cameraPort'
 import { typography, useInputsOpen, useLevel, useViewStore } from './deps'
@@ -26,11 +26,22 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
   const plan = useMemo(() => planShow(view, next, { sid, level, inputsOpen }), [view, next, sid, level, inputsOpen])
   const shown = useShown((s) => s.turn === turn)
   const said = useShown((s) => (s.said !== null && s.said.turn === turn ? s.said.words : null))
+  const busy = useShown((s) => s.busy && s.turn === turn)
   useEffect(() => () => leave(turn), [turn])
+  // The show changes the reply above this control (its "About" chips name the unfolded cards), which can push the control out of the
+  // panel's view just when it has become the way back. Through its own show and return, and never otherwise, it is kept in view.
+  const button = useRef<HTMLButtonElement>(null), was = useRef(shown)
+  useEffect(() => {
+    const flipped = was.current !== shown
+    was.current = shown
+    if (!flipped && !busy) return
+    const el = button.current
+    if (el !== null && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' })
+  }, [shown, busy, view])
   if (!canvas || (plan === null && !shown)) return null
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="show-in-workspace">
-      <button type="button" data-shown={shown || undefined} data-testid="show-in-workspace-button"
+      <button ref={button} type="button" data-shown={shown || undefined} data-testid="show-in-workspace-button"
         onClick={() => { void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown

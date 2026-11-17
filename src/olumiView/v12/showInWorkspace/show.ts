@@ -4,8 +4,9 @@
  *
  * SHOW     snapshot (the first one stands across further shows) → hold the board's own framing → open what is folded and AWAIT the read
  *          → wait for the board to settle → resolve the reply's ids AGAIN on the View now → step aside only a layer, lens or selection
- *          that would set a target back (and settle again if the layer changed: a layer's notes change card heights) → move the camera
- *          as the person's own move → pulse the cards once → release the hold.
+ *          that would set a target back (and settle again if the layer changed: a layer's notes change card heights) → where something
+ *          was unfolded and the person does not hold the camera, let the board frame itself first → move the camera, as the person's
+ *          own move, only if the cards are still not whole in view → pulse the cards once → release the hold.
  * RETURN   cancel anything pending → hold → put back layer, lens, inputs and badges and AWAIT the read → wait for the board to settle
  *          → put back the selection and the camera → release the hold with "the person holds the camera" as it was before the show
  *          (or held, where putting the badges back changed the board: its own framing must not replace the camera just put back).
@@ -163,13 +164,22 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
       if (signal.aborted) return
       if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
     }
+    // What the show unfolded made the board another board, and the board frames it first, as it does for any change of its own (the
+    // whole model in view): always after a badge opened, which the canvas frames whoever held the camera; after the inputs opened,
+    // where the person does not hold it. The show then moves only if the cards are still not whole in view.
+    if (plan.open.length > 0 || (plan.inputs && !held)) {
+      port.refit()
+      held = false
+      await frames(2)
+      if (signal.aborted) return
+      if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
+    }
     const box = port.boxOf(cards), pane = port.pane()
     if (box === null) { failed = COULD_NOT_SHOW; return }
     const to = pane === null ? null : cameraFor(box, pane, port.capture().viewport)
     const still = reducedMotion()
-    // A camera the show moved is the person's own choice: the board does not refit under it. The same holds where the show unfolded
-    // something and the cards were already in view: the board's own framing of the unfolded board must not carry them out of it.
-    if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true } else if (plan.open.length > 0 || plan.inputs) held = true
+    // A camera the show moved is the person's own choice: the board does not refit under it.
+    if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true }
     pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, to === null || still ? 0 : MOVE_MS + 20)
     useShown.setState({ turn, busy: false, said: null })
   } finally {
