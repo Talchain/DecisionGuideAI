@@ -64,6 +64,8 @@ import { ViewTradeOffsKey } from './ViewTradeOffsKey'
 import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
 import { registerRevealReturnCamera } from './revealReturn'
+import { registerShowCameraPort, showHolds } from './v12/showInWorkspace/cameraPort'
+import { makeShowCameraPort } from './v12/showInWorkspace/canvasSide'
 import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
@@ -302,6 +304,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewpo
     // pane was ready: the board then stood at 0,0 at scale 1 until Fit was pressed) is asked for again, up to MAX_FITS.
     let target: Viewport | null = null, targetAt = 0
     const tick = () => {
+      // "Show in the workspace" is rearranging the board (v12/showInWorkspace): this framing waits, then goes on as if it had just begun.
+      if (showHolds()) { since = performance.now(); last = ''; raf = requestAnimationFrame(tick); return }
       if (userMoved.current) return
       if (target !== null && performance.now() - targetAt > DURATION + 300) {
         const v = getViewport(), t = target
@@ -422,6 +426,10 @@ function ViewFlow() {
     const before = getViewport()
     return () => { userMoved.current = true; hand(); void setViewport(before, { duration: 0 }) }
   }), [getViewport, setViewport])
+  // "Show in the workspace" under a reply (v12/showInWorkspace): its camera port, registered while the canvas is on the page. It runs no framing of
+  // its own: it asks this canvas's `fit` and moves once as the person's own move. (`hand` is new each render and reads only refs: not a dependency,
+  // as for the reveal-return above; a port registered again would let go of the place a show remembers.)
+  useEffect(() => registerShowCameraPort(makeShowCameraPort({ getViewport, setViewport, getInternalNode, userMoved, hand, fit })), [getViewport, setViewport, getInternalNode, fit])
   const focusCall = useRef(0)
   useEffect(() => () => { focusCall.current += 1 }, [])
   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).

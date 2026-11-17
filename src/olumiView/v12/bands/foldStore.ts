@@ -10,6 +10,6 @@ export const inputsFolded = (sid: string | null, model: ViewModel, open: Readonl
   foldsInputs(model) && !(sid !== null && open[sid] === true)
 /** A row's group card (groups.ts), opened in place by one press, in the same store as the inputs' fold, keyed by scenario and group. */
 const groupKey = (sid: string, group: string): string => `${sid}#${group}`
-export const setGroupOpen = (sid: string, group: string): void => useInputsOpen.setState((s) => ({ open: { ...s.open, [groupKey(sid, group)]: true } }))
+export const setGroupOpen = (sid: string, group: string, open = true): void => useInputsOpen.setState((s) => ({ open: { ...s.open, [groupKey(sid, group)]: open } }))
 export const groupOpen = (sid: string | null, group: string, open: Readonly<Record<string, boolean>> = useInputsOpen.getState().open): boolean =>
   sid !== null && open[groupKey(sid, group)] === true

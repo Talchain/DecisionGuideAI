@@ -52,6 +52,7 @@ import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
+import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
@@ -315,6 +316,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       )}
       <Stories answer={t.answer} at={at} />
       <AboutChips cards={aboutCards} />
+      <ShowInWorkspace turn={t.id} next={t.answer.next} />
       {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
     </div>
   )
