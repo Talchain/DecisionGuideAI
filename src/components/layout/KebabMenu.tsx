@@ -38,7 +38,7 @@ import { useCanvasStore } from '../../canvas/store'
 import styles from './TopBar.module.css'
 import { coreLaneAllows, lanePreviousControl, isOlumiCoreLane } from '../../olumiCore/lane'
 import { useViewStore } from '../../olumiView/store'
-import { summaryPath } from '../../olumiView/summary'
+import { summaryPath, summaryReachable } from '../../olumiView/summary'
 import { ScenarioTitleDialog } from '../../olumiView/ScenarioTitleDialog'
 import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 
@@ -71,7 +71,7 @@ export function KebabMenu({
   // THE OLUMI-CORE LANE (Paul, 16 Nov: the menu keeps every item that has a working path). Each item below is offered on the lane only
   // where core has a route or the setting is the page's own:
   //   Rename              core's own-title route (ScenarioTitleDialog); needs a scenario read from core.
-  //   Export              the Summary as Markdown (`GET …/summary?format=md`); needs a saved version.
+  //   Export              the Summary as Markdown (`GET …/summary?format=md`); needs a saved version, or core's working notes before one.
   //   Snapshots           core's stored versions (`GET …/versions`), in the Version history panel.
   //   Start new scenario  a blank brief (the old scenario stays in core and in My scenarios, so nothing is lost and nothing is confirmed).
   //   Import              no core route: not offered. Canvas settings: the lane's canvas (ViewCanvas) does not read them: not offered.
@@ -79,6 +79,7 @@ export function KebabMenu({
   const coreSid = useViewStore((s) => s.sid)
   const coreAt = useViewStore((s) => s.at)
   const coreHasVersion = useViewStore((s) => s.view?.version != null)
+  const coreSummary = useViewStore((s) => summaryReachable(s.view))
   const [showTitle, setShowTitle] = useState(false)
 
   const {
@@ -193,7 +194,7 @@ export function KebabMenu({
                 <span>Rename</span>
               </button>
             )}
-            {lane && coreSid !== null && coreHasVersion && (
+            {lane && coreSid !== null && coreSummary && (
               <a
                 role="menuitem"
                 className={styles.dropdownMenuButton}
