@@ -76,14 +76,27 @@ function useBesideZoom(): number {
   return left
 }
 
-/** The foot edge's height: the foot gutter the framing keeps clear (footClear.ts FOOT_GUTTER). */
+/** The foot edge's least height: the foot gutter the framing keeps clear (footClear.ts FOOT_GUTTER). */
 export const FOOT_EDGE = FOOT_GUTTER
-/** How the foot edge fades in: clear at its top, the canvas's own ground from 20 px down, so a card below the fold is behind the edge, never half under a control. */
-export const FOOT_EDGE_FADE = 'linear-gradient(to bottom, transparent, var(--bg-canvas) 20px)'
+/** The edge's soft top: it is the canvas's own ground from this many px down. */
+export const FOOT_EDGE_SOFT = 12
+/** How the foot edge fades in: clear at its top, the canvas's own ground from FOOT_EDGE_SOFT px down. */
+export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px)`
+/**
+ * The foot edge's height (screen px): the gutter, or taller where a card the cue counts starts above the gutter's line, so that card is wholly behind
+ * the edge (its top under the edge's soft top), never half shown over the foot controls (DL 17 Nov: nothing sits under the foot controls). Never taller
+ * than half the window, so a very tall card cannot blank the board; the cue counts the cards behind it either way.
+ */
+export const footEdgeHeightOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
+  let top = height - FOOT_EDGE + FOOT_EDGE_SOFT
+  for (const c of cards) { const t = c.y * zoom + ty, b = (c.y + c.h) * zoom + ty; if (b > height - FOOT_BAND && t < top) top = t }
+  return Math.min(Math.ceil(height / 2), Math.max(FOOT_EDGE, Math.ceil(height - top + FOOT_EDGE_SOFT)))
+}
 
 export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** V12 Simple: while cards are below, the foot is a clean edge (the cards below are behind it; the cue counts them). */ edge?: boolean } = {}): JSX.Element | null {
   const below = useCardsBelow(), right = useCardsRight()
   const edgeW = useStore((s) => freeRight(s.width))
+  const edgeH = useStore((s) => footEdgeHeightOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
@@ -93,7 +106,7 @@ export function BelowCue({ onPress, edge = false }: { /** The person's own move 
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
   return (<>
-    {edge && below > 0 ? <div aria-hidden="true" data-testid="view-foot-edge" className="pointer-events-none fixed bottom-0 left-0 z-[4]" style={{ width: edgeW, height: FOOT_EDGE, background: FOOT_EDGE_FADE }} /> : null}
+    {edge && below > 0 ? <div aria-hidden="true" data-testid="view-foot-edge" className="pointer-events-none fixed bottom-0 left-0 z-[4]" style={{ width: edgeW, height: edgeH, background: FOOT_EDGE_FADE }} /> : null}
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
       {below === 0 ? null : <>
       <button type="button" onClick={up}

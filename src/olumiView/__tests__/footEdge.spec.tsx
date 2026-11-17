@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider, useStoreApi } from '@xyflow/react'
-import { BelowCue, FOOT_EDGE, FOOT_EDGE_FADE } from '../BelowCue'
+import { BelowCue, FOOT_EDGE, FOOT_EDGE_FADE, FOOT_EDGE_SOFT, footEdgeHeightOf } from '../BelowCue'
 import { VIEW_CARD } from '../canvas'
 import { FOOT_GUTTER } from '../footClear'
 
@@ -37,5 +37,22 @@ describe('the foot edge on Simple', () => {
     cleanup()
     const el = draw(BELOW, false)
     expect([edgeOf(el), el.querySelector('[data-testid="view-below-cue"]') !== null]).toEqual([null, true])
+  })
+})
+
+describe('a card cut by the gutter\'s line is wholly behind the edge, never half shown over the foot controls (DL 17 Nov)', () => {
+  // A card from 560 to 660 at zoom 1: its top is above the gutter's line (704 - 88 = 616), its foot below the cue's band (640), so the cue counts it.
+  const CUT = [card('a', 100), card('cut', 560)]
+  it('E3 the edge rises to the cut card\'s top less its soft top, and the cue counts the card', () => {
+    const el = draw(CUT, true)
+    expect(edgeOf(el)!.style.height).toBe(`${H - 560 + FOOT_EDGE_SOFT}px`)
+    expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent).toContain('1 more card below')
+  })
+  it('E3 CONTRAST: a card wholly below the line leaves the edge at the gutter; a card as tall as the board never lifts it past half the window', () => {
+    const boxes = (ys: number[], h = 100) => ys.map((y) => ({ y, h }))
+    expect(footEdgeHeightOf(boxes([100, H - 40]), 0, 1, H)).toBe(FOOT_EDGE)
+    expect(footEdgeHeightOf(boxes([100, 650]), 0, 1, H), 'a card starting 34 px under the line').toBe(FOOT_EDGE)
+    expect(footEdgeHeightOf(boxes([40], 2000), 0, 1, H)).toBe(Math.ceil(H / 2))
+    expect(footEdgeHeightOf(boxes([100]), 0, 1, H), 'nothing below: the gutter').toBe(FOOT_EDGE)
   })
 })
