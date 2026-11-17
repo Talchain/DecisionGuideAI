@@ -15,7 +15,7 @@
  * runs a copy on CEE and writes nothing).
  */
 import { useEffect, useRef } from 'react'
-import { Activity, ArrowRightLeft, CloudLightning, Landmark, Layers2, Scale, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowRightLeft, CloudLightning, Landmark, Network, Scale, type LucideIcon } from 'lucide-react'
 import { selectPremortemWorksheet, useCanvasStore, type LensMode } from '../store'
 import type { PremortemWorksheetV1 } from '../../v5/readPremortemWorksheet'
 
@@ -29,7 +29,7 @@ export const LENS_ORDER: readonly BarLens[] = ['full', 'tradeoffs', 'rests_on', 
  * card read it, so a lens wears the same glyph everywhere, and no glyph here means anything else on the canvas.
  */
 export const LENS_ICON: Readonly<Record<BarLens, LucideIcon>> = {
-  full: Layers2,
+  full: Network, // the whole model; Layers is the canvas tools' layers glyph (v11 item D)
   tradeoffs: Scale,
   rests_on: Landmark, // what the model stands on; Anchor is the anchoring-bias icon (design system §9.6)
   // A storm over the plan: imagine it failed. Not AlertTriangle, which is the design system's §9.5 warning state and

@@ -523,7 +523,7 @@ function ViewFlow() {
         {/* V12 Simple: the band labels, the "not linked" marks and the inputs' fold control, in the canvas's own coordinates (v12/bands). */}
         <BandLayer />
       </ReactFlow>
-      <CanvasViewportControls
+      {hasModel ? <CanvasViewportControls
         onZoomIn={() => { userMoved.current = true; hand(); void zoomIn({ duration: 200 }) }}
         onZoomOut={() => { userMoved.current = true; hand(); void zoomOut({ duration: 200 }) }}
         onZoomReset={() => { userMoved.current = true; hand(); void zoomTo(1, { duration: 200 }) }}
@@ -532,7 +532,7 @@ function ViewFlow() {
         // Bound by fitHandler.spec.tsx (this handler, on the real canvas) and replyInView.spec.tsx F1, F2 and F4 (what the refs it writes cancel).
         onFitView={() => { userMoved.current = false; hand(); fit() }}
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; clearLayoutUndo(); if (model) void placeViewCards(model) }}
-      />
+      /> : null}
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
       {hasModel ? null : <DraftingBoard />}
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}

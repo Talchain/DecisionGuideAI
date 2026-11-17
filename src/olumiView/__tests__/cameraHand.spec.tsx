@@ -48,6 +48,21 @@ afterEach(() => {
 })
 const mount = () => render(<div style={{ width: 1232, height: 704 }}><ViewCanvas /></div>)
 
+describe('v11 item D: the foot zoom controls wait for a model', () => {
+  it('no model: no zoom controls; a model: Zoom in, Zoom out and Fit are drawn', () => {
+    useViewStore.setState({ view: { ...golden, model: null } })
+    mount()
+    expect(screen.queryByLabelText('Fit to view')).toBeNull()
+    expect(screen.queryByLabelText('Zoom in')).toBeNull()
+    cleanup()
+    useViewStore.setState({ view: golden })
+    mount()
+    expect(screen.getByLabelText('Zoom in')).toBeInTheDocument()
+    expect(screen.getByLabelText('Zoom out')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fit to view')).toBeInTheDocument()
+  })
+})
+
 describe('the person\'s own camera controls on the real canvas', () => {
   it('CH1 catch: "Zoom in for detail" counts as the person\'s move (movedAt rises by one) and stamps the activity as no drag', () => {
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-15T01:00:00Z'))
