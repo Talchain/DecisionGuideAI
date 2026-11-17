@@ -31,10 +31,16 @@ let failNext = 0
 let refuseNext = 0
 let afterApproval: View | null = null
 let served: View = golden
+// CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): a closed review draws core's row and its actions (with readings waiting, its filled button is
+// "Review the changes"); the reading rows, their choices, the note and the line by Approve are drawn once it is open. Every row here reads
+// them, so the page is shown with the review opened, as the person does it. The choices still live in Proposal's state either way.
 const show = (view: View) => {
   served = view
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
-  return render(<ViewChat />)
+  const r = render(<ViewChat />)
+  const review = r.container.querySelector('[data-testid="view-proposal-review"]')
+  if (review !== null && review.getAttribute('data-open') !== 'true') fireEvent.click(review.querySelector('[data-testid="view-proposal-row"]')!)
+  return r
 }
 // PL-1083 (2): the line by Approve says only who is recorded as approving; it never claims what Approve keeps or uses (core may refuse).
 const noClaim = (el: HTMLElement) => /^Approving records .+ as the person who approved, never as the author of what Olumi read or proposed\.$/.test((el.textContent ?? '').trim())

@@ -3,7 +3,7 @@
  * first two blocks behind "Show the whole first answer", and only where core marks the split (Codex 16:48Z): any other reply is drawn whole.
  */
 import { describe, expect, it } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { Blocks } from '../../../ViewChat'
 
 type Said = Parameters<typeof Blocks>[0]['parts']
@@ -27,26 +27,37 @@ describe('reply text marks', () => {
   })
 })
 
-describe('a long first answer folds; nothing else does', () => {
+// CHANGED BY DESIGN (sx-panel, PANEL-SPEC 2, 17 Nov: "a reply with a long body shows its lead ... at rest; the rest sits behind one press"): every
+// long reply folds now, not only a first answer with core's split; at rest it shows core's label (if any), its opening paragraph and, after it,
+// the first three items of a list. A first answer's check (core's heading and all after it) still always shows (Codex 16 Nov).
+describe('a long reply folds its tail; its opening and a first answer\'s check always show', () => {
   const long = T(`${'First paragraph words. '.repeat(8)}\n\n${'Second paragraph words. '.repeat(8)}\n\n${'Third paragraph words. '.repeat(8)}`)
   const para = (n: number) => `Point ${n}. ` + 'This paragraph is long enough to take several lines of the panel at twelve pixels wide. '.repeat(2)
-  it('shows the label and two blocks, the toggle, and the check; the whole first answer on press', () => {
+  it('shows the label, the opening paragraph, the toggle, and the check; the whole first answer on press', () => {
     const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), CHECK_HEADING, 'The model has no figure yet.'].join('\n\n')
     const { container } = render(<Blocks parts={[{ text }]} at="x" lines={{ label: FIRST_ANSWER_LABEL, heading: CHECK_HEADING }} fold />)
-    expect(container.querySelectorAll('[data-reply-para]').length).toBe(3)
+    // CHANGED BY DESIGN: was the label and TWO blocks; now the opening (para 1) and the check's paragraph.
+    expect([...container.querySelectorAll('[data-reply-para]')].map((e) => e.textContent?.slice(0, 8))).toEqual(['Point 1.', 'The mode'])
     const toggle = screen.getByTestId('view-reply-fold')
     expect([toggle.textContent, toggle.getAttribute('aria-expanded')]).toEqual(['Show the whole first answer', 'false'])
     fireEvent.click(toggle)
     expect(container.querySelectorAll('[data-reply-para]').length).toBe(4)
     expect(screen.getByTestId('view-reply-fold').getAttribute('aria-expanded')).toBe('true')
   })
-  it('never folds a reply without core\'s split: a long method reply, or a first answer with no check heading, is drawn whole (Codex 16:48Z)', () => {
+  // CHANGED BY DESIGN (was: "never folds a reply without core's split ... drawn whole", Codex 16:48Z): a long method reply and a first answer with
+  // no check heading now show their opening and fold the rest behind one press; nothing is cut, and one press draws every word.
+  it('a long method reply, or a first answer with no check heading, shows its opening; one press draws it whole', () => {
     const method = render(<Blocks parts={long} at="x" fold />)
-    expect([method.container.querySelectorAll('[data-reply-para]').length, method.container.querySelector('[data-testid="view-reply-fold"]')]).toEqual([3, null])
+    expect(method.container.querySelectorAll('[data-reply-para]').length).toBe(1)
+    expect(method.container.querySelector('[data-reply-opening]')?.textContent).toContain('First paragraph words.')
+    fireEvent.click(within(method.container).getByTestId('view-reply-fold'))
+    expect(method.container.querySelectorAll('[data-reply-para]').length).toBe(3)
     method.unmount()
     const text = [FIRST_ANSWER_LABEL, para(1), para(2), para(3), para(4)].join('\n\n')
     const noCheck = render(<Blocks parts={[{ text }]} at="x" lines={{ label: FIRST_ANSWER_LABEL, heading: null }} fold />)
-    expect([noCheck.container.querySelectorAll('[data-reply-para]').length, noCheck.container.querySelector('[data-testid="view-reply-fold"]')]).toEqual([4, null])
+    expect(noCheck.container.querySelectorAll('[data-reply-para]').length).toBe(1)
+    fireEvent.click(within(noCheck.container).getByTestId('view-reply-fold'))
+    expect(noCheck.container.querySelectorAll('[data-reply-para]').length).toBe(4)
   })
   it('never folds a short reply, or a long one when not asked', () => {
     const short = render(<Blocks parts={T('One.\n\nTwo.\n\nThree.')} at="x" fold />)

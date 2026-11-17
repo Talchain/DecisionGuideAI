@@ -6,7 +6,8 @@
  * (first draft: core's label line, the answer, core's check heading, the check; later replies: an opening paragraph, then lists of 6 to 21
  * items), with invented words.
  *
- * 1. One next step, at the top, its button in view at rest.   2. The opening of every reply shows; a long reply folds its tail; one 18 px line.
+ * 1. One next step, at the top, its button in view at rest.   2. The opening of every reply shows; a long reply folds its tail; one 18 px line;
+ *                                                              a "## " line is a lead-in (the reply contract keeps core's markers, 17 Nov).
  * 3. No second rendering of what is drawn elsewhere.          4. One input for one thing.
  * 5. No form open unless asked.                               6. The composer keeps its four method icons and its menu.
  */
@@ -170,6 +171,37 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
     const t0 = show(withAnswer(base, 0, { answer, first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
     expect(t0.querySelector('[data-view-cite="chat.0.answer.answer.1.cite"]')).toBeNull() // folded with its list
     expect(t0.querySelector('[data-view-cite="chat.0.answer.answer.3.cite"]')?.textContent).toBe('2') // its own place, not 1
+  })
+
+  it('a line core opens with two to six hashes is a lead-in, hashes dropped, kept at rest with the opening; one hash or seven is words, as typed', () => {
+    const base = golden('proposal'), k = base.chat.length - 1
+    const text = ['## What to count first', LATER_OPEN, '', '# One hash stays as typed.', '', '####### Seven stay as typed.', '', ...ITEMS.map((x) => `- ${x}`)].join('\n')
+    const latest = q(show(withAnswer(base, k, { answer: [{ text }] })), 'view-chat-latest')!
+    const leadIn = latest.querySelector<HTMLElement>('[data-reply-lead-in]')!
+    expect(leadIn.textContent).toBe('What to count first')
+    expect(leadIn.querySelector(`[data-view="chat.${k}.answer.answer.0.text"]`)?.textContent).toBe('What to count first')
+    expect(leadIn.className).toContain(typography.viewPanelHeading)
+    expect(latest.querySelectorAll('[data-reply-lead-in]')).toHaveLength(1)
+    expect(latest.querySelector('[data-reply-opening]')?.textContent).toBe(LATER_OPEN) // the opening still shows at rest, under its lead-in
+    fireEvent.click(q(latest, 'view-reply-fold')!)
+    // CONTRAST: one hash, or seven, is the person-facing words as core wrote them.
+    const paras = [...latest.querySelectorAll('[data-reply-para]')].map((p) => p.textContent)
+    expect(paras).toContain('# One hash stays as typed.')
+    expect(paras).toContain('####### Seven stay as typed.')
+  })
+
+  it('the Next step card numbers its cites after the answer\'s, as the reply does; the reply\'s Why lines follow the next step\'s', () => {
+    const v = session('after-find-first'), k = v.chat.length - 1, t = v.chat[k]!
+    const view = withAnswer(v, k, {
+      answer: [{ text: 'An answer.' }, { cite: 'Answer source' }],
+      next: { ...t.answer!.next, text: [{ text: 'Count the walkers.' }, { cite: 'Next source' }] },
+      why: [[{ text: 'A reason.' }, { cite: 'Why source' }]],
+    } as Partial<Answer>)
+    const c = show(view)
+    expect(q(c, 'view-next-step')!.getAttribute('data-step')).toBe('move')
+    expect(c.querySelector(`[data-view-cite="chat.${k}.answer.answer.1.cite"]`)?.textContent).toBe('1')
+    expect(q(c, 'view-next-step')!.querySelector(`[data-view-cite="chat.${k}.answer.next.text.1.cite"]`)?.textContent).toBe('2')
+    expect(c.querySelector(`[data-view-cite="chat.${k}.answer.why.0.1.cite"]`)?.textContent).toBe('3')
   })
 
   it('the newest reply\'s opening is the one 18 px line when it is 20 words or fewer; a longer opening, and an older reply, stay body size', () => {

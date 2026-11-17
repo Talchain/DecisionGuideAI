@@ -1,6 +1,6 @@
 /**
  * V12 Olumi panel (chat lane): the composer's one sentence, the reply's disclosure, the "About <card>" chip, the method chip on the person's message,
- * keeping each approach on its own, "Your kept ideas" (a pointer to the canvas since sx-panel), the newest next step said once (sx-panel, in place of
+ * keeping each approach on its own, "Your kept ideas" (behind a closed count since sx-panel), the newest next step said once (sx-panel, in place of
  * "From my last reply"), the Undo control's accessible name and the card menu's header.
  * Bound by test id and exact words to the View a fixture holds; every word asserted is read back from that View, never typed from the design.
  */
@@ -16,7 +16,7 @@ import { ViewChat, ViewComposer, useViewChat, COMPOSER_PLACEHOLDER } from '../..
 import { approachesOf, keptIdeasOf, isKept } from '../../ideas'
 import { aboutCardsOf, aboutWords } from '../AboutChip'
 import { methodOfSaid } from '../MethodChip'
-import { KeptIdeas, keptIdeasWords } from '../KeptIdeas'
+import { KeptIdeas, keptIdeasWords, provenanceOf } from '../KeptIdeas'
 import { CardMenuHeader, kindWordsOf, proposedByOlumi } from '../CardMenuHeader'
 import { NOTHING_TO_UNDO, undoNameOf } from '../../UndoControl'
 import { UNDO_WORDS } from '../../edit/undo'
@@ -140,24 +140,26 @@ describe('keeping an approach on its own', () => {
 describe('"Your kept ideas"', () => {
   const held = (v: View, items: object[]): View => ({ ...v, strategy: { items } } as unknown as View)
   const idea = (o: object) => ({ id: 'i1', kind: 'idea', text: 'Add one line to the sign-in sheet.', by: 'Olumi', by_id: 'olumi', kept_by: { id: '1', name: 'Pat' }, source_turn: '6', concerns: [], status: 'live', ...o })
-  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3 "the panel never repeats the canvas"): the panel listed each kept idea with its provenance, which
-  // the canvas's ideas band already draws (v12/bands/extras.ts, IdeaPanel.tsx ideaDetailOf). It now says how many, and a press takes the canvas
-  // to the first; the ideas' own words are not printed in the panel.
-  it('points at the kept ideas on the canvas by count, never listing their words; a press focuses the first idea\'s canvas card', async () => {
+  it('lists each kept idea with "Olumi\'s idea, from <core\'s question>" and "kept by you"; someone else\'s keeping is named', () => {
     const v = fixture('after-find-first')
     const w = held(v, [idea({}), idea({ id: 'i2', text: 'Ask the library.', kept_by: { id: '9', name: 'Casey' }, source_turn: '3' })])
     show(w)
-    const { getByTestId, container } = render(<KeptIdeas />)
-    const pointer = getByTestId('view-kept-ideas-pointer')
-    expect(pointer).toHaveTextContent('2 kept ideas, on the canvas')
-    expect(pointer.getAttribute('data-idea')).toBe('i1')
-    expect(container).not.toHaveTextContent('Add one line to the sign-in sheet.')
-    expect(container).not.toHaveTextContent('Ask the library.')
-    await press(pointer)
-    expect(focus).toHaveBeenCalledWith('idea:i1')
-    expect([keptIdeasWords(1), keptIdeasWords(3)]).toEqual(['1 kept idea, on the canvas', '3 kept ideas, on the canvas'])
+    const { getAllByTestId, getByTestId } = render(<KeptIdeas />)
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3; Codex 00:38:37Z): the list sits behind a closed disclosure whose line is the count (the Simple
+    // canvas draws each idea as its own card); its words and provenance stay readable on a press (Detailed draws no idea cards).
+    const box = getByTestId('view-kept-ideas') as HTMLDetailsElement
+    expect([box.tagName, box.open]).toEqual(['DETAILS', false])
+    expect(getByTestId('view-kept-ideas-summary')).toHaveTextContent(keptIdeasWords(2))
+    expect(keptIdeasWords(2)).toBe('Your kept ideas · 2')
+    const rows = getAllByTestId('view-kept-idea')
+    expect(rows).toHaveLength(2)
+    expect(within(rows[0]!).getByTestId('view-kept-idea-text')).toHaveTextContent('Add one line to the sign-in sheet.')
+    expect(within(rows[0]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea, from What should we find out first? · kept by you')
+    // turn 3 is the brief the person typed, not one of core's questions: no "from"
+    expect(within(rows[1]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea · kept by Casey')
+    expect(provenanceOf(w, keptIdeasOf(w)[0]!)).toEqual(['Olumi’s idea, from What should we find out first?', 'kept by you'])
   })
-  it('draws nothing with no ideas; a set-aside idea and a non-idea item are not counted', () => {
+  it('draws nothing with no ideas; a set-aside idea and a non-idea item are not listed', () => {
     const v = fixture('after-find-first')
     show(v)
     expect(render(<KeptIdeas />).container.querySelector('[data-testid="view-kept-ideas"]')).toBeNull()
@@ -168,7 +170,7 @@ describe('"Your kept ideas"', () => {
   it('is drawn in the Olumi panel', () => {
     const v = held(fixture('after-find-first'), [idea({})])
     show(v)
-    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('1 kept idea, on the canvas')
+    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('Your kept ideas')
   })
 })
 

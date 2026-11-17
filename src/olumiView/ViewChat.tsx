@@ -100,6 +100,9 @@ export const LEAD_WORDS = 20
 export const SHOW_WHOLE_FIRST = 'Show the whole first answer'
 export const SHOW_WHOLE_REPLY = 'Show the whole reply'
 export const SHOW_LESS = 'Show less'
+/** A lead-in line: two to six hashes, then a space (core keeps them in its reply since the reply contract, 17 Nov). */
+export const LEAD_IN = /^#{2,6} /
+const ITEM_MARK = /^\s*- /
 export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
@@ -110,19 +113,24 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   // Each cite keeps its number by its place in core's parts, whether or not the blocks before it are folded away (a fold never renumbers).
   const citeNo = new Map<number, number>()
   parts.forEach((p, i) => { if ('cite' in p) citeNo.set(i, first + citeNo.size) })
-  const draw = (line: Piece[], strip: boolean) => line.map((x, j) => {
+  // `strip`: the line's own marker, which is layout, not words: a list line's "- ", or a lead-in's two to six hashes (LEAD_IN).
+  const draw = (line: Piece[], strip: RegExp | null) => line.map((x, j) => {
     if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{citeNo.get(x.i)}</sup>
-    const s = strip && j === 0 ? x.s.replace(/^\s*- /, '') : x.s
+    const s = strip !== null && j === 0 ? x.s.replace(strip, '') : x.s
     return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{richText(s)}</span>
   })
   const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
-  // Group: blank lines end a paragraph; consecutive "- " lines make one list.
-  const groups: { list: boolean; lines: Piece[][] }[] = []
+  // A line core opens with two to six hashes and a space is a lead-in (the reply contract keeps core's markers, 17 Nov): drawn as a quiet heading,
+  // the hashes dropped. One hash, or seven, is words, drawn as typed.
+  const isLeadIn = (line: Piece[]) => line[0]?.kind === 'text' && LEAD_IN.test(line[0].s)
+  // Group: blank lines end a paragraph; consecutive "- " lines make one list; a lead-in stands alone.
+  const groups: { list: boolean; leadIn?: boolean; lines: Piece[][] }[] = []
   let breakBefore = true
   for (const line of lines) {
     if (line.length === 0) { breakBefore = true; continue }
+    if (isLeadIn(line)) { groups.push({ list: false, leadIn: true, lines: [line] }); breakBefore = true; continue }
     const list = isItem(line), last = groups[groups.length - 1]
-    if (!breakBefore && last && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
+    if (!breakBefore && last && !last.leadIn && last.list === list) last.lines.push(line); else groups.push({ list, lines: [line] })
     breakBefore = false
   }
   // How long the reply reads, in lines of the panel (about 44 characters to a line at 12 px): an estimate, never a measure.
@@ -130,8 +138,8 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   const est = groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + Math.max(1, Math.ceil(chars(l) / 44)), 0), 0)
   // Core's own label and heading lines, by the words core sent on this turn (replyLabels.ts): drawn apart from the prose, and the label is not
   // counted as one of the two folded blocks.
-  const lineOf = (g: { list: boolean; lines: Piece[][] }): ReplyLine => {
-    if (g.list || g.lines.length !== 1) return null
+  const lineOf = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }): ReplyLine => {
+    if (g.list || g.leadIn || g.lines.length !== 1) return null
     const only = g.lines[0]!
     return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join(''), coreLines) : null
   }
@@ -144,11 +152,14 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   // opening paragraph, the first three items of a list that follows it. Whole groups and whole list items only: no sentence is ever cut.
   const rest = new Map<number, number>()
   for (let gi = 0; gi < lead; gi++) rest.set(gi, groups[gi]!.lines.length)
-  const opening = lead < head ? groups[lead]! : null
+  // A lead-in over the opening stays with it (it names what follows).
+  let o = lead
+  while (o < head && groups[o]!.leadIn) { rest.set(o, 1); o++ }
+  const opening = o < head ? groups[o]! : null
   if (opening !== null) {
-    rest.set(lead, opening.list ? Math.min(REST_ITEMS, opening.lines.length) : opening.lines.length)
-    const then = lead + 1 < head ? groups[lead + 1]! : null
-    if (!opening.list && then !== null && then.list) rest.set(lead + 1, Math.min(REST_ITEMS, then.lines.length))
+    rest.set(o, opening.list ? Math.min(REST_ITEMS, opening.lines.length) : opening.lines.length)
+    const then = o + 1 < head ? groups[o + 1]! : null
+    if (!opening.list && then !== null && then.list) rest.set(o + 1, Math.min(REST_ITEMS, then.lines.length))
   }
   const hides = groups.slice(0, head).some((g, gi) => (rest.get(gi) ?? 0) < g.lines.length)
   const foldable = fold && hides && est > 8
@@ -156,17 +167,18 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   const textOf = (g: { lines: Piece[][] }) => g.lines.flatMap((l) => l.map((x) => (x.kind === 'text' ? x.s : ''))).join(' ')
   // The panel's one 18 px line (contract §2): the newest reply's opening paragraph, only when it is one short sentence's length.
   const bigLead = big && opening !== null && !opening.list && textOf(opening).trim().split(/\s+/).length <= LEAD_WORDS
-  const groupEl = (g: { list: boolean; lines: Piece[][] }, gi: number) => {
+  const groupEl = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }, gi: number) => {
     const shown = folded && gi < head ? rest.get(gi) ?? 0 : g.lines.length
     if (shown === 0) return null
-    const open = gi === lead && opening !== null ? { 'data-reply-opening': '' } : {}
+    const open = gi === o && opening !== null ? { 'data-reply-opening': '' } : {}
+    if (g.leadIn) return <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-lead-in="">{draw(g.lines[0]!, LEAD_IN)}</p>
     return lineOf(g) === 'label'
       ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
       : lineOf(g) === 'heading'
       ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
       : (g.list
-      ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
-      : <p key={gi} className={bigLead && gi === lead ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>)
+      ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, ITEM_MARK)}{w === null ? null : item!(w)}</li> })}</ul>
+      : <p key={gi} className={bigLead && gi === o ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, null)}</span>)}</p>)
   }
   return (
     <>
@@ -1272,7 +1284,8 @@ function MoveStep({ view, turn }: { view: View; turn: number }) {
   const k = view.chat.findIndex((t) => t.id === turn), t = view.chat[k], a = t?.answer ?? null
   if (a === null) return null
   const at = `chat.${k}.answer.next`
-  const first = 1 + [a.answer, ...a.why].reduce((n, parts) => n + citesIn(parts), 0)
+  // The reply's own order (Turn): its answer's cites, then its next step's, then its Why lines'. The next step starts after the answer's.
+  const first = 1 + citesIn(a.answer)
   return (
     <div className="space-y-2">
       {a.next.text.length === 0 ? null : <p data-testid="view-next-move-words"><Words parts={a.next.text} at={`${at}.text`} first={first} /></p>}

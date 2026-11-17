@@ -155,7 +155,11 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     expect(rows[0]!.querySelector('[data-floor-job="50"]')?.textContent).toContain('Start with the shortest route.')
     expect(rows[0]!.querySelectorAll('[data-testid="view-chat-said-bubble"]')).toHaveLength(1)
     expect(rows[1]!.getAttribute('data-testid')).toBe('view-chat-latest')
-    expect(rows[0]!.querySelector('button[data-move="ask:challenge"]')).not.toBeNull()
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the newest reply's real move is the one Next step, drawn once in that card at the top (its turn,
+    // chat.1, is core's newest); neither row draws it again. Was: the tap under chat.1's row.
+    expect(c.querySelector('[data-testid="view-next-step"][data-step="move"] button[data-move="ask:challenge"]')).not.toBeNull()
+    expect(c.querySelectorAll('button[data-move]')).toHaveLength(1)
+    expect(rows[0]!.querySelector('button[data-move]')).toBeNull()
     expect(rows[1]!.querySelector('button[data-move]')).toBeNull()
   })
   it('keeps a failed attempt with its early answer and preserves two legacy contributions whose author is unknown', () => {

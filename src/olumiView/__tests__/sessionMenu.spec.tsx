@@ -124,14 +124,17 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
 })
 
 describe('reasoning first (R25, Paul 7 Nov, plan v3 item 4; V12 one action system): Olumi\'s reply above the next step; every method behind the one ⋯ menu', () => {
-  it('catch: the latest reply is drawn before the next step; the menu is closed at rest, "More ways" is gone, and the goal and every method sit in the opened ⋯ menu', () => {
+  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and BOARD-SPEC "The panel", 16 Nov: "tabs; ONE next-step card at the top ...; then the
+  // conversation"): the Next step card now sits ABOVE the conversation, with its button in view. This reverses R25's order (Paul 7 Nov: the reply
+  // above the next step); flagged to the DL in the shared note. The reply still opens on its own first line in the thread.
+  it('catch: the next step is drawn above the conversation; the menu is closed at rest, "More ways" is gone, and the goal and every method sit in the opened ⋯ menu', () => {
     const view = fixture('goal-understand')
     show(view)
     const c = renderTab(false)
     const reply = c.querySelector('[data-testid="view-chat-latest"]')
     expect(reply).not.toBeNull()
     const next = c.querySelector('[data-testid="view-next-step"]')
-    if (next !== null) expect(reply!.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    if (next !== null) expect(next.compareDocumentPosition(reply!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(c.querySelector('[data-testid="view-more-ways"]')).toBeNull()
     expect(c.querySelector('[data-testid="view-actions-menu"]')).toBeNull()
     expect(methods(c)).toHaveLength(0)

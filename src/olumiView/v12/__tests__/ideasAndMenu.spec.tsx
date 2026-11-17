@@ -215,13 +215,18 @@ describe('the next step card', () => {
     await press(step.querySelector('[data-testid="view-next-method"]')!)
     expect(posts.map((p) => p.body['method'])).toEqual(['right_question'])
   })
-  it('a real move stays the reply\'s own tap and the card adds nothing', () => {
+  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the reply's real move IS the one Next step, so the card at the top draws it (its one tap, filled)
+  // and the reply does not draw it again. Was: the tap under the reply and no card. Still one tap on the panel.
+  it('a real move is the one Next step card\'s tap, drawn once; the reply does not repeat it', () => {
     const v = fixture('goal-understand')
     core(() => v)
     show(v)
     const c = render(<ViewChat />).container
     expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
-    expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull()
+    const step = c.querySelector('[data-testid="view-next-step"]')!
+    expect(step.getAttribute('data-step')).toBe('move')
+    expect(step.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')).toBeNull()
   })
 })
 

@@ -7,10 +7,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import type { View } from '../client'
-import { ViewConversation } from '../ViewChat'
+import { stepTurnOf, ViewConversation } from '../ViewChat'
 import { useViewStore } from '../store'
 
 const read = (p: string): View => JSON.parse(readFileSync(path.resolve(p), 'utf8'))
@@ -24,6 +24,12 @@ const piecesOf = (parts: Array<{ text?: string; cite?: string }>, at: string) =>
   : p.text.split('\n').flatMap((line, k) => (line === '' ? [] : [{ path: k === 0 ? `${at}.${i}.text` : `${at}.${i}.text.${k}`, words: line }])))
 const drawnAs = (el: Element | null, words: string) => el !== null && (el.textContent === words || el.textContent === words.replace(/^\s*- /, ''))
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
+/** CHANGED BY DESIGN (sx-panel, PANEL-SPEC 2, 17 Nov): a long reply shows its opening at rest and folds the rest behind one press. The rows below
+ *  bind the whole answer, so they first check the opening is drawn at rest, then press every fold once, as the person does. */
+const unfold = (root: HTMLElement) => {
+  for (const t of root.querySelectorAll<HTMLElement>('[data-view-turn]')) if (t.querySelector('[data-view$=".answer.answer.0.text"]') !== null) expect(t.querySelector('[data-reply-opening]'), 'the opening is drawn at rest').not.toBeNull()
+  root.querySelectorAll<HTMLElement>('[data-testid="view-reply-fold"]').forEach((b) => fireEvent.click(b))
+}
 
 describe('a reply leads with its answer; the reasons are behind "Why"', () => {
   for (const f of ['src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json', 'src/olumiView/fixtures/real/hiring.view3.json', 'src/olumiView/fixtures/real/capacity.view3.json']) {
@@ -31,6 +37,7 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
       const v = read(f)
       useViewStore.setState({ view: v })
       const { container } = render(<ViewConversation chat={v.chat} />)
+      unfold(container)
       const withWhy = v.chat.map((t, i) => ({ t, i })).filter(({ t }) => t.answer !== null && t.answer.why.length > 0)
       expect(withWhy.length, 'precondition: a reply with Why lines').toBeGreaterThan(0)
       for (const { t, i } of withWhy) {
@@ -55,8 +62,11 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
           }
         }
         // the lead comes before the next step, and the next step is outside "Why"
-        const next = turn.querySelector('[data-testid="view-chat-next"]')!
-        expect([!!(lead.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING), more.contains(next)]).toEqual([true, false])
+        // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): when this reply's move IS the panel's Next step it is drawn once, in that card at the top,
+        // not under the reply. Every other reply keeps its next line here.
+        const next = turn.querySelector('[data-testid="view-chat-next"]')
+        if (stepTurnOf(v, null, null) === t.id) expect(next).toBeNull()
+        else expect([!!(lead.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING), more.contains(next)]).toEqual([true, false])
       }
     })
   }
@@ -77,6 +87,7 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
     const bare = structuredClone(v); bare.chat[i]!.answer!.why = []
     useViewStore.setState({ view: bare })
     const { container } = render(<ViewConversation chat={bare.chat} />)
+    unfold(container)
     const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
     expect([turn.querySelector('[data-reply-lead]'), turn.querySelector('[data-reply-more]')]).toEqual([null, null])
     const pieces = piecesOf(bare.chat[i]!.answer!.answer, `chat.${i}.answer.answer`)

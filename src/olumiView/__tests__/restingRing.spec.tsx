@@ -11,7 +11,7 @@ import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewComposer, ViewConversation } from '../ViewChat'
+import { ViewComposer, ViewConversation, ViewChat } from '../ViewChat'
 import { endRing, restRing } from '../ring'
 import { nextCardsOf } from '../layout'
 
@@ -49,12 +49,15 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     const { container } = render(<><ViewConversation chat={golden.chat} /><ViewComposer /></>)
     expect(lit()).toEqual(sorted(NAMED))
     expect(nodeEl(OTHER).classList.contains('v10-lit')).toBe(false)
-    // V12: the newest reply's next question is drawn once, in the "From my last reply" card (core's label and words), and not again under the reply.
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and 3): the newest reply's next step is drawn once, in the one Next step card at the top (core's
+    // label on its tap, core's words), not under the reply and not in a "From my last reply" card (gone). Was: that card above the composer.
     const next = golden.chat[LAST]!.answer!.next
     expect(container.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toBeNull()
-    const card = container.querySelector('[data-testid="view-last-reply-text"]')!.textContent
-    expect(card).toContain(next.label)
-    expect(card).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
+    expect(container.querySelector('[data-testid="view-last-reply-text"]')).toBeNull()
+    cleanup()
+    const step = render(<ViewChat />).container.querySelector<HTMLElement>('[data-testid="view-next-step"]')!
+    expect(step.querySelector('[data-testid="view-next-move"]')?.textContent).toBe(next.label)
+    expect(step.textContent).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
   })
 
   it('pointing at an earlier reply\'s next step lights exactly its cards; leaving restores the newest reply\'s, by hover and by keyboard', () => {
