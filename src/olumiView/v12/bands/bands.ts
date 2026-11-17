@@ -17,7 +17,7 @@ export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>
   inputs: { label: 'What drives it (uncertain)', shape: 'pill' },
   outcomes: { label: 'What happens (worked out)', shape: 'double' },
   aims: { label: 'Aims', shape: 'diamond' },
-  ideas: { label: 'Ideas you kept', shape: 'idea' },
+  ideas: { label: 'Kept ideas', shape: 'idea' }, // neutral for every reader, as the panel's heading (Codex root 10:34:38Z; DL 11:3xZ)
 }
 /** The inputs band's neutral label, where nothing in it takes part in a causal link (Codex 019, 18:19Z): readings of success, reported
  *  positions and other notes are associated with the question by reasons, not drivers of it, so "What drives it" would claim a cause. */
@@ -25,14 +25,8 @@ export const INPUTS_ASSOCIATED_LABEL = 'Points raised'
 /** The band's label for this model: the inputs band says "What drives it" only where one of its cards is in a causal link (a link that is not a
  *  reason and not a size); otherwise its neutral label. The outcomes band holding a risk is "Outcomes & risks", the product's own label for that row
  *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). Every other band keeps its fixed label. */
-/** The kept ideas' heading where the reader did not keep every one of them (pilot, pair row 08:5xZ: a second member read "you" for a teammate's ideas). */
-export const IDEAS_KEPT_LABEL = 'Ideas kept'
-/** True when the reader kept every idea in the strip: core's `kept_by` on each is the reader (an idea whose keeper core does not name is not theirs). */
-export const allKeptByReader = (ideas: readonly { keptBy: { id: string } | null }[], readerId: string | null): boolean =>
-  readerId !== null && ideas.length > 0 && ideas.every((i) => i.keptBy?.id === readerId)
-export function bandLabelOf(band: BandId, model: ViewModel | null, ideasMine = true): string {
-  // "Ideas you kept" only for the reader's own ideas; otherwise "Ideas kept", each card saying its keeper from core's `kept_by` (ideaProvenance).
-  if (band === 'ideas' && !ideasMine) return IDEAS_KEPT_LABEL
+export function bandLabelOf(band: BandId, model: ViewModel | null): string {
+  // The ideas strip reads "Kept ideas" for every reader; each card says who kept it, from core's `kept_by` (ideaProvenance).
   if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
   if (band !== 'inputs' || model === null) return BANDS[band].label
   const inputs = new Set(inputIdsOf(model))

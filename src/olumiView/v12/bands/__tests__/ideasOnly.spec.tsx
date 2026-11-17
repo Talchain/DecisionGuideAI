@@ -65,7 +65,7 @@ describe('008e 1: kept ideas with no current model', () => {
     expect(useCanvasStore.getState().edges).toEqual([])
     expect(screen.getAllByTestId('view-idea-card').map((c) => c.getAttribute('data-view-idea')).sort()).toEqual(['kept:41', 'kept:42'])
     // One of the two was kept by Sam, not by the reader: the heading does not say "you" (pilot, pair row 08:5xZ).
-    expect(document.querySelector('[data-band-label="ideas"]')?.textContent).toBe('Ideas kept')
+    expect(document.querySelector('[data-band-label="ideas"]')?.textContent).toBe('Kept ideas')
   })
   it('the welcome does not stand over them, and the message box is still the dock\'s', () => {
     show(noModel(KEPT))
@@ -197,15 +197,15 @@ describe('a kept idea draws its words as the conversation draws the reply (DL, p
   })
 })
 
-describe('the ideas strip\'s heading follows core\'s kept_by (pilot, pair row 08:5xZ: a second member read "Ideas you kept" for a teammate\'s ideas)', () => {
+describe('the ideas strip\'s heading is the neutral "Kept ideas" for every reader (pilot 08:5xZ: a member read "Ideas you kept" for a teammate\'s ideas; Codex root 10:34:38Z)', () => {
   const label = () => document.querySelector('[data-band-label="ideas"]')?.textContent
   const ME = { id: base.you_id, name: base.you }
-  it('catch: every idea kept by the reader says "Ideas you kept"; one or more kept by someone else says "Ideas kept"', () => {
+  it('catch: the reader\'s own ideas and a teammate\'s both read "Kept ideas", never "you"', () => {
     show(noModel([row(51, 3, 'An invented idea of mine.', ME), row(52, 3, 'Another invented idea of mine.', ME)])); mount()
-    expect(label()).toBe('Ideas you kept')
+    expect(label()).toBe('Kept ideas')
     cleanup()
     show(noModel([row(53, 3, 'An invented idea Sam kept.', SAM), row(54, 3, 'Another invented idea Sam kept.', SAM)])); mount()
-    expect(label()).toBe('Ideas kept')
+    expect(label()).toBe('Kept ideas')
   })
   it('contrast: each card still says who kept it, from kept_by', () => {
     show(noModel([row(53, 3, 'An invented idea Sam kept.', SAM)])); mount()

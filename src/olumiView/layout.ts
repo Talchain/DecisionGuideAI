@@ -288,7 +288,7 @@ export function simpleQuestionW(model: ViewModel, row: SimpleRow): number {
 export type SimpleExtra = { id: string; band: BandId; h: number }
 
 /**
- * V12 kept ideas with no model (Codex 008e #1): the "Ideas you kept" band and nothing else. Rows of balanced sizes, left to right, the band
+ * V12 kept ideas with no model (Codex 008e #1): the "Kept ideas" band and nothing else. Rows of balanced sizes, left to right, the band
  * label's room (one row gap) above the first row. Geometry only: no question and no causal card is placed or implied.
  */
 export function ideasOnlyPlaces(extras: readonly SimpleExtra[], size: ReadonlyMap<string, Size>, row: SimpleRow): Map<string, SimplePlace> {

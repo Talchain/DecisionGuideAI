@@ -207,7 +207,7 @@ export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>>
 }
 
 /**
- * The kept ideas to draw when core holds NO model (its first proposal set aside, or none yet; Codex 008e #1): the "Ideas you kept" band and
+ * The kept ideas to draw when core holds NO model (its first proposal set aside, or none yet; Codex 008e #1): the "Kept ideas" band and
  * nothing else, on any level. Empty when core holds a model (the model's own board draws its bands) or the scenario holds no kept idea.
  */
 export const ideasOnlyOf = (view: View | null, sid: string | null): BandExtra[] => (view === null || view.model != null ? [] : extrasOf(view, sid, null))
