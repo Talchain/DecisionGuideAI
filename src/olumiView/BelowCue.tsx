@@ -58,10 +58,6 @@ function useCardsRight(): number {
   return useStore((s) => cardsRightOf(xBoxesOf(s.nodes), s.transform[0], s.transform[2], freeRight(s.width)))
 }
 
-/** How many cards are not wholly in view below the window's foot, at the camera's current place. */
-function useCardsBelow(): number {
-  return useStore((s) => cardsBelowOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
-}
 
 /** The cue's left edge: 12 px right of the zoom row, read once it is drawn and again as the window changes. */
 function useBesideZoom(): number {
@@ -82,19 +78,30 @@ export const FOOT_EDGE = FOOT_GUTTER
 export const FOOT_EDGE_SOFT = 12
 /** How the foot edge fades in: clear at its top, the canvas's own ground from FOOT_EDGE_SOFT px down. */
 export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px)`
+/** The edge's opaque top at rest (screen px): the gutter's line, less its soft top (628 in a 704 px window). */
+const restTopOf = (height: number): number => height - FOOT_EDGE + FOOT_EDGE_SOFT
 /**
- * The foot edge's height (screen px): the gutter, or taller where a card the cue counts starts above the gutter's line, so that card is wholly behind
- * the edge (its top under the edge's soft top), never half shown over the foot controls (DL 17 Nov: nothing sits under the foot controls). Never taller
- * than half the window, so a very tall card cannot blank the board; the cue counts the cards behind it either way.
+ * The foot edge's height (screen px): the gutter, or taller where a card reaches below the edge's opaque top while its own top is above it, so that card is
+ * wholly behind the edge (its top under the edge's soft top), never half shown over the foot controls (DL 17 Nov: nothing sits under the foot controls).
+ * On Simple's layout a row is top-aligned, so the edge rises by at most that row. Never taller than half the window, so a very tall card cannot blank the
+ * board.
  */
 export const footEdgeHeightOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
-  let top = height - FOOT_EDGE + FOOT_EDGE_SOFT
-  for (const c of cards) { const t = c.y * zoom + ty, b = (c.y + c.h) * zoom + ty; if (b > height - FOOT_BAND && t < top) top = t }
+  const rest = restTopOf(height)
+  let top = rest
+  for (const c of cards) { const t = c.y * zoom + ty, b = (c.y + c.h) * zoom + ty; if (b > rest && t < top) top = t }
   return Math.min(Math.ceil(height / 2), Math.max(FOOT_EDGE, Math.ceil(height - top + FOOT_EDGE_SOFT)))
+}
+/** With the edge drawn (Simple), the cards behind it, wholly or in part: every card whose foot is below the edge's opaque top. The cue says this number,
+ *  so a card the edge hides is always counted (Line reviewer, e385f882 F1: a short card in a cut row was hidden and not counted). */
+export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
+  const opaque = height - footEdgeHeightOf(cards, ty, zoom, height) + FOOT_EDGE_SOFT
+  return cards.filter((c) => (c.y + c.h) * zoom + ty > opaque).length
 }
 
 export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** V12 Simple: while cards are below, the foot is a clean edge (the cards below are behind it; the cue counts them). */ edge?: boolean } = {}): JSX.Element | null {
-  const below = useCardsBelow(), right = useCardsRight()
+  // How many cards are not wholly in view below the foot: on Simple, every card behind the edge (cardsBehindOf); elsewhere, below the cue's band.
+  const below = useStore((s) => (edge ? cardsBehindOf : cardsBelowOf)(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height)), right = useCardsRight()
   const edgeW = useStore((s) => freeRight(s.width))
   const edgeH = useStore((s) => footEdgeHeightOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
   const { getViewport, setViewport } = useReactFlow()

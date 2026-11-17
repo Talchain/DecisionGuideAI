@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider, useStoreApi } from '@xyflow/react'
-import { BelowCue, FOOT_EDGE, FOOT_EDGE_FADE, FOOT_EDGE_SOFT, footEdgeHeightOf } from '../BelowCue'
+import { BelowCue, cardsBehindOf, cardsBelowOf, FOOT_EDGE, FOOT_EDGE_FADE, FOOT_EDGE_SOFT, footEdgeHeightOf } from '../BelowCue'
 import { VIEW_CARD } from '../canvas'
 import { FOOT_GUTTER } from '../footClear'
 
@@ -54,5 +54,20 @@ describe('a card cut by the gutter\'s line is wholly behind the edge, never half
     expect(footEdgeHeightOf(boxes([100, 650]), 0, 1, H), 'a card starting 34 px under the line').toBe(FOOT_EDGE)
     expect(footEdgeHeightOf(boxes([40], 2000), 0, 1, H)).toBe(Math.ceil(H / 2))
     expect(footEdgeHeightOf(boxes([100]), 0, 1, H), 'nothing below: the gutter').toBe(FOOT_EDGE)
+  })
+})
+
+describe('every card the edge hides is counted (Line reviewer, e385f882 F1)', () => {
+  it('E4 a top-aligned row with a tall and a short card: the edge rises over both and the cue says 2 (was 1: the short card was hidden and not counted)', () => {
+    const row = [{ y: 560, h: 100 }, { y: 560, h: 50 }]
+    expect([footEdgeHeightOf(row, 0, 1, H), cardsBehindOf(row, 0, 1, H)]).toEqual([H - 560 + FOOT_EDGE_SOFT, 2])
+    expect(cardsBelowOf(row, 0, 1, H), 'the count before this fix').toBe(1)
+    const el = draw([card('tall', 560), { ...card('short', 560), measured: { width: 200, height: 50 } }], true)
+    expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent).toContain('2 more cards below')
+  })
+  it('E4 CONTRAST: the short card alone is wholly above the edge: no rise, nothing counted, no edge drawn', () => {
+    const short = [{ y: 560, h: 50 }]
+    expect([footEdgeHeightOf(short, 0, 1, H), cardsBehindOf(short, 0, 1, H)]).toEqual([FOOT_EDGE, 0])
+    expect(edgeOf(draw([{ ...card('short', 560), measured: { width: 200, height: 50 } }], true))).toBeNull()
   })
 })
