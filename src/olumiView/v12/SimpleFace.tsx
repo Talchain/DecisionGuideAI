@@ -30,9 +30,12 @@ import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChan
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
+/**
+ * ONE TYPE SCALE ON A SIMPLE CARD (Paul, 17 Nov: no big bold text on a card): the title (BaseNode's) and an option's chance are 14 / 500
+ * (`typography.viewValue`); every other word on the card is 12 / 400 (`typography.viewLabel`, the card's small text), a figure's digits tabular.
+ */
+const FIGURE = `${typography.viewLabel} tabular-nums`
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
-/** Type on a compact card, by DS role: 14 for figures and reading text, 12 for state words (typography tokens). */
-const SMALL = typography.viewValue
 const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)', ORANGE = 'var(--olumi-mark-orange)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
@@ -127,7 +130,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       visual = (
         <div className="min-w-0 basis-full" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
-          <p className={`${SMALL} mt-1 min-w-0 break-words font-medium tabular-nums text-text-header`} data-simple-chance={id}>
+          <p className={`${typography.viewValue} mt-1 min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
             {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} size={12} /></span>}
           </p>
@@ -190,7 +193,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
     visual = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
-      <p className={`${SMALL} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
+      <p className={`${FIGURE} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
         <span className="ok-pill ok-bound min-w-0">
           {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
           {olumi ? <OlumiMark words={card.bound.olumi!.title} size={12} /> : null}
@@ -208,13 +211,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
       <div className="min-w-0 basis-full" data-simple-scale={id} title={card.figure?.title || words || undefined}>
-        {words === '' ? null : <p className={`${typography.viewValue} min-w-0 break-words`} data-simple-figure-text={id} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{words}</p>}
+        {words === '' ? null : <p className={`${FIGURE} min-w-0 break-words`} data-simple-figure-text={id} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{words}</p>}
         {scale}
       </div>
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    visual = <p className={`${typography.viewValue} min-w-0 basis-full break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    visual = <p className={`${FIGURE} min-w-0 basis-full break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
   } else if (card.figure != null) {
     // An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover (R6). No empty track.
     const gap = unsizedWords(card)
