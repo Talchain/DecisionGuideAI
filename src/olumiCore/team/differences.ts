@@ -30,7 +30,10 @@ export interface Difference {
 export interface DifferenceHeadings { readonly sides: string; readonly options: string; readonly model: string; readonly settle: string; readonly steps: string; readonly dissent: string; readonly research: string; readonly commit: string }
 export interface Differences { readonly scenario: string; readonly version: number | null; readonly gated: boolean; readonly heading: string; readonly empty: string; readonly differences: readonly Difference[]; readonly headings: DifferenceHeadings
   /** Core's words for how a member holds their view (a picker); absent on an older core. */
-  readonly stances?: ReadonlyArray<{ readonly id: string; readonly text: string }> }
+  readonly stances?: ReadonlyArray<{ readonly id: string; readonly text: string }>
+  /** Core's typed state of this read (core 4dfc05ee: `gated`, `before_approval_in_words`, `before_approval`, `in_words_only`, `figures`); its
+   *  `empty` sentence follows it. Carried for the page's record only: nothing is decided from it here. Absent on an older core. */
+  readonly state?: string }
 
 const path = (sid: string) => `/api/scenarios/${encodeURIComponent(sid)}/differences`
 

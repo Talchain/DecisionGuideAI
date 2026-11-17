@@ -63,10 +63,15 @@ export function revealedForYou(view: View): boolean {
   return !view.gated && view.collab.shared.length > 0
 }
 
+/** Two different people's views are revealed to this viewer (a skip is not a view): there is something to compare, in words or in figures. */
+export function twoPeopleRevealed(view: View): boolean {
+  return revealedForYou(view) && new Set(view.collab.shared.filter((s) => !s.skip).map((s) => s.by_id)).size >= 2
+}
+
 /** A valid comparison: authorised, core's read not gated, and two different people have each given a view (a skip is not a view). */
 export function validComparison(view: View, data: Differences | null): data is Differences {
-  if (data === null || data.gated || !revealedForYou(view)) return false
-  return new Set(view.collab.shared.filter((s) => !s.skip).map((s) => s.by_id)).size >= 2
+  if (data === null || data.gated) return false
+  return twoPeopleRevealed(view)
 }
 
 export interface DifferCount { readonly places: number; readonly changes: number }

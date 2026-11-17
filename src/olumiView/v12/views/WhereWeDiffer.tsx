@@ -17,6 +17,7 @@ import { FrameEntry, MyFrames } from './FrameEntry'
 import { FrameLines } from './FrameLines'
 import { frameIsEmpty, frameOf } from './frame'
 import { useCompare } from './useCompare'
+import { AskToCompare } from './AskToCompare'
 
 /**
  * V12 "Where we differ", a section of the AI panel (proposal: "The centre: member views").
@@ -86,11 +87,14 @@ export function Differences({ sid, view, onWrote, wide = false, onFocusCard, onC
   const groups = shown === null ? [] : groupDifferences(shown)
   const rowsClass = wide ? 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]' : 'grid gap-4'
   return (
-    <div className="grid gap-4" data-testid="differ-differences">
+    <div className="grid gap-4" data-testid="differ-differences" data-differences-state={typeof shown?.state === 'string' ? shown.state : undefined}>
       <h3 className={H} data-testid="differ-heading">{shown?.heading ?? view.collab.heading}</h3>
       {error && shown === null && <p role="alert" className={ERR} data-testid="differ-error">{error}</p>}
       {shown !== null && <SimpleSummary sid={sid} view={view} />}
       {shown !== null && shown.differences.length === 0 && <p className={META} data-testid="differ-empty">{shown.empty}</p>}
+      {/* Views in words can be compared in words, before or after a model is approved: an editable request for the person's own message box
+          (./AskToCompare). It reads only the View's revealed views, so it stands whether or not core's read of figures has arrived. */}
+      <AskToCompare view={view} at="differ" />
       {shown !== null && groups.map((g) => (
         <div key={g.id} className="grid gap-2" data-testid={`differ-group-${g.id}`}>
           <p className={LABEL} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
