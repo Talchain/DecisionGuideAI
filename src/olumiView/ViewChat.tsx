@@ -54,7 +54,8 @@ import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/idea
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
-import { richText } from './v12/chat/richText'
+import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
+export { LEAD_IN }
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
@@ -100,9 +101,6 @@ export const LEAD_WORDS = 20
 export const SHOW_WHOLE_FIRST = 'Show the whole first answer'
 export const SHOW_WHOLE_REPLY = 'Show the whole reply'
 export const SHOW_LESS = 'Show less'
-/** A lead-in line: two to six hashes, then a space (core keeps them in its reply since the reply contract, 17 Nov). */
-export const LEAD_IN = /^#{2,6} /
-const ITEM_MARK = /^\s*- /
 export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
@@ -119,7 +117,7 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
     const s = strip !== null && j === 0 ? x.s.replace(strip, '') : x.s
     return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{richText(s)}</span>
   })
-  const isItem = (line: Piece[]) => line[0]?.kind === 'text' && /^\s*- /.test(line[0].s)
+  const isItem = (line: Piece[]) => line[0]?.kind === 'text' && ITEM_MARK.test(line[0].s)
   // A line core opens with two to six hashes and a space is a lead-in (the reply contract keeps core's markers, 17 Nov): drawn as a quiet heading,
   // the hashes dropped. One hash, or seven, is words, drawn as typed.
   const isLeadIn = (line: Piece[]) => line[0]?.kind === 'text' && LEAD_IN.test(line[0].s)
@@ -690,7 +688,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         )}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
-        <button type="button" disabled={busy} className={QUIET_ACTION} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>
+        {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
+            (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
+        {closed && readingIds.length > 0 ? null : <button type="button" disabled={busy} className={QUIET_ACTION} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>}
       </div>
     </div>
   )

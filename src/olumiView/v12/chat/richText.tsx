@@ -5,11 +5,24 @@
  */
 import type { ReactNode } from 'react'
 
+/** A line core opens with two to six hashes and a space is a lead-in (the reply contract keeps core's markers, 17 Nov): the hashes are layout,
+ *  not words. One hash, or seven, is words, drawn as typed. The one rule for every reply surface: Blocks (stored replies, drawn as its own
+ *  block) and, through this function, EarlyAnswer (the first answer while the model builds, and the model-less floor). */
+export const LEAD_IN = /^#{2,6} /
+/** A list line's mark, "- ": layout, not words. */
+export const ITEM_MARK = /^\s*- /
+
 const MARKS = /(\*\*[^*\n]+\*\*)|(https?:\/\/[^\s<>]+)/g
 /** Sentence punctuation that follows an address but is not part of it. */
 const TRAIL = /[.,;:!?)\]'"’”]+$/
 
 export function richText(s: string): ReactNode[] {
+  // A lead-in line reads as a quiet heading run (weight 500, the heading ink), its hashes dropped.
+  if (LEAD_IN.test(s)) return [<strong key="lead-in" className="font-medium text-text-header" data-reply-lead-in="">{inline(s.replace(LEAD_IN, ''))}</strong>]
+  return inline(s)
+}
+
+function inline(s: string): ReactNode[] {
   const out: ReactNode[] = []
   let at = 0, k = 0
   for (const m of s.matchAll(MARKS)) {
