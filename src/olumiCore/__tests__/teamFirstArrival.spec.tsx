@@ -5,7 +5,7 @@
  * (below the heading); a View with no question keeps core's placeholder. Bound by test id and by the View's own words.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
