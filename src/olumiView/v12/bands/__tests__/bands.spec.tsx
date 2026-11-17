@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
@@ -16,7 +16,7 @@ import { bandLabelsOf, labelsAboveFold } from '../BandLayer'
 import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
-import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
+import { FoldCard, IdeaCard, IDEA_CLAMP_LINES, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { KeyPill, keyLinesOf } from '../KeyPill'
 import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
@@ -177,6 +177,24 @@ describe('bands: kept ideas', () => {
     expect(container.querySelector('[data-idea-mark="olumi"]')).not.toBeNull()
     expect(screen.getByTestId('view-idea-card').getAttribute('title')).toContain(ideaProvenance(idea))
     expect(ideaProvenance(idea)).toBe("Olumi's idea · kept by Sam")
+  })
+  it('I2b v11 item C: an idea card clamps its words to three lines (full text on hover), one press or Enter opens it in place, the provenance mark stays; CONTRAST: a second card stays clamped', () => {
+    const idea = keptIdeasOf(v)[0]!, long = { ...idea, id: 'i9', text: 'Word '.repeat(200) }
+    const mk = (i: typeof idea) => <IdeaCard {...({ data: { idea: i, width: 200 } } as unknown as Parameters<typeof IdeaCard>[0])} />
+    const { container } = render(<>{mk(long)}{mk(idea)}</>)
+    const card = (id: string) => container.querySelector(`[data-view-idea="${id}"]`) as HTMLElement
+    const words = (id: string) => card(id).querySelector('[data-testid="view-idea-text"]') as HTMLElement
+    expect(IDEA_CLAMP_LINES).toBe(3)
+    expect(words('i9').style.maxHeight).toContain('3 * 1.5 * 12px')
+    expect(card('i9').getAttribute('title')).toContain(long.text.trim())
+    fireEvent.click(card('i9'))
+    expect(card('i9').getAttribute('aria-expanded')).toBe('true')
+    expect(words('i9').style.maxHeight).toBe('')
+    expect(card('i9').querySelector('[data-idea-mark="olumi"]')).not.toBeNull()
+    expect(words('i1').style.maxHeight, 'the other card is still clamped').toContain('3 * 1.5')
+    fireEvent.keyDown(card('i9'), { key: 'Enter' })
+    expect(card('i9').getAttribute('aria-expanded')).toBe('false')
+    expect(words('i9').style.maxHeight).toContain('3 * 1.5')
   })
   it('I3 the ideas stand in their own band, last, below the aims', async () => {
     const extras = extrasOf(v, view.id, null)

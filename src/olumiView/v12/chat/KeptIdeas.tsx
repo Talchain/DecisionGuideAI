@@ -7,6 +7,7 @@
  * a closed disclosure; a press opens every idea, readable, with its provenance. It is never only a pointer: Detailed draws no idea cards
  * (canvas.ts extras), so the words must stay reachable here.
  */
+import { useState } from 'react'
 import { Lightbulb } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useViewStore } from '../../store'
@@ -25,6 +26,16 @@ export function provenanceOf(view: View, idea: KeptIdea): string[] {
   return [...(idea.olumis ? [olumisIdea(ideaMethodOf(view, idea))] : []), ...(keeper === null ? [] : [keeper])]
 }
 
+/** One idea's words, three lines with the full text on hover; one press (or Enter on focus) opens them in place (v11 item C). */
+function IdeaWords({ text }: { text: string }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  return (
+    <p data-testid="view-kept-idea-text" role="button" tabIndex={0} aria-expanded={open} data-idea-open={open ? 'true' : 'false'} title={text} className="cursor-pointer"
+      onClick={() => setOpen((o) => !o)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setOpen((o) => !o) } }}
+      style={open ? undefined : { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>{text}</p>
+  )
+}
+
 export function KeptIdeas(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const ideas = keptIdeasOf(view)
@@ -39,7 +50,7 @@ export function KeptIdeas(): JSX.Element | null {
           <li key={i.id} className="flex items-start gap-1.5" data-testid="view-kept-idea" data-idea={i.id}>
             <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />
             <div>
-              <p data-testid="view-kept-idea-text">{i.text}</p>
+              <IdeaWords text={i.text} />
               <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-kept-idea-from">{provenanceOf(view, i).join(' · ')}</p>
               <UseAsActionButton text={i.text} />
             </div>
