@@ -10,7 +10,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
@@ -20,7 +20,7 @@ import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
-import { LIMIT_MEANS, OLUMI_ASKS } from '../marks'
+import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -503,5 +503,52 @@ describe('an option\'s other results say core\'s whole sentence on hover (DL 17 
   it('M2 CONTRAST: a result core sends no sentence for is its short line only; nothing is made up', () => {
     const bare = withCard(EU, { ...o, rows: o.rows.map((r) => (r.aim_id === 'investment_limit' ? { ...r, title: '' } : r)) } as unknown as ViewCard)
     expect(hoverOf(bare)).toEqual([short(others[0]!), short(others[1]!), others[1]!.title])
+  })
+})
+
+describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most three more, and a way to show the rest)', () => {
+  const UNUSED = "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance."
+  const marksIn = (el: ParentNode) => [...el.querySelectorAll<HTMLElement>('[data-card-mark]')]
+  const idsIn = (el: ParentNode) => marksIn(el).map((m) => m.getAttribute('data-card-mark'))
+  const named = (m: HTMLElement) => m.querySelector<HTMLElement>('[role="img"]')!
+  const challenged = cardOf(CAPACITY, 'test_net_contribution'), driven = cardOf(CAPACITY, 'add_specialist')
+  /** A served option with a driver, carrying every state core can send at once. */
+  const crowded = { ...driven, status: 'ruled out', challenged: true, reason: challenged.reason, unused: UNUSED } as ViewCard
+
+  it('K1 a challenged card draws core\'s reason as the mark\'s name and hover, on the id its readers bind; CONTRAST: an unchallenged card draws none', () => {
+    expect([challenged.challenged, challenged.reason !== null && challenged.reason !== '']).toEqual([true, true])
+    const marks = marksIn(draw(CAPACITY, challenged.id, 'simple'))
+    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-simple-challenged'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['challenged', challenged.id, challenged.reason, challenged.reason]])
+    cleanup()
+    expect(idsIn(draw(withCard(CAPACITY, { ...challenged, challenged: false } as ViewCard), challenged.id, 'simple'))).toEqual([])
+  })
+  it('K2 a figure the analysis does not use says so in core\'s own sentence, whole; CONTRAST: without the field there is no mark', () => {
+    const fig = cardOf(CAPACITY, CAPACITY.model!.cards.find((c) => c.family === 'quantity' && !c.challenged)!.id)
+    expect(idsIn(draw(CAPACITY, fig.id, 'simple'))).toEqual([])
+    cleanup()
+    const mark = marksIn(draw(withCard(CAPACITY, { ...fig, unused: UNUSED } as ViewCard), fig.id, 'simple'))
+    expect(mark.map((m) => [m.getAttribute('data-card-mark'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['unused', UNUSED, UNUSED]])
+  })
+  it('K3 the cap: the corner driver badge takes one of the three places, so three states draw two marks and "+1" naming the third', () => {
+    expect([driven.driver != null, cardMarksOf(crowded).map((m) => m.id), MARK_CAP]).toEqual([true, ['set-aside', 'challenged', 'unused'], 3])
+    const el = draw(withCard(CAPACITY, crowded), crowded.id, 'simple'), more = el.querySelector<HTMLButtonElement>('[data-card-more]')!
+    expect(idsIn(el)).toEqual(['set-aside', 'challenged'])
+    expect([more.getAttribute('data-card-more'), more.textContent, more.getAttribute('aria-expanded'), more.title, more.getAttribute('aria-label')])
+      .toEqual(['1', '+1', 'false', `${MORE_MARKS.lead}:\n${UNUSED}`, `${MORE_MARKS.lead}: ${UNUSED}`])
+  })
+  it('K3b CONTRAST: the same three states on a card with no driver badge all draw, and there is no "+N"', () => {
+    const el = draw(withCard(CAPACITY, { ...crowded, driver: null } as unknown as ViewCard), crowded.id, 'simple')
+    expect([idsIn(el), el.querySelector('[data-card-more]')]).toEqual([['set-aside', 'challenged', 'unused'], null])
+  })
+  it('K4 "+N" is a button: a press draws the hidden mark in the row and a second press folds it; the press never reaches the card', () => {
+    const onCard = vi.fn()
+    const { container } = render(<div onClick={onCard}><SimpleFace card={crowded} model={withCard(CAPACITY, crowded).model} noted={false} /></div>)
+    const more = () => container.querySelector<HTMLButtonElement>('[data-card-more]')!
+    expect([more().tagName, more().type, more().className.includes('nodrag'), more().className.includes('nopan')]).toEqual(['BUTTON', 'button', true, true])
+    fireEvent.click(more())
+    expect([idsIn(container), more().getAttribute('aria-expanded'), more().getAttribute('aria-label')]).toEqual([['set-aside', 'challenged', 'unused'], 'true', MORE_MARKS.fewer])
+    fireEvent.click(more())
+    expect([idsIn(container), more().getAttribute('aria-expanded')]).toEqual([['set-aside', 'challenged'], 'false'])
+    expect(onCard).not.toHaveBeenCalled()
   })
 })

@@ -3,9 +3,11 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter, "baseline",
  * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
  */
+import { useState } from 'react'
 import { User } from 'lucide-react'
 import type { ViewCard } from '../../client'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
+import { ICONS, OkIcon, type IconId } from '../../look/icons'
 
 /** A mark with words is an image named by them (its hover too); one with none is decoration. */
 const named = (words: string | null | undefined) => (words == null || words === ''
@@ -88,4 +90,58 @@ export const OLUMI_ASKS = 'Olumi has a question about this: see the chat'
 export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null }): JSX.Element => {
   const name = words != null && words !== '' ? words : OLUMI_ASKS
   return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OlumiAiIcon size={12} strokeWidth={1.75} /></span>
+}
+
+/**
+ * A CARD'S STATE MARKS (Paul, 17 Nov about 20:30Z: "You can cap at three, but there should be some sort of mechanism to show more").
+ * One list, in one fixed priority, from fields core serves: each mark is a registry icon (look/icons.tsx) whose hover is core's own sentence.
+ * The list is whole: the Simple foot caps it (CardMarks); a face with room draws all of it.
+ *
+ * A mark is made only for what the card does not already say at rest. So there is none for: a figure that waits (its quiet line says "waits
+ * on: …" in core's words), a provisional card (its dashed frame), a worked-out figure (its kind's shape), the baseline (its word) or an
+ * option's driver (the corner badge, which takes one of the three places). Olumi's findings on a card take the place after "challenged" once
+ * core sends them: none is made up here.
+ */
+export type CardMark = { readonly id: 'set-aside' | 'challenged' | 'unused'; readonly icon: IconId; readonly words: string }
+export function cardMarksOf(card: ViewCard): readonly CardMark[] {
+  const marks: CardMark[] = []
+  // Core's own word for a card that is no longer live (`status`, e.g. "ruled out"; null while it is live).
+  if (card.status != null && card.status !== '') marks.push({ id: 'set-aside', icon: 'set-aside', words: card.status })
+  if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? card.reason : ICONS.challenged.hover })
+  if (card.unused != null && card.unused !== '') marks.push({ id: 'unused', icon: 'feeds-no-result', words: card.unused })
+  return marks
+}
+
+/** At most this many marks beside the author mark at rest. */
+export const MARK_CAP = 3
+/** Fixed UI chrome: the name of the control that holds the marks past the cap. */
+export const MORE_MARKS = { lead: 'Also on this card', fewer: 'Show fewer' } as const
+
+/**
+ * The Simple foot's marks: the first `MARK_CAP - taken` of the card's list, then "+N" for the rest. `taken` is what the card already draws
+ * elsewhere that counts toward the three (the corner driver badge). "+N" names the hidden marks on hover and to a screen reader, and a press
+ * (or Enter / Space) draws them in the row; it never selects or drags the card.
+ */
+export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number }): JSX.Element | null {
+  const [open, setOpen] = useState(false)
+  const all = cardMarksOf(card)
+  if (all.length === 0) return null
+  const over = all.slice(Math.max(0, MARK_CAP - taken)), words = over.map((m) => m.words)
+  const shown = open ? all : all.slice(0, all.length - over.length)
+  return (
+    <>
+      {shown.map((m) => (
+        <span key={m.id} className="ok-am ok-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
+          <OkIcon id={m.icon} size={12} words={m.words} decorative={false} />
+        </span>
+      ))}
+      {over.length === 0 ? null : (
+        <button type="button" className="ok-more nodrag nopan" aria-expanded={open} data-card-more={over.length}
+          aria-label={open ? MORE_MARKS.fewer : `${MORE_MARKS.lead}: ${words.join('; ')}`} title={open ? MORE_MARKS.fewer : [`${MORE_MARKS.lead}:`, ...words].join('\n')}
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}>
+          {open ? '−' : `+${over.length}`}
+        </button>
+      )}
+    </>
+  )
 }

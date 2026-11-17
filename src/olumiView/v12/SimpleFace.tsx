@@ -25,7 +25,7 @@ import { targetCardOf } from '../model/targets'
 import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
 import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
@@ -36,8 +36,8 @@ import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
  * card is 12 / 400 (`typography.viewLabel`, the card's small text), a figure's digits tabular.
  */
 const FIGURE = `${typography.viewLabel} tabular-nums`
-/** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
-const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)', ORANGE = 'var(--olumi-mark-orange)'
+/** Olumi's blue, the person's ink and the goal's colour: the board's own tokens. */
+const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
 
@@ -257,7 +257,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />
-        {card.challenged ? <span role="img" aria-label="Challenged" title="Challenged" className="h-2 w-2 flex-none rounded-full" style={{ background: ORANGE }} data-simple-challenged={id} /> : null}
+        {/* The card's state marks, capped (cards/marks.tsx): an option's corner driver badge takes one of the three places. */}
+        <CardMarks card={card} taken={card.driver != null ? 1 : 0} />
         {/* An added card's "+" repeats its proposed frame: shown only for a change the frame does not say (16 Nov, Paul: less noise). */}
         {card.change == null || card.change.kind === 'added' ? null : <span role="img" aria-label={card.change.title} title={card.change.title} className="text-info" data-view={`${id}.change.glyph`}>{card.change.glyph}</span>}
         {noted ? <OlumiAsksMark id={id} words={notedWords} /> : null}

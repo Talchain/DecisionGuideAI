@@ -44,7 +44,7 @@ import {
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
-  UnfoldVertical, Unlink, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
+  UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
 } from 'lucide-react'
 import { HIT_44 } from '../../styles/hitArea'
@@ -179,7 +179,9 @@ export const ICONS = {
   'band-kind-shapes': e(BandShapes, "The band's own sentence", '--option', 'icon-only', 'kind'),
 
   // states: one meaning each
-  challenged: e(AlertTriangle, 'Challenged', '--text-light', 'icon-only', 'state'),
+  // A challenge is a warning, so it keeps the board's challenge colour (the card's frame and a challenged link draw the same token).
+  challenged: e(AlertTriangle, 'Challenged', '--olumi-mark-orange', 'icon-only', 'state'),
+  'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state', { keepWords: "core's own sentence (`card.unused`) is the hover" }),
   'went-wrong': e(AlertOctagon, 'Something went wrong', '--danger', 'icon-only', 'state', { keepWords: 'a failure sentence stays words (drawn in --warning-ink)' }),
   unsaved: e(CloudOff, 'Unsaved', '--warning', 'icon-only', 'state'),
   'stale-analysis': e(RefreshCwOff, 'This analysis is out of date', '--warning', 'icon-only', 'state'),

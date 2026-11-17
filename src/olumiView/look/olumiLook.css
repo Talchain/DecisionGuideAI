@@ -369,6 +369,13 @@
 .olumi-look .ok-caption {
   margin: 0; color: var(--text-light); overflow-wrap: break-word;
 }
+/* A card's state marks on the Simple foot (cards/marks.tsx CardMarks): each icon takes its colour from the registry; "+N" is the card's small
+   text, light at rest and ink under the pointer, with a 24 px press area that does not grow the row. */
+.olumi-look .ok-more {
+  flex: none; margin: calc(-6px * var(--o-s)) calc(-4px * var(--o-s)); padding: calc(6px * var(--o-s)) calc(4px * var(--o-s)); border: 0; background: none;
+  color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: calc(12px * var(--o-s)); font-weight: 400; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.olumi-look .ok-more:hover, .olumi-look .ok-more:focus-visible, .olumi-look .ok-more[aria-expanded='true'] { color: var(--text-header); }
 /* "Olumi has a question about this": Olumi's mark in a ring, Olumi's blue, with a soft halo. */
 .olumi-look .ok-asks {
   display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: 18px; height: 18px; border: 1.5px solid var(--info);
