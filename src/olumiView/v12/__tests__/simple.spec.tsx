@@ -83,7 +83,7 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
     Object.defineProperty(window, 'innerWidth', { value: 2400, configurable: true })
     const { rerender } = renderHook(() => useViewCanvas(true))
     // The served model is approved throughout, so Simple folds none of it (S1a): every card is drawn.
-    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).length).toBe(whole.cards.length))
+    await vi.waitFor(() => expect(drawn()).toEqual(whole.cards.map((c) => c.id)))
     const atWide = wide()
     widthIs(1000); rerender()
     await vi.waitFor(() => expect(wide(), 'the board is laid out again, narrower').toBeLessThan(atWide))
