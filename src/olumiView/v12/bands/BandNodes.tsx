@@ -4,6 +4,7 @@
  * kinds as markers, opening in place for the session). The words on them are core's (the idea's own text, Olumi's "Proposed by Olumi", the grouped
  * proposal mark `proposal.changes[].olumi.title`, the grouped cards' headings on hover) or the product's existing chrome (the count, "N notes").
  */
+import { useState } from 'react'
 import { AlertTriangle, Sparkles } from 'lucide-react'
 import type { NodeProps } from '@xyflow/react'
 import type { NodeType } from '../../../canvas/domain/nodes'
@@ -31,14 +32,21 @@ const MARKER: Readonly<Record<CardKindName, { kind: NodeType; dashed: boolean }>
 /** Fixed notation words: who an idea is from and who kept it. The person's name is core's. */
 export const ideaProvenance = (i: KeptIdea): string => `${i.olumis ? "Olumi's idea" : 'An idea'}${i.keptBy === null ? '' : ` · kept by ${i.keptBy.name}`}`
 
+/** Three lines at the board's own type size (18 px line at scale 1): the card's measured height follows the clamp, so the layout and the camera's fit use it (v11 item C). */
+export const IDEA_CLAMP_LINES = 3
+const IDEA_CLAMP_MAX = `calc(${IDEA_CLAMP_LINES} * 1.5 * 12px * var(--o-s, 1))`
+
 export function IdeaCard({ data }: NodeProps) {
   const { idea, width } = data as { idea: KeptIdea; width: number }
+  const [open, setOpen] = useState(false)
+  const toggle = () => setOpen((o) => !o)
   return (
-    <div data-view-idea={idea.id} data-testid="view-idea-card" title={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
-      className="relative rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+    <div data-view-idea={idea.id} data-testid="view-idea-card" role="button" tabIndex={0} aria-expanded={open} data-idea-open={open ? 'true' : 'false'}
+      onClick={toggle} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); toggle() } }} title={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
+      className="nodrag nopan relative cursor-pointer rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {idea.olumis ? <span data-idea-mark="olumi" aria-label="Olumi's idea" role="img" className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-panel border border-panel-border"><Sparkles size={10} style={{ color: 'var(--semantic-info)' }} aria-hidden="true" /></span> : null}
       {/* The kept words as the conversation draws the reply they came from (DL, pair v3: the card showed `**` and "## " raw), at the board's type size. */}
-      <div className="space-y-1 break-words" data-testid="view-idea-text"><ReplyBlocks text={idea.text} /></div>
+      <div className="space-y-1 break-words" data-testid="view-idea-text" style={open ? undefined : { maxHeight: IDEA_CLAMP_MAX, overflow: 'hidden' }}><ReplyBlocks text={idea.text} /></div>
     </div>
   )
 }

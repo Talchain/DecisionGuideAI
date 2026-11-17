@@ -159,6 +159,15 @@ describe('"Kept ideas"', () => {
     expect(within(rows[0]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea, from What should we find out first? · kept by you')
     // turn 3 is the brief the person typed, not one of core's questions: no "from"
     expect(within(rows[1]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea · kept by Casey')
+    // v11 item C: each idea's words are three lines with the full text on hover; one press or Enter opens that idea only
+    const w0 = within(rows[0]!).getByTestId('view-kept-idea-text'), w1 = within(rows[1]!).getByTestId('view-kept-idea-text')
+    expect(w0.style.webkitLineClamp || w0.style.getPropertyValue('-webkit-line-clamp')).toBe('3')
+    expect(w0.getAttribute('title')).toBe('Add one line to the sign-in sheet.')
+    fireEvent.click(w0)
+    expect([w0.getAttribute('aria-expanded'), w1.getAttribute('aria-expanded')], 'only the pressed idea opens').toEqual(['true', 'false'])
+    expect(within(rows[0]!).getByTestId('view-kept-idea-from')).toHaveTextContent('kept by you')
+    fireEvent.keyDown(w0, { key: 'Enter' })
+    expect(w0.getAttribute('aria-expanded')).toBe('false')
     expect(provenanceOf(w, keptIdeasOf(w)[0]!)).toEqual(['Olumi’s idea, from What should we find out first?', 'kept by you'])
   })
   it('draws nothing with no ideas; a set-aside idea and a non-idea item are not listed', () => {
