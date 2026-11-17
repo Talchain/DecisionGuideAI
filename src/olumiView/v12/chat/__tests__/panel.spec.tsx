@@ -19,7 +19,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View, ViewTurn } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useUIStore } from '../../../../stores/uiStore'
-import { REST_ITEMS, REVIEW_CHANGES, SHOW_LESS, SHOW_WHOLE_FIRST, SHOW_WHOLE_REPLY, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { REST_ITEMS, REVIEW_CHANGES, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { typography } from '../../../../styles/typography'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -131,7 +131,7 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
 })
 
 describe('2. the opening of every reply shows; a long reply folds its tail', () => {
-  it('a first answer: core\'s label, its opening paragraph and core\'s whole check show at rest; its middle sits behind one press', () => {
+  it('CHANGED BY DESIGN (Codex UI P1, 17 Nov): a first answer with no lead is drawn whole: core\'s label, its opening, its middle and its whole check at rest, no fold', () => {
     const base = golden('proposal')
     const view = withAnswer(base, 0, { answer: [{ text: FIRST }], first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)
     const t0 = show(view).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
@@ -139,31 +139,29 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
     expect(t0.querySelector('[data-reply-opening]')?.textContent).toBe(OPENING) // never folded away
     expect(t0.querySelector('[data-reply-heading]')?.textContent).toBe(HEADING) // the check always shows
     expect(t0).toHaveTextContent('The model holds the staff cost but not the extra covers')
-    expect(t0).not.toHaveTextContent('What each side rests on:') // the middle waits
-    const fold = q(t0, 'view-reply-fold')!
-    expect(fold).toHaveTextContent(SHOW_WHOLE_FIRST)
-    fireEvent.click(fold)
-    expect(t0).toHaveTextContent('What each side rests on:')
+    expect(t0).toHaveTextContent('What each side rests on:') // the middle at rest: no lead, nothing folded
     expect(t0).toHaveTextContent('A trial month would show the real count.')
-    expect(q(t0, 'view-reply-fold')).toHaveTextContent(SHOW_LESS)
+    expect([q(t0, 'view-reply-fold'), q(t0, 'view-reply-full')]).toEqual([null, null])
   })
 
-  it('a later long reply (no first_answer): its opening and the first three list items at rest, the rest behind one press', () => {
+  it('CHANGED BY DESIGN (Codex UI P1, 17 Nov): a later long reply with no lead is drawn whole: every list item and every paragraph at rest, no fold', () => {
     const base = golden('proposal'), k = base.chat.length - 1
     const c = show(withAnswer(base, k, { answer: [{ text: LATER }] }))
     const latest = q(c, 'view-chat-latest')!
     expect(latest.querySelector('[data-reply-opening]')?.textContent).toBe(LATER_OPEN)
     const shown = [...latest.querySelectorAll('[data-reply-list] > li')].map((li) => li.textContent)
-    expect(shown).toEqual(ITEMS.slice(0, REST_ITEMS)) // whole items, in core's order
-    expect(latest).not.toHaveTextContent(ITEMS[REST_ITEMS]!)
-    fireEvent.click(q(latest, 'view-reply-fold')!)
-    expect([...latest.querySelectorAll('[data-reply-list] > li')].map((li) => li.textContent)).toEqual(ITEMS)
+    expect(shown).toEqual(ITEMS) // every item, in core's order (was the first REST_ITEMS behind a fold)
+    expect(ITEMS.length).toBeGreaterThan(REST_ITEMS)
     expect(latest).toHaveTextContent('Bring the tally back and Olumi will put it on the covers card.')
+    expect(q(latest, 'view-reply-fold')).toBeNull()
     // CONTRAST: a short reply has no fold and is drawn whole.
     cleanup()
     const short = q(show(withAnswer(base, k, { answer: [{ text: 'Count the walkers first.\n\nThen we size the room.' }] })), 'view-chat-latest')!
     expect(q(short, 'view-reply-fold')).toBeNull()
-    expect(q(show(withAnswer(base, k, { answer: [{ text: LATER }] })), 'view-reply-fold')).toHaveTextContent(SHOW_WHOLE_REPLY)
+    // CONTRAST (the lead path): the same long reply WITH core's lead keeps the one "Full answer" disclosure, closed at rest.
+    cleanup()
+    const led = q(show(withAnswer(base, k, { answer: [{ text: LATER }], lead: { opening: 'Count the walkers first.', points: ['Then size the room.'] } } as Partial<Answer>)), 'view-chat-latest')!
+    expect([q(led, 'view-reply-full')?.querySelector('summary')?.textContent, (q(led, 'view-reply-full') as HTMLDetailsElement | null)?.open]).toEqual(['Full answer', false])
   })
 
   it('a cite keeps its number by its place in core\'s parts while the blocks before it are folded', () => {
@@ -173,7 +171,7 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
     // part 1 (a cite) sits in the folded list; part 3 (a cite) in core's check, which always shows.
     const answer = [{ text: FIRST.slice(0, cut) }, { cite: 'Trial note' }, { text: `.\n\n${HEADING}\n\nThe check rests on one source` }, { cite: 'Staff rota' }, { text: '.' }]
     const t0 = show(withAnswer(base, 0, { answer, first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
-    expect(t0.querySelector('[data-view-cite="chat.0.answer.answer.1.cite"]')).toBeNull() // folded with its list
+    expect(t0.querySelector('[data-view-cite="chat.0.answer.answer.1.cite"]')?.textContent).toBe('1') // drawn whole (no lead): its own place
     expect(t0.querySelector('[data-view-cite="chat.0.answer.answer.3.cite"]')?.textContent).toBe('2') // its own place, not 1
   })
 
@@ -187,7 +185,7 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
     expect(leadIn.className).toContain(typography.viewPanelHeading)
     expect(latest.querySelectorAll('[data-reply-lead-in]')).toHaveLength(1)
     expect(latest.querySelector('[data-reply-opening]')?.textContent).toBe(LATER_OPEN) // the opening still shows at rest, under its lead-in
-    fireEvent.click(q(latest, 'view-reply-fold')!)
+    expect(q(latest, 'view-reply-fold')).toBeNull() // no lead: drawn whole
     // CONTRAST: one hash, or seven, is the person-facing words as core wrote them.
     const paras = [...latest.querySelectorAll('[data-reply-para]')].map((p) => p.textContent)
     expect(paras).toContain('# One hash stays as typed.')

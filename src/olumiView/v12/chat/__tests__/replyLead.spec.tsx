@@ -78,7 +78,8 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-reply-lead')).toBeNull()
     expect(q(p0, 'view-reply-full')).toBeNull()
     expect(p0.querySelector('[data-reply-heading]')?.textContent).toBe(HEADING) // today: the check shows at rest
-    expect(q(p0, 'view-reply-fold')).not.toBeNull()
+    expect(q(p0, 'view-reply-fold')).toBeNull() // CHANGED BY DESIGN (Codex UI P1, 17 Nov): no lead, drawn whole
+    expect(p0).toHaveTextContent(MIDDLE)
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
   })
 

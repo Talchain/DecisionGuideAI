@@ -311,8 +311,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
             <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} />
           </ReplyLead>
         : leads
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} /></div>
-        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} />}
+        // Codex UI reviewer P1 (shared note 15:35:01Z, DL): a reply with no lead is drawn whole, never folded; only a valid lead's "Full answer" folds.
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} /></div>
+        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* The reply's move that is the panel's Next step is drawn in that card at the top, once; it is not drawn again here. Every other reply keeps its own. */}
       {inStep ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
