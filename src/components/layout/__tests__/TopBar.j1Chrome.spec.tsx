@@ -45,6 +45,17 @@ describe('the bar on the olumi-core lane', async () => {
     render(<MemoryRouter><ToastProvider><TopBar scenarioTitle={dated.title} onTitleChange={() => {}} /></ToastProvider></MemoryRouter>)
     expect(screen.getByTestId('topbar-version-pill').textContent).toBe(dated.version!.label)
   })
+  it('v11 item B: Share is one icon button named and titled "Share" (no visible word, same invite route), and the name has no folder icon before it', () => {
+    useViewStore.setState({ view, sid: view.id })
+    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
+    render(<MemoryRouter><ToastProvider><TopBar scenarioTitle={view.title} onTitleChange={() => {}} /></ToastProvider></MemoryRouter>)
+    const share = screen.getByTestId('topbar-share-core')
+    expect([share.getAttribute('aria-label'), share.getAttribute('title'), share.textContent]).toEqual(['Share', 'Share', ''])
+    expect(share.querySelector('svg')).not.toBeNull()
+    fireEvent.click(share)
+    expect(force).toHaveBeenCalledWith('team')
+    expect(screen.getByTestId('scenario-switcher-pill').querySelector('svg.lucide-folder')).toBeNull()
+  })
   it('CONTRAST: before core has a model version, neither shows', () => {
     useViewStore.setState({ view: null, sid: null })
     render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="x" onTitleChange={() => {}} /></ToastProvider></MemoryRouter>)

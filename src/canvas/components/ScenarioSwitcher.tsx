@@ -25,7 +25,7 @@ import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
-import { coreLaneAllows, lanePreviousControl } from '../../olumiCore/lane'
+import { coreLaneAllows, isOlumiCoreLane, lanePreviousControl } from '../../olumiCore/lane'
 import { HIT_44 } from '../../styles/hitArea'
 
 /** Matches the character budget the removed TopBar title input enforced. */
@@ -407,7 +407,7 @@ export function ScenarioSwitcher({
           className="flex items-center gap-2 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
           data-testid="scenario-switcher-pill"
         >
-          {bare ? null : <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />}
+          {bare || isOlumiCoreLane() ? null : <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />}
 
           {!canRename ? (
             <span className="max-w-[360px] truncate px-0.5 text-left" data-testid="scenario-name-text">{resolvedName}</span>
