@@ -16,20 +16,22 @@ interface MeState {
   /** null until read, or when the browser holds no private link. */
   readonly me: Me | null
   readonly status: 'none' | 'loading' | 'ready' | 'error'
+  /** Core's `/api/me` `account` is present: this person has an email and password, not only a private link. */
+  readonly hasAccount: boolean
   readonly load: () => Promise<void>
 }
 
 export const useMe = create<MeState>()((set, get) => ({
-  me: null, status: 'none',
+  me: null, status: 'none', hasAccount: false,
   load: async () => {
     if (get().status === 'loading' || get().status === 'ready') return
     set({ status: 'loading' })
     try {
-      const r = await call<{ me?: { id?: unknown; name?: unknown } | null }>('GET', '/api/me')
+      const r = await call<{ me?: { id?: unknown; name?: unknown } | null; account?: unknown }>('GET', '/api/me')
       const m = r?.me
       const me = m && typeof m.id === 'string' && typeof m.name === 'string' ? { id: m.id, name: m.name } : null
       setPagePerson(me?.id ?? null)
-      set({ me, status: 'ready' })
+      set({ me, status: 'ready', hasAccount: me !== null && r?.account != null && typeof r.account === 'object' })
     } catch { set({ status: 'error' }) }
   },
 }))

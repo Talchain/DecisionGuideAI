@@ -1,5 +1,6 @@
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { typography } from '../styles/typography'
+import { aiLogLeftNow, useDeleteReply } from './erase'
 import { coreLaneHasAccounts } from './lane'
 import { NOTICES } from './notices'
 
@@ -11,12 +12,18 @@ import { NOTICES } from './notices'
  */
 export function SignedOut(): JSX.Element {
   const deleted = useSearchParams()[0].get('deleted') === '1'
+  useDeleteReply((s) => s.reply) // redraws when the reply arrives
+  const left = deleted ? aiLogLeftNow() : undefined
   if (coreLaneHasAccounts()) return <Navigate to="/" replace />
   return (
     <main data-testid="olumi-core-signed-out" className="min-h-screen flex items-center justify-center bg-canvas p-8">
       <div className="max-w-md text-center">
         {deleted ? (
-          <h1 className={`${typography.h4} text-text-header`}>Your data is deleted.</h1>
+          <>
+            <h1 className={`${typography.h4} text-text-header`}>Your data is deleted.</h1>
+            {/* Core's own sentence, drawn only when core sent `aiLogLeft` (a clean-up that failed after the deletion). */}
+            {left && <p role="status" className={`${typography.bodySmall} mt-2 text-text-body`} data-testid="olumi-core-delete-ai-log-left">{left.words}</p>}
+          </>
         ) : (
           <>
             <h1 className={`${typography.h4} text-text-header`}>You’re signed out</h1>

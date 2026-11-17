@@ -81,6 +81,7 @@ const LANE_PAGES = [
 
 function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const person = useMe((s) => s.me)
+  const hasAccount = useMe((s) => s.hasAccount)
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -94,7 +95,9 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   // A cancelled dialog gives the focus back to the account menu's button, once the dialog (and its focus trap) has gone.
   useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; mark.current?.focus() } }, [deleting])
   const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
-  const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
+  // Page chrome, true for each kind of person: core's `/api/me` says whether this person has an account (an email and password) or only a private link.
+  const words = hasAccount ? 'You are signed in to your Olumi account'
+    : person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
 
   const handleSignOut = useCallback(async () => {
     setBusy(true); setError(null)
