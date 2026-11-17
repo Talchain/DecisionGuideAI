@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { ChevronDown, ChevronRight, Eye, FileText, Lock } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Lock } from 'lucide-react'
 import type { View } from '../../client'
 import { ownViewPending } from '../../../olumiCore/ownViewFirst'
 import { BODY, CARD, H, LABEL } from '../../../olumiCore/team/ui'
@@ -9,7 +9,7 @@ import { nonEmpty } from '../../tipping'
  * A colleague's first arrival (17 Nov): the one card a member reads above the private-view box while core still holds them, that is, until
  * they have given or skipped their own view (the View's `gated`, read through the one existing rule, `ownViewPending`). It says why their
  * view comes first, offers the brief the scenario started from (their teammate's words, verbatim, behind a closed disclosure), and says
- * what is private and what the reveal does. Then the existing controls take over, directly below.
+ * what is private and what the reveal does, the last two as hover words on the lock and the line (v10 review item 9). Then the existing controls take over, directly below.
  *
  * It reads three fields of the reader's own View and nothing else (`gated`, `brief`, `team_words.views.private`), so nothing core holds
  * back from them (a teammate's view, a reply, a kept idea, evidence) can be drawn here. It fetches nothing, stores nothing, moves no focus
@@ -35,7 +35,13 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
   return (
     <section data-testid="first-arrival" aria-label={ARRIVAL_WORDS.heading} className={CARD}>
       <h3 className={H}>{ARRIVAL_WORDS.heading}</h3>
-      <p className={BODY}>{ARRIVAL_WORDS.why}</p>
+      {/* v10 review item 9: headline plus one line. The lock is core's privacy sentence and the line itself carries the reveal sentence, both as hover words. */}
+      <p className={ROW} data-testid="first-arrival-why" title={ARRIVAL_WORDS.reveal}>
+        <span data-testid="first-arrival-private" title={nonEmpty(privacy) ? privacy : undefined} className="inline-flex flex-none">
+          <Lock strokeWidth={1.75} aria-hidden="true" className={ICON} />
+        </span>
+        <span>{ARRIVAL_WORDS.why}</span>
+      </p>
       {brief.trim() !== '' && (
         <div className="grid gap-1">
           <button type="button" data-testid="first-arrival-brief-toggle" aria-expanded={open} aria-controls={briefId} onClick={() => setOpen((o) => !o)}
@@ -47,10 +53,6 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
           {open && <p id={briefId} data-testid="first-arrival-brief" className={`${BODY} whitespace-pre-wrap break-words`}>{brief}</p>}
         </div>
       )}
-      {nonEmpty(privacy) && (
-        <p className={ROW} data-testid="first-arrival-private"><Lock strokeWidth={1.75} aria-hidden="true" className={ICON} /><span>{privacy}</span></p>
-      )}
-      <p className={ROW} data-testid="first-arrival-reveal"><Eye strokeWidth={1.75} aria-hidden="true" className={ICON} /><span>{ARRIVAL_WORDS.reveal}</span></p>
     </section>
   )
 }

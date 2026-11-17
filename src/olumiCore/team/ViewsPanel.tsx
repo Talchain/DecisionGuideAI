@@ -146,8 +146,60 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
     } finally { setBusy(false) }
   }
 
+  // Why "Add my view" waits (DL ruling 9 Nov: a disabled button says why, never dims); v10 review item 9 folds the line into the button's title.
+  const giveWhy = busy || sending || viewLocked ? undefined : text.trim() === '' ? 'Write your view first' : needsStance(pick, vocab) ? 'Choose how you hold it first' : undefined
+  // v10 review item 9: a member core still holds (`gated`) is drawn the private-view box first, above the team's heading, so it and its
+  // first button are in view on arrival; everyone else has it where it was, below the views.
+  const form = (
+    <div className={CARD}>
+      <textarea
+        aria-label={c.placeholder} placeholder={nonEmpty(view.model?.question?.text) ? view.model!.question.text : c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
+        value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
+      />
+      {open || (givable.length === 0 && vocab === null) ? null : (
+        <button type="button" data-testid="team-view-more" disabled={busy || sending || viewLocked} onClick={() => setMore(true)}
+          className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:text-text-light`}
+        >Add figures to your view</button>
+      )}
+      {!open || givable.length === 0 ? null : (
+        <div className="grid gap-1" data-testid="team-view-figures">
+          {givable.map((card) => {
+            // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
+            const held = atCap && (typed[card.id] ?? '').trim() === ''
+            return (
+            <label key={card.id} className={`${META} grid gap-1`} title={card.prompt}>
+              <span className="font-medium text-text-header">{card.label}</span>
+              {/* D3: this card's own words for what to type (core's `figure.edit.prompt`: its unit and a range in its own scale), whole on
+                  a line of its own: as a placeholder in the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov). */}
+              <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.prompt}</span>
+              <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
+                value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
+                onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
+            </label>
+            )
+          })}
+          {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
+        </div>
+      )}
+      {!open || vocab === null ? null : <StrategyFields vocab={vocab} view={view} pick={pick} onPick={(p) => { setPick(p); if (error) setError(null) }} disabled={busy || sending || viewLocked} />}
+      {open ? <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} /> : null}
+      {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="sm" data-testid="team-view-give" title={giveWhy} disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>
+        <button
+          type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
+          className={`${META} inline-flex min-h-[24px] cursor-pointer items-center underline underline-offset-2 hover:text-text-body disabled:text-text-light disabled:cursor-not-allowed`}
+          onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
+        >{view.team_words.views.skip}</button>
+      </div>
+      {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
+      <DoubtsFailure sid={sid} onWrote={onWrote} />
+    </div>
+  )
+
   return (
     <section data-testid="team-views" aria-label={c.heading} className="grid gap-2">
+      {view.gated && form}
       <h3 className={H} data-testid="team-views-heading">{c.heading}</h3>
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" data-testid="team-members">
         {/* Each member's own line in core's words (N3 `team_presence.members`, "(you)" on the viewer), by id. */}
@@ -231,53 +283,7 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
         </ul>
       )}
 
-      <div className={CARD}>
-        <textarea
-          aria-label={c.placeholder} placeholder={c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
-          value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
-        />
-        {open || (givable.length === 0 && vocab === null) ? null : (
-          <button type="button" data-testid="team-view-more" disabled={busy || sending || viewLocked} onClick={() => setMore(true)}
-            className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:text-text-light`}
-          >Add figures to your view</button>
-        )}
-        {!open || givable.length === 0 ? null : (
-          <div className="grid gap-1" data-testid="team-view-figures">
-            {givable.map((card) => {
-              // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
-              const held = atCap && (typed[card.id] ?? '').trim() === ''
-              return (
-              <label key={card.id} className={`${META} grid gap-1`} title={card.prompt}>
-                <span className="font-medium text-text-header">{card.label}</span>
-                {/* D3: this card's own words for what to type (core's `figure.edit.prompt`: its unit and a range in its own scale), whole on
-                    a line of its own: as a placeholder in the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov). */}
-                <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.prompt}</span>
-                <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
-                  value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
-                  onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [card.id]: v })); if (error) setError(null) }} />
-              </label>
-              )
-            })}
-            {atCap && nonEmpty(c.view_figures_limit_text) && <p className={META} data-testid="team-view-figures-cap">{c.view_figures_limit_text}</p>}
-          </div>
-        )}
-        {!open || vocab === null ? null : <StrategyFields vocab={vocab} view={view} pick={pick} onPick={(p) => { setPick(p); if (error) setError(null) }} disabled={busy || sending || viewLocked} />}
-        {open ? <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} /> : null}
-        {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm" data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>
-          {/* Why "Add my view" waits (DL ruling 9 Nov: a disabled button says why, never dims). */}
-          {busy || sending || viewLocked ? null : text.trim() === '' ? <span className={META} data-testid="team-view-give-why">Write your view first</span>
-            : needsStance(pick, vocab) ? <span className={META} data-testid="team-view-give-why">Choose how you hold it first</span> : null}
-          <button
-            type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
-            className={`${META} inline-flex min-h-[24px] cursor-pointer items-center underline underline-offset-2 hover:text-text-body disabled:text-text-light disabled:cursor-not-allowed`}
-            onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
-          >{view.team_words.views.skip}</button>
-        </div>
-        {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
-        <DoubtsFailure sid={sid} onWrote={onWrote} />
-      </div>
+      {!view.gated && form}
     </section>
   )
 }
