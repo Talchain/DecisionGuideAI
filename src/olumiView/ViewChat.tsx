@@ -55,7 +55,6 @@ import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
-export { LEAD_IN }
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
