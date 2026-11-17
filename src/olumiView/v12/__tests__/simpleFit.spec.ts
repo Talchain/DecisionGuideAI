@@ -19,7 +19,7 @@ import type { Node } from '@xyflow/react'
 import type { View } from '../../client'
 import { SIMPLE_FIT_FLOOR } from '../../camera'
 import { FOOT_GUTTER } from '../../footClear'
-import { allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleScaleOf, simpleStageRow, stageRow } from '../../layout'
+import { allOptionCards, causalPlaces, QUESTION, questionBarWidth, SIMPLE_CARD_MAX_W, simpleCardW, simpleScaleOf, simpleStageRow, stageRow } from '../../layout'
 import { labelCounterScale, LABEL_COUNTER_SCALE_CAP } from '../../../canvas/utils/zoomLegibility'
 import { REPEATED_CARD_W } from '../../../canvas/utils/nodeLayoutConstants'
 import { cameraFrame } from '../../ViewCanvas'
@@ -119,14 +119,16 @@ describe('Simple: the whole scenario in view', () => {
   })
 
   // CHANGED BY DESIGN (the lead's D3, 17 Nov: rows spread, cards up to their fair-share width): no 400 cap; was "260 to 400".
-  it('R1/D3: cards share their row at its fair share (never under the repeated-card width), 24 apart across and 48 apart down; the question spans the options\' first row', async () => {
+  it('R1 CHANGED BY DESIGN (Paul 17 Nov, reverses D3): cards share their row at its fair share, never under the repeated-card width and never over SIMPLE_CARD_MAX_W; rows are centred, not spread to the budget; 24 apart across and 48 apart down; the question spans the options\' first row', async () => {
     const { boxes, row } = await laidOut(880, COMPACT)
     const q = boxes.find((b) => b.id === QUESTION)!, cards = boxes.filter((b) => b.id !== QUESTION)
     for (const r of rowsOf(cards)) {
       expect(new Set(r.map((b) => b.w)).size, 'one width in a row').toBe(1)
       expect(r[0]!.w).toBeGreaterThanOrEqual(REPEATED_CARD_W)
-      // A full row of two or more spans the row budget (to the floor of its share): the rows spread across the board, never a cluster at its centre.
-      if (r.length >= 2) expect(row.budget - (r.length * r[0]!.w + (r.length - 1) * 24), `a row of ${r.length} spans the budget`).toBeLessThan(r.length)
+      expect(r[0]!.w, 'never stretched past the max width to fill the room').toBeLessThanOrEqual(SIMPLE_CARD_MAX_W)
+      // Every row is centred on the board: a short row stands compact in the middle, never spread to the budget's edges.
+      const mid = (b: { x: number; w: number }[]) => (Math.min(...b.map((x) => x.x)) + Math.max(...b.map((x) => x.x + x.w))) / 2
+      expect(Math.abs(mid(r) - (q.x + q.w / 2)), 'the row is centred under the question').toBeLessThanOrEqual(1)
       const xs = [...r].sort((a, b) => a.x - b.x)
       for (let i = 1; i < xs.length; i += 1) expect(xs[i]!.x - (xs[i - 1]!.x + xs[i - 1]!.w), 'cards are 24 apart').toBe(24)
     }
@@ -136,6 +138,11 @@ describe('Simple: the whole scenario in view', () => {
     const first = rows[0]!
     expect(q.w, 'the question is as wide as the options\' first row').toBe(Math.max(...first.map((b) => b.x + b.w)) - Math.min(...first.map((b) => b.x)))
     expect(row.budget).toBe(1536)
+  })
+
+  it('R1b the width rule by its ends: a small graph in a wide room is capped at SIMPLE_CARD_MAX_W; a big graph in a narrow room keeps the repeated-card width', () => {
+    expect([simpleCardW(1656, 2), simpleCardW(1656, 1), simpleCardW(600, 5)]).toEqual([SIMPLE_CARD_MAX_W, SIMPLE_CARD_MAX_W, REPEATED_CARD_W])
+    expect(SIMPLE_CARD_MAX_W).toBeGreaterThan(REPEATED_CARD_W)
   })
 
   it('causal order: options right under the question, an aim closing the board; Detailed\'s stage row is untouched', async () => {

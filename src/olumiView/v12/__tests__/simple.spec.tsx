@@ -127,13 +127,13 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
   const was = window.innerWidth
   afterEach(() => { Object.defineProperty(window, 'innerWidth', { value: was, configurable: true }) })
 
-  it('S1b a narrower room lays the Simple board out again with fewer cards across; a wider one with more', async () => {
+  it('S1b CHANGED BY DESIGN (Paul 17 Nov, a card\'s max width): a much narrower room lays the Simple board out again with fewer cards across; a wider one with more (cards never widen past SIMPLE_CARD_MAX_W, so a room that keeps the count keeps the board)', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 2400, configurable: true })
     const { rerender } = renderHook(() => useViewCanvas(true))
     // The served model is approved throughout: Simple draws all of it but its sentence-only records (S1a).
     await vi.waitFor(() => expect(drawn()).toEqual(drawnApproved))
     const atWide = wide()
-    widthIs(1000); rerender()
+    widthIs(600); rerender()
     await vi.waitFor(() => expect(wide(), 'the board is laid out again, narrower').toBeLessThan(atWide))
     const atNarrow = wide()
     widthIs(2400); rerender()

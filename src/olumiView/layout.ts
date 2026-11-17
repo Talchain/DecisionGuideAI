@@ -214,11 +214,14 @@ export const SIMPLE_READABLE_ZOOM = 11 / (12 * LABEL_COUNTER_SCALE_CAP)
 export const SIMPLE_LABEL_GAP = 4
 /** One Simple placement: its place, the width its band gives it and the type scale the board is drawn at (the same on every card). */
 export type SimplePlace = { x: number; y: number; w?: number; s?: number }
-/** A card's width in a row of `k` cards sharing `budget`: its fair share of the row (D3, the lead, 17 Nov: rows spread across the canvas, cards up to their
- *  fair-share width; was capped at production's REPEATED_CARD_MAX_W, 400, so a short row stood as a cluster at the board's centre), never under the
- *  repeated-card width; a card alone in its row takes the share of two, so it never spans the board. */
+/** The widest a Simple card is drawn (flow px; Paul, 17 Nov: "max widths on all of the graph elements… in case it's a really small graph… I don't think
+ *  we should make any of the graph items unnecessarily wide to make a box shape"). About a fifth over the repeated-card width, room for a two-line title. */
+export const SIMPLE_CARD_MAX_W = 296
+/** A card's width in a row of `k` cards sharing `budget`: its fair share of the row, never under the repeated-card width (a big graph keeps a readable
+ *  card) and never over SIMPLE_CARD_MAX_W (a small graph stands as a compact, centred board, not a block stretched to the screen; this reverses D3 of
+ *  17 Nov, which spread short rows across the canvas). */
 export const simpleCardW = (budget: number, k: number): number =>
-  Math.max(REPEATED_CARD_W, Math.floor((budget - (Math.max(1, k) - 1) * SIMPLE_GAP_X) / Math.max(2, k)))
+  Math.min(SIMPLE_CARD_MAX_W, Math.max(REPEATED_CARD_W, Math.floor((budget - (Math.max(1, k) - 1) * SIMPLE_GAP_X) / Math.max(2, k))))
 /** The budget moves in steps of two gaps, so a few pixels of window change nothing (canvas.ts useSimpleBudgetKey lays the board out again only when it moves). */
 const BUDGET_STEP = 2 * SIMPLE_GAP_X
 /** The Simple row for a stage `roomW` wide (canvas.ts roomOf, the real pane less its insets). `roomW` is kept for the type scale. */
