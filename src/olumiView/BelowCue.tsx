@@ -13,8 +13,9 @@ import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
 
-/** The foot of the free canvas: the window's foot less the foot controls' band (the zoom row and this cue, FOOT_CONTROLS). */
-export const FOOT_BAND = 64
+/** The foot of the free canvas: the window's foot less the drawn foot band (FOOT_FADE_H), so the cue's press lands the last row wholly above
+ *  the band's soft edge, and Detailed counts what reaches into it (v10d: was 64, which landed the row in the soft edge beside the controls). */
+export const FOOT_BAND = 96
 /** The top of the free canvas the board's next part is brought to: under the header and the lens row (ViewCanvas's frame top). */
 export const FREE_TOP = 120
 type Box = { y: number; h: number }
@@ -71,16 +72,16 @@ function useBesideZoom(): number {
   return left
 }
 
-/** The foot band (v10 review item 7; was an 88 px opaque band): the board is drawn down to the foot controls' own 72 px band, whose top 24 px are a
- *  soft edge and the rest the canvas's ground, so nothing shows half-read under the cue or the level switch (DL 14:5xZ: "nothing unreadable at
- *  1232 and 1.33"). A card whose foot is below the solid part's top (the window's last 48 px) is counted as below. FOOT_GUTTER stays for the
- *  fit and the cue's landing only. */
-export const FOOT_EDGE = 48
-/** The drawn band's height: the foot controls' band. */
-export const FOOT_FADE_H = 72
+/** The foot band (v10 review item 7; was an 88 px opaque band): the board is drawn down to a 96 px band whose top 16 px are a soft edge and
+ *  the rest the canvas's ground. v10d (DL BUILD 3, 1232: "nothing legible under the foot controls; the fade reaches full strength before the
+ *  controls' top edge"): the controls' top stands 76 px (the cue: 40 px up, 36 tall) to 78 px (the zoom row, measured at 1232 and 1.33) above
+ *  the window's foot, so the ground is solid from 80 px. A card whose foot is below the solid part's top is counted as below. */
+export const FOOT_EDGE = 80
+/** The drawn band's height: the solid ground under the controls and its soft edge. */
+export const FOOT_FADE_H = 96
 /** The soft part at the band's top. */
 export const FOOT_EDGE_SOFT = FOOT_FADE_H - FOOT_EDGE
-/** How the band draws: clear at its top, the canvas's own ground from 24 px down to the window's foot. */
+/** How the band draws: clear at its top, the canvas's own ground from 16 px down to the window's foot. */
 export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px, var(--bg-canvas))`
 /** The drawn fade's height (screen px). Arguments kept for callers. */
 export const footEdgeHeightOf = (_cards?: readonly Box[], _ty?: number, _zoom?: number, _height?: number): number => FOOT_FADE_H

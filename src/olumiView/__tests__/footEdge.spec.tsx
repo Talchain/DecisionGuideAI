@@ -28,8 +28,8 @@ afterEach(cleanup)
 describe('the foot fade on Simple (CHANGED BY DESIGN, v10 review item 7: drawn to the foot, last 24 px fade, was an 88 px opaque edge)', () => {
   it('E1 CHANGED BY DESIGN (v10 review item 7): with a card below the foot, a 24 px fade into the canvas ground is drawn, takes no press, and the cue counts what is behind it', () => {
     const el = draw(BELOW, true), edge = edgeOf(el)!
-    expect([edge.style.height, edge.style.background, edge.className.includes('pointer-events-none'), edge.getAttribute('aria-hidden')]).toEqual([`${FOOT_FADE_H}px`, FOOT_EDGE_FADE, true, 'true']) // CHANGED BY DESIGN (v10 look): the drawn fade is the controls' 72 px band; the count line stays 24
-    expect([FOOT_EDGE, FOOT_EDGE < FOOT_GUTTER, FOOT_FADE_H]).toEqual([48, true, 72]) // CHANGED BY DESIGN (DL 14:5xZ): solid under the controls, count line at its top
+    expect([edge.style.height, edge.style.background, edge.className.includes('pointer-events-none'), edge.getAttribute('aria-hidden')]).toEqual([`${FOOT_FADE_H}px`, FOOT_EDGE_FADE, true, 'true']) // CHANGED BY DESIGN (v10d): the drawn band is 96 px, solid from 80
+    expect([FOOT_EDGE, FOOT_EDGE >= 40 + 36 + 2, FOOT_FADE_H, FOOT_GUTTER >= FOOT_FADE_H]).toEqual([80, true, 96, true]) // CHANGED BY DESIGN (v10d, DL BUILD 3): solid from above the controls' top (cue 40 up + 36 tall; zoom row 78 measured), the fit ends above the band
     expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent, 'the cue counts what is behind it').toContain('1 more card below')
   })
   it('E2 CONTRAST: nothing below the foot draws no fade; and the fade is Simple\'s only (not asked for, not drawn)', () => {
@@ -41,46 +41,47 @@ describe('the foot fade on Simple (CHANGED BY DESIGN, v10 review item 7: drawn t
 })
 
 describe('v10 item 7: a card in the old gutter is drawn, not hidden (CHANGED BY DESIGN: was "wholly behind the edge")', () => {
-  it('E3 CHANGED BY DESIGN (v10 review item 7): a card from 540 to 640 is drawn (its foot is above the top of the solid band at 656), the band stays 72 px and nothing is counted', () => {
-    const CUT = [card('a', 100), card('cut', 540)]
+  it('E3 CHANGED BY DESIGN (v10d): a card from 500 to 600 is drawn (its foot is above the top of the solid band at 624), the band stays 96 px and nothing is counted', () => {
+    const CUT = [card('a', 100), card('cut', 500)]
     expect([footEdgeHeightOf(CUT.map((c) => ({ y: c.position.y, h: 100 })), 0, 1, H), cardsBehindOf(CUT.map((c) => ({ y: c.position.y, h: 100 })), 0, 1, H)]).toEqual([FOOT_FADE_H, 0])
     expect(edgeOf(draw(CUT, true))).toBeNull()
   })
-  it('E3 CONTRAST: a card whose foot is under the solid band (top 600, foot 700 > 656) is counted by id of count, and the fade is drawn', () => {
+  it('E3 CONTRAST: a card whose foot is under the solid band (top 600, foot 700 > 624) is counted by id of count, and the fade is drawn', () => {
     const boxes = (ys: number[], h = 100) => ys.map((y) => ({ y, h }))
     expect(cardsBehindOf(boxes([100, 600]), 0, 1, H)).toBe(1)
-    expect(cardsBehindOf(boxes([100, 556]), 0, 1, H), 'foot at 656 exactly: in view').toBe(0)
-    expect(footEdgeHeightOf(boxes([40], 2000), 0, 1, H), 'never rises: always the drawn 72 px band').toBe(FOOT_FADE_H)
+    expect(cardsBehindOf(boxes([100, 524]), 0, 1, H), 'foot at 624 exactly: in view').toBe(0)
+    expect(cardsBehindOf(boxes([100, 556]), 0, 1, H), 'v10d: foot at 656, beside the controls, is now behind the ground').toBe(1)
+    expect(footEdgeHeightOf(boxes([40], 2000), 0, 1, H), 'never rises: always the drawn 96 px band').toBe(FOOT_FADE_H)
     const el = draw([card('a', 100), card('under', 600)], true)
     expect([edgeOf(el)?.style.height, el.querySelector('[data-testid="view-below-cue"]')?.textContent]).toEqual([`${FOOT_FADE_H}px`, '1 more card below'])
   })
 })
 
 describe('every card under the fade is counted (Line reviewer, e385f882 F1)', () => {
-  it('E4 CHANGED BY DESIGN (v10 review item 7): a top-aligned row with a tall and a short card: both feet below 656 are counted (2), a short one ending above it is not', () => {
-    expect(cardsBehindOf([{ y: 616, h: 100 }, { y: 616, h: 30 }], 0, 1, H), 'the short one ends at 646, in view').toBe(1)
-    expect(cardsBehindOf([{ y: 616, h: 100 }, { y: 616, h: 60 }], 0, 1, H)).toBe(2)
-    const el = draw([card('tall', 616), { ...card('short', 616), measured: { width: 200, height: 60 } }], true)
+  it('E4 CHANGED BY DESIGN (v10d): a top-aligned row with a tall and a short card: both feet below 624 are counted (2), a short one ending above it is not', () => {
+    expect(cardsBehindOf([{ y: 584, h: 100 }, { y: 584, h: 30 }], 0, 1, H), 'the short one ends at 614, in view').toBe(1)
+    expect(cardsBehindOf([{ y: 584, h: 100 }, { y: 584, h: 60 }], 0, 1, H)).toBe(2)
+    const el = draw([card('tall', 584), { ...card('short', 584), measured: { width: 200, height: 60 } }], true)
     expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent).toContain('2 more cards below')
   })
-  it('E4 CONTRAST: the short card alone (foot 666 > 656 is counted; at 40 tall, foot 656, it is not)', () => {
-    expect([cardsBehindOf([{ y: 616, h: 50 }], 0, 1, H), cardsBehindOf([{ y: 616, h: 40 }], 0, 1, H)]).toEqual([1, 0])
-    expect(edgeOf(draw([{ ...card('short', 616), measured: { width: 200, height: 40 } }], true))).toBeNull()
+  it('E4 CONTRAST: the short card alone (foot 634 > 624 is counted; at 40 tall, foot 624, it is not)', () => {
+    expect([cardsBehindOf([{ y: 584, h: 50 }], 0, 1, H), cardsBehindOf([{ y: 584, h: 40 }], 0, 1, H)]).toEqual([1, 0])
+    expect(edgeOf(draw([{ ...card('short', 584), measured: { width: 200, height: 40 } }], true))).toBeNull()
   })
 })
 
 describe('the cue\'s press brings the last row into view and nothing is behind the fade after it (Line reviewer, 0df2339a F1)', () => {
   const last = [{ y: 600, h: 100 }]
-  it('E5 one press moves the last row\'s foot to the band (60 px) and then nothing is behind the fade: [24, 0]', () => {
-    expect(pressUpOf(last, 0, 1, H)).toBe(60)
-    expect([footEdgeHeightOf(last, -60, 1, H), cardsBehindOf(last, -60, 1, H)]).toEqual([FOOT_FADE_H, 0])
+  it('E5 CHANGED BY DESIGN (v10d): one press moves the last row\'s foot above the band (to 608, 92 px) and then nothing is behind the fade', () => {
+    expect(pressUpOf(last, 0, 1, H)).toBe(92)
+    expect([footEdgeHeightOf(last, -92, 1, H), cardsBehindOf(last, -92, 1, H), (last[0].y + last[0].h) - 92 <= H - FOOT_FADE_H]).toEqual([FOOT_FADE_H, 0, true])
   })
   it('E5 a fractional foot: the press rounds up, so the foot ends at or above the band and nothing is counted', () => {
     const f = [{ y: 600.4, h: 100 }]
-    expect(pressUpOf(f, 0, 1, H)).toBe(61)
+    expect(pressUpOf(f, 0, 1, H)).toBe(93)
     expect(cardsBehindOf(f, -pressUpOf(f, 0, 1, H), 1, H)).toBe(0)
   })
-  it('E5 CONTRAST: the same card before the press is under the fade and counted; cardsBelowOf (Detailed, 64 px band) is unchanged', () => {
+  it('E5 CONTRAST: the same card before the press is under the fade and counted; cardsBelowOf (Detailed, the 96 px band) counts it too', () => {
     expect([cardsBehindOf(last, 0, 1, H), cardsBelowOf(last, 0, 1, H)]).toEqual([1, 1])
     expect(cardsBelowOf([{ y: 560, h: 100 }], 0, 1, H)).toBe(1)
   })
