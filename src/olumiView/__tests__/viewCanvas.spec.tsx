@@ -30,6 +30,18 @@ beforeEach(() => { setDefaultLevel('working'); lane.on = true; hydrate.mockClear
 afterEach(() => useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }))
 
 describe('the View draws the canvas', () => {
+  it('the question node is named by the person\'s own question, as each card is by its heading (a reader that names a node never falls back to its id)', async () => {
+    const model = golden('pricing').model!
+    expect(model.question.text.trim()).not.toBe('')
+    await layViewCanvas(model)
+    const nodes = useCanvasStore.getState().nodes
+    const question = nodes.find((n) => n.type === VIEW_QUESTION)!
+    expect((question.data as { label?: string }).label).toBe(model.question.text)
+    expect((question.data as { label?: string }).label).not.toBe(question.id)
+    // CONTRAST: a card's label is its own heading, not the question's.
+    const card = nodes.find((n) => n.id === model.cards[0]!.id)!
+    expect((card.data as { label?: string }).label).toBe(model.cards[0]!.heading)
+  })
   it('R1 one viewCard per card, in the View\'s order, where DGAI\'s causal layout places it; one link per View link', async () => {
     const model = golden('pricing').model!
     expect(await layViewCanvas(model)).toBe(true)

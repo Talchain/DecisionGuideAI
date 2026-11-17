@@ -163,7 +163,9 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
   const kept = (id: string) => ({ ...measured(id), ...(held.get(id)?.selected === true ? { selected: true } : {}) })
   // The question first, as core's page draws it (00057 #1): its text, its date, its badge, and the links to the question as a whole.
   const nodes = [
-    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, width: widthOf(QUESTION), ...(scale === undefined ? {} : { scale }) }, position: placeOf(QUESTION), ...kept(QUESTION) },
+    // `label` names the question for the canvas's readers that name a node (the selection chip, the Olumi controls' asks): the person's own
+    // question, in its words. Without it those readers fell back to the node's id ("About: page:question").
+    { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, ...(model.question.text.trim() === '' ? {} : { label: model.question.text }), width: widthOf(QUESTION), ...(scale === undefined ? {} : { scale }) }, position: placeOf(QUESTION), ...kept(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
     ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading, width: widthOf(card.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(card.id), ...kept(card.id) })),
     // V12 Simple: the kept ideas and the folded inputs' group (v12/bands), each in its band.

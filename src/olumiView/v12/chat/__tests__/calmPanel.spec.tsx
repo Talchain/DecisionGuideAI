@@ -180,6 +180,15 @@ describe('4. the selected card is a chip inside the composer', () => {
     detail.open = false; fireEvent(detail, new Event('toggle'))
     expect(q(detail, 'selection-detail-toggle')!.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.show)
   })
+  it('a selection core\'s model holds no card for (the question) draws the chip and NO detail box (it was an empty box once the detail opened by default)', () => {
+    const view = golden('bakery')
+    selection.value = { id: 'page:question', label: view.model!.question.text, kind: 'node' }
+    const c = mount(view)
+    const composer = q(c, 'view-composer')!
+    expect(q(composer, 'selection-chip-label')!.textContent).toBe(`About: ${view.model!.question.text}`)
+    expect(q(composer, 'selection-chip-label')!.getAttribute('title')).toBe(view.model!.question.text)
+    expect(q(composer, 'selection-detail')).toBeNull()
+  })
   it('D2: a visible ask control keeps data-testid="selection-ask-chip" (hover: "Ask about <label>") and is the only thing that sends; the card\'s own kind shape leads', () => {
     selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
     const sendChip = vi.fn()
