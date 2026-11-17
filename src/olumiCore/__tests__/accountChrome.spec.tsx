@@ -46,7 +46,7 @@ const lanePage = () => render(
   </MemoryRouter>,
 )
 
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none' }); setTeamFetch(null); setPagePerson(null); asked = [] })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none', hasAccount: false }); setTeamFetch(null); setPagePerson(null); asked = [] })
 
 describe('the account menu on the olumi-core lane: what core serves, and nothing else', () => {
   it('says whose private link this page was opened with, and offers only what core serves: nothing that cannot work', () => {
@@ -59,6 +59,22 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['My scenarios', 'Organisation', 'Account', 'Terms', 'Privacy', 'Sign out', 'Delete my data'])
     for (const gone of [/Profile settings/, /Sign in/, /Delete account/]) expect(screen.queryByText(gone)).toBeNull()
+  })
+
+  it('an account holder is not told they are using a private link: the menu line follows core\'s account field, and a private-link person still hears theirs', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const who = (account: unknown) => setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ada' }, account }), { status: 200 })) as typeof fetch)
+    who({ email: 'ada@example.com', org: { id: 'o_0123456789ab', name: 'Northwind', role: 'member' } })
+    await act(async () => { await useMe.getState().load() })
+    lanePage()
+    expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBe('You are signed in to your Olumi account')
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+    expect(screen.queryByText(/private link/)).toBeNull()
+    cleanup(); useMe.setState({ me: null, status: 'none', hasAccount: false })
+    who(null)
+    await act(async () => { await useMe.getState().load() })
+    lanePage()
+    expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
   })
 
   it.each([['My scenarios', '/'], ['Organisation', '/organisation'], ['Account', '/account']] as const)('PoC accounts: %s goes to its page on the lane (%s)', (label, to) => {

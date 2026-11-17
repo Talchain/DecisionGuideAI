@@ -86,6 +86,30 @@ describe('sign up', () => {
   })
 })
 
+describe('no open sign-up without an invitation', () => {
+  it('signed out, /signup says accounts start from an invitation and draws no form and no way to submit one; Sign in stays', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: null } } : undefined)
+    at('/signup', <SignUpPage />)
+    const page = await screen.findByTestId('account-signup-invitation')
+    expect(page.textContent).toContain('Olumi accounts start from an invitation')
+    expect(page.textContent).toContain('Open the link you were given, then add an email and password.')
+    expect(screen.queryByTestId('account-signup-go')).toBeNull()
+    expect(screen.queryByLabelText('Email')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
+    expect(posts()).toEqual([])
+  })
+  it('the sign-in page offers no Create an account; a linked person\'s form has no "Make a separate account"', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null } } : undefined)
+    at('/signin', <SignInPage />)
+    expect(screen.queryByRole('link', { name: 'Create an account' })).toBeNull()
+    expect(screen.getByText('Have a private link from a colleague? Open it and you are in.')).toBeTruthy()
+    cleanup()
+    at('/signup', <SignUpPage />)
+    await screen.findByTestId('account-signup-go')
+    expect(screen.queryByRole('button', { name: 'Make a separate account instead' })).toBeNull()
+  })
+})
+
 describe('My scenarios (home)', () => {
   it('lists exactly the scenarios core lists, in its order, each opening its own scenario; New scenario starts one from a brief', async () => {
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: SCENARIOS } } : undefined)
@@ -171,6 +195,37 @@ describe('the account page', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('account-password-go')) })
     expect((await screen.findByTestId('account-password-said')).textContent).toBe('Password changed. Signed out of 2 other browsers.')
     expect(posts().map((x) => [x.path, x.body])).toEqual([['/api/account/name', { name: 'Ana Diaz' }], ['/api/account/password', { current: 'old-password-1', next: 'new-password-2' }]])
+  })
+})
+
+describe('Terms, Privacy and Delete my data on the signed-in pages', () => {
+  const NOTICES = [['Terms', '/terms'], ['Privacy', '/privacy']] as const
+  it('My scenarios, Organisation and Account each link to Terms and Privacy', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } }
+      : p === '/api/account/scenarios' ? { body: { you_id: ANA.id, scenarios: [] } }
+      : p === '/api/org' ? { body: { org: { id: OWNER.org.id, name: 'Northwind' }, you: { id: ANA.id, role: 'owner' }, members: [] } }
+      : p === '/api/org/invites' ? { body: { you_id: ANA.id, invites: [] } } : undefined)
+    for (const [path, page] of [['/', <MyScenariosPage />], ['/organisation', <OrganisationPage />], ['/account', <AccountPage />]] as const) {
+      at(path, page, path)
+      await waitFor(() => expect(screen.getByTestId('account-who')).toBeTruthy())
+      for (const [label, href] of NOTICES) expect(screen.getByRole('link', { name: label }).getAttribute('href')).toBe(href)
+      cleanup()
+    }
+  })
+  it('the Account page offers Delete my data to an account holder and to a private-link person, and it opens the same dialog (core\'s preview, nothing deleted)', async () => {
+    for (const account of [OWNER, null]) {
+      asked = []
+      core((m, p, b) => p === '/api/me' ? { body: { me: ANA, account } }
+        : m === 'POST' && p === '/api/me/delete' && (b as { confirm: unknown }).confirm === null ? { body: { preview: true, scenarios: [], sign_in: 1, words: ['Your sign-in link stops working.'] } } : undefined)
+      at('/account', <AccountPage />)
+      const open = await screen.findByTestId('account-delete-my-data')
+      expect(open.textContent).toBe('Delete my data')
+      await act(async () => { fireEvent.click(open) })
+      const dialog = await screen.findByTestId('olumi-core-delete-dialog')
+      expect(dialog.textContent).toContain('Delete your data?')
+      expect(posts().map((x) => x.body)).toEqual([{ confirm: null }])
+      cleanup()
+    }
   })
 })
 
