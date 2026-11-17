@@ -181,6 +181,13 @@ describe('a kept idea draws its words as the conversation draws the reply (DL, p
     expect(panelText.textContent).toBe('An invented lead. Then the invented words follow.')
     expect(panelText.querySelector('strong')?.textContent).toBe('An invented lead.')
   })
+  it('catch: a "- " list on a kept idea draws as the conversation\'s list, each item with its bullet dot (Line reviewer 06:49Z: a missing space dropped it)', () => {
+    show(noModel([...KEPT, row(45, 3, 'An invented plan:\n- First invented step.\n- Second invented step.', SAM)])); mount()
+    const items = [...card('kept:45').querySelectorAll<HTMLElement>('[data-reply-list] li')]
+    expect(items.map((li) => li.textContent)).toEqual(['First invented step.', 'Second invented step.'])
+    // Class tokens, one by one: a dot needs its position, its size and its shape (a run-together token is no class at all).
+    for (const li of items) for (const token of ['before:absolute', 'before:top-[calc(0.75em_-_2px)]', 'before:h-1', 'before:w-1', 'before:rounded-full', "before:content-['']"]) expect(li.classList.contains(token), token).toBe(true)
+  })
   it('contrast: plain words are drawn verbatim, with no weight added', () => {
     show(noModel([...KEPT, ...MARKED])); mount()
     const plain = card('kept:41').querySelector<HTMLElement>('[data-testid="view-idea-text"]')!

@@ -12,7 +12,7 @@ export function ReplyBlocks({ text }: { text: string }) {
   return (
     <>
       {earlyBlocks(text).map((b, i) => (b.list
-        ? <ul key={i} className="m-0 !list-none !pl-3" data-reply-list="">{b.lines.map((l, j) => <li key={j} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[calc(0.75em-2px)]before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{richText(l)}</li>)}</ul>
+        ? <ul key={i} className="m-0 !list-none !pl-3" data-reply-list="">{b.lines.map((l, j) => <li key={j} className="relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[calc(0.75em_-_2px)] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{richText(l)}</li>)}</ul>
         : <p key={i} className="m-0" data-reply-para="">{b.lines.map((l, j) => <span key={j}>{j > 0 ? <br /> : null}{richText(l)}</span>)}</p>))}
     </>
   )
