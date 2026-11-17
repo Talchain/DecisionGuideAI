@@ -97,7 +97,7 @@ export function keyNamesBlueRange(key: ViewModel['key'] | null | undefined): boo
 /** Core's own page geometry (olumi-core src/page/graph.ts): card width and the gap between its columns (the question's width). */
 /** A limit's row on the previous layout: its own, between the consequences and the goal. */
 export const LIMIT_TIER = 4
-const W = REPEATED_CARD_W, GAP_X = 48 // UI restore stage 1: the previous product's card, the width its layout places (nodeLayoutConstants)
+const W = REPEATED_CARD_W // UI restore stage 1: the previous product's card, the width its layout places (nodeLayoutConstants)
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
 
@@ -133,8 +133,6 @@ export function questionPlace(model: ViewModel): { width: number } {
 }
 /** The question's width on the prototype's board (J1 gate). */
 export const QUESTION_W = W
-/** The question's width with an aim beside it (R25). */
-export const QUESTION_FLANKED_W = 272
 /** The room between the question and an aim beside it (R25). */
 export const HEAD_GAP = 16
 /** The aims and limits, in the View's order: drawn beside the question, the head of the board (R25). */
@@ -148,9 +146,6 @@ export const cardLinks = (model: ViewModel): { link: ViewModel['links'][number];
 
 /** Whether the canvas holds any node the View drew (of one of the View's node types). */
 export const holdsViewNodes = (nodes: readonly { type?: string }[], types: readonly string[]): boolean => nodes.some((n) => types.includes(n.type ?? ''))
-
-/** The canvas's nodes the View did not draw. */
-export const withoutViewNodes = <N extends { type?: string }>(nodes: readonly N[], types: readonly string[]): N[] => nodes.filter((n) => !types.includes(n.type ?? ''))
 
 /** The canvas nodes that draw the View (its cards and question), by their node types: what the lane's own canvas frames. */
 export const viewDrawnNodes = <T extends { type?: string }>(nodes: readonly T[], types: readonly string[]): T[] => nodes.filter((n) => n.type !== undefined && types.includes(n.type))
@@ -665,19 +660,6 @@ export function flankHead(places: ReadonlyMap<string, { x: number; y: number }>,
   return out
 }
 
-/**
- * The options' row packed under the question (DL 4 Nov, "readable first wins"): the layout spreads the options over their children, so the
- * question and the options did not fit across a 1280 canvas at 0.9. Each option row (the options alone on it) is drawn side by side, in
- * the View's order, `GAP_X` apart, centred under the question; nothing else moves. A row shared with another card is left as laid out.
- */
-/**
- * The widest options row the camera holds wholly inside the visible rect at the readable floor (camera.ts READABLE_WHOLE_ZOOM, 0.9) on
- * the smallest supported canvas: 1280 less the dock and the canvas padding leaves about 824px, so 915 units; 900 keeps a margin. A wider
- * row (four options: 4 × 220 + 3 × 48 = 1024) wraps into balanced rows (DL 4 Nov, Codex P1-3), so the question and every option are seen.
- */
-export const HEAD_ROW_MAX = 760 // R25 (DL 7 Nov, 4-option hosting board at 1232): the visible canvas at the 1.0 floor, as the head row; was 900 at 0.9
-/** The room between two family rows, and inside a wrapped row (option a2: tight enough that Paul's hiring board opens whole at 0.8). */
-export const FAMILY_ROW_GAP = 32
 /** The family row a card is drawn in: 0 question, 1 options, 2 the options' drivers (R24), 3 factors and assumptions, 4 outcomes and risks,
  *  5 aims and limits (drawn beside the question instead, `flankHead`). */
 export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
@@ -686,44 +668,6 @@ export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
 }
 /** On an option card, the row index of its first chance (drawn as the big line, the previous PoC's face); -1 when it has none. */
 export const leadChanceIndex = (card: ViewCard): number => (card.family === 'option' ? card.rows.findIndex((r) => r.kind === 'chance') : -1)
-
-export function packHead(places: Map<string, { x: number; y: number }>, options: readonly string[], size: ReadonlyMap<string, Size>): Map<string, { x: number; y: number }> {
-  const q = places.get(QUESTION), qs = size.get(QUESTION)
-  if (q === undefined || qs === undefined) return places
-  const rows = new Map<number, string[]>()
-  for (const [id, p] of places) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
-  const out = new Map(places)
-  // Each wrapped options row moves every card below it down by the rows it added (from the laid-out places, so the order rows are met in
-  // does not matter).
-  const drops: { y: number; by: number }[] = []
-  for (const [y, ids] of rows) {
-    if (!ids.every((id) => options.includes(id))) continue
-    // In the View's order (core's), never re-sorted here.
-    const row = options.filter((id) => ids.includes(id)).map((id) => ({ id, w: size.get(id)?.width ?? W, h: size.get(id)?.height ?? 0 }))
-    let width = GAP_X * (row.length - 1)
-    for (const r of row) width += r.w
-    const lines = Math.max(1, Math.ceil(width / HEAD_ROW_MAX)), per = Math.ceil(row.length / lines)
-    let top = y
-    for (let i = 0; i < row.length; i += per) {
-      const line = row.slice(i, i + per)
-      let lw = GAP_X * (line.length - 1), lh = 0
-      for (const r of line) { lw += r.w; lh = Math.max(lh, r.h) }
-      let x = q.x + qs.width / 2 - lw / 2
-      for (const r of line) { out.set(r.id, { x, y: top }); x += r.w + GAP_X }
-      top += lh + GAP_Y
-    }
-    let first = 0
-    for (const r of row.slice(0, per)) first = Math.max(first, r.h)
-    if (top - GAP_Y > y + first) drops.push({ y, by: top - GAP_Y - (y + first) })
-  }
-  for (const [id, p] of places) {
-    if (id === QUESTION) continue
-    let by = 0
-    for (const d of drops) if (p.y > d.y) by += d.by
-    if (by > 0) out.set(id, { ...out.get(id)!, y: out.get(id)!.y + by })
-  }
-  return out
-}
 
 /**
  * Whether a link is drawn (DL 4 Nov, after the causal graph: "the dashed premise and assumption links cross the whole board"). The
