@@ -6,6 +6,7 @@ import { useViewStore } from '../olumiView/store'
 import { forgetModelTab } from '../olumiView/model/state'
 import { clearWhatIf } from '../olumiView/whatif'
 import { useMe } from './me'
+import { clearDeleteWarning } from './deleteWarning'
 import { call, setPagePerson } from './team/api'
 import { forgetAttempts } from './team/writes'
 import { resetDrafts } from './team/drafts'
@@ -23,8 +24,9 @@ export async function signOutOfOlumi(): Promise<void> {
 
 /** Once core has signed this browser out (Sign out, or Delete my data): nothing of the person's is kept in the page's memory. */
 export function forgetThisPerson(): void {
+  clearDeleteWarning()
   setPagePerson(null)
-  useMe.setState({ me: null, status: 'ready' })
+  useMe.setState({ me: null, status: 'ready', hasAccount: false })
   useViewStore.setState(useViewStore.getInitialState(), true)
   forgetModelTab() // the Model tab's drafts, open editors and receipts (Codex review-ui 3)
   resetDrafts()

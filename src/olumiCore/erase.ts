@@ -8,6 +8,7 @@
  * Both go through `call`, so before each one core is asked whose link this browser holds now, and a different person's is refused
  * before anything is sent (team/api.ts stillThisPerson): one person's page never deletes another person's data.
  */
+import { holdDeleteWarning } from './deleteWarning'
 import { forgetThisPerson } from './signout'
 import { call, TeamApiError } from './team/api'
 
@@ -24,8 +25,13 @@ export async function previewMyDataDeletion(): Promise<readonly string[]> {
   return words
 }
 
-/** Deletes the person's data; throws (a TeamApiError, in core's or the page's words) when it did not go through. */
+/**
+ * Deletes the person's data; throws (a TeamApiError, in core's or the page's words) when it did not go through. Core's reply is not kept:
+ * only `aiLogLeft.words` (present when core could not clear its AI request log after the deletion) is held, for the signed-out screen
+ * (deleteWarning.ts). Everything else in the reply, which names the person's scenarios, is dropped. An older core never sends it.
+ */
 export async function deleteMyData(): Promise<void> {
-  await call<{ deleted?: unknown }>('POST', '/api/me/delete', { confirm: 'delete my data' })
-  forgetThisPerson()
+  const r = await call<{ aiLogLeft?: { words?: unknown } | null }>('POST', '/api/me/delete', { confirm: 'delete my data' })
+  forgetThisPerson() // clears any earlier warning, so the new one is held after it
+  holdDeleteWarning(r?.aiLogLeft?.words)
 }

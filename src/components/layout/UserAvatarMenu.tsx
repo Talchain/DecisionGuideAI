@@ -3,7 +3,7 @@
  *
  * Shows a circular avatar with the user's display_name initial (or email initial).
  * Click opens dropdown: display name, email, "My decisions", "Profile settings", divider, "Sign out". On the olumi-core lane:
- * whose private link it is, My scenarios, Organisation and Account (PoC accounts), the terms and the privacy notice, Sign out, and Delete my data.
+ * who is signed in (private link or account), My scenarios, Organisation and Account (PoC accounts), the terms and the privacy notice, Sign out, and Delete my data.
  */
 
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
@@ -63,11 +63,12 @@ function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: Re
 }
 
 /**
- * On the olumi-core lane the person is who their private link says, and there is no account behind this build: no sign in, no
- * profile to save (the Supabase address is dead on purpose, so each would hang or fail). The menu says whose private link this page
- * was opened with and offers what core serves:
+ * On the olumi-core lane the person is who core says (`GET /api/me`): someone with an email and password (an account), or someone with only a
+ * private link. There is no Supabase profile behind this build (its address is dead on purpose, so sign in or a profile save would hang or
+ * fail). Once core has answered, the menu says which kind of person this is (until then it says nothing) and offers what core serves:
+ *   - My scenarios, Organisation and Account (src/olumiCore/accounts/);
  *   - the terms and the privacy notice (core's `/terms` and `/privacy`, each in a new tab);
- *   - Sign out (`POST /api/me/signout`, this browser only; the link opens it again and other members stay signed in);
+ *   - Sign out (`POST /api/me/signout`, this browser only; any private link still opens it again and other members stay signed in);
  *   - Delete my data (`POST /api/me/delete`): a dialog shows core's own sentences for what would go before anything is deleted
  *     (src/olumiCore/DeleteMyDataDialog.tsx).
  * Sign out and a completed deletion both land on the signed-out screen.
@@ -81,6 +82,8 @@ const LANE_PAGES = [
 
 function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const person = useMe((s) => s.me)
+  const hasAccount = useMe((s) => s.hasAccount)
+  const known = useMe((s) => s.status === 'ready')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -94,7 +97,11 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   // A cancelled dialog gives the focus back to the account menu's button, once the dialog (and its focus trap) has gone.
   useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; mark.current?.focus() } }, [deleting])
   const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
-  const words = person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
+  // Page chrome, true for each kind of person: core's `/api/me` says whether this person has an account (an email and password) or only a private link.
+  // Said only once core has answered: before that the page cannot tell an account holder from a private-link person, so it says nothing.
+  const words = !known ? undefined
+    : hasAccount ? 'You are signed in to your Olumi account'
+    : person ? `You are using Olumi through ${person.name}’s private link` : 'You are using Olumi through your private link'
 
   const handleSignOut = useCallback(async () => {
     setBusy(true); setError(null)
@@ -138,7 +145,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
         <div className="absolute right-0 top-full mt-2 w-56 rounded-md bg-panel shadow-2 border border-[rgba(38,38,38,0.08)] z-[100]" role="menu">
           <div className="px-4 py-3">
             <p className={`${typography.label} text-text-header truncate`}>{person?.name ?? ''}</p>
-            <p className={`${typography.bodySmall} text-text-light`}>{words}</p>
+            {words && <p className={`${typography.bodySmall} text-text-light`}>{words}</p>}
           </div>
           {/* PoC accounts (src/olumiCore/accounts/): back to My scenarios, the organisation and the account page from a scenario. */}
           <div className="py-1">

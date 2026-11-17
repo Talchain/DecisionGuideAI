@@ -20,6 +20,7 @@ vi.mock('../../contexts/AuthContext', () => ({
 
 import { UserAvatarMenu } from '../../components/layout/UserAvatarMenu'
 import { useMe } from '../me'
+import { clearDeleteWarning } from '../deleteWarning'
 import { SignedOut } from '../SignedOut'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { useViewStore } from '../../olumiView/store'
@@ -33,6 +34,9 @@ const WORDS = [
 /** Core's own refusal for a confirm it does not accept (app.ts, POST /api/me/delete). */
 const CORE_REFUSAL = 'send {"confirm":"delete my data"} to delete your data, or {"confirm":null} to see what it would remove'
 
+/** Core's own sentence when its AI-log clean-up failed after the deletion (core 74b3dbca, `aiLogLeft`). */
+const LOG_LEFT = { ref: 'req_abc123', words: 'Your data is deleted and this browser is signed out. One thing is left: the log of AI requests could not be cleared just now. To have it removed by hand, write to the address in the privacy notice and quote req_abc123.' }
+
 /** Every request the page made, in order, with the raw body it sent. */
 let wire: { method: string; path: string; body: string | undefined }[] = []
 const deleteBodies = () => wire.filter((r) => r.method === 'POST' && r.path === '/api/me/delete').map((r) => r.body)
@@ -41,22 +45,23 @@ const deleteBodies = () => wire.filter((r) => r.method === 'POST' && r.path === 
  * Core as this browser sees it, Ada signed in. `confirm` answers the real delete: 'ok' (200, signs out) or 'refuse' (400, core's words).
  * `preview` answers the preview: 'ok' (200 with WORDS) or 'signed-out' (401, core's words).
  */
-const core = ({ confirm = 'ok', preview = 'ok' }: { confirm?: 'ok' | 'refuse'; preview?: 'ok' | 'signed-out' } = {}) => {
+const core = ({ confirm = 'ok', preview = 'ok' }: { confirm?: 'ok' | 'refuse' | 'partial'; preview?: 'ok' | 'signed-out' } = {}) => {
   let signedIn = true
   setTeamFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input), method = init?.method ?? 'GET'
     const body = typeof init?.body === 'string' ? init.body : undefined
     wire.push({ method, path, body })
     if (path === '/api/me') return new Response(JSON.stringify({ me: signedIn ? { id: 'p_1', name: 'Ada' } : null }), { status: 200 })
+    if (method === 'POST' && path === '/api/me/signout') { signedIn = false; return new Response(JSON.stringify({ signedOut: true }), { status: 200 }) }
     if (method === 'POST' && path === '/api/me/delete') {
       const c = (JSON.parse(body ?? '{}') as { confirm?: unknown }).confirm
       if (c === null) {
         if (preview === 'signed-out') return new Response(JSON.stringify({ error: 'open your private link first' }), { status: 401 })
         return new Response(JSON.stringify({ preview: true, scenarios: [], sign_in: 1, words: WORDS }), { status: 200 })
       }
-      if (c === 'delete my data' && confirm === 'ok') {
+      if (c === 'delete my data' && confirm !== 'refuse') {
         signedIn = false
-        return new Response(JSON.stringify({ deleted: true, removed: 9, anonymised: 1, scenarios: [] }), { status: 200 })
+        return new Response(JSON.stringify({ deleted: true, removed: 9, anonymised: 1, scenarios: [], ...(confirm === 'partial' ? { aiLogLeft: LOG_LEFT } : {}) }), { status: 200 })
       }
       return new Response(JSON.stringify({ error: CORE_REFUSAL }), { status: 400 })
     }
@@ -87,7 +92,7 @@ async function openDialog(opts?: Parameters<typeof core>[0]) {
 }
 
 afterEach(() => {
-  cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none' }); setTeamFetch(null); setPagePerson(null); wire = []
+  cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none', hasAccount: false }); clearDeleteWarning(); sessionStorage.clear(); setTeamFetch(null); setPagePerson(null); wire = []
   useViewStore.setState(useViewStore.getInitialState(), true)
 })
 
@@ -187,5 +192,68 @@ describe('Delete my data on the olumi-core lane', () => {
     expect(document.activeElement).toBe(cancel)
     fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true })
     expect(document.activeElement).toBe(destroy)
+  })
+})
+
+describe('a deletion core could not finish cleaning up after', () => {
+  const KEPT = 'olumi-delete-ai-log-left'
+  const left = () => screen.queryByTestId('olumi-core-delete-ai-log-left')
+  const signedOutAt = (to: string) => render(<MemoryRouter initialEntries={[to]}><Routes><Route path="/signed-out" element={<SignedOut />} /></Routes></MemoryRouter>)
+  it('the signed-out screen draws core\'s own sentence from aiLogLeft as the whole message (no second "deleted" line), and it survives a reload', async () => {
+    const dialog = await openDialog({ confirm: 'partial' })
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete my data' })) })
+    expect(left()!.textContent).toBe(LOG_LEFT.words)
+    expect(screen.queryByRole('heading', { name: 'Your data is deleted.' })).toBeNull()
+    // What is kept is core's sentence and nothing else: no reference field, no part of core's erase report.
+    expect(sessionStorage.getItem(KEPT)).toBe(LOG_LEFT.words)
+    expect(sessionStorage.length).toBe(1)
+    // A reload: the page's memory is gone (the page leaves nothing but the stored sentence), the address alone remains.
+    const stored = sessionStorage.getItem(KEPT)!
+    cleanup(); clearDeleteWarning(); sessionStorage.setItem(KEPT, stored)
+    signedOutAt('/signed-out?deleted=1')
+    expect(left()!.textContent).toBe(LOG_LEFT.words)
+  })
+
+  it('nothing of core\'s erase report is kept after the deletion: not the scenario ids, counts or the reference as a field', async () => {
+    const dialog = await openDialog({ confirm: 'partial' })
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete my data' })) })
+    expect(Object.fromEntries(Object.keys(sessionStorage).map((k) => [k, sessionStorage.getItem(k)]))).toEqual({ [KEPT]: LOG_LEFT.words })
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('the stored sentence is gone once the signed-out screen is left, and a later sign-in does not show it', async () => {
+    const dialog = await openDialog({ confirm: 'partial' })
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete my data' })) })
+    expect(sessionStorage.getItem(KEPT)).toBe(LOG_LEFT.words)
+    cleanup() // the screen is left
+    expect(sessionStorage.getItem(KEPT)).toBeNull()
+    sessionStorage.setItem(KEPT, LOG_LEFT.words) // a stored sentence meets a person signed in again
+    setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_2', name: 'Bo' } }), { status: 200 })) as typeof fetch)
+    useMe.setState({ me: null, status: 'none', hasAccount: false })
+    await act(async () => { await useMe.getState().load() })
+    expect(sessionStorage.getItem(KEPT)).toBeNull()
+  })
+
+  it('CONTROL: a reply with no aiLogLeft draws no warning, and a stored warning is not drawn without ?deleted=1 (and is cleared)', async () => {
+    const dialog = await openDialog()
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Delete my data' })) })
+    expect(screen.getByRole('heading', { name: 'Your data is deleted.' })).toBeTruthy()
+    expect(left()).toBeNull()
+    cleanup()
+    sessionStorage.setItem(KEPT, LOG_LEFT.words)
+    signedOutAt('/signed-out')
+    expect(left()).toBeNull()
+    expect(sessionStorage.getItem(KEPT)).toBeNull()
+  })
+
+  it('Sign out says one sentence that is true for both kinds of person, and forgets hasAccount', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready', hasAccount: true })
+    core()
+    lanePage()
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+    await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/ })) })
+    expect(screen.getByText('If you have a private link, it opens Olumi again.')).toBeTruthy()
+    expect(useMe.getState().hasAccount).toBe(false)
   })
 })

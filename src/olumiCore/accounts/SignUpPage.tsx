@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { TeamApiError } from '../team/api'
 import { accountsApi, nav } from './api'
-import { BODY, ERR, FIELD, GuestFrame, LABEL, LINK, META, useWho } from './Frame'
+import { ERR, FIELD, GuestFrame, LABEL, LINK, META, useWho } from './Frame'
 
 /** The fields both sign-up and joining ask for. */
 export function PersonFields({ name, setName, email, setEmail, password, setPassword, busy, id }: {
@@ -29,8 +29,10 @@ export function PersonFields({ name, setName, email, setEmail, password, setPass
 }
 
 /**
- * Create an account (core `POST /api/account/signup`): a name, an email and a password, and the organisation it starts. No email is
- * sent. Someone already signed in by a private link adds the email and password to that same person, keeping their scenarios.
+ * Add an email and password (core `POST /api/account/signup`). Core refuses an open sign-up with a 403 (accounts start from an invitation),
+ * so the form is drawn ONLY for someone a private link signed in: it adds the email and password to that same person, keeping their
+ * scenarios, and starts the organisation they own. Anyone else is told how accounts start, without a form that could only be refused.
+ * Core's `/api/me` carries no "sign-up needs an invitation" flag, so that sentence is page chrome (same meaning as core's refusal).
  */
 export default function SignUpPage(): JSX.Element {
   const who = useWho()
@@ -38,26 +40,35 @@ export default function SignUpPage(): JSX.Element {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [org, setOrg] = useState('')
-  const [fresh, setFresh] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Signed in by a private link: their name is the one Olumi already has, which they may change here.
-  const linkName = who.status === 'in' && !who.account ? who.me.name : null
+  const linked = who.status === 'in' && !who.account ? who.me : null
+  const linkName = linked ? linked.name : null
   useEffect(() => { if (linkName !== null) setName((n) => n || linkName) }, [linkName])
   if (who.status === 'in' && who.account) return <Navigate to="/" replace />
-  const linked = who.status === 'in' && !who.account && !fresh ? who.me : null
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true); setSaid(null)
     try {
-      await accountsApi.signUp({ name, email, password, ...(org.trim() ? { org } : {}), ...(linked ? { attach: true } : {}) })
+      await accountsApi.signUp({ name, email, password, ...(org.trim() ? { org } : {}), attach: true })
       nav.landSignedIn()
     } catch (x) { setSaid(x instanceof TeamApiError ? x.message : 'That did not go through. Nothing was saved.'); setBusy(false) }
   }
+  // The invitation page is for a person core has confirmed is signed in by nothing. Until core has answered (or when it could not), no claim is made about them.
+  if (who.status === 'loading') return <GuestFrame testid="account-signup-loading" title="Olumi" lead="Loading…" />
+  if (who.status === 'error') return <GuestFrame testid="account-signup-unread" title="Olumi" lead={<p role="alert" className={ERR}>{who.message}</p>} />
+  if (!linked) {
+    return (
+      <GuestFrame testid="account-signup-invitation" title="Olumi accounts start from an invitation"
+        lead="Open the link you were given, then add an email and password. If you were not given one, ask the person who invited you.">
+        <p className={META}>Already have an account? <Link to="/signin" className={LINK}>Sign in</Link></p>
+      </GuestFrame>
+    )
+  }
   return (
-    <GuestFrame testid="account-signup" title="Create your Olumi account" lead={linked
-      ? <>You are signed in as <b>{linked.name}</b> with a private link. This adds an email and password to {linked.name}, keeping {linked.name}’s scenarios.</>
-      : 'Olumi is a reasoning partner for your team’s hardest questions.'}>
+    <GuestFrame testid="account-signup" title="Create your Olumi account"
+      lead={<>You are signed in as <b>{linked.name}</b> with a private link. This adds an email and password to {linked.name}, keeping {linked.name}’s scenarios.</>}>
       <form className="grid gap-4" onSubmit={(e) => void submit(e)} noValidate>
         <PersonFields id="signup" name={name} setName={setName} email={email} setEmail={setEmail} password={password} setPassword={setPassword} busy={busy} />
         <div>
@@ -68,7 +79,6 @@ export default function SignUpPage(): JSX.Element {
         {said && <p role="alert" className={ERR} data-testid="account-signup-error">{said}</p>}
         <Button type="submit" disabled={busy || name.trim() === '' || email.trim() === '' || password === ''} data-testid="account-signup-go">{busy ? 'Creating…' : 'Create account'}</Button>
       </form>
-      {linked && <p className={BODY}><button type="button" className={LINK} onClick={() => setFresh(true)}>Make a separate account instead</button></p>}
       <p className={META}>Already have an account? <Link to="/signin" className={LINK}>Sign in</Link></p>
     </GuestFrame>
   )

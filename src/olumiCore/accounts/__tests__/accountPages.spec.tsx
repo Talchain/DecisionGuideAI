@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { setPagePerson, setTeamFetch } from '../../team/api'
+import { NOT_FOR_THIS_PAGE, setPagePerson, setTeamFetch } from '../../team/api'
 import { nav } from '../api'
 import { useCanvasStore } from '../../../canvas/store'
 import SignInPage from '../SignInPage'
@@ -39,6 +39,7 @@ const at = (path: string, page: JSX.Element, route = path) => render(
     <Routes>
       <Route path={route} element={page} />
       <Route path="/signin" element={<div data-testid="at-signin" />} />
+      <Route path="/signed-out" element={<div data-testid="at-signed-out" />} />
       <Route path="/canvas" element={<div data-testid="at-canvas" />} />
       <Route path="/scenario/:id" element={<div data-testid="at-scenario" />} />
     </Routes>
@@ -70,6 +71,24 @@ describe('sign in', () => {
 })
 
 describe('sign up', () => {
+  it('names no invitation until core has answered, and not when it could not answer; it never shows the form to a person nothing signed in', async () => {
+    let release: (() => void) | undefined
+    setTeamFetch((async () => { await new Promise<void>((r) => { release = r }); return new Response(JSON.stringify({ me: null }), { status: 200 }) }) as typeof fetch)
+    at('/signup', <SignUpPage />)
+    expect(screen.getByTestId('account-signup-loading').textContent).toContain('Loading…')
+    expect(screen.queryByTestId('account-signup-invitation')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/invitation/)
+    await act(async () => { release?.() })
+    await screen.findByTestId('account-signup-invitation')
+    expect(screen.getByText(/ask the person who invited you/)).toBeTruthy()
+    expect(screen.queryByTestId('account-signup-go')).toBeNull()
+    cleanup()
+    setTeamFetch((async () => new Response(JSON.stringify({ error: 'boom' }), { status: 503 })) as typeof fetch)
+    at('/signup', <SignUpPage />)
+    expect((await screen.findByRole('alert')).textContent).toContain('boom')
+    expect(screen.queryByTestId('account-signup-invitation')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/invitation/)
+  })
   it('a person signed in by a private link adds an email and password to that same person (attach), their name filled in', async () => {
     core((m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null } }
       : m === 'POST' && p === '/api/account/signup' ? { status: 201, body: { me: { id: '3', name: 'Sam' }, account: OWNER } } : undefined)
@@ -83,6 +102,30 @@ describe('sign up', () => {
     await waitFor(() => expect(land).toHaveBeenCalledTimes(1))
     expect(posts().at(-1)).toEqual({ method: 'POST', path: '/api/account/signup', body: { name: 'Sam', email: 'sam@example.com', password: 'sam-password-1', attach: true } })
     expect(document.body.textContent).not.toMatch(NEVER)
+  })
+})
+
+describe('no open sign-up without an invitation', () => {
+  it('signed out, /signup says accounts start from an invitation and draws no form and no way to submit one; Sign in stays', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: null } } : undefined)
+    at('/signup', <SignUpPage />)
+    const page = await screen.findByTestId('account-signup-invitation')
+    expect(page.textContent).toContain('Olumi accounts start from an invitation')
+    expect(page.textContent).toContain('Open the link you were given, then add an email and password.')
+    expect(screen.queryByTestId('account-signup-go')).toBeNull()
+    expect(screen.queryByLabelText('Email')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
+    expect(posts()).toEqual([])
+  })
+  it('the sign-in page offers no Create an account; a linked person\'s form has no "Make a separate account"', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: { id: '3', name: 'Sam' }, account: null } } : undefined)
+    at('/signin', <SignInPage />)
+    expect(screen.queryByRole('link', { name: 'Create an account' })).toBeNull()
+    expect(screen.getByText('Have a private link from a colleague? Open it and you are in.')).toBeTruthy()
+    cleanup()
+    at('/signup', <SignUpPage />)
+    await screen.findByTestId('account-signup-go')
+    expect(screen.queryByRole('button', { name: 'Make a separate account instead' })).toBeNull()
   })
 })
 
@@ -171,6 +214,74 @@ describe('the account page', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('account-password-go')) })
     expect((await screen.findByTestId('account-password-said')).textContent).toBe('Password changed. Signed out of 2 other browsers.')
     expect(posts().map((x) => [x.path, x.body])).toEqual([['/api/account/name', { name: 'Ana Diaz' }], ['/api/account/password', { current: 'old-password-1', next: 'new-password-2' }]])
+  })
+})
+
+describe('Terms, Privacy and Delete my data on the signed-in pages', () => {
+  const NOTICES = [['Terms', '/terms'], ['Privacy', '/privacy']] as const
+  it('My scenarios, Organisation and Account each link to Terms and Privacy', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } }
+      : p === '/api/account/scenarios' ? { body: { you_id: ANA.id, scenarios: [] } }
+      : p === '/api/org' ? { body: { org: { id: OWNER.org.id, name: 'Northwind' }, you: { id: ANA.id, role: 'owner' }, members: [] } }
+      : p === '/api/org/invites' ? { body: { you_id: ANA.id, invites: [] } } : undefined)
+    for (const [path, page] of [['/', <MyScenariosPage />], ['/organisation', <OrganisationPage />], ['/account', <AccountPage />]] as const) {
+      at(path, page, path)
+      await waitFor(() => expect(screen.getByTestId('account-who')).toBeTruthy())
+      for (const [label, href] of NOTICES) expect(screen.getByRole('link', { name: label }).getAttribute('href')).toBe(href)
+      cleanup()
+    }
+  })
+  const deleteCore = (me: { id: string; name: string }, account: unknown, onDelete?: (confirm: unknown) => void) => core((m, p, b) => p === '/api/me' ? { body: { me, account } }
+    : m === 'POST' && p === '/api/me/delete' ? (() => { const c = (b as { confirm: unknown }).confirm; onDelete?.(c)
+      return c === null ? { body: { preview: true, scenarios: [], sign_in: 1, words: ['Your sign-in link stops working.'] } } : { body: { deleted: true } } })() : undefined)
+  it('the Account page offers Delete my data to an account holder and to a private-link person: the same dialog (core\'s preview first), and confirming deletes and lands on the signed-out page', async () => {
+    for (const account of [OWNER, null]) {
+      asked = []
+      deleteCore(ANA, account)
+      at('/account', <AccountPage />)
+      const open = await screen.findByTestId('account-delete-my-data')
+      expect(open.textContent).toBe('Delete my data')
+      await act(async () => { fireEvent.click(open) })
+      const dialog = await screen.findByTestId('olumi-core-delete-dialog')
+      expect(dialog.textContent).toContain('Delete your data?')
+      expect(posts().map((x) => x.body)).toEqual([{ confirm: null }])
+      await act(async () => { fireEvent.click(await screen.findByTestId('olumi-core-delete-confirm')) })
+      await screen.findByTestId('at-signed-out')
+      expect(posts().map((x) => x.body)).toEqual([{ confirm: null }, { confirm: 'delete my data' }])
+      cleanup()
+    }
+  })
+  it('the section line says nothing about what deleting removes (that is core\'s to say, in the dialog)', async () => {
+    deleteCore(ANA, OWNER)
+    at('/account', <AccountPage />)
+    const section = await screen.findByTestId('account-your-data')
+    expect(section.textContent).not.toMatch(/remove/i)
+    expect(section.textContent).toContain('Olumi shows you what deleting would do before anything is deleted.')
+  })
+  it('Cancel and Escape give the focus back to the Delete my data button', async () => {
+    deleteCore(ANA, OWNER)
+    at('/account', <AccountPage />)
+    const open = await screen.findByTestId('account-delete-my-data')
+    for (const close of ['cancel', 'escape'] as const) {
+      await act(async () => { fireEvent.click(open) })
+      const dialog = await screen.findByTestId('olumi-core-delete-dialog')
+      if (close === 'cancel') await act(async () => { fireEvent.click(screen.getByTestId('olumi-core-delete-cancel')) })
+      else await act(async () => { fireEvent.keyDown(dialog, { key: 'Escape' }) })
+      await waitFor(() => expect(screen.queryByTestId('olumi-core-delete-dialog')).toBeNull())
+      expect(document.activeElement).toBe(open)
+    }
+  })
+  it('the page\'s person is Ana: if another tab signed this browser in as Bo, Delete my data is refused and nothing is deleted', async () => {
+    let cookie = ANA
+    core((m, p, b) => p === '/api/me' ? { body: { me: cookie, account: OWNER } }
+      : m === 'POST' && p === '/api/me/delete' ? { body: (b as { confirm: unknown }).confirm === null ? { preview: true, scenarios: [], sign_in: 1, words: ['x'] } : { deleted: true } } : undefined)
+    at('/account', <AccountPage />)
+    const open = await screen.findByTestId('account-delete-my-data')
+    cookie = BO // another tab, after this page drew
+    await act(async () => { fireEvent.click(open) })
+    expect((await screen.findByTestId('olumi-core-delete-error')).textContent).toBe(NOT_FOR_THIS_PAGE)
+    expect(posts()).toEqual([])
+    expect(screen.queryByTestId('olumi-core-delete-confirm')).toBeNull()
   })
 })
 

@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
+import { DeleteMyDataDialog } from '../DeleteMyDataDialog'
 import { useMe } from '../me'
 import { TeamApiError } from '../team/api'
 import { accountsApi } from './api'
@@ -12,6 +13,12 @@ const said = (e: unknown, otherwise: string) => (e instanceof TeamApiError ? e.m
 /** THE ACCOUNT PAGE (core `/api/account*`): the person's name, their email and organisation, and a new password. */
 export default function AccountPage(): JSX.Element {
   const who = useWho()
+  const navigate = useNavigate()
+  const [deleting, setDeleting] = useState(false)
+  // A cancelled dialog gives the focus back to the button that opened it, once the dialog (and its focus trap) has gone.
+  const openDelete = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; openDelete.current?.focus() } }, [deleting])
   const [name, setName] = useState('')
   const [named, setNamed] = useState<string | null>(null)
   const [nameSaid, setNameSaid] = useState<string | null>(null)
@@ -43,41 +50,52 @@ export default function AccountPage(): JSX.Element {
   }
   return (
     <SignedInFrame who={who} title="Your account" testid="account-page">
-      {(w) => !w.account ? (
-        <p className={`${CARD} ${BODY}`} data-testid="account-no-account">
-          You are signed in as <b>{w.me.name}</b> with a private link. <Link to="/signup" className={LINK}>Add an email and password</Link> to sign in from any browser.
-        </p>
-      ) : (
+      {(w) => (
         <>
-          <form className={`${CARD} grid gap-3`} onSubmit={(e) => void rename(e)} aria-label="Your name">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Your name</h2>
-            <div>
-              <label htmlFor="account-name" className={LABEL}>Name, as your colleagues see it</label>
-              <input id="account-name" autoComplete="name" className={FIELD} value={name} onChange={(e) => { setName(e.target.value); setNamed(null) }} disabled={busy} data-testid="account-name" />
-            </div>
-            {nameSaid && <p role="alert" className={ERR}>{nameSaid}</p>}
-            {named && <p role="status" className={META} data-testid="account-name-saved">Saved. Your colleagues now see {named}.</p>}
-            <div><Button type="submit" disabled={busy || name.trim() === '' || name.trim() === (named ?? w.me.name)} data-testid="account-name-go">Save name</Button></div>
-          </form>
-          <section className={`${CARD} grid gap-1`} aria-label="Sign-in">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Sign-in</h2>
-            <p className={BODY}>Email: <span data-testid="account-email">{w.account.email}</span></p>
-            <p className={BODY}>Organisation: <Link to="/organisation" className={LINK}>{w.account.org.name}</Link> ({w.account.org.role === 'owner' ? 'owner' : 'member'})</p>
+          {!w.account ? (
+            <p className={`${CARD} ${BODY}`} data-testid="account-no-account">
+              You are signed in as <b>{w.me.name}</b> with a private link. <Link to="/signup" className={LINK}>Add an email and password</Link> to sign in from any browser.
+            </p>
+          ) : (
+            <>
+              <form className={`${CARD} grid gap-3`} onSubmit={(e) => void rename(e)} aria-label="Your name">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Your name</h2>
+                <div>
+                  <label htmlFor="account-name" className={LABEL}>Name, as your colleagues see it</label>
+                  <input id="account-name" autoComplete="name" className={FIELD} value={name} onChange={(e) => { setName(e.target.value); setNamed(null) }} disabled={busy} data-testid="account-name" />
+                </div>
+                {nameSaid && <p role="alert" className={ERR}>{nameSaid}</p>}
+                {named && <p role="status" className={META} data-testid="account-name-saved">Saved. Your colleagues now see {named}.</p>}
+                <div><Button type="submit" disabled={busy || name.trim() === '' || name.trim() === (named ?? w.me.name)} data-testid="account-name-go">Save name</Button></div>
+              </form>
+              <section className={`${CARD} grid gap-1`} aria-label="Sign-in">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Sign-in</h2>
+                <p className={BODY}>Email: <span data-testid="account-email">{w.account.email}</span></p>
+                <p className={BODY}>Organisation: <Link to="/organisation" className={LINK}>{w.account.org.name}</Link> ({w.account.org.role === 'owner' ? 'owner' : 'member'})</p>
+              </section>
+              <form className={`${CARD} grid gap-3`} onSubmit={(e) => void change(e)} aria-label="Change password">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Change password</h2>
+                <div>
+                  <label htmlFor="account-current" className={LABEL}>Current password</label>
+                  <input id="account-current" type="password" autoComplete="current-password" className={FIELD} value={current} onChange={(e) => setCurrent(e.target.value)} disabled={busy} />
+                </div>
+                <div>
+                  <label htmlFor="account-next" className={LABEL}>New password</label>
+                  <input id="account-next" type="password" autoComplete="new-password" className={FIELD} value={next} onChange={(e) => setNext(e.target.value)} disabled={busy} />
+                  <p className={`${META} mt-1`}>At least 8 characters. Your other browsers are signed out; this one stays signed in.</p>
+                </div>
+                {pwSaid && <p role={pwSaid.ok ? 'status' : 'alert'} className={pwSaid.ok ? META : ERR} data-testid="account-password-said">{pwSaid.text}</p>}
+                <div><Button type="submit" disabled={busy || current === '' || next === ''} data-testid="account-password-go">Change password</Button></div>
+              </form>
+            </>
+          )}
+          {/* The same dialog the scenario's person menu opens: core's own sentences first, nothing deleted unread. */}
+          <section className={`${CARD} grid gap-2`} aria-label="Your data" data-testid="account-your-data">
+            <h2 className={`${typography.h5} text-text-header m-0`}>Your data</h2>
+            <p className={BODY}>Olumi shows you what deleting would do before anything is deleted.</p>
+            <div><Button ref={openDelete} variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
           </section>
-          <form className={`${CARD} grid gap-3`} onSubmit={(e) => void change(e)} aria-label="Change password">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Change password</h2>
-            <div>
-              <label htmlFor="account-current" className={LABEL}>Current password</label>
-              <input id="account-current" type="password" autoComplete="current-password" className={FIELD} value={current} onChange={(e) => setCurrent(e.target.value)} disabled={busy} />
-            </div>
-            <div>
-              <label htmlFor="account-next" className={LABEL}>New password</label>
-              <input id="account-next" type="password" autoComplete="new-password" className={FIELD} value={next} onChange={(e) => setNext(e.target.value)} disabled={busy} />
-              <p className={`${META} mt-1`}>At least 8 characters. Your other browsers are signed out; this one stays signed in.</p>
-            </div>
-            {pwSaid && <p role={pwSaid.ok ? 'status' : 'alert'} className={pwSaid.ok ? META : ERR} data-testid="account-password-said">{pwSaid.text}</p>}
-            <div><Button type="submit" disabled={busy || current === '' || next === ''} data-testid="account-password-go">Change password</Button></div>
-          </form>
+          {deleting && <DeleteMyDataDialog onCancel={() => { refocus.current = true; setDeleting(false) }} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
         </>
       )}
     </SignedInFrame>
