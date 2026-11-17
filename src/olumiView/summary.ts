@@ -28,6 +28,20 @@ export type Summary = {
 }
 
 export type SummaryFormat = 'json' | 'md' | 'html'
+
+/**
+ * Whether core's Summary has something for this scenario (Codex UI review 07:33:31Z; sx-methods' working notes, 07:13Z): a saved version, or, with none
+ * yet (a scenario started in words, or a first model still held), working notes core prints on the same route: ideas kept (`kept`), views shared
+ * (`collab.shared`), actions committed to (`collab.commitments`). Nothing of those and no version: no entry, rather than an empty page. The Summary's
+ * own pinning (the version on screen, the version read) is unchanged; with no version it reads the latest, `at` absent.
+ */
+export function summaryReachable(view: { version?: unknown; kept?: unknown; collab?: unknown } | null): boolean {
+  if (view === null) return false
+  if (view.version != null) return true
+  const has = (x: unknown) => Array.isArray(x) && x.length > 0
+  const collab = (view.collab ?? null) as { shared?: unknown; commitments?: unknown } | null
+  return has(view.kept) || has(collab?.shared) || has(collab?.commitments)
+}
 /** `at`: one saved version's Summary (as `view?at=n`); null: the latest saved version. */
 export function summaryPath(sid: string, at: number | null = null, format: SummaryFormat = 'json'): string {
   const q = new URLSearchParams()

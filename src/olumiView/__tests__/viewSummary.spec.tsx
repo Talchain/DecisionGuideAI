@@ -155,6 +155,26 @@ describe('the top bar\'s Summary on the lane', () => {
     render(<MemoryRouter><ToastProvider><TopBar scenarioTitle="T" onTitleChange={vi.fn()} onSave={vi.fn()} onShare={vi.fn()} /></ToastProvider></MemoryRouter>)
     expect(screen.queryByTestId('summary-trigger')).toBeNull()
   })
+  it('working notes before any saved version (a words start: ideas kept, views shared, an action committed to): the Summary is there, read at the latest', async () => {
+    const notesOnly = { ...(europeanSummary as unknown as Summary), version: null }
+    const asked: string[] = []
+    setTeamFetch((async (path: string) => { asked.push(path); return new Response(JSON.stringify(notesOnly), { status: 200 }) }) as unknown as typeof fetch)
+    const v = european as unknown as View
+    const words = (over: Record<string, unknown>) => ({ ...v, model: null, version: null, proposal: null, kept: [], ...over }) as unknown as View
+    bar(words({ kept: [{ id: 7, turn: 3, text: 'An invented kept idea.', by: 'olumi', kept_by: { id: 'p', name: 'Tester' } }] }))
+    fireEvent.click(screen.getByTestId('summary-trigger'))
+    await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
+    expect(asked).toEqual([`/api/scenarios/${SID}/summary`])
+    expect(screen.getByTestId('summary-download').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?format=md`)
+    expect(screen.getByTestId('summary-print').getAttribute('href')).toBe(`/api/scenarios/${SID}/summary?format=html`)
+    // A shared view or a commitment is working notes too; nothing of them and no version: no control (the contrast below keeps that).
+    for (const collab of [{ ...v.collab, shared: [{ id: 1 }] }, { ...v.collab, commitments: [{ id: 1 }] }]) {
+      cleanup(); bar(words({ collab }))
+      expect(screen.getByTestId('summary-trigger'), JSON.stringify(Object.keys(collab))).toBeTruthy()
+    }
+    cleanup(); bar(words({ collab: { ...v.collab, shared: [], commitments: [] } }))
+    expect(screen.queryByTestId('summary-trigger')).toBeNull()
+  })
   it('the exports are pinned to the version read: a newer save between the read and the click never exports another version', async () => {
     const at3 = { ...(europeanSummary as unknown as Summary), version: { id: 3, n: 3, at: '2026-11-03T00:00:00.000Z', by: 'Paul' } }
     setTeamFetch((async () => new Response(JSON.stringify(at3), { status: 200 })) as unknown as typeof fetch)

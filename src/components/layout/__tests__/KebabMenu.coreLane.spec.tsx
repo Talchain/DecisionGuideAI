@@ -60,6 +60,12 @@ describe('on the lane', () => {
     expect(names()).toEqual(['Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
   })
 
+  it('working notes and no saved model (a words start with a kept idea): Export is offered at the latest; Version history is not', () => {
+    show({ view: { title: 'x', version: null, kept: [{ id: 7, turn: 3, text: 'An invented kept idea.' }] } as never }); renderKebab()
+    expect(names()).toEqual(['Rename', 'Export summary', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
+    expect(screen.getByTestId('kebab-export-core')).toHaveAttribute('href', `/api/scenarios/${SID}/summary?format=md`)
+  })
+
   it('Snapshots opens the version history panel', () => {
     show(); renderKebab()
     fireEvent.click(screen.getByTestId('kebab-snapshots-core'))

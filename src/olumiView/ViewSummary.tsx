@@ -12,7 +12,7 @@ import Tooltip from '../components/Tooltip'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
 import { useMe } from '../olumiCore/me'
-import { readSummary, summaryGroups, summaryPath, type Summary, type SummaryBlock, type SummaryPart } from './summary'
+import { readSummary, summaryGroups, summaryPath, summaryReachable, type Summary, type SummaryBlock, type SummaryPart } from './summary'
 
 export const SUMMARY_DOWNLOAD_LABEL = 'Download Markdown'
 export const SUMMARY_PRINT_LABEL = 'Print or save as PDF'
@@ -111,13 +111,14 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
   )
 }
 
-/** The top bar's Summary control on the lane: shown once core holds a saved version of this scenario; opens the page. Its tooltip wraps
+/** The top bar's Summary control on the lane: shown once core holds a saved version of this scenario, or working notes before one; opens the page. Its tooltip wraps
  *  the button alone: the page is portalled from here, and React carries a portal's focus and pointer events up to the tooltip around it,
  *  so a tooltip around both opened over the page whenever a control inside it took focus (a real Chromium, 7 Nov). */
 export function ViewSummaryTrigger({ className = '', tooltip = null }: { className?: string; tooltip?: string | null }) {
   const sid = useViewStore((s) => s.sid)
   const at = useViewStore((s) => s.at)
-  const saved = useViewStore((s) => s.view !== null && s.view.version !== null)
+  // A saved version, or core's working notes for a scenario with none yet (summaryReachable): never an empty page.
+  const saved = useViewStore((s) => summaryReachable(s.view))
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   // A page opened for one scenario is closed when the scenario changes, never kept open behind a control that is not there.
