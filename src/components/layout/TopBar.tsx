@@ -295,7 +295,7 @@ export const TopBar = ({
               {scenarioTitle}
             </span>
             <span
-              className="text-xs text-text-light px-2 py-0.5 rounded-pill border border-[rgba(38,38,38,0.16)] whitespace-nowrap"
+              className="text-xs text-text-light px-2 py-0.5 rounded-pill border border-border-emphasis whitespace-nowrap"
               data-testid="topbar-view-only"
             >
               View only · shared with you

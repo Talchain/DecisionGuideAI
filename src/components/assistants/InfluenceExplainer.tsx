@@ -31,9 +31,14 @@ interface InfluenceExplainerProps {
    * Whether to show in compact mode (just the summary)
    */
   compact?: boolean
+  /**
+   * 'panel' draws the explainer on the panel tokens in plain words (the V12 lane's help toast).
+   * The default keeps the original sky look and wording for every other canvas.
+   */
+  variant?: 'default' | 'panel'
 }
 
-export function InfluenceExplainer({ forceShow = false, onDismiss, compact = false }: InfluenceExplainerProps) {
+export function InfluenceExplainer({ forceShow = false, onDismiss, compact = false, variant = 'default' }: InfluenceExplainerProps) {
   const [isDismissed, setIsDismissed] = useState(() => {
     try {
       const storage = getSafeLocalStorage()
@@ -69,6 +74,32 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
 
   if (isDismissed) {
     return null
+  }
+
+  if (variant === 'panel') {
+    return (
+      <div
+        className="w-full rounded-lg border border-panel-border bg-panel p-3 font-sans text-text-body shadow-panel"
+        role="region"
+        aria-label="Influence model explanation"
+        data-testid="influence-explainer-panel"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className={`${typography.label} text-text-header`}>How influence works</h3>
+          <button
+            onClick={handleDismiss}
+            className="shrink-0 rounded p-0.5 text-text-light transition-colors hover:bg-panel-hover hover:text-text-header"
+            aria-label="Dismiss explanation"
+            title="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+        <p className={`mt-1.5 ${typography.caption} text-text-body`}>
+          Factors are the things that matter, links show what moves what, and the number shows how strongly and in which direction.
+        </p>
+      </div>
+    )
   }
 
   return (

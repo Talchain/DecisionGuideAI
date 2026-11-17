@@ -43,7 +43,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
         </ul>
         {sensitivity === null ? null : (
           <p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap-1.5`} title={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
-            <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(130,120,187,0.55)] bg-[rgba(130,120,187,0.18)]" />
+            <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-option/55 bg-option/20" />
             <span>{sensitivity.text}</span>
           </p>
         )}

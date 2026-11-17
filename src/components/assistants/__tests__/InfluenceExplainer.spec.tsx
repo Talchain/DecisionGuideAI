@@ -574,4 +574,17 @@ describe('InfluenceExplainer', () => {
       expect(screen.getByTestId('should-show')).toHaveTextContent('false')
     })
   })
+
+  describe('Panel variant (v10 review item 1)', () => {
+    it('keeps the default sky look off the V12 lane and draws panel tokens only when asked', () => {
+      const { unmount } = render(<InfluenceExplainer compact />)
+      expect(screen.getByRole('region').className).toMatch(/bg-sky-50/)
+      expect(screen.queryByTestId('influence-explainer-panel')).toBeNull()
+      unmount()
+      render(<InfluenceExplainer compact variant="panel" />)
+      expect(screen.getByTestId('influence-explainer-panel').className).not.toMatch(/sky-/)
+      fireEvent.click(screen.getByLabelText('Dismiss explanation'))
+      expect(screen.queryByTestId('influence-explainer-panel')).toBeNull()
+    })
+  })
 })
