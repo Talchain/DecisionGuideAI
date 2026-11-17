@@ -1,0 +1,89 @@
+/**
+ * The canvas's side of the camera port (cameraPort.ts), written here so that the whole of it is this folder's own, typed and tested, and
+ * the canvas owner's hunk is only two things: `showHolds()` read where the board's own framing already reads "the person holds the
+ * camera", and one registration:
+ *
+ *   useEffect(() => registerShowCameraPort(makeShowCameraPort({ getViewport, setViewport, getInternalNode, userMoved, hand, fit })), [...])
+ *
+ * What each member needs of the canvas is the `CanvasSide` below: React Flow's own three camera calls and the three things only the
+ * canvas knows (whether the person holds the camera, the one function every person-made move goes through, and its own framing).
+ */
+import { takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
+import { QUESTION, VIEW_CARD, boardOf, freePane, useCanvasStore, useViewStore, viewLaying } from './deps'
+
+export interface CanvasSide {
+  getViewport(): Viewport
+  setViewport(to: Viewport, opts: { duration: number }): unknown
+  getInternalNode(id: string): { readonly measured: { readonly width?: number; readonly height?: number }; readonly internals: { readonly positionAbsolute: { readonly x: number; readonly y: number } } } | undefined
+  /** Whether the person holds the camera (the canvas's `userMoved`): the board does not refit under a camera that is held. */
+  readonly userMoved: { current: boolean }
+  /** Every control that moves the camera for the person says so through this one function (the canvas's `hand`): pending pans stand down. */
+  hand(): void
+  /** The board's own framing of the board on screen (the canvas's `fit`). */
+  fit(): unknown
+}
+
+const frame = (f: () => void): void => { if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => f()); else setTimeout(f, 16) }
+
+/**
+ * Where everything the View now draws stands on the canvas, as one string: null while any card the View draws is missing or unmeasured,
+ * or while the canvas still holds a card the View no longer draws. The camera is part of it, so a move still easing is not "settled".
+ */
+function placesOf(c: CanvasSide): string | null {
+  const model = useViewStore.getState().view?.model ?? null
+  const wanted = model === null ? [] : [QUESTION, ...boardOf(model).model.cards.map((card) => card.id)]
+  const parts: string[] = []
+  for (const id of wanted) {
+    const n = c.getInternalNode(id)
+    if (n === undefined || !n.measured.width || !n.measured.height) return null
+    parts.push(`${id}@${n.internals.positionAbsolute.x},${n.internals.positionAbsolute.y},${n.measured.width},${n.measured.height}`)
+  }
+  const drawn = new Set(wanted)
+  if (useCanvasStore.getState().nodes.some((n) => n.type === VIEW_CARD && !drawn.has(n.id))) return null
+  const v = c.getViewport()
+  return `${parts.join('|')}#${v.x},${v.y},${v.zoom}`
+}
+
+export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
+  return {
+    capture: () => ({ viewport: c.getViewport(), held: c.userMoved.current }),
+    settled: (signal) => new Promise<boolean>((resolve) => {
+      if (signal.aborted) { resolve(false); return }
+      let last: string | null = null, over = false
+      const end = (ok: boolean): void => { if (over) return; over = true; signal.removeEventListener('abort', stop); resolve(ok) }
+      const stop = (): void => end(false)
+      signal.addEventListener('abort', stop, { once: true })
+      const tick = (): void => {
+        if (over) return
+        const here = placesOf(c)
+        if (here !== null && here === last && !viewLaying()) { end(true); return }
+        last = here
+        frame(tick)
+      }
+      frame(tick)
+    }),
+    boxOf: (ids): Box | null => {
+      if (ids.length === 0) return null
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      for (const id of ids) {
+        const n = c.getInternalNode(id)
+        if (n === undefined || !n.measured.width || !n.measured.height) return null
+        const at = n.internals.positionAbsolute
+        x0 = Math.min(x0, at.x); y0 = Math.min(y0, at.y); x1 = Math.max(x1, at.x + n.measured.width); y1 = Math.max(y1, at.y + n.measured.height)
+      }
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    },
+    pane: (): Pane | null => {
+      const el = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
+      return el === null ? null : freePane(el)
+    },
+    moveTo: (to, { duration }) => { c.userMoved.current = true; c.hand(); void c.setViewport(to, { duration }) },
+    refit: () => { c.userMoved.current = false; c.hand(); void c.fit() },
+    hold: () => {
+      const end = takeShowHold()
+      c.hand()
+      // Only a run nothing newer overtook says who holds the camera afterwards: an overtaken one (null) ends its hold and writes nothing.
+      return (held) => { if (end() && held !== null) c.userMoved.current = held }
+    },
+  }
+}

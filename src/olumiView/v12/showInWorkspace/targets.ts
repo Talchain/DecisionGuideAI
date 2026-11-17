@@ -26,7 +26,8 @@
  * still inside an open badge is its host (4a). A second pass that still asks for a badge means the unfolding did not land: the caller
  * stops there and says so, it does not loop.
  */
-import { QUESTION, drawnModelOf, inputIdsOf, inputsFolded, layerEntries, linkCards, marksOf, type LayerId, type View, type ViewModel, type ViewTurn } from './deps'
+import type { Box, Pane, Viewport } from './cameraPort'
+import { QUESTION, causalPathOf, drawnModelOf, failureStoriesOf, inputIdsOf, inputsFolded, layerEntries, linkCards, marksOf, type LayerId, type View, type ViewLens, type ViewModel, type ViewTurn } from './deps'
 
 export type Next = NonNullable<ViewTurn['answer']>['next']
 
@@ -102,7 +103,8 @@ export function planShow(view: View | null, next: Next | null, board: BoardNow):
   const asLinks = linkCards(model)
   const folded = board.level === 'simple' && inputsFolded(board.sid, drawn, board.inputsOpen)
   const foldedInputs = folded ? new Set(inputIdsOf(drawn)) : new Set<string>()
-  const badges = badgesOf(model)
+  // Only a badge the board can show: the question's, or a drawn card's. A relation the board draws as a link is no card to open a badge on.
+  const badges = badgesOf(model).filter((h) => h.id === QUESTION || onBoard.has(h.id))
   /** The drawn cards that name a record as a premise, as hosts (rule 5). */
   const premiseHosts: Host[] = []
   model.cards.forEach((c, i) => {
@@ -162,4 +164,42 @@ export function layerFor(view: View | null, active: LayerId, cards: readonly str
   const m = marksOf(view, active)
   if (m === null || !m.dim) return active
   return cards.some((id) => id !== QUESTION && !m.on.has(id)) ? 'full' : active
+}
+
+/**
+ * Whether the lens that is on sets any of these cards back. Only "If it failed" does (lens.ts `usePreMortemOf`): with Olumi's failure
+ * stories shown, every card no story rests on is drawn faint. A gate core says is closed shows no story, so nothing is set back; a View
+ * with no gate state at all is read as open, the careful side (stepping the lens aside is undone on return).
+ */
+export function lensSetsBack(view: View | null, lens: ViewLens, cards: readonly string[]): boolean {
+  const model = view?.model ?? null
+  if (view === null || model === null || lens !== 'premortem') return false
+  if (view.session?.pre_mortem?.state === 'closed') return false
+  const stories = failureStoriesOf(model)
+  return stories.length > 0 && cards.some((id) => !stories.some((s) => s.cards.some((c) => c.id === id)))
+}
+
+/**
+ * Whether the card selected sets any of these cards back. In Simple a selected card dims every card off its causal path (ViewCanvas, with
+ * `causalPathOf`); Detailed dims none, and a selected card with no causal neighbour dims none.
+ */
+export function selectionSetsBack(model: ViewModel | null, level: 'simple' | 'working', selected: string | null, cards: readonly string[]): boolean {
+  if (model === null || level !== 'simple' || selected === null) return false
+  const path = causalPathOf(drawnModelOf(model), selected)
+  return path !== null && cards.some((id) => id !== QUESTION && !path.has(id))
+}
+
+/**
+ * Where the camera goes so that the whole of `box` is in the free canvas: null when it all is already (nothing moves). Centred on the
+ * cards at the person's own zoom, lowered only as far as the cards need to fit and never raised. There is no floor: the person asked to
+ * see these cards, so a zoom at which some of them stay out of view is never chosen.
+ */
+export function cameraFor(box: Box, pane: Pane, v: Viewport): Viewport | null {
+  const i = pane.inset, pad = 24
+  const fw = pane.size.w - i.left - i.right, fh = pane.size.h - i.top - i.bottom
+  const sx = box.x * v.zoom + v.x, sy = box.y * v.zoom + v.y
+  if (sx >= i.left && sy >= i.top && sx + box.w * v.zoom <= pane.size.w - i.right && sy + box.h * v.zoom <= pane.size.h - i.bottom) return null
+  const zoom = Math.min(v.zoom, (fw - 2 * pad) / box.w, (fh - 2 * pad) / box.h)
+  if (!(zoom > 0)) return null // no free canvas to show them in
+  return { x: i.left + fw / 2 - (box.x + box.w / 2) * zoom, y: i.top + fh / 2 - (box.y + box.h / 2) * zoom, zoom }
 }
