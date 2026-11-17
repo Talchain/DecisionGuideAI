@@ -66,6 +66,19 @@ describe('an empty scenario on the lane opens on the brief', () => {
     expect(screen.getByLabelText('Your brief')).toBe(document.activeElement)
   })
 
+  it('v11 item D: with no model the strip draws the Olumi tab alone; once view.model exists the other tabs are drawn (by id)', async () => {
+    lane.on = true
+    const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+    useViewStore.setState({ view: { ...view, model: null }, sid: view.id, status: 'ready' })
+    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
+    await dock()
+    expect(screen.getByTestId('outputs-dock-tab-olumi')).toBeInTheDocument()
+    for (const id of ['results', 'analysisNew', 'compare', 'diagnostics', 'team']) expect(screen.queryByTestId(`outputs-dock-tab-${id}`), id).toBeNull()
+    await act(async () => { useViewStore.setState({ view, sid: view.id, status: 'ready' }); await new Promise((r) => setTimeout(r, 30)) })
+    expect(screen.getByTestId('outputs-dock-tab-diagnostics')).toBeInTheDocument()
+    expect(screen.getByTestId('outputs-dock-tab-olumi')).toBeInTheDocument()
+  })
+
   it('on the lane: even when this session last left the dock closed on another tab', async () => {
     lane.on = true
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: false, activeTab: 'results' }))

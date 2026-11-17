@@ -819,6 +819,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // The olumi-core lane's View (olumi.view/2): read for this scenario (src/olumiView/follow.ts); the canvas, the chat and the Team tab
   // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(shownModel)
+  // v11 item D: before a scenario has any model, the other tabs show nothing yet, so only Olumi is drawn. "Has a model" is view.model only.
+  // A View still loading (view null) keeps the tabs, so a reload never drops the person's remembered tab while it lands.
+  const coreNoModel = useViewStore((s) => s.view !== null && (s.view.model?.cards.length ?? 0) === 0)
+  const coreEmpty = isOlumiCoreLane() && coreNoModel
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
@@ -2843,12 +2847,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // OUTPUT_TABS computed per render so a localStorage flag flip is picked
   // up on the next re-render without requiring a module reload.
   const OUTPUT_TABS = useMemo<WorkspaceSurfaceDescriptor[]>(
-    () => getOutputTabsForParity(),
+    () => (coreEmpty ? getOutputTabsForParity().filter(t => t.id === 'olumi') : getOutputTabsForParity()),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
     // No `isJourneyTabEnabled()` here: `getOutputTabsForParity` no longer reads
     // it (journey is hidden by contract), so listing it would re-run this memo
     // on a value the computation cannot consume.
-    [aiPanelV2On, isCompareTabEnabled()],
+    [aiPanelV2On, isCompareTabEnabled(), coreEmpty],
   )
 
   // ── Shell width, published once, derived from the live element ────────────
