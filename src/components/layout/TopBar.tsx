@@ -524,9 +524,8 @@ export const TopBar = ({
         {/* J1 step 5: Share on the olumi-core lane is inviting someone into this scenario, which the Team tab does ("Invite a colleague"): it
             opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
         {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
-          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" aria-label="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
+          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" aria-label="Share" title="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
             <Share2 size={14} aria-hidden="true" />
-            <span>Share</span>
           </button>
         ) : null}
 
