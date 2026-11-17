@@ -7,13 +7,13 @@ Neither is applied by this lane. Each was checked with `git apply --cached --che
 
 1. Registers the camera port once while the canvas is on the page (`registerShowCameraPort(makeShowCameraPort({...}))`), next to `registerRevealReturnCamera`.
 2. The board's framing loop WAITS while `showHolds()` is true, then goes on as if it had just begun; a resize does not refit while it is true. Nothing is dropped: when the hold ends the board frames itself unless the camera is held.
-3. Checked against `51409d1109a0a32d46f2fb8e66bb5a182cb0dcec` (and `edbd5fda`, and the panel head below). `:280`'s reset of `userMoved` is untouched on purpose.
+3. Checked against `38ef5ce81145f576c6326b596b9004f86e20e6ca` (wip/v12-production-face; also applies to `51409d11` and `edbd5fda`). `:280`'s reset of `userMoved` is untouched on purpose.
 
 ## ENTRY-chat.patch — for sx-panel (`ViewChat.tsx`)
 
 1. One import and one line, `<ShowInWorkspace turn={t.id} next={t.answer.next} />`, directly after `<AboutChips cards={aboutCards} />` in `Turn`.
 2. The control draws nothing with no canvas on the page, or when nothing the reply names is in the reader's View; where it sits is the panel owner's call.
-3. Checked against `bd7a5898b878ab8c831baedd93a9ea18064ce484` (wip/sx-panel).
+3. Checked against `38ef5ce81145f576c6326b596b9004f86e20e6ca` (wip/v12-production-face, which now holds the panel successor) and `bd7a5898` (wip/sx-panel).
 
 ## What the canvas owner should know
 
