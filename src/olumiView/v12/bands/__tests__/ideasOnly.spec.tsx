@@ -157,3 +157,34 @@ describe('008e 2: an idea card is usable for the next thought', () => {
     expect(screen.queryByTestId('view-idea-panel')).toBeNull()
   })
 })
+
+describe('a kept idea draws its words as the conversation draws the reply (DL, pair v3: `**` and "## " showed raw on the card)', () => {
+  const MARKED = [row(43, 3, '**An invented lead.** Then the invented words follow.', SAM), row(44, 3, '## An invented heading', SAM)]
+  const card = (id: string) => document.querySelector<HTMLElement>(`[data-testid="view-idea-card"][data-view-idea="${id}"]`)!
+  it('catch: the card draws a bold run as weight, a lead-in as a quiet heading, no marks; at the board\'s type size, with no size of its own', () => {
+    show(noModel([...KEPT, ...MARKED])); mount()
+    const lead = card('kept:43'), heading = card('kept:44')
+    const text = (el: HTMLElement) => el.querySelector<HTMLElement>('[data-testid="view-idea-text"]')!
+    expect(text(lead).textContent).toBe('An invented lead. Then the invented words follow.')
+    expect([...text(lead).querySelectorAll('strong')].map((s) => s.textContent)).toEqual(['An invented lead.'])
+    expect(text(heading).textContent).toBe('An invented heading')
+    expect(text(heading).querySelector('[data-reply-lead-in]')?.textContent).toBe('An invented heading')
+    expect(lead.style.fontSize).toBe('calc(12px * var(--o-s, 1))')
+    expect([...text(lead).querySelectorAll('*')].filter((e) => /(^|\s)text-(xs|sm|base|lg)(\s|$)/.test(e.className))).toEqual([])
+    expect(lead.title).not.toMatch(/\*\*|##/)
+    expect(lead.title).toContain('An invented lead. Then the invented words follow.')
+  })
+  it('catch: the opened idea\'s panel draws the same words the same way', () => {
+    show(noModel([...KEPT, ...MARKED])); mount()
+    act(() => { useCanvasStore.getState().onNodesChange([{ type: 'select', id: `${IDEA_PREFIX}kept:43`, selected: true }]) })
+    const panelText = within(screen.getByTestId('view-idea-panel')).getByTestId('view-idea-panel-text')
+    expect(panelText.textContent).toBe('An invented lead. Then the invented words follow.')
+    expect(panelText.querySelector('strong')?.textContent).toBe('An invented lead.')
+  })
+  it('contrast: plain words are drawn verbatim, with no weight added', () => {
+    show(noModel([...KEPT, ...MARKED])); mount()
+    const plain = card('kept:41').querySelector<HTMLElement>('[data-testid="view-idea-text"]')!
+    expect(plain.textContent).toBe('Phone booked visitors first.')
+    expect(plain.querySelector('strong')).toBeNull()
+  })
+})

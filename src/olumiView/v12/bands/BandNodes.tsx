@@ -13,6 +13,7 @@ import { firstDraft, type CardKindName } from '../fields/fields'
 import { useViewStore } from '../../store'
 import { OlumiMark } from '../cards/marks'
 import { setGroupOpen, setInputsOpen } from './foldStore'
+import { ReplyBlocks, replyWordsOf } from '../../EarlyAnswer'
 import type { GroupKind } from './groups'
 
 export const VIEW_IDEA = 'viewIdea', VIEW_FOLD = 'viewFold'
@@ -33,10 +34,11 @@ export const ideaProvenance = (i: KeptIdea): string => `${i.olumis ? "Olumi's id
 export function IdeaCard({ data }: NodeProps) {
   const { idea, width } = data as { idea: KeptIdea; width: number }
   return (
-    <div data-view-idea={idea.id} data-testid="view-idea-card" title={`${ideaProvenance(idea)}\n${idea.text}`}
+    <div data-view-idea={idea.id} data-testid="view-idea-card" title={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
       className="relative rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {idea.olumis ? <span data-idea-mark="olumi" aria-label="Olumi's idea" role="img" className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-panel border border-panel-border"><Sparkles size={10} style={{ color: 'var(--semantic-info)' }} aria-hidden="true" /></span> : null}
-      <span className="block break-words">{idea.text}</span>
+      {/* The kept words as the conversation draws the reply they came from (DL, pair v3: the card showed `**` and "## " raw), at the board's type size. */}
+      <div className="space-y-1 break-words" data-testid="view-idea-text"><ReplyBlocks text={idea.text} /></div>
     </div>
   )
 }

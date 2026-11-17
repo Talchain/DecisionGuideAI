@@ -12,6 +12,7 @@ import { useViewStore } from '../../store'
 import { challengeQuestionOf, developQuestionOf, ideaMethodOf, ideaSourceSaidOf, keptIdeasOf, type KeptIdea } from '../ideas'
 import { IDEA_PREFIX } from './bands'
 import { VIEW_IDEA } from './BandNodes'
+import { ReplyBlocks } from '../../EarlyAnswer'
 
 export const DEVELOP_IDEA = 'Develop this idea', CHALLENGE_IDEA = 'Challenge this idea', CLOSE_IDEA = 'Close'
 /** Said where the message box takes words as a brief (core holds no model and no proposal): the question would start a brief, so the person is told. */
@@ -36,7 +37,8 @@ export function IdeaPanel(): JSX.Element | null {
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
       className={`${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded-md border border-panel-border bg-panel p-3 text-text-body`}>
-      <p data-testid="view-idea-panel-text">{idea.text}</p>
+      {/* The kept words as the conversation draws them (no `**` or "## " shown raw), as on the card. */}
+      <div className="space-y-1" data-testid="view-idea-panel-text"><ReplyBlocks text={idea.text} /></div>
       <div className={`${typography.viewPanelMeta} space-y-0.5 text-text-light`}>
         {idea.olumis ? <p data-testid="view-idea-panel-by">Olumi’s idea</p> : null}
         {source === null ? null : <p data-testid="view-idea-panel-source">{source}</p>}
