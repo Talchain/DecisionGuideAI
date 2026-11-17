@@ -10,6 +10,7 @@ import { useSimpleBudgetKey, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../c
 import { cardLinks, drawnModelOf } from '../../layout'
 import { cardGroupsOf } from '../bands/groups'
 import { useLaneInspector } from '../edit/inspectorStore'
+import { setGroupOpen } from '../bands/foldStore'
 import { useWhatIf } from '../../whatif'
 import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
@@ -103,6 +104,19 @@ describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals
     act(() => useWhatIf.setState({ shown: null }))
     await vi.waitFor(() => expect(drawn()).not.toContain('profitability'))
     expect(useViewStore.getState().view, 'the View never changed').toBe(before)
+  })
+  // v9 look (17 Nov): opening "2 more from Olumi" swapped option B and option A, because the options row took the layout's own x.
+  it('S1c the options read A, B, C left to right in core\'s option order, at rest and after Olumi\'s folded row is opened', async () => {
+    const options = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
+    expect(options.length, 'precondition: three options').toBe(3)
+    const leftToRight = () => [...useCanvasStore.getState().nodes].filter((n) => options.includes(n.id)).sort((a, b) => a.position.x - b.position.x).map((n) => n.id)
+    renderHook(() => useViewCanvas(true))
+    await vi.waitFor(() => expect(leftToRight()).toEqual(options))
+    const olumiRow = approvedGroups.find((g) => g.kind === 'olumi')!
+    act(() => setGroupOpen(SID, olumiRow.id))
+    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
+    expect(leftToRight(), 'after the open').toEqual(options)
+    act(() => setGroupOpen(SID, olumiRow.id, false))
   })
 })
 

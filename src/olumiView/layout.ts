@@ -251,7 +251,13 @@ async function simplePlaces(model: ViewModel, nodes: Node[], edges: Edge[], size
   // aims are not beside the outcomes. Within a band the previous layout's own order (its row, then across) is kept.
   const bandOfId = new Map<string, BandId>([...model.cards.map((c) => [c.id, bandOf(c, model)] as const), ...extras.map((e) => [e.id, e.band] as const)])
   const placeOf = (id: string) => at.get(id) ?? { x: Infinity, y: Infinity }
-  const bands = BAND_ORDER.map((b) => [...bandOfId].filter(([, k]) => k === b).map(([id]) => id).sort((a, c) => Math.round(placeOf(a).y) - Math.round(placeOf(c).y) || placeOf(a).x - placeOf(c).x)).filter((ids) => ids.length > 0)
+  // The options read A, B, C… left to right: core's option card order, the order their letters follow (v12/cards/letters.ts), never the layout's
+  // own x, which moves when a card elsewhere folds or opens (v9 look, 17 Nov: opening "2 more from Olumi" swapped option B and option A).
+  const cardAt = new Map(model.cards.map((c, i) => [c.id, i] as const))
+  const bands = BAND_ORDER.map((b) => {
+    const ids = [...bandOfId].filter(([, k]) => k === b).map(([id]) => id).sort((a, c) => Math.round(placeOf(a).y) - Math.round(placeOf(c).y) || placeOf(a).x - placeOf(c).x)
+    return b === 'options' ? [...ids].sort((a, c) => (cardAt.get(a) ?? Number.MAX_SAFE_INTEGER) - (cardAt.get(c) ?? Number.MAX_SAFE_INTEGER)) : ids
+  }).filter((ids) => ids.length > 0)
   const shapes = bands.map((b) => simpleBand(row, b.length))
   const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), simpleQuestionW(model, row))
   const scale = simpleScaleOf(boardW, row.roomW)
