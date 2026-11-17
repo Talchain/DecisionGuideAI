@@ -187,10 +187,12 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   // Codex 006 (what-if): Simple drew only the SAVED figure while a different one was being tried, so the card and the what-if disagreed with
   // nothing to say why. While a figure is tried, its card says so in place, and names the saved figure beside it.
   if (trying !== undefined && card.family !== 'option') visual = <div className="min-w-0 basis-full">{trying}</div>
-  // D2: core's description where it sends one, else the state line; one line, whole on hover (both where both are sent).
+  // The card's own result or state is the one quiet line (a chance's condition, what a figure waits on, a withheld reason, the shared no-chance line): it is
+  // never moved to the hover. Core's description is the line only where the card has no state to say, and is added to the hover where it has (Codex root, 1b9).
   const description = cardTitle(card).description
-  const quiet: StateLine | null = description === null ? state
-    : { text: description, title: [description, state === null ? null : state.title !== '' ? state.title : state.text].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-description': id } }
+  const quiet: StateLine | null = state !== null
+    ? (description === null ? state : { ...state, title: [state.title !== '' ? state.title : state.text, description].join('\n') })
+    : description === null ? null : { text: description, title: description, marks: { 'data-simple-description': id } }
   // An option's other aims' gauges and its limits: one line each in core's own words, the card's hover (the visual shows the headline's aim only).
   const more = card.family !== 'option' ? [] : card.rows.filter((r) => (r.aim_id == null ? h === null : h === null || r.aim_id !== h.aim_id))
     .map((r) => { const row = r as { kind: string; aim_id?: string | null; aim?: string; value?: string; text?: string; state_text?: string }; return `${nameOf(row.aim_id, row.aim)} ${row.kind === 'none' ? row.state_text ?? row.text ?? '' : row.value ?? ''}`.trim() })

@@ -417,3 +417,43 @@ describe('where every option waits for one shared reason, it is said once, on th
     expect([STUDIO.model!.run!.all_withheld, sharedNoChanceOf(STUDIO.model!, 'takings_goal')]).toEqual([false, null])
   })
 })
+
+describe('a card\'s own state is the quiet line; core\'s description is the line only where there is no state (Codex root, 1b9)', () => {
+  const golden = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', f), 'utf8')) as View
+  const APP = golden('app-launch.view.json')
+  const DESC = 'A short description from core'
+  const described = (v: View, id: string): View => withCard(v, { ...cardOf(v, id), description: DESC } as unknown as ViewCard)
+  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-one-line')
+  it('P1 a result that waits keeps core\'s "waits on" words as the line with a description sent; the description joins the hover', () => {
+    const spend = cardOf(ASKED, 'spend')
+    expect(spend.figure?.state).toBe('waits')
+    const line = lineOf(draw(described(ASKED, 'spend'), 'spend', 'simple'))!
+    expect([line.textContent, line.hasAttribute('data-simple-pending'), line.hasAttribute('data-simple-description')]).toEqual([spend.figure!.text, true, false])
+    expect(line.title.split('\n').at(-1)).toBe(DESC)
+  })
+  it('P2 a chance keeps its condition (core\'s qualifier) as the line with a description sent', () => {
+    // The served chance whose words carry a condition (the Q rows' own card); CONTRAST below: a chance with no condition has no state to keep.
+    const o = cardOf(EU, 'broader_entry')
+    const { qualifier } = chanceParts(headlineChanceRow(o)!.value)
+    expect(qualifier, 'the fixture\'s chance has a condition').not.toBeNull()
+    const line = lineOf(draw(described(EU, o.id), o.id, 'simple'))!
+    expect([line.textContent, line.hasAttribute('data-simple-qual')]).toEqual([qualifier, true])
+    expect(line.title).toContain(DESC)
+    cleanup()
+    const plain = cardOf(FACE, 'second_oven')
+    expect(chanceParts(headlineChanceRow(plain)!.value).qualifier, 'CONTRAST: this chance has no condition').toBeNull()
+    expect(lineOf(draw(described(FACE, plain.id), plain.id, 'simple'))?.hasAttribute('data-simple-description'), 'so its description is its line').toBe(true)
+  })
+  it('P3 the shared no-chance line stays on the aim card with a description sent, and the options stay silent', () => {
+    const v = described(APP, 'boss_discussion')
+    const line = lineOf(draw(v, 'boss_discussion', 'simple'))!
+    expect([line.textContent, line.hasAttribute('data-simple-no-chance-once')]).toEqual([cardOf(APP, 'option_scheduled').headline!.text, true])
+  })
+  it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
+    const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
+    const line = lineOf(draw(described(APP, id), id, 'simple'))!
+    expect([line.textContent, line.hasAttribute('data-simple-description'), line.title]).toEqual([DESC, true, DESC])
+    cleanup()
+    expect(lineOf(draw(APP, id, 'simple'))).toBeNull()
+  })
+})

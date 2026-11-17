@@ -133,6 +133,9 @@ describe('a first draft marks no link as Olumi\'s proposal (R3, 16 Nov)', () => 
   it('proposed, and a version: Olumi\'s blue; proposed and a proposal with no version: neutral', () => {
     withView({ proposal: null, version: { id: 'v1', n: 1 } })
     expect(line(draw(plain())).style.stroke, 'an approved model keeps the mark').toBe('var(--semantic-info)'); cleanup()
+    // The defect's own case (Line reviewer, edbd5fda F1): a REASON line Olumi proposed keeps Olumi's ink; one nobody proposed stays neutral.
+    expect(line(draw(plain({ kind: 'reason', role: 'reason' }))).style.stroke, 'a proposed reason line is Olumi\'s too').toBe('var(--semantic-info)'); cleanup()
+    expect(line(draw(plain({ kind: 'reason', role: 'reason', proposed: false }))).style.stroke, 'CONTRAST: an unproposed reason line').toBe(EDGE_NEUTRAL); cleanup()
     withView({ proposal: { id: 'p1' }, version: null })
     expect(line(draw(plain())).style.stroke, 'a first draft marks nothing').toBe(EDGE_NEUTRAL); cleanup()
     expect(line(draw(plain({ doubt: true }))).style.strokeDasharray, 'CONTRAST: a doubted link is dashed on a first draft').toBe(DOUBT_DASH)

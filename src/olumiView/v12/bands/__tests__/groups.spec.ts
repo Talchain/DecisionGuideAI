@@ -3,7 +3,9 @@
  * group card per row, and approved notes into ONE notes stack per row; options, aims and positions never fold, nor do the person's own or approved
  * cards. Bound by card id on the in-repo bakery fixture (invented words), each rule by the one field that differs. Pure: groups.ts.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+// groups.ts reaches the store through the bands; the store's backend client is not part of what these rows read.
+vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View, ViewCard, ViewModel } from '../../../client'
