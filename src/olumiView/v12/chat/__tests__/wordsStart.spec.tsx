@@ -22,7 +22,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
-import { challengeQuestionOf, developQuestionOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
+import { challengeQuestionOf, developQuestionOf, floorEntryOf, ideaMethodOf, ideaTextOf, keptIdeasOf } from '../../ideas'
 import { ideaDetailOf } from '../../bands/IdeaPanel'
 import { sessionOf } from '../../../layout'
 import { KEPT_IDEA } from '../../KeepIdea'
@@ -139,6 +139,24 @@ describe('1. one deliberate choice at the fresh composer; Send stays the default
     expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op: OP } })
   })
 
+  it('the first message\'s receipt is saved BEFORE the new scenario\'s View is read: a read that never answers leaves the brief to send by its op, and the brief\'s own receipt is gone', async () => {
+    answer = () => new Response(JSON.stringify({ scenario: MADE, job: null, proposal: null, status_url: null }), { status: 200 })
+    const hang = new Promise<Response>(() => {})
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return answer(url) }
+      if (url === '/api/me') return new Response(JSON.stringify({ me: { id: '7', name: 'Ada' } }), { status: 200 })
+      return url.startsWith(`/api/scenarios/${MADE}/view`) ? hang : new Response(JSON.stringify({ error: 'not found' }), { status: 404 })
+    }) as unknown as typeof fetch)
+    const c = show(null, null)
+    type(c, BRIEF)
+    await press(q(c, 'view-composer-talk-first'))
+    await waitFor(() => expect(sessionStorage.getItem('olumi-pending-turn:7')).not.toBeNull())
+    const op = posts[0]!.body['op'] as string
+    expect(JSON.parse(sessionStorage.getItem('olumi-pending-turn:7')!)).toEqual({ sid: MADE, text: BRIEF, op: `${op}-m` })
+    expect(sessionStorage.getItem('olumi-pending-brief:7')).toBeNull()
+    expect(posts.map((p) => p.url)).toEqual(['/api/scenarios']) // nothing else sent while the read waits
+  })
+
   it('the choice is offered only for a new brief: not on a scenario that holds a model (contrast: the fresh box above offers it)', () => {
     const c = show(golden('proposal'), golden('proposal').id)
     expect(q(c, 'view-composer-send')).not.toBeNull()
@@ -218,6 +236,22 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     await press(paras[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: LINE_2 } })
+  })
+
+  it('numbered lines and a long paragraph: each entry core serves (markers dropped) keeps its Keep; a long entry sends its opening whole sentences; CONTRAST: a line that only ends with an entry after a word is not it', async () => {
+    const LONG = Array.from({ length: 6 }, (_, k) => `Step ${k + 1} of the trial is to count the walk-in repairs on a different weekday and write down which jobs were turned away for lack of a bench.`).join(' ')
+    expect([...LONG].length).toBeGreaterThan(400)
+    answer = () => new Response(JSON.stringify({ kept: 70 + posts.length }), { status: 201 })
+    const text = `1. ${IDEA_A}\n2) ${IDEA_B}\n\n${LONG}`
+    const c = show(inWords({ floor: [{ ...row(31, text), prose: [IDEA_A, IDEA_B, LONG] }] }))
+    const keeps = [...floorTurn(c, 31)!.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
+    expect(keeps).toHaveLength(3)
+    for (const k of keeps) await press(k)
+    await waitFor(() => expect(posts).toHaveLength(3))
+    expect(posts.map((p) => p.body['text'])).toEqual([IDEA_A, IDEA_B, ideaTextOf({ answer: [{ text: LONG }] } as never)])
+    expect([...String(posts[2]!.body['text'])].length).toBeLessThanOrEqual(400)
+    expect(floorEntryOf([IDEA_A], `Never ${IDEA_A}`)).toBeNull()
+    expect(floorEntryOf([IDEA_A], `• ${IDEA_A}`)).toBe(IDEA_A)
   })
 
   it('after the keeps and a COLD reopen: each approach reads "Kept", and each idea keeps its source and method from the floor (kept.from); CONTRAST: without `from` it is not looked up on the floor', () => {

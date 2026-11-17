@@ -50,7 +50,7 @@ import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
-import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/ideas'
+import { approachOf, approachesOf, floorEntryOf, floorKeepWordsOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
@@ -100,6 +100,9 @@ export const LEAD_WORDS = 20
 export const SHOW_WHOLE_FIRST = 'Show the whole first answer'
 export const SHOW_WHOLE_REPLY = 'Show the whole reply'
 export const SHOW_LESS = 'Show less'
+/** A drawn line's plain words (its list marker dropped, whitespace squashed), for `everyLine`; null where it holds a cite (no prose entry does). */
+const lineWords = (l: readonly Piece[]): string | null =>
+  l.some((x) => x.kind === 'cite') ? null : l.map((x) => (x.kind === 'text' ? x.s : '')).join('').replace(ITEM_MARK, '').replace(/\s+/g, ' ').trim() || null
 export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
@@ -174,8 +177,8 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
       : lineOf(g) === 'heading'
       ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
       : (g.list
-      ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, ITEM_MARK)}{w === null ? null : item!(w)}</li> })}</ul>
-      : <p key={gi} className={bigLead && gi === o ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => { const w = item === undefined || !everyLine ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <span key={li} className={w === null ? undefined : 'group/item'}>{li > 0 ? <br /> : null}{draw(l, null)}{w === null ? null : item!(w)}</span> })}</p>)
+      ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : everyLine ? lineWords(l) : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, ITEM_MARK)}{w === null ? null : item!(w)}</li> })}</ul>
+      : <p key={gi} className={bigLead && gi === o ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => { const w = item === undefined || !everyLine ? null : lineWords(l); return <span key={li} className={w === null ? undefined : 'group/item'}>{li > 0 ? <br /> : null}{draw(l, null)}{w === null ? null : item!(w)}</span> })}</p>)
   }
   return (
     <>
@@ -363,7 +366,10 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   // host's lines) and no entry is split or rejoined here. Core stays the only authority on what may be kept.
   const sid = useViewStore((st) => st.sid)
   const entries = sid === null ? [] : f.prose ?? []
-  const keepEach = sid === null || entries.length === 0 ? undefined : (words: string) => (entries.includes(words) ? <KeepIdea sid={sid} turn={f.job} text={words} inline floor /> : null)
+  const keepEach = sid === null || entries.length === 0 ? undefined : (line: string) => {
+    const entry = floorEntryOf(entries, line), words = entry === null ? null : floorKeepWordsOf(entry)
+    return words === null ? null : <KeepIdea sid={sid} turn={f.job} text={words} inline floor />
+  }
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">

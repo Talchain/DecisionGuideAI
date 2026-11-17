@@ -94,6 +94,19 @@ export function approachesOf(parts: Parts): string[] {
   return items.flatMap((l) => { const w = approachOf(l); return w === null ? [] : [w] })
 }
 
+/**
+ * Words-start CONTRACT 4 (Codex root 04:41:16Z): the entry core offers for one drawn line of a floor reply (`floor[].prose`: each line of Olumi's
+ * prose, its list or number marker dropped, whitespace squashed). The drawn line is the entry itself, or the entry after one short token with no
+ * letter in it (whatever marker core dropped: "-", "•", "1.", "2)"), so no marker list is kept here. Null when the line is not one of core's entries.
+ */
+export function floorEntryOf(entries: readonly string[], line: string): string | null {
+  const w = line.replace(/\s+/g, ' ').trim()
+  return entries.find((e) => w === e || (w.endsWith(` ${e}`) && /^[^\p{L}\s]{1,4}$/u.test(w.slice(0, w.length - e.length - 1)))) ?? null
+}
+/** The words a Keep on that entry sends: the whole entry, or, where it is longer than an idea may be, its opening whole sentences (ideaTextOf). */
+export const floorKeepWordsOf = (entry: string): string | null =>
+  [...entry].length <= IDEA_MAX ? entry : ideaTextOf({ answer: [{ text: entry }] } as unknown as NonNullable<ViewTurn['answer']>)
+
 /** An idea the scenario holds (View `strategy.items[kind='idea']`: Olumi's idea, the reply it came from, the person who kept it). */
 export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null; /** Kept from a floor reply (View `kept[].from: "floor"`, words-start CONTRACT 5): `sourceTurn` is that reply's `floor[].job`, not a `chat[].id`. */ fromFloor?: true }
 
