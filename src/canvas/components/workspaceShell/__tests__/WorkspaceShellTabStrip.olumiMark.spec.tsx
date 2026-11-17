@@ -62,10 +62,12 @@ describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
     expect(tab).toHaveAttribute('data-testid', 'outputs-dock-tab-olumi')
   })
 
-  it('CONTRAST: the Analysis tab keeps its word and draws no mark', () => {
+  // CHANGED BY DESIGN (v10 review item 8): on the olumi-core lane an unselected tab is its icon, named by title and aria-label, not a word.
+  it('CONTRAST: the Analysis tab keeps its name and draws no Olumi mark', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-results')
-    expect(tab.textContent).toBe('Analysis')
+    if (isOlumiCoreLane()) { expect(tab.textContent).toBe(''); expect(tab).toHaveAttribute('aria-label', 'Analysis') } else expect(tab.textContent).toBe('Analysis')
+    expect(tab).toHaveAttribute('title', 'Analysis')
     expect(tab.querySelector('[data-icon="olumi-ai"]')).toBeNull()
   })
 })

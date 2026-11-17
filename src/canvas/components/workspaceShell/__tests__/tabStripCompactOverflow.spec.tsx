@@ -202,7 +202,7 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     expect(screen.getByTestId('outputs-dock-tablist').className).not.toMatch(/\bflex-wrap\b/)
     expect(screen.getByTestId('outputs-dock-tablist').closest('nav')!.className).toMatch(/\boverflow-x-auto\b/)
     // On one row the tabs fill it with their dividers, as at 1232, and none can shrink below its label.
-    for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).toMatch(/\bshrink-0\b/); expect(tab.className).not.toMatch(/(^|\s)before:hidden(\s|$)/) }
+    for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).toMatch(/\bshrink-0\b/); expect(tab.className).toMatch(/(^|\s)before:hidden(\s|$)/) /* CHANGED BY DESIGN (v10 review item 8): no separators on the lane */ }
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
     for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
     cleanup(); lane.core = false
