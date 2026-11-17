@@ -111,7 +111,8 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
   const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   type B = { label: string; face?: string; words?: string; text: string }
-  const said = (b: B) => b.face ?? b.words ?? b.text
+  /** The badge's hover on Detailed: core's whole words first, as the retired badge's hover said them (the face may say "and 2 more"). */
+  const hover = (b: B) => b.words || b.face || b.text
 
   it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', () => {
     ready(EU)
@@ -121,7 +122,7 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
     // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the fold is a count of its records
     // beside a stack mark, core's words its hover, its label the name.
     const btn = document.querySelector<HTMLElement>(`button[data-core-badge="${QUESTION}"]`)!
-    expect([btn.getAttribute('aria-label'), btn.title.includes(said(b)), btn.textContent]).toEqual([b.label, true, String((b as unknown as { records: unknown[] }).records.length)])
+    expect([btn.getAttribute('aria-label'), btn.title.includes(hover(b)), btn.textContent]).toEqual([b.label, true, String((b as unknown as { records: unknown[] }).records.length)])
   })
 
   it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', () => {
@@ -133,7 +134,7 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
       // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the count, core's words on hover.
       const btn = r.container.querySelector<HTMLElement>(`button[data-core-badge="${c.id}"]`)
       if (c.badge == null) expect(btn, c.id).toBeNull()
-      else expect([btn?.getAttribute('aria-label'), btn?.title.includes(said(c.badge as unknown as B)), btn?.textContent], c.id).toEqual([(c.badge as unknown as B).label, true, String(c.badge.records.length)])
+      else expect([btn?.getAttribute('aria-label'), btn?.title.includes(hover(c.badge as unknown as B)), btn?.textContent], c.id).toEqual([(c.badge as unknown as B).label, true, String(c.badge.records.length)])
       r.unmount()
     }
   })
