@@ -374,11 +374,14 @@ function FloorLine({ f, me, latest, keep = false }: { f: FloorTurn; me?: string 
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
 export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
-  // Words-start CONTRACT 2: only a reply to a message that ended done can be kept. Not the first draft's own answer (the brief's job), and not
-  // the job core still reports as running, failed or lost (the View's `turn`); core refuses anything else in its own words.
+  // Words-start CONTRACT 4 (revised 03:55Z): Keep is offered on a floor reply of a scenario core says was started in words (`start`), where the
+  // floor holds Olumi's own replies to messages (no build ran beside them, so no host status line is added to their text). Never on the first
+  // draft's own answer (the brief's job), nor on the job core still reports as answering, failed or lost (the View's `turn`). The writer of a
+  // sentence is never guessed from its words: core keeps only Olumi's typed prose and refuses anything else in its own words, which are said.
   const briefJob = entries?.find((e) => e.kind === 'brief')?.job ?? (draft as { job?: number } | null | undefined)?.job ?? null
   const turnNow = useViewStore((st) => st.view?.turn ?? null)
-  const keepable = (f: FloorTurn) => f.job !== briefJob && (turnNow === null || turnNow.job !== f.job)
+  const inWords = useViewStore((st) => startedInWords(st.view))
+  const keepable = (f: FloorTurn) => inWords && f.job !== briefJob && (turnNow === null || turnNow.job !== f.job)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
   // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
@@ -918,11 +921,12 @@ export function stopDraft(): Promise<boolean> {
 // A scenario that already holds a kept idea is under way: what the person sends there is a message about it (core answers a message on a
 // scenario with no model in words, turns.ts chat floor), never a new brief that would start another scenario (Codex 008e).
 const holdsKept = (view: View): boolean => { const k = (view as { kept?: unknown }).kept; return Array.isArray(k) && k.length > 0 }
-/** A scenario started in words (words-start CONTRACT 1): core holds its brief with NO draft job at all (`draft: null`, sent, not absent), no
- *  version and no proposal. What the person sends there is a message in that scenario, answered on the floor, never a new brief. */
-export const startedInWords = (view: View | null): boolean =>
-  view !== null && view.draft === null && view.version === null && view.proposal === null && hasBrief(view)
-const hasBrief = (view: View): boolean => { const b = (view as { brief?: unknown }).brief; return typeof b === 'string' && b.trim() !== '' }
+/** A scenario started in words: core's own `start: "words"` in the View, read from the stored header (words-start CONTRACT 3, revised 03:55Z),
+ *  so it holds before the first reply and after any reopen. Never inferred from what is absent. What the person sends there is a message in that
+ *  scenario, answered on the floor, never a new brief. */
+export const startedInWords = (view: View | null): boolean => view !== null && (view as { start?: unknown }).start === 'words'
+/** Started in words and still without a model (Try again may build one later, CONTRACT 3): the method icons wait, as they do with no model. */
+const wordsNoModel = (view: View): boolean => startedInWords(view) && view.version === null && view.proposal === null
 export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view) && !holdsKept(view) && !startedInWords(view))
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
@@ -969,7 +973,7 @@ async function send(pressedWords = false): Promise<void> {
 
 /** The composer's one choice for a new brief (words-start, 17 Nov): build a model from it (Send, the default), or talk it through first. */
 export const TALK_FIRST = 'Talk it through first'
-export const TALK_FIRST_HOVER = 'Olumi answers in the conversation and builds no model yet. You can keep its ideas and build a model later.'
+export const TALK_FIRST_HOVER = 'Olumi answers in the conversation and does not build a model. You can keep its ideas.'
 
 /**
  * A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). A resend goes to
@@ -1716,7 +1720,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const submit = () => { if (!sendHeld) void send() }
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
-  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) && !startedInWords(view)
+  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) && !wordsNoModel(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.

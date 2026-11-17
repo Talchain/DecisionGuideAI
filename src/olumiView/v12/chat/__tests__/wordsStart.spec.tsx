@@ -5,7 +5,8 @@
  *
  * 1. ONE deliberate choice at the fresh composer; Send (build a model) stays the default and unchanged.
  * 2. A scenario started in words takes messages, never a second brief; the method icons wait for a model.
- * 3. Keep on a floor reply that ended done, with Olumi's own words; nothing on the first draft's reply, a running/failed job, or the host's lines.
+ * 3. Keep on a floor reply of a scenario core says was started in words; nothing on the first draft's reply or a running/failed job, and
+ *    never a writer guessed from words (CONTRACT 4, revised 03:55Z).
  * All words are invented.
  */
 import '@testing-library/jest-dom/vitest'
@@ -21,7 +22,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
-import { floorIdeaOf, HOST_SENTENCES } from '../FloorKeep'
+import { floorIdeaOf } from '../FloorKeep'
 import { KEEP_IDEA, KEPT_IDEA } from '../../KeepIdea'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -32,9 +33,9 @@ const OWN = 'A second workshop needs a mechanic before it needs a lease. Start b
 const OWN_WORDS = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours. Then price a small unit near the station.'
 const AT = '2026-11-17T04:00:00.000Z'
 const row = (job: number, text = OWN) => ({ job, at: AT, by: 'Ada', by_id: '7', said: SAID, text })
-/** A scenario core holds in words (CONTRACT 1): its brief, `draft: null`, no version, no proposal, no model. */
+/** A scenario core holds in words (CONTRACT 3): core's `start: "words"`, its brief, `draft: null`, no version, no proposal, no model. */
 const inWords = (over: Record<string, unknown> = {}): View =>
-  ({ ...golden('pricing'), id: SID, you_id: '7', you: 'Ada', brief: BRIEF, draft: null, version: null, proposal: null, model: null, chat: [], floor: [], ...over } as unknown as View)
+  ({ ...golden('pricing'), id: SID, you_id: '7', you: 'Ada', brief: BRIEF, start: 'words', draft: null, version: null, proposal: null, model: null, chat: [], floor: [], ...over } as unknown as View)
 
 let posts: { url: string; body: Record<string, unknown> }[] = [], answer: (url: string) => Response, served: (url: string) => View | null
 const show = (view: View | null, sid: string | null = SID) => {
@@ -144,13 +145,12 @@ describe('1. one deliberate choice at the fresh composer; Send stays the default
 })
 
 describe('2. a scenario started in words takes messages, never a second brief', () => {
-  it('takesBrief is false for it (draft: null, a brief); CONTRAST: a fresh page, and a no-draft scenario with no brief, still take a brief', () => {
+  it('read from core\'s `start: "words"`, never inferred: takesBrief is false for it; CONTRAST: the same nulls and brief WITHOUT `start` keep the old rule', () => {
     expect(startedInWords(inWords())).toBe(true)
     expect(takesBrief(SID, inWords())).toBe(false)
     expect(takesBrief(null, null)).toBe(true)
-    expect(takesBrief(SID, inWords({ brief: '' }))).toBe(true)
-    // A scenario whose first model was set aside keeps its done draft job, so it is not "started in words".
-    expect(startedInWords(inWords({ draft: { status: 'done', reason: null, at: AT, job: 5, stage: 'done', started: AT, words: '' } }))).toBe(false)
+    expect(startedInWords(inWords({ start: undefined }))).toBe(false)
+    expect(takesBrief(SID, inWords({ start: undefined }))).toBe(true)
   })
 
   it('what the person sends there is a message to THIS scenario, and the composer shows no method icons and no second choice', async () => {
@@ -178,7 +178,7 @@ describe('3. Keep on a floor reply that ended done, in Olumi\'s own words', () =
   })
 
   it('"Kept" is read from the View: kept[].turn equals the floor job; CONTRAST: an idea kept from another job leaves Keep offered here', () => {
-    const kept = (turn: number) => [{ id: 3, turn, text: OWN_WORDS, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [] }]
+    const kept = (turn: number) => [{ id: 3, turn, text: OWN_WORDS, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], from: 'floor' }]
     const c = show(inWords({ floor: [row(9)], kept: kept(9) }))
     expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-kept"]')?.textContent).toBe(KEPT_IDEA)
     cleanup()
@@ -203,12 +203,23 @@ describe('3. Keep on a floor reply that ended done, in Olumi\'s own words', () =
     expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
   })
 
-  it('nothing on a reply that is only the host\'s own line; the host\'s status line beside a reply is never in the kept words (CONTRAST: Olumi\'s own words are)', () => {
-    const c = show(inWords({ floor: [row(9, 'I could not finish my reply this time.'), row(11, `${OWN}\n\nThe model Olumi is building will take this into account.`)] }))
+  it('offered only where core says the scenario was started in words; CONTRAST: the same floor reply on a scenario whose first model is building offers none', () => {
+    const building = { status: 'drafting', reason: null, at: AT, job: 5, stage: 'building', started: AT, words: 'Building the model' }
+    const c = show(inWords({ start: undefined, draft: building, floor: [row(9)] }))
+    expect(floorTurn(c, 9)).not.toBeNull()
     expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
-    expect(floorTurn(c, 11)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
-    expect(floorIdeaOf(`${OWN}\n\nThe model Olumi is building will take this into account.`)).toBe(OWN_WORDS)
+    cleanup()
+    const d = show(inWords({ floor: [row(9)] }))
+    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
     expect(floorIdeaOf(OWN)).toBe(OWN_WORDS)
-    for (const s of HOST_SENTENCES) expect(floorIdeaOf(s)).toBeNull()
+  })
+
+  it('a refusal is core\'s own words beside the Keep, and nothing is shown as kept', async () => {
+    const REFUSED = 'Those words are not in Olumi\'s reply.'
+    answer = () => new Response(JSON.stringify({ error: REFUSED }), { status: 400 })
+    const c = show(inWords({ floor: [row(9)] }))
+    await press(floorTurn(c, 9)!.querySelector<HTMLElement>('[data-testid="view-floor-keep-button"]'))
+    await waitFor(() => expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-said"]')?.textContent).toBe(REFUSED))
+    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-kept"]')).toBeNull()
   })
 })
