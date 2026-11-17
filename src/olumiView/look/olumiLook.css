@@ -317,6 +317,8 @@
 .olumi-look .react-flow__node:has([data-ok-kind='decision']) { --ok-kc: var(--info); }
 .olumi-look .react-flow__node:has([data-ok-kind='risk']) { --ok-kc: var(--danger); }
 .olumi-look .react-flow__node:has([data-ok-kind='outcome']) { --ok-kc: var(--success); }
+/* A limit (17 Nov): the constraint kind's grey frame and outlined-square marker, never the goal's yellow diamond. */
+.olumi-look .react-flow__node:has([data-ok-kind='constraint']) { --ok-kc: var(--text-light); }
 /* The frame is the kind's full hue, 1 px, solid (R2); where the frame says something else (Olumi's blue, challenge orange) the card's own class wins. */
 .olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc) !important; }
 

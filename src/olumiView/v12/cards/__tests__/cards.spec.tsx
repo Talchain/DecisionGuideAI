@@ -20,7 +20,7 @@ import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
-import { OLUMI_ASKS } from '../marks'
+import { LIMIT_MEANS, OLUMI_ASKS } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -44,6 +44,27 @@ const faceOf = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`[
 
 beforeEach(() => { window.localStorage.clear(); useSimpleLevel.setState({ levels: {} }) })
 afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+
+describe('a limit is drawn as a limit, never as a goal (DL from Paul\'s test, 17 Nov: three turns asking why a limit looked like a goal)', () => {
+  it('L1 at both levels a limit card carries the limit kind (outlined square marker, grey frame) and the key\'s word "limit" with its meaning as the hover; CONTRAST: the goal on the same board keeps the goal kind and no tag', () => {
+    for (const level of ['simple', 'working'] as const) {
+      const lim = faceOf(draw(ASKED, 'within_budget', level), 'within_budget')
+      const tag = lim.querySelector<HTMLElement>('[data-kind-tag="limit"]')
+      expect([level, lim.getAttribute('data-ok-kind'), tag?.textContent, tag?.title]).toEqual([level, 'constraint', ASKED.model!.key.find((k) => k.id === 'limit')!.text, LIMIT_MEANS])
+      cleanup()
+      const goal = faceOf(draw(ASKED, 'sell_360', level), 'sell_360')
+      expect([level, goal.getAttribute('data-ok-kind'), goal.querySelector('[data-kind-tag="limit"]')]).toEqual([level, 'goal', null])
+      cleanup()
+    }
+  })
+  it('L1b core\'s own aim field decides over the family: a goal-family card core marks aim "limit" is a limit; a limit-family card core marks aim "goal" is a goal', () => {
+    const asLimit = withCard(ASKED, { ...cardOf(ASKED, 'sell_360'), aim: 'limit' } as ViewCard)
+    expect(faceOf(draw(asLimit, 'sell_360', 'simple'), 'sell_360').getAttribute('data-ok-kind')).toBe('constraint')
+    cleanup()
+    const asGoal = withCard(ASKED, { ...cardOf(ASKED, 'within_budget'), aim: 'goal' } as ViewCard)
+    expect(faceOf(draw(asGoal, 'within_budget', 'simple'), 'within_budget').getAttribute('data-ok-kind')).toBe('goal')
+  })
+})
 
 describe('option letters: one source, core\'s option card order', () => {
   it('T1 A, B, C by card id in core\'s option order, from the View or its model; a card that is not an option has none', () => {

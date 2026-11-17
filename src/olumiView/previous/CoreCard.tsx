@@ -47,7 +47,7 @@ import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/car
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
+import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LimitTag, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
 import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
@@ -204,7 +204,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const drawKind = id === QUESTION ? 'decision' : card !== null && model !== null ? drawKindOf(card, model) : 'factor'
   const kind = ((props.data as { kind?: string }).kind ?? drawKind) as NodeType
   // D4: the kind is core's (`card.kind`, fields.ts cardKind; today's rule where an older core sends none), drawn in the design system's kinds.
-  const dsKind = card === null ? dsKindOf(null, drawKind) : DS_OF_KIND[cardKind(card, model, viewNow).kind]
+  // A limit (core's `card.aim` 'limit', else its family: fields.ts aimOf) is a line to stay within, never a goal: its own mark and frame (DL, 17 Nov).
+  const coreKind = card === null ? null : cardKind(card, model, viewNow)
+  const dsKind = coreKind === null ? dsKindOf(null, drawKind) : coreKind.kind === 'aim' && coreKind.aim === 'limit' ? 'constraint' : DS_OF_KIND[coreKind.kind]
   const width = (props.data as { width?: number }).width
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
   // Core's face title (FL1: the person's words, Olumi's caption, or the name), as the retired card drew it; the heading stays the card's
@@ -441,6 +443,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               </div>
             )} /> : <>
           {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
+          {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
           {faceOf()}
           {/* V12: an input not sized yet is a dashed empty bar with core's own words for the gap ("not sized yet · …"), one line, whole on hover. */}
           {card.figure != null && card.figure.text === '' ? <UnsizedFigure id={id} words={unsizedWords(card)} /> : null}

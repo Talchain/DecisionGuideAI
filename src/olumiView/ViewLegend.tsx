@@ -6,6 +6,14 @@
 import { useEffect, useRef } from 'react'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
+import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
+import type { NodeType } from '../canvas/domain/nodes'
+
+/** A key item that names a card kind is drawn with the card's own marker (the shape on the canvas), by core's item id; core's words stay the
+ *  label. Every other item keeps core's glyph (17 Nov: a limit read as a goal; the key now shows the limit's outlined square, the aim's diamond). */
+const KIND_MARK: Readonly<Record<string, { kind: NodeType; dashed?: boolean }>> = {
+  option: { kind: 'option' }, aim: { kind: 'goal' }, limit: { kind: 'constraint' }, risk: { kind: 'risk' }, figure: { kind: 'factor' }, assumption: { kind: 'factor', dashed: true },
+}
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void }
 
@@ -37,7 +45,9 @@ export function ViewLegend({ open, onOpenChange }: Props) {
         <ul className="min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-3 gap-y-1">
           {key.map((k, i) => (
             <li key={i} className={`${typography.viewPanelBody} text-text-body flex items-baseline gap-1.5`} data-view-key={i}>
-              <span className="min-w-6 shrink-0 whitespace-nowrap text-center" aria-hidden="true">{k.glyph}</span><span>{k.text}</span>
+              <span className="min-w-6 shrink-0 whitespace-nowrap text-center" aria-hidden="true" data-key-mark={KIND_MARK[k.id] === undefined ? undefined : KIND_MARK[k.id]!.kind}>
+                {KIND_MARK[k.id] === undefined ? k.glyph : <NodeShapeIndicator nodeKind={KIND_MARK[k.id]!.kind} dashedOutline={KIND_MARK[k.id]!.dashed === true} size={12} className="inline-block align-[-1px]" />}
+              </span><span>{k.text}</span>
             </li>
           ))}
         </ul>

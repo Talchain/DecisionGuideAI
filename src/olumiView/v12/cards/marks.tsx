@@ -58,6 +58,13 @@ export const BaselinePill = ({ id }: { id: string }): JSX.Element => <span class
 
 /** A kind's tag on the card ("assumption"). */
 export const KindTag = ({ id, tag }: { id: string; tag: string }): JSX.Element => <span className="ok-tag" data-kind-tag={tag} data-kind-tag-of={id}>{tag}</span>
+/** What a limit is, said on its card's tag (DL from Paul's test, 17 Nov: three turns asking why a limit looked like a goal). Page chrome. */
+export const LIMIT_MEANS = 'A line to stay within, not a goal to reach'
+/** A limit's tag: the key's own word for a limit (core's `model.key` item `limit`, else "limit"), its meaning the hover. */
+export const LimitTag = ({ id, model }: { id: string; model: { key?: readonly { id: string; text: string }[] } | null }): JSX.Element => {
+  const word = model?.key?.find((k) => k.id === 'limit')?.text ?? 'limit'
+  return <span className="ok-tag" data-kind-tag="limit" data-kind-tag-of={id} title={LIMIT_MEANS}>{word}</span>
+}
 
 /** A dashed, empty track: nothing to place yet (Detailed only; Simple draws a quiet line, R6). Named by core's words for the gap where it sends them. */
 export const EmptyTrack = ({ testid, words }: { testid: string; words?: string | null }): JSX.Element => (

@@ -25,9 +25,9 @@ import { targetCardOf } from '../model/targets'
 import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, KindTag, LetterChip, OlumiAsksMark, OlumiMark } from './cards/marks'
+import { AuthorMark, BaselinePill, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
 import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
-import { cardTitle, needsOf } from './fields/fields'
+import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
@@ -246,6 +246,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
       {visual}
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
+      {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
       {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS} ${visual === null && !hasFigure ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}

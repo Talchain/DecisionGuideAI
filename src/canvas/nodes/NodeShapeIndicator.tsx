@@ -122,6 +122,14 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverrid
       )
 
     case 'constraint':
+      // A limit (DL from Paul's test, 17 Nov: a limit read as a goal): an outlined square in the kind's grey, the key's own limit glyph,
+      // so it never reads as an option's filled square or a goal's diamond. Dashed where it is an assumption.
+      return (
+        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
+          <rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill={fillOverride ?? 'var(--bg-panel)'} stroke={kindFill} strokeWidth={1.5} {...(dashedOutline ? { strokeDasharray: '2 1.5' } : {})} />
+        </svg>
+      )
+
     default:
       // Small square (constraint falls through: shape exists but CEE never emits constraint nodes — see NodeTypeEnum JSDoc)
       return (

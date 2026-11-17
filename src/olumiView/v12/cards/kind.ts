@@ -42,7 +42,7 @@ export function cardKindOf(card: ViewCard, model: ViewModel | null, view: View |
 }
 
 /** The design system's kinds (Olumi_Design_System_v5 section 10): shape says what a thing is. One mapping for the badge and the border hue. */
-export type DsKind = 'factor' | 'option' | 'goal' | 'outcome' | 'risk' | 'decision'
+export type DsKind = 'factor' | 'option' | 'goal' | 'outcome' | 'risk' | 'decision' | 'constraint'
 
 /** A BaseNode / layout kind mapped into the DS set. Anything the DS has no shape for falls to the nearest: an action is the thing a person does (option). */
 function dsKindOfDraw(draw: string | null | undefined): DsKind {
