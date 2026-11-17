@@ -16,6 +16,7 @@ import { resetWrites } from '../../../../olumiCore/team/writes'
 import { TeamTab } from '../../../../olumiCore/team/TeamTab'
 import { useMe } from '../../../../olumiCore/me'
 import { EXPECTATION_WORDS, ExpectationEntry } from '../ExpectationEntry'
+import { CommitFormSlot } from '../../team/CommitForm'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -168,5 +169,24 @@ describe('the saved-expectation card: its button opens the existing outcome form
     await press()
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     expect(draftOf(`${SID}:outcome:9`)).toBeUndefined()
+  })
+})
+
+describe('the saved-expectation card: mounted in the Olumi tab\'s commit slot', () => {
+  const slot = (v: View) => { served = v; useViewStore.setState({ view: v }); return render(<CommitFormSlot />) }
+
+  it('stands directly above the "Record what you will do" line', () => {
+    slot(viewOf([mine()]))
+    const card = screen.getByTestId('expectation-entry'), form = screen.getByTestId('commit-form')
+    expect(card.nextElementSibling).toBe(form)
+    expect(form.textContent).toBe('Record what you will do')
+  })
+
+  it('is not drawn on an earlier version, or on a page that is not the reader\'s (the slot\'s own gate)', () => {
+    const a = slot(viewOf([mine()])); expect(drawn()).not.toBeNull(); a.unmount()
+    useViewStore.setState({ at: 2 })
+    const b = slot(viewOf([mine()])); expect(drawn()).toBeNull(); b.unmount()
+    useViewStore.setState({ at: null }); useMe.setState({ me: { id: 'p_2', name: 'Bea' }, status: 'ready' })
+    slot(viewOf([mine()])); expect(drawn()).toBeNull()
   })
 })

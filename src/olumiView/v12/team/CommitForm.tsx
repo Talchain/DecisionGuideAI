@@ -9,6 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../..
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
+import { ExpectationEntry } from '../learning/ExpectationEntry'
 
 /**
  * V12 Funding-Commit, "Record what you will do": the board's three questions and one primary button, on the EXISTING commitment write
@@ -97,5 +98,6 @@ export function CommitFormSlot(): JSX.Element | null {
   const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), refresh = useViewStore((s) => s.refresh)
   const me = useMe((s) => s.me)
   if (view === null || !sid || at !== null || !isForThisPage(view, me)) return null
-  return <CommitForm sid={sid} view={view} onWrote={refresh} />
+  // The person's saved expectation with no outcome yet stands above the line that records the next one (v12/learning).
+  return <><ExpectationEntry sid={sid} view={view} /><CommitForm sid={sid} view={view} onWrote={refresh} /></>
 }
