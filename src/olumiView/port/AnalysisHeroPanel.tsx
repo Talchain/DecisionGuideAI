@@ -15,6 +15,7 @@
  * not ported: core sends none of them. No win share is in the View, so none is drawn; the chance is the headline (DL #87).
  * An absent field draws nothing, never a placeholder sentence.
  */
+import { earlierResultsOf } from '../v12/contract'
 import { useId, useState, type ReactNode } from 'react'
 import type { ViewCard, ViewModel, ViewRun, ViewTurn } from '../client'
 import { newestNextOf, optionCards } from '../layout'
@@ -71,6 +72,8 @@ export interface AnalysisHeroPanelProps {
 export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAction, rowAction, children, waitsBelow = false, nextBelow = false, tippingBelow = false }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const run = model.run ?? null
+  // Results saved by an earlier engine: core's sentence, once, under the lead (contract.ts earlierResultsOf).
+  const earlier = earlierResultsOf(model)
   const lenses = lensesOf(run)
   const [picked, setLens] = useState<HeroLensId | null>(null)
   const [open, setOpen] = useState<string | null>(null)
@@ -102,6 +105,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
     <section className={`${TYPE.body} ${PORT_BOX}`} data-testid="port-analysis-hero">
       <div className="space-y-1.5" data-testid="port-hero-head">
         {run.lead == null ? null : <h3 className={`${TYPE.headline} text-text-header`} data-view="run.lead">{run.lead}</h3>}
+        {earlier === null ? null : <p className={`${TYPE.body} text-text-light`} data-view="run.earlier" title={earlier.title}>{earlier.text}</p>}
         {!allWait ? null : (
           <div data-testid="port-hero-waits-headline">
             <p className={`${TYPE.meta} text-text-light`} data-view="run.waits_on.head">{run.waits_on!.head}</p>

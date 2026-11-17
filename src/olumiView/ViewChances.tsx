@@ -7,6 +7,7 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
+import { earlierResultsOf } from './v12/contract'
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
@@ -386,6 +387,8 @@ export function TimingAssumptions({ run }: { run: ViewRun | null }) {
  */
 export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: readonly ViewTurn[] | null }) {
   const run = model.run ?? null // absent from a core before view-dock (00058 P1)
+  // Results saved by an earlier engine: core's sentence, once, under the lead (contract.ts earlierResultsOf).
+  const earlier = earlierResultsOf(model)
   const headline = run !== null && run.all_withheld && run.waits_on !== null
   const worth = run?.science == null ? 0 : worthLinesOf(run.science).length
   // The previous PoC's boxed sections (Paul, 6 Nov; vision-audit-20261024 cafe-09-panel-analysis.png): the chances first, the headline
@@ -396,6 +399,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       <WhatIfShown model={model} />
       <section className={BOX} data-testid="view-run-headline" aria-label="Each option's chance">
         {run?.lead == null ? null : <p className={typography.panelHeader} data-view="run.lead">{run.lead}</p>}
+        {earlier === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-view="run.earlier" title={earlier.title}>{earlier.text}</p>}
         {!headline ? null : (
           <div data-testid="view-run-waits-headline">
             <p className={typography.viewPanelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
