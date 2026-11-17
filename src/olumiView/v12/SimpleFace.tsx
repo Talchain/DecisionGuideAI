@@ -31,8 +31,9 @@ import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
 /**
- * ONE TYPE SCALE ON A SIMPLE CARD (Paul, 17 Nov: no big bold text on a card): the title (BaseNode's) and an option's chance are 14 / 500
- * (`typography.viewValue`); every other word on the card is 12 / 400 (`typography.viewLabel`, the card's small text), a figure's digits tabular.
+ * ONE TYPE SCALE ON A SIMPLE CARD (Paul, 17 Nov: no big bold text on a card): the title (BaseNode's) and the card's one headline, an option's
+ * chance or an aim's bound, are 14 / 500 (`typography.viewValue`; design findings section 4: "one headline per card"); every other word on the
+ * card is 12 / 400 (`typography.viewLabel`, the card's small text), a figure's digits tabular.
  */
 const FIGURE = `${typography.viewLabel} tabular-nums`
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
@@ -193,7 +194,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
     visual = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
-      <p className={`${FIGURE} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
+      <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
         <span className="ok-pill ok-bound min-w-0">
           {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
           {olumi ? <OlumiMark words={card.bound.olumi!.title} size={12} /> : null}
