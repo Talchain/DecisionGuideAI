@@ -46,6 +46,8 @@ export function IdeaCard({ data }: NodeProps) {
 type GroupData = { id: string; kind: GroupKind; kinds: readonly CardKindName[]; words: string | null; hover: string; challenged: number }
 /** Said on a folded group that holds a challenge (groups.ts challengedIn). */
 export const groupChallenged = (n: number): string => `${n} challenged inside`
+/** D1c's count (Codex UI reviewer 008 v8: neutral words, not "not sized yet"); each card says its own state once its row is opened. */
+export const olumiMore = (n: number): string => `${n} more from Olumi`
 
 export function FoldCard({ data }: NodeProps) {
   const { count, sid, width, group } = data as { count: number; sid: string | null; width: number; group?: GroupData }
@@ -54,14 +56,14 @@ export function FoldCard({ data }: NodeProps) {
     // D1: one press opens the row's group in place for this visit; the grouped cards' headings are the hover. Olumi's group is framed in Olumi's blue, dashed
     // (a proposal not yet the person's) inside an approved model; on a first draft everything is proposed, so nothing is marked for it (R3); the notes stack
     // in the panel's border.
-    const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow
+    const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow, olumis = group.kind === 'olumi'
     return (
       <button type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
         onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} title={group.hover}
         className={`flex items-center gap-1.5 rounded-md border bg-panel px-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
-        {proposed ? <OlumiMark words={group.words} size={12} /> : null}
-        <span className="font-medium tabular-nums text-text-header">{proposed ? count : notesCount(count)}</span>
+        {proposed || olumis ? <OlumiMark words={group.words} size={12} /> : null}
+        <span className="font-medium tabular-nums text-text-header">{proposed ? count : olumis ? olumiMore(count) : notesCount(count)}</span>
         {proposed && group.words !== null ? <span className="min-w-0 truncate">{group.words}</span> : null}
         {group.challenged > 0 ? <span role="img" data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} title={groupChallenged(group.challenged)} className="inline-flex flex-none" style={{ color: 'var(--olumi-mark-orange)' }}><AlertTriangle aria-hidden="true" strokeWidth={1.75} style={{ width: 'calc(12px * var(--o-s, 1))', height: 'calc(12px * var(--o-s, 1))' }} /></span> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>

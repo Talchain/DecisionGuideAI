@@ -15,9 +15,21 @@
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { cardKind, type CardKindName } from '../fields/fields'
+import { unsizedWords } from '../cards/words'
+import { useWhatIf } from '../../whatif'
+import { useWhatIfFocus } from '../inspect/whatIfFocus'
+import { useLaneInspector } from '../edit/inspectorStore'
 import { bandOf, type BandId } from './bands'
 
-export type GroupKind = 'proposed' | 'notes'
+/**
+ * D1c (v9; pilot loop 12:17Z: all nine journeys called the canvas cluttered; Codex UI reviewer 008 v8 clutter answers): on Simple an APPROVED
+ * driver or result that OLUMI wrote and that holds a figure with no value yet folds into ONE count per row, "N more from Olumi", with Olumi's mark.
+ * "No value yet" is core's own state, never the absence of a figure: core's gap words on an empty figure (`unsizedWords`: "not given yet · …") or a
+ * calculation waiting on an input (`figure.state === 'waits'`). A qualitative card (no figure) is never swept in; options, aims, positions, risks and
+ * notes are not in this rule; the person's, the brief's and mixed cards never fold. What the newest reply points at, the figure being tried and the
+ * card open in the details panel stay drawn (`foldKeepOf`). Detailed draws every card; the existing one-press open reveals the row's cards.
+ */
+export type GroupKind = 'proposed' | 'notes' | 'olumi'
 export type GroupBand = Exclude<BandId, 'ideas'>
 export type CardGroup = { readonly id: string; readonly kind: GroupKind; readonly band: GroupBand; readonly cards: readonly string[]; readonly kinds: readonly CardKindName[] }
 
@@ -26,7 +38,7 @@ export const GROUP_ID_PREFIX = 'group:'
 export const groupIdOf = (kind: GroupKind, band: GroupBand): string => `${GROUP_ID_PREFIX}${kind}:${band}`
 /** The band a group card stands in, from its id; null for any other id. */
 export function groupBandOf(id: string): GroupBand | null {
-  const m = /^group:(?:proposed|notes):(options|inputs|outcomes|aims)$/.exec(id)
+  const m = /^group:(?:proposed|notes|olumi):(options|inputs|outcomes|aims)$/.exec(id)
   return m === null ? null : (m[1] as GroupBand)
 }
 
@@ -37,18 +49,45 @@ export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null 
 /** An approved record that is only a sentence (D1b): core's kind `note`, no change pending, no figure. */
 const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null && card.figure == null
 
-/** Which group a card folds into on Simple, or null where it is drawn. */
-export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null): GroupKind | null {
-  const { kind } = cardKind(card, model, view)
-  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return 'proposed'
-  return approvedNote(card, kind) ? 'notes' : null
+/** D1c: an approved Olumi driver or result whose figure core holds with no value yet (see the rule above `GroupKind`). */
+const UNSIZED_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'result'])
+const olumiUnsized = (card: ViewCard, kind: CardKindName): boolean =>
+  card.change == null && card.author?.by === 'olumi' && UNSIZED_KINDS.has(kind) && (unsizedWords(card) !== null || card.figure?.state === 'waits')
+
+/** The cards D1c never folds: what the newest reply points at (its `next.at` and `next.about`), the figure being tried (the what-if shown, or the
+ *  one just pressed) and the card open in the details panel. Read from the View and the existing stores; nothing is worked out. */
+export function foldKeepOf(view: View | null): ReadonlySet<string> {
+  const keep = new Set<string>(), chat = view?.chat ?? []
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const a = chat[i]!.answer
+    if (a == null) continue
+    if (a.next.at != null) keep.add(a.next.at)
+    for (const id of a.next.about) keep.add(id)
+    break
+  }
+  const shown = useWhatIf.getState().shown
+  if (shown !== null && (view === null || shown.sid === view.id)) keep.add(shown.quantity)
+  const pressed = useWhatIfFocus.getState().id
+  if (pressed !== null) keep.add(pressed)
+  const open = useLaneInspector.getState().target
+  if (open?.kind === 'card') keep.add(open.id)
+  return keep
 }
 
-/** The groups of the drawn model, per row (band), in band order then proposed before notes; a group stands for one card or more. */
-export function cardGroupsOf(model: ViewModel, view: View | null): CardGroup[] {
+/** Which group a card folds into on Simple, or null where it is drawn. `keep`: the cards D1c leaves drawn (foldKeepOf). */
+export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, keep: ReadonlySet<string> = new Set()): GroupKind | null {
+  const { kind } = cardKind(card, model, view)
+  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return 'proposed'
+  if (approvedNote(card, kind)) return 'notes'
+  return olumiUnsized(card, kind) && !keep.has(card.id) ? 'olumi' : null
+}
+
+/** The groups of the drawn model, per row (band), in band order then proposed, notes and Olumi's in the order their cards come; a group stands for
+ *  one card or more. */
+export function cardGroupsOf(model: ViewModel, view: View | null, keep: ReadonlySet<string> = foldKeepOf(view)): CardGroup[] {
   const by = new Map<string, { kind: GroupKind; band: GroupBand; cards: string[]; kinds: CardKindName[] }>()
   for (const card of model.cards) {
-    const g = groupKindOf(card, model, view)
+    const g = groupKindOf(card, model, view, keep)
     if (g === null) continue
     const band = bandOf(card, model), id = groupIdOf(g, band), kind = cardKind(card, model, view).kind
     const at = by.get(id) ?? { kind: g, band, cards: [], kinds: [] }

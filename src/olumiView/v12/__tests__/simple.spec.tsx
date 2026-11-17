@@ -70,9 +70,14 @@ describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals
     expect(groupCounts(), 'Detailed folds nothing').toEqual([])
     expect(links()).toBe(cardLinks(wholeP).length)
   })
-  it('S1a the approved model as served: only its sentence-only records fold, into notes stacks; every figure, option and aim is drawn', async () => {
+  // CHANGED BY DESIGN (v9 D1c; pilot loop 12:17Z "cluttered", Codex UI reviewer 008 answers): Olumi's approved `profitability`, which core holds
+  // "not sized yet", now folds behind "1 more from Olumi"; the sentence-only records still fold into notes stacks; every option and aim is drawn.
+  it('S1a the approved model as served: its sentence-only records fold into notes stacks and Olumi\'s figure with no value yet behind one count; every option and aim is drawn', async () => {
     expect(european.proposal ?? null).toBeNull()
-    expect([approvedGroups.every((g) => g.kind === 'notes'), [...approvedGrouped].sort()]).toEqual([true, SENTENCES])
+    expect([card('profitability').author?.by, card('profitability').figure?.text, card('profitability').figure?.title.startsWith('not sized yet')], 'precondition: Olumi\'s, no value yet').toEqual(['olumi', '', true])
+    expect([...approvedGroups.filter((g) => g.kind === 'notes').flatMap((g) => g.cards)].sort()).toEqual(SENTENCES)
+    expect(approvedGroups.filter((g) => g.kind === 'olumi').map((g) => g.cards)).toEqual([['profitability']])
+    expect(approvedGroups.every((g) => g.kind !== 'proposed'), 'nothing is pending').toBe(true)
     expect(SENTENCES.map((id) => card(id).figure ?? null), 'precondition: none of them holds a figure').toEqual([null, null, null])
     renderHook(() => useViewCanvas(true))
     expect(levelOf(SID)).toBe('simple')

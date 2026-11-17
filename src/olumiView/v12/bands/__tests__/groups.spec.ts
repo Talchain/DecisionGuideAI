@@ -55,7 +55,9 @@ describe('which cards fold on Simple (D1a, D1b): read from change, author.by and
 
 describe('one group card per row, its links run to it', () => {
   const { model, view } = withCards([as('budget', 'driver', olumi, added), as('oven_price', 'driver', olumi, added), as('fitting', 'driver', olumi, added), as('oven_repair', 'risk', olumi, added)])
-  const groups = cardGroupsOf(model, view)
+  // The fixture's `spend` is an approved Olumi calculation waiting on an input, which D1c (v9) folds on its own; it is held drawn here so these rows
+  // read the proposal rule alone and its links to `spend` (foldOlumi.spec.tsx F1 holds D1c).
+  const groups = cardGroupsOf(model, view, new Set(['spend']))
   it('G3 a row\'s proposals make ONE group card, by row (the risk in its own row), with the kinds it holds', () => {
     const byId = new Map(groups.map((g) => [g.id, g]))
     const inputs = byId.get(groupIdOf('proposed', 'inputs'))!, outcomes = byId.get(groupIdOf('proposed', 'outcomes'))!
