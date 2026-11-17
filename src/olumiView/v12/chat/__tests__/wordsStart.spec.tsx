@@ -32,7 +32,6 @@ const SID = 's_00000000000e', UUID = '00000000-0000-4000-8000-00000000000e', MAD
 const BRIEF = 'Should the bike shop open a second workshop across town?'
 const SAID = 'What would the second workshop need first?'
 const OWN = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours.\n\nThen price a small unit near the station.'
-const OWN_WORDS = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours. Then price a small unit near the station.'
 const AT = '2026-11-17T04:00:00.000Z'
 const row = (job: number, text = OWN) => ({ job, at: AT, by: 'Ada', by_id: '7', said: SAID, text })
 /** A scenario core holds in words (CONTRACT 3): core's `start: "words"`, its brief, `draft: null`, no version, no proposal, no model. */
@@ -190,11 +189,11 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/method`)
     expect(posts[0]!.body['method']).toBe('else_do')
     cleanup(); posts = []
-    const c2 = show(inWords({ floor: [ideasRow(21, said, [`- ${IDEA_A}\n- ${IDEA_B}`])] }))
+    const c2 = show(inWords({ floor: [ideasRow(21, said, [IDEA_A, IDEA_B])] }))
     const items = keepIn(c2, 21)
     expect(items.map((li) => li.textContent)).toEqual([IDEA_A, IDEA_B])
     expect(items.map((li) => li.querySelectorAll('[data-testid="view-keep-idea-button"]').length)).toEqual([1, 1])
-    expect(floorTurn(c2, 21)!.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(2) // nothing on the host line, no whole-reply Keep
+    expect(floorTurn(c2, 21)!.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(2) // nothing on the host line
     await press(items[0]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await press(items[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(posts).toHaveLength(2))
@@ -207,20 +206,23 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(floorTurn(c, 21)!.querySelectorAll('[data-testid="view-keep-idea"]')).toHaveLength(0)
   })
 
-  it('a reply with one prose block and the host\'s status line beside it: the whole-reply Keep sends the prose\'s sentences only', async () => {
+  it('a reply in paragraphs with the host\'s status line beside it: each prose entry is offered on its own line, as core serves it; nothing on the status line', async () => {
+    const LINE_1 = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours.'
+    const LINE_2 = 'Then price a small unit near the station.'
+    const STATUS = 'The model Olumi is building will take this into account.'
     answer = () => new Response(JSON.stringify({ kept: 61 }), { status: 201 })
-    const c = show(inWords({ floor: [{ ...row(9, `${OWN}\n\nThe model Olumi is building will take this into account.`), prose: [OWN] }] }))
-    const keep = floorTurn(c, 9)!.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')
-    expect(keep).toHaveLength(1)
-    expect(keep[0]!.textContent).toBe(KEEP_IDEA)
-    await press(keep[0]!)
+    const c = show(inWords({ floor: [{ ...row(9, `${OWN}\n\n${STATUS}`), prose: [LINE_1, LINE_2] }] }))
+    const paras = [...floorTurn(c, 9)!.querySelectorAll<HTMLElement>('[data-reply-para]')]
+    expect(paras.map((p) => p.textContent)).toEqual([LINE_1, LINE_2, STATUS])
+    expect(paras.map((p) => p.querySelectorAll('[data-testid="view-keep-idea-button"]').length)).toEqual([1, 1, 0])
+    await press(paras[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(posts).toHaveLength(1))
-    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: OWN_WORDS } })
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: LINE_2 } })
   })
 
   it('after the keeps and a COLD reopen: each approach reads "Kept", and each idea keeps its source and method from the floor (kept.from); CONTRAST: without `from` it is not looked up on the floor', () => {
     const said = METHOD(inWords()).text
-    const view = inWords({ floor: [ideasRow(21, said, [`- ${IDEA_A}\n- ${IDEA_B}`])], kept: [keptRow(50, 21, IDEA_A, 'floor'), keptRow(51, 21, IDEA_B, 'floor')] })
+    const view = inWords({ floor: [ideasRow(21, said, [IDEA_A, IDEA_B])], kept: [keptRow(50, 21, IDEA_A, 'floor'), keptRow(51, 21, IDEA_B, 'floor')] })
     useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, stale: false, at: null }) // a cold page
     const c = show(view)
     expect(keepIn(c, 21).map((li) => li.querySelector('[data-testid="view-keep-idea-kept"]')?.textContent)).toEqual([KEPT_IDEA, KEPT_IDEA])
@@ -235,7 +237,7 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
 
   it('Develop and Challenge on a kept floor idea put its exact words in the box; on a words scenario Send asks it as a message, answered on the floor', async () => {
     answer = () => new Response(JSON.stringify({ job: 43, status_url: null }), { status: 202 })
-    const c = show(inWords({ floor: [ideasRow(21, SAID, [`- ${IDEA_A}\n- ${IDEA_B}`])], kept: [keptRow(50, 21, IDEA_A, 'floor')] }))
+    const c = show(inWords({ floor: [ideasRow(21, SAID, [IDEA_A, IDEA_B])], kept: [keptRow(50, 21, IDEA_A, 'floor')] }))
     const idea = keptIdeasOf(useViewStore.getState().view)[0]!
     for (const ask of [developQuestionOf(idea), challengeQuestionOf(idea)]) {
       posts = []
@@ -251,7 +253,7 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
   it('a refusal is core\'s own words beside that Keep, and nothing is shown as kept', async () => {
     const REFUSED = 'Those words are not in Olumi\'s reply.'
     answer = () => new Response(JSON.stringify({ error: REFUSED }), { status: 400 })
-    const c = show(inWords({ floor: [ideasRow(21, SAID, [`- ${IDEA_A}\n- ${IDEA_B}`])] }))
+    const c = show(inWords({ floor: [ideasRow(21, SAID, [IDEA_A, IDEA_B])] }))
     const first = keepIn(c, 21)[0]!
     await press(first.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(first.querySelector('[data-testid="view-keep-idea-said"]')?.textContent).toBe(REFUSED))

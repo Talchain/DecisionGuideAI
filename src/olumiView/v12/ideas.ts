@@ -94,22 +94,6 @@ export function approachesOf(parts: Parts): string[] {
   return items.flatMap((l) => { const w = approachOf(l); return w === null ? [] : [w] })
 }
 
-/**
- * What can be kept from a floor reply (words-start CONTRACT 4, Codex 04:16:02Z): ONLY Olumi's typed prose blocks as core serves them on the floor
- * row (`floor[].prose`), never `floor[].text`, which also holds the host's own lines. Each of the reply's own approaches (its list lines, two or
- * more, as `approachesOf`) is kept on its own; otherwise the opening of its first prose block, whole sentences (`ideaTextOf`). Nothing without prose.
- */
-export const floorProseOf = (f: unknown): string[] | null => {
-  const p = (f as { prose?: unknown } | null)?.prose
-  return Array.isArray(p) && p.length > 0 && p.every((x) => typeof x === 'string') ? (p as string[]) : null
-}
-export function floorKeepOf(f: unknown): { approaches: string[]; whole: string | null } {
-  const prose = floorProseOf(f)
-  if (prose === null) return { approaches: [], whole: null }
-  const approaches = approachesOf(prose.map((text) => ({ text: `${text}\n` })))
-  return { approaches, whole: approaches.length > 0 ? null : ideaTextOf({ answer: [{ text: prose[0]! }] } as unknown as NonNullable<ViewTurn['answer']>) }
-}
-
 /** An idea the scenario holds (View `strategy.items[kind='idea']`: Olumi's idea, the reply it came from, the person who kept it). */
 export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null; /** Kept from a floor reply (View `kept[].from: "floor"`, words-start CONTRACT 5): `sourceTurn` is that reply's `floor[].job`, not a `chat[].id`. */ fromFloor?: true }
 

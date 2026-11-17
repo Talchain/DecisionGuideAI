@@ -50,7 +50,7 @@ import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
-import { approachOf, approachesOf, floorKeepOf, ideaTextOf, isCoachedReply } from './v12/ideas'
+import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
@@ -100,7 +100,7 @@ export const LEAD_WORDS = 20
 export const SHOW_WHOLE_FIRST = 'Show the whole first answer'
 export const SHOW_WHOLE_REPLY = 'Show the whole reply'
 export const SHOW_LESS = 'Show less'
-export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
+export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
@@ -175,7 +175,7 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
       ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
       : (g.list
       ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, ITEM_MARK)}{w === null ? null : item!(w)}</li> })}</ul>
-      : <p key={gi} className={bigLead && gi === o ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, null)}</span>)}</p>)
+      : <p key={gi} className={bigLead && gi === o ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => { const w = item === undefined || !everyLine ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <span key={li} className={w === null ? undefined : 'group/item'}>{li > 0 ? <br /> : null}{draw(l, null)}{w === null ? null : item!(w)}</span> })}</p>)
   }
   return (
     <>
@@ -358,11 +358,12 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
-  // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z): what can be kept is read from core's typed prose on this row, never from its text
-  // (which also holds the host's lines): each of Olumi's own approaches on its own line, else the opening of its prose, with the reply's Keep.
+  // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z and 04:41:16Z): core offers what can be kept on this row (`prose`: each line of Olumi's
+  // own prose, as served, one entry each). Each entry is offered on its own line, as it is; nothing is read from the text (which also holds the
+  // host's lines) and no entry is split or rejoined here. Core stays the only authority on what may be kept.
   const sid = useViewStore((st) => st.sid)
-  const { approaches, whole } = sid === null ? { approaches: [], whole: null } : floorKeepOf(f)
-  const keepEach = sid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={sid} turn={f.job} text={words} inline floor /> : null)
+  const entries = sid === null ? [] : f.prose ?? []
+  const keepEach = sid === null || entries.length === 0 ? undefined : (words: string) => (entries.includes(words) ? <KeepIdea sid={sid} turn={f.job} text={words} inline floor /> : null)
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">
@@ -371,7 +372,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
-      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} /></section>{sid === null || whole === null ? null : <KeepIdea sid={sid} turn={f.job} text={whole} floor />}</div>
+      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section></div>
     </li>
   )
 }
