@@ -16,4 +16,6 @@ export const TYPE = {
   body: t.viewPanelBody ?? 'text-[14px] font-sans leading-relaxed',
   /** 18px semibold: the panel's one headline. */
   headline: t.viewPanelHeadline ?? 'text-[18px] font-medium font-sans leading-snug',
+  /** 28px medium: an option's chance of meeting the goal, the Analysis tab's figure (v11 item A). */
+  figure: 'text-[28px] font-medium font-sans leading-tight tabular-nums',
 } as const
