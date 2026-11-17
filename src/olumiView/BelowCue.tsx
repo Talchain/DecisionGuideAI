@@ -71,15 +71,18 @@ function useBesideZoom(): number {
   return left
 }
 
-/** The foot fade's height: the board is drawn to the window's foot, and its last 24 px fade into the canvas's ground (v10 review item 7; was an
- *  88 px opaque band). The foot controls stand over the board. FOOT_GUTTER stays for the fit and the cue's landing only. */
+/** The foot line: the board is drawn to the window's foot (v10 review item 7; was an 88 px opaque band); a card whose foot is below the window's
+ *  last 24 px is counted as below. The foot controls stand over the board. FOOT_GUTTER stays for the fit and the cue's landing only. */
 export const FOOT_EDGE = 24
+/** The drawn fade is the foot controls' own band (72 px), so a card's last line fades under the cue and the level switch instead of standing
+ *  sharp behind them (v10 look at 1232). */
+export const FOOT_FADE_H = 72
 /** The fade is soft over its whole height. */
-export const FOOT_EDGE_SOFT = FOOT_EDGE
+export const FOOT_EDGE_SOFT = FOOT_FADE_H
 /** How the foot fades: clear at its top, the canvas's own ground at the window's foot. */
 export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px)`
-/** The fade's height (screen px): always FOOT_EDGE now (it no longer rises over a cut card; the board is drawn to the foot). Arguments kept for callers. */
-export const footEdgeHeightOf = (_cards?: readonly Box[], _ty?: number, _zoom?: number, _height?: number): number => FOOT_EDGE
+/** The drawn fade's height (screen px). Arguments kept for callers. */
+export const footEdgeHeightOf = (_cards?: readonly Box[], _ty?: number, _zoom?: number, _height?: number): number => FOOT_FADE_H
 /** With the fade drawn (Simple), the cards not wholly in view above it: those whose foot is below the fade's top. After the cue's press (to the band, panUpOf,
  *  which stands above the fade) none is counted. */
 export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
