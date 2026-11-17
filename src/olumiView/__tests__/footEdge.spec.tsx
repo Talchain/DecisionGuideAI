@@ -29,7 +29,7 @@ describe('the foot fade on Simple (CHANGED BY DESIGN, v10 review item 7: drawn t
   it('E1 CHANGED BY DESIGN (v10 review item 7): with a card below the foot, a 24 px fade into the canvas ground is drawn, takes no press, and the cue counts what is behind it', () => {
     const el = draw(BELOW, true), edge = edgeOf(el)!
     expect([edge.style.height, edge.style.background, edge.className.includes('pointer-events-none'), edge.getAttribute('aria-hidden')]).toEqual([`${FOOT_FADE_H}px`, FOOT_EDGE_FADE, true, 'true']) // CHANGED BY DESIGN (v10 look): the drawn fade is the controls' 72 px band; the count line stays 24
-    expect([FOOT_EDGE, FOOT_EDGE < FOOT_GUTTER, FOOT_FADE_H]).toEqual([24, true, 72])
+    expect([FOOT_EDGE, FOOT_EDGE < FOOT_GUTTER, FOOT_FADE_H]).toEqual([48, true, 72]) // CHANGED BY DESIGN (DL 14:5xZ): solid under the controls, count line at its top
     expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent, 'the cue counts what is behind it').toContain('1 more card below')
   })
   it('E2 CONTRAST: nothing below the foot draws no fade; and the fade is Simple\'s only (not asked for, not drawn)', () => {
@@ -41,15 +41,15 @@ describe('the foot fade on Simple (CHANGED BY DESIGN, v10 review item 7: drawn t
 })
 
 describe('v10 item 7: a card in the old gutter is drawn, not hidden (CHANGED BY DESIGN: was "wholly behind the edge")', () => {
-  it('E3 CHANGED BY DESIGN (v10 review item 7): a card from 560 to 660 is drawn (its foot is above the fade top at 680), the fade stays 24 px and nothing is counted', () => {
-    const CUT = [card('a', 100), card('cut', 560)]
+  it('E3 CHANGED BY DESIGN (v10 review item 7): a card from 540 to 640 is drawn (its foot is above the top of the solid band at 656), the band stays 72 px and nothing is counted', () => {
+    const CUT = [card('a', 100), card('cut', 540)]
     expect([footEdgeHeightOf(CUT.map((c) => ({ y: c.position.y, h: 100 })), 0, 1, H), cardsBehindOf(CUT.map((c) => ({ y: c.position.y, h: 100 })), 0, 1, H)]).toEqual([FOOT_FADE_H, 0])
     expect(edgeOf(draw(CUT, true))).toBeNull()
   })
-  it('E3 CONTRAST: a card whose foot is under the fade (top 600, foot 700 > 680) is counted by id of count, and the fade is drawn', () => {
+  it('E3 CONTRAST: a card whose foot is under the solid band (top 600, foot 700 > 656) is counted by id of count, and the fade is drawn', () => {
     const boxes = (ys: number[], h = 100) => ys.map((y) => ({ y, h }))
     expect(cardsBehindOf(boxes([100, 600]), 0, 1, H)).toBe(1)
-    expect(cardsBehindOf(boxes([100, 580]), 0, 1, H), 'foot at 680 exactly: in view').toBe(0)
+    expect(cardsBehindOf(boxes([100, 556]), 0, 1, H), 'foot at 656 exactly: in view').toBe(0)
     expect(footEdgeHeightOf(boxes([40], 2000), 0, 1, H), 'never rises: always the drawn 72 px band').toBe(FOOT_FADE_H)
     const el = draw([card('a', 100), card('under', 600)], true)
     expect([edgeOf(el)?.style.height, el.querySelector('[data-testid="view-below-cue"]')?.textContent]).toEqual([`${FOOT_FADE_H}px`, '1 more card below'])
@@ -57,15 +57,15 @@ describe('v10 item 7: a card in the old gutter is drawn, not hidden (CHANGED BY 
 })
 
 describe('every card under the fade is counted (Line reviewer, e385f882 F1)', () => {
-  it('E4 CHANGED BY DESIGN (v10 review item 7): a top-aligned row with a tall and a short card: both feet below 680 are counted (2), a short one ending above it is not', () => {
-    expect(cardsBehindOf([{ y: 640, h: 100 }, { y: 640, h: 30 }], 0, 1, H), 'the short one ends at 670, in view').toBe(1)
-    expect(cardsBehindOf([{ y: 640, h: 100 }, { y: 640, h: 60 }], 0, 1, H)).toBe(2)
-    const el = draw([card('tall', 640), { ...card('short', 640), measured: { width: 200, height: 60 } }], true)
+  it('E4 CHANGED BY DESIGN (v10 review item 7): a top-aligned row with a tall and a short card: both feet below 656 are counted (2), a short one ending above it is not', () => {
+    expect(cardsBehindOf([{ y: 616, h: 100 }, { y: 616, h: 30 }], 0, 1, H), 'the short one ends at 646, in view').toBe(1)
+    expect(cardsBehindOf([{ y: 616, h: 100 }, { y: 616, h: 60 }], 0, 1, H)).toBe(2)
+    const el = draw([card('tall', 616), { ...card('short', 616), measured: { width: 200, height: 60 } }], true)
     expect(el.querySelector('[data-testid="view-below-cue"]')?.textContent).toContain('2 more cards below')
   })
-  it('E4 CONTRAST: the short card alone (foot 690 > 680 is counted; at 40 tall, foot 680, it is not)', () => {
-    expect([cardsBehindOf([{ y: 640, h: 50 }], 0, 1, H), cardsBehindOf([{ y: 640, h: 40 }], 0, 1, H)]).toEqual([1, 0])
-    expect(edgeOf(draw([{ ...card('short', 640), measured: { width: 200, height: 40 } }], true))).toBeNull()
+  it('E4 CONTRAST: the short card alone (foot 666 > 656 is counted; at 40 tall, foot 656, it is not)', () => {
+    expect([cardsBehindOf([{ y: 616, h: 50 }], 0, 1, H), cardsBehindOf([{ y: 616, h: 40 }], 0, 1, H)]).toEqual([1, 0])
+    expect(edgeOf(draw([{ ...card('short', 616), measured: { width: 200, height: 40 } }], true))).toBeNull()
   })
 })
 
