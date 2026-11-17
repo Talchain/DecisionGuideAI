@@ -104,3 +104,19 @@ describe('a folded first answer never hides Olumi\'s check against the model', (
     expect(container.querySelector('[data-testid="view-reply-fold"]')?.textContent).toBe('Show the whole first answer')
   })
 })
+
+// The reply contract (17 Nov) keeps core's markers: a "## " line must never reach the person raw on ANY reply surface. Blocks has its own row
+// (panel.spec); this binds the early answer and the model-less floor, which draw each line through richText (EarlyAnswer.tsx).
+describe('a "## " line is a lead-in in the early answer too (Line reviewer F1)', () => {
+  it('draws two to six hashes as a quiet heading run, hashes dropped; one hash or seven stays as typed', async () => {
+    const { EarlyAnswer } = await import('../../../EarlyAnswer')
+    const text = ['## Fees first', 'The fees are fixed for the year.', '', '# One hash stays.', '', '####### Seven stay.'].join('\n')
+    const { container } = render(<EarlyAnswer text={text} bare />)
+    const leadIns = [...container.querySelectorAll('[data-reply-lead-in]')]
+    expect(leadIns.map((e) => e.textContent)).toEqual(['Fees first'])
+    expect(leadIns[0]!.className).toContain('font-medium')
+    expect(container.textContent).not.toContain('## ')
+    expect(container.textContent).toContain('# One hash stays.')
+    expect(container.textContent).toContain('####### Seven stay.')
+  })
+})

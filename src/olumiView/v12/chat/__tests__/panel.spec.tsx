@@ -72,6 +72,7 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     const approve = q(top, 'view-approve')!
     expect(approve).toHaveTextContent(p.actions?.approve ?? 'Approve')
     expect(approve.closest('[hidden]')).toBeNull() // in view at rest, not inside a hidden body
+    expect(qa(top, 'view-set-aside')).toHaveLength(1) // CONTRAST to the readings row below: no reading waits, so Set aside is offered at rest
     expect(q(top, 'view-changes')).toBeNull() // the list is read on a press, never approved blind from it
     // CONTRAST: opening the row draws the list under the same card, Approve still there once.
     fireEvent.click(q(top, 'view-proposal-row')!)
@@ -117,12 +118,15 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     const c = show({ ...view, proposal: { ...p, marks } } as unknown as View)
     const top = q(c, 'view-chat-pinned')!
     expect(q(top, 'view-approve')).toBeNull()
+    // Line reviewer F4: core refuses a set-aside that leaves a carried reading unsettled (409), so it is not offered on the closed card either.
+    expect(q(top, 'view-set-aside')).toBeNull()
     const review = q(top, 'view-review-changes')!
     expect(review).toHaveTextContent(REVIEW_CHANGES)
     fireEvent.click(review)
     expect(q(top, 'view-proposal-review')!.getAttribute('data-open')).toBe('true')
     expect(q(top, 'view-reading-0')).not.toBeNull() // the choice is now in front of the person
     expect(qa(c, 'view-approve')).toHaveLength(1) // and Approve with it, once
+    expect(qa(c, 'view-set-aside')).toHaveLength(1) // and Set aside, where Keep the original can be sent with it
   })
 })
 
