@@ -265,7 +265,9 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     const m = await open(BUILD)
     const presses = [...m.querySelectorAll<HTMLElement>('button')]
     expect(presses[0]?.dataset['testid']).toBe('view-build-model')
-    expect(presses[0]?.textContent).toBe(BUILD.label)
+    expect(presses[0]?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(BUILD.label)
+    // The row shape of every press under it: core's label, then core's own line for it drawn as the row's description (DL 08:5xZ), and its hover.
+    expect(presses[0]?.querySelector('[data-testid="view-build-model-title"]')?.textContent).toBe(BUILD.title)
     expect(presses[0]?.title).toBe(BUILD.title)
     const order = (sel: string) => [...m.querySelectorAll('*')].indexOf(m.querySelector(sel)!)
     expect(order('[data-testid="view-build-model"]')).toBeLessThan(order('[data-testid="view-session-goal"]'))
@@ -277,5 +279,28 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     expect(m.querySelector('[data-testid="view-build-model"]')).toBeNull()
     expect(m.querySelector('[data-testid="view-build-model-row"]')).toBeNull()
     expect([...m.querySelectorAll<HTMLElement>('[data-testid="view-actions-tools"] button')].map((b) => b.dataset['tool'])).toEqual(['edit_brief', 'review_inputs'])
+  })
+})
+
+describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under six rows on a words board)', () => {
+  const SAID = 'An invented sentence every gated question shares.'
+  const m = (id: string, i: number, prerequisite: string | null) => ({ id, i, text: `An invented question ${i}`, first: false, prerequisite })
+  const draw = async (methods: unknown[]) => {
+    const c = render(<ActionsMenu menu={{ goal: null, methods: methods as Menu['methods'], tools: [] }} held={false} goal={null} onMethod={() => undefined} onTool={() => undefined} />).container
+    await press(c.querySelector('[data-testid="view-actions-button"]')!)
+    return c.querySelector<HTMLElement>('[data-testid="view-actions-menu"]')!
+  }
+  it('catch: two or more gated questions sharing it: drawn once at the head of the questions; each gated question carries the mark, with it as hover and name; the others none', async () => {
+    const menu = await draw([m('a', 0, SAID), m('b', 1, null), m('c', 2, SAID), m('d', 3, SAID)])
+    expect([...menu.querySelectorAll('[data-testid="view-method-prerequisite-once"]')].map((e) => e.textContent)).toEqual([SAID])
+    expect(menu.textContent!.split(SAID).length - 1).toBe(1)
+    const marks = [...menu.querySelectorAll<HTMLElement>('[data-testid="view-method-prerequisite"]')]
+    expect(marks.map((e) => e.closest<HTMLElement>('[data-method]')?.dataset['method'])).toEqual(['a', 'c', 'd'])
+    for (const e of marks) expect([e.getAttribute('aria-label'), e.title]).toEqual([SAID, SAID])
+  })
+  it('contrast: one gated question keeps its own line, and no shared line is drawn', async () => {
+    const menu = await draw([m('a', 0, SAID), m('b', 1, null)])
+    expect(menu.querySelector('[data-testid="view-method-prerequisite-once"]')).toBeNull()
+    expect(menu.querySelector('[data-method="a"] [data-testid="view-method-prerequisite"]')?.textContent).toBe(SAID)
   })
 })

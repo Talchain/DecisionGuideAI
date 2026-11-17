@@ -5,7 +5,7 @@
  * stay beside it. Presses are the caller's (`onMethod`, `onTool`), so this file holds no write and imports nothing from ViewChat.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { MoreHorizontal } from 'lucide-react'
+import { Calculator, MoreHorizontal } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TOOL_WORDS, type Menu, type ToolId } from './actions'
 
@@ -54,6 +54,9 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }
   }, [open])
+  // One gated sentence shared by two or more questions is said once (see the questions' head); a single gated question, or differing sentences, keep their own line.
+  const gatedWords = [...new Set(menu.methods.flatMap((m) => (m.prerequisite === null ? [] : [m.prerequisite])))]
+  const onceWords = gatedWords.length === 1 && menu.methods.filter((m) => m.prerequisite !== null).length > 1 ? gatedWords[0]! : null
   const item = 'flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   return (
     <span ref={root} className="relative inline-flex" data-testid="view-actions">
@@ -69,20 +72,36 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
               and 2000): the one press that changes what the scenario is, in view on opening, above what the person came for and core's questions. */}
           {build === undefined ? null : (
             <div className="border-b border-panel-border pb-2" data-testid="view-build-model-row">
-              <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={`${item} font-medium`} data-testid="view-build-model">{build.label}</button>
+              <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={item} data-testid="view-build-model">
+                {/* The row shape every press below it has (DL, 08:5xZ): core's label, then core's own one line for it (`build_model.title`), quiet. */}
+                <span className="font-medium text-text-header" data-testid="view-build-model-label">{build.label}</span>
+                <span className={`${typography.viewPanelMeta} font-normal text-text-light`} data-testid="view-build-model-title">{build.title}</span>
+              </button>
             </div>
           )}
           {goal}
           <div className="space-y-0.5" data-testid="view-session-menu">
+            {/* The gated questions share one sentence (actions.ts NEEDS_ANALYSIS_WORDS): said once here, at the head of the questions, beside the mark each
+                gated question carries (DL, 08:5xZ: on a words board it sat under six rows); the mark gives it again as its hover and name. */}
+            {onceWords === null ? null : (
+              <p className={`${typography.viewPanelMeta} flex items-start gap-1.5 px-2 pb-1 text-text-light`} data-testid="view-method-prerequisite-once">
+                <Calculator className="mt-0.5 h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />{onceWords}
+              </p>
+            )}
             {menu.methods.map((m) => (
               <button key={m.id} type="button" disabled={held} onClick={() => { setOpen(false); onMethod(m.id) }} title={m.first ? FIRST_FOR_YOUR_GOAL : undefined}
                 className={`${item}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
                 <span className="flex items-start gap-1.5">
                   {m.first ? <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
                   <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
+                  {m.prerequisite === null || onceWords === null ? null : (
+                    <span role="img" aria-label={m.prerequisite} title={m.prerequisite} className="mt-0.5 inline-flex flex-none text-text-light" data-testid="view-method-prerequisite">
+                      <Calculator className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                  )}
                   {m.first ? <span className="sr-only"> ({FIRST_FOR_YOUR_GOAL})</span> : null}
                 </span>
-                {m.prerequisite === null ? null : <span className={`${typography.viewPanelMeta} font-normal text-text-light`} data-testid="view-method-prerequisite">{m.prerequisite}</span>}
+                {m.prerequisite === null || onceWords !== null ? null : <span className={`${typography.viewPanelMeta} font-normal text-text-light`} data-testid="view-method-prerequisite">{m.prerequisite}</span>}
               </button>
             ))}
           </div>

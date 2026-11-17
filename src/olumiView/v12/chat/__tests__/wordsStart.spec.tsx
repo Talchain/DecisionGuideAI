@@ -313,7 +313,7 @@ describe('4. "Build a model from this": one plain item in the existing menu, onl
     const c = show(withOffer())
     await openMenu(c)
     const item = q(c, 'view-build-model')
-    expect(item?.textContent).toBe(OFFER.label)
+    expect(item?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(OFFER.label) // the row's label (UI builder, 08:5xZ: the row also draws core's title)
     expect(item?.getAttribute('title')).toBe(OFFER.title)
     expect(q(c, 'view-actions-menu')!.querySelectorAll('[data-testid="view-build-model"]')).toHaveLength(1)
     await press(item)
