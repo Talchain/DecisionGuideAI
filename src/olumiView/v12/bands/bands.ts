@@ -25,7 +25,14 @@ export const INPUTS_ASSOCIATED_LABEL = 'Points raised'
 /** The band's label for this model: the inputs band says "What drives it" only where one of its cards is in a causal link (a link that is not a
  *  reason and not a size); otherwise its neutral label. The outcomes band holding a risk is "Outcomes & risks", the product's own label for that row
  *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). Every other band keeps its fixed label. */
-export function bandLabelOf(band: BandId, model: ViewModel | null): string {
+/** The kept ideas' heading where the reader did not keep every one of them (pilot, pair row 08:5xZ: a second member read "you" for a teammate's ideas). */
+export const IDEAS_KEPT_LABEL = 'Ideas kept'
+/** True when the reader kept every idea in the strip: core's `kept_by` on each is the reader (an idea whose keeper core does not name is not theirs). */
+export const allKeptByReader = (ideas: readonly { keptBy: { id: string } | null }[], readerId: string | null): boolean =>
+  readerId !== null && ideas.length > 0 && ideas.every((i) => i.keptBy?.id === readerId)
+export function bandLabelOf(band: BandId, model: ViewModel | null, ideasMine = true): string {
+  // "Ideas you kept" only for the reader's own ideas; otherwise "Ideas kept", each card saying its keeper from core's `kept_by` (ideaProvenance).
+  if (band === 'ideas' && !ideasMine) return IDEAS_KEPT_LABEL
   if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
   if (band !== 'inputs' || model === null) return BANDS[band].label
   const inputs = new Set(inputIdsOf(model))

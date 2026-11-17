@@ -12,7 +12,8 @@ import { drawnModelOf, SIMPLE_LABEL_GAP } from '../../layout'
 import { KIND_GLYPH_PX } from '../../../canvas/utils/nodeLayoutConstants'
 import { useViewStore } from '../../store'
 import { levelOf, useSimpleLevel } from '../simpleStore'
-import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
+import { allKeptByReader, BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
+import { keptIdeasOf } from './keptIdeas'
 import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
 
@@ -59,6 +60,8 @@ export function BandLayer() {
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const core = useViewStore((s) => s.view?.model ?? null)
   const sid = useViewStore((s) => s.sid)
+  // The ideas strip's heading follows core's `kept_by`: "Ideas you kept" only when the reader kept every idea in it.
+  const ideasMine = useViewStore((s) => s.view === null || allKeptByReader(keptIdeasOf(s.view), s.view.you_id ?? null))
   const nodes = useCanvasStore((s) => s.nodes)
   const open = useInputsOpen((s) => s.open)
   const model = useMemo(() => (core === null ? null : drawnModelOf(core)), [core])
@@ -75,7 +78,7 @@ export function BandLayer() {
         {labels.map(({ band, x, y }) => (
           <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y, transform: `translateY(calc(-100% - ${SIMPLE_LABEL_GAP}px - ${KIND_GLYPH_PX / 2}px * var(--o-s, 1)))`, color: INK, pointerEvents: 'none', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
             className="flex items-center gap-1.5 whitespace-nowrap font-medium leading-tight">
-            <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
+            <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model, ideasMine)}
             {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 rounded-full border border-panel-border px-2 py-0.5 text-xs font-medium"
               title="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}>Fold</button> : null}
           </div>
