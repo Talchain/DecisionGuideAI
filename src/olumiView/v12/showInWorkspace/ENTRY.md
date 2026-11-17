@@ -6,7 +6,7 @@ Neither is applied by this lane. Each was checked with `git apply --cached --che
 ## ENTRY-canvas.patch — for the UI builder (`ViewCanvas.tsx`)
 
 1. Registers the camera port once while the canvas is on the page (`registerShowCameraPort(makeShowCameraPort({...}))`), next to `registerRevealReturnCamera`.
-2. The board's framing loop WAITS while `showHolds()` is true, then goes on as if it had just begun; a resize does not refit while it is true. Nothing is dropped: when the hold ends the board frames itself unless the camera is held.
+2. The board's framing loop WAITS while `showHolds()` is true, then goes on as if it had just begun. A resize does not refit while it is true (an effect cannot wait); the port makes that good itself when the last hold ends (`canvasSide.ts hold`), unless the camera is held. So nothing is dropped.
 3. Checked against `38ef5ce81145f576c6326b596b9004f86e20e6ca` (wip/v12-production-face; also applies to `51409d11` and `edbd5fda`). `:280`'s reset of `userMoved` is untouched on purpose.
 
 ## ENTRY-chat.patch — for sx-panel (`ViewChat.tsx`)

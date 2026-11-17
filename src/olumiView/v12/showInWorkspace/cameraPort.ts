@@ -14,6 +14,10 @@ export interface Viewport { readonly x: number; readonly y: number; readonly zoo
 export interface Box { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 export interface Pane { readonly size: { readonly w: number; readonly h: number }; readonly inset: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number } }
 
+/** The same free canvas: its size and its four insets. */
+export const samePane = (a: Pane | null, b: Pane | null): boolean =>
+  a === b || (a !== null && b !== null && a.size.w === b.size.w && a.size.h === b.size.h && a.inset.left === b.inset.left && a.inset.top === b.inset.top && a.inset.right === b.inset.right && a.inset.bottom === b.inset.bottom)
+
 export interface ShowCameraPort {
   /** The camera now, and whether the person holds it (their own pan, zoom or a control they pressed; the board does not refit under it). */
   capture(): { readonly viewport: Viewport; readonly held: boolean }
@@ -59,7 +63,9 @@ export const useHasShowCamera = (): boolean => useSyncExternalStore(onShowCamera
 let holds = 0
 /**
  * THE ONE PREDICATE for the canvas's framing: a show or a return is rearranging the board, so the board's own framing waits. It is put
- * off, never dropped: when the hold ends the framing goes on, and frames the board unless the person (or the show for them) holds the camera.
+ * off, never dropped: when the hold ends the framing loop goes on, and frames the board unless the person (or the show for them) holds
+ * the camera. The canvas's resize refit cannot wait (it is an effect, not a loop): it is skipped while this is true, and the port makes
+ * it good when the last hold ends (canvasSide.ts `hold`).
  */
 export const showHolds = (): boolean => holds > 0
 /** One hold (canvasSide.ts). The function returned ends it once and says whether this call was the one that ended it. */

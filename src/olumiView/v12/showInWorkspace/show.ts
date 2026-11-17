@@ -16,9 +16,9 @@
  * restored.
  */
 import { create } from 'zustand'
-import { onShowCameraPort, showCameraPort, type ShowCameraPort } from './cameraPort'
+import { onShowCameraPort, samePane, showCameraPort, type ShowCameraPort } from './cameraPort'
 import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type View } from './deps'
-import { restoreLocal, restoreSelection, restoreStores, samePane, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
+import { restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
 
 /** Chrome words, said only where core gave none of its own for the read that failed. */

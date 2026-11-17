@@ -9,7 +9,7 @@
  * canvas knows (whether the person holds the camera, the one function every person-made move goes through, and its own framing).
  */
 import type { ReactFlowInstance } from '@xyflow/react'
-import { takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
+import { samePane, takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
 import { QUESTION, VIEW_CARD, boardOf, freePane, useCanvasStore, useViewStore, viewLaying } from './deps'
 
 export interface CanvasSide {
@@ -34,6 +34,9 @@ export type CanvasPassesACanvasSide = Is<(Pick<ReactFlowInstance, 'getViewport' 
 const frame = (f: () => void): void => { if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => f()); else setTimeout(f, 16) }
 
 /**
+ * Not `settleIdsOf` (layout.ts, the board's own framing): that waits only for cards the canvas already holds, and a show must wait for
+ * the cards the View NOW draws (a badge just opened adds cards the canvas does not hold yet).
+ *
  * Where everything the View now draws stands on the canvas, as one string: null while any card the View draws is missing or unmeasured,
  * or while the canvas still holds a card the View no longer draws. The camera is part of it, so a move still easing is not "settled".
  */
@@ -53,6 +56,12 @@ function placesOf(c: CanvasSide): string | null {
 }
 
 export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
+  const pane = (): Pane | null => {
+    const el = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
+    return el === null ? null : freePane(el)
+  }
+  /** Holds now on (a return can begin while a show it cancelled has not let go yet), and the free canvas when the first of them began. */
+  let holding = 0, paneWas: Pane | null = null
   return {
     capture: () => ({ viewport: c.getViewport(), held: c.userMoved.current }),
     settled: (signal) => new Promise<boolean>((resolve) => {
@@ -81,17 +90,23 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
       }
       return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
     },
-    pane: (): Pane | null => {
-      const el = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
-      return el === null ? null : freePane(el)
-    },
+    pane,
     moveTo: (to, { duration }) => { c.userMoved.current = true; c.hand(); void c.setViewport(to, { duration }) },
     refit: () => { c.userMoved.current = false; c.hand(); void c.fit() },
     hold: () => {
       const end = takeShowHold()
       c.hand()
-      // Only a run nothing newer overtook says who holds the camera afterwards: an overtaken one (null) ends its hold and writes nothing.
-      return (held) => { if (end() && held !== null) c.userMoved.current = held }
+      if (holding === 0) paneWas = pane()
+      holding += 1
+      return (held) => {
+        if (!end()) return
+        holding -= 1
+        // Only a run nothing newer overtook says who holds the camera afterwards: an overtaken one (null) ends its hold and writes nothing.
+        if (held !== null) c.userMoved.current = held
+        // The canvas skips its resize refit while a hold is on. When the last one ends, a resize that happened meanwhile is made good,
+        // unless the camera is held (a held camera is never refitted, by the canvas's own rule).
+        if (holding === 0 && !c.userMoved.current && !samePane(paneWas, pane())) void c.fit()
+      }
     },
   }
 }

@@ -58,9 +58,6 @@ export function takeSnapshot(port: ShowCameraPort, scope: string): Snapshot {
   }
 }
 
-export const samePane = (a: Pane | null, b: Pane | null): boolean =>
-  a === b || (a !== null && b !== null && a.size.w === b.size.w && a.size.h === b.size.h && a.inset.left === b.inset.left && a.inset.top === b.inset.top && a.inset.right === b.inset.right && a.inset.bottom === b.inset.bottom)
-
 const sameOpened = (a: Opened, b: Opened): boolean =>
   a.all === b.all && a.open.size === b.open.size && [...a.open].every(([card, records]) => { const other = b.open.get(card); return other !== undefined && other.length === records.length && other.every((r, i) => r === records[i]) })
 

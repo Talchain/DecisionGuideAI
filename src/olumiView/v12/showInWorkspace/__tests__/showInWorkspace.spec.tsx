@@ -898,6 +898,38 @@ describe('S10 beside the canvas\'s own framing, as ENTRY-canvas.patch leaves it'
     expect(rf.userMoved.current).toBe(true)
     expect(c.button()!.textContent).toBe(RETURN_TO_BEFORE)
   })
+  const DOCK_CLOSED: Pane = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 0, bottom: 0 } }
+  const IN_VIEW = { reported_cash_and_spend_basis: { x: 20, y: 80 }, opening_cash: { x: 300, y: 80 }, monthly_burn: { x: 20, y: 300 } }
+  it('the free canvas changes size while a show holds the board (the canvas skips its refit then): the port makes it good when the show lets go, the camera not being held', async () => {
+    install(golden) // the board not laid out yet: the show waits, holding
+    const c = mount(14, nextOf(golden, 14))
+    await press(c.button()!); await run(200)
+    expect(showHolds()).toBe(true)
+    paneNow.value = clone(DOCK_CLOSED) // the dock closes mid-show
+    lay(IN_VIEW); await run(200)
+    expect(showHolds()).toBe(false)
+    expect(rf.sets).toStrictEqual([]) // the cards were in view: the show moved nothing and does not hold the camera
+    expect(rf.userMoved.current).toBe(false)
+    expect(rf.fits).toBe(1)
+  })
+  it('contrast: the same show with no change of size asks for no refit', async () => {
+    install(golden)
+    const c = mount(14, nextOf(golden, 14))
+    await press(c.button()!); await run(200)
+    lay(IN_VIEW); await run(200)
+    expect(rf.sets).toStrictEqual([])
+    expect(rf.fits).toBe(0)
+  })
+  it('contrast: a show that moved the camera holds it, so a change of size meanwhile asks for no refit', async () => {
+    install(golden)
+    const c = mount(14, nextOf(golden, 14))
+    await press(c.button()!); await run(200)
+    paneNow.value = clone(DOCK_CLOSED)
+    lay(); await run(200)
+    expect(rf.sets).toHaveLength(1)
+    expect(rf.userMoved.current).toBe(true)
+    expect(rf.fits).toBe(0)
+  })
   it('contrast: a badge the person opened themselves while a show held the board IS framed by the board, once the show lets go', async () => {
     install(closed); lay()
     const c = mount(4, next)

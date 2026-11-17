@@ -24,6 +24,7 @@ const closed = read('fixtures/j1/bookshop-v1.core-5d8a009b.view3.json')
 const opened = read('fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json')
 const growth = read('fixtures/sc01/growth16.core-5d8a009b.view3.json')
 const hiring = read('fixtures/real/hiring.view3.json')
+const appLaunch = read('fixtures/version-at/app-launch.core-ad57a105.view3.json')
 
 const nextOf = (view: View, turn: number): Next => view.chat.find((t) => t.id === turn)!.answer!.next
 /** A reply's next step in the real shape, pointing at the ids given (the words are the real turn's own). */
@@ -297,6 +298,15 @@ describe('T8 the layer the cards are shown in', () => {
 
 describe('T10 a badge on a card the board draws as a link is no badge to open', () => {
   const base = nextOf(growth, 6)
+  it('a recorded View (app-launch): `isolation_prerequisite` sits behind the link-drawn relation\'s own 1-record badge and two cards\' badges; the card with the fewest records opens, never the link', () => {
+    expect(linkCards(appLaunch.model!).has('isolation_readiness_link')).toBe(true)
+    expect(drawnModelOf(appLaunch.model!).cards.map((c) => c.id)).not.toContain('isolation_readiness_link')
+    expect(['isolation_readiness_link', 'protect_user_trust', 'option_isolate'].map((h) => [badgeOf(appLaunch, h).records.includes('isolation_prerequisite'), badgeOf(appLaunch, h).records.length, badgeOf(appLaunch, h).open])).toStrictEqual([[true, 1, false], [true, 3, false], [true, 7, false]])
+    // The View has no answered turn of its own; planShow reads only `at` and `about`, so a real turn's next step is pointed at the record.
+    const plan = planShow(appLaunch, pointing(nextOf(golden, 14), null, ['isolation_prerequisite']), detailed(appLaunch))!
+    expect(plan.open.map((b) => b.host)).toStrictEqual(['protect_user_trust'])
+    expect(plan.cards).toStrictEqual(['protect_user_trust'])
+  })
   const RECORD = 'adoption_needs_an_owner_inside_each_team'
   /** INVENTED: the relation `i_adoption_pilot` (drawn as a link) is given a badge holding the same record as cross_team_adoption's, whose own badge is given a second, invented record so that it is the LONGER list. */
   const withLinkBadge = (open: boolean): View => {
