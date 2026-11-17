@@ -945,5 +945,20 @@ describe('S10 beside the canvas\'s own framing, as ENTRY-canvas.patch leaves it'
     expect(rf.fits, 'the framing was put off, not dropped').toBe(1)
     expect(rf.userMoved.current).toBe(false)
   })
+  it('the same with a camera the person HELD before the show: the canvas took the flag back for their own board change, and the overtaken show does not write "held" over it', async () => {
+    install(closed); lay()
+    rf.userMoved.current = true
+    const c = mount(4, next)
+    await press(c.button()!); await run(50)
+    let theirs!: Promise<boolean>
+    await act(async () => { theirs = useViewStore.getState().setOpened({ open: new Map([['newsletter', ['reminded']]]), all: false }) })
+    await answer(reads[1]!, ok(opened)); boardChanged()
+    expect(await theirs).toBe(true)
+    await answer(reads[0]!, ok(opened))
+    lay(); await run(400)
+    expect(c.said()).toBe(COULD_NOT_SHOW)
+    expect(rf.sets).toStrictEqual([])
+    expect(rf.userMoved.current, movedLog.join('\n')).toBe(false)
+    expect(rf.fits, 'their own board change is framed by the board').toBe(1)
+  })
 })
-

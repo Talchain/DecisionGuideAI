@@ -173,7 +173,8 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, to === null || still ? 0 : MOVE_MS + 20)
     useShown.setState({ turn, busy: false, said: null })
   } finally {
-    release(signal.aborted ? null : held)
+    // Overtaken by the person's own read: the board is theirs now and so is the canvas's word on who holds the camera. Nothing is written.
+    release(signal.aborted || overtaken ? null : held)
     if (run === mine) run = null
     if (failed !== null) await undo(mine, failed, overtaken)
   }
