@@ -1684,12 +1684,17 @@ export function ViewChat() {
                 held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
                 An older core sends no trial_questions: as before. */}
             {/* 17 Nov (calm panel mock v2): the questions are ONE card, one question at a time with the rest behind it (v12/chat/OlumiAsks). */}
+            {/* Codex 21:12Z (17 Nov): the card is bound to its scenario (a new scenario is a new card: no draft or place carried over), and the
+                answer sent is the person's words ALONE. Core's question is Olumi's; sending it inside the person's message would make the AI's
+                wording and figures the person's. Core already holds the question it asked. */}
             <OlumiAsks
+              key={view?.id ?? ''}
+              scope={view?.id ?? ''}
               // PANEL-SPEC 4: one input for one thing. The figure the Next step asks for has its box there; its question is not drawn again.
               questions={chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)}
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
-              onAnswer={(q, answer) => say(`${q.text}\n\n${answer}`)}
+              onAnswer={(_q, answer) => say(answer)}
               onMethod={(prefix) => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); document.getElementById('view-chat-text')?.focus() }} />
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}

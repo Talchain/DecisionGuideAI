@@ -22,6 +22,7 @@ import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aloneIn, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { aboutCountWords } from '../AboutChip'
+import { draftKeyOf } from '../OlumiAsks'
 import { typography } from '../../../../styles/typography'
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
@@ -270,7 +271,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(c1, 'view-question-count')).toBeNull()
     expect(q(c1, 'view-question-skip')).toBeNull()
   })
-  it('"Use this" is green and idle until words are typed; it sends the question and the answer through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
+  it('"Use this" is green and idle until words are typed; it sends the person\'s answer ALONE (never core\'s question as theirs) through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
     const bodies: string[] = []
     setTeamFetch((async (_u: unknown, init?: RequestInit) => { bodies.push(String(init?.body ?? '')); return new Response('{}', { status: 201 }) }) as never)
     const view = asked(), qs = view.model!.coaching_questions!
@@ -290,8 +291,28 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(useViewChat.getState().text).not.toBe('')
     useViewChat.setState({ text: '' })
     await act(async () => { fireEvent.click(use) })
-    await vi.waitFor(() => expect(bodies.some((b) => b.includes('By the end of June') && b.includes(qs[0]!.slice(0, 20)))).toBe(true))
-    expect(bodies.filter((b) => b.includes('By the end of June'))).toHaveLength(1)
+    await vi.waitFor(() => expect(bodies.some((b) => b.includes('By the end of June'))).toBe(true))
+    const sent = bodies.filter((b) => b.includes('By the end of June'))
+    expect(sent).toHaveLength(1)
+    // Codex 21:12Z: the message is the person's words alone. Core's question (Olumi's wording) is in no part of what is sent as theirs.
+    expect(qs[0]!.length).toBeGreaterThan(20)
+    expect(sent[0]).not.toContain(qs[0]!.slice(0, 20))
+    expect((JSON.parse(sent[0]!) as { text?: string }).text).toBe('By the end of June')
+  })
+  it('a draft belongs to one question of one scenario: core rewriting the question, or another scenario at the same place, shows an empty box (CONTRAST: the same question keeps its draft)', () => {
+    const view = asked(), qs = view.model!.coaching_questions!
+    const c = mount(view)
+    const box = () => q(q(c, 'view-model-question')!, 'view-question-answer') as HTMLTextAreaElement
+    fireEvent.change(box(), { target: { value: 'By the end of June' } })
+    act(() => useViewStore.setState({ view: { ...view, chat: [...view.chat] } }))
+    expect(box().value).toBe('By the end of June') // CONTRAST: the same scenario and the same question: the draft is kept
+    act(() => useViewStore.setState({ view: { ...view, model: { ...view.model!, coaching_questions: [`${qs[0]!} (asked again)`, ...qs.slice(1)] } } }))
+    expect(box().value).toBe('') // the question's words changed: these are not the words typed for it
+    act(() => useViewStore.setState({ view }))
+    expect(box().value).toBe('By the end of June') // the first question again: its own draft
+    act(() => useViewStore.setState({ view: { ...view, id: 's_another0000' } }))
+    expect(box().value).toBe('') // another scenario: nothing carried over
+    expect(draftKeyOf('s_a', { key: 'c:0', text: 'x' })).not.toBe(draftKeyOf('s_b', { key: 'c:0', text: 'x' }))
   })
 })
 

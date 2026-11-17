@@ -5,9 +5,13 @@
  *
  * The questions are core's, in core's words, as `chatQuestionsOf` draws them (model.trial_questions first, then model.coaching_questions, three
  * at most). Core serves no answer type, so a question that names a figure with its editor (`id` and `edit`) is answered in that figure's own
- * editor (`body`, ViewChat's QuestionLine: its own write), and every other question takes plain words. "Use this" sends the words through the
- * conversation's own send path (`onAnswer`: the same `say` a typed message uses); the ask-for-more icons put a method's lead-in in the message
- * box (as the composer's own method icons), and send nothing. The questions not shown stay in the page, hidden, in core's words.
+ * editor (`body`, ViewChat's QuestionLine: its own write), and every other question takes plain words. "Use this" sends the person's words,
+ * and only those, through the conversation's own send path (`onAnswer`: the same `say` a typed message uses; core's question is never sent as
+ * the person's); the ask-for-more icons put a method's lead-in in the message box (as the composer's own method icons), and send nothing. The
+ * questions not shown stay in the page, hidden, in core's words.
+ *
+ * A draft belongs to ONE question of ONE scenario: it is kept under the scenario, the question's key and the question's exact words, so a
+ * question core rewrites, or another scenario's question at the same place, never shows words typed for a different question (Codex, 17 Nov).
  */
 import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
@@ -22,8 +26,13 @@ export const USE_THIS = 'Use this'
 const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`
 const METHOD_ICON = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' } as const
 
-export function OlumiAsks({ questions, body, held, onAnswer, onMethod }: {
+/** The identity of one question's draft: the scenario, the question's key and its exact words. */
+export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>): string => JSON.stringify([scope, q.key, q.text])
+
+export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: {
   questions: readonly AskedQuestion[]
+  /** The scenario these questions belong to (the View's id): part of every draft's identity. */
+  scope: string
   /** A question's own words, or its figure's editor where core gives one (ViewChat's QuestionLine). */
   body: (q: AskedQuestion) => ReactNode
   /** Nothing is sent while a write holds the conversation. */
@@ -41,13 +50,14 @@ export function OlumiAsks({ questions, body, held, onAnswer, onMethod }: {
   const i = Math.min(at, n - 1), q = questions[i]!
   const head = n === 1 ? 'Olumi’s question' : 'Olumi’s questions'
   const own = q.id !== null && q.edit !== null
-  const typed = drafts[q.key] ?? ''
+  const mine = draftKeyOf(scope, q)
+  const typed = drafts[mine] ?? ''
   const testid = (k: number) => (k === 0 ? 'view-model-question-text' : `view-model-question-text-${k}`)
   const use = async () => {
     if (sending || held || typed.trim() === '') return
     setSending(true)
     try {
-      if (await onAnswer(q, typed)) { setDrafts((d) => ({ ...d, [q.key]: '' })); setAt(Math.min(i + 1, n - 1)) }
+      if (await onAnswer(q, typed)) { setDrafts((d) => ({ ...d, [mine]: '' })); setAt(Math.min(i + 1, n - 1)) }
     } finally { setSending(false) }
   }
   return (
@@ -72,7 +82,7 @@ export function OlumiAsks({ questions, body, held, onAnswer, onMethod }: {
       ))}
       {own ? null : (
         <textarea rows={2} value={typed} disabled={held || sending} aria-label={q.text} data-testid="view-question-answer"
-          onChange={(e) => { const v = e.target.value; setDrafts((d) => ({ ...d, [q.key]: v })) }}
+          onChange={(e) => { const v = e.target.value; setDrafts((d) => ({ ...d, [mine]: v })) }}
           className={`${typography.viewPanelBody} block w-full resize-none rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body outline-none focus:border-text-light`} />
       )}
       <div className="flex flex-wrap items-center gap-1">
