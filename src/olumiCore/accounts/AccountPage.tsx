@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
@@ -15,6 +15,10 @@ export default function AccountPage(): JSX.Element {
   const who = useWho()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
+  // A cancelled dialog gives the focus back to the button that opened it, once the dialog (and its focus trap) has gone.
+  const openDelete = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; openDelete.current?.focus() } }, [deleting])
   const [name, setName] = useState('')
   const [named, setNamed] = useState<string | null>(null)
   const [nameSaid, setNameSaid] = useState<string | null>(null)
@@ -88,10 +92,10 @@ export default function AccountPage(): JSX.Element {
           {/* The same dialog the scenario's person menu opens: core's own sentences first, nothing deleted unread. */}
           <section className={`${CARD} grid gap-2`} aria-label="Your data" data-testid="account-your-data">
             <h2 className={`${typography.h5} text-text-header m-0`}>Your data</h2>
-            <p className={BODY}>See what deleting your data would remove before anything is deleted.</p>
-            <div><Button variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
+            <p className={BODY}>Olumi shows you what deleting would do before anything is deleted.</p>
+            <div><Button ref={openDelete} variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
           </section>
-          {deleting && <DeleteMyDataDialog onCancel={() => setDeleting(false)} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
+          {deleting && <DeleteMyDataDialog onCancel={() => { refocus.current = true; setDeleting(false) }} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
         </>
       )}
     </SignedInFrame>

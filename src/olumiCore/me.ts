@@ -6,6 +6,7 @@
  * of theirs (`isForThisPage`), and no write is saved as them (`team/api.ts`, checked before every write).
  */
 import { create } from 'zustand'
+import { clearDeleteWarning } from './deleteWarning'
 import { call, NOT_FOR_THIS_PAGE, setPagePerson } from './team/api'
 
 export { NOT_FOR_THIS_PAGE }
@@ -31,6 +32,7 @@ export const useMe = create<MeState>()((set, get) => ({
       const m = r?.me
       const me = m && typeof m.id === 'string' && typeof m.name === 'string' ? { id: m.id, name: m.name } : null
       setPagePerson(me?.id ?? null)
+      if (me) clearDeleteWarning() // a person is signed in again: the last deletion's sentence is not theirs
       set({ me, status: 'ready', hasAccount: me !== null && r?.account != null && typeof r.account === 'object' })
     } catch { set({ status: 'error' }) }
   },

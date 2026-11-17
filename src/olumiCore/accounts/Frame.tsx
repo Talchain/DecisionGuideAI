@@ -3,7 +3,8 @@ import { Navigate, NavLink, useNavigate } from 'react-router-dom'
 import { typography } from '../../styles/typography'
 import { NOTICES } from '../notices'
 import { signOutOfOlumi } from '../signout'
-import { TeamApiError } from '../team/api'
+import { clearDeleteWarning } from '../deleteWarning'
+import { adoptPagePerson, TeamApiError } from '../team/api'
 import { accountsApi, type Account, type Person } from './api'
 
 /**
@@ -26,7 +27,13 @@ export function useWho(): Who {
   useEffect(() => {
     let live = true
     accountsApi.whoami().then(
-      (r) => { if (live) setWho(r?.me ? { status: 'in', me: r.me, account: r.account ?? null } : { status: 'out' }) },
+      (r) => {
+        if (!live) return
+        // The page's person (so Delete my data and every write here is refused if another tab switches this browser to someone else), and a person is signed in again.
+        adoptPagePerson(r?.me?.id ?? null)
+        if (r?.me) clearDeleteWarning()
+        setWho(r?.me ? { status: 'in', me: r.me, account: r.account ?? null } : { status: 'out' })
+      },
       (e) => { if (live) setWho({ status: 'error', message: e instanceof TeamApiError ? e.message : 'Olumi could not be read just now. Try again in a moment.' }) },
     )
     return () => { live = false }
@@ -37,13 +44,15 @@ export function useWho(): Who {
 export function Notices(): JSX.Element {
   return (
     <nav aria-label="Notices" className={`${typography.caption} flex justify-center gap-4 text-text-light`}>
-      {NOTICES.map(({ label, href }) => <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">{label}</a>)}
+      {NOTICES.map(({ label, href }) => (
+        <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[24px] items-center px-1 underline hover:no-underline">{label}</a>
+      ))}
     </nav>
   )
 }
 
 /** Signing in, signing up, joining: one card in the middle of the page. */
-export function GuestFrame({ title, lead, children, testid }: { title: string; lead?: ReactNode; children: ReactNode; testid: string }): JSX.Element {
+export function GuestFrame({ title, lead, children, testid }: { title: string; lead?: ReactNode; children?: ReactNode; testid: string }): JSX.Element {
   return (
     <main data-testid={testid} className="min-h-screen bg-canvas flex items-start justify-center px-4 py-16">
       <div className="w-full max-w-[420px] grid gap-6">

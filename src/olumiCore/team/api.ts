@@ -51,6 +51,8 @@ export const NOT_FOR_THIS_PAGE = 'This page was opened with a different private 
 /** The member this page was opened for, once core has said (`../me.ts`); null before. */
 let pagePerson: string | null = null
 export function setPagePerson(id: string | null): void { pagePerson = id }
+/** A page that read who this browser is (`GET /api/me`) makes that person the page's, unless one is already (a later switch is still caught). */
+export function adoptPagePerson(id: string | null): void { if (pagePerson === null) pagePerson = id }
 
 /**
  * A write is saved as whoever holds the browser's cookie NOW, and another tab may have opened someone else's private link since this

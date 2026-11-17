@@ -55,10 +55,13 @@ export default function SignUpPage(): JSX.Element {
       nav.landSignedIn()
     } catch (x) { setSaid(x instanceof TeamApiError ? x.message : 'That did not go through. Nothing was saved.'); setBusy(false) }
   }
+  // The invitation page is for a person core has confirmed is signed in by nothing. Until core has answered (or when it could not), no claim is made about them.
+  if (who.status === 'loading') return <GuestFrame testid="account-signup-loading" title="Olumi" lead="Loading…" />
+  if (who.status === 'error') return <GuestFrame testid="account-signup-unread" title="Olumi" lead={<p role="alert" className={ERR}>{who.message}</p>} />
   if (!linked) {
     return (
       <GuestFrame testid="account-signup-invitation" title="Olumi accounts start from an invitation"
-        lead={who.status === 'loading' ? 'Loading…' : who.status === 'error' ? who.message : 'Open the link you were given, then add an email and password.'}>
+        lead="Open the link you were given, then add an email and password. If you were not given one, ask the person who invited you.">
         <p className={META}>Already have an account? <Link to="/signin" className={LINK}>Sign in</Link></p>
       </GuestFrame>
     )

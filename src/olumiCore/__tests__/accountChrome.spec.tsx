@@ -77,6 +77,15 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
   })
 
+  it('says nothing about private link or account until core has answered who this is (never the wrong sentence for an account holder)', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useMe.setState({ me: null, status: 'loading', hasAccount: false })
+    lanePage()
+    expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
+    expect(screen.queryByText(/private link|Olumi account/)).toBeNull()
+  })
+
   it.each([['My scenarios', '/'], ['Organisation', '/organisation'], ['Account', '/account']] as const)('PoC accounts: %s goes to its page on the lane (%s)', (label, to) => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
@@ -101,7 +110,7 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     lanePage()
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' })) })
-    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'Your private link opens it again.' + 'Sign in with your email and password' + 'Terms' + 'Privacy')
+    expect(screen.getByTestId('olumi-core-signed-out').textContent).toBe('You’re signed out' + 'If you have a private link, it opens Olumi again.' + 'Sign in with your email and password' + 'Terms' + 'Privacy')
     expect(screen.queryByTestId('canvas-page')).toBeNull()
     expect(useMe.getState().me).toBeNull()
     expect(useViewStore.getState().sid).toBeNull()
