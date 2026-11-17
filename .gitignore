@@ -54,3 +54,6 @@ storybook-static
 # Claude Code — ignore private config, track shared settings
 .claude/*
 !.claude/settings.json
+
+# anchor-memory plugin — auto-saved session state
+.anchor/
