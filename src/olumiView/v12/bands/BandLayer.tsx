@@ -1,10 +1,11 @@
 /**
  * V12 Simple band furniture, drawn in the canvas's own coordinates (so it pans and zooms with the cards): the label and small shape icon above
- * each band's first row, the "not linked" mark on a figure no link touches (in the row gap over the card's top right corner, clear of its frame and its kind marker), and the fold control for 15 or more inputs. Positions are read from the
+ * each band's first row, the unlinked mark (a quiet icon, its words on hover) on a figure no link touches (in the row gap over the card's top right corner, clear of its frame and its kind marker), and the fold control for 15 or more inputs. Positions are read from the
  * nodes as placed; no word here is core's: they are the boards' fixed notation chrome.
  */
 import { useMemo, type CSSProperties } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
+import { Unlink } from 'lucide-react'
 import { useCanvasStore } from '../../../canvas/store'
 import type { ViewModel } from '../../client'
 import { drawnModelOf, SIMPLE_LABEL_GAP } from '../../layout'
@@ -16,7 +17,8 @@ import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
 
 const INK = 'var(--text-light)'
-export const NOT_LINKED = 'not linked'
+/** What the unlinked mark says, on hover and to a reader: the mark itself is an icon, quiet, so four of them do not read as four faults (DL look, 17 Nov). */
+export const NOT_LINKED = 'No link touches this figure'
 
 function Shape({ shape }: { shape: BandShape }) {
   const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 }
@@ -79,8 +81,10 @@ export function BandLayer() {
           </div>
         ))}
         {nodes.filter((n) => unlinked.has(n.id)).map((n) => (
-          <span key={n.id} data-not-linked={n.id} title="No link touches this figure" style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200), top: n.position.y - SIMPLE_LABEL_GAP, transform: 'translate(-100%, -100%)', pointerEvents: 'none', fontSize: 'calc(12px * var(--o-s, 1))', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
-            className="whitespace-nowrap rounded-full border border-dashed border-panel-border bg-panel px-2 py-0.5 font-medium leading-none text-text-light">{NOT_LINKED}</span>
+          <span key={n.id} role="img" data-not-linked={n.id} aria-label={NOT_LINKED} title={NOT_LINKED} className="inline-flex"
+            style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200), top: n.position.y - SIMPLE_LABEL_GAP, transform: 'translate(-100%, -100%)', pointerEvents: 'auto', color: INK, ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}>
+            <Unlink aria-hidden="true" strokeWidth={1.75} style={{ width: 'calc(12px * var(--o-s, 1))', height: 'calc(12px * var(--o-s, 1))' }} />
+          </span>
         ))}
       </div>
     </ViewportPortal>

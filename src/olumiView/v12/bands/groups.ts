@@ -3,7 +3,10 @@
  *  - D1a: a card Olumi proposed that the person has not approved, of kind driver, risk, result or note, is not drawn on Simple; ONE group card per row
  *    stands for them, their links run to it, and one press opens that row's group in place for the session. Options, aims and positions are never
  *    grouped; the person's own cards and approved cards never are.
- *  - D1b (the lead's extension, for the owner): an approved note is folded likewise into ONE notes stack per row.
+ *  - D1b (DL 17 Nov, after looking at the approved funding board): on Simple an APPROVED record that is only a sentence (core's kind `note`: a claim,
+ *    an assumption, evidence, a left-out note, an earlier statement; no figure) folds into ONE notes stack per row, whoever wrote it, as v1 drew it.
+ *    Structural cards (options, figures, risks, results, aims, positions) are never folded once approved. Detailed draws every note. (v2 had briefly
+ *    dropped this stack; the approved board became a tangle of sentence cards and crossing lines.)
  * Read from the View's own fields only, never from words:
  *  - "Olumi proposed and unreviewed": the card is in the pending proposal (`card.change` set: core's per-card mark of a change waiting for approval)
  *    and is Olumi's (`card.author.by === 'olumi'`); a card the person gave in a reply carries `change` with `author.by` 'person' and stays drawn.
@@ -31,8 +34,8 @@ export function groupBandOf(id: string): GroupBand | null {
 const PROPOSAL_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'risk', 'result', 'note'])
 /** Olumi proposed it and the person has not approved it (see the header for the fields). */
 export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null && card.author?.by === 'olumi'
-/** An approved note (D1b). */
-const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null
+/** An approved record that is only a sentence (D1b): core's kind `note`, no change pending, no figure. */
+const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null && card.figure == null
 
 /** Which group a card folds into on Simple, or null where it is drawn. */
 export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null): GroupKind | null {

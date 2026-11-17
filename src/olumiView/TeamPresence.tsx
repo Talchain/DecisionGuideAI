@@ -52,6 +52,21 @@ export function TeamPresence() {
  */
 export const DISC_STEP = 18, CHIP_STEP = 30, CHIP_LEAST = 18, DOCK_GAP = 12
 
+/** The attribute the core lane's lens bar carries (ViewLensBar): the one bar the pill makes room for on its row. The older look has none. */
+export const TOP_ROW_BAR = 'data-top-row-bar'
+
+/**
+ * How far right the top-left pill may run: the dock's left edge less the gap, and, while the core lane's icon lens bar is on the page, less
+ * that bar and its gap too, so the bar always fits beside the pill on the top row (Paul, 17 Nov; contract §8). Infinity with no dock. The
+ * avatars (below) and the pill's own steps (useTopBarFit) both give way against this one limit.
+ */
+export function topRowLimit(): number {
+  const inset = measureDockInset()
+  if (inset === 0) return Infinity
+  const bar = document.querySelector(`[${TOP_ROW_BAR}]`)?.getBoundingClientRect().width ?? 0
+  return window.innerWidth - inset - DOCK_GAP - (bar > 0 ? bar + DOCK_GAP : 0)
+}
+
 /**
  * How many of `total` discs to draw, given `shown` are drawn now and `free` px are left between the bar's right edge and the dock (negative
  * when the bar runs under it). The most that fit; the rest become one "+N" chip.
@@ -78,8 +93,8 @@ function Discs({ view, others }: { view: View; others: ReturnType<typeof othersO
   }, [])
   const total = others.length, now = Math.min(drawn, total)
   useLayoutEffect(() => {
-    const bar = button.current?.closest('[role="banner"]') ?? null, inset = measureDockInset()
-    const free = bar === null || inset === 0 ? Infinity : window.innerWidth - inset - DOCK_GAP - bar.getBoundingClientRect().right
+    const bar = button.current?.closest('[role="banner"]') ?? null
+    const free = bar === null ? Infinity : topRowLimit() - bar.getBoundingClientRect().right
     const next = discsThatFit(total, now, free)
     if (next !== drawn) setDrawn(next)
   }, [total, now, drawn, tick])

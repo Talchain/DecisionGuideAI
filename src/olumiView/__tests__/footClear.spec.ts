@@ -41,21 +41,23 @@ describe('V12 Simple: no card is cut by the foot gutter (R1 priority 1, 16 Nov: 
   const cards = [{ y: 0, h: 100 }, { y: 150, h: 300 }, { y: 560, h: 100 }, { y: 800, h: 200 }]
   const line = H - FOOT_GUTTER
   const cutBy = (z: number) => cards.filter((c) => TOP + c.y * z < line - 0.5 && TOP + (c.y + c.h) * z > line + 0.5).length
-  it('FC7 from a zoom at which the gutter cuts a card, the nearest larger zoom (at most a fifth more) that cuts none; the card is then wholly above the line or wholly below the fold', () => {
+  const z0cut = 0.8
+  it('FC7 from a zoom at which the gutter cuts a card, the nearest SMALLER zoom (down to the given floor) that cuts none; it never zooms in', () => {
     const z0 = 0.8
     expect(cutBy(z0), 'precondition: at 0.8 the gutter cuts a card').toBeGreaterThan(0)
-    const z = zoomClearOfFoot(cards, 0, TOP, H, z0, 1)
-    expect([cutBy(z), z > z0, z <= z0 * 1.2 + 1e-9]).toEqual([0, true, true])
+    const z = zoomClearOfFoot(cards, 0, TOP, H, z0, 0.6)
+    expect([cutBy(z), z < z0, z >= 0.6 - 1e-9]).toEqual([0, true, true])
   })
-  it('FC7 CONTRAST: a zoom already clear is returned as it is; where nothing within a fifth clears it, the zoom is returned unchanged (nothing is pushed out of view)', () => {
-    const clear = zoomClearOfFoot(cards, 0, TOP, H, 0.8, 1)
-    expect(zoomClearOfFoot(cards, 0, TOP, H, clear, 1)).toBe(clear)
+  it('FC7 CONTRAST: a zoom already clear is returned as it is; where nothing down to the floor clears it, the zoom is returned unchanged (nothing is pushed out of view)', () => {
+    const clear = zoomClearOfFoot(cards, 0, TOP, H, 0.8, 0.6)
+    expect(zoomClearOfFoot(cards, 0, TOP, H, clear, 0.6)).toBe(clear)
     const wall = [{ y: 0, h: 10000 }]
-    expect(zoomClearOfFoot(wall, 0, TOP, H, 0.6, 1), 'one card as tall as the board: no zoom clears it').toBe(0.6)
-    expect(zoomClearOfFoot([], 0, TOP, H, 0.6, 1)).toBe(0.6)
+    expect(zoomClearOfFoot(wall, 0, TOP, H, 0.6, 0.5), 'one card as tall as the board: no zoom clears it').toBe(0.6)
+    expect(zoomClearOfFoot([], 0, TOP, H, 0.6, 0.5)).toBe(0.6)
+    expect(zoomClearOfFoot(cards, 0, TOP, H, z0cut, z0cut), 'a floor equal to the zoom leaves it').toBe(z0cut)
   })
-  it('FC7 the zoom never passes the camera\'s own maximum', () => {
-    expect(zoomClearOfFoot(cards, 0, TOP, H, 0.95, 1)).toBeLessThanOrEqual(1)
+  it('FC7 the zoom is never raised: every answer is at or under the zoom given (a wider board would run under the panel)', () => {
+    for (const z0 of [0.55, 0.6, 0.7, 0.8, 0.95]) expect(zoomClearOfFoot(cards, 0, TOP, H, z0, 0.5)).toBeLessThanOrEqual(z0)
   })
 })
 

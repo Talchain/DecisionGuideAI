@@ -56,3 +56,13 @@ export const limitLeadOf = (card: { headline?: { state?: string; aim_id?: string
   return r === undefined ? null : { aim_id: r.aim_id!, value: r.value!, title: r.title ?? '' }
 }
 
+/**
+ * Core's mark that the model's results were worked out by an earlier engine and are shown as saved (`model.run.earlier`, olumi.view/3 and /2, DL and
+ * Codex 17 Nov). Absent when the running engine made them (every fresh draft and change). Read additively until the generated View type carries it.
+ * Its words are core's, drawn verbatim; null when absent or empty.
+ */
+export type EarlierResults = { readonly text: string; readonly title: string }
+export const earlierResultsOf = (model: { run?: object | null } | null | undefined): EarlierResults | null => {
+  const e = (model?.run as { earlier?: { text?: unknown; title?: unknown } | null } | null | undefined)?.earlier
+  return e != null && typeof e.text === 'string' && e.text !== '' ? { text: e.text, title: typeof e.title === 'string' && e.title !== '' ? e.title : e.text } : null
+}

@@ -10,6 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
+import { earlierResultsOf } from '../v12/contract'
 import { memo, useMemo, type CSSProperties } from 'react'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import type { NodeProps } from '@xyflow/react'
@@ -268,6 +269,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // addition, and its "+" took a row on all of them).
   const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
   const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
+  // Results saved by an earlier engine (core's `model.run.earlier`): said once, on the question card above the results, at both levels, in the quiet status
+  // tone; the numbers are left as they are (DL and Codex, 17 Nov).
+  const earlier = id === QUESTION ? earlierResultsOf(model) : null
+  const earlierLine = earlier === null ? null : <p className="ok-quiet" data-view="run.earlier" title={earlier.title}>{earlier.text}</p>
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
@@ -412,8 +417,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
         // date and the chance sentence are the panel's, the date also its hover.
-        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{badgeLine}</div>
-        : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}<ChanceRail /></div>) : (
+        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{badgeLine}{earlierLine}</div>
+        : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}{earlierLine}<ChanceRail /></div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}

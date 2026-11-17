@@ -193,9 +193,15 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const quiet: StateLine | null = state !== null
     ? (description === null ? state : { ...state, title: [state.title !== '' ? state.title : state.text, description].join('\n') })
     : description === null ? null : { text: description, title: description, marks: { 'data-simple-description': id } }
-  // An option's other aims' gauges and its limits: one line each in core's own words, the card's hover (the visual shows the headline's aim only).
+  // An option's other aims' gauges and its limits, the card's hover (the visual shows the headline's aim only): each result's name and short value, then core's
+  // whole sentence for it (`title`) where core sends one, so a condition the sentence carries (a result that uses an approximate figure as given, 17 Nov) is
+  // reachable here and not only the short value.
   const more = card.family !== 'option' ? [] : card.rows.filter((r) => (r.aim_id == null ? h === null : h === null || r.aim_id !== h.aim_id))
-    .map((r) => { const row = r as { kind: string; aim_id?: string | null; aim?: string; value?: string; text?: string; state_text?: string }; return `${nameOf(row.aim_id, row.aim)} ${row.kind === 'none' ? row.state_text ?? row.text ?? '' : row.value ?? ''}`.trim() })
+    .map((r) => {
+      const row = r as { kind: string; aim_id?: string | null; aim?: string; value?: string; text?: string; state_text?: string; title?: string }
+      const short = `${nameOf(row.aim_id, row.aim)} ${row.kind === 'none' ? row.state_text ?? row.text ?? '' : row.value ?? ''}`.trim()
+      return [short, row.title != null && row.title !== '' && row.title !== short ? row.title : null].filter((x) => x != null && x !== '').join('\n')
+    })
     .filter((t) => t !== '')
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>

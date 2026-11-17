@@ -34,26 +34,50 @@ beforeEach(() => {
 })
 afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }) })
 
-// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the lead's D1): Simple folds Olumi's unreviewed proposals and the approved notes into one group card per
-// row (v12/bands/groups.ts); Detailed draws every card. Was: Simple and Detailed draw every card.
-const groups = cardGroupsOf(whole, european), grouped = new Set(groups.flatMap((g) => g.cards))
-const drawnOnSimple = whole.cards.filter((c) => !grouped.has(c.id)).map((c) => c.id)
-describe('V12 Simple draws the whole model, its groups folded (D1)', () => {
-  it('S1 Simple draws every card but the grouped ones, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
+// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the DL's correction ~03:50Z the same day): on Simple, Olumi's unreviewed proposals fold into one group
+// card per row, and APPROVED records that are only a sentence (core's kind `note`: assumptions, claims, conditions, notes; no figure) into one notes
+// stack per row; approved structural cards (figures, options, aims, risks, results) are always drawn; Detailed draws every card (v12/bands/groups.ts).
+// S1 puts two of Olumi's own figures into a pending proposal (core's `change` mark, an invented title), the one field that makes them unreviewed.
+const PENDING = { glyph: '+', title: 'An invented proposal', kind: 'added' }
+const PROPOSED = ['horizon', 'existing_market_acquisitions']
+const proposing = { ...european, model: { ...model, cards: model.cards.map((c) => (PROPOSED.includes(c.id) ? { ...c, kind: 'driver', change: PENDING } : c)) } } as unknown as View
+const wholeP = drawnModelOf(proposing.model!)
+const groups = cardGroupsOf(wholeP, proposing), grouped = new Set(groups.flatMap((g) => g.cards))
+const drawnOnSimple = wholeP.cards.filter((c) => !grouped.has(c.id)).map((c) => c.id)
+/** The served model, approved throughout: only its sentence-only records fold (S1a, the room rows). */
+const approvedGroups = cardGroupsOf(whole, european), approvedGrouped = new Set(approvedGroups.flatMap((g) => g.cards))
+const drawnApproved = whole.cards.filter((c) => !approvedGrouped.has(c.id)).map((c) => c.id)
+/** The served model's records that are only a sentence: its assumptions and its condition (no figure). */
+const SENTENCES = ['country_readiness', 'customer_flow_assumptions', 'shared_churn_stress']
+const drawn = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
+const groupCounts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
+describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals and approved sentence-only records folded (D1)', () => {
+  it('S1 Simple draws every card but the folded ones, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
+    act(() => useViewStore.setState({ view: proposing }))
     const { rerender } = renderHook(() => useViewCanvas(true))
-    const ids = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
-    const counts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
     const links = () => useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK).length
     expect(levelOf(SID)).toBe('simple')
-    expect(grouped.size, 'precondition: the fixture has cards Simple folds').toBeGreaterThan(0)
-    await vi.waitFor(() => expect(ids()).toEqual(drawnOnSimple))
-    expect(counts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
-    expect(whole.cards.length, 'CONTRAST: a model with many cards').toBeGreaterThan(10)
+    expect(groups.filter((g) => g.kind === 'proposed').flatMap((g) => g.cards).sort(), 'precondition: the proposal group holds exactly the two proposed figures').toEqual([...PROPOSED].sort())
+    expect(PROPOSED.map((id) => card(id).author?.by)).toEqual(['olumi', 'olumi'])
+    await vi.waitFor(() => expect(drawn()).toEqual(drawnOnSimple))
+    expect(groupCounts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
+    expect(wholeP.cards.length, 'CONTRAST: a model with many cards').toBeGreaterThan(10)
     expect(links()).toBeGreaterThan(5)
     act(() => showWholeModel(SID)); rerender()
-    await vi.waitFor(() => expect(ids()).toEqual(whole.cards.map((c) => c.id)))
-    expect(counts(), 'Detailed folds nothing').toEqual([])
-    expect(links()).toBe(cardLinks(whole).length)
+    await vi.waitFor(() => expect(drawn()).toEqual(wholeP.cards.map((c) => c.id)))
+    expect(groupCounts(), 'Detailed folds nothing').toEqual([])
+    expect(links()).toBe(cardLinks(wholeP).length)
+  })
+  it('S1a the approved model as served: only its sentence-only records fold, into notes stacks; every figure, option and aim is drawn', async () => {
+    expect(european.proposal ?? null).toBeNull()
+    expect([approvedGroups.every((g) => g.kind === 'notes'), [...approvedGrouped].sort()]).toEqual([true, SENTENCES])
+    expect(SENTENCES.map((id) => card(id).figure ?? null), 'precondition: none of them holds a figure').toEqual([null, null, null])
+    renderHook(() => useViewCanvas(true))
+    expect(levelOf(SID)).toBe('simple')
+    await vi.waitFor(() => expect(drawn()).toEqual(drawnApproved))
+    // CONTRAST: approved structural cards, Olumi's included, are drawn.
+    for (const id of ['horizon', 'customers', 'reach_customer_target', 'investment_limit', 'broader_entry']) expect(drawn(), id).toContain(id)
+    expect(groupCounts()).toEqual(approvedGroups.map((g) => [g.id, g.cards.length]))
   })
 })
 
@@ -66,7 +90,8 @@ describe('V12 Simple follows the room (Codex 006: Fit after a resize left cards 
   it('S1b a narrower room lays the Simple board out again with fewer cards across; a wider one with more', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 2400, configurable: true })
     const { rerender } = renderHook(() => useViewCanvas(true))
-    await vi.waitFor(() => expect(useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).length).toBe(drawnOnSimple.length))
+    // The served model is approved throughout: Simple draws all of it but its sentence-only records (S1a).
+    await vi.waitFor(() => expect(drawn()).toEqual(drawnApproved))
     const atWide = wide()
     widthIs(1000); rerender()
     await vi.waitFor(() => expect(wide(), 'the board is laid out again, narrower').toBeLessThan(atWide))

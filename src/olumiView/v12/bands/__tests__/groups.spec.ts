@@ -30,14 +30,25 @@ describe('which cards fold on Simple (D1a, D1b): read from change, author.by and
     expect(groupKindOf(approved, withCards([approved]).model, withCards([approved]).view), 'CONTRAST: approved').toBeNull()
     expect(groupKindOf(model.cards.find((c) => c.id === 'second_oven')!, model, view), 'CONTRAST: an option is never grouped').toBeNull()
   })
+  it('G2b an approved STRUCTURAL card never folds, whoever wrote it: a figure, a risk, a result, an option, an aim; nor a note that holds a figure', () => {
+    for (const [id, kind] of [['budget', 'driver'], ['oven_repair', 'risk'], ['sales', 'result'], ['second_oven', 'option'], ['sell_360', 'aim']] as const) {
+      for (const by of [person, olumi]) { const c = as(id, kind, by, null); expect(groupKindOf(c, withCards([c]).model, withCards([c]).view), `${kind} by ${by.by}`).toBeNull() }
+    }
+    const figured = { ...as('budget', 'note', olumi, null), figure: card('budget').figure } as ViewCard
+    expect(card('budget').figure, 'precondition: the fixture card has a figure').not.toBeNull()
+    expect(groupKindOf(figured, withCards([figured]).model, withCards([figured]).view), 'a note with a figure is a figure').toBeNull()
+  })
   it('G1 CONTRAST: the person\'s own driver in the proposal (a reply waiting for approval) is drawn; an aim Olumi proposed is drawn', () => {
     const { model, view } = withCards([as('budget', 'driver', person, added), as('sell_360', 'aim', olumi, added)])
     expect(['budget', 'sell_360'].map((id) => groupKindOf(model.cards.find((c) => c.id === id)!, model, view))).toEqual([null, null])
   })
+  // REBOUND (DL 17 Nov ~03:50Z): v2 drew every approved note (an over-reading of "approved never grouped", which was about structural cards); the approved
+  // funding board became a tangle of sentence cards. Approved sentence-only records fold again; structural approved cards never do (G2b).
   it('G2 an approved note folds into the notes stack (D1b), whoever wrote it; the same note in the proposal by Olumi is in the proposal group instead', () => {
-    const mine = as('fitting', 'note', person, null)
-    expect(groupKindOf(mine, withCards([mine]).model, withCards([mine]).view)).toBe('notes')
-    const proposed = as('fitting', 'note', olumi, added)
+    // A record that is only a sentence holds no figure: the fixture card is spread with `figure: null` (its own figure would make it a figure, G2b).
+    const sentence = (by: typeof olumi, change: typeof added | null) => ({ ...as('fitting', 'note', by, change), figure: null }) as ViewCard
+    for (const by of [person, olumi]) { const note = sentence(by, null); expect(groupKindOf(note, withCards([note]).model, withCards([note]).view), by.by).toBe('notes') }
+    const proposed = sentence(olumi, added)
     expect(groupKindOf(proposed, withCards([proposed]).model, withCards([proposed]).view)).toBe('proposed')
   })
 })

@@ -12,6 +12,7 @@ import { typography } from '../styles/typography'
 import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
+import { FOOT_GUTTER } from './footClear'
 
 /** The foot of the free canvas: the window's foot less the foot controls' band (the zoom row and this cue, FOOT_CONTROLS). */
 export const FOOT_BAND = 64
@@ -57,10 +58,6 @@ function useCardsRight(): number {
   return useStore((s) => cardsRightOf(xBoxesOf(s.nodes), s.transform[0], s.transform[2], freeRight(s.width)))
 }
 
-/** How many cards are not wholly in view below the window's foot, at the camera's current place. */
-function useCardsBelow(): number {
-  return useStore((s) => cardsBelowOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
-}
 
 /** The cue's left edge: 12 px right of the zoom row, read once it is drawn and again as the window changes. */
 function useBesideZoom(): number {
@@ -75,8 +72,40 @@ function useBesideZoom(): number {
   return left
 }
 
-export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void } = {}): JSX.Element | null {
-  const below = useCardsBelow(), right = useCardsRight()
+/** The foot edge's least height: the foot gutter the framing keeps clear (footClear.ts FOOT_GUTTER). */
+export const FOOT_EDGE = FOOT_GUTTER
+/** The edge's soft top: it is the canvas's own ground from this many px down. */
+export const FOOT_EDGE_SOFT = 12
+/** How the foot edge fades in: clear at its top, the canvas's own ground from FOOT_EDGE_SOFT px down. */
+export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px)`
+/** The edge's opaque top at rest (screen px): the gutter's line, less its soft top (628 in a 704 px window). */
+const restTopOf = (height: number): number => height - FOOT_EDGE + FOOT_EDGE_SOFT
+/**
+ * The foot edge's height (screen px): the gutter, or taller where a card the cue's band counts (its foot below `height - FOOT_BAND`) starts above the
+ * edge's resting opaque top, so that card is wholly behind the edge, never half shown over the foot controls (DL 17 Nov). On Simple's layout a row is
+ * top-aligned, so the edge rises by at most that row. Never taller than half the window, so a very tall card cannot blank the board.
+ */
+export const footEdgeHeightOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
+  let top = restTopOf(height)
+  for (const c of cards) { const t = c.y * zoom + ty, b = (c.y + c.h) * zoom + ty; if (b > height - FOOT_BAND && t < top) top = t }
+  return Math.min(Math.ceil(height / 2), Math.max(FOOT_EDGE, Math.ceil(height - top + FOOT_EDGE_SOFT)))
+}
+/** With the edge drawn (Simple), the cards behind it: below the cue's band at rest (as cardsBelowOf); once a cut card has raised the edge, every card whose
+ *  foot is below its opaque top, so a card the edge hides is always counted (e385f882 F1), and the cue's press (to the band, panUpOf) never leaves the last
+ *  row behind a risen edge (0df2339a F1). */
+export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
+  const opaque = height - footEdgeHeightOf(cards, ty, zoom, height) + FOOT_EDGE_SOFT
+  const line = opaque < restTopOf(height) ? opaque : height - FOOT_BAND
+  return cards.filter((c) => (c.y + c.h) * zoom + ty > line).length
+}
+/** One press of the cue, in whole px: up by at least `panUpOf`, so the board's foot ends at or above the cue's band, never a fraction past it. */
+export const pressUpOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => Math.ceil(panUpOf(cards, ty, zoom, height))
+
+export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** V12 Simple: while cards are below, the foot is a clean edge (the cards below are behind it; the cue counts them). */ edge?: boolean } = {}): JSX.Element | null {
+  // How many cards are not wholly in view below the foot: on Simple, every card behind the edge (cardsBehindOf); elsewhere, below the cue's band.
+  const below = useStore((s) => (edge ? cardsBehindOf : cardsBelowOf)(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height)), right = useCardsRight()
+  const edgeW = useStore((s) => freeRight(s.width))
+  const edgeH = useStore((s) => footEdgeHeightOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
@@ -84,8 +113,9 @@ export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas ha
   const left = useBesideZoom()
   if (below === 0 && right === 0) return null
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
-  const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
-  return (
+  const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - pressUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height) }, { duration: 300 }) }
+  return (<>
+    {edge && below > 0 ? <div aria-hidden="true" data-testid="view-foot-edge" className="pointer-events-none fixed bottom-0 left-0 z-[4]" style={{ width: edgeW, height: edgeH, background: FOOT_EDGE_FADE }} /> : null}
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
       {below === 0 ? null : <>
       <button type="button" onClick={up}
@@ -100,5 +130,5 @@ export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas ha
         <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
       </button>}
     </div>
-  )
+  </>)
 }

@@ -72,6 +72,9 @@ describe('RangeBar', () => {
     expect(screen.getByTestId('range-band').getAttribute('data-style')).toBe('dotted')
     expect(screen.getByTestId('range-likely')).toBeTruthy()
     expect(screen.getByTestId('range-max').textContent).toBe('100 loaf/week')
+    // The unit once, at the high end; the low end carries it for a reader (DL look, 17 Nov: the labels touched on a narrow card).
+    const lo = screen.getByTestId('range-min')
+    expect([lo.textContent?.includes('loaf/week'), lo.getAttribute('aria-label')?.endsWith(' loaf/week')]).toEqual([false, true])
     a.unmount(); r = withRange('person'); render(<RangeBar card={r.c} view={r.mm} />)
     expect(screen.getByTestId('range-band').getAttribute('data-style')).toBe('solid')
   })
