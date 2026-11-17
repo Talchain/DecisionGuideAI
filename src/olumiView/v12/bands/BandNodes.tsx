@@ -62,7 +62,8 @@ export function FoldCard({ data }: NodeProps) {
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
         {proposed ? <OlumiMark words={group.words} size={12} /> : null}
         <span className="font-medium tabular-nums text-text-header">{proposed ? count : notesCount(count)}</span>
-        {proposed && group.words !== null ? <span className="min-w-0 truncate">{group.words}</span> : null}
+        {/* The words wrap within the card, never cut ("3 Proposed by Olu…" at 1232, v4 review): the card grows a line where its slot is narrow. */}
+        {proposed && group.words !== null ? <span className="min-w-0 break-words" data-group-words="">{group.words}</span> : null}
         {group.challenged > 0 ? <span role="img" data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} title={groupChallenged(group.challenged)} className="inline-flex flex-none" style={{ color: 'var(--olumi-mark-orange)' }}><AlertTriangle aria-hidden="true" strokeWidth={1.75} style={{ width: 'calc(12px * var(--o-s, 1))', height: 'calc(12px * var(--o-s, 1))' }} /></span> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
           {group.kinds.map((k) => <span key={k} className="inline-flex" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'calc(10px * var(--o-s, 1))' }}><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}

@@ -474,3 +474,25 @@ describe('an option\'s other results say core\'s whole sentence on hover (DL 17 
     expect(hoverOf(bare)).toEqual([short(others[0]!), short(others[1]!), others[1]!.title])
   })
 })
+
+describe('a change is said once on the badge line (v4 review, 1232: "1 link+ +")', () => {
+  // An option with no lead line and no Olumi author line, so core's change mark goes on the badge's line; the badge cloned from a fixture card's, proposed.
+  const opt = FACE.model!.cards.find((c) => c.family === 'option')!
+  const pill = { ...cardOf(FACE, 'sales').badge!, proposed: true, change: '+' }
+  const on = (change: { kind: string; glyph: string; title: string }, badge = pill) =>
+    withCard(FACE, { ...opt, headline: null, rows: [], author: null, badge, change } as unknown as ViewCard)
+  const line = (el: HTMLElement) => el.querySelector<HTMLElement>(`[data-core-badge="${opt.id}"]`)!.textContent ?? ''
+  const count = (s: string, glyph: string) => s.split(glyph).length - 1
+  it('B1 catch: an added card whose proposed badge already draws "+" says "+" once, at both levels', () => {
+    for (const level of ['working', 'simple'] as const) {
+      expect(count(line(draw(on({ kind: 'added', glyph: '+', title: 'Added' }), opt.id, level)), '+'), level).toBe(1)
+      cleanup()
+    }
+  })
+  it('B2 contrast: a different change ("↻") beside a proposed "+" badge is still said; a badge that draws no change leaves the card\'s "+" in Detailed', () => {
+    const changed = line(draw(on({ kind: 'changed', glyph: '↻', title: 'Changed' }), opt.id))
+    expect([count(changed, '+'), count(changed, '↻')]).toEqual([1, 1])
+    cleanup()
+    expect(count(line(draw(on({ kind: 'added', glyph: '+', title: 'Added' }, { ...pill, proposed: false }), opt.id)), '+')).toBe(1)
+  })
+})

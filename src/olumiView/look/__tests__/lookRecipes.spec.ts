@@ -30,3 +30,12 @@ describe("the look's recipes, each written once", () => {
     expect(css.match(/rgba?\(|#[0-9a-fA-F]{3,8}\b/g)).toBeNull()
   })
 })
+
+describe('a band label stands on the canvas colour, so a link never draws through its words (v4 review)', () => {
+  it('the band label rule paints the canvas token behind its text, padded across with the padding given back, no vertical padding', () => {
+    const label = rules.find((r) => r.selectors.includes('.olumi-look [data-band-label]'))!
+    expect(label.body).toMatch(/background: var\(--bg-canvas\);/)
+    expect(label.body).toMatch(/padding: 0 4px;/)
+    expect(label.body).toMatch(/margin-left: -4px;/)
+  })
+})

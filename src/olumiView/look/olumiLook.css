@@ -363,4 +363,7 @@
 }
 
 /* Band labels ("Options you could take"): 12 / 500, sentence case, light. The label's colour is set inline by BandLayer, so only !important wins. */
-.olumi-look [data-band-label] { color: var(--text-light) !important; font-size: calc(12px * var(--o-s)); font-weight: 500 !important; text-transform: none; letter-spacing: 0; }
+/* A link never draws through a label's words (v4 review): the label stands on the canvas's own colour (the LinkEnds.tsx precedent), padded across, the
+   padding given back on the left so the label keeps its column. No vertical padding, so its placement is unchanged. */
+.olumi-look [data-band-label] { color: var(--text-light) !important; font-size: calc(12px * var(--o-s)); font-weight: 500 !important; text-transform: none; letter-spacing: 0;
+  background: var(--bg-canvas); padding: 0 4px; margin-left: -4px; border-radius: 4px; }

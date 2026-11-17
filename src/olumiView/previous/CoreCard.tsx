@@ -269,6 +269,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // addition, and its "+" took a row on all of them).
   const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
   const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
+  // The badge already says the change itself (Badge.tsx: a proposed badge draws core's `badge.change` glyph in its pill), or Simple drops an addition's own
+  // "+" (SimpleFace, less noise): the card's mark is not said a second time after it (v4 review, 1232: "1 link+ +"). A different glyph is still said.
+  const badgeSaysChange = card?.change != null && ((badge?.proposed === true && badge.change !== '' && badge.change === card.change.glyph) || (simple && card.change.kind === 'added'))
   // Results saved by an earlier engine (core's `model.run.earlier`): said once, on the question card above the results, at both levels, in the quiet status
   // tone; the numbers are left as they are (DL and Codex, 17 Nov).
   const earlier = id === QUESTION ? earlierResultsOf(model) : null
@@ -276,7 +279,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
-    : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
+    : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' && !badgeSaysChange ? changeMark : null}</p>
   // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
   const decideBy = question?.decide_by == null ? null
     : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-light'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>

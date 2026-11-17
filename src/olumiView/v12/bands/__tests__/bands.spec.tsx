@@ -259,3 +259,14 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     showWholeModel(view.id)
   })
 })
+
+describe('a group card says its words whole, never cut (v4 review, 1232: "3 Proposed by Olu…")', () => {
+  const group = { id: 'proposed:drivers', kind: 'proposed', kinds: ['driver'], words: 'Proposed by Olumi', hover: 'An invented heading', challenged: 0 }
+  it('G-W catch: the words wrap within the card (no truncation class), and all of them are in it', () => {
+    const { container } = render(<FoldCard {...({ data: { count: 3, sid: 's', width: 120, group } } as unknown as Parameters<typeof FoldCard>[0])} />)
+    const words = container.querySelector<HTMLElement>('[data-group-words]')!
+    expect(words.textContent).toBe('Proposed by Olumi')
+    expect(words.classList.contains('truncate')).toBe(false)
+    expect(words.classList.contains('break-words')).toBe(true)
+  })
+})
