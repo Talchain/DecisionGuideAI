@@ -58,17 +58,16 @@ describe('the Strategy Overview from the header (served View)', () => {
   // and the bar is back once it closes.
   it('D1: while the Overview is open the header bar is absent; Esc closes the Overview, and the bar is back (zero-call smoke, 7 Nov)', () => {
     useOverview.setState({ open: true })
-    render(<><Both /><ViewLensBar nav /></>)
+    render(<><Both /><ViewLensBar /></>)
     expect(screen.getByTestId('strategy-overview-stage')).toBeInTheDocument()
     expect(screen.queryByTestId('lens-bar')).toBeNull()
-    expect(screen.queryByTestId('lens-bar-explore')).toBeNull()
     screen.getByRole('button', { name: 'Close' }).focus()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByTestId('strategy-overview-stage')).toBeNull()
-    expect(screen.getByTestId('lens-bar-explore')).toBeInTheDocument()
+    expect(screen.getByTestId('lens-bar')).toBeInTheDocument()
   })
   it('D1: the header bar never sits over the Overview; contrast: with the Overview closed it is drawn, and Close brings it back', () => {
-    render(<><Both /><ViewLensBar nav /></>)
+    render(<><Both /><ViewLensBar /></>)
     expect(screen.getByTestId('lens-bar')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('strategy-overview-opener'))
     expect(screen.getByTestId('strategy-overview-stage')).toBeInTheDocument()

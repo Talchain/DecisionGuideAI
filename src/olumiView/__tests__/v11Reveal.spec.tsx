@@ -17,7 +17,6 @@ import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } fr
 import { EvidenceDock } from '../EvidenceDock'
 import { RevealDock } from '../RevealDock'
 import { ViewLensBar } from '../ViewLensBar'
-import { useViewLens } from '../lens'
 
 /** A real View (core e38d9f4c on a copy of Paul's board, seeded demo people; fixtures/v11/README.md). */
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-reveal.view3.json'), 'utf8'))
@@ -336,64 +335,6 @@ describe('core’s marks with stance, reading, options and evidence (real View, 
     render(<CardViewChips card={DIAG} />)
     fireEvent.click(document.querySelector('[data-reveal-kind="disagreement"]')!)
     expect(useReveal.getState()).toMatchObject({ selected: null, card: null })
-  })
-})
-
-describe('V11 navigation: Model, Explore, Team (Paul 6 Nov)', () => {
-  it('holds three; Explore lists the other lenses in their own words and names the one on; Team opens the Team tab', () => {
-    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
-    useViewLens.setState({ lens: 'full' })
-    render(<ViewLensBar nav />)
-    const bar = screen.getByTestId('lens-bar')
-    expect([...bar.querySelectorAll(':scope > button, :scope > div > button')].map((b) => b.textContent)).toEqual(['Model', 'Explore', 'Team'])
-    fireEvent.click(screen.getByTestId('lens-bar-explore'))
-    const menu = screen.getByTestId('lens-bar-explore-menu')
-    expect([...menu.querySelectorAll('[role="menuitemradio"]')].map((b) => b.getAttribute('data-testid'))).toEqual(['lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-premortem', 'lens-bar-what_changes', 'lens-bar-what_if'])
-    fireEvent.click(screen.getByTestId('lens-bar-tradeoffs'))
-    expect(useViewLens.getState().lens).toBe('tradeoffs')
-    expect(screen.queryByTestId('lens-bar-explore-menu')).toBeNull()
-    expect(screen.getByTestId('lens-bar-explore')).toHaveTextContent('Trade-offs')
-    fireEvent.click(screen.getByTestId('lens-bar-full'))
-    expect(useViewLens.getState().lens).toBe('full')
-    fireEvent.click(screen.getByTestId('lens-bar-team'))
-    expect(force).toHaveBeenCalledWith('team')
-  })
-
-  it('DL ruling 9 Nov: Model and Team are one destination each, the canvas bar and the dock tab always in sync', () => {
-    const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
-    useViewLens.setState({ lens: 'tradeoffs' })
-    act(() => { useUIStore.getState().setActiveOutputTab('olumi') })
-    render(<ViewLensBar nav />)
-    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'false')
-    // Re-pinned (demo rehearsal 0ce8 step 4, DL 10 Nov: choosing a lens never takes Analysis away). From a lens, the canvas Model turns
-    // the lens off and leaves the dock as it was; pressed again on the plain model, it opens the dock's Model outline. Was: the first press
-    // opened the outline, hiding Analysis until ×.
-    fireEvent.click(screen.getByTestId('lens-bar-full'))
-    expect(useViewLens.getState().lens).toBe('full')
-    expect(force).not.toHaveBeenCalledWith('diagnostics')
-    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
-    fireEvent.click(screen.getByTestId('lens-bar-full'))
-    expect(force).toHaveBeenCalledWith('diagnostics')
-    // The dock's Model tab turns a lens off and presses the canvas Model; the dock's Team presses the canvas Team, never both.
-    act(() => { useViewLens.setState({ lens: 'tradeoffs' }); useUIStore.getState().setActiveOutputTab('olumi') })
-    act(() => { useUIStore.getState().setActiveOutputTab('diagnostics') })
-    expect(useViewLens.getState().lens).toBe('full')
-    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'true')
-    act(() => { useUIStore.getState().setActiveOutputTab('team') })
-    expect(screen.getByTestId('lens-bar-team')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('lens-bar-full')).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('demo rehearsal step 4 (DL 10 Nov): after Team, Model gives the dock back the tab it had (Analysis), never the Model outline', () => {
-    useViewLens.setState({ lens: 'full' })
-    act(() => { useUIStore.getState().setActiveOutputTab('analysisNew') })
-    render(<ViewLensBar nav />)
-    fireEvent.click(screen.getByTestId('lens-bar-team'))
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
-    fireEvent.click(screen.getByTestId('lens-bar-full'))
-    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
-    expect(useViewLens.getState().lens).toBe('full')
   })
 })
 

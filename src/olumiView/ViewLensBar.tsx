@@ -9,13 +9,8 @@
  * scenario pill on the pill's row; the pill gives way to make that room (TeamPresence `topRowLimit`, read by the avatars and useTopBarFit),
  * and the bar waits, hidden, while it does. Only on a window narrower than Paul's three sizes, with the pill at its tightest and still no
  * room, does the bar take the row under the pill rather than run over the dock.
- *
- * V11 (Paul 6 Nov) `nav`: the same bar, in the same place, holding three: Model (no lens), Explore (a menu of the other lenses) and Team.
- * Paul withdrew it on 11 Nov; the canvas mounts the six (ViewCanvas.tsx).
  */
-import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type RefObject } from 'react'
-import { Compass } from 'lucide-react'
-import { useUIStore, type OutputTab } from '../stores/uiStore'
+import { useRef, useState, useLayoutEffect, type KeyboardEvent } from 'react'
 import { typography } from '../styles/typography'
 import { HIT_44 } from '../styles/hitArea'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
@@ -26,9 +21,6 @@ import { LENS_BAR_TESTID } from '../canvas/artefacts/LensBar'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { useViewStore } from './store'
 import { useOverview } from './strategy/overview/useOverview'
-import { useReveal } from './reveal'
-import { forgetLanded } from './revealReturn'
-import { allBut } from './layout'
 import { useDrivers, useRestsOn, useViewLens, VIEW_LENSES, type ViewLens } from './lens'
 import { DOCK_GAP, TOP_ROW_BAR } from './TeamPresence'
 
@@ -44,7 +36,7 @@ export function lensBarPlace(at: { readonly pill: { left: number; right: number;
   return at.tightest && at.pill !== null ? { left: Math.round(at.pill.left), top: Math.round(at.pill.bottom + 8) } : null
 }
 
-export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element | null {
+export function ViewLensBar(): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
   const overviewOpen = useOverview((s) => s.open)
   // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
@@ -85,7 +77,6 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
   // D1 (strategy canvas audit, 10 Nov; the design owner's call): the bar is a canvas control, so while the Strategy Overview stands in
   // place of the canvas it is not drawn (it sat over the overview's title); the overview has its own Close, and Escape closes it.
   if (W === null || overviewOpen) return null
-  if (nav) return <NavBar barRef={bar} place={place} W={W} />
   return (
     <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown} {...{ [TOP_ROW_BAR]: '' }}
       className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top,opacity] duration-200 ease-out motion-reduce:transition-none"
@@ -105,95 +96,6 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
           </button>
         )
       })}
-    </div>
-  )
-}
-
-/** The lenses Explore holds: every lens but the plain model, in the bar's own order. */
-const EXPLORE: readonly ViewLens[] = allBut(VIEW_LENSES, 'full')
-// J1 gate (the prototype's three): each its own pill, words only; the one in use outlined in ink on the warm tint, never Olumi's blue.
-const SEGMENT = `${typography.viewPanelMeta} inline-flex h-full items-center gap-1.5 rounded-full border px-3 font-medium transition-colors duration-200 ${ACTION_FOCUS} ${HIT_44}`
-const segment = (on: boolean) => `${SEGMENT} ${on ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-canvas text-text-light hover:text-text-header'}`
-
-/** V11's three: Model, Explore (a menu of the lenses), Team. Placed by ViewLensBar, exactly as the six icons. */
-type LensWords = NonNullable<ReturnType<typeof useViewStore.getState>['view']>['lens_words']
-function NavBar({ barRef, place, W }: { barRef: RefObject<HTMLDivElement>; place: Place | null; W: LensWords }): JSX.Element {
-  const lens = useViewLens((s) => s.lens)
-  const { olumi } = useRestsOn()
-  const waits = useDrivers().size === 0
-  const [open, setOpen] = useState(false)
-  const exploreBtn = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null)
-  // The menu closes on a press outside it, or Escape (focus back on Explore).
-  useEffect(() => {
-    if (!open) return
-    const down = (e: MouseEvent) => { if (!menu.current?.contains(e.target as Node) && !exploreBtn.current?.contains(e.target as Node)) setOpen(false) }
-    const key = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); exploreBtn.current?.focus() } }
-    document.addEventListener('mousedown', down); document.addEventListener('keydown', key)
-    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key) }
-  }, [open])
-  useEffect(() => { if (open) menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"], [role="menuitemradio"]:not([aria-disabled])')?.focus() }, [open])
-  const exploring = lens !== 'full'
-  // DL ruling 9 Nov: Model and Team are one destination each, on the canvas and in the dock, always in sync. The canvas Model opens the
-  // dock's Model tab on the plain model; the dock's Model tab turns any lens off; each is pressed while its dock tab is open.
-  const dockTab = useUIStore((s) => s.activeOutputTab)
-  useEffect(() => { if (dockTab === 'diagnostics' && useViewLens.getState().lens !== 'full') useViewLens.setState({ lens: 'full' }) }, [dockTab])
-  // DL round 5 (rehearsal item 4): one control is always pressed. Model is what the canvas shows unless a lens is on (Explore) or the Team
-  // panel is open, so it carries the selected ring at rest too, not only while its panel is open.
-  const modelOn = !exploring && dockTab !== 'team'
-  // Demo rehearsal 0ce8 step 4 (DL 10 Nov): choosing a lens never takes Analysis away. The dock's last tab of its own (Olumi, Analysis,
-  // Reasoning, Compare) is kept, so leaving Team or a lens for Model gives the dock back as it was; the Model outline opens only when Model
-  // is pressed while the canvas already shows it.
-  const lastTab = useRef<OutputTab>('olumi')
-  useEffect(() => { if (dockTab !== 'team' && dockTab !== 'diagnostics') lastTab.current = dockTab }, [dockTab])
-  const pressModel = () => {
-    const wasOn = modelOn
-    useViewLens.setState({ lens: 'full' }); setOpen(false)
-    if (dockTab === 'team') { useUIStore.getState().forceActivateOutputTab(lastTab.current); return }
-    if (wasOn) useUIStore.getState().forceActivateOutputTab('diagnostics')
-  }
-  const ExploreIcon = exploring ? LENS_ICON[lens] : Compass
-  return (
-    <div ref={barRef} role="toolbar" aria-label={W.bar} data-testid={LENS_BAR_TESTID} data-nav="" {...{ [TOP_ROW_BAR]: '' }}
-      className="fixed z-[1250] flex items-center gap-2 transition-[left,top] duration-200 ease-out"
-      style={{ height: 36, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
-      <button type="button" aria-pressed={modelOn} data-testid={`${LENS_BAR_TESTID}-full`} title={W.hint.full}
-        onClick={pressModel} className={segment(modelOn)}>
-<span>{W.label.full}</span>
-      </button>
-      <div className="relative h-full">
-        <button ref={exploreBtn} type="button" aria-haspopup="menu" aria-expanded={open} aria-pressed={exploring} data-testid={`${LENS_BAR_TESTID}-explore`}
-          onClick={() => setOpen((o) => !o)} className={segment(exploring || open)}>
-          {exploring ? <ExploreIcon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" /> : null}
-          <span>{exploring ? W.label[lens] : W.explore}</span>
-        </button>
-        {!open ? null : (
-          <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
-            className="absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 rounded-md border border-panel-border bg-panel p-1.5 shadow-2">
-            {EXPLORE.map((id) => {
-              const Icon = LENS_ICON[id], waiting = id === 'what_changes' && waits, count = id === 'rests_on' ? olumi : 0, on = id === lens
-              return (
-                <button key={id} type="button" role="menuitemradio" aria-checked={on} aria-disabled={waiting || undefined} data-testid={`${LENS_BAR_TESTID}-${id}`}
-                  onClick={() => { if (waiting) return; useViewLens.setState({ lens: id }); setOpen(false); exploreBtn.current?.focus() }}
-                  className={`grid w-full grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-2 rounded-md px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
-                  <Icon aria-hidden="true" strokeWidth={1.75} className="mt-[2px] h-3.5 w-3.5 text-text-light" />
-                  <span className="grid min-w-0 gap-0.5">
-                    <span className={`${typography.viewPanelMeta} font-medium ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
-                    <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? W.needsRun : W.hint[id]}</span>
-                  </span>
-                  {count > 0 ? <span className={`${typography.viewPanelMeta} mt-[2px] inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : <span />}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-      <button type="button" aria-pressed={dockTab === 'team'} data-testid={`${LENS_BAR_TESTID}-team`} onClick={() => {
-        // Team pressed while a reveal panel or evidence is open (the landing opens one by itself): the person asked for Team, so the
-        // panel steps aside and Team's own titled panel shows (V11 lane 10 Nov, journey step 6.3).
-        setOpen(false); forgetLanded(); useReveal.getState().select(null); useUIStore.getState().forceActivateOutputTab('team')
-      }} className={segment(dockTab === 'team')}>
-<span>{W.team}</span>
-      </button>
     </div>
   )
 }
