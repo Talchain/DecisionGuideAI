@@ -22,28 +22,28 @@ const REPLY = 'A reply that draws on what Sam said about price.', KEPT = 'Offer 
 afterEach(cleanup)
 
 describe('FirstArrival: a reader core holds', () => {
-  it('reads the five lines: why their view comes first, the brief\'s label, core\'s privacy line as given, and what the reveal does', () => {
+  it('reads a headline and one line with a lock; core\'s privacy sentence and the reveal sentence are hover words only (CHANGED BY DESIGN, v10 review item 9)', () => {
     render(<FirstArrival view={held()} />)
     const card = screen.getByTestId('first-arrival')
     expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Your view comes first')
     expect(card.querySelectorAll('p')[0]!.textContent).toBe('Say what you think before you read the others’, so the team hears what only you know.')
     expect(screen.getByTestId('first-arrival-brief-toggle').textContent).toBe('The brief this scenario started from')
-    expect(screen.getByTestId('first-arrival-private').textContent).toBe('Private to you until everyone’s views are revealed')
-    expect(screen.getByTestId('first-arrival-private').textContent).toBe(fx.team_words.views.private)
-    expect(screen.getByTestId('first-arrival-reveal').textContent).toBe('Once everyone has given or skipped a view, any of you can reveal them all together.')
-    // At rest, those five lines are everything it says.
-    expect(card.textContent).toBe(['Your view comes first', 'Say what you think before you read the others’, so the team hears what only you know.', 'The brief this scenario started from',
-      'Private to you until everyone’s views are revealed', 'Once everyone has given or skipped a view, any of you can reveal them all together.'].join(''))
+    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBe(fx.team_words.views.private)
+    expect(screen.getByTestId('first-arrival-private').querySelector('svg')).toBeTruthy()
+    expect(screen.getByTestId('first-arrival-why').getAttribute('title')).toBe('Once everyone has given or skipped a view, any of you can reveal them all together.')
+    expect(screen.queryByTestId('first-arrival-reveal')).toBeNull()
+    // At rest, those three lines are everything it says; the lock and eye sentences are not in the text.
+    expect(card.textContent).toBe(['Your view comes first', 'Say what you think before you read the others’, so the team hears what only you know.', 'The brief this scenario started from'].join(''))
   })
 
-  it('draws core\'s privacy line as core gives it, and no privacy line at all when core gives none', () => {
+  it('carries core\'s privacy line as given in the lock\'s title (CHANGED BY DESIGN, v10 review item 9), and no title when core gives none', () => {
     const words = (line: string) => ({ ...fx.team_words, views: { ...fx.team_words.views, private: line } })
     render(<FirstArrival view={held({ team_words: words('Core’s own line about privacy.') })} />)
-    expect(screen.getByTestId('first-arrival-private').textContent).toBe('Core’s own line about privacy.')
+    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBe('Core’s own line about privacy.')
     cleanup()
     render(<FirstArrival view={held({ team_words: words('') })} />)
     expect(screen.getByTestId('first-arrival')).toBeTruthy()
-    expect(screen.queryByTestId('first-arrival-private')).toBeNull()
+    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBeNull()
   })
 
   it('keeps the brief behind a closed disclosure and opens it whole, as written', () => {

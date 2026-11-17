@@ -73,7 +73,8 @@ describe('what the tab shows is the View, word for word', () => {
     expect(screen.getByTestId('team-revealed-3').textContent).toContain('Hold until the pilot reports.')
     expect(screen.getByTestId('team-mine-4').textContent).toContain('Enter one country first.')
     expect(screen.getByTestId('team-waiting').textContent).toBe('waiting for Bea')
-    expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe('Your own view, private until revealed')
+    // CHANGED BY DESIGN (v10 review item 9): the placeholder is the scenario's own question text where the View carries it.
+    expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe(base.model!.question.text)
   })
   it('each view\'s figures under it, in core\'s words and order (the revealed one\'s, and your own while private); a view with none draws none', () => {
     // Shaped exactly as core's view3-fields.test.ts (API v1.11): a range on a revealed view, a number on your private one.
