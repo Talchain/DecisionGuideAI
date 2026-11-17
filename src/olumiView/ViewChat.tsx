@@ -39,7 +39,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, MessageSquare, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, Info, MessageSquare, RefreshCw, RotateCcw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -51,7 +51,7 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { CommitFormSlot } from './v12/team'
+import { CommitFormSlot, RecordStepButton } from './v12/team'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
@@ -316,7 +316,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* The reply's move that is the panel's Next step is drawn in that card at the top, once; it is not drawn again here. Every other reply keeps its own. */}
       {inStep ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={`${typography.viewPanelHeading} text-text-header`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={`${typography.viewPanelHeading} text-text-header${about.length > 0 && !(moves && t.answer.next.newest) ? ' sr-only' : ''}`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
       {moves && t.answer.next.newest && !inStep ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       {!leads ? null : (
@@ -326,17 +326,24 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         </details>
       )}
       <Stories answer={t.answer} at={at} />
-      <AboutChips cards={aboutCards} />
-      <ShowInWorkspace turn={t.id} next={t.answer.next} />
-      {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
+      {/* v10 review item 6: the reply's bookkeeping is ONE icon row (the cards it is about, show in the workspace, keep), never stacked chips and links. */}
+      <div className="flex flex-wrap items-center gap-1 empty:hidden" data-testid="view-reply-tools">
+        <AboutChips cards={aboutCards} />
+        <ShowInWorkspace turn={t.id} next={t.answer.next} />
+        {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
+      </div>
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
+  // v10 review item 6: core's status line (for example "Suggested, not yet accepted") is a small icon with its words on hover; it is drawn in full only
+  // while an Approve waits on the model. Core's words are unchanged and stay in the page for readers.
+  const waiting = whole?.proposal != null
   const stamp = (
     <div className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
       <History size={14} strokeWidth={1.75} aria-hidden="true" />
       <span><span data-view={`${at}.version`}>{t.version}</span>
-        {t.status === null ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
+        {t.status === null ? null : <> · <span data-view={`${at}.status`} className={waiting ? undefined : 'sr-only'} title={t.status}>{t.status}</span></>}</span>
+      {t.status === null || waiting ? null : <span title={t.status} className="inline-flex" data-testid="view-chat-status-icon"><Info size={12} strokeWidth={1.75} aria-hidden="true" /></span>}
     </div>
   )
   return (
@@ -346,6 +353,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
+      {t.answer === null && t.problem !== null && t.said !== '' ? <AskAgain words={t.said} /> : null}
       {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
     </li>
   )
@@ -369,6 +377,19 @@ export function ViewTurns({ chat }: { chat: View['chat'] }) {
 export const retriedAt = (chat: View['chat'], i: number): boolean => {
   const t = chat[i], next = chat[i + 1]
   return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && !!t.by_id && next.by_id === t.by_id && next.said === t.said
+}
+/** v10 review item 6/11: "Ask this again" on a message that got no answer. It copies that message's words into the composer's draft and sends nothing,
+ *  writes nothing and calls no AI; the person reads them, edits if they wish, and sends. A draft already typed is kept: the words follow it. */
+export const ASK_AGAIN = 'Ask this again'
+export function askAgainDraft(typed: string, words: string): string { return typed.trim() === '' ? words : typed.includes(words) ? typed : `${typed}\n\n${words}` }
+function AskAgain({ words }: { words: string }) {
+  return (
+    <button type="button" data-testid="view-ask-again" aria-label={ASK_AGAIN} title={ASK_AGAIN}
+      onClick={() => { useViewChat.setState({ text: askAgainDraft(useViewChat.getState().text, words) }); document.getElementById('view-chat-text')?.focus() }}
+      className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+      <RotateCcw className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span className="sr-only">{ASK_AGAIN}</span>
+    </button>
+  )
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
@@ -396,7 +417,10 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
       {un !== undefined
-        ? un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>
+        ? <>
+            {un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>}
+            {f.said === '' ? null : <AskAgain words={f.said} />}
+          </>
         : <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep stays on its lines there.
           : <ReplyLead lead={f.lead} at={`floor.${f.job}`}>{text}</ReplyLead>}</div>}
@@ -1412,6 +1436,8 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
           <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
         </>
       ) : null}
+      {/* v10 review item 12: committing is a step, so its button is here, secondary; it opens the form below and writes nothing. */}
+      <div className="empty:hidden"><RecordStepButton /></div>
     </section>
   )
 }
@@ -1583,7 +1609,7 @@ export function ViewChat() {
   // Return focus to the pop-out control after docking (A2 stop/float, DL 10 Nov).
   const wasFloating = useRef(floating)
   useEffect(() => {
-    if (wasFloating.current && !floating) tab.current?.querySelector<HTMLButtonElement>('[data-testid="view-chat-popout"]')?.focus()
+    if (wasFloating.current && !floating) document.querySelector<HTMLButtonElement>('[data-testid="view-chat-popout"]')?.focus()
     wasFloating.current = floating
   }, [floating])
   // The View moved on while the entry is open (a new version, the offer gone, a goal set): read the entry again while core still offers
@@ -1603,12 +1629,6 @@ export function ViewChat() {
   const pinned = step?.kind === 'approve'
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
-      {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
-        <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
-          <ExternalLink size={14} aria-hidden="true" />
-        </button>
-      </div>}
       {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
           the thread, never cut by the composer. Olumi's waiting proposal keeps its pinned box (olumiLook.css .ok-pinned: its own scroll, its
           actions' sticky foot), now at the top. */}
@@ -1618,6 +1638,8 @@ export function ViewChat() {
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
       {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
       <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
+        {/* v10 review item 10: the thread's top edge fades under the sticky card instead of clipping a sliver of the previous bubble. */}
+        <div aria-hidden="true" data-testid="view-chat-fade" className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-3" style={{ background: 'linear-gradient(to bottom, var(--bg-panel), transparent)' }} />
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
@@ -1733,6 +1755,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
 function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
   const { text, busy, said } = useViewChat()
+  const popped = useChatFloat((st) => st.floating)
   const drafting = isDrafting(view), answering = isAnswering(view)
   // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
   const unknown = sid !== null && view === null
@@ -1819,6 +1842,12 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <ActionsMenu menu={menu} held={held} onMethod={runMethod} onTool={runTool} goal={<SessionGoal session={session} held={held} />} build={build === null ? undefined : { ...build, onPress: () => void buildModel() }} />
           )}
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
+          {/* v10 review item 10: the popout moved here from a 44 px strip above every conversation; same control, same test id, drawn in the composer's icon row. */}
+          {popped ? null : (
+            <button type="button" onClick={popOutChat} data-testid="view-chat-popout" aria-label={CHAT_POPOUT_LABEL} title={CHAT_POPOUT_TITLE} className={quiet}>
+              <ExternalLink size={14} aria-hidden="true" />
+            </button>
+          )}
           {analysisAction === undefined ? null : (
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">

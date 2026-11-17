@@ -14,7 +14,7 @@ import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer, useViewChat, COMPOSER_PLACEHOLDER } from '../../../ViewChat'
 import { approachesOf, keptIdeasOf, isKept } from '../../ideas'
-import { aboutCardsOf, aboutWords } from '../AboutChip'
+import { aboutCardsOf, aboutCountWords, aboutWords } from '../AboutChip'
 import { methodOfSaid } from '../MethodChip'
 import { KeptIdeas, keptIdeasWords, provenanceOf } from '../KeptIdeas'
 import { CardMenuHeader, kindWordsOf, proposedByOlumi } from '../CardMenuHeader'
@@ -66,7 +66,9 @@ describe('"About <card> on the canvas"', () => {
     const card = v.model!.cards.find((c) => c.id === next.at)!
     const { container } = render(<ViewChat />)
     const chip = within(container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!).getByTestId('view-about-chip')
-    expect(chip).toHaveTextContent(aboutWords(card.heading))
+    // CHANGED BY DESIGN (v10 review item 6): one chip "N on the canvas" in the reply's icon row; the card's title is its hover.
+    expect(chip).toHaveTextContent(aboutCountWords(1))
+    expect(chip).toHaveAttribute('title', aboutWords(card.heading))
     expect(chip.dataset['card']).toBe(card.id)
     await press(chip)
     expect(focus).toHaveBeenCalledWith(card.id)

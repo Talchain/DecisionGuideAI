@@ -4,7 +4,7 @@ import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
 import { teamApi, TeamApiError } from '../../../olumiCore/team/api'
-import { useDraft } from '../../../olumiCore/team/drafts'
+import { putDraft, useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { useViewStore } from '../../store'
@@ -22,11 +22,56 @@ export const COMMIT_WORDS = {
   heading: 'Record what you will do', proposed: 'Proposed', action: 'What will you do?', expect: 'What do you expect to happen?',
   reconsider: 'When would you reconsider?', keep: 'Keep it', footnote: 'You can compare what happened with what you expected later.',
   /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
+  /** v10 review item 12: the Next step card's secondary button, and the kept idea's "Use as my action" (fixed chrome). */
+  nextStepButton: 'Record what you will do', useAsAction: 'Use as my action', yours: 'This is your draft, copied from an idea you kept. Change it as you like.',
   unanchored: 'No option is chosen. This records what you will do now, and it does not approve the proposed model.',
 } as const
 
-interface Draft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
+interface Draft { open: boolean; seeded?: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
 const EMPTY: Draft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
+
+/**
+ * v10 review item 12: opens the form from outside it (the Next step card, a kept idea). With `action`, the idea's words go VERBATIM into the first box
+ * as the person's own editable draft (after anything they already typed there, never over it); the expectation and the reconsider box stay blank.
+ * Nothing is saved and nothing is sent: the person still presses "Keep it".
+ */
+export function openCommitDraft(sid: string, view: View, action?: string): void {
+  putDraft<Draft>(`${sid}:commitment`, (prev) => {
+    const base: Draft = { ...EMPTY, owner: view.you_id, ...prev, open: true }
+    if (action === undefined) return base
+    const typed = base.action.trim() !== ''
+    return { ...base, action: !typed ? action : base.action.includes(action) ? base.action : `${base.action}\n\n${action}`, seeded: true }
+  })
+  setTimeout(() => {
+    const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
+    if (typeof form?.scrollIntoView === 'function') form.scrollIntoView({ block: 'nearest' })
+    document.getElementById('commit-form-action')?.focus()
+  }, 0)
+}
+
+/** Whether this page may draw the commitment form at all: its own View, never a past version, only for the person it is for. */
+function useCommitReach(): { view: View; sid: string } | null {
+  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at)
+  const me = useMe((s) => s.me)
+  return view === null || !sid || at !== null || !isForThisPage(view, me) ? null : { view, sid }
+}
+
+/** The Next step card's secondary button: commitment is a step, not a footnote. It only opens the form below. */
+export function RecordStepButton(): JSX.Element | null {
+  const reach = useCommitReach()
+  if (reach === null) return null
+  return <Button size="sm" variant="secondary" data-testid="view-next-record" onClick={() => openCommitDraft(reach.sid, reach.view)}>{COMMIT_WORDS.nextStepButton}</Button>
+}
+
+/** A kept idea's "Use as my action": its words, verbatim, in the form's first box as the person's draft. */
+export function UseAsActionButton({ text }: { text: string }): JSX.Element | null {
+  const reach = useCommitReach()
+  if (reach === null) return null
+  return (
+    <button type="button" data-testid="view-kept-idea-use" onClick={() => openCommitDraft(reach.sid, reach.view, text)}
+      className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.useAsAction}</button>
+  )
+}
 
 /** A labelled field. Defined once at module level: a component made inside the form's render is a new type every keystroke, so React
  *  remounts the textarea and the person loses focus after one character (Codex's UI chat, 16 Nov). */
@@ -80,6 +125,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
         <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid="commit-form-proposed">{COMMIT_WORDS.proposed}</span>
       </div>
       {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
+      {d.seeded && d.action.trim() !== '' && <p className={META} data-testid="commit-form-yours">{COMMIT_WORDS.yours}</p>}
       <L id="commit-form-action" t={COMMIT_WORDS.action}>{area('commit-form-action', 'action')}</L>
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>

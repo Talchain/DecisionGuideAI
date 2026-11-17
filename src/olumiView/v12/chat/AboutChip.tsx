@@ -8,6 +8,7 @@ import { Crosshair } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import type { View, ViewTurn } from '../../client'
+import { endRing, pointRing } from '../../ring'
 
 export const ABOUT_CHIP_MAX = 3
 
@@ -22,17 +23,21 @@ export function aboutCardsOf(view: View | null, next: NonNullable<ViewTurn['answ
 
 export const aboutWords = (title: string): string => `About ${title} on the canvas`
 
+/** The chip's words: how many cards the reply points at, on the canvas. Fixed chrome; the cards' own titles are the hover (core's headings). */
+export const aboutCountWords = (n: number): string => `${n} on the canvas`
+
+/** v10 review item 6: ONE chip in the reply's icon row, not a wrapped chip per card. Hover or focus rings the cards (the same ring the next step
+ *  lights); a press focuses the first and selects it on the canvas. The titles are on the hover, one per line. */
 export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Element | null {
   if (cards.length === 0) return null
+  const ids = cards.map((c) => c.id)
   return (
-    <div className="flex flex-wrap gap-1" data-testid="view-about-chips">
-      {cards.map((c) => (
-        <button key={c.id} type="button" onClick={() => focusNodeById(c.id)} title={aboutWords(c.title)} data-testid="view-about-chip" data-card={c.id}
-          className={`${typography.viewPanelMeta} inline-flex min-h-[24px] max-w-full items-start gap-1 rounded-md border border-panel-border bg-panel px-2 py-1 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-          {/* No clipped text (BOARD-SPEC rule 2): a long heading wraps inside the chip, never cut with an ellipsis. */}
-          <Crosshair className="mt-0.5 h-3 w-3 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" /><span className="min-w-0 break-words">{aboutWords(c.title)}</span>
-        </button>
-      ))}
+    <div className="flex" data-testid="view-about-chips">
+      <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={() => endRing()} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
+        title={cards.map((c) => aboutWords(c.title)).join('\n')} data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        <Crosshair className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span>{aboutCountWords(cards.length)}</span>
+      </button>
     </div>
   )
 }

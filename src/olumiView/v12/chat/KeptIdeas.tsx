@@ -12,6 +12,7 @@ import { typography } from '../../../styles/typography'
 import { useViewStore } from '../../store'
 import { ideaMethodOf, keptIdeasOf, type KeptIdea } from '../ideas'
 import type { View } from '../../client'
+import { UseAsActionButton } from '../team/CommitForm'
 
 export const KEPT_IDEAS_HEADING = 'Kept ideas'
 export const olumisIdea = (method: string | null): string => (method === null ? 'Olumi’s idea' : `Olumi’s idea, from ${method}`)
@@ -40,6 +41,7 @@ export function KeptIdeas(): JSX.Element | null {
             <div>
               <p data-testid="view-kept-idea-text">{i.text}</p>
               <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-kept-idea-from">{provenanceOf(view, i).join(' · ')}</p>
+              <UseAsActionButton text={i.text} />
             </div>
           </li>
         ))}
