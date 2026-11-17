@@ -31,7 +31,21 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead }
+/** A reply's short lead (View v3, additive; DL 11:06:45Z): one or two opening sentences and its points, in Olumi's words as core serves them.
+ *  The page draws it and folds the full answer beneath; it never cuts, counts or writes one. Absent: the reply is drawn as before. */
+export type ReplyLead = { opening: string; points: string[] }
+const squash = (s: string) => s.replace(/\r\n?/g, '\n').split('\n').map((l) => l.replace(/^\s*#{2,6}\s+/, '').replace(/^\s*[-*•]\s+/, '').replace(/\*\*([^*\n]+)\*\*/g, '$1')).join(' ').replace(/\s+/g, ' ').trim()
+/** A well-formed lead on `holder` (a turn's answer or a floor row), or null: a non-empty opening and points that are each non-empty words. `full`
+ *  is the whole answer's text: a lead that says all of it (the same words) folds nothing, so the reply is drawn as before. */
+export const leadOf = (holder: unknown, full: string): ReplyLead | null => {
+  const l = typeof holder === 'object' && holder !== null ? (holder as { lead?: unknown }).lead : undefined
+  if (l === null || typeof l !== 'object') return null
+  const { opening, points } = l as { opening?: unknown; points?: unknown }
+  if (typeof opening !== 'string' || opening.trim() === '' || !Array.isArray(points) || !points.every((p) => typeof p === 'string' && p.trim() !== '')) return null
+  const lead = { opening, points: points as string[] }
+  return squash(full) === squash([opening, ...lead.points].join('\n')) ? null : lead
+}
 export type Unanswered = { status: 'failed' | 'lost'; words: string | null }
 const unansweredOf = (u: unknown): Unanswered | null => {
   if (u === null || typeof u !== 'object') return null
@@ -55,7 +69,8 @@ export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; tex
     if (!row.text.trim()) continue
     if (alreadyShown && row.job === alreadyShown.job && row.text === alreadyShown.text) continue
     const prose = Array.isArray(row.prose) && row.prose.length > 0 && row.prose.every((p: unknown) => typeof p === 'string') ? { prose: row.prose as string[] } : {}
-    rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: row.text, ...prose })
+    const lead = leadOf(row, row.text)
+    rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: row.text, ...prose, ...(lead === null ? {} : { lead }) })
   }
   return rows
 }

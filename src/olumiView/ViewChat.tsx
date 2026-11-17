@@ -43,7 +43,8 @@ import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, F
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, floorShown, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
+import { earlyOf, floorShown, leadOf, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
+import { ReplyLead } from './v12/chat/ReplyLead'
 import { EarlyAnswer } from './EarlyAnswer'
 import { ResultReceipts } from './ResultReceipts'
 import { SinceVersion } from '../olumiCore/compare'
@@ -266,6 +267,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
   const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`}>{t.by}</p>
   const early = earlyOf(t)
+  // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
+  // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
+  const lead = t.answer === null ? null : leadOf(t.answer, [early ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
   // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
   // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
   // a method reply with no such lines is kept whole.
@@ -300,7 +304,13 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   )) : (
     <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
-      {leads
+      {lead !== null
+        ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
+            {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+            {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+            <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} />
+          </ReplyLead>
+        : leads
         ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} /></div>
         : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
@@ -331,8 +341,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
-      {said}{early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
-      {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+      {said}{lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+      {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}{stamp}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
@@ -376,6 +386,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   // A saved message whose reply failed or was lost (core `floor[].unanswered`): their words, then core's own sentence for that job as a quiet
   // line. No reply, no Keep and no Try again here: only the newest turn (`turn`) retries, and it is never also in the floor.
   const un = f.unanswered
+  const text = <section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section>
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
@@ -386,7 +397,9 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
           never on a long brief drawn above it in the same exchange. */}
       {un !== undefined
         ? un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>
-        : <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section></div>}
+        : <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
+          // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep stays on its lines there.
+          : <ReplyLead lead={f.lead} at={`floor.${f.job}`}>{text}</ReplyLead>}</div>}
     </li>
   )
 }
