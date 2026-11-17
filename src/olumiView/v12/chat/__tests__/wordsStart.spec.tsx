@@ -5,8 +5,8 @@
  *
  * 1. ONE deliberate choice at the fresh composer; Send (build a model) stays the default and unchanged.
  * 2. A scenario started in words takes messages, never a second brief; the method icons wait for a model.
- * 3. Keep on a floor reply of a scenario core says was started in words; nothing on the first draft's reply or a running/failed job, and
- *    never a writer guessed from words (CONTRACT 4, revised 03:55Z).
+ * 3. Keep from core's typed prose on the floor row (`floor[].prose`): each of Olumi's approaches on its own, never the host's lines; the
+ *    paired row Codex names (menu press, floor reply, two individual ideas, Keep, develop, reopen with the source kept by `kept.from`).
  * All words are invented.
  */
 import '@testing-library/jest-dom/vitest'
@@ -22,7 +22,9 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
-import { floorIdeaOf } from '../FloorKeep'
+import { challengeQuestionOf, developQuestionOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
+import { ideaDetailOf } from '../../bands/IdeaPanel'
+import { sessionOf } from '../../../layout'
 import { KEEP_IDEA, KEPT_IDEA } from '../../KeepIdea'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -166,60 +168,92 @@ describe('2. a scenario started in words takes messages, never a second brief', 
   })
 })
 
-describe('3. Keep on a floor reply that ended done, in Olumi\'s own words', () => {
-  it('the reply offers the existing Keep; a press posts { floor: <job>, text } (no turn, no concerns) to core\'s kept route', async () => {
-    answer = () => new Response(JSON.stringify({ kept: 77 }), { status: 201 })
-    const c = show(inWords({ floor: [row(9)] }))
-    const button = floorTurn(c, 9)!.querySelector<HTMLElement>('[data-testid="view-floor-keep-button"]')
-    expect(button?.textContent).toBe(KEEP_IDEA)
-    await press(button)
+describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[].prose), never from its text', () => {
+  // Core's own fixed accepting line (host text) followed by Olumi's two approaches, as core a641 serves it; only the approaches are prose.
+  const HOST = 'There is no proposal waiting for your approval, so there is nothing to accept and no result changes.'
+  const IDEA_A = 'Lend the second workshop’s tools to the first on quiet days.'
+  const IDEA_B = 'Run a weekend repair stall at the station before signing a lease.'
+  const METHOD = (v: View) => sessionOf(v)!.methods.find((m) => m.id === 'else_do')!
+  const ideasRow = (job: number, said: string, prose: string[] | undefined) => ({ ...row(job), said, text: `${HOST}\n- ${IDEA_A}\n- ${IDEA_B}`, ...(prose === undefined ? {} : { prose }) })
+  const keptRow = (id: number, job: number, text: string, from?: string) => ({ id, turn: job, text, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], ...(from ? { from } : {}) })
+  const keepIn = (c: ParentNode, job: number) => [...floorTurn(c, job)!.querySelectorAll<HTMLElement>('[data-reply-list] li')]
+
+  it('PAIRED: a menu press on a words scenario posts the existing method route; its floor reply offers each of Olumi\'s two approaches on its own, never the host line; each Keep posts { floor, text }', async () => {
+    const said = METHOD(inWords()).text
+    answer = (url) => (url.endsWith('/method') ? new Response(JSON.stringify({ proposal: null, discussion: true, job: 21 }), { status: 202 }) : new Response(JSON.stringify({ kept: 50 + posts.length }), { status: 201 }))
+    const c = show(inWords())
+    expect(q(c, 'view-actions-button')).not.toBeNull() // the thinking menu is offered with no model (Codex 04:27:24Z)
+    await press(q(c, 'view-actions-button'))
+    await press(c.querySelector<HTMLElement>('[data-testid="view-session-method"][data-method="else_do"]'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/method`)
+    expect(posts[0]!.body['method']).toBe('else_do')
+    cleanup(); posts = []
+    const c2 = show(inWords({ floor: [ideasRow(21, said, [`- ${IDEA_A}\n- ${IDEA_B}`])] }))
+    const items = keepIn(c2, 21)
+    expect(items.map((li) => li.textContent)).toEqual([IDEA_A, IDEA_B])
+    expect(items.map((li) => li.querySelectorAll('[data-testid="view-keep-idea-button"]').length)).toEqual([1, 1])
+    expect(floorTurn(c2, 21)!.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(2) // nothing on the host line, no whole-reply Keep
+    await press(items[0]!.querySelector('[data-testid="view-keep-idea-button"]'))
+    await press(items[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts).toEqual([{ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_A } }, { url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_B } }])
+  })
+
+  it('CONTRAST: the same reply WITHOUT prose (legacy, untyped, or a first draft\'s) offers no Keep at all', () => {
+    const c = show(inWords({ floor: [ideasRow(21, SAID, undefined)] }))
+    expect(keepIn(c, 21).map((li) => li.textContent)).toEqual([IDEA_A, IDEA_B])
+    expect(floorTurn(c, 21)!.querySelectorAll('[data-testid="view-keep-idea"]')).toHaveLength(0)
+  })
+
+  it('a reply with one prose block and the host\'s status line beside it: the whole-reply Keep sends the prose\'s sentences only', async () => {
+    answer = () => new Response(JSON.stringify({ kept: 61 }), { status: 201 })
+    const c = show(inWords({ floor: [{ ...row(9, `${OWN}\n\nThe model Olumi is building will take this into account.`), prose: [OWN] }] }))
+    const keep = floorTurn(c, 9)!.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')
+    expect(keep).toHaveLength(1)
+    expect(keep[0]!.textContent).toBe(KEEP_IDEA)
+    await press(keep[0]!)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: OWN_WORDS } })
   })
 
-  it('"Kept" is read from the View: kept[].turn equals the floor job; CONTRAST: an idea kept from another job leaves Keep offered here', () => {
-    const kept = (turn: number) => [{ id: 3, turn, text: OWN_WORDS, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], from: 'floor' }]
-    const c = show(inWords({ floor: [row(9)], kept: kept(9) }))
-    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-kept"]')?.textContent).toBe(KEPT_IDEA)
-    cleanup()
-    const d = show(inWords({ floor: [row(9)], kept: kept(12) }))
-    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+  it('after the keeps and a COLD reopen: each approach reads "Kept", and each idea keeps its source and method from the floor (kept.from); CONTRAST: without `from` it is not looked up on the floor', () => {
+    const said = METHOD(inWords()).text
+    const view = inWords({ floor: [ideasRow(21, said, [`- ${IDEA_A}\n- ${IDEA_B}`])], kept: [keptRow(50, 21, IDEA_A, 'floor'), keptRow(51, 21, IDEA_B, 'floor')] })
+    useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, stale: false, at: null }) // a cold page
+    const c = show(view)
+    expect(keepIn(c, 21).map((li) => li.querySelector('[data-testid="view-keep-idea-kept"]')?.textContent)).toEqual([KEPT_IDEA, KEPT_IDEA])
+    const ideas = keptIdeasOf(view)
+    expect(ideas.map((i) => [i.text, i.fromFloor])).toEqual([[IDEA_A, true], [IDEA_B, true]])
+    expect(ideaDetailOf(view, ideas[0]!).source).toBe(`From Olumi’s reply to “${said}”`)
+    expect(ideaMethodOf(view, ideas[1]!)).toBe(said)
+    const chatIdea = keptIdeasOf(inWords({ floor: [ideasRow(21, said, undefined)], kept: [keptRow(52, 21, IDEA_A)] }))[0]!
+    expect(chatIdea.fromFloor).toBeUndefined()
+    expect(ideaDetailOf(inWords({ floor: [ideasRow(21, said, undefined)] }), chatIdea).source).toBe('From a reply that is not in this conversation')
   })
 
-  it('nothing on the first draft\'s own reply (the brief\'s job); CONTRAST: the reply to a later message in the same thread offers Keep', () => {
-    const failed = { status: 'failed', reason: null, at: AT, job: 7, stage: 'building', started: AT, words: 'Olumi could not finish this turn.' }
-    const c = show(inWords({ draft: failed, floor: [row(7), row(9)] }))
-    expect(floorTurn(c, 7)).not.toBeNull()
-    expect(floorTurn(c, 7)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
-    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+  it('Develop and Challenge on a kept floor idea put its exact words in the box; on a words scenario Send asks it as a message, answered on the floor', async () => {
+    answer = () => new Response(JSON.stringify({ job: 43, status_url: null }), { status: 202 })
+    const c = show(inWords({ floor: [ideasRow(21, SAID, [`- ${IDEA_A}\n- ${IDEA_B}`])], kept: [keptRow(50, 21, IDEA_A, 'floor')] }))
+    const idea = keptIdeasOf(useViewStore.getState().view)[0]!
+    for (const ask of [developQuestionOf(idea), challengeQuestionOf(idea)]) {
+      posts = []
+      type(c, ask)
+      await press(q(c, 'view-composer-send'))
+      await waitFor(() => expect(posts).toHaveLength(1))
+      expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/messages`)
+      expect(posts[0]!.body['text']).toBe(ask)
+      expect(String(posts[0]!.body['text'])).toContain(IDEA_A)
+    }
   })
 
-  it('nothing on the job the View\'s turn still reports as failed; CONTRAST: a different job running leaves this reply\'s Keep', () => {
-    const turn = (job: number, status: string) => ({ job, status, said: SAID, ask: 'message', by: 'Ada', by_id: '7', words: 'Olumi could not finish this turn.', started: AT, at: AT })
-    const c = show(inWords({ floor: [row(9)], turn: turn(9, 'failed') }))
-    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
-    cleanup()
-    const d = show(inWords({ floor: [row(9)], turn: turn(10, 'answering') }))
-    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
-  })
-
-  it('offered only where core says the scenario was started in words; CONTRAST: the same floor reply on a scenario whose first model is building offers none', () => {
-    const building = { status: 'drafting', reason: null, at: AT, job: 5, stage: 'building', started: AT, words: 'Building the model' }
-    const c = show(inWords({ start: undefined, draft: building, floor: [row(9)] }))
-    expect(floorTurn(c, 9)).not.toBeNull()
-    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
-    cleanup()
-    const d = show(inWords({ floor: [row(9)] }))
-    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
-    expect(floorIdeaOf(OWN)).toBe(OWN_WORDS)
-  })
-
-  it('a refusal is core\'s own words beside the Keep, and nothing is shown as kept', async () => {
+  it('a refusal is core\'s own words beside that Keep, and nothing is shown as kept', async () => {
     const REFUSED = 'Those words are not in Olumi\'s reply.'
     answer = () => new Response(JSON.stringify({ error: REFUSED }), { status: 400 })
-    const c = show(inWords({ floor: [row(9)] }))
-    await press(floorTurn(c, 9)!.querySelector<HTMLElement>('[data-testid="view-floor-keep-button"]'))
-    await waitFor(() => expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-said"]')?.textContent).toBe(REFUSED))
-    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-kept"]')).toBeNull()
+    const c = show(inWords({ floor: [ideasRow(21, SAID, [`- ${IDEA_A}\n- ${IDEA_B}`])] }))
+    const first = keepIn(c, 21)[0]!
+    await press(first.querySelector('[data-testid="view-keep-idea-button"]'))
+    await waitFor(() => expect(first.querySelector('[data-testid="view-keep-idea-said"]')?.textContent).toBe(REFUSED))
+    expect(floorTurn(c, 21)!.querySelector('[data-testid="view-keep-idea-kept"]')).toBeNull()
   })
 })

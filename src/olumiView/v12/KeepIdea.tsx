@@ -15,7 +15,7 @@ export const KEPT_IDEA = 'Kept. It stays Olumi’s idea.'
 
 /** `inline`: beside one list item, as a small icon at the end of its line, shown on that item's hover or keyboard focus (DS: action icons on hover or
  *  focus; always shown where there is no hover). Paul, 16 Nov: a "Keep as an idea" row under every bullet was noise. Otherwise its own quiet row. */
-export function KeepIdea({ sid, turn, text, inline = false }: { sid: string; turn: number; text: string; inline?: boolean }) {
+export function KeepIdea({ sid, turn, text, inline = false, floor = false }: { sid: string; turn: number; text: string; inline?: boolean; /** `turn` is a floor reply's job (words-start CONTRACT 4). */ floor?: boolean }) {
   const [state, setState] = useState<{ s: 'idle' | 'busy' | 'kept' } | { s: 'said'; said: string }>({ s: 'idle' })
   const past = useViewStore((st) => st.at !== null)
   // Kept already (this press, or an earlier one the View holds): "Kept", never a second button for the same words from the same reply.
@@ -23,7 +23,7 @@ export function KeepIdea({ sid, turn, text, inline = false }: { sid: string; tur
   const go = async () => {
     setState({ s: 'busy' })
     try {
-      await keepIdea({ sid, turn, text })
+      await keepIdea({ sid, turn, text, floor })
       setState({ s: 'kept' })
       void useViewStore.getState().refresh()
     } catch (e) {

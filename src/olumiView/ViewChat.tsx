@@ -50,11 +50,10 @@ import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot } from './v12/team'
-import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/ideas'
+import { approachOf, approachesOf, floorKeepOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
-import { FloorKeep } from './v12/chat/FloorKeep'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
@@ -357,8 +356,13 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
-function FloorLine({ f, me, latest, keep = false }: { f: FloorTurn; me?: string | null; latest: boolean; /** A reply to a message that ended done: Olumi's words can be kept (words-start CONTRACT 2). */ keep?: boolean }) {
+function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
+  // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z): what can be kept is read from core's typed prose on this row, never from its text
+  // (which also holds the host's lines): each of Olumi's own approaches on its own line, else the opening of its prose, with the reply's Keep.
+  const sid = useViewStore((st) => st.sid)
+  const { approaches, whole } = sid === null ? { approaches: [], whole: null } : floorKeepOf(f)
+  const keepEach = sid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={sid} turn={f.job} text={words} inline floor /> : null)
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble">
@@ -367,21 +371,13 @@ function FloorLine({ f, me, latest, keep = false }: { f: FloorTurn; me?: string 
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
-      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare />{keep ? <FloorKeep job={f.job} text={f.text} /> : null}</div>
+      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} /></section>{sid === null || whole === null ? null : <KeepIdea sid={sid} turn={f.job} text={whole} floor />}</div>
     </li>
   )
 }
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
 export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
-  // Words-start CONTRACT 4 (revised 03:55Z): Keep is offered on a floor reply of a scenario core says was started in words (`start`), where the
-  // floor holds Olumi's own replies to messages (no build ran beside them, so no host status line is added to their text). Never on the first
-  // draft's own answer (the brief's job), nor on the job core still reports as answering, failed or lost (the View's `turn`). The writer of a
-  // sentence is never guessed from its words: core keeps only Olumi's typed prose and refuses anything else in its own words, which are said.
-  const briefJob = entries?.find((e) => e.kind === 'brief')?.job ?? (draft as { job?: number } | null | undefined)?.job ?? null
-  const turnNow = useViewStore((st) => st.view?.turn ?? null)
-  const inWords = useViewStore((st) => startedInWords(st.view))
-  const keepable = (f: FloorTurn) => inWords && f.job !== briefJob && (turnNow === null || turnNow.job !== f.job)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
   // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
@@ -391,7 +387,7 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
-        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} keep={keepable(row.floor!)} />
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
         const t = chat[row.index]!
         const next = rows[position + 1]
         // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
@@ -782,6 +778,10 @@ async function startScenario(brief: string, op: string, uuid: string | null, wor
   const made = words ? await createInWords(brief, op) : await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
+  // Words-start (Codex root 04:07:06Z #1): the first message's receipt (the brief, its op) is saved for the named scenario BEFORE the brief's
+  // receipt is dropped and before any read, so a close or reload in between still finds the brief to send, by that same op.
+  const mop = firstMessageOp(op)
+  if (words) keepPendingTurn(made.scenario, brief, mop)
   dropPending(op)
   const derived = derivedUuidOf(made.scenario)
   if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
@@ -792,11 +792,9 @@ async function startScenario(brief: string, op: string, uuid: string | null, wor
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
   if (words) {
-    // The brief is sent ONCE as the first message, under an op derived from the brief's and kept in this tab (as any message), so a reload or
-    // a lost acceptance asks core again by that op. If it does not go through, the words go back in this scenario's box with that op and core's
+    // The brief is sent ONCE as the first message, under its op saved above (as any message's), so a reload or a lost acceptance asks core
+    // again by that op. If it does not go through, the words go back in this scenario's box with that op and core's
     // own words, so one press sends the same message again; the person never types it again.
-    const mop = firstMessageOp(op)
-    keepPendingTurn(made.scenario, brief, mop)
     try { await writes.message(made.scenario, brief, mop); dropPendingTurn(mop) } catch (e) {
       const said = e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.'
       if (useViewStore.getState().uuid === derived) useViewChat.setState({ text: brief, said, ops: new Map(useViewChat.getState().ops).set(opKey(derived, 'message', brief), mop) })
@@ -881,10 +879,10 @@ function dropPending(op: string): void {
   try { if (pendingBrief(me)?.op === op) sessionStorage.removeItem(PENDING(me)) } catch { /* nothing kept */ }
 }
 /** This person's brief still waiting for core's answer in this tab, if any: its words and the op it was sent with. */
-export function pendingBrief(person: string): { brief: string; op: string; words: boolean } | null {
+export function pendingBrief(person: string): { brief: string; op: string; words?: true } | null {
   try {
     const v = JSON.parse(sessionStorage.getItem(PENDING(person)) ?? 'null') as { brief?: unknown; op?: unknown; words?: unknown } | null
-    return v !== null && typeof v.brief === 'string' && v.brief.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { brief: v.brief, op: v.op, words: v.words === true } : null
+    return v !== null && typeof v.brief === 'string' && v.brief.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { brief: v.brief, op: v.op, ...(v.words === true ? { words: true as const } : {}) } : null
   } catch { return null }
 }
 /**
@@ -898,7 +896,7 @@ export function restorePendingBrief(): boolean {
   const p = pendingBrief(me)
   if (p === null) return false
   // A brief sent to start in words keeps that choice and its op (Codex root 03:42:17Z): the same words sent again replay that start.
-  useViewChat.setState({ text: p.brief, wordsBrief: p.words ? p.brief : null, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, p.words ? 'brief-words' : 'brief', p.brief), p.op) })
+  useViewChat.setState({ text: p.brief, wordsBrief: p.words === true ? p.brief : null, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, p.words === true ? 'brief-words' : 'brief', p.brief), p.op) })
   return true
 }
 

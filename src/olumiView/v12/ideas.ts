@@ -8,6 +8,7 @@ import { call, newOp } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
 import type { View, ViewTurn } from '../client'
 import { sessionOf } from '../layout'
+import { floorOf } from '../early'
 
 /** Core keeps an item to this many characters (app/strategy/kinds.ts TEXT_MAX). */
 export const IDEA_MAX = 400
@@ -30,8 +31,9 @@ export const PAST_VERSION = 'You are looking at an earlier version. Go back to t
  * model and never approving anything: core `POST /api/scenarios/:sid/kept { turn, text }` (Codex root, 16 Nov 12:23:29Z). Core resolves Olumi
  * as the author and this person as the keeper, and the same person's repeat press writes nothing, so no op is sent.
  */
-export async function keepIdea({ sid, turn, text, base, op }: { sid: string; turn: number; text: string; base?: number | null; op?: string }): Promise<unknown> {
+export async function keepIdea({ sid, turn, text, base, op, floor = false }: { sid: string; turn: number; text: string; base?: number | null; op?: string; /** `turn` is a floor reply's job (words-start CONTRACT 4): always retained on the scenario, `{ floor, text }`. */ floor?: boolean }): Promise<unknown> {
   if (base === undefined && useViewStore.getState().at !== null) throw new Error(PAST_VERSION)
+  if (floor) return call<unknown>('POST', `/api/scenarios/${encodeURIComponent(sid)}/kept`, { floor: turn, text })
   const b = base === undefined ? ideaBaseOf(useViewStore.getState().view) : base
   if (b === null) return call<unknown>('POST', `/api/scenarios/${encodeURIComponent(sid)}/kept`, { turn, text })
   const k = keyOf(sid, turn, text)
@@ -92,8 +94,24 @@ export function approachesOf(parts: Parts): string[] {
   return items.flatMap((l) => { const w = approachOf(l); return w === null ? [] : [w] })
 }
 
+/**
+ * What can be kept from a floor reply (words-start CONTRACT 4, Codex 04:16:02Z): ONLY Olumi's typed prose blocks as core serves them on the floor
+ * row (`floor[].prose`), never `floor[].text`, which also holds the host's own lines. Each of the reply's own approaches (its list lines, two or
+ * more, as `approachesOf`) is kept on its own; otherwise the opening of its first prose block, whole sentences (`ideaTextOf`). Nothing without prose.
+ */
+export const floorProseOf = (f: unknown): string[] | null => {
+  const p = (f as { prose?: unknown } | null)?.prose
+  return Array.isArray(p) && p.length > 0 && p.every((x) => typeof x === 'string') ? (p as string[]) : null
+}
+export function floorKeepOf(f: unknown): { approaches: string[]; whole: string | null } {
+  const prose = floorProseOf(f)
+  if (prose === null) return { approaches: [], whole: null }
+  const approaches = approachesOf(prose.map((text) => ({ text: `${text}\n` })))
+  return { approaches, whole: approaches.length > 0 ? null : ideaTextOf({ answer: [{ text: prose[0]! }] } as unknown as NonNullable<ViewTurn['answer']>) }
+}
+
 /** An idea the scenario holds (View `strategy.items[kind='idea']`: Olumi's idea, the reply it came from, the person who kept it). */
-export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null }
+export type KeptIdea = { id: string; text: string; olumis: boolean; sourceTurn: string | null; keptBy: { id: string; name: string } | null; /** Kept from a floor reply (View `kept[].from: "floor"`, words-start CONTRACT 5): `sourceTurn` is that reply's `floor[].job`, not a `chat[].id`. */ fromFloor?: true }
 
 /**
  * The ideas kept on the scenario, read by shape (the vendored View types predate them): first the model's own idea items (core's order, none set
@@ -108,7 +126,7 @@ export function keptIdeasOf(view: View | null): KeptIdea[] {
     if (r === null || typeof r !== 'object' || typeof r['id'] !== 'number' || typeof r['text'] !== 'string' || typeof r['turn'] !== 'number') return []
     const k = r['kept_by'] as { id?: unknown; name?: unknown } | null | undefined
     const keptBy = k != null && typeof k.id === 'string' && typeof k.name === 'string' ? { id: k.id, name: k.name } : null
-    return [{ id: `kept:${r['id']}`, text: r['text'], olumis: r['by'] === 'olumi', sourceTurn: String(r['turn']), keptBy }]
+    return [{ id: `kept:${r['id']}`, text: r['text'], olumis: r['by'] === 'olumi', sourceTurn: String(r['turn']), keptBy, ...(r['from'] === 'floor' ? { fromFloor: true as const } : {}) }]
   })
   const seen = new Set(items.map((i) => `${i.sourceTurn}\u0000${i.text}`))
   return [...items, ...retained.filter((i) => { const key = `${i.sourceTurn}\u0000${i.text}`; if (seen.has(key)) return false; seen.add(key); return true })]
@@ -131,8 +149,15 @@ export const isKept = (view: View | null, turn: number, text: string): boolean =
 
 /** The core menu question a kept idea came from: the said words of the reply's turn, when they are one of core's own questions. */
 export function ideaMethodOf(view: View, idea: KeptIdea): string | null {
-  const t = idea.sourceTurn === null ? undefined : view.chat.find((c) => String(c.id) === idea.sourceTurn)
-  return t === undefined ? null : sessionOf(view)?.methods.find((m) => m.text === t.said)?.text ?? null
+  const said = ideaSourceSaidOf(view, idea)
+  return said === null ? null : sessionOf(view)?.methods.find((m) => m.text === said)?.text ?? null
+}
+/** What the person said that the kept idea's reply answered, read where core says the idea came from (CONTRACT 5): the visible floor reply by its
+ *  job when `from` is "floor", else the chat reply by its id; null when that reply is not in this person's View (or its words were erased). */
+export function ideaSourceSaidOf(view: View, idea: KeptIdea): string | null {
+  if (idea.sourceTurn === null) return null
+  if (idea.fromFloor === true) return floorOf(view).find((f) => String(f.job) === idea.sourceTurn)?.said ?? null
+  return view.chat.find((c) => String(c.id) === idea.sourceTurn)?.said ?? null
 }
 
 /**

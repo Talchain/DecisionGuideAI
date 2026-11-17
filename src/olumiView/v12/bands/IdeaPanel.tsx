@@ -9,7 +9,7 @@ import { typography } from '../../../styles/typography'
 import type { View } from '../../client'
 import { prefillComposer } from '../../ViewChat'
 import { useViewStore } from '../../store'
-import { challengeQuestionOf, developQuestionOf, ideaMethodOf, keptIdeasOf, type KeptIdea } from '../ideas'
+import { challengeQuestionOf, developQuestionOf, ideaMethodOf, ideaSourceSaidOf, keptIdeasOf, type KeptIdea } from '../ideas'
 import { IDEA_PREFIX } from './bands'
 import { VIEW_IDEA } from './BandNodes'
 
@@ -18,8 +18,9 @@ export const DEVELOP_IDEA = 'Develop this idea', CHALLENGE_IDEA = 'Challenge thi
 
 /** What the panel says about an idea, from the View: its source reply, core's menu question where there is one, and who kept it. */
 export function ideaDetailOf(view: View, idea: KeptIdea): { source: string | null; method: string | null; keeper: string | null } {
-  const turn = idea.sourceTurn === null ? null : view.chat.find((c) => String(c.id) === idea.sourceTurn) ?? null
-  const source = idea.sourceTurn === null ? null : turn === null ? 'From a reply that is not in this conversation' : `From Olumi’s reply to “${turn.said}”`
+  // Words-start CONTRACT 5: a floor idea's source is the visible floor reply (its job), a chat idea's the chat reply (its id), so it survives a reopen.
+  const said = ideaSourceSaidOf(view, idea)
+  const source = idea.sourceTurn === null ? null : said === null ? 'From a reply that is not in this conversation' : `From Olumi’s reply to “${said}”`
   const method = ideaMethodOf(view, idea)
   const keeper = idea.keptBy === null ? null : idea.keptBy.id === view.you_id ? 'Kept by you' : `Kept by ${idea.keptBy.name}`
   return { source, method, keeper }
