@@ -51,7 +51,8 @@ beforeEach(() => {
   posts = []
   answer = () => new Response(JSON.stringify({ error: 'unscripted' }), { status: 500 })
   served = () => useViewStore.getState().view
-  try { localStorage.clear() } catch { /* none */ }
+  try { localStorage.clear(); sessionStorage.clear() } catch { /* none */ }
+  window.history.replaceState(null, '', '/')
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setPagePerson(null); useMe.setState({ me: { id: '7', name: 'Ada' } } as never)
   useCanvasStore.setState({ currentScenarioId: UUID } as never)
@@ -64,7 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setState({ me: null } as never)
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, stale: false, at: null })
-  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, wordsBrief: null })
 })
 
 describe('1. one deliberate choice at the fresh composer; Send stays the default', () => {
@@ -93,6 +94,46 @@ describe('1. one deliberate choice at the fresh composer; Send stays the default
     await press(q(c, 'view-composer-send'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+  })
+
+  it('a first message that does not go through: the brief is back in THIS scenario\'s box with core\'s words, and one Send asks again by the SAME op (never typed again)', async () => {
+    const CAP = 'You have reached the number of Olumi answers for today.'
+    let tries = 0
+    answer = (url) => url === '/api/scenarios'
+      ? new Response(JSON.stringify({ scenario: MADE, job: null, proposal: null, status_url: null }), { status: 200 })
+      : (tries += 1) === 1 ? new Response(JSON.stringify({ error: CAP }), { status: 429 }) : new Response(JSON.stringify({ job: 41, status_url: null }), { status: 202 })
+    served = (url) => (url.startsWith(`/api/scenarios/${MADE}/view`) ? inWords({ id: MADE }) : null)
+    const c = show(null, null)
+    type(c, BRIEF)
+    await press(q(c, 'view-composer-talk-first'))
+    await waitFor(() => expect(useViewChat.getState().said).toBe(CAP))
+    expect(useViewChat.getState().text).toBe(BRIEF)
+    expect(q(c, 'view-composer-talk-first')).toBeNull() // the scenario exists: a message now, not a second brief
+    const op = posts[0]!.body['op'] as string
+    await press(q(c, 'view-composer-send'))
+    await waitFor(() => expect(posts).toHaveLength(3))
+    expect(posts.map((p) => p.url)).toEqual(['/api/scenarios', `/api/scenarios/${MADE}/messages`, `/api/scenarios/${MADE}/messages`])
+    expect(posts[2]!.body).toEqual({ text: BRIEF, op: `${op}-m` })
+  })
+
+  it('after a reload, a brief sent to start in words comes back with that choice and its op: Send replays the words start; CONTRAST: a model brief replays as a model brief', async () => {
+    answer = () => new Response(JSON.stringify({ scenario: MADE, job: null, proposal: null, status_url: null }), { status: 200 })
+    served = (url) => (url.startsWith(`/api/scenarios/${MADE}/view`) ? inWords({ id: MADE }) : null)
+    const OP = 'aaaaaaaa-1111-4000-8000-000000000001'
+    sessionStorage.setItem('olumi-pending-brief:7', JSON.stringify({ brief: BRIEF, op: OP, words: true }))
+    const c = show(null, null)
+    await waitFor(() => expect(useViewChat.getState().text).toBe(BRIEF))
+    await press(q(c, 'view-composer-send'))
+    await waitFor(() => expect(posts.length).toBeGreaterThanOrEqual(1))
+    expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op: OP, start: 'words' } })
+    cleanup(); posts = []
+    useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, wordsBrief: null }); window.history.replaceState(null, '', '/')
+    sessionStorage.setItem('olumi-pending-brief:7', JSON.stringify({ brief: BRIEF, op: OP }))
+    const d = show(null, null)
+    await waitFor(() => expect(useViewChat.getState().text).toBe(BRIEF))
+    await press(q(d, 'view-composer-send'))
+    await waitFor(() => expect(posts.length).toBeGreaterThanOrEqual(1))
+    expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op: OP } })
   })
 
   it('the choice is offered only for a new brief: not on a scenario that holds a model (contrast: the fresh box above offers it)', () => {

@@ -722,6 +722,9 @@ export interface ViewChatState {
   readonly held: { readonly text: string; readonly kind: string; readonly record: string; readonly sid: string; readonly uuid: string | null } | null
   /** A move core refused as no longer the newest (409): its tap is not offered again, and it is not retried. */
   readonly gone?: string | null
+  /** Words-start (Codex root 03:42:17Z): a brief put back after a reload that was sent to start in words. Sending those same words again keeps that
+   *  choice and its op, whichever button is pressed; changed words are a new brief. */
+  readonly wordsBrief?: string | null
 }
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null }))
@@ -772,7 +775,7 @@ async function startScenario(brief: string, op: string, uuid: string | null, wor
   const left = pageMoves
   // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
   // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
-  keepPending(brief, op)
+  keepPending(brief, op, words)
   const made = words ? await createInWords(brief, op) : await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
@@ -785,7 +788,18 @@ async function startScenario(brief: string, op: string, uuid: string | null, wor
   setCurrentScenarioId(derived)
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
-  if (words) await writes.message(made.scenario, brief, firstMessageOp(op))
+  if (words) {
+    // The brief is sent ONCE as the first message, under an op derived from the brief's and kept in this tab (as any message), so a reload or
+    // a lost acceptance asks core again by that op. If it does not go through, the words go back in this scenario's box with that op and core's
+    // own words, so one press sends the same message again; the person never types it again.
+    const mop = firstMessageOp(op)
+    keepPendingTurn(made.scenario, brief, mop)
+    try { await writes.message(made.scenario, brief, mop); dropPendingTurn(mop) } catch (e) {
+      const said = e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.'
+      if (useViewStore.getState().uuid === derived) useViewChat.setState({ text: brief, said, ops: new Map(useViewChat.getState().ops).set(opKey(derived, 'message', brief), mop) })
+      throw e
+    }
+  }
   // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
   const opened = useViewStore.getState()
   if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && (words || opened.view?.draft?.status === 'drafting')) revealOlumiSurface()
@@ -853,10 +867,10 @@ export function sayAgain(): Promise<boolean> {
 /** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
 const PENDING = (person: string) => `olumi-pending-brief:${person}`
 const pendingPerson = (): string | null => useMe.getState().me?.id ?? null
-function keepPending(brief: string, op: string): void {
+function keepPending(brief: string, op: string, words = false): void {
   const me = pendingPerson()
   if (me === null) return
-  try { sessionStorage.setItem(PENDING(me), JSON.stringify({ brief, op })) } catch { /* no storage: the op lives only in this page */ }
+  try { sessionStorage.setItem(PENDING(me), JSON.stringify({ brief, op, ...(words ? { words: true } : {}) })) } catch { /* no storage: the op lives only in this page */ }
 }
 function dropPending(op: string): void {
   const me = pendingPerson()
@@ -864,10 +878,10 @@ function dropPending(op: string): void {
   try { if (pendingBrief(me)?.op === op) sessionStorage.removeItem(PENDING(me)) } catch { /* nothing kept */ }
 }
 /** This person's brief still waiting for core's answer in this tab, if any: its words and the op it was sent with. */
-export function pendingBrief(person: string): { brief: string; op: string } | null {
+export function pendingBrief(person: string): { brief: string; op: string; words: boolean } | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem(PENDING(person)) ?? 'null') as { brief?: unknown; op?: unknown } | null
-    return v !== null && typeof v.brief === 'string' && v.brief.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { brief: v.brief, op: v.op } : null
+    const v = JSON.parse(sessionStorage.getItem(PENDING(person)) ?? 'null') as { brief?: unknown; op?: unknown; words?: unknown } | null
+    return v !== null && typeof v.brief === 'string' && v.brief.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { brief: v.brief, op: v.op, words: v.words === true } : null
   } catch { return null }
 }
 /**
@@ -880,7 +894,8 @@ export function restorePendingBrief(): boolean {
   if (me === null || sid !== null || !takesBrief(sid, view) || useViewChat.getState().text !== '' || useViewChat.getState().busy) return false
   const p = pendingBrief(me)
   if (p === null) return false
-  useViewChat.setState({ text: p.brief, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, 'brief', p.brief), p.op) })
+  // A brief sent to start in words keeps that choice and its op (Codex root 03:42:17Z): the same words sent again replay that start.
+  useViewChat.setState({ text: p.brief, wordsBrief: p.words ? p.brief : null, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, p.words ? 'brief-words' : 'brief', p.brief), p.op) })
   return true
 }
 
@@ -942,13 +957,14 @@ export function resendOf(held: ViewChatState['held'], text: string, here: string
   return { again, drop: mine !== null && again === null }
 }
 
-async function send(words = false): Promise<void> {
-  const { text, held } = useViewChat.getState()
+async function send(pressedWords = false): Promise<void> {
+  const { text, held, wordsBrief } = useViewChat.getState()
   if (text.trim() === '') return
+  const words = pressedWords || (wordsBrief != null && wordsBrief === text)
   const { again, drop } = resendOf(held, text, useViewStore.getState().uuid)
   if (drop) useViewChat.setState({ held: null })
   if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text, words)))) return
-  if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
+  if (useViewChat.getState().text === text) useViewChat.setState({ text: '', wordsBrief: null })
 }
 
 /** The composer's one choice for a new brief (words-start, 17 Nov): build a model from it (Send, the default), or talk it through first. */
