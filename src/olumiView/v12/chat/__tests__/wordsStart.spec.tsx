@@ -25,7 +25,7 @@ import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useView
 import { challengeQuestionOf, developQuestionOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
 import { ideaDetailOf } from '../../bands/IdeaPanel'
 import { sessionOf } from '../../../layout'
-import { KEEP_IDEA, KEPT_IDEA } from '../../KeepIdea'
+import { KEPT_IDEA } from '../../KeepIdea'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const SID = 's_00000000000e', UUID = '00000000-0000-4000-8000-00000000000e', MADE = 's_0000000000ab'
