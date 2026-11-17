@@ -2,6 +2,7 @@
  * The lane's menu items, from the stores the lane reads (the View, the page's person, the layout-undo stack). The legacy `useMenuItems` is
  * left exactly as it was for the legacy canvas; `CanvasContextMenu` asks this one on the olumi-core lane (`isOlumiCoreLane`).
  */
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { createElement, useMemo, useState } from 'react'
 import { useMe } from '../../olumiCore/me'
 import { placeViewCards } from '../../olumiView/canvas'
@@ -35,6 +36,7 @@ export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
       open: openForm,
       openDetails: (t) => { useLaneInspector.getState().open(t); onClose() },
       ask: (t, intent) => { askAI(t, intent, showToast); onClose() },
+      prefill: (text, label, targetId) => { if (requestAsk({ text, label, targetId, source: 'node-coaching-icon' }) === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning'); onClose() },
       pressUndo: (dir) => { void pressUndo(dir).then((r) => { if (!r.ok) showToast(r.words, 'error'); else if (r.kind === 'saved' && r.warning !== undefined) showToast(r.warning, 'warning') }); onClose() },
       autoArrange: () => { const m = useViewStore.getState().view?.model; if (m) { clearLayoutUndo(); void placeViewCards(m) } onClose() },
       toggleLevel: () => { toggleSimple(); onClose() },

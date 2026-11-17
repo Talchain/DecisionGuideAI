@@ -23,6 +23,9 @@ import { noteEditSaved } from './notice'
 export const ADD_FIGURE_WORDS = {
   open: 'Add a figure', name: 'Name', figure: 'Figure', unit: 'Unit (optional)', add: 'Add', cancel: 'Cancel',
   figureHint: 'One number, or a range like 150 to 400',
+  /** Why the + cannot add yet, said on it (hover and its accessible name). */
+  heldProposal: 'Accept or set aside Olumi’s proposed changes first', heldNoModel: 'There is no model to add to yet',
+  heldOther: 'Olumi cannot take an addition to this model right now',
 } as const
 
 /** The new card in front once the canvas has drawn it (the board is laid out after the View is read), or never if it does not come. */
@@ -67,7 +70,9 @@ export function AddFigure(): JSX.Element | null {
   const key = `${sid}:add-figure`
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
-  if (sid === null || view === null || at !== null || (!open && live === null) || !isForThisPage(view, me)) return null
+  if (sid === null || view === null || at !== null || !isForThisPage(view, me)) return null
+  // Paul's left menu keeps its + (15 Nov, 2.png): while core gives no edit base it stays in its place, disabled, and says why (no dead control).
+  const why = live !== null ? null : view.model == null ? ADD_FIGURE_WORDS.heldNoModel : view.proposal != null ? ADD_FIGURE_WORDS.heldProposal : ADD_FIGURE_WORDS.heldOther
 
   const close = () => { setPanel(null); setError(null); setReturning(true) }
   const add = async () => {
@@ -89,7 +94,11 @@ export function AddFigure(): JSX.Element | null {
   const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
     <div className="relative nodrag nopan">
-      {live === null ? null : <button ref={reference} type="button"
+      {why !== null ? (
+        <button type="button" disabled aria-disabled="true" className={styles.iconButton} aria-label={`Add to model: ${why}`} title={why} data-testid="canvas-add-to-model-held">
+          <Plus className={styles.icon} aria-hidden="true" />
+        </button>
+      ) : <button ref={reference} type="button"
         className={styles.iconButton} aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
         <Plus className={styles.icon} aria-hidden="true" />
       </button>}

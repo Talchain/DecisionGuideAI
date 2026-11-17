@@ -39,11 +39,15 @@ afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ sid: nu
 describe('on the lane', () => {
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
 
-  it('offers exactly the items with a working path, and no Import or Canvas settings', () => {
+  it('offers exactly the items with a working path: no Import; Canvas settings with only what the V12 canvas reads (grid, its size, snap)', () => {
     show(); renderKebab()
     expect(names()).toEqual(['Rename', 'Export summary', 'Version history', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
-    expect(screen.queryByText('Canvas settings')).toBeNull()
-    expect(screen.queryByLabelText('Show grid')).toBeNull()
+    expect(screen.getByText('Canvas settings')).toBeInTheDocument()
+    expect(screen.getByLabelText('Show grid')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Grid size/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Snap to grid')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Alignment guides')).toBeNull()
+    expect(screen.queryByLabelText('High contrast mode')).toBeNull()
   })
 
   it('Export is the saved version\'s Markdown Summary (the viewed version when one is looked at)', () => {

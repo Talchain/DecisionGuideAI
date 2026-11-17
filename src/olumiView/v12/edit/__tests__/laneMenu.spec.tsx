@@ -71,6 +71,16 @@ describe('card menu', () => {
     byId(m, 'delete')!.action()
     expect(spec).toHaveLength(0)
   })
+  it('Paul\'s option menu (audit F32): Add outcome from this, Cut and Other model edits each put a question about the card in the box; none without a box to receive it', () => {
+    const asked: string[] = []
+    const withBox = ctx({ act: { ...ctx().act, prefill: (text, _label, target) => asked.push(`${target}|${text}`) } })
+    const m = buildLaneMenu(nodeT('starting_customers'), withBox), name = approved().model!.cards.find((c) => c.id === 'starting_customers')!.heading
+    for (const id of ['ask-add-outcome', 'ask-cut', 'ask-other-edits']) { expect(byId(m, id)).toMatchObject({ enabled: true }); byId(m, id)!.action() }
+    expect(asked).toEqual([`starting_customers|Add an outcome that follows from ${name}: `, `starting_customers|Take ${name} out of the model, because `, `starting_customers|About ${name}: `])
+    expect(spec).toHaveLength(0) // nothing is written: the person sends it
+    expect(byId(buildLaneMenu(nodeT('starting_customers'), ctx()), 'ask-cut')).toBeUndefined() // CONTRAST: no box to receive it, no row
+    expect(byId(buildLaneMenu(nodeT(QUESTION), withBox), 'ask-cut')).toBeUndefined() // the question is not cut from the model
+  })
   it('a connected card is disabled with the reason: core has no way to draw a link', () => {
     const r = byId(buildLaneMenu(nodeT('starting_customers'), ctx()), 'add-connected')!
     expect(r).toMatchObject({ enabled: false, disabledReason: NOT_AVAILABLE_YET })

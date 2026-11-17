@@ -11,7 +11,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { AddFigure, focusWhenDrawn } from '../AddFigure'
+import { AddFigure, ADD_FIGURE_WORDS, focusWhenDrawn } from '../AddFigure'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -120,5 +120,16 @@ describe('add a figure', () => {
       useViewStore.setState({ view: approved, at: null }); useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
     }
     expect(render(<AddFigure />).container.querySelector('[data-testid="canvas-add-to-model"]')).not.toBeNull() // CONTRAST: offered here
+  })
+  it('the + stays in place while a proposal is held: disabled, and it says why (audit F19); never on an earlier version or someone else\'s page', () => {
+    useViewStore.setState({ view: { ...approved, proposal: { id: 9 }, model: { ...approved.model!, edit_base: null } } as unknown as View })
+    const held = render(<AddFigure />).getByTestId('canvas-add-to-model-held')
+    expect(held).toBeDisabled()
+    expect(held.getAttribute('title')).toBe(ADD_FIGURE_WORDS.heldProposal)
+    fireEvent.click(held)
+    expect(screen.queryByRole('menu')).toBeNull()
+    cleanup()
+    useViewStore.setState({ at: 2 })
+    expect(render(<AddFigure />).container.querySelector('[data-testid^="canvas-add-to-model"]')).toBeNull()
   })
 })

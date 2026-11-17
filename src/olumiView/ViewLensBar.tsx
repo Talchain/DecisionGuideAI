@@ -88,8 +88,9 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
   if (nav) return <NavBar barRef={bar} place={place} W={W} />
   return (
     <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown} {...{ [TOP_ROW_BAR]: '' }}
-      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top] duration-200 ease-out"
-      style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden' }}>
+      className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top,opacity] duration-200 ease-out motion-reduce:transition-none"
+      // Paul liked the bar's responsive motion (9cce33fa): it fades in once placed, and glides when the pill gives way.
+      style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden', opacity: place ? 1 : 0 }}>
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (

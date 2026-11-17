@@ -8,7 +8,7 @@
  * effects as callbacks, so a spec can say exactly which route each row reaches.
  */
 import {
-  Eye, Hand, LayoutGrid, MousePointer2, PanelRight, Pencil, Plus, Redo2, SlidersHorizontal, Sparkles, Trash2, Undo2, Unlink,
+  Eye, Hand, LayoutGrid, MousePointer2, PanelRight, Pencil, Plus, Redo2, Scissors, SlidersHorizontal, Sparkles, Trash2, Undo2, Unlink,
 } from 'lucide-react'
 import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
 import type { EditGate } from '../../olumiView/v12/edit/editGate'
@@ -26,6 +26,8 @@ export const LANE_MENU_WORDS = {
   heldTip: 'Not right now.', noFigure: 'No figure yet',
   noLinkRoute: 'Olumi has no way to draw a link yet, so a connected card cannot be added.',
   noDeleteRoute: 'Olumi cannot delete a card yet. Rename it, or take off the link you no longer want.',
+  // Paul's option menu (5.png, audit F32): three asks that put a question about the card in the AI box for the person to send.
+  addOutcome: 'Add outcome from this', cut: 'Cut (ask Olumi)', otherEdits: 'Other model edits: ask Olumi',
 } as const
 
 export type AskIntent = 'explain_element' | 'challenge_element' | 'review_model_gaps' | 'explain_subgraph'
@@ -41,6 +43,8 @@ export type LaneMenuCtx = {
     readonly open: (spec: EditSpec) => void
     readonly openDetails: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
     readonly ask: (target: ContextTarget, intent: AskIntent) => void
+    /** Puts `text` in the AI box for the person to finish and send (the card's Olumi badge does the same); sends nothing. */
+    readonly prefill?: (text: string, label: string, targetId: string) => void
     readonly pressUndo: (dir: 'undo' | 'redo') => void
     readonly autoArrange: () => void
     readonly toggleLevel: () => void
@@ -113,7 +117,13 @@ function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuC
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element'], ['ask-challenge', LANE_MENU_WORDS.challenge, 'challenge_element']]),
   ]
   const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c), notYet('add-connected', LANE_MENU_WORDS.connected, LANE_MENU_WORDS.noLinkRoute, { icon: Plus })] : []
-  return [...items, ...(edits.length > 0 ? [DIV, ...edits] : []), DIV, notYet('delete', LANE_MENU_WORDS.delete, LANE_MENU_WORDS.noDeleteRoute, { icon: Trash2, destructive: true })]
+  const prefill = c.act.prefill, name = card?.heading ?? ''
+  const asks: MenuEntry[] = card !== null && !isQuestion && prefill !== undefined ? [
+    { id: 'ask-add-outcome', label: LANE_MENU_WORDS.addOutcome, icon: Plus, tooltip: 'Ask Olumi to add an outcome that follows from this', enabled: true, action: () => prefill(`Add an outcome that follows from ${name}: `, LANE_MENU_WORDS.addOutcome, id) },
+    { id: 'ask-cut', label: LANE_MENU_WORDS.cut, icon: Scissors, tooltip: 'Ask Olumi to take this out of the model', enabled: true, action: () => prefill(`Take ${name} out of the model, because `, LANE_MENU_WORDS.cut, id) },
+    { id: 'ask-other-edits', label: LANE_MENU_WORDS.otherEdits, icon: Sparkles, tooltip: 'Ask Olumi for another change to this', enabled: true, action: () => prefill(`About ${name}: `, LANE_MENU_WORDS.otherEdits, id) },
+  ] : []
+  return [...items, ...(edits.length > 0 ? [DIV, ...edits] : []), ...(asks.length > 0 ? [DIV, ...asks] : []), DIV, notYet('delete', LANE_MENU_WORDS.delete, LANE_MENU_WORDS.noDeleteRoute, { icon: Trash2, destructive: true })]
 }
 
 /** The edits core takes on one card (rename, its figure or size, a risk or claim about it): the right-click menu's rows and the details panel's buttons. */

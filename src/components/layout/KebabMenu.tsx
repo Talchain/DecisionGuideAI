@@ -334,10 +334,11 @@ export function KebabMenu({
               <span>How influence works</span>
             </button>
 
-            {!lane && (<>
+            {(<>
             <hr className={styles.dropdownMenuDivider} />
 
-            {/* Canvas settings (flattened). Not on the olumi-core lane: its canvas (ViewCanvas) reads none of these. */}
+            {/* Canvas settings (flattened). On the olumi-core lane (Paul's audit, 17 Nov) ViewCanvas reads the grid, its size and snap; alignment
+                guides and high contrast belong to the previous canvas only, so they are not offered there. */}
             <div className={styles.dropdownMenuLabel}>Canvas settings</div>
 
             <label htmlFor="kebab-show-grid" className={styles.settingsRow}>
@@ -387,6 +388,7 @@ export function KebabMenu({
               />
             </label>
 
+            {!lane && (<>
             <label htmlFor="kebab-alignment-guides" className={styles.settingsRow}>
               <span>Alignment guides</span>
               <input
@@ -408,6 +410,7 @@ export function KebabMenu({
                 className={styles.settingsCheckbox}
               />
             </label>
+            </>)}
             </>)}
           </div>
         )}

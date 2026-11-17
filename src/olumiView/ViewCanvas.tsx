@@ -55,6 +55,9 @@ import { AddFigure } from './AddFigure'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
+import { LaneHelp } from './v12/LaneHelp'
+import { useLaneInspector } from './v12/edit/inspectorStore'
+import { useSettingsStore } from '../canvas/settingsStore'
 import { ViewZoomNotice } from './ViewZoomNotice'
 import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard } from './DraftingBoard'
@@ -478,6 +481,9 @@ function ViewFlow() {
   }, () => undefined), [setCenter, getZoom, getInternalNode])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
+  const showGrid = useSettingsStore((s) => s.showGrid), gridSize = useSettingsStore((s) => s.gridSize), snapToGrid = useSettingsStore((s) => s.snapToGrid)
+  const snapGrid = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
+  useEffect(() => { useSettingsStore.getState().loadSettings() }, [])
   // Codex 008e #1: kept ideas with no model are the board (their band alone), so the welcome does not stand over them. The dock's own message
   // box takes the words then (DockComposer draws it whenever no welcome is up). No toolbar or model control is shown for a model that is not there.
   const ideasOnly = useViewStore((s) => s.view !== null && s.view.model == null && keptIdeasOf(s.view).length > 0)
@@ -486,7 +492,9 @@ function ViewFlow() {
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
     <>
-      <ReactFlow
+      <ReactFlow snapToGrid={snapToGrid} snapGrid={snapGrid}
+        // Paul's option inspector (audit F34): a press on an option card opens its details, as right-click "Open details" does.
+        onNodeClick={(_, n) => { if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id }) }}
         className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
         onNodeContextMenu={(e, n) => {
@@ -508,7 +516,8 @@ function ViewFlow() {
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
-        <Background variant={BackgroundVariant.Dots} gap={16} />
+        {/* The three-dot menu's canvas settings (Paul's audit, 17 Nov): show the grid at its size, and snap a moved card to it. */}
+        {showGrid ? <Background variant={BackgroundVariant.Dots} gap={gridSize} /> : null}
         {/* The previous card frame's zoomed-out face and label scale (the two syncs the previous canvas mounts; they write no model state). */}
         <LodSync /><CanvasLabelScaleSync />
         {/* V12 Simple: the band labels, the "not linked" marks and the inputs' fold control, in the canvas's own coordinates (v12/bands). */}
@@ -533,6 +542,7 @@ function ViewFlow() {
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}
+      <LaneHelp />
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
       {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}

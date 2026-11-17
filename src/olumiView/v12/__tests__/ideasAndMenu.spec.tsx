@@ -137,6 +137,10 @@ describe('the ⋯ menu in the composer', () => {
     const c = tab()
     expect(c.querySelector('[data-testid="view-more-ways"]')).toBeNull()
     expect(c.querySelectorAll('[data-testid="view-composer-methods"] button')).toHaveLength(4) // the four icons stay
+    // Paul's paperclip (audit F14): first in the footer, a real file input (the file is read in this browser), then the four icons.
+    const footer = c.querySelector('[data-testid="view-composer-footer"]')!
+    expect(footer.firstElementChild?.getAttribute('data-testid')).toBe('view-composer-attach')
+    expect(footer.querySelector('[data-testid="brief-document-input"]')?.getAttribute('type')).toBe('file')
     expect(c.querySelector('[data-testid="view-actions-menu"]')).toBeNull()
     await press(c.querySelector('[data-testid="view-actions-button"]')!)
     const ids = [...c.querySelectorAll<HTMLElement>('[data-testid="view-session-method"]')].map((b) => b.dataset['method'])

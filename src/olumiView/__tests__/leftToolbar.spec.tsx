@@ -106,7 +106,10 @@ describe('core lane left toolbar', () => {
     })
     expect(within(toolbar()).queryByTestId('canvas-add-to-model')).toBeNull()
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button'])
+    // Paul's left menu keeps its + in place (audit F19): with no edit base it is there, disabled, and says why; never on a past version or another's page.
+    const held = unavailable === 'no edit_base' ? ['canvas-add-to-model-held'] : []
+    expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual([...held, 'canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button'])
+    if (held.length > 0) expect(within(toolbar()).getByTestId('canvas-add-to-model-held')).toBeDisabled()
     fireEvent.click(within(toolbar()).getByTestId('canvas-tool-select'))
     expect(within(toolbar()).getByTestId('canvas-tool-select')).toHaveAttribute('aria-pressed', 'true')
   })

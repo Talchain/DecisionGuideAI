@@ -27,6 +27,7 @@ import { typography } from '../styles/typography'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
+import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
 import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { FigureEdit } from './FigureEdit'
@@ -1724,6 +1725,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const unknown = sid !== null && view === null
   const held = busy || past !== null || (drafting && !onFloor(view)) || unknown // a model-less build no longer holds the composer: a message is answered or refused by core
   const box = useRef<HTMLTextAreaElement>(null)
+  // The paperclip (Paul, 15 Nov: "I don't want to lose the functions and the icons within the AI panel text box"): one file read in this browser,
+  // its text added to the box for the person to check before they send (BriefDocumentUpload, the old composer's own reader); nothing is uploaded.
+  const attach = useBriefDocumentUpload({ draft: text, setDraft: (t) => useViewChat.setState({ text: t }), onAdded: () => box.current?.focus(), inChat: !takesBrief(sid, view) })
   // Fit up to six lines, including restored text; clearing returns to one (pre-screen 4b92d394 row 13).
   useEffect(() => {
     const el = box.current
@@ -1779,6 +1783,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           onChange={(e) => useViewChat.setState({ text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
         <div className="flex items-center gap-1 px-2 pb-1.5" data-testid="view-composer-footer">
+          {held ? null : <span className="flex items-center" data-testid="view-composer-attach">{attach.trigger}</span>}
           {!methods ? null : (
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
               {V10_METHODS.map(({ key, label, prefix }) => {
@@ -1819,6 +1824,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         </div>
         </div>
       </div>
+      {/* What the file added and the way to take it out again, only once a file was read (or failed). */}
+      {attach.feedback}
     </div>
   )
 }
