@@ -216,16 +216,31 @@ export function selectionSetsBack(model: ViewModel | null, level: 'simple' | 'wo
 export const ON_EDGE = 1
 
 /**
- * Where the camera goes so that the whole of `box` is in the free canvas: null when it all is already (nothing moves). Centred on the
- * cards at the person's own zoom, lowered only as far as the cards need to fit and never raised. There is no floor: the person asked to
- * see these cards, so a zoom at which some of them stay out of view is never chosen.
+ * Where the camera goes so that the whole of `box` is in the free canvas: null when it all is already (nothing moves). THE LEAST MOVE:
+ * the zoom is the person's own, lowered (about the middle of the free canvas) only as far as the cards need to fit and never raised;
+ * then, on each axis apart: cards already in view on it do not move at all; cards partly in view move just far enough to stand PAD
+ * inside the edge they were past; cards wholly out of view on it are brought to the middle of the room (where the person was looking
+ * has nothing to do with them). So a card below the fold moves the board up and leaves it where it stood across (centring on both axes
+ * shoved a board framed flush to its edges sideways under the toolbar: seen served at 1500 x 904, 17 Nov). There is no floor to the
+ * zoom: the person asked to see these cards, so a zoom at which some of them stay out of view is never chosen.
  */
 export function cameraFor(box: Box, pane: Pane, v: Viewport): Viewport | null {
   const i = pane.inset, pad = 24
-  const fw = pane.size.w - i.left - i.right, fh = pane.size.h - i.top - i.bottom
+  const L = i.left, T = i.top, R = pane.size.w - i.right, B = pane.size.h - i.bottom
+  const fw = R - L, fh = B - T
   const sx = box.x * v.zoom + v.x, sy = box.y * v.zoom + v.y
-  if (sx >= i.left - ON_EDGE && sy >= i.top - ON_EDGE && sx + box.w * v.zoom <= pane.size.w - i.right + ON_EDGE && sy + box.h * v.zoom <= pane.size.h - i.bottom + ON_EDGE) return null
+  if (sx >= L - ON_EDGE && sy >= T - ON_EDGE && sx + box.w * v.zoom <= R + ON_EDGE && sy + box.h * v.zoom <= B + ON_EDGE) return null
   const zoom = Math.min(v.zoom, (fw - 2 * pad) / box.w, (fh - 2 * pad) / box.h)
   if (!(zoom > 0)) return null // no free canvas to show them in
-  return { x: i.left + fw / 2 - (box.x + box.w / 2) * zoom, y: i.top + fh / 2 - (box.y + box.h / 2) * zoom, zoom }
+  const k = zoom / v.zoom, cx = L + fw / 2, cy = T + fh / 2
+  let x = cx - (cx - v.x) * k, y = cy - (cy - v.y) * k
+  const left = box.x * zoom + x, right = left + box.w * zoom
+  if (right <= L || left >= R) x += cx - (left + right) / 2
+  else if (left < L - ON_EDGE) x += L + pad - left
+  else if (right > R + ON_EDGE) x -= right - (R - pad)
+  const top = box.y * zoom + y, bottom = top + box.h * zoom
+  if (bottom <= T || top >= B) y += cy - (top + bottom) / 2
+  else if (top < T - ON_EDGE) y += T + pad - top
+  else if (bottom > B + ON_EDGE) y -= bottom - (B - pad)
+  return { x, y, zoom }
 }

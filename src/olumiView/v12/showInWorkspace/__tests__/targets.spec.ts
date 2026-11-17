@@ -398,7 +398,7 @@ describe('T10 a badge on a card the board draws as a link is no badge to open', 
   })
 })
 
-describe('T11 where the camera goes: the cards whole inside the free canvas, never closer than the person had it', () => {
+describe('T11 where the camera goes: the least move that puts the cards whole inside the free canvas, never closer than the person had it', () => {
   /** A 1232 x 704 pane with a 56 px header and a 420 px dock: the free canvas is x 0..812, y 56..704. */
   const pane: Pane = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }
   const onScreen = (box: Box, v: Viewport) => ({ left: box.x * v.zoom + v.x, top: box.y * v.zoom + v.y, right: (box.x + box.w) * v.zoom + v.x, bottom: (box.y + box.h) * v.zoom + v.y })
@@ -419,23 +419,40 @@ describe('T11 where the camera goes: the cards whole inside the free canvas, nev
     expect(onScreen(box, was).right).toBe(815)
     expect(cameraFor(box, pane, was)).not.toBeNull()
   })
-  it('contrast: the same cards under the dock are centred in the free canvas at the zoom the person has', () => {
+  it('contrast: the same cards under the dock: the board moves across just far enough to stand them 24 px inside the dock\'s edge, at the zoom the person has; it does not move up or down, where they were in view already', () => {
     const box = { x: 700, y: 100, w: 300, h: 200 }, was = { x: 0, y: 0, zoom: 1 }
     expect(inside(box, was)).toBe(false)
     const to = cameraFor(box, pane, was)!
-    expect(to).toStrictEqual({ x: -444, y: 180, zoom: 1 })
+    expect(to).toStrictEqual({ x: -212, y: 0, zoom: 1 })
+    expect(onScreen(box, to).right).toBe(812 - 24)
     expect(inside(box, to)).toBe(true)
   })
-  it('contrast: cards under the header move too', () => {
+  it('contrast: cards under the header: the board moves down just far enough, and not across', () => {
     const box = { x: 100, y: 20, w: 300, h: 200 }
     const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 1 })!
-    expect(to.zoom).toBe(1)
-    expect(inside(box, to)).toBe(true)
+    expect(to).toStrictEqual({ x: 0, y: 60, zoom: 1 })
+    expect(onScreen(box, to).top).toBe(56 + 24)
+  })
+  it('cards cut by the foot of the free canvas (a board too tall for the room): the board moves up just far enough to stand them 24 px above it, and stays where it stood across', () => {
+    const box = { x: 100, y: 1000, w: 300, h: 400 }, was = { x: 70, y: 68, zoom: 0.5 }
+    expect([onScreen(box, was).top, onScreen(box, was).bottom], 'the fixture: their top is in view, their foot is past it').toStrictEqual([568, 768])
+    const to = cameraFor(box, pane, was)!
+    expect(to).toStrictEqual({ x: 70, y: -20, zoom: 0.5 })
+    expect(onScreen(box, to).bottom).toBe(704 - 24)
+  })
+  it('contrast: cards WHOLLY below the foot are brought to the middle of the room\'s height (and still not moved across)', () => {
+    const box = { x: 100, y: 1300, w: 300, h: 200 }, was = { x: 70, y: 68, zoom: 0.5 }
+    expect(onScreen(box, was).top, 'the fixture: the cards start below the foot').toBeGreaterThan(704)
+    const to = cameraFor(box, pane, was)!
+    expect(to).toStrictEqual({ x: 70, y: -320, zoom: 0.5 })
+    const s2 = onScreen(box, to)
+    expect((s2.top + s2.bottom) / 2).toBe(56 + 648 / 2)
   })
   it('cards wider than the free canvas at this zoom: the zoom comes down until they fit whole', () => {
     const box = { x: 0, y: 0, w: 1528, h: 300 }
     const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 1 })!
-    expect(to).toStrictEqual({ x: 24, y: 305, zoom: 0.5 })
+    // The zoom comes down about the middle of the free canvas (406, 380); across, the cards then fill the room less its margins; up and down they are in view and do not move further.
+    expect(to).toStrictEqual({ x: 24, y: 190, zoom: 0.5 })
     expect(inside(box, to)).toBe(true)
   })
   it('no floor: at zoom 0.45, cards that need 0.40 to fit whole are shown at 0.40, whole', () => {
@@ -445,7 +462,7 @@ describe('T11 where the camera goes: the cards whole inside the free canvas, nev
     expect(to.zoom).toBeLessThan(0.45)
     expect(inside(box, to)).toBe(true)
   })
-  it('never closer than the person had it: small cards out of view at zoom 0.45 are centred at 0.45', () => {
+  it('never closer than the person had it: small cards wholly out of view at zoom 0.45 are brought to the middle of the room at 0.45', () => {
     const box = { x: 5000, y: 5000, w: 300, h: 200 }
     const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 0.45 })!
     expect(to.zoom).toBe(0.45)
