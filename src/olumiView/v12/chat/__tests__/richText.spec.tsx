@@ -115,7 +115,7 @@ describe('a "## " line is a lead-in in the early answer too (Line reviewer F1)',
     const leadIns = [...container.querySelectorAll('[data-reply-lead-in]')]
     expect(leadIns.map((e) => e.textContent)).toEqual(['Fees first'])
     expect(leadIns[0]!.className).toContain('font-medium')
-    expect(container.textContent).not.toContain('## ')
+    expect(container.textContent).not.toContain('## Fees first') // the lead-in's hashes are gone (the seven-hash contrast below keeps its own)
     expect(container.textContent).toContain('# One hash stays.')
     expect(container.textContent).toContain('####### Seven stay.')
   })
