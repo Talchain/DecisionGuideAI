@@ -707,6 +707,7 @@ describe('S8 the camera race', () => {
     expect(reads.map((r) => r.open === null)).toStrictEqual([false, true])
     expect(showHolds()).toBe(false)
     expect(rf.vp).toStrictEqual(V0)
+    expect(rf.userMoved.current, 'the badge closed again under the return, so the camera is kept where it is').toBe(true)
     expect(c.button()!.textContent).toBe(SHOW_IN_WORKSPACE)
   })
 

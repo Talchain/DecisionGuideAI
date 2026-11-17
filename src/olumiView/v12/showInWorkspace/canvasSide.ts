@@ -9,7 +9,7 @@
  * canvas knows (whether the person holds the camera, the one function every person-made move goes through, and its own framing).
  */
 import type { ReactFlowInstance } from '@xyflow/react'
-import { samePane, takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
+import { samePane, showHolds, takeShowHold, type Box, type Pane, type ShowCameraPort, type Viewport } from './cameraPort'
 import { QUESTION, VIEW_CARD, boardOf, freePane, useCanvasStore, useViewStore, viewLaying } from './deps'
 
 export interface CanvasSide {
@@ -24,12 +24,9 @@ export interface CanvasSide {
   fit(): unknown
 }
 
-/**
- * Compile-time only: what the canvas owner's registration passes (React Flow's own three calls, the canvas's ref, `hand` and `fit`) IS a
- * `CanvasSide`. The type check of this folder fails here, before the owner applies the hunk, if either side changes shape.
- */
+/** Compile-time only: React Flow's own three camera calls are what `CanvasSide` asks of them. The canvas's own three are checked where it registers. */
 type Is<T extends true> = T
-export type CanvasPassesACanvasSide = Is<(Pick<ReactFlowInstance, 'getViewport' | 'setViewport' | 'getInternalNode'> & { userMoved: { current: boolean }; hand: () => void; fit: () => Viewport | null }) extends CanvasSide ? true : false>
+export type ReactFlowCallsFitCanvasSide = Is<Pick<ReactFlowInstance, 'getViewport' | 'setViewport' | 'getInternalNode'> extends Pick<CanvasSide, 'getViewport' | 'setViewport' | 'getInternalNode'> ? true : false>
 
 const frame = (f: () => void): void => { if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => f()); else setTimeout(f, 16) }
 
@@ -60,8 +57,8 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
     const el = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
     return el === null ? null : freePane(el)
   }
-  /** Holds now on (a return can begin while a show it cancelled has not let go yet), and the free canvas when the first of them began. */
-  let holding = 0, paneWas: Pane | null = null
+  /** The free canvas when the first of the holds now on began (a return can begin while a show it cancelled has not let go yet). */
+  let paneWas: Pane | null = null
   return {
     capture: () => ({ viewport: c.getViewport(), held: c.userMoved.current }),
     settled: (signal) => new Promise<boolean>((resolve) => {
@@ -94,18 +91,16 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
     moveTo: (to, { duration }) => { c.userMoved.current = true; c.hand(); void c.setViewport(to, { duration }) },
     refit: () => { c.userMoved.current = false; c.hand(); void c.fit() },
     hold: () => {
+      if (!showHolds()) paneWas = pane()
       const end = takeShowHold()
       c.hand()
-      if (holding === 0) paneWas = pane()
-      holding += 1
       return (held) => {
         if (!end()) return
-        holding -= 1
         // Only a run nothing newer overtook says who holds the camera afterwards: an overtaken one (null) ends its hold and writes nothing.
         if (held !== null) c.userMoved.current = held
         // The canvas skips its resize refit while a hold is on. When the last one ends, a resize that happened meanwhile is made good,
         // unless the camera is held (a held camera is never refitted, by the canvas's own rule).
-        if (holding === 0 && !c.userMoved.current && !samePane(paneWas, pane())) void c.fit()
+        if (!showHolds() && !c.userMoved.current && !samePane(paneWas, pane())) void c.fit()
       }
     },
   }
