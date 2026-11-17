@@ -1,7 +1,7 @@
 /**
  * The canvas's side of the camera port (cameraPort.ts), written here so that the whole of it is this folder's own, typed and tested, and
- * the canvas owner's hunk is only two things: `showHolds()` read where the board's own framing already reads "the person holds the
- * camera", and one registration:
+ * the canvas owner's hunk is only two things: `showHolds()` read by the board's own framing (its framing loop WAITS while it is true and
+ * then goes on as it would have; a resize does not refit while it is true), and one registration:
  *
  *   useEffect(() => registerShowCameraPort(makeShowCameraPort({ getViewport, setViewport, getInternalNode, userMoved, hand, fit })), [...])
  *

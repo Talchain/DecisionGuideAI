@@ -15,7 +15,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { QUESTION, drawnModelOf, inputIdsOf, inputsFolded, layerEntries, linkCards, marksOf, type LayerId, type View } from '../deps'
-import { activeLayerOf, layerFor, planShow, type BoardNow, type Next } from '../targets'
+import { activeLayerOf, cameraFor, layerFor, planShow, type BoardNow, type Next } from '../targets'
+import type { Box, Pane, Viewport } from '../cameraPort'
 
 const read = (file: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView', file), 'utf8')) as View
 const golden = read('golden/s_ce285b3617bb.view.json')
@@ -289,5 +290,83 @@ describe('T8 the layer the cards are shown in', () => {
     expect(activeLayerOf(golden, golden.id, { layer: option, sid: golden.id })).toBe(option)
     expect(activeLayerOf(golden, golden.id, { layer: option, sid: 's_another' })).toBe('full')
     expect(activeLayerOf(golden, golden.id, { layer: 'option:no_such_option', sid: golden.id })).toBe('full')
+  })
+})
+
+describe('T10 a badge on a card the board draws as a link is no badge to open', () => {
+  const base = nextOf(growth, 6)
+  const RECORD = 'adoption_needs_an_owner_inside_each_team'
+  /** INVENTED: the relation `i_adoption_pilot` (drawn as a link) is given a badge holding the same record as cross_team_adoption's, whose own badge is given a second, invented record so that it is the LONGER list. */
+  const withLinkBadge = (open: boolean): View => {
+    const v = clone(growth)
+    const host = cardOf(v, 'cross_team_adoption'), link = cardOf(v, 'i_adoption_pilot')
+    host.badge = { ...host.badge!, records: [RECORD, 'invented_second_record'] }
+    link.badge = { ...host.badge!, records: [RECORD], open }
+    return v
+  }
+  it('the fixture: the relation is drawn as a link, and by the host rule alone its shorter badge would win', () => {
+    const v = withLinkBadge(false)
+    expect(linkCards(v.model!).has('i_adoption_pilot')).toBe(true)
+    expect(drawnModelOf(v.model!).cards.map((c) => c.id)).not.toContain('i_adoption_pilot')
+    expect(badgeOf(v, 'i_adoption_pilot').records.length).toBeLessThan(badgeOf(v, 'cross_team_adoption').records.length)
+  })
+  it('the badge of the card on the board opens (cross_team_adoption), never the link\'s', () => {
+    const v = withLinkBadge(false)
+    expect(planShow(v, pointing(base, null, [RECORD]), detailed(v))).toStrictEqual({ cards: ['cross_team_adoption'], open: [{ host: 'cross_team_adoption', records: [RECORD, 'invented_second_record'] }], inputs: false })
+  })
+  it('an OPEN badge on the link does not stand in for the closed one on the board: that one still opens', () => {
+    const v = withLinkBadge(true)
+    expect(planShow(v, pointing(base, null, [RECORD]), detailed(v))!.open).toStrictEqual([{ host: 'cross_team_adoption', records: [RECORD, 'invented_second_record'] }])
+  })
+  it('INVENTED contrast: with the link between its ends gone the relation is a card on the board, and its shorter badge opens by the rule', () => {
+    const v = withLinkBadge(false)
+    v.model!.links = v.model!.links.filter((l) => !(l.kind !== 'reason' && ((l.from === 'cross_team_adoption' && l.to === 'pilot_conversion') || (l.from === 'pilot_conversion' && l.to === 'cross_team_adoption'))))
+    expect(drawnModelOf(v.model!).cards.map((c) => c.id)).toContain('i_adoption_pilot')
+    expect(planShow(v, pointing(base, null, [RECORD]), detailed(v))).toStrictEqual({ cards: ['i_adoption_pilot'], open: [{ host: 'i_adoption_pilot', records: [RECORD] }], inputs: false })
+  })
+})
+
+describe('T11 where the camera goes: the cards whole inside the free canvas, never closer than the person had it', () => {
+  /** A 1232 x 704 pane with a 56 px header and a 420 px dock: the free canvas is x 0..812, y 56..704. */
+  const pane: Pane = { size: { w: 1232, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }
+  const onScreen = (box: Box, v: Viewport) => ({ left: box.x * v.zoom + v.x, top: box.y * v.zoom + v.y, right: (box.x + box.w) * v.zoom + v.x, bottom: (box.y + box.h) * v.zoom + v.y })
+  const inside = (box: Box, v: Viewport): boolean => { const s = onScreen(box, v); return s.left >= 0 && s.top >= 56 && s.right <= 812 && s.bottom <= 704 }
+  it('cards already whole inside the free canvas: no move', () => {
+    expect(cameraFor({ x: 100, y: 100, w: 300, h: 200 }, pane, { x: 0, y: 0, zoom: 1 })).toBeNull()
+  })
+  it('contrast: the same cards under the dock are centred in the free canvas at the zoom the person has', () => {
+    const box = { x: 700, y: 100, w: 300, h: 200 }, was = { x: 0, y: 0, zoom: 1 }
+    expect(inside(box, was)).toBe(false)
+    const to = cameraFor(box, pane, was)!
+    expect(to).toStrictEqual({ x: -444, y: 180, zoom: 1 })
+    expect(inside(box, to)).toBe(true)
+  })
+  it('contrast: cards under the header move too', () => {
+    const box = { x: 100, y: 20, w: 300, h: 200 }
+    const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 1 })!
+    expect(to.zoom).toBe(1)
+    expect(inside(box, to)).toBe(true)
+  })
+  it('cards wider than the free canvas at this zoom: the zoom comes down until they fit whole', () => {
+    const box = { x: 0, y: 0, w: 1528, h: 300 }
+    const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 1 })!
+    expect(to).toStrictEqual({ x: 24, y: 305, zoom: 0.5 })
+    expect(inside(box, to)).toBe(true)
+  })
+  it('no floor: at zoom 0.45, cards that need 0.40 to fit whole are shown at 0.40, whole', () => {
+    const box = { x: 0, y: 0, w: 1910, h: 300 }
+    const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 0.45 })!
+    expect(to.zoom).toBeCloseTo(0.4, 10)
+    expect(to.zoom).toBeLessThan(0.45)
+    expect(inside(box, to)).toBe(true)
+  })
+  it('never closer than the person had it: small cards out of view at zoom 0.45 are centred at 0.45', () => {
+    const box = { x: 5000, y: 5000, w: 300, h: 200 }
+    const to = cameraFor(box, pane, { x: 0, y: 0, zoom: 0.45 })!
+    expect(to.zoom).toBe(0.45)
+    expect(inside(box, to)).toBe(true)
+  })
+  it('a pane with no free canvas to show them in: no move', () => {
+    expect(cameraFor({ x: 700, y: 100, w: 300, h: 200 }, { size: { w: 400, h: 704 }, inset: { left: 0, top: 56, right: 420, bottom: 0 } }, { x: 0, y: 0, zoom: 1 })).toBeNull()
   })
 })

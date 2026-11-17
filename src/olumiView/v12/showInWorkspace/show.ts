@@ -166,7 +166,9 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     if (box === null) { failed = COULD_NOT_SHOW; return }
     const to = pane === null ? null : cameraFor(box, pane, port.capture().viewport)
     const still = reducedMotion()
-    if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true } // a camera the show moved is the person's own choice: the board does not refit under it
+    // A camera the show moved is the person's own choice: the board does not refit under it. The same holds where the show unfolded
+    // something and the cards were already in view: the board's own framing of the unfolded board must not carry them out of it.
+    if (to !== null) { port.moveTo(to, { duration: still ? 0 : MOVE_MS }); held = true } else if (plan.open.length > 0 || plan.inputs) held = true
     pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, to === null || still ? 0 : MOVE_MS + 20)
     useShown.setState({ turn, busy: false, said: null })
   } finally {

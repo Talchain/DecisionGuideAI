@@ -57,7 +57,10 @@ export function onShowCameraPort(l: () => void): () => void { listeners.add(l); 
 export const useHasShowCamera = (): boolean => useSyncExternalStore(onShowCameraPort, () => port !== null, () => false)
 
 let holds = 0
-/** THE ONE PREDICATE for the canvas's framing: a show or a return is rearranging the board, so the board's own framing waits. */
+/**
+ * THE ONE PREDICATE for the canvas's framing: a show or a return is rearranging the board, so the board's own framing waits. It is put
+ * off, never dropped: when the hold ends the framing goes on, and frames the board unless the person (or the show for them) holds the camera.
+ */
 export const showHolds = (): boolean => holds > 0
 /** One hold (canvasSide.ts). The function returned ends it once and says whether this call was the one that ended it. */
 export function takeShowHold(): () => boolean {

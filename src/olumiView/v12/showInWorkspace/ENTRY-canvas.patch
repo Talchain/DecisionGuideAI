@@ -1,0 +1,38 @@
+--- a/src/olumiView/ViewCanvas.tsx
++++ b/src/olumiView/ViewCanvas.tsx
+@@ -63,6 +63,8 @@
+ import { ViewPreMortemKey } from './ViewPreMortemKey'
+ import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
+ import { registerRevealReturnCamera } from './revealReturn'
++import { registerShowCameraPort, showHolds } from './v12/showInWorkspace/cameraPort'
++import { makeShowCameraPort } from './v12/showInWorkspace/canvasSide'
+ import { useRevealLanding } from './revealLanding'
+ import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
+ import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
+@@ -287,6 +289,8 @@
+     // pane was ready: the board then stood at 0,0 at scale 1 until Fit was pressed) is asked for again, up to MAX_FITS.
+     let target: Viewport | null = null, targetAt = 0
+     const tick = () => {
++      // "Show in the workspace" is rearranging the board (v12/showInWorkspace): this framing waits, then goes on as if it had just begun.
++      if (showHolds()) { since = performance.now(); last = ''; raf = requestAnimationFrame(tick); return }
+       if (userMoved.current) return
+       if (target !== null && performance.now() - targetAt > DURATION + 300) {
+         const v = getViewport(), t = target
+@@ -319,7 +323,7 @@
+     return () => cancelAnimationFrame(raf)
+   }, [version, fit, getNodes, getViewport, userMoved])
+   // The free canvas changes size (the window, the dock): frame again, unless the person has taken the camera.
+-  useEffect(() => { if (!userMoved.current) fit() }, [width, height, fit, userMoved])
++  useEffect(() => { if (!userMoved.current && !showHolds()) fit() }, [width, height, fit, userMoved])
+   return fit
+ }
+ 
+@@ -405,6 +409,8 @@
+     const before = getViewport()
+     return () => { userMoved.current = true; hand(); void setViewport(before, { duration: 0 }) }
+   }), [getViewport, setViewport])
++  // "Show in the workspace" under a reply (v12/showInWorkspace): its camera port, registered once while the canvas is on the page.
++  useEffect(() => registerShowCameraPort(makeShowCameraPort({ getViewport, setViewport, getInternalNode, userMoved, hand, fit })), [getViewport, setViewport, getInternalNode, fit])
+   const focusCall = useRef(0)
+   useEffect(() => () => { focusCall.current += 1 }, [])
+   // Which card or link holds keyboard focus is the canvas's while it is up: nothing is left open once it goes (checker, slice 1).
