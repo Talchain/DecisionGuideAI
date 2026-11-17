@@ -40,12 +40,14 @@ afterEach(() => {
 })
 
 describe('results saved by an earlier engine say so, once, in core\'s words', () => {
-  it('ER1 the question card says core\'s sentence once, verbatim, at both levels; its hover is core\'s title', () => {
-    for (const level of ['simple', 'working'] as const) {
-      const m = marks(drawQuestion(marked, level))
-      expect([m.length, m[0]?.textContent, m[0]?.title], level).toEqual([1, SAID.text, SAID.title])
-      cleanup()
-    }
+  // CHANGED BY DESIGN (v10 review item 2): on Simple the sentence is the hover of a small "Saved results" pill (the sentence is the same on every board);
+  // Detailed still draws core's sentence whole, once.
+  it('ER1 the question card says core\'s sentence once, verbatim, on Detailed; on Simple it is the title of a "Saved results" pill; the hover is core\'s title', () => {
+    const w = marks(drawQuestion(marked, 'working'))
+    expect([w.length, w[0]?.textContent, w[0]?.title]).toEqual([1, SAID.text, SAID.title])
+    cleanup()
+    const s = marks(drawQuestion(marked, 'simple'))
+    expect([s.length, s[0]?.textContent, s[0]?.title, s[0]?.getAttribute('data-saved-results')]).toEqual([1, 'Saved results', SAID.title, QUESTION])
   })
   it('ER2 the Analysis lines say it once, right after the run\'s lead; the lead and every number are as before', () => {
     const plain = render(<ViewChances model={served.model!} />).container

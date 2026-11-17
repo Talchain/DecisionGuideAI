@@ -14,10 +14,11 @@ import { setGroupOpen } from '../bands/foldStore'
 import { useWhatIf } from '../../whatif'
 import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
-import { bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
+import { bandAxisOf, bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { SimpleSwitch } from '../SimpleSwitch'
 import { figureRange } from '../contract'
 import { RangeBar } from '../scale/RangeBar'
+import { axisOf, pctOf } from '../scale/axis'
 
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
 vi.mock('../../../canvas/hydrate/serverGraphHydration', async (real) => ({ ...(await real<object>()), hydrateCanvasFromServer: vi.fn(async () => 'merged') }))
@@ -223,6 +224,34 @@ describe('V12 Simple faces', () => {
     const { container } = face('churn_rate')
     expect(container.querySelectorAll('[data-simple-band]').length).toBe(rows.length)
     expect(container.querySelector('[data-simple-face="figure"]'), 'CONTRAST: a stated figure draws its words instead').toBeNull()
+  })
+
+  it('S4b (v10 review item 5) Simple\'s bars sit on the real 0-based axis with its two ends printed once and the gold goal tick at the aim\'s value; near-equal ranges draw near-equal bars', () => {
+    const c = card('customers'), aim = model.aim!
+    const { container } = face('customers')
+    const axis = axisOf(0, Math.max(...c.values!.map((v) => v.p90), aim.value))
+    expect(container.querySelector('[data-testid="simple-axis-min"]')!.textContent).toBe('0')
+    expect(container.querySelector('[data-testid="simple-axis-max"]')!.textContent).toBe(`${axis.max.toLocaleString('en-GB')} ${aim.unit}`)
+    const tick = container.querySelector<HTMLElement>('[data-testid="simple-goal-tick"]')!
+    expect([tick.getAttribute('data-at'), tick.style.left]).toEqual([String(aim.value), `${pctOf(axis, aim.value)}%`])
+    for (const r of bandRowsOf(c, model)) expect(container.querySelector<HTMLElement>(`[data-simple-band="${r.option}"] i[data-band-from]`)!.getAttribute('data-band-from')).toBe(r.lo.toFixed(1))
+    // CONTRAST: a card that is not the aim's quantity has the axis ends but no goal tick.
+    const other = face('churn_rate').container
+    expect(other.querySelector('[data-testid="simple-axis-ends"]')).not.toBeNull()
+    expect(other.querySelector('[data-testid="simple-goal-tick"]')).toBeNull()
+    // Near-equal ranges: the old min-to-max axis stretched 100-110 against 101-111 to the whole bar; on the real axis they are near-equal and short.
+    const [a, b] = c.values!
+    const near = { ...c, values: [{ ...a!, p10: 100, p50: 105, p90: 110 }, { ...b!, p10: 101, p50: 106, p90: 111 }] } as typeof c
+    const rows = bandRowsOf(near, model)
+    expect([Math.abs(rows[0]!.lo - rows[1]!.lo) < 2, rows[0]!.hi - rows[0]!.lo < 5]).toEqual([true, true])
+    expect(bandAxisOf(near, model)!.min).toBe('0')
+  })
+
+  it('S4c (v10 review item 3) a card with no sized figure may take two lines for its basis line; a card with a figure or gauge keeps one', () => {
+    const q = face('profitability').container.querySelector<HTMLElement>('[data-simple-face="no-figure"]')!
+    expect([q.classList.contains('ok-two-lines'), q.classList.contains('ok-one-line')]).toEqual([true, false])
+    const g = face('broader_entry').container.querySelector<HTMLElement>('[data-simple-qual="broader_entry"]')
+    if (g !== null) expect([g.classList.contains('ok-two-lines'), g.classList.contains('ok-one-line')]).toEqual([false, true])
   })
 
   it('S5 a stated figure shows core\'s words on one line; a figure with no value is a dashed empty bar', () => {

@@ -28,6 +28,7 @@ import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, KindTag, LetterChip, OlumiAsksMark, OlumiMark } from './cards/marks'
 import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
 import { cardTitle, needsOf } from './fields/fields'
+import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
 /** Olumi's blue, the person's ink, the goal's colour and the challenge colour: the board's own tokens. */
 /** Type on a compact card, by DS role: 14 for figures and reading text, 12 for state words (typography tokens). */
@@ -39,22 +40,39 @@ export type BandRow = { readonly option: string; readonly letter: string; readon
 /** The option letters (A, B, ...) in the model's order (cards/letters.ts): a short name for a row, its heading on hover. */
 export const optionLetterOf = (model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
 
-/**
- * The positions (0..100) of each option's modelled band on ONE axis shared by the card's rows, from the served p10 / p50 / p90. A band the
- * axis cannot place (a non-finite number, or all rows the same point) is drawn as a point in the middle: never a made-up width. An option
- * core withheld has no band: it is drawn as its own dashed row, with core's reason.
- */
-export function bandRowsOf(card: ViewCard, model: ViewModel | null): readonly BandRow[] {
+/** The served bands of one card (not the withheld ones) and the axis they share: the same axisOf / pctOf / unitOf as the Detailed strips (scale/OutcomeStrips.tsx). */
+type Bands = { readonly values: ReadonlyArray<NonNullable<ViewCard['values']>[number]>; readonly axis: Axis; readonly unit: string | null; readonly goal: number | null }
+function bandsOf(card: ViewCard, model: ViewModel | null): Bands | null {
   const held = new Set(withheldValues(card).map((w) => w.option))
   const values = (card.values ?? []).filter((v) => !held.has(v.option) && Number.isFinite(v.p10) && Number.isFinite(v.p90))
-  if (values.length === 0) return []
-  const min = Math.min(...values.map((v) => Math.min(v.p10, v.p50 ?? v.p10))), max = Math.max(...values.map((v) => Math.max(v.p90, v.p50 ?? v.p90)))
-  const span = max - min
-  const at = (n: number): number => (span > 0 ? ((n - min) / span) * 100 : 50)
-  return values.map((v) => ({
+  if (values.length === 0) return null
+  const aim = model === null ? null : aimOf(model), unit = unitOf(card, aim)
+  // The aim's own value, a gold tick, only where this card is the aim's quantity and the units match (as OutcomeStrips does).
+  const goal = aim !== null && aim.quantity === card.id && (unit === null || aim.unit === unit) ? aim.value : null
+  const p50s = values.flatMap((v) => (v.p50 !== null && Number.isFinite(v.p50) ? [v.p50] : []))
+  const axis = axisOf(Math.min(...values.map((v) => v.p10), ...p50s, 0), Math.max(...values.map((v) => v.p90), ...p50s, goal ?? -Infinity, 0))
+  return { values, axis, unit, goal }
+}
+
+/**
+ * The positions (0..100) of each option's modelled band on ONE true axis shared by the card's rows (v10 review item 5: the Detailed strips' own 0-based
+ * axis, not min-to-max, so a small gap is a small gap), from the served p10 / p50 / p90. An option core withheld has no band: it is drawn as its own
+ * row, with core's reason.
+ */
+export function bandRowsOf(card: ViewCard, model: ViewModel | null): readonly BandRow[] {
+  const b = bandsOf(card, model)
+  if (b === null) return []
+  const at = (n: number): number => pctOf(b.axis, n)
+  return b.values.map((v) => ({
     option: v.option, letter: optionLetterOf(model, v.option), heading: model?.cards.find((c) => c.id === v.option)?.heading ?? '',
     lo: at(Math.min(v.p10, v.p90)), mid: v.p50 === null ? null : at(v.p50), hi: at(Math.max(v.p10, v.p90)), text: v.text, olumi: v.olumi,
   }))
+}
+
+/** The axis ends (printed once, under the bars) and the gold goal tick's position, from the same axis as the bars; null where the card has no band. */
+export function bandAxisOf(card: ViewCard, model: ViewModel | null): { readonly min: string; readonly max: string; readonly unit: string | null; readonly goalAt: number | null; readonly goal: number | null } | null {
+  const b = bandsOf(card, model)
+  return b === null ? null : { min: fmt(b.axis.min), max: fmt(b.axis.max), unit: b.unit, goalAt: b.goal === null ? null : pctOf(b.axis, b.goal), goal: b.goal }
 }
 
 /** The chance row's own value words for the headline's aim ("24%"), else null. Core's text, never formatted here. */
@@ -93,6 +111,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
+  const axisInfo = card.family === 'option' ? null : bandAxisOf(card, model)
   const held = card.family === 'option' ? [] : withheldValues(card)
   const hasFigure = card.figure != null && card.figure.text !== ''
   const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
@@ -131,6 +150,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
       // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
       <div className="grid min-w-0 basis-full gap-px" data-simple-face="range" title={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+        {bands.length === 0 ? null : (
+          <div className="relative grid gap-px" data-simple-axis={id}>
+            {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2" style={{ left: `${axisInfo.goalAt}%`, borderColor: 'var(--goal)' }} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
         {bands.slice(0, 4).map((b) => (
           <div key={b.option} title={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
             <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--border-default)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
@@ -139,6 +161,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             </span>
           </div>
         ))}
+          </div>
+        )}
+        {axisInfo === null || bands.length === 0 ? null : (
+          <div className={`${typography.viewLabel} flex justify-between gap-2 whitespace-nowrap text-text-light`} data-testid="simple-axis-ends">
+            <span data-testid="simple-axis-min">{axisInfo.min}</span>
+            <span data-testid="simple-axis-max">{axisInfo.max}{axisInfo.unit === null ? '' : ` ${axisInfo.unit}`}</span>
+          </div>
+        )}
         {held.length === 0 ? null : (
           <div className="ok-withheld-row" data-simple-withheld-group={id} title={held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n')}>
             {held.map((w) => (
@@ -214,7 +244,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
       {visual}
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
-      {quiet === null ? null : <p className="ok-quiet ok-one-line min-w-0 flex-1" title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {quiet === null ? null : <p className={`ok-quiet min-w-0 flex-1 ${visual === null && !hasFigure ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

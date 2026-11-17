@@ -10,6 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
+import { History } from 'lucide-react'
 import { earlierResultsOf } from '../v12/contract'
 import { memo, useMemo, type CSSProperties } from 'react'
 import { isForThisPage, useMe } from '../../olumiCore/me'
@@ -272,7 +273,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // Results saved by an earlier engine (core's `model.run.earlier`): said once, on the question card above the results, at both levels, in the quiet status
   // tone; the numbers are left as they are (DL and Codex, 17 Nov).
   const earlier = id === QUESTION ? earlierResultsOf(model) : null
-  const earlierLine = earlier === null ? null : <p className="ok-quiet" data-view="run.earlier" title={earlier.title}>{earlier.text}</p>
+  // v10 review item 2: on Simple, a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed draws it whole.
+  const earlierLine = earlierDrawn()
+  function earlierDrawn() {
+    if (earlier === null) return null
+    return simple
+      ? <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={earlier.title}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
+      : <p className="ok-quiet" data-view="run.earlier" title={earlier.title}>{earlier.text}</p>
+  }
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
