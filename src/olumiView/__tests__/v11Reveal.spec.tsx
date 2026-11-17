@@ -16,7 +16,6 @@ import { useCanvasStore } from '../../canvas/store'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { EvidenceDock } from '../EvidenceDock'
 import { RevealDock } from '../RevealDock'
-import { ViewLensBar } from '../ViewLensBar'
 
 /** A real View (core e38d9f4c on a copy of Paul's board, seeded demo people; fixtures/v11/README.md). */
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-reveal.view3.json'), 'utf8'))

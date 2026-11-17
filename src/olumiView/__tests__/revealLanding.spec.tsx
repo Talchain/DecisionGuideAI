@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
@@ -16,7 +16,6 @@ import { revealOf, useReveal } from '../reveal'
 import { landingChipOf, resetRevealLanding, useRevealLanding } from '../revealLanding'
 import { composerStepsAside, forgetLanded, registerRevealReturnCamera, returnFromLanded } from '../revealReturn'
 import { openView } from '../RevealMarks'
-import { ViewLensBar } from '../ViewLensBar'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1', 'strategy-reveal-split.core-261df1d4.view3.json'), 'utf8')) as View
 const marks = view.collab.marks!
