@@ -126,7 +126,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
   it('sits flush on the right edge, from the top bar to the viewport bottom', () => {
     const dock = mountDock()
     expect(dock).toHaveAttribute('data-panel-composition', 'expanded')
-    expect(dock.style.right).toBe('0px')
+    expect(dock.className.split(/\s+/)).toEqual(expect.arrayContaining(['fixed', 'right-0']))
     expect(dock.style.top).toBe('var(--topbar-h, 0px)')
     expect(dock.style.bottom).toBe('var(--bottombar-h)')
   })
@@ -140,9 +140,10 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     expect(dock.style.borderTop).toBe('')
     expect(dock.style.borderRight).toBe('')
     expect(dock.style.borderBottom).toBe('')
-    // React writes a numeric 0 radius as the bare string '0'.
-    expect(dock.style.borderRadius).toBe('0')
-    expect(dock.style.boxShadow).toBe('none')
+    // No radius and no shadow of its own: neither is written on the frame.
+    expect(dock.style.borderRadius).toBe('')
+    expect(dock.style.boxShadow).toBe('')
+    expect(dock.className).not.toMatch(/(^|\s)(rounded|shadow)(-|\s|$)/)
   })
 
   it('the tab strip is 45px and the active tab is ink on the contract tint (never the info blue, DL 8 Nov): no underline, not an outlined pill', () => {
@@ -181,7 +182,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     const dock = mountDock()
     fireEvent.click(screen.getByTestId('dock-collapse-control'))
     expect(dock).toHaveAttribute('data-panel-composition', 'collapsed')
-    expect(dock.style.right).toBe('0px')
+    expect(dock.className.split(/\s+/)).toEqual(expect.arrayContaining(['fixed', 'right-0']))
     const restore = screen.getByRole('button', { name: 'Expand outputs dock' })
     fireEvent.click(restore)
     expect(dock).toHaveAttribute('data-panel-composition', 'expanded')

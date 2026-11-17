@@ -571,6 +571,9 @@ function OutputsDockLegacyHost() {
   return <OutputsDockBody sendMessage={sendMessage} dispatchAction={dispatchAction} />
 }
 
+/** The dock's frame: fixed flush right, the panel at 95 % behind an 8 px blur. Its width, top, foot and layer stay on `asideStyle` (CSS variables and the layer contract). */
+const DOCK_FRAME = 'fixed right-0 overflow-hidden bg-panel/95 backdrop-blur'
+
 interface OutputsDockBodyProps {
   /** Forwards `opts` so Olumi's text can travel as a chip (T1H). */
   sendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string; chipMeta?: ChipMeta }) => Promise<void> | void
@@ -3164,28 +3167,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // The canvas side needs no change: `computeFitPadding` and
   // `measureDockInset` read this element's LIVE rect, so the board gets back
   // the 12px gap plus (416 − 319) px automatically.
-  // J1 gate (UI session 8 Nov, the prototype's dock): on the olumi-core lane the open dock is an inset card, 300 px, 8 px off the
-  // window's edges and the header strip, rounded, with the prototype's edge and shadow.
-  // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): the lane's dock is the previous product's again (flush
-  // right, full height, its own width; collapsed, its icon rail). The inset card is no longer drawn; its branches below are to be removed
-  // once Paul has judged the pair (output/ui-restore-20261111/IMPROVEMENTS.md A6).
-  const insetDock: boolean = false
+  // The dock's frame is the previous product's (UI restore, 11 Nov): flush right, full height, its own width; collapsed, its icon rail.
+  // The static frame is a class (DOCK_FRAME); what stays here is read from CSS variables or the layer contract (layers.spec).
   const asideStyle: React.CSSProperties = {
-    position: 'fixed',
-    width: insetDock ? 300 : effectiveIsOpen
-      ? 'var(--dock-right-expanded, 22.5rem)'
-      : 'var(--dock-right-collapsed, 2.5rem)',
-    right: insetDock ? 8 : 0,
-    top: insetDock ? 'calc(var(--topbar-h, 0px) + 8px)' : 'var(--topbar-h, 0px)',
+    width: effectiveIsOpen ? 'var(--dock-right-expanded, 22.5rem)' : 'var(--dock-right-collapsed, 2.5rem)',
+    top: 'var(--topbar-h, 0px)',
     // V11 rehearsal (DL 9 Nov): flush to the window's foot, no gap under the dock.
-    bottom: insetDock ? 8 : 'var(--bottombar-h)',
-    background: insetDock ? 'var(--bg-panel)' : 'rgb(var(--bg-panel-rgb) / 0.95)',
-    backdropFilter: 'blur(8px)',
-    borderRadius: insetDock ? 16 : 0,
-    border: insetDock ? '1px solid var(--border-emphasis)' : undefined,
-    boxShadow: insetDock ? '0 8px 24px rgba(38,38,38,0.14)' : 'none',
+    bottom: 'var(--bottombar-h)',
     zIndex: 900,
-    overflow: 'hidden',
     // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
     // FIXED. The dock lost 35% of its width and not one of ~450 panel
     // components knew, because there were ZERO container queries in the tree.
@@ -3216,7 +3205,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // ⚠⚠ AND A SECOND FINDING THE ISOLATED PROBE MISSED, WHICH MATTERS MORE:
     // in the REAL dock a fixed descendant IS dock-scoped — measured
     // [853,13,414,770] at 1280x800, not the viewport. The cause is
-    // `backdropFilter: 'blur(8px)'` two lines above, which creates a
+    // the frame's `backdrop-blur` (DOCK_FRAME), which creates a
     // containing block for fixed descendants and has been on this element
     // since long before any of this:
     //
@@ -3267,7 +3256,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       />
     <aside
       ref={shellRef}
-      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
+      className={`${transitionClass} ${DOCK_FRAME} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
