@@ -3,8 +3,9 @@
  * resolved by the one pure function the control calls. Every row is bound by card or record id and carries a contrast. A View marked
  * INVENTED is a real View with a named, minimal change, kept in the real View shape; no words in it are anyone's own.
  *
- *   golden s_ce285b3617bb   turn 14 names three cards; turn 12 names one record nothing draws and two records that sit behind BOTH
- *                           net_funding's badge (18 records) and add_angel_bridge's (6 records)
+ *   golden s_ce285b3617bb   turn 14 names three cards; turn 12 names one record three cards hold as a premise, and two records that sit
+ *                           behind BOTH net_funding's badge (18 records) and add_angel_bridge's (6 records)
+ *   real hiring             core's turn 11 names a record behind three closed badges and one behind a single badge
  *   j1 bookshop-v1 / -open  the same scenario with monthly_revenue's and newsletter's badges closed, then open: core's turn 4 names two
  *                           records behind monthly_revenue's badge; `reminded` sits behind both badges
  *   sc01 growth16           four relation cards the board draws as links
@@ -21,6 +22,7 @@ const golden = read('golden/s_ce285b3617bb.view.json')
 const closed = read('fixtures/j1/bookshop-v1.core-5d8a009b.view3.json')
 const opened = read('fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json')
 const growth = read('fixtures/sc01/growth16.core-5d8a009b.view3.json')
+const hiring = read('fixtures/real/hiring.view3.json')
 
 const nextOf = (view: View, turn: number): Next => view.chat.find((t) => t.id === turn)!.answer!.next
 /** A reply's next step in the real shape, pointing at the ids given (the words are the real turn's own). */
@@ -28,7 +30,9 @@ const pointing = (base: Next, at: string | null, about: string[]): Next => ({ ..
 const clone = (v: View): View => JSON.parse(JSON.stringify(v)) as View
 const detailed = (view: View): BoardNow => ({ sid: view.id, level: 'working', inputsOpen: {} })
 const simple = (view: View, open = false): BoardNow => ({ sid: view.id, level: 'simple', inputsOpen: open ? { [view.id]: true } : {} })
-const badgeOf = (view: View, card: string) => view.model!.cards.find((c) => c.id === card)!.badge!
+const cardOf = (view: View, card: string) => view.model!.cards.find((c) => c.id === card)!
+const badgeOf = (view: View, card: string) => cardOf(view, card).badge!
+const premiseIds = (view: View, card: string) => cardOf(view, card).premises.flatMap((p) => (p.id == null ? [] : [p.id]))
 
 describe('T1 a reply that names cards on the board', () => {
   it('names exactly those cards, in core\'s order, and asks for nothing to be opened', () => {
@@ -60,7 +64,7 @@ describe('T2 a record behind several badges: which badge opens is a stated rule,
   it('equal ids held: the badge that unfolds the fewest records opens (add_angel_bridge, 6, not net_funding, 18)', () => {
     const plan = planShow(golden, next, detailed(golden))!
     expect(plan.open).toStrictEqual([{ host: 'add_angel_bridge', records: badgeOf(golden, 'add_angel_bridge').records }])
-    expect(plan.cards).toStrictEqual(['add_angel_bridge'])
+    expect(plan.cards).toStrictEqual(['end_cash_margin', 'add_angel_bridge']) // the premise's card first (core's `at`), then the badge's
     expect(plan.inputs).toBe(false)
   })
   it('INVENTED contrast: with net_funding\'s badge cut to three records, net_funding opens', () => {
@@ -68,7 +72,7 @@ describe('T2 a record behind several badges: which badge opens is a stated rule,
     badgeOf(v, 'net_funding').records = ['angel_speed_hypothesis', 'overhead_tradeoff', 'test_speed_bottleneck']
     const plan = planShow(v, next, detailed(v))!
     expect(plan.open).toStrictEqual([{ host: 'net_funding', records: ['angel_speed_hypothesis', 'overhead_tradeoff', 'test_speed_bottleneck'] }])
-    expect(plan.cards).toStrictEqual(['net_funding'])
+    expect(plan.cards).toStrictEqual(['end_cash_margin', 'net_funding'])
   })
   it('INVENTED contrast: equal ids and equal record counts: the first in the View\'s order opens (net_funding)', () => {
     const v = clone(golden)
@@ -88,7 +92,7 @@ describe('T2 a record behind several badges: which badge opens is a stated rule,
     badgeOf(v, 'cash_survival').records = [...badgeOf(v, 'cash_survival').records, 'angel_speed_hypothesis']
     const plan = planShow(v, next, detailed(v))!
     expect(plan.open.map((b) => b.host)).toStrictEqual(['add_angel_bridge', 'cash_survival'])
-    expect(plan.cards).toStrictEqual(['add_angel_bridge', 'cash_survival'])
+    expect(plan.cards).toStrictEqual(['end_cash_margin', 'add_angel_bridge', 'cash_survival'])
   })
   it('real second case: `reminded` sits behind monthly_revenue\'s badge (5 records) and newsletter\'s (1): newsletter opens', () => {
     expect(badgeOf(closed, 'monthly_revenue').records).toContain('reminded')
@@ -97,10 +101,48 @@ describe('T2 a record behind several badges: which badge opens is a stated rule,
     expect(plan.open).toStrictEqual([{ host: 'newsletter', records: ['reminded'] }])
     expect(plan.cards).toStrictEqual(['newsletter'])
   })
-  it('a record nothing draws (a premise only) is no target and leaves no trace', () => {
+  it('real third case (hiring, core\'s turn 11): most ids held beats fewest records: weekly_delivery (7 records, both ids) opens, not lead_contribution (2 records, one id)', () => {
+    const n = nextOf(hiring, 11)
+    expect([n.at, n.about]).toStrictEqual(['bottleneck_test', ['bottleneck_test', 'lead_contribution', 'developer_contribution']])
+    expect(['lead_contribution', 'weekly_delivery', 'meet_launch_deadline'].map((h) => [badgeOf(hiring, h).records.includes('bottleneck_test'), badgeOf(hiring, h).records.length, badgeOf(hiring, h).open])).toStrictEqual([[true, 2, false], [true, 7, false], [true, 3, false]])
+    expect(badgeOf(hiring, 'weekly_delivery').records).toContain('developer_contribution')
+    expect(planShow(hiring, n, detailed(hiring))).toStrictEqual({ cards: ['weekly_delivery', 'lead_contribution'], open: [{ host: 'weekly_delivery', records: badgeOf(hiring, 'weekly_delivery').records }], inputs: false })
+  })
+})
+
+describe('T9 a record a drawn card names as a premise: the card that holds it is the target, by the same host rule', () => {
+  const next = nextOf(golden, 12)
+  const only = pointing(next, 'receipt_timing_gap', ['receipt_timing_gap'])
+  it('the fixture: `receipt_timing_gap` is no card and behind no badge; three cards name it, each with that one premise, end_cash_margin first in the View', () => {
     expect(golden.model!.cards.some((c) => c.id === 'receipt_timing_gap' || c.badge?.records.includes('receipt_timing_gap'))).toBe(false)
-    expect(JSON.stringify(planShow(golden, next, detailed(golden)))).not.toContain('receipt_timing_gap')
-    expect(planShow(golden, pointing(next, 'receipt_timing_gap', ['receipt_timing_gap']), detailed(golden))).toBeNull()
+    expect(golden.model!.cards.filter((c) => premiseIds(golden, c.id).includes('receipt_timing_gap')).map((c) => [c.id, premiseIds(golden, c.id).length])).toStrictEqual([['end_cash_margin', 1], ['secure_funding', 1], ['cash_survival', 1]])
+  })
+  it('equal ids and equal premise counts: the first in the View\'s order is shown (end_cash_margin), and nothing is unfolded', () => {
+    expect(planShow(golden, only, detailed(golden))).toStrictEqual({ cards: ['end_cash_margin'], open: [], inputs: false })
+  })
+  it('INVENTED contrast: with a second premise on end_cash_margin, the card naming the fewest is shown (secure_funding)', () => {
+    const v = clone(golden)
+    cardOf(v, 'end_cash_margin').premises.push({ ...cardOf(v, 'end_cash_margin').premises[0]!, id: 'invented_premise_a' })
+    expect(planShow(v, only, detailed(v))!.cards).toStrictEqual(['secure_funding'])
+  })
+  it('INVENTED contrast: most ids held beats fewest premises: the one card naming both of the reply\'s premises is shown alone', () => {
+    const v = clone(golden)
+    cardOf(v, 'cash_survival').premises.push({ ...cardOf(v, 'cash_survival').premises[0]!, id: 'invented_premise_b' })
+    expect(planShow(v, pointing(next, 'receipt_timing_gap', ['receipt_timing_gap', 'invented_premise_b']), detailed(v))).toStrictEqual({ cards: ['cash_survival'], open: [], inputs: false })
+  })
+  it('a badge comes before a premise: `test_speed_bottleneck` is a premise of add_angel_bridge AND behind badges; INVENTED: with only net_funding\'s badge holding it, net_funding opens', () => {
+    expect(premiseIds(golden, 'add_angel_bridge')).toContain('test_speed_bottleneck')
+    const v = clone(golden)
+    badgeOf(v, 'add_angel_bridge').records = badgeOf(v, 'add_angel_bridge').records.filter((r) => r !== 'test_speed_bottleneck')
+    const plan = planShow(v, pointing(next, null, ['test_speed_bottleneck']), detailed(v))!
+    expect(plan.open.map((b) => b.host)).toStrictEqual(['net_funding'])
+    expect(plan.cards).toStrictEqual(['net_funding'])
+  })
+  it('INVENTED contrast: a premise no card names any more is nothing, with no trace', () => {
+    const v = clone(golden)
+    for (const c of v.model!.cards) c.premises = c.premises.filter((p) => p.id !== 'receipt_timing_gap')
+    expect(planShow(v, only, detailed(v))).toBeNull()
+    expect(JSON.stringify(planShow(v, next, detailed(v)))).not.toContain('receipt_timing_gap')
   })
 })
 
@@ -197,6 +239,7 @@ describe('T7 an id core does not send this reader', () => {
     const v = clone(opened)
     v.model!.cards = v.model!.cards.filter((c) => c.id !== 'rival_sales')
     v.model!.links = v.model!.links.filter((l) => l.from !== 'rival_sales' && l.to !== 'rival_sales')
+    for (const c of v.model!.cards) { c.premises = c.premises.filter((p) => p.id !== 'rival_sales'); if (c.badge != null) c.badge.records = c.badge.records.filter((r) => r !== 'rival_sales') }
     return v
   })()
   const next = pointing(nextOf(opened, 4), 'rival_sales', ['rival_sales', 'newsletter'])

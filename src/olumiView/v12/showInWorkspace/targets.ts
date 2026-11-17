@@ -9,17 +9,18 @@
  *   3. a relation card the board draws as a link      → the two cards that link joins (read as `linkCards` reads them)
  *   4. a record a badge holds
  *      a. behind a badge that is already open         → the card (or the question) whose badge it is
- *      b. behind closed badges only                   → ONE badge is opened, chosen by the rule below; the id is resolved again after
- *   5. anything else                                  → nothing, and no trace of it
+ *      b. behind closed badges only                   → ONE badge is opened, chosen by the host rule; the id is resolved again after
+ *   5. a record a drawn card names as a premise       → ONE card that holds it, chosen by the same host rule (nothing is unfolded)
+ *   6. anything else                                  → nothing, and no trace of it
  *
- * Rule 5 is the stale id, the record the board never draws, and anything core does not send THIS reader. The three are not told apart
+ * Rule 6 is the stale id, the record the board never draws, and anything core does not send THIS reader. The three are not told apart
  * and none is counted, named or hinted at: an id that is not in the reader's View does not exist here.
  *
- * SEVERAL BADGES HOLD THE SAME RECORD (4b). The badges to open are a fixed greedy cover of the ids still behind closed badges:
- *   - the badge that holds the most of those ids;
- *   - on a tie, the badge that holds the fewest records in all (the least is unfolded);
+ * THE HOST RULE (4b and 5: several badges, or several cards, hold the same record). The hosts are a fixed greedy cover of the ids waiting:
+ *   - the host that holds the most of those ids;
+ *   - on a tie, the host that holds the fewest records in all (for a badge, the least is unfolded);
  *   - on a tie, the first in the View's order (the question, then its cards).
- * It is repeated until every such id has a badge. Never "the first badge found".
+ * It is repeated until every such id has a host. Never "the first host found".
  *
  * AFTER UNFOLDING the caller resolves again on the View core then sends: a record that has become a card is its own target (rule 1), one
  * still inside an open badge is its host (4a). A second pass that still asks for a badge means the unfolding did not land: the caller
@@ -48,19 +49,43 @@ export interface ShowPlan {
   readonly inputs: boolean
 }
 
-interface Host { readonly id: string; readonly records: readonly string[]; readonly open: boolean; readonly at: number }
+/** Something that holds records: a badge (the question's or a card's) or a card's premises. `at` is its place in the View's order. */
+interface Host { readonly id: string; readonly records: readonly string[]; readonly at: number }
 
 /** Every badge in the View, in the View's order: the question's, then each card's. */
-function hostsOf(model: ViewModel): Host[] {
-  const out: Host[] = []
+function badgesOf(model: ViewModel): (Host & { readonly open: boolean })[] {
+  const out: (Host & { readonly open: boolean })[] = []
   const q = model.question.badge
   if (q != null) out.push({ id: QUESTION, records: q.records, open: q.open, at: 0 })
   model.cards.forEach((c, i) => { if (c.badge != null) out.push({ id: c.id, records: c.badge.records, open: c.badge.open, at: i + 1 }) })
   return out
 }
 
+/** THE HOST RULE: the hosts that cover `ids`, in the order chosen, and the host each id went to. An id no host holds is left out. */
+function coverOf(ids: readonly string[], hosts: readonly Host[]): { chosen: Host[]; hostOf: Map<string, string> } {
+  const chosen: Host[] = [], hostOf = new Map<string, string>()
+  let left = [...ids]
+  while (left.length > 0) {
+    let best: Host | null = null, bestHeld = 0
+    for (const h of hosts) {
+      const held = left.filter((id) => h.records.includes(id)).length
+      if (held === 0) continue
+      if (best === null || held > bestHeld || (held === bestHeld && (h.records.length < best.records.length || (h.records.length === best.records.length && h.at < best.at)))) { best = h; bestHeld = held }
+    }
+    if (best === null) break
+    const host = best
+    chosen.push(host)
+    for (const id of left) if (host.records.includes(id)) hostOf.set(id, host.id)
+    left = left.filter((id) => !host.records.includes(id))
+  }
+  return { chosen, hostOf }
+}
+
 /** The two cards a relation-as-link joins: the ends of its two reason links, as `linkCards` reads them. */
 const endsOf = (model: ViewModel, relation: string): string[] => model.links.filter((l) => l.kind === 'reason' && l.from === relation).map((l) => l.to)
+
+/** An id waiting for its host keeps its place in core's order under this mark until the host is chosen. */
+const WAITING = '\u0000'
 
 /**
  * The plan for one reply against the View now: null when nothing it names can be shown to this reader (no control is drawn then).
@@ -77,7 +102,14 @@ export function planShow(view: View | null, next: Next | null, board: BoardNow):
   const asLinks = linkCards(model)
   const folded = board.level === 'simple' && inputsFolded(board.sid, drawn, board.inputsOpen)
   const foldedInputs = folded ? new Set(inputIdsOf(drawn)) : new Set<string>()
-  const hosts = hostsOf(model)
+  const badges = badgesOf(model)
+  /** The drawn cards that name a record as a premise, as hosts (rule 5). */
+  const premiseHosts: Host[] = []
+  model.cards.forEach((c, i) => {
+    if (!onBoard.has(c.id)) return
+    const named = c.premises.flatMap((p) => (p.id == null ? [] : [p.id]))
+    if (named.length > 0) premiseHosts.push({ id: c.id, records: named, at: i + 1 })
+  })
 
   const cards: string[] = []
   let inputs = false
@@ -89,48 +121,32 @@ export function planShow(view: View | null, next: Next | null, board: BoardNow):
     return true
   }
 
-  /** Ids behind closed badges only (4b). Each holds its place in `cards` with a placeholder until its badge is chosen. */
-  const behind: string[] = []
+  const behindBadges: string[] = [], inPremises: string[] = []
   for (const id of ids) {
     if (asLinks.has(id)) { for (const end of endsOf(model, id)) take(end); continue } // rule 3
     if (take(id)) continue // rules 1, 2
-    const holding = hosts.filter((h) => h.records.includes(id))
-    if (holding.length === 0) continue // rule 5: not in this reader's View
+    const holding = badges.filter((h) => h.records.includes(id))
     const opened = holding.find((h) => h.open)
     if (opened !== undefined) { take(opened.id); continue } // rule 4a
-    behind.push(id)
-    cards.push(`\u0000${id}`) // a placeholder, so the chosen host keeps core's order; replaced below
+    if (holding.length > 0) { behindBadges.push(id); cards.push(WAITING + id); continue } // rule 4b
+    if (premiseHosts.some((h) => h.records.includes(id))) { inPremises.push(id); cards.push(WAITING + id); continue } // rule 5
+    // rule 6: not in this reader's View
   }
 
-  // Rule 4b: the fixed greedy cover.
-  const open: BadgeToOpen[] = []
-  const hostOf = new Map<string, string>()
-  let left = [...behind]
-  while (left.length > 0) {
-    let best: Host | null = null, bestHeld = 0
-    for (const h of hosts) {
-      if (h.open) continue
-      const held = left.filter((id) => h.records.includes(id)).length
-      if (held === 0) continue
-      if (best === null || held > bestHeld || (held === bestHeld && (h.records.length < best.records.length || (h.records.length === best.records.length && h.at < best.at)))) { best = h; bestHeld = held }
-    }
-    if (best === null) break // unreachable: every id in `left` has a closed host
-    const chosen = best
-    open.push({ host: chosen.id, records: chosen.records })
-    for (const id of left) if (chosen.records.includes(id)) hostOf.set(id, chosen.id)
-    left = left.filter((id) => !chosen.records.includes(id))
-  }
+  const toOpen = coverOf(behindBadges, badges.filter((h) => !h.open))
+  const holders = coverOf(inPremises, premiseHosts)
+  const hostOf = new Map([...toOpen.hostOf, ...holders.hostOf])
 
-  // Each placeholder becomes its chosen host, once, where core's order put it; a host that is itself a folded input needs the inputs too.
+  // Each waiting id becomes its host, once, where core's order put it; a host that is itself a folded input needs the inputs too.
   const placed: string[] = []
   for (const c of cards) {
-    const id = c.startsWith('\u0000') ? hostOf.get(c.slice(1)) : c
+    const id = c.startsWith(WAITING) ? hostOf.get(c.slice(WAITING.length)) : c
     if (id === undefined || placed.includes(id)) continue
     if (foldedInputs.has(id)) inputs = true
     placed.push(id)
   }
   if (placed.length === 0) return null
-  return { cards: placed, open, inputs }
+  return { cards: placed, open: toOpen.chosen.map((h) => ({ host: h.id, records: h.records })), inputs }
 }
 
 /** The layer that is really on (lenses/store.ts `useActiveLayer`, as a pure rule): one the View can still fill for this scenario, else the full model. */
