@@ -11,9 +11,9 @@
  */
 import { create } from 'zustand'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
+import { call, newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
-import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type ViewTurn } from './client'
+import { writes, VIEW_SHAPE_CHANGED, type DraftAccepted, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
@@ -38,7 +38,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, MessageSquare, RefreshCw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -54,6 +54,7 @@ import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/idea
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
+import { FloorKeep } from './v12/chat/FloorKeep'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
@@ -356,7 +357,7 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
-function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
+function FloorLine({ f, me, latest, keep = false }: { f: FloorTurn; me?: string | null; latest: boolean; /** A reply to a message that ended done: Olumi's words can be kept (words-start CONTRACT 2). */ keep?: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} className="space-y-2">
@@ -366,13 +367,18 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
-      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare /></div>
+      <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><EarlyAnswer text={f.text} testid="view-floor-reply-text" bare />{keep ? <FloorKeep job={f.job} text={f.text} /> : null}</div>
     </li>
   )
 }
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
 export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
+  // Words-start CONTRACT 2: only a reply to a message that ended done can be kept. Not the first draft's own answer (the brief's job), and not
+  // the job core still reports as running, failed or lost (the View's `turn`); core refuses anything else in its own words.
+  const briefJob = entries?.find((e) => e.kind === 'brief')?.job ?? (draft as { job?: number } | null | undefined)?.job ?? null
+  const turnNow = useViewStore((st) => st.view?.turn ?? null)
+  const keepable = (f: FloorTurn) => f.job !== briefJob && (turnNow === null || turnNow.job !== f.job)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
   // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
@@ -382,7 +388,7 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
-        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} keep={keepable(row.floor!)} />
         const t = chat[row.index]!
         const next = rows[position + 1]
         // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
@@ -752,13 +758,22 @@ async function act(f: () => Promise<unknown>, changesModel = false, sink: (said:
  * bar then names it (`/#/scenario/<uuid>`), so the link opens the same scenario in any browser of a member. An answer that lands after the
  * page moved on to another scenario moves nothing (review 00052 #5).
  */
-async function startScenario(brief: string, op: string, uuid: string | null): Promise<void> {
+/**
+ * Start in words (core `POST /api/scenarios { brief, start: 'words' }`, words-start CONTRACT 1, 17 Nov): core saves the scenario and its brief and
+ * builds no model (no draft job, no AI call). The page then sends the same words as the person's first message (`POST …/messages`, the existing
+ * route), so Olumi answers them on the floor at once, in words; that answer is the only AI call. Its op is derived from the brief's op, so a
+ * retry after a lost answer replays the same message instead of sending a second one.
+ */
+const createInWords = (brief: string, op: string) => call<DraftAccepted>('POST', '/api/scenarios', { brief, op, start: 'words' })
+const firstMessageOp = (op: string) => `${op}-m`.slice(0, 64)
+
+async function startScenario(brief: string, op: string, uuid: string | null, words = false): Promise<void> {
   watchPageMoves()
   const left = pageMoves
   // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
   // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
   keepPending(brief, op)
-  const made = await writes.create(brief, op)
+  const made = words ? await createInWords(brief, op) : await writes.create(brief, op)
   // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
   if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
   dropPending(op)
@@ -770,9 +785,10 @@ async function startScenario(brief: string, op: string, uuid: string | null): Pr
   setCurrentScenarioId(derived)
   try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
   await useViewStore.getState().use(derived)
+  if (words) await writes.message(made.scenario, brief, firstMessageOp(op))
   // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
   const opened = useViewStore.getState()
-  if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && opened.view?.draft?.status === 'drafting') revealOlumiSurface()
+  if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && (words || opened.view?.draft?.status === 'drafting')) revealOlumiSurface()
 }
 
 /** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
@@ -887,7 +903,12 @@ export function stopDraft(): Promise<boolean> {
 // A scenario that already holds a kept idea is under way: what the person sends there is a message about it (core answers a message on a
 // scenario with no model in words, turns.ts chat floor), never a new brief that would start another scenario (Codex 008e).
 const holdsKept = (view: View): boolean => { const k = (view as { kept?: unknown }).kept; return Array.isArray(k) && k.length > 0 }
-export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view) && !holdsKept(view))
+/** A scenario started in words (words-start CONTRACT 1): core holds its brief with NO draft job at all (`draft: null`, sent, not absent), no
+ *  version and no proposal. What the person sends there is a message in that scenario, answered on the floor, never a new brief. */
+export const startedInWords = (view: View | null): boolean =>
+  view !== null && view.draft === null && view.version === null && view.proposal === null && hasBrief(view)
+const hasBrief = (view: View): boolean => { const b = (view as { brief?: unknown }).brief; return typeof b === 'string' && b.trim() !== '' }
+export const takesBrief = (sid: string | null, view: View | null) => sid === null || (view !== null && view.version === null && view.proposal === null && !onFloor(view) && !holdsKept(view) && !startedInWords(view))
 
 const opKey = (uuid: string | null, kind: string, text: string) => `${uuid ?? '-'}\u0000${kind}\u0000${text}`
 
@@ -902,10 +923,10 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 }
 
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
-function say(text: string): Promise<boolean> {
+function say(text: string, words = false): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
-  return takesBrief(sid, view) ? write('brief', text, (op) => startScenario(text, op, uuid))
+  return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
     : write('message', text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op); dropPendingTurn(op); return r })
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
@@ -921,14 +942,18 @@ export function resendOf(held: ViewChatState['held'], text: string, here: string
   return { again, drop: mine !== null && again === null }
 }
 
-async function send(): Promise<void> {
+async function send(words = false): Promise<void> {
   const { text, held } = useViewChat.getState()
   if (text.trim() === '') return
   const { again, drop } = resendOf(held, text, useViewStore.getState().uuid)
   if (drop) useViewChat.setState({ held: null })
-  if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text)))) return
+  if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text, words)))) return
   if (useViewChat.getState().text === text) useViewChat.setState({ text: '' })
 }
+
+/** The composer's one choice for a new brief (words-start, 17 Nov): build a model from it (Send, the default), or talk it through first. */
+export const TALK_FIRST = 'Talk it through first'
+export const TALK_FIRST_HOVER = 'Olumi answers in the conversation and builds no model yet. You can keep its ideas and build a model later.'
 
 /**
  * A challenge on one card, to core's challenge route; one that does not go through is held for the same resend (`held`). A resend goes to
@@ -1675,7 +1700,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const submit = () => { if (!sendHeld) void send() }
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
-  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
+  const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view) && !startedInWords(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view)
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
@@ -1727,6 +1752,13 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <button type="button" onClick={analysisAction.onRun} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} aria-label={analysisAction.label}
               title={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} className={quiet} data-testid="view-composer-analyse">
               <RefreshCw strokeWidth={1.75} className={`w-3.5 h-3.5${analysisAction.isRunning ? ' animate-spin' : ''}`} aria-hidden="true" />
+            </button>
+          )}
+          {/* Words-start (17 Nov): the one deliberate choice for a new brief, beside Send; Send still builds a model (the default). */}
+          {!brief ? null : (
+            <button type="button" disabled={sendHeld} title={TALK_FIRST_HOVER} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
+              className={`${typography.viewPanelHeading} inline-flex min-h-[32px] items-center gap-1 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
+              <MessageSquare className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />{TALK_FIRST}
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}

@@ -1,0 +1,173 @@
+/**
+ * Words-start (engine CONTRACT, overnight-20261117/words-start.md, 17 Nov): a person may start a scenario in words, with no model built, and keep
+ * Olumi's ideas from that conversation. Real mounted ViewChat and ViewComposer, the real stores, a scripted fetch. Rows bind by identity: the
+ * route and body each press sends (CONTRACT 1 and 2), the floor reply's `job`, and the View's `kept[].turn` (CONTRACT 3), each with a contrast.
+ *
+ * 1. ONE deliberate choice at the fresh composer; Send (build a model) stays the default and unchanged.
+ * 2. A scenario started in words takes messages, never a second brief; the method icons wait for a model.
+ * 3. Keep on a floor reply that ended done, with Olumi's own words; nothing on the first draft's reply, a running/failed job, or the host's lines.
+ * All words are invented.
+ */
+import '@testing-library/jest-dom/vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
+import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
+import { useMe } from '../../../../olumiCore/me'
+import { useCanvasStore } from '../../../../canvas/store'
+import { useUIStore } from '../../../../stores/uiStore'
+import type { View } from '../../../client'
+import { useViewStore } from '../../../store'
+import { startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { floorIdeaOf, HOST_SENTENCES } from '../FloorKeep'
+import { KEEP_IDEA, KEPT_IDEA } from '../../KeepIdea'
+
+const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
+const SID = 's_00000000000e', UUID = '00000000-0000-4000-8000-00000000000e', MADE = 's_0000000000ab'
+const BRIEF = 'Should the bike shop open a second workshop across town?'
+const SAID = 'What would the second workshop need first?'
+const OWN = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours.\n\nThen price a small unit near the station.'
+const OWN_WORDS = 'A second workshop needs a mechanic before it needs a lease. Start by asking the two part-time mechanics about more hours. Then price a small unit near the station.'
+const AT = '2026-11-17T04:00:00.000Z'
+const row = (job: number, text = OWN) => ({ job, at: AT, by: 'Ada', by_id: '7', said: SAID, text })
+/** A scenario core holds in words (CONTRACT 1): its brief, `draft: null`, no version, no proposal, no model. */
+const inWords = (over: Record<string, unknown> = {}): View =>
+  ({ ...golden('pricing'), id: SID, you_id: '7', you: 'Ada', brief: BRIEF, draft: null, version: null, proposal: null, model: null, chat: [], floor: [], ...over } as unknown as View)
+
+let posts: { url: string; body: Record<string, unknown> }[] = [], answer: (url: string) => Response, served: (url: string) => View | null
+const show = (view: View | null, sid: string | null = SID) => {
+  useViewStore.setState({ uuid: sid === null ? UUID : UUID, sid, view, status: view === null ? 'none' : 'ready', error: null, stale: false, at: null })
+  return render(<><ViewChat /><ViewComposer /></>).container
+}
+const q = (c: ParentNode, id: string) => c.querySelector<HTMLElement>(`[data-testid="${id}"]`)
+const qa = (c: ParentNode, id: string) => [...c.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)]
+const type = (c: HTMLElement, text: string) => fireEvent.change(c.querySelector('#view-chat-text')!, { target: { value: text } })
+const press = async (el: HTMLElement | null) => { await act(async () => { fireEvent.click(el!) }) }
+const floorTurn = (c: ParentNode, job: number) => c.querySelector<HTMLElement>(`[data-testid="view-floor-turn"][data-floor-job="${job}"]`)
+
+beforeEach(() => {
+  posts = []
+  answer = () => new Response(JSON.stringify({ error: 'unscripted' }), { status: 500 })
+  served = () => useViewStore.getState().view
+  try { localStorage.clear() } catch { /* none */ }
+  useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+  setPagePerson(null); useMe.setState({ me: { id: '7', name: 'Ada' } } as never)
+  useCanvasStore.setState({ currentScenarioId: UUID } as never)
+  setTeamFetch((async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); return answer(url) }
+    const v = served(url)
+    return v === null ? new Response(JSON.stringify({ error: 'not found' }), { status: 404 }) : new Response(JSON.stringify(v), { status: 200 })
+  }) as unknown as typeof fetch)
+})
+afterEach(() => {
+  cleanup(); setTeamFetch(null); setPagePerson(null); useMe.setState({ me: null } as never)
+  useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, stale: false, at: null })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
+})
+
+describe('1. one deliberate choice at the fresh composer; Send stays the default', () => {
+  it('"Talk it through first" creates the scenario in words (start: "words"), then sends the brief as its first message with an op derived from the brief\'s', async () => {
+    answer = (url) => url === '/api/scenarios'
+      ? new Response(JSON.stringify({ scenario: MADE, job: null, proposal: null, status_url: null }), { status: 200 })
+      : new Response(JSON.stringify({ job: 41, status_url: null }), { status: 202 })
+    served = (url) => (url.startsWith(`/api/scenarios/${MADE}/view`) ? inWords({ id: MADE }) : null)
+    const c = show(null, null)
+    expect(q(c, 'view-composer-talk-first')?.textContent).toBe(TALK_FIRST)
+    type(c, BRIEF)
+    await press(q(c, 'view-composer-talk-first'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    const op = posts[0]!.body['op'] as string
+    expect(op).toMatch(/^[A-Za-z0-9-]{8,64}$/)
+    expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op, start: 'words' } })
+    expect(posts[1]).toEqual({ url: `/api/scenarios/${MADE}/messages`, body: { text: BRIEF, op: `${op}-m` } })
+    expect(useCanvasStore.getState().currentScenarioId).toBe('00000000-0000-4000-8000-0000000000ab')
+  })
+
+  it('CONTRAST: Send on the same box posts the brief exactly as before (no `start`, no message): the default builds a model', async () => {
+    answer = () => new Response(JSON.stringify({ scenario: MADE, job: { id: 5 }, proposal: null, status_url: null }), { status: 202 })
+    served = (url) => (url.startsWith(`/api/scenarios/${MADE}/view`) ? inWords({ id: MADE, draft: { status: 'drafting', reason: null, at: AT, job: 5, stage: 'building', started: AT, words: 'Building the model' } }) : null)
+    const c = show(null, null)
+    type(c, BRIEF)
+    await press(q(c, 'view-composer-send'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: BRIEF, op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+  })
+
+  it('the choice is offered only for a new brief: not on a scenario that holds a model (contrast: the fresh box above offers it)', () => {
+    const c = show(golden('proposal'), golden('proposal').id)
+    expect(q(c, 'view-composer-send')).not.toBeNull()
+    expect(q(c, 'view-composer-talk-first')).toBeNull()
+  })
+})
+
+describe('2. a scenario started in words takes messages, never a second brief', () => {
+  it('takesBrief is false for it (draft: null, a brief); CONTRAST: a fresh page, and a no-draft scenario with no brief, still take a brief', () => {
+    expect(startedInWords(inWords())).toBe(true)
+    expect(takesBrief(SID, inWords())).toBe(false)
+    expect(takesBrief(null, null)).toBe(true)
+    expect(takesBrief(SID, inWords({ brief: '' }))).toBe(true)
+    // A scenario whose first model was set aside keeps its done draft job, so it is not "started in words".
+    expect(startedInWords(inWords({ draft: { status: 'done', reason: null, at: AT, job: 5, stage: 'done', started: AT, words: '' } }))).toBe(false)
+  })
+
+  it('what the person sends there is a message to THIS scenario, and the composer shows no method icons and no second choice', async () => {
+    answer = () => new Response(JSON.stringify({ job: 42, status_url: null }), { status: 202 })
+    const c = show(inWords({ floor: [row(9)] }))
+    expect(qa(c, 'view-composer-talk-first')).toHaveLength(0)
+    expect(c.querySelectorAll('[data-testid^="view-composer-method-"]')).toHaveLength(0)
+    type(c, SAID)
+    await press(q(c, 'view-composer-send'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/messages`)
+    expect(posts[0]!.body['text']).toBe(SAID)
+  })
+})
+
+describe('3. Keep on a floor reply that ended done, in Olumi\'s own words', () => {
+  it('the reply offers the existing Keep; a press posts { floor: <job>, text } (no turn, no concerns) to core\'s kept route', async () => {
+    answer = () => new Response(JSON.stringify({ kept: 77 }), { status: 201 })
+    const c = show(inWords({ floor: [row(9)] }))
+    const button = floorTurn(c, 9)!.querySelector<HTMLElement>('[data-testid="view-floor-keep-button"]')
+    expect(button?.textContent).toBe(KEEP_IDEA)
+    await press(button)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 9, text: OWN_WORDS } })
+  })
+
+  it('"Kept" is read from the View: kept[].turn equals the floor job; CONTRAST: an idea kept from another job leaves Keep offered here', () => {
+    const kept = (turn: number) => [{ id: 3, turn, text: OWN_WORDS, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [] }]
+    const c = show(inWords({ floor: [row(9)], kept: kept(9) }))
+    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-kept"]')?.textContent).toBe(KEPT_IDEA)
+    cleanup()
+    const d = show(inWords({ floor: [row(9)], kept: kept(12) }))
+    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+  })
+
+  it('nothing on the first draft\'s own reply (the brief\'s job); CONTRAST: the reply to a later message in the same thread offers Keep', () => {
+    const failed = { status: 'failed', reason: null, at: AT, job: 7, stage: 'building', started: AT, words: 'Olumi could not finish this turn.' }
+    const c = show(inWords({ draft: failed, floor: [row(7), row(9)] }))
+    expect(floorTurn(c, 7)).not.toBeNull()
+    expect(floorTurn(c, 7)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
+    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+  })
+
+  it('nothing on the job the View\'s turn still reports as failed; CONTRAST: a different job running leaves this reply\'s Keep', () => {
+    const turn = (job: number, status: string) => ({ job, status, said: SAID, ask: 'message', by: 'Ada', by_id: '7', words: 'Olumi could not finish this turn.', started: AT, at: AT })
+    const c = show(inWords({ floor: [row(9)], turn: turn(9, 'failed') }))
+    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
+    cleanup()
+    const d = show(inWords({ floor: [row(9)], turn: turn(10, 'answering') }))
+    expect(floorTurn(d, 9)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+  })
+
+  it('nothing on a reply that is only the host\'s own line; the host\'s status line beside a reply is never in the kept words (CONTRAST: Olumi\'s own words are)', () => {
+    const c = show(inWords({ floor: [row(9, 'I could not finish my reply this time.'), row(11, `${OWN}\n\nThe model Olumi is building will take this into account.`)] }))
+    expect(floorTurn(c, 9)!.querySelector('[data-testid="view-floor-keep"]')).toBeNull()
+    expect(floorTurn(c, 11)!.querySelector('[data-testid="view-floor-keep-button"]')).not.toBeNull()
+    expect(floorIdeaOf(`${OWN}\n\nThe model Olumi is building will take this into account.`)).toBe(OWN_WORDS)
+    expect(floorIdeaOf(OWN)).toBe(OWN_WORDS)
+    for (const s of HOST_SENTENCES) expect(floorIdeaOf(s)).toBeNull()
+  })
+})
