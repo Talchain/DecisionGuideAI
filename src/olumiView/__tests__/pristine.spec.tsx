@@ -1,18 +1,18 @@
 /**
  * R3 "pristine" (DL 4 Nov, from the R2-vs-Paul's-staging gap list): a card title is one block of inline words, so a wrapped title returns
- * to the card's left edge; core's reason wraps to two lines before an ellipsis (the outcome band's words are hover and reader text since option a2); the lens bar draws icon-only,
- * each label on hover, when its labelled width does not fit beside the pill, so it keeps the top row.
+ * to the card's left edge; core's reason wraps to two lines before an ellipsis (the outcome band's words are hover and reader text since option a2); the lens bar is
+ * icons only, always on the pill's row, and the pill gives way to make its room (Paul, 17 Nov).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { ViewLensBar } from '../ViewLensBar'
+import { lensBarPlace, ViewLensBar } from '../ViewLensBar'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewOptionBand } from '../v10'
-import { lensBarFitsBesidePill } from '../../canvas/artefacts/LensBar'
+import { TOP_ROW_BAR, topRowLimit } from '../TeamPresence'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/golden/${n}.view.json`), 'utf8'))
 afterEach(() => { cleanup(); vi.restoreAllMocks(); useViewStore.setState({ view: null }) })
@@ -53,59 +53,45 @@ describe('core\'s words on the face are whole, never cut (R3 pristine 4; R25, Pa
   })
 })
 
-describe('the lens bar beside the pill when it fits; else labelled, on the row under it (R3 pristine 5; J1 step 5)', () => {
-  it('fits: the run between the pill and the dock, less the gaps, holds the bar', () => {
-    expect(lensBarFitsBesidePill({ viewportWidth: 1440, pillRight: 600, dockInset: 500, barWidth: 300 })).toBe(true)
-    expect(lensBarFitsBesidePill({ viewportWidth: 1440, pillRight: 860, dockInset: 500, barWidth: 300 })).toBe(false)
-  })
-
-  const draw = (labelled: number, compactW: number) => {
-    const banner = document.createElement('div'); banner.setAttribute('role', 'banner'); document.body.appendChild(banner)
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      if (this === banner) return { left: 16, right: 860, width: 844, top: 16, bottom: 56, height: 40, x: 16, y: 16, toJSON: () => ({}) } as DOMRect
-      if (this.getAttribute('data-testid') === 'lens-bar') { const w = this.hasAttribute('data-compact') ? compactW : labelled; return { left: 0, right: w, width: w, top: 0, bottom: 40, height: 40, x: 0, y: 0, toJSON: () => ({}) } as DOMRect }
-      return { left: 0, right: 0, width: 0, top: 0, bottom: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
-    })
-    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1440)
-    useViewStore.setState({ view: golden('european') })
+// CHANGED BY DESIGN (Paul, 17 Nov: "make the top floating menu all icons so it always fits on the top of the screen and not underneath the main
+// left-hand top menu"): the labelled bar and its labelled-or-icon measuring are gone; these four rows (J1 step 5, PL-155, room for the labels,
+// lensBarFitsBesidePill) bound that mode. The rule now: icons only, directly right of the pill on its row, the pill making the room.
+describe('the lens bar: icons only, directly right of the pill on its row, and the pill keeps its room (Paul 17 Nov; contract section 8)', () => {
+  it('placed beside the pill once the pill has made room (hidden while it gives way; the row under it only at its tightest); every lens an icon named in core\'s words; the pill\'s limit counts the bar', () => {
+    // 1128 at 1.33 with the dock open (317 px): the pill tightened to end at 477; the six icons and Rests on's count are 234 wide.
+    const at = { pill: { left: 12, right: 477, bottom: 52 }, barWidth: 234, viewportWidth: 1128, dockInset: 317, tightest: false }
+    expect(lensBarPlace(at)).toEqual({ left: 489, top: 12 })
+    // CONTRAST: the pill before it gave way (it ends at 709): no room yet, so no place (hidden), never the row under the pill...
+    expect(lensBarPlace({ ...at, pill: { left: 12, right: 709, bottom: 52 } })).toBeNull()
+    // ...which it takes only when the pill is at its tightest and still leaves no room (a window narrower than the three sizes).
+    expect(lensBarPlace({ ...at, pill: { left: 12, right: 709, bottom: 52 }, tightest: true })).toEqual({ left: 12, top: 60 })
+    // Icons only: each lens's words are core's, as its name and its hover; none is drawn as a visible label.
+    const v = golden('european')
+    useViewStore.setState({ view: v })
     render(<ViewLensBar />)
-    return () => banner.remove()
-  }
-
-  it('J1 step 5 (the prototype\'s labelled bar): no room beside the pill (1440, pill to 860): the bar keeps every label and takes the row under the pill, at its left', async () => {
-    const done = draw(600, 160) // run beside the pill: 1440 − 12 − (860 + 12) = 556
-    await act(async () => { window.dispatchEvent(new Event('resize')) })
     const bar = screen.getByTestId('lens-bar')
-    expect(bar.hasAttribute('data-compact')).toBe(false)
-    for (const b of screen.getAllByRole('radio')) expect(b.querySelector('[data-lens-label]')!.className).not.toContain('sr-only')
-    expect([parseFloat(bar.style.left), parseFloat(bar.style.top)]).toEqual([16, 56 + 8]) // the pill's left, under its bottom
-    done()
-  })
-
-  it('PL-155 (900 px): the labelled bar cannot fit the canvas column beside the 352 px dock (900 − 352 − 12 − 70 = 466 < 640), so it is icon-only, every label on hover and for a reader; at 1232 it is labelled', async () => {
+    expect(bar.hasAttribute(TOP_ROW_BAR)).toBe(true)
+    const radios = screen.getAllByRole('radio')
+    expect(radios.map((b) => b.getAttribute('data-testid'))).toEqual(['lens-bar-full', 'lens-bar-tradeoffs', 'lens-bar-rests_on', 'lens-bar-premortem', 'lens-bar-what_changes', 'lens-bar-what_if'])
+    for (const b of radios) {
+      const id = b.getAttribute('data-testid')!.slice('lens-bar-'.length) as keyof typeof v.lens_words.label
+      expect(b.querySelector('svg'), id).not.toBeNull()
+      expect(b.querySelector('[data-lens-label]')!.className, id).toBe('sr-only')
+      if (b.getAttribute('aria-disabled') !== 'true') expect(b.title, id).toBe(v.lens_words.label[id])
+      expect(b.getAttribute('aria-label'), id).toBe(id === 'rests_on' ? v.lens_words.rests_on_label : v.lens_words.label[id])
+    }
+    // The pill's limit (the avatars and useTopBarFit read it): the dock's edge less the gap, less the bar and its gap while the bar is on the page.
     const dock = document.createElement('aside'); dock.setAttribute('aria-label', 'Outputs dock'); document.body.appendChild(dock)
-    const asDock = (left: number) => ({ left, right: left + 352, width: 352, top: 8, bottom: 696, height: 688, x: left, y: 8, toJSON: () => ({}) }) as DOMRect
-    let width = 900
-    const done = draw(640, 200)
-    vi.spyOn(window, 'innerWidth', 'get').mockImplementation(() => width)
-    const base = vi.mocked(Element.prototype.getBoundingClientRect).getMockImplementation()!
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) { return this === dock ? asDock(width - 352) : base.call(this) })
-    await act(async () => { window.dispatchEvent(new Event('resize')) })
-    const bar = screen.getByTestId('lens-bar')
-    expect(bar.hasAttribute('data-compact'), 'icon-only at 900').toBe(true)
-    for (const b of screen.getAllByRole('radio')) { expect(b.querySelector('[data-lens-label]')!.className).toContain('sr-only'); expect(b.getAttribute('aria-label')).toBeTruthy() }
-    width = 1232
-    await act(async () => { window.dispatchEvent(new Event('resize')) })
-    expect(screen.getByTestId('lens-bar').hasAttribute('data-compact'), 'labelled again at 1232').toBe(false)
-    dock.remove(); done()
-  })
-
-  it('room for the labels: the bar is labelled as before', async () => {
-    const done = draw(300, 160)
-    await act(async () => { window.dispatchEvent(new Event('resize')) })
-    expect(screen.getByTestId('lens-bar').hasAttribute('data-compact')).toBe(false)
-    for (const b of screen.getAllByRole('radio')) expect(b.querySelector('[data-lens-label]')!.className).not.toContain('sr-only')
-    done()
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1128)
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const r = (left: number, width: number) => ({ left, right: left + width, width, top: 0, bottom: 40, height: 40, x: left, y: 0, toJSON: () => ({}) }) as DOMRect
+      return this === dock ? r(811, 317) : this.hasAttribute(TOP_ROW_BAR) ? r(0, 234) : r(0, 0)
+    })
+    expect(topRowLimit()).toBe(1128 - 317 - 12 - (234 + 12))
+    // CONTRAST: the older look's pill (no lens bar of this lane on the page) keeps only the dock's gap.
+    cleanup()
+    expect(topRowLimit()).toBe(1128 - 317 - 12)
+    dock.remove()
   })
 })
 

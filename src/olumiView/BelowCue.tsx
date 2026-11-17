@@ -12,6 +12,7 @@ import { typography } from '../styles/typography'
 import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
+import { FOOT_GUTTER } from './footClear'
 
 /** The foot of the free canvas: the window's foot less the foot controls' band (the zoom row and this cue, FOOT_CONTROLS). */
 export const FOOT_BAND = 64
@@ -75,8 +76,14 @@ function useBesideZoom(): number {
   return left
 }
 
-export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void } = {}): JSX.Element | null {
+/** The foot edge's height: the foot gutter the framing keeps clear (footClear.ts FOOT_GUTTER). */
+export const FOOT_EDGE = FOOT_GUTTER
+/** How the foot edge fades in: clear at its top, the canvas's own ground from 20 px down, so a card below the fold is behind the edge, never half under a control. */
+export const FOOT_EDGE_FADE = 'linear-gradient(to bottom, transparent, var(--bg-canvas) 20px)'
+
+export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** V12 Simple: while cards are below, the foot is a clean edge (the cards below are behind it; the cue counts them). */ edge?: boolean } = {}): JSX.Element | null {
   const below = useCardsBelow(), right = useCardsRight()
+  const edgeW = useStore((s) => freeRight(s.width))
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
@@ -85,7 +92,8 @@ export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas ha
   if (below === 0 && right === 0) return null
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - Math.floor(panUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height)) }, { duration: 300 }) }
-  return (
+  return (<>
+    {edge && below > 0 ? <div aria-hidden="true" data-testid="view-foot-edge" className="pointer-events-none fixed bottom-0 left-0 z-[4]" style={{ width: edgeW, height: FOOT_EDGE, background: FOOT_EDGE_FADE }} /> : null}
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
       {below === 0 ? null : <>
       <button type="button" onClick={up}
@@ -100,5 +108,5 @@ export function BelowCue({ onPress }: { /** The person's own move (ViewCanvas ha
         <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
       </button>}
     </div>
-  )
+  </>)
 }

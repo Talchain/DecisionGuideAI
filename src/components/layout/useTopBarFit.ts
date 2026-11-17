@@ -3,10 +3,10 @@
  * still covered the Team heading). TeamPresence collapses avatars first; when none are left and the bar still runs past the dock's left edge,
  * the bar's other controls give way one step at a time, in this order: the scenario name shortens (it already ends in "…"), the version pill
  * is dropped (the version is on the Versions control), then Share keeps its icon only. No control is removed that has no other place.
+ * On the core lane the limit also keeps room for the icon lens bar beside the pill (TeamPresence `topRowLimit`, Paul 17 Nov).
  */
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
-import { measureDockInset } from '../../canvas/components/FloatingOlumiPanel'
-import { DOCK_GAP } from '../../olumiView/TeamPresence'
+import { topRowLimit } from '../../olumiView/TeamPresence'
 
 export const TIGHT_MAX = 3
 
@@ -15,7 +15,7 @@ export function useTopBarFit(bar: RefObject<HTMLElement | null>, key: string): n
   // What measure last decided. Only measure writes the state, so this is always the state's own value.
   const latest = useRef(state)
   const measure = () => {
-    const inset = measureDockInset(), limit = inset > 0 ? window.innerWidth - inset - DOCK_GAP : Infinity
+    const limit = topRowLimit()
     const sig = `${key}|${limit}`
     const el = bar.current
     // Over the limit with no avatar left to collapse (the "+N" chip is not an avatar): the next step.

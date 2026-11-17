@@ -3,18 +3,19 @@
  *  - D1a: a card Olumi proposed that the person has not approved, of kind driver, risk, result or note, is not drawn on Simple; ONE group card per row
  *    stands for them, their links run to it, and one press opens that row's group in place for the session. Options, aims and positions are never
  *    grouped; the person's own cards and approved cards never are.
- *  - D1b (the lead's extension, for the owner): an approved note is folded likewise into ONE notes stack per row.
+ *  - An approved card is never grouped, a note included (DL, 17 Nov): the notes stack that folded approved notes is gone.
  * Read from the View's own fields only, never from words:
  *  - "Olumi proposed and unreviewed": the card is in the pending proposal (`card.change` set: core's per-card mark of a change waiting for approval)
  *    and is Olumi's (`card.author.by === 'olumi'`); a card the person gave in a reply carries `change` with `author.by` 'person' and stays drawn.
- *  - "approved": `card.change` null (the card stands in the saved version, not in a change waiting for approval).
+ *  - "approved": `card.change` null (the card stands in the saved version, not in a change waiting for approval): always drawn.
  *  - the kind: core's `card.kind` through the fields adapter (fields.ts cardKind; today's rule where an older core sends none).
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { cardKind, type CardKindName } from '../fields/fields'
 import { bandOf, type BandId } from './bands'
 
-export type GroupKind = 'proposed' | 'notes'
+/** The one kind of group: Olumi's unreviewed proposals. Kept in the id (`group:proposed:<band>`). */
+export type GroupKind = 'proposed'
 export type GroupBand = Exclude<BandId, 'ideas'>
 export type CardGroup = { readonly id: string; readonly kind: GroupKind; readonly band: GroupBand; readonly cards: readonly string[]; readonly kinds: readonly CardKindName[] }
 
@@ -23,7 +24,7 @@ export const GROUP_ID_PREFIX = 'group:'
 export const groupIdOf = (kind: GroupKind, band: GroupBand): string => `${GROUP_ID_PREFIX}${kind}:${band}`
 /** The band a group card stands in, from its id; null for any other id. */
 export function groupBandOf(id: string): GroupBand | null {
-  const m = /^group:(?:proposed|notes):(options|inputs|outcomes|aims)$/.exec(id)
+  const m = /^group:proposed:(options|inputs|outcomes|aims)$/.exec(id)
   return m === null ? null : (m[1] as GroupBand)
 }
 
@@ -31,14 +32,11 @@ export function groupBandOf(id: string): GroupBand | null {
 const PROPOSAL_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'risk', 'result', 'note'])
 /** Olumi proposed it and the person has not approved it (see the header for the fields). */
 export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null && card.author?.by === 'olumi'
-/** An approved note (D1b). */
-const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null
 
 /** Which group a card folds into on Simple, or null where it is drawn. */
 export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null): GroupKind | null {
   const { kind } = cardKind(card, model, view)
-  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return 'proposed'
-  return approvedNote(card, kind) ? 'notes' : null
+  return olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind) ? 'proposed' : null
 }
 
 /** The groups of the drawn model, per row (band), in band order then proposed before notes; a group stands for one card or more. */

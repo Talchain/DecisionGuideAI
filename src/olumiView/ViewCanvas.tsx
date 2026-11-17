@@ -164,8 +164,8 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
   const v = frameOf(snaps, pane, free, simple)
   // DL 07:48Z (3): at rest no card's label or figure is under the foot controls (footClear.ts); after the first approval, the aim in view.
   const nodes = (snaps.full ?? snaps.body ?? snaps.line)?.nodes
-  // V12 Simple frames itself (simpleFrame): the whole board above the foot gutter where it fits at the floor or above; else from its top at the zoom its
-  // type draws 11 px, a zoom at which no card is cut by the foot (zoomClearOfFoot), and the cue counts what is below. restClearOfFoot is Detailed's.
+  // V12 Simple frames itself (simpleFrame): the whole board above the foot gutter where it fits at the floor or above; else from its top, as wide as the
+  // room and no wider, at a zoom at which no card is cut by the foot (zoomClearOfFoot), and the cue counts what is below. restClearOfFoot is Detailed's.
   if (v === null || nodes === undefined || simple) return v
   return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top), anchor)
 }
@@ -203,8 +203,11 @@ function simpleFrame(nodes: readonly Node[], pane: { width: number; height: numb
   if (whole >= SIMPLE_FIT_FLOOR) return atZoom(nodes, pane, free, Math.min(FRAME_MAX_ZOOM, whole))
   const scale = (nodes.find((n) => (n.data as { scale?: number } | undefined)?.scale !== undefined)?.data as { scale?: number } | undefined)?.scale ?? 1
   const readable = Math.min(FRAME_MAX_ZOOM, MIN_CARD_TEXT_PX / (12 * Math.max(scale, 1e-6)))
-  const base = Math.max(SIMPLE_FIT_FLOOR, Math.min(readable, Math.max(across, SIMPLE_FIT_FLOOR)))
-  const z = zoomClearOfFoot(nodes.map((n) => ({ y: n.position.y, h: n.measured?.height ?? n.height ?? 0 })), bounds.y, top, pane.height, base, FRAME_MAX_ZOOM)
+  // Never wider than the room: the board's width fits across (or the floor, where even that is too wide), and the foot-clear search only zooms OUT from
+  // there, and only while the type still draws 11 px, so no card is put under the panel and no text is shrunk to clear the foot. Where no such zoom
+  // clears it, the foot edge (BelowCue) covers what is below the line and the cue counts it.
+  const base = Math.max(SIMPLE_FIT_FLOOR, Math.min(readable, across))
+  const z = zoomClearOfFoot(nodes.map((n) => ({ y: n.position.y, h: n.measured?.height ?? n.height ?? 0 })), bounds.y, top, pane.height, base, Math.max(SIMPLE_FIT_FLOOR, Math.min(base, readable)))
   return atZoom(nodes, pane, free, z)
 }
 
@@ -523,7 +526,7 @@ function ViewFlow() {
       {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
-      {hasModel ? <BelowCue onPress={hand} /> : null}
+      {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}
       {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
       {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}
@@ -534,7 +537,7 @@ function ViewFlow() {
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
       {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true; hand() }} /> : null}
       {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
-      {hasModel ? <ViewLensBar previousPlace /> : null}
+      {hasModel ? <ViewLensBar /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}

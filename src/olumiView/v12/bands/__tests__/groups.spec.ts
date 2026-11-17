@@ -1,6 +1,6 @@
 /**
- * D1 (the owner's ruling, 17 Nov; the lead's D1a and D1b): on Simple, Olumi's unreviewed proposals of kind driver, risk, result or note fold into ONE
- * group card per row, and approved notes into ONE notes stack per row; options, aims and positions never fold, nor do the person's own or approved
+ * D1 (the owner's ruling, 17 Nov): on Simple, Olumi's unreviewed proposals of kind driver, risk, result or note fold into ONE
+ * group card per row; options, aims and positions never fold, nor do the person's own or approved (a note included: DL, 17 Nov)
  * cards. Bound by card id on the in-repo bakery fixture (invented words), each rule by the one field that differs. Pure: groups.ts.
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -22,7 +22,7 @@ const withCards = (cards: ViewCard[]): { model: ViewModel; view: View } => {
   return { model, view: { ...base, model } as View }
 }
 
-describe('which cards fold on Simple (D1a, D1b): read from change, author.by and core\'s kind', () => {
+describe('which cards fold on Simple (D1): read from change, author.by and core\'s kind', () => {
   it('G1 an Olumi driver in the pending proposal is grouped; the same card approved (change null) is not; an Olumi option in the proposal is not', () => {
     const { model, view } = withCards([as('budget', 'driver', olumi, added), as('second_oven', 'option', olumi, added)])
     expect(groupKindOf(model.cards.find((c) => c.id === 'budget')!, model, view), 'proposed by Olumi, not approved').toBe('proposed')
@@ -34,9 +34,8 @@ describe('which cards fold on Simple (D1a, D1b): read from change, author.by and
     const { model, view } = withCards([as('budget', 'driver', person, added), as('sell_360', 'aim', olumi, added)])
     expect(['budget', 'sell_360'].map((id) => groupKindOf(model.cards.find((c) => c.id === id)!, model, view))).toEqual([null, null])
   })
-  it('G2 an approved note folds into the notes stack (D1b), whoever wrote it; the same note in the proposal by Olumi is in the proposal group instead', () => {
-    const mine = as('fitting', 'note', person, null)
-    expect(groupKindOf(mine, withCards([mine]).model, withCards([mine]).view)).toBe('notes')
+  it('G2 an approved note is drawn, never grouped, whoever wrote it (DL 17 Nov); the same note in the proposal by Olumi is in the proposal group', () => {
+    for (const by of [person, olumi]) { const note = as('fitting', 'note', by, null); expect(groupKindOf(note, withCards([note]).model, withCards([note]).view)).toBeNull() }
     const proposed = as('fitting', 'note', olumi, added)
     expect(groupKindOf(proposed, withCards([proposed]).model, withCards([proposed]).view)).toBe('proposed')
   })
