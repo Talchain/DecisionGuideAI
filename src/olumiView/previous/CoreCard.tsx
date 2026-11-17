@@ -278,7 +278,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   function earlierDrawn() {
     if (earlier === null) return null
     return simple
-      ? <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={earlier.title}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
+      ? <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={earlier.title} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
       : <p className="ok-quiet" data-view="run.earlier" title={earlier.title}>{earlier.text}</p>
   }
   const badgeLine = badge === null ? null

@@ -23,7 +23,8 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   // v10 review item 4: a single value (low equals high) with no deadline or tried mark is a track with one dot and two labels that say nothing more than the card's words: draw nothing.
   if (range.low === range.high && deadline === null && t === null) return null
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
-  const band = { position: 'absolute', top: 5, height: 6, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
+  // The person's band is lighter and thinner (v10 review item 4); Olumi's dotted band keeps its own geometry (a 2 px dotted border needs the 8 px).
+  const band = { position: 'absolute', top: olumi ? 4 : 5, height: olumi ? 8 : 6, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
   return (
     <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize: LABEL_PX, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>

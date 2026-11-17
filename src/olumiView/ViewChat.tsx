@@ -343,7 +343,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       <History size={14} strokeWidth={1.75} aria-hidden="true" />
       <span><span data-view={`${at}.version`}>{t.version}</span>
         {t.status === null ? null : <> · <span data-view={`${at}.status`} className={waiting ? undefined : 'sr-only'} title={t.status}>{t.status}</span></>}</span>
-      {t.status === null || waiting ? null : <span title={t.status} className="inline-flex" data-testid="view-chat-status-icon"><Info size={12} strokeWidth={1.75} aria-hidden="true" /></span>}
+      {t.status === null || waiting ? null : <span title={t.status} tabIndex={0} role="img" aria-label={t.status} className="inline-flex" data-testid="view-chat-status-icon"><Info size={12} strokeWidth={1.75} aria-hidden="true" /></span>}
     </div>
   )
   return (

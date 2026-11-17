@@ -33,7 +33,7 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
   const ids = cards.map((c) => c.id)
   return (
     <div className="flex" data-testid="view-about-chips">
-      <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={() => endRing()} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
+      <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
         title={cards.map((c) => aboutWords(c.title)).join('\n')} data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <Crosshair className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span>{aboutCountWords(cards.length)}</span>
