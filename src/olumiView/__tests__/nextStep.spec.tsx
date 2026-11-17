@@ -29,6 +29,10 @@ describe('the next step', () => {
   it('a proposal held: check it, then approve or set aside, with core\'s change card and its two buttons inside the step', () => {
     const c = show(golden('proposal'))
     expect(step(c)?.getAttribute('data-step')).toBe('approve')
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1: the card's button in view at rest): the step's sentence opens with the review; at rest the card
+    // is core's row and the actions. Was: the sentence was in the (hidden) body at rest.
+    expect(step(c)).not.toHaveTextContent(NEXT_STEP_WORDS.approve)
+    setOpen(step(c)!.querySelector('[data-testid="view-proposal-review"]')!, true)
     expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(step(c)?.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     expect(c.querySelectorAll('[data-testid="view-chat-proposal"]')).toHaveLength(1)
@@ -124,12 +128,13 @@ describe('the next step', () => {
     const view = golden('s_ce285b3617bb'), next = view.chat.at(-1)!.answer!.next
     expect([view.proposal, view.collab.alone, next.text.length > 0]).toEqual([null, true, true])
     const c = show(view)
-    expect(step(c)).toBeNull()
-    // V12: the reply's own step is drawn ONCE, as the "From my last reply" card above the box, and not again under the reply.
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and 3): the reply's own step is drawn ONCE, as the one Next step card at the top (its words and its
+    // tap, in core's label), not under the reply and not as a "From my last reply" card above the box (that card is gone). Was: no step card,
+    // the words in the composer's card. The UI still adds no step of its own: the card is core's move, in core's words.
+    expect(step(c)?.getAttribute('data-step')).toBe('move')
+    expect(step(c)?.querySelector('[data-testid="view-next-move"]')?.textContent).toBe(next.label)
     expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(0)
-    const card = render(<ViewComposer />).container.querySelectorAll('[data-testid="view-last-reply-text"]')
-    expect(card).toHaveLength(1)
-    expect(card[0]!.textContent).toContain(next.label)
+    expect(render(<ViewComposer />).container.querySelectorAll('[data-testid="view-last-reply-text"]')).toHaveLength(0)
     expect(nextStepOf({ ...view, proposal: golden('proposal').proposal })?.kind).toBe('approve')
     // Contrast: with no reply yet and nothing of theirs begun, no invitation is made up (V12: only a team activity begun alone invites).
     expect(nextStepOf({ ...view, chat: [] })?.kind).not.toBe('invite')
@@ -204,9 +209,10 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(under[0]!.className).not.toContain('bg-primary') // so the move is not a second filled button
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
-    // Core's words for the move are the "From my last reply" card (V12), once; the reply keeps the move's button, not the line again.
-    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toBeNull()
-    expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-text"]')?.textContent).toContain(next.label)
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3): core's words for the move are drawn once, under the reply with its button; the "From my last
+    // reply" copy above the box is gone. Was: the reply dropped its line and the composer's card held it.
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"] [data-view$=".answer.next.label"]')?.textContent).toBe(next.label)
+    expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-text"]')).toBeNull()
   })
   it('contrast (DL order, 16 Nov): with a figure waiting, the reply\'s move leads and stays under the reply, for someone else\'s page and the owner\'s alike', () => {
     const p = golden('proposal'), b = golden('bakery')
@@ -216,23 +222,29 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(nextStepOf(view)?.kind).toBe('move')
     try {
       useMe.setState({ me: { id: 'someone-else', name: 'Someone else' }, status: 'ready' } as never)
+      // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the move that leads is the ONE Next step card at the top, filled; not under the reply.
+      // Was: under the reply. Still for someone else's page and the owner's alike.
       const c = show(view)
-      expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+      expect(moves(step(c))).toHaveLength(1)
+      expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
       cleanup()
       useMe.setState({ me: { id: view.you_id!, name: view.you }, status: 'ready' } as never)
       const own = show(view)
-      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
-      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary') // nothing pinned: filled primary
+      expect(moves(step(own))).toHaveLength(1)
+      expect(moves(step(own))[0]!.className).toContain('bg-primary') // nothing pinned: filled primary
       expect(moves(own.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     } finally { useMe.setState({ me: null } as never) }
   })
-  it('must not change: with no Next step, the move stays under the reply and More ways holds no move', () => {
+  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): was "with no Next step card, the move stays under the reply". The reply's own move IS the step,
+  // so it is drawn as the one Next step card at the top, filled, and once: not again under the reply.
+  it('the reply\'s own move is the one Next step card, at the top and filled; not again under the reply; More ways holds no move', () => {
     const p = golden('proposal'), view: View = { ...p, proposal: null, collab: { ...p.collab, alone: false }, model: { ...p.model!, run: p.model!.run === null ? null : { ...p.model!.run, waits_on: null } } }
-    expect(nextStepOf(view)?.kind).toBe('move') // V12: the reply's own move is the step; it is drawn under the reply, with no second card
+    expect(nextStepOf(view)?.kind).toBe('move')
     const c = show(view)
-    expect(step(c)).toBeNull()
-    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
-    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))[0]!.className).toContain('bg-primary')
+    expect(step(c)?.getAttribute('data-step')).toBe('move')
+    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
+    expect(moves(step(c))).toHaveLength(1)
+    expect(moves(step(c))[0]!.className).toContain('bg-primary')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
   })
 })
@@ -276,13 +288,18 @@ describe('the readings rule places nothing while the one-row review is closed', 
     const c = held(), b = boxOf()
     const review = c.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
     expect(isOpen(review)).toBe(false)
-    expect(c.querySelectorAll('[data-reading-row]')).toHaveLength(2) // the rows exist; they are just not on screen
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): closed, the card draws core's row and its actions only, and where readings wait for a choice
+    // its filled button opens the review (never Approve blind). Was: the rows were mounted in a hidden body. The choices live in Proposal's
+    // state, which stays mounted either way.
+    expect(c.querySelectorAll('[data-reading-row]')).toHaveLength(0)
+    expect(c.querySelectorAll('[data-testid="view-review-changes"]')).toHaveLength(1)
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
     b.style.maxHeight = '999px' // a stale height from before it was closed: the closed rule clears it
     const placer = observers.find((o) => o.seen.includes(b))!
     placer.fire()
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['', 0])
     setOpen(review, true)
+    expect(c.querySelectorAll('[data-reading-row]')).toHaveLength(2) // open: the rows are drawn
     placer.fire() // the box's ResizeObserver places the rows when the person opens it
     expect([b.style.maxHeight, b.scrollTop]).toEqual(['406px', 292])
     // And closing again gives the room back.

@@ -340,12 +340,15 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
   })
 
-  it('CT8c (DL-538): Olumi\'s question stays in the thread, above the pinned proposal', () => {
+  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the pinned proposal is the one Next step, at the TOP of the panel, above the thread; Olumi's
+  // question stays in the thread, so it now follows the pinned card. Was: question above the pinned proposal (which sat at the panel's foot).
+  it('CT8c (DL-538): Olumi\'s question stays in the thread; the pinned proposal sits above the thread, at the top', () => {
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
     show(asked)
     const { getByTestId } = render(<ViewChat />)
     expect(getByTestId('view-chat-scroll').contains(getByTestId('view-model-question'))).toBe(true)
-    follows(getByTestId('view-model-question'), getByTestId('view-chat-pinned'))
+    expect(getByTestId('view-chat-scroll').contains(getByTestId('view-chat-pinned'))).toBe(false)
+    follows(getByTestId('view-chat-pinned'), getByTestId('view-model-question'))
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
@@ -445,7 +448,8 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(getByTestId('view-model-question-text').textContent).toBe(question)
     expect(getByTestId('view-model-question-text-1').textContent).toBe('What evidence could change your view?')
     follows(getByTestId('view-model-question-text'), getByTestId('view-model-question-text-1'))
-    follows(getByTestId('view-model-question'), getByTestId('view-next-step'))
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the step (approval) is the one card at the top, so the questions follow it. Was: above approval.
+    follows(getByTestId('view-next-step'), getByTestId('view-model-question'))
     expect(posts).toEqual([])
   })
   it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each painted whole and reachable in the panel\'s scroll; the fourth is not drawn', () => {
@@ -588,12 +592,18 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     const { getByTestId } = render(<ViewChat />)
     const review = getByTestId('view-proposal-review')
     const body = bodyOf(review) as HTMLElement
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the step's sentence is drawn when the row is open (closed, the card is the row and its actions,
+    // Approve in view). Was: the sentence sat in the hidden body at rest. Opened here first, as the person does.
+    expect(body.querySelector('p')?.textContent).not.toBe(NEXT_STEP_WORDS.approve)
+    setOpen(review, true)
     expect(body.querySelector('p')?.textContent).toBe(NEXT_STEP_WORDS.approve)
     expect(body.contains(getByTestId('view-chat-proposal'))).toBe(true)
     expect(body.contains(getByTestId('view-approve'))).toBe(true)
     expect(body.querySelector('[data-testid="view-proposal-actions"]'), 'the actions are in the body').not.toBeNull()
     const proposalPart = getByTestId('view-chat-proposal')
     expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal does not draw its heading again').toHaveLength(0)
+    fireEvent.click(rowOf(review))
+    expect(isOpen(review), 'pressing the row again closes it').toBe(false)
     fireEvent.click(rowOf(review))
     expect(isOpen(review), 'pressing the row opens it').toBe(true)
     expect(posts, 'opening sends nothing').toEqual([])
@@ -656,7 +666,10 @@ describe('Contract 3: the readings rest moves nothing while the review is closed
     const { getByTestId } = render(<ViewChat />)
     const review = getByTestId('view-proposal-review')
     expect(isOpen(review)).toBe(false)
-    expect(review.querySelectorAll('[data-reading-row]').length, 'precondition: the held rows are in the proposal').toBe(2)
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): closed, the rows are not drawn and the card's filled button opens the review (never Approve
+    // blind over Olumi's readings). Was: the rows were mounted in a hidden body. The choices live in Proposal's state either way.
+    expect(review.querySelectorAll('[data-reading-row]').length, 'closed: the held rows are not drawn').toBe(0)
+    expect(review.querySelectorAll('[data-testid="view-review-changes"]').length).toBe(1)
     const b = boxOf()
     expect([b.style.maxHeight, b.scrollTop], 'on arrival').toEqual(['', 0])
     expect(placer(), 'the box is still watched, so opening places the rows').toBeDefined()

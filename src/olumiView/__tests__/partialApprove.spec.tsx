@@ -24,6 +24,9 @@ const show = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
   return render(<ViewChat />).container
 }
+// CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): a closed review draws core's row and its actions only (Approve in view at rest); the change list,
+// its ticks and the readings are drawn when the row is open. These rows read the list, so they open the row first, as the person does.
+const showOpen = (view: View) => { const c = show(view); const r = c.querySelector('[data-testid="view-proposal-review"]'); if (r !== null) setOpen(r, true); return c }
 beforeEach(() => {
   posts = []
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
@@ -37,7 +40,7 @@ afterEach(() => { cleanup(); setTeamFetch(null); useViewChat.setState({ busy: fa
 describe('partial approval', () => {
   it('each of core\'s lines, in order, with its tick and what a tap opens; Approve ticked sends exactly the ticked record in `only`', async () => {
     expect(p.changes.length).toBe(2)
-    const c = show(golden)
+    const c = showOpen(golden)
     p.changes.forEach((ch, i) => {
       expect(c.querySelector(`[data-view="proposal.changes.${i}.text"]`)?.textContent).toBe(ch.text)
       expect(c.querySelector(`[data-view="proposal.changes.${i}.detail"]`)?.textContent).toBe(ch.detail)
@@ -54,7 +57,7 @@ describe('partial approval', () => {
   it('a top-level field goes in `only_top`, never `only`, even named like a record; a group\'s tick chooses every line under it', async () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
     const grouped = { ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } }
-    show(grouped)
+    showOpen(grouped)
     fireEvent.click(screen.getByTestId('view-change-group-0'))
     expect(screen.getByTestId('view-approve-ticked')).toHaveTextContent('Approve ticked · 2')
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
@@ -78,26 +81,26 @@ describe('partial approval', () => {
     expect(screen.getByTestId('view-change-tick-1')).toBeVisible()
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
-    show(golden)
+    showOpen(golden)
     fireEvent.click(screen.getByTestId('view-change-tick-0'))
     fireEvent.click(screen.getByText('Approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base } })
     cleanup()
     // One line is the whole proposal: the line is drawn, with no tick and no second Approve.
-    const one = show({ ...golden, proposal: { ...p, changes: [p.changes[0]!] } })
+    const one = showOpen({ ...golden, proposal: { ...p, changes: [p.changes[0]!] } })
     expect(one.querySelector('[data-view="proposal.changes.0.text"]')?.textContent).toBe(p.changes[0]!.text)
     expect(one.querySelector('[data-testid^="view-change-tick-"]')).toBeNull()
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
     cleanup()
-    const c = show({ ...golden, proposal: { ...p, changes: [], groups: null } })
+    const c = showOpen({ ...golden, proposal: { ...p, changes: [], groups: null } })
     expect(c.querySelector('[data-testid^="view-change-tick-"]')).toBeNull()
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
     cleanup()
     // A core before L8 serves no list at all: the card still draws, with Approve alone.
     const older: Record<string, unknown> = { ...p }
     delete older.changes; delete older.groups
-    show({ ...golden, proposal: older as unknown as View['proposal'] })
+    showOpen({ ...golden, proposal: older as unknown as View['proposal'] })
     expect(screen.getByText('Approve')).toBeInTheDocument()
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
   })
@@ -119,7 +122,7 @@ describe('a figure and the line that reads it are ticked together', () => {
   })
 
   it('ticking Olumi\'s figure ticks its option, untick either and both go; Approve ticked sends the two', async () => {
-    show(pair)
+    showOpen(pair)
     fireEvent.click(screen.getByTestId(`view-change-tick-${at('two_specialists')}`))
     expect(ticks()).toEqual([true, true, false])
     fireEvent.click(screen.getByTestId(`view-change-tick-${at('add_two')}`))
@@ -133,7 +136,7 @@ describe('a figure and the line that reads it are ticked together', () => {
   })
 
   it('each marked line carries core\'s why as its hover, verbatim; an unmarked line has none', () => {
-    const c = show(pair)
+    const c = showOpen(pair)
     lines.forEach((l, i) => {
       const hover = c.querySelector(`[data-view-hover="proposal.changes.${i}.together.why"]`)
       expect(hover?.getAttribute('title') ?? null, l.id).toBe(l.together?.why ?? null)
@@ -141,7 +144,7 @@ describe('a figure and the line that reads it are ticked together', () => {
   })
 
   it('CONTRAST: a line core marks with nothing is ticked alone', () => {
-    show(pair)
+    showOpen(pair)
     fireEvent.click(screen.getByTestId(`view-change-tick-${at('c_extra')}`))
     expect(ticks()).toEqual([false, false, true])
   })
@@ -170,8 +173,12 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
     expect(screen.queryByText('Next step'), 'no "Next step" header for this kind').toBeNull()
     expect(row()).toBeVisible()
-    expect(screen.getByTestId('view-proposal-actions'), 'closed: Approve and Set aside are not on screen').not.toBeVisible()
-    expect(screen.getByTestId('view-changes'), 'closed: the changes are not on screen').not.toBeVisible()
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1, UI owner 16 Nov: "one filled button ... never below the fold, never folded away"): closed, the
+    // card keeps Approve and Set aside in view; the changes still wait for a press. Was: the actions were hidden with the list.
+    expect(screen.getByTestId('view-proposal-actions'), 'closed: Approve and Set aside are in view').toBeVisible()
+    expect(screen.getByTestId('view-approve')).toBeVisible()
+    expect(screen.queryByTestId('view-approve-ticked'), 'closed: no ticks, so no Approve ticked').toBeNull()
+    expect(screen.queryByTestId('view-changes'), 'closed: the changes are not on screen').toBeNull()
     expect(screen.getByTestId('view-chat-pinned').className).not.toContain('min-h-[112px]')
   })
 
@@ -193,10 +200,12 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     const row = screen.getByTestId('view-proposal-row')
     fireEvent.click(row)
     expect(isOpen(review())).toBe(true)
-    expect(screen.getByTestId('view-proposal-actions')).toBeVisible()
+    expect(screen.getByTestId('view-changes')).toBeVisible()
     fireEvent.click(row)
     expect(isOpen(review())).toBe(false)
-    expect(screen.getByTestId('view-proposal-actions')).not.toBeVisible()
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): closing hides the list; the actions stay in view. Was: the actions hid with it.
+    expect(screen.queryByTestId('view-changes')).toBeNull()
+    expect(screen.getByTestId('view-proposal-actions')).toBeVisible()
     cleanup()
     show({ ...golden, proposal: { ...p, id: p.id + 1 } })
     expect(isOpen(review()), 'the details is keyed on the proposal id').toBe(false)

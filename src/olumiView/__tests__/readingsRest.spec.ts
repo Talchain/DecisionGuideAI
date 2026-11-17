@@ -102,7 +102,10 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(approve).toContain('data-testid="view-proposal-row"')
     expect(approve).toContain('const [open, setOpen] = useState(false)') // closed at rest
     expect(approve).toContain('aria-expanded={open}')
-    expect(approve).toContain('hidden={!open}')
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the body is never hidden; the Proposal draws only core's alerts and the actions while closed
+    // (Approve in view at rest). Was: hidden={!open} on the body.
+    expect(approve).toContain('inRow open={open}')
+    expect(approve).not.toContain('hidden={!open}')
     expect(approve).toContain('data-view="proposal.heading">{p.heading}')
     expect(approve).toContain('data-view="proposal.on">{p.on}')
     expect(approve).not.toContain('Next step</p>')
@@ -110,7 +113,8 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(approve).toContain('inRow')
   })
   it('CATCH: inside the review the proposal does not draw its own heading again (it is the row\'s own words)', () => {
-    const inRow = chat.indexOf('{inRow ?'), heading = chat.indexOf('data-view="proposal.heading"', inRow)
+    // CHANGED BY DESIGN (sx-panel): the branch is now guarded by `closed` first (a closed review draws no heading line at all). Was '{inRow ?'.
+    const inRow = chat.indexOf('{closed ? null : inRow ?'), heading = chat.indexOf('data-view="proposal.heading"', inRow)
     expect(inRow).toBeGreaterThan(0)
     const other = chat.indexOf('\n        : <div>', inRow) // the not-inRow branch
     expect(other).toBeGreaterThan(inRow)
@@ -118,13 +122,14 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(heading).toBeGreaterThan(other)
   })
   it('CATCH: the readings are not placed while the review is closed, and the box keeps its own height', () => {
-    expect(chat).toContain("const review = el.closest<HTMLElement>('[data-review-body]')")
-    expect(chat).toContain("if (review !== null && review.hidden) { box.style.maxHeight = ''; return }")
+    // CHANGED BY DESIGN (sx-panel): the body is no longer `hidden` while closed, so closed is read from the review's own data-open. Same rule.
+    expect(chat).toContain(`if (el.closest<HTMLElement>('[data-testid="view-proposal-review"]')?.getAttribute('data-open') === 'false') { box.style.maxHeight = ''; return }`)
     // the closed-guard precedes the placement that reads the actions
-    expect(chat.indexOf('review.hidden)')).toBeLessThan(chat.indexOf('[data-testid="view-proposal-actions"]\')', chat.indexOf('review.hidden)')))
+    expect(chat.indexOf("getAttribute('data-open') === 'false')")).toBeLessThan(chat.indexOf('[data-testid="view-proposal-actions"]\')', chat.indexOf("getAttribute('data-open') === 'false')")))
   })
   it('CATCH: the pinned box lost its 112 px floor, so a one-row review does not reserve a taller box', () => {
-    expect(chat).toContain('<div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
+    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the pinned box sits at the top, under the tabs (mt-1 keeps it off the tab row).
+    expect(chat).toContain('<div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
     expect(chat).not.toContain('min-h-[112px]')
   })
   it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {

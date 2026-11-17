@@ -17,7 +17,7 @@ import { writes, VIEW_SHAPE_CHANGED, type FigureFirstShown, type View, type View
 import { verdictOf } from './verdict'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
-import { chatQuestionsOf, isFirstLook, readingHeadingOf, figureFirstOf, newestNextOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { chatQuestionsOf, isFirstLook, readingHeadingOf, figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -53,7 +53,6 @@ import { CommitFormSlot } from './v12/team'
 import { approachOf, approachesOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
-import { LastReplyCard } from './v12/chat/LastReplyCard'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -94,16 +93,25 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
  * Each part keeps its `data-view`; a part split across lines carries `.text` on its first piece and `.text.<k>` on the rest.
  */
 type Piece = { kind: 'text'; i: number; k: number; s: string } | { kind: 'cite'; i: number; cite: string }
-export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** V12 spec §6: a first draft's long first answer (core's label, then core's check heading) shows its first 2 blocks, then "Show the whole first answer"; the check always shows. Any other reply is drawn whole. Off unless asked (the conversation asks). */ fold?: boolean }) {
+/** How many list items of a long reply show at rest (contract §2: a lead, then at most three bullets; the rest behind one press). */
+export const REST_ITEMS = 3
+/** The panel's one 18 px line (contract §2): a newest reply's opening paragraph, only when it is one short sentence's length. */
+export const LEAD_WORDS = 20
+export const SHOW_WHOLE_FIRST = 'Show the whole first answer'
+export const SHOW_WHOLE_REPLY = 'Show the whole reply'
+export const SHOW_LESS = 'Show less'
+export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
     if ('cite' in p) { lines[lines.length - 1]!.push({ kind: 'cite', i, cite: p.cite }); return }
     p.text.split('\n').forEach((s, k) => { if (k > 0) lines.push([]); if (s !== '') lines[lines.length - 1]!.push({ kind: 'text', i, k, s }) })
   })
-  let n = first
+  // Each cite keeps its number by its place in core's parts, whether or not the blocks before it are folded away (a fold never renumbers).
+  const citeNo = new Map<number, number>()
+  parts.forEach((p, i) => { if ('cite' in p) citeNo.set(i, first + citeNo.size) })
   const draw = (line: Piece[], strip: boolean) => line.map((x, j) => {
-    if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{n++}</sup>
+    if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{citeNo.get(x.i)}</sup>
     const s = strip && j === 0 ? x.s.replace(/^\s*- /, '') : x.s
     return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{richText(s)}</span>
   })
@@ -132,26 +140,42 @@ export function Blocks({ parts, at, first = 1, item, fold = false, lines: coreLi
   // detail, never the model's check or correction of it (Codex, 16 Nov: a folded reply could show the unverified claim and hide its correction).
   const check = groups.findIndex((g) => lineOf(g) === 'heading')
   const head = check === -1 ? groups.length : check
-  // Folds only a verified split: core's first answer, then core's check heading (Codex 16:48Z). A reply without that split (a method reply, any
-  // reply whose words core did not mark) is drawn whole, so no check of its own is ever folded away.
-  const foldable = fold && check >= 0 && head > 2 + lead && est > 8
+  // What shows at rest, by group: core's label; the opening (a paragraph whole, or the first three items of a list it opens with); after an
+  // opening paragraph, the first three items of a list that follows it. Whole groups and whole list items only: no sentence is ever cut.
+  const rest = new Map<number, number>()
+  for (let gi = 0; gi < lead; gi++) rest.set(gi, groups[gi]!.lines.length)
+  const opening = lead < head ? groups[lead]! : null
+  if (opening !== null) {
+    rest.set(lead, opening.list ? Math.min(REST_ITEMS, opening.lines.length) : opening.lines.length)
+    const then = lead + 1 < head ? groups[lead + 1]! : null
+    if (!opening.list && then !== null && then.list) rest.set(lead + 1, Math.min(REST_ITEMS, then.lines.length))
+  }
+  const hides = groups.slice(0, head).some((g, gi) => (rest.get(gi) ?? 0) < g.lines.length)
+  const foldable = fold && hides && est > 8
   const folded = foldable && !whole
-  const before = folded ? groups.slice(0, 2 + lead) : groups.slice(0, head), after = groups.slice(head)
-  const groupEl = (g: { list: boolean; lines: Piece[][] }, gi: number) => lineOf(g) === 'label'
-    ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
-    : lineOf(g) === 'heading'
-    ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
-    : (g.list
-    ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="">{g.lines.map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
-    : <p key={gi} className="m-0" data-reply-para="">{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>)
+  const textOf = (g: { lines: Piece[][] }) => g.lines.flatMap((l) => l.map((x) => (x.kind === 'text' ? x.s : ''))).join(' ')
+  // The panel's one 18 px line (contract §2): the newest reply's opening paragraph, only when it is one short sentence's length.
+  const bigLead = big && opening !== null && !opening.list && textOf(opening).trim().split(/\s+/).length <= LEAD_WORDS
+  const groupEl = (g: { list: boolean; lines: Piece[][] }, gi: number) => {
+    const shown = folded && gi < head ? rest.get(gi) ?? 0 : g.lines.length
+    if (shown === 0) return null
+    const open = gi === lead && opening !== null ? { 'data-reply-opening': '' } : {}
+    return lineOf(g) === 'label'
+      ? <p key={gi} className={`m-0 ${typography.viewPanelMeta} text-text-light`} data-reply-label="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+      : lineOf(g) === 'heading'
+      ? <p key={gi} className={`m-0 mt-2 ${typography.viewPanelHeading} text-text-header`} data-reply-heading="">{g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('')}</p>
+      : (g.list
+      ? <ul key={gi} className="m-0 !list-none !pl-3" data-reply-list="" {...open}>{g.lines.slice(0, shown).map((l, li) => { const w = item === undefined ? null : approachOf(l.map((x) => (x.kind === 'cite' ? { cite: x.cite } : { text: x.s }))); return <li key={li} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']">{draw(l, true)}{w === null ? null : item!(w)}</li> })}</ul>
+      : <p key={gi} className={bigLead && gi === lead ? `m-0 ${typography.viewPanelHeadline} text-text-header` : 'm-0'} data-reply-para="" {...open}>{g.lines.map((l, li) => <span key={li}>{li > 0 ? <br /> : null}{draw(l, false)}</span>)}</p>)
+  }
   return (
     <>
-      {before.map((g, gi) => groupEl(g, gi))}
+      {groups.slice(0, head).map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? 'Show the whole first answer' : 'Show less'}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
         : null}
-      {after.map((g, gi) => groupEl(g, head + gi))}
+      {groups.slice(head).map((g, gi) => groupEl(g, head + gi))}
     </>
   )
 }
@@ -191,13 +215,13 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
 const NO_CARDS: readonly string[] = []
 
 /**
- * The newest reply's next step as the "From my last reply" card above the composer's box (V12), or null where no card is drawn: no next step
- * with words (a conversational reply), or a scenario still waiting for its brief. The turn it came from does not draw that line again.
+ * The turn whose next step the panel's one Next step card draws (a `move` step: the newest reply's own move), or null. That turn does not draw
+ * its next line or its tap again: the step is said once, at the top (PANEL-SPEC 1 and 3).
  */
-export function lastReplyCardOf(view: View | null, sid: string | null): NonNullable<ReturnType<typeof newestNextOf>> | null {
-  if (view === null || takesBrief(sid, view)) return null
-  const last = newestNextOf(view.chat)
-  return last === null || last.next.text.every((p) => !('text' in p) || p.text.trim() === '') ? null : last
+export function stepTurnOf(view: View | null, sid: string | null, gone: string | null): number | null {
+  if (view === null) return null
+  const step = nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
+  return step?.kind === 'move' ? step.turn : null
 }
 
 /** The reply's disclosure (V12 Main): the reasons, and what would move the answer. */
@@ -207,7 +231,8 @@ export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
-  const inCard = useViewStore((st) => t.answer !== null && lastReplyCardOf(st.view, st.sid)?.turn.id === t.id)
+  const gone = useViewChat((st) => st.gone ?? null)
+  const inStep = useViewStore((st) => t.answer !== null && stepTurnOf(st.view, st.sid, gone) === t.id)
   const lit = useRef(false)
   useEffect(() => () => { if (lit.current) endRing() }, [])
   const ring = (on: boolean) => { lit.current = on; if (on) pointRing(about); else endRing() }
@@ -262,13 +287,13 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {leads
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold /></div>
-        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold />}
+        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} /></div>
+        : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold lead={latest} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
-      {/* The newest reply's next question is the "From my last reply" card above the box (V12): drawn once, so not again under the reply. Older replies keep theirs. */}
-      {inCard ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
+      {/* The reply's move that is the panel's Next step is drawn in that card at the top, once; it is not drawn again here. Every other reply keeps its own. */}
+      {inStep ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={`${typography.viewPanelHeading} text-text-header`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
-      {moves && t.answer.next.newest ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
+      {moves && t.answer.next.newest && !inStep ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       {!leads ? null : (
         <details className="ok-reply-more" data-reply-more={at}>
@@ -458,7 +483,13 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
   return can ? <FigureEdit id={id} edit={edit} label={text} place="view-question" /> : <>{text}</>
 }
 
-export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+/** The filled button of a closed review where Approve cannot be pressed blind (Olumi's readings wait for a choice, or core does not support the change). */
+export const REVIEW_CHANGES = 'Review the changes'
+/** The quiet text-link look for every action beside the one filled button (PANEL-SPEC 1). */
+const QUIET_ACTION = `${typography.viewPanelHeading} inline-flex min-h-[44px] items-center px-1 text-text-light hover:text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed`
+
+export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen }: { /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+  const closed = inRow && !open
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
   // A proposal Olumi made on considering shared evidence (API v1.12) names who asked and the evidence, in its member's own words. Who asked is
@@ -511,8 +542,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
     if (el === null || box === null || readingIds.length === 0) return
     const land = () => {
       // Contract 3: while the one-row review is closed, its rows are not on screen; nothing is placed and the box keeps its own height.
-      const review = el.closest<HTMLElement>('[data-review-body]')
-      if (review !== null && review.hidden) { box.style.maxHeight = ''; return }
+      if (el.closest<HTMLElement>('[data-testid="view-proposal-review"]')?.getAttribute('data-open') === 'false') { box.style.maxHeight = ''; return }
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
@@ -542,7 +572,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
       for (const part of Array.from(box.querySelectorAll('[data-testid="view-next-step"] > *, [data-testid="view-chat-proposal"] > *, [data-testid="view-proposal-review"] > *, [data-review-body] > *'))) observer.observe(part)
     }
     return () => { observer?.disconnect(); box.style.maxHeight = '' }
-  }, [restKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [restKey, open]) // eslint-disable-line react-hooks/exhaustive-deps
   // What the last approval whose answer never came sent (a dropped connection or a server error: core's `uncertain`). It may have been saved,
   // so only the same selection is sent again. A write core refused, or one that never left the page, was not saved: the person may change the
   // choices and approve again.
@@ -560,9 +590,10 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
   }
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
-      {inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
+      {closed ? null : inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
         : <div><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
         {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
+      {/* Who asked and the evidence it rests on stay in view with the closed card: Approve is never offered without its basis. */}
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
           {from.by === null ? null : <p>Asked by: <span data-view="proposal.from.by">{from.by}</span></p>}
@@ -570,8 +601,8 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
         </div>
       )}
       {p.problem === null ? null : <p role="alert" data-view="proposal.problem">{p.problem}</p>}
-      {readingIds.length === 0 ? null : <p className="text-text-light" data-testid="view-readings-note">{READINGS_NOTE}</p>}
-      {p.marks.map((m, j) => {
+      {readingIds.length === 0 || closed ? null : <p className="text-text-light" data-testid="view-readings-note">{READINGS_NOTE}</p>}
+      {closed ? null : p.marks.map((m, j) => {
         const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
         const id = m.reading?.id
         if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
@@ -592,7 +623,7 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
           </fieldset>]
         )
       })}
-      {changes.length === 0 ? null : groups === null
+      {changes.length === 0 || closed ? null : groups === null
         ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{changes.map((_, i) => line(i))}</ul>
         : (
           <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
@@ -619,13 +650,13 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
         )}
       {/* V11 change 6: core's verdict on the change, before any approval (./verdict.ts). Not supported: core's words, what would support it,
           and no Approve; the person may still set it aside. */}
-      {verdict === undefined ? null : (
+      {verdict === undefined || (closed && verdict.supported) ? null : (
         <div className="grid gap-1" data-testid="view-proposal-verdict" data-supported={verdict.supported}>
           <p className={verdict.supported ? 'text-text-body' : 'font-medium text-text-header'}>{verdict.text}</p>
           {verdict.asks === null ? null : <p className="text-text-light" data-testid="view-proposal-verdict-asks">{verdict.asks}</p>}
         </div>
       )}
-      {readingIds.length === 0 || verdict?.supported === false ? null : (
+      {readingIds.length === 0 || verdict?.supported === false || closed ? null : (
         <p className="text-text-light" data-testid="view-readings-approve-says">
           {/* PL-1083 (2): no sentence here says what Approve keeps or uses: core may refuse an approval that leaves a reading's companions
               without it (409, 12:08Z click-through), and the View does not say which lines go with which reading, so any such claim could be
@@ -634,16 +665,20 @@ export function Proposal({ p, busy, evidence, inRow = false }: { /** Drawn insid
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
-      {/* DL-538: pinned above the composer, the actions stay in view at the card's foot however long its list (olumiLook.css). */}
-      <div className="ok-actions flex flex-wrap gap-2" data-testid="view-proposal-actions">
-        {verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
-        {!tickable || verdict?.supported === false ? null : (
+      {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
+          quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
+          not support the change, the filled button opens the review instead (nothing is approved blind). */}
+      <div className="ok-actions flex flex-wrap items-center gap-2" data-testid="view-proposal-actions">
+        {closed && (readingIds.length > 0 || verdict?.supported === false)
+          ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
+          : verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
+        {!tickable || closed || verdict?.supported === false ? null : (
           <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={`${VIEW_CHIP_CLASS} min-h-[44px]`} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
+            className={QUIET_ACTION} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
         )}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
-        <button type="button" disabled={busy} className={`${VIEW_CHIP_CLASS} min-h-[44px]`} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>
+        <button type="button" disabled={busy} className={QUIET_ACTION} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>
       </div>
     </div>
   )
@@ -1190,10 +1225,13 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        {open ? <ChevronUp className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />}
       </button>
-      <div id={body} data-review-body="" hidden={!open}>
-        <p>{NEXT_STEP_WORDS.approve}</p>
-        <Proposal p={p} busy={busy} evidence={evidence} inRow />
+      {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the
+          change list and the readings join them. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
+      <div id={body} data-review-body="">
+        {open ? <p>{NEXT_STEP_WORDS.approve}</p> : null}
+        <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} />
       </div>
     </div>
   )
@@ -1229,12 +1267,21 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
   )
 }
 
-function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
-  const sid = useViewStore((st) => st.sid)
-  const gone = useViewChat((st) => st.gone ?? null)
-  const step = nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
-  // The reply's own move is drawn under that reply as its one tap (MoveTap, Turn): no second card for the same step.
-  if (step === null || step.kind === 'move') return null
+/** The newest reply's move as the Next step: core's words for it (`next.text`) at their paths, and its one tap, filled, with core's label. */
+function MoveStep({ view, turn }: { view: View; turn: number }) {
+  const k = view.chat.findIndex((t) => t.id === turn), t = view.chat[k], a = t?.answer ?? null
+  if (a === null) return null
+  const at = `chat.${k}.answer.next`
+  const first = 1 + [a.answer, ...a.why].reduce((n, parts) => n + citesIn(parts), 0)
+  return (
+    <div className="space-y-2">
+      {a.next.text.length === 0 ? null : <p data-testid="view-next-move-words"><Words parts={a.next.text} at={`${at}.text`} first={first} /></p>}
+      <MoveTap turn={turn} next={a.next} primary at={at} />
+    </div>
+  )
+}
+
+function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: NextStep }) {
   // Contract 3 (ONE-PLAN, 15 Nov: "the pending review collapses to one row; all changes can be read without approving"): Olumi's waiting
   // proposal is ONE row, in core's words (`proposal.heading` · `proposal.on`), closed at rest so the thread keeps its room; opening it
   // shows every change, its readings and Approve / Set aside (the box then grows and scrolls as before). A new proposal starts closed.
@@ -1249,6 +1296,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   return (
     <section className={`${typography.viewPanelBody} rounded-md border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
       <p className={`${typography.viewPanelHeading} text-text-header`}>Next step</p>
+      {step.kind === 'move' ? <MoveStep view={view} turn={step.turn} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
           <FigureWaits view={view} item={step.item} />
@@ -1392,16 +1440,9 @@ export function ViewChat() {
     const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-early"]') ?? latest
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
-    // The Next step card is the person's one move (Approve, Set aside): with no turn running, it is brought whole into view below the
-    // newest reply, or its top where it is taller than the thread (DL-183: at Paul's 1.33 scale it opened cut at its foot, Approve below).
-    const step = job === null ? el.querySelector<HTMLElement>('[data-testid="view-next-step"]') : null
-    // Olumi's question (core's model.coaching_questions) sits just above the step and is part of it: the block runs from its top.
-    const asked = step === null ? null : el.querySelector<HTMLElement>('[data-testid="view-model-question"]')
-    const from = asked?.offsetTop ?? step?.offsetTop ?? 0
-    if (step !== null && step.offsetTop + step.offsetHeight + 16 > top + el.clientHeight) top = Math.min(from - 16, step.offsetTop + step.offsetHeight + 16 - el.clientHeight)
-    // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"; as the old look): the step and Olumi's question below the
-    // newest reply never carry the thread past that reply's (or job's) first line; they are reached by reading on. The person's own save
-    // (below) still wins: its receipt is what they look for.
+    // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"; as the old look): the thread never carries past the newest
+    // reply's (or job's) first line. The Next step is not in the thread (it sits above it, PANEL-SPEC 1). The person's own save (below) still
+    // wins: its receipt is what they look for.
     if (newest !== null) top = Math.min(top, newest.offsetTop - 16)
     // DL journey (4): a save's receipt and what it changed (ModelNoticeLine, after the newest line) come into view as the step does: whole,
     // or from its top where it is taller than the thread.
@@ -1454,7 +1495,10 @@ export function ViewChat() {
   }, [signature]) // eslint-disable-line react-hooks/exhaustive-deps
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
-  const pinned = view !== null && nextStepOf(view)?.kind === 'approve'
+  const sid = useViewStore((s) => s.sid), gone = useViewChat((s) => s.gone ?? null)
+  // PANEL-SPEC 1: the ONE next step, chosen as core's state says (v12/actions.ts nextStepFor), drawn once, at the top under the tabs.
+  const step = view === null ? null : nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
+  const pinned = step?.kind === 'approve'
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {floating ? null : <div className="flex shrink-0 justify-end px-2 pt-1">
@@ -1463,6 +1507,12 @@ export function ViewChat() {
           <ExternalLink size={14} aria-hidden="true" />
         </button>
       </div>}
+      {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
+          the thread, never cut by the composer. Olumi's waiting proposal keeps its pinned box (olumiLook.css .ok-pinned: its own scroll, its
+          actions' sticky foot), now at the top. */}
+      {view === null || step === null ? null : pinned
+        ? <div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} step={step} /></div>
+        : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
       {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
       <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
@@ -1470,8 +1520,9 @@ export function ViewChat() {
           <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
-            {/* The newest reply's own move stays under the reply (14 Nov: not tucked away), as the filled button unless Approve is pinned. */}
-            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
+            {/* The newest reply's own move: in the Next step card when it is the step; under the reply, quiet, while another step (Olumi's
+                proposal) is the one filled button (PANEL-SPEC 1). */}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves me={view.you_id} />}
             {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
@@ -1484,7 +1535,8 @@ export function ViewChat() {
                 held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
                 An older core sends no trial_questions: as before. */}
             {(() => {
-              const qs = chatQuestionsOf(view?.model)
+              // PANEL-SPEC 4: one input for one thing. The figure the Next step asks for has its box there; its question is not drawn again here.
+              const qs = chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)
               if (qs.length === 0) return null
               const head = qs.length === 1 ? 'Olumi’s question' : 'Olumi’s questions'
               const body = (q: (typeof qs)[number]) => <QuestionLine text={q.text} id={q.id} edit={q.edit} />
@@ -1502,7 +1554,6 @@ export function ViewChat() {
                 </section>
               )
             })()}
-            {view === null || pinned ? null : <NextStepCard view={view} busy={busy} />}
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
@@ -1518,9 +1569,6 @@ export function ViewChat() {
           <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />Latest</button>
         </div>
       ) : null}
-      {/* DL-538 (the target panel): Olumi's proposal, with Approve and Set aside, is pinned between the thread and the composer, never
-          buried under a long reply; it scrolls on its own when taller than half the panel. */}
-      {view === null || !pinned ? null : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
@@ -1620,12 +1668,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const quiet = 'inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
-  // V12 "From my last reply": the newest reply's next question, as a card above the box, only where that next has words.
-  const lastWords = lastReplyCardOf(view, sid)
   return (
     <div className={`${typography.viewPanelBody} px-4 pb-3 pt-2 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
-      {lastWords === null || brief ? null : <LastReplyCard label={lastWords.next.label}><Words parts={lastWords.next.text} at={`chat.${lastWords.k}.answer.next.text`} first={lastWords.first} /></LastReplyCard>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {/* A brief's drafting is said on the board (DraftingBoard.tsx), once; a message being answered is said here. */}
       {busy && !brief ? <Working /> : null}

@@ -1,6 +1,7 @@
 /**
  * V12 Olumi panel (chat lane): the composer's one sentence, the reply's disclosure, the "About <card>" chip, the method chip on the person's message,
- * keeping each approach on its own, "Your kept ideas", "From my last reply", the Undo control's accessible name and the card menu's header.
+ * keeping each approach on its own, "Your kept ideas" (a pointer to the canvas since sx-panel), the newest next step said once (sx-panel, in place of
+ * "From my last reply"), the Undo control's accessible name and the card menu's header.
  * Bound by test id and exact words to the View a fixture holds; every word asserted is read back from that View, never typed from the design.
  */
 import '@testing-library/jest-dom/vitest'
@@ -15,7 +16,7 @@ import { ViewChat, ViewComposer, useViewChat, COMPOSER_PLACEHOLDER } from '../..
 import { approachesOf, keptIdeasOf, isKept } from '../../ideas'
 import { aboutCardsOf, aboutWords } from '../AboutChip'
 import { methodOfSaid } from '../MethodChip'
-import { KeptIdeas, provenanceOf } from '../KeptIdeas'
+import { KeptIdeas, keptIdeasWords } from '../KeptIdeas'
 import { CardMenuHeader, kindWordsOf, proposedByOlumi } from '../CardMenuHeader'
 import { NOTHING_TO_UNDO, undoNameOf } from '../../UndoControl'
 import { UNDO_WORDS } from '../../edit/undo'
@@ -139,20 +140,24 @@ describe('keeping an approach on its own', () => {
 describe('"Your kept ideas"', () => {
   const held = (v: View, items: object[]): View => ({ ...v, strategy: { items } } as unknown as View)
   const idea = (o: object) => ({ id: 'i1', kind: 'idea', text: 'Add one line to the sign-in sheet.', by: 'Olumi', by_id: 'olumi', kept_by: { id: '1', name: 'Pat' }, source_turn: '6', concerns: [], status: 'live', ...o })
-  it('lists each kept idea with "Olumi\'s idea, from <core\'s question>" and "kept by you"; someone else\'s keeping is named', () => {
+  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3 "the panel never repeats the canvas"): the panel listed each kept idea with its provenance, which
+  // the canvas's ideas band already draws (v12/bands/extras.ts, IdeaPanel.tsx ideaDetailOf). It now says how many, and a press takes the canvas
+  // to the first; the ideas' own words are not printed in the panel.
+  it('points at the kept ideas on the canvas by count, never listing their words; a press focuses the first idea\'s canvas card', async () => {
     const v = fixture('after-find-first')
     const w = held(v, [idea({}), idea({ id: 'i2', text: 'Ask the library.', kept_by: { id: '9', name: 'Casey' }, source_turn: '3' })])
     show(w)
-    const { getAllByTestId } = render(<KeptIdeas />)
-    const rows = getAllByTestId('view-kept-idea')
-    expect(rows).toHaveLength(2)
-    expect(within(rows[0]!).getByTestId('view-kept-idea-text')).toHaveTextContent('Add one line to the sign-in sheet.')
-    expect(within(rows[0]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea, from What should we find out first? · kept by you')
-    // turn 3 is the brief the person typed, not one of core's questions: no "from"
-    expect(within(rows[1]!).getByTestId('view-kept-idea-from')).toHaveTextContent('Olumi’s idea · kept by Casey')
-    expect(provenanceOf(w, keptIdeasOf(w)[0]!)).toEqual(['Olumi’s idea, from What should we find out first?', 'kept by you'])
+    const { getByTestId, container } = render(<KeptIdeas />)
+    const pointer = getByTestId('view-kept-ideas-pointer')
+    expect(pointer).toHaveTextContent('2 kept ideas, on the canvas')
+    expect(pointer.getAttribute('data-idea')).toBe('i1')
+    expect(container).not.toHaveTextContent('Add one line to the sign-in sheet.')
+    expect(container).not.toHaveTextContent('Ask the library.')
+    await press(pointer)
+    expect(focus).toHaveBeenCalledWith('idea:i1')
+    expect([keptIdeasWords(1), keptIdeasWords(3)]).toEqual(['1 kept idea, on the canvas', '3 kept ideas, on the canvas'])
   })
-  it('draws nothing with no ideas; a set-aside idea and a non-idea item are not listed', () => {
+  it('draws nothing with no ideas; a set-aside idea and a non-idea item are not counted', () => {
     const v = fixture('after-find-first')
     show(v)
     expect(render(<KeptIdeas />).container.querySelector('[data-testid="view-kept-ideas"]')).toBeNull()
@@ -163,28 +168,23 @@ describe('"Your kept ideas"', () => {
   it('is drawn in the Olumi panel', () => {
     const v = held(fixture('after-find-first'), [idea({})])
     show(v)
-    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('Your kept ideas')
+    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('1 kept idea, on the canvas')
   })
 })
 
-describe('"From my last reply"', () => {
-  it('holds the newest reply\'s next question, in core\'s words, above the box', () => {
+// CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and 3): "From my last reply" drew the newest reply's next step a second time, above the composer,
+// while a Next step card or the reply drew it too. The step is now said once: in the one Next step card at the top when it is that reply's move,
+// else under the reply. The rows binding that are in ./panel.spec.tsx; here, only that the composer draws no copy.
+describe('the newest next step is not repeated above the composer', () => {
+  it('the composer holds no card of the newest reply\'s next words', () => {
     const v = fixture('after-find-first')
     show(v)
     const next = replyOf(v).answer!.next
-    const card = render(<ViewComposer />).container.querySelector<HTMLElement>('[data-testid="view-last-reply-card"]')!
-    expect(card).toHaveTextContent('From my last reply')
-    expect(card.querySelector('[data-testid="view-last-reply-text"]')).toHaveTextContent(`${next.label} ${next.text.map((p) => ('text' in p ? p.text : '')).join('')}`)
-    expect(card.className).toMatch(/border-panel-border/)
-    expect(card.className).not.toMatch(/border-info/)
-  })
-  it('is not drawn when the next has no words, or when there is no newest next', () => {
-    const v = fixture('after-find-first')
-    show({ ...v, chat: v.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, label: 'Anything', text: [], move: '' } } })) })
-    expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-card"]')).toBeNull()
-    cleanup()
-    show({ ...v, chat: v.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, newest: false } } })) })
-    expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-card"]')).toBeNull()
+    const words = next.text.map((p) => ('text' in p ? p.text : '')).join('')
+    const c = render(<ViewComposer />).container
+    expect(c.querySelector('[data-testid="view-last-reply-card"]')).toBeNull()
+    expect(words.length).toBeGreaterThan(0) // the contrast: there ARE words it could have repeated
+    expect(c).not.toHaveTextContent(words)
   })
 })
 
