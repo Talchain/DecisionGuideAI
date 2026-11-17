@@ -46,51 +46,54 @@ export default function AccountPage(): JSX.Element {
   }
   return (
     <SignedInFrame who={who} title="Your account" testid="account-page">
-      {(w) => <>{!w.account ? (
-        <p className={`${CARD} ${BODY}`} data-testid="account-no-account">
-          You are signed in as <b>{w.me.name}</b> with a private link. <Link to="/signup" className={LINK}>Add an email and password</Link> to sign in from any browser.
-        </p>
-      ) : (
+      {(w) => (
         <>
-          <form className={`${CARD} grid gap-3`} onSubmit={(e) => void rename(e)} aria-label="Your name">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Your name</h2>
-            <div>
-              <label htmlFor="account-name" className={LABEL}>Name, as your colleagues see it</label>
-              <input id="account-name" autoComplete="name" className={FIELD} value={name} onChange={(e) => { setName(e.target.value); setNamed(null) }} disabled={busy} data-testid="account-name" />
-            </div>
-            {nameSaid && <p role="alert" className={ERR}>{nameSaid}</p>}
-            {named && <p role="status" className={META} data-testid="account-name-saved">Saved. Your colleagues now see {named}.</p>}
-            <div><Button type="submit" disabled={busy || name.trim() === '' || name.trim() === (named ?? w.me.name)} data-testid="account-name-go">Save name</Button></div>
-          </form>
-          <section className={`${CARD} grid gap-1`} aria-label="Sign-in">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Sign-in</h2>
-            <p className={BODY}>Email: <span data-testid="account-email">{w.account.email}</span></p>
-            <p className={BODY}>Organisation: <Link to="/organisation" className={LINK}>{w.account.org.name}</Link> ({w.account.org.role === 'owner' ? 'owner' : 'member'})</p>
+          {!w.account ? (
+            <p className={`${CARD} ${BODY}`} data-testid="account-no-account">
+              You are signed in as <b>{w.me.name}</b> with a private link. <Link to="/signup" className={LINK}>Add an email and password</Link> to sign in from any browser.
+            </p>
+          ) : (
+            <>
+              <form className={`${CARD} grid gap-3`} onSubmit={(e) => void rename(e)} aria-label="Your name">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Your name</h2>
+                <div>
+                  <label htmlFor="account-name" className={LABEL}>Name, as your colleagues see it</label>
+                  <input id="account-name" autoComplete="name" className={FIELD} value={name} onChange={(e) => { setName(e.target.value); setNamed(null) }} disabled={busy} data-testid="account-name" />
+                </div>
+                {nameSaid && <p role="alert" className={ERR}>{nameSaid}</p>}
+                {named && <p role="status" className={META} data-testid="account-name-saved">Saved. Your colleagues now see {named}.</p>}
+                <div><Button type="submit" disabled={busy || name.trim() === '' || name.trim() === (named ?? w.me.name)} data-testid="account-name-go">Save name</Button></div>
+              </form>
+              <section className={`${CARD} grid gap-1`} aria-label="Sign-in">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Sign-in</h2>
+                <p className={BODY}>Email: <span data-testid="account-email">{w.account.email}</span></p>
+                <p className={BODY}>Organisation: <Link to="/organisation" className={LINK}>{w.account.org.name}</Link> ({w.account.org.role === 'owner' ? 'owner' : 'member'})</p>
+              </section>
+              <form className={`${CARD} grid gap-3`} onSubmit={(e) => void change(e)} aria-label="Change password">
+                <h2 className={`${typography.h5} text-text-header m-0`}>Change password</h2>
+                <div>
+                  <label htmlFor="account-current" className={LABEL}>Current password</label>
+                  <input id="account-current" type="password" autoComplete="current-password" className={FIELD} value={current} onChange={(e) => setCurrent(e.target.value)} disabled={busy} />
+                </div>
+                <div>
+                  <label htmlFor="account-next" className={LABEL}>New password</label>
+                  <input id="account-next" type="password" autoComplete="new-password" className={FIELD} value={next} onChange={(e) => setNext(e.target.value)} disabled={busy} />
+                  <p className={`${META} mt-1`}>At least 8 characters. Your other browsers are signed out; this one stays signed in.</p>
+                </div>
+                {pwSaid && <p role={pwSaid.ok ? 'status' : 'alert'} className={pwSaid.ok ? META : ERR} data-testid="account-password-said">{pwSaid.text}</p>}
+                <div><Button type="submit" disabled={busy || current === '' || next === ''} data-testid="account-password-go">Change password</Button></div>
+              </form>
+            </>
+          )}
+          {/* The same dialog the scenario's person menu opens: core's own sentences first, nothing deleted unread. */}
+          <section className={`${CARD} grid gap-2`} aria-label="Your data" data-testid="account-your-data">
+            <h2 className={`${typography.h5} text-text-header m-0`}>Your data</h2>
+            <p className={BODY}>See what deleting your data would remove before anything is deleted.</p>
+            <div><Button variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
           </section>
-          <form className={`${CARD} grid gap-3`} onSubmit={(e) => void change(e)} aria-label="Change password">
-            <h2 className={`${typography.h5} text-text-header m-0`}>Change password</h2>
-            <div>
-              <label htmlFor="account-current" className={LABEL}>Current password</label>
-              <input id="account-current" type="password" autoComplete="current-password" className={FIELD} value={current} onChange={(e) => setCurrent(e.target.value)} disabled={busy} />
-            </div>
-            <div>
-              <label htmlFor="account-next" className={LABEL}>New password</label>
-              <input id="account-next" type="password" autoComplete="new-password" className={FIELD} value={next} onChange={(e) => setNext(e.target.value)} disabled={busy} />
-              <p className={`${META} mt-1`}>At least 8 characters. Your other browsers are signed out; this one stays signed in.</p>
-            </div>
-            {pwSaid && <p role={pwSaid.ok ? 'status' : 'alert'} className={pwSaid.ok ? META : ERR} data-testid="account-password-said">{pwSaid.text}</p>}
-            <div><Button type="submit" disabled={busy || current === '' || next === ''} data-testid="account-password-go">Change password</Button></div>
-          </form>
+          {deleting && <DeleteMyDataDialog onCancel={() => setDeleting(false)} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
         </>
       )}
-      {/* The same dialog the scenario's person menu opens: core's own sentences first, nothing deleted unread. */}
-      <section className={`${CARD} grid gap-2`} aria-label="Your data" data-testid="account-your-data">
-        <h2 className={`${typography.h5} text-text-header m-0`}>Your data</h2>
-        <p className={BODY}>See what deleting your data would remove before anything is deleted.</p>
-        <div><Button variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
-      </section>
-      {deleting && <DeleteMyDataDialog onCancel={() => setDeleting(false)} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
-      </>}
     </SignedInFrame>
   )
 }
