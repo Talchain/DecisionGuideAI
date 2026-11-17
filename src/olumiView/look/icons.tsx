@@ -26,8 +26,11 @@
  *    the new.
  *  - Eye + Columns3 in one row: Views is Eye, "Compare views" its own entry. Download and Upload: Export and Import, one each.
  *  - Colour wording: "ink" resolves to --text-header and "solid neutral" to --border-default, so no new colour is introduced.
- *  - Blue means Olumi only: "Re-run the analysis" is the person's act, so it is --success at rest and --info only while Olumi is running it
- *    (`activeColour`). The method buttons and ask-about call Olumi, so they keep --info-ink.
+ *  - ICONS CARRY NO HUE (Paul, 17 Nov, on the coloured panel mock: "so far, we've only had non-coloured icons. If we keep them non-coloured,
+ *    that's one less thing that's busy"). Every unfilled icon draws a grey (--text-light at rest, --text-header when active). Colour stays
+ *    only where it is the meaning: Olumi's own mark (--info), a failure or warning (delete, went wrong, save failed, unsaved, stale), a
+ *    kind's own shape (limit, band shapes), and the person's filled acts (--success fill, ink glyph). Kind and chart colour lives in the
+ *    shapes, bars and fills, never in a Lucide glyph.
  *  - --success is also the outcome band shape: that shape is never a control, it is told apart by shape, and it stays (NodeShapeIndicator owns it).
  *  - core's words kept (`keepWords`): the info status line while waiting, core's olumi.text on the mark, GOAL_QUESTION (so Goal is icon plus
  *    word), the EarlyAnswer caveat, the story headings, and lens and next-step labels (icon plus word).
@@ -115,35 +118,35 @@ const e = (
 export const ICONS = {
   // Olumi: blue is Olumi's, and only Olumi's
   'olumi-mark': e(OLUMI_STATIC, 'Olumi', '--info', 'icon-only', 'olumi-ask', { keepWords: "core's olumi.text is the hover and label where the reply's mark is drawn (data-view `${at}.answer.mark`)" }),
-  'olumi-contributes': e(Sparkles, 'Olumi’s initial reply', '--info', 'icon-only', 'olumi-ask', { keepWords: 'the EarlyAnswer caveat sentence (unverified general knowledge) stays as words; the icon leads it' }),
-  'olumi-thinking': e(Loader2, 'Olumi is thinking…', '--info', 'icon-only', 'state'),
-  'ask-about-this': e(MessageCircleQuestion, 'Ask about {card}', '--info-ink', 'icon-only', 'olumi-ask'),
-  'method-challenge': e(Zap, 'Challenge it', '--info-ink', 'icon-only', 'olumi-ask'),
-  'method-opposite': e(FlipVertical2, 'The opposite', '--info-ink', 'icon-only', 'olumi-ask'),
-  'method-disprove': e(SearchX, 'What would disprove it', '--info-ink', 'icon-only', 'olumi-ask'),
-  'method-outside': e(Globe, 'Outside view', '--info-ink', 'icon-only', 'olumi-ask'),
-  'method-mark': e(Wrench, 'Asked with a method', '--behaviour-icon', 'icon-only', 'kind'),
-  'idea-keep': e(Lightbulb, 'Keep as an idea', '--info', 'icon-only', 'olumi-ask'),
-  'idea-develop': e(Sprout, 'Develop this idea', '--info', 'icon-only', 'olumi-ask'),
-  'idea-challenge': e(Swords, 'Challenge this idea', '--info', 'icon-only', 'olumi-ask'),
-  'explain-olumi': e(GraduationCap, 'How influence works', '--info', 'icon-plus-word', 'olumi-ask'),
-  'talk-first': e(MessageSquare, 'Talk it through first', '--info-ink', 'icon-plus-word', 'olumi-ask'),
-  'file-read': e(FileCheck, 'Olumi read this from your file', '--info-ink', 'icon-plus-word', 'olumi-ask', { keepWords: 'the file-read check sentence stays words' }),
+  'olumi-contributes': e(Sparkles, 'Olumi’s initial reply', '--text-light', 'icon-only', 'olumi-ask', { keepWords: 'the EarlyAnswer caveat sentence (unverified general knowledge) stays as words; the icon leads it' }),
+  'olumi-thinking': e(Loader2, 'Olumi is thinking…', '--text-light', 'icon-only', 'state'),
+  'ask-about-this': e(MessageCircleQuestion, 'Ask about {card}', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-challenge': e(Zap, 'Challenge it', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-opposite': e(FlipVertical2, 'The opposite', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-disprove': e(SearchX, 'What would disprove it', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-outside': e(Globe, 'Outside view', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-mark': e(Wrench, 'Asked with a method', '--text-light', 'icon-only', 'kind'),
+  'idea-keep': e(Lightbulb, 'Keep as an idea', '--text-light', 'icon-only', 'olumi-ask'),
+  'idea-develop': e(Sprout, 'Develop this idea', '--text-light', 'icon-only', 'olumi-ask'),
+  'idea-challenge': e(Swords, 'Challenge this idea', '--text-light', 'icon-only', 'olumi-ask'),
+  'explain-olumi': e(GraduationCap, 'How influence works', '--text-light', 'icon-plus-word', 'olumi-ask'),
+  'talk-first': e(MessageSquare, 'Talk it through first', '--text-light', 'icon-plus-word', 'olumi-ask'),
+  'file-read': e(FileCheck, 'Olumi read this from your file', '--text-light', 'icon-plus-word', 'olumi-ask', { keepWords: 'the file-read check sentence stays words' }),
 
   // the person's own acts: green fill, ink (--text-header) label; quiet reversible ones stay light
-  'run-analysis': e(RefreshCw, 'Re-run the analysis', '--success', 'icon-only', 'person-action', { activeColour: '--info' }),
+  'run-analysis': e(RefreshCw, 'Re-run the analysis', '--text-light', 'icon-only', 'person-action', { activeColour: '--text-header' }),
   send: e(ArrowUp, 'Send', '--text-header', 'icon-only', 'person-action', { fill: '--success' }),
   approve: e(Check, 'Approve', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's word where sent" }),
-  'approve-ticked': e(CheckCheck, 'Approve only the changes you ticked', '--success', 'icon-plus-word', 'person-action'),
+  'approve-ticked': e(CheckCheck, 'Approve only the changes you ticked', '--text-light', 'icon-plus-word', 'person-action'),
   'review-changes': e(ListChecks, 'Review the changes', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success' }),
   'set-aside': e(ArchiveX, 'Set aside', '--text-light', 'icon-only', 'person-action'),
-  'next-step': e(Footprints, 'Next step', '--success', 'icon-only', 'person-action'),
+  'next-step': e(Footprints, 'Next step', '--text-light', 'icon-only', 'person-action'),
   'move-tap': e(ArrowRight, 'Next', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's next.label" }),
-  add: e(Plus, 'Add a figure', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--success' }),
-  invite: e(UserPlus, 'Invite a colleague', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--success' }),
-  'commit-action': e(ClipboardCheck, 'Record what you will do', '--success', 'icon-plus-word', 'person-action'),
-  'use-as-action': e(ClipboardPen, 'Use as my action', '--success', 'icon-only', 'person-action'),
-  retry: e(RotateCcw, 'Try again', '--success', 'icon-plus-word', 'person-action'),
+  add: e(Plus, 'Add a figure', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--text-header' }),
+  invite: e(UserPlus, 'Invite a colleague', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--text-header' }),
+  'commit-action': e(ClipboardCheck, 'Record what you will do', '--text-light', 'icon-plus-word', 'person-action'),
+  'use-as-action': e(ClipboardPen, 'Use as my action', '--text-light', 'icon-only', 'person-action'),
+  retry: e(RotateCcw, 'Try again', '--text-light', 'icon-plus-word', 'person-action'),
   edit: e(Pencil, 'Change', '--text-light', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
   'cancel-close': e(X, 'Cancel', '--text-light', 'icon-only', 'person-action'),
   'keep-link': e(Pin, 'Keep this link', '--text-light', 'icon-only', 'person-action'),
@@ -153,20 +156,20 @@ export const ICONS = {
   delete: e(Trash2, 'Delete', '--danger', 'icon-only', 'person-action'),
   'remove-added-text': e(FileX, 'Remove what was added', '--text-light', 'icon-only', 'person-action', { hoverColour: '--danger' }),
   attach: e(Paperclip, 'Upload a document (.xlsx, .csv, .pptx, .docx, .pdf)', '--text-body', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
-  save: e(Save, 'Save', '--success', 'icon-only', 'person-action'),
+  save: e(Save, 'Save', '--text-light', 'icon-only', 'person-action'),
 
   // kinds
   'person-mark': e(User, 'A person’s figure', '--text-header', 'icon-only', 'kind'),
   'asked-by': e(MessageSquareQuote, 'Asked by', '--text-light', 'icon-only', 'kind'),
   'kept-by-you': e(UserCheck, 'Kept by you', '--text-light', 'icon-only', 'kind'),
   'keep-original': e(Undo2, 'Keep the original', '--text-body', 'icon-plus-word', 'kind', { keepWords: "core's label (Keep the original)" }),
-  goal: e(Target, 'What did you come here for?', '--goal', 'icon-plus-word', 'kind', { keepWords: 'GOAL_QUESTION stays visible (core session.goals question); the icon sits beside it, on --goal-light' }),
-  option: e(Split, 'Option', '--option', 'icon-only', 'kind', { keepWords: "the option card heading from core stays; only the page's own 'Option:' lead is replaced" }),
+  goal: e(Target, 'What did you come here for?', '--text-light', 'icon-plus-word', 'kind', { keepWords: 'GOAL_QUESTION stays visible (core session.goals question); the icon sits beside it, on --goal-light' }),
+  option: e(Split, 'Option', '--text-light', 'icon-only', 'kind', { keepWords: "the option card heading from core stays; only the page's own 'Option:' lead is replaced" }),
   'rests-on': e(Landmark, 'Rests on', '--text-light', 'icon-only', 'kind', { keepWords: "the rests-on card heading from core stays; only the page's own 'Rests on:' lead is replaced" }),
-  'risk-if-failed': e(ShieldAlert, 'If it failed', '--danger', 'icon-only', 'kind', { keepWords: 'the story heading (data-view `${at}.answer.stories_heading`) stays' }),
+  'risk-if-failed': e(ShieldAlert, 'If it failed', '--text-light', 'icon-only', 'kind', { keepWords: 'the story heading (data-view `${at}.answer.stories_heading`) stays' }),
   brief: e(FileText, 'Your brief', '--text-light', 'icon-only', 'kind', { hoverColour: '--text-header' }),
-  'effect-up': e(TrendingUp, 'Increases', '--edge-positive', 'icon-only', 'kind'),
-  'effect-down': e(TrendingDown, 'Decreases', '--edge-negative', 'icon-only', 'kind'),
+  'effect-up': e(TrendingUp, 'Increases', '--text-light', 'icon-only', 'kind'),
+  'effect-down': e(TrendingDown, 'Decreases', '--text-light', 'icon-only', 'kind'),
   'assumption-tag': e(CircleDashed, 'Assumption', '--text-light', 'icon-only', 'kind'),
   'baseline-tag': e(Flag, 'The option you already have', '--text-body', 'icon-plus-word', 'kind'),
   'limit-tag': e(LimitShape, 'Limit', '--text-light', 'icon-plus-word', 'kind'),
@@ -175,25 +178,25 @@ export const ICONS = {
   'band-kind-shapes': e(BandShapes, "The band's own sentence", '--option', 'icon-only', 'kind'),
 
   // states: one meaning each
-  challenged: e(AlertTriangle, 'Challenged', '--danger', 'icon-only', 'state'),
+  challenged: e(AlertTriangle, 'Challenged', '--text-light', 'icon-only', 'state'),
   'went-wrong': e(AlertOctagon, 'Something went wrong', '--danger', 'icon-only', 'state', { keepWords: 'a failure sentence stays words (drawn in --warning-ink)' }),
   unsaved: e(CloudOff, 'Unsaved', '--warning', 'icon-only', 'state'),
   'stale-analysis': e(RefreshCwOff, 'This analysis is out of date', '--warning', 'icon-only', 'state'),
-  stop: e(Square, 'Stop', '--danger', 'icon-only', 'state', { keepWords: "core's word on the drafting board" }),
-  'state-waits': e(Hourglass, 'Waiting on you', '--warning-ink', 'icon-plus-word', 'state'),
+  stop: e(Square, 'Stop', '--text-light', 'icon-only', 'state', { keepWords: "core's word on the drafting board" }),
+  'state-waits': e(Hourglass, 'Waiting on you', '--text-light', 'icon-plus-word', 'state'),
   'state-no-chance': e(CircleSlash, 'No chance yet', '--text-light', 'icon-plus-word', 'state'),
   'state-not-sized': e(SlidersHorizontal, 'Not sized yet', '--text-light', 'icon-only', 'state'),
   'why-moves': e(Waypoints, 'Why, and what moves it', '--text-light', 'icon-only', 'state'),
-  'needs-analysis': e(Calculator, 'Needs an analysis to be worked out', '--warning-ink', 'icon-only', 'state'),
-  'held-past-version': e(History, 'Go back to the latest version to change the model', '--warning-ink', 'icon-plus-word', 'state'),
+  'needs-analysis': e(Calculator, 'Needs an analysis to be worked out', '--text-light', 'icon-only', 'state'),
+  'held-past-version': e(History, 'Go back to the latest version to change the model', '--text-light', 'icon-plus-word', 'state'),
   'cannot-confirm': e(HelpCircle, 'Cannot confirm whether this analysis is current.', '--text-light', 'icon-only', 'state'),
   'view-only': e(Lock, 'View only, shared with you', '--text-light', 'icon-only', 'state'),
   'save-failed': e(XCircle, 'Save failed', '--danger', 'icon-plus-word', 'state'),
 
   // navigation
-  'go-latest': e(ArrowDownToLine, 'Back to the latest', '--warning-ink', 'icon-only', 'navigate'),
-  'on-canvas': e(Crosshair, 'About {cards} on the canvas', '--rail-icon', 'icon-only', 'navigate'),
-  'show-in-workspace': e(LocateFixed, 'Show in the workspace', '--rail-icon', 'icon-only', 'navigate', { alt: ArrowLeft }),
+  'go-latest': e(ArrowDownToLine, 'Back to the latest', '--text-light', 'icon-only', 'navigate'),
+  'on-canvas': e(Crosshair, 'About {cards} on the canvas', '--text-light', 'icon-only', 'navigate'),
+  'show-in-workspace': e(LocateFixed, 'Show in the workspace', '--text-light', 'icon-only', 'navigate', { alt: ArrowLeft }),
   popout: e(PanelTopOpen, 'Open in floating window', '--text-light', 'icon-only', 'navigate', { alt: PanelRight }),
   zoom: e(ZoomIn, 'Zoom in for detail', '--text-body', 'icon-only', 'navigate', { alt: ZoomOut }),
   'tab-analysis': e(BarChart3, 'Analysis', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
