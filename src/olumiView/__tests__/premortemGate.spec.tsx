@@ -16,6 +16,7 @@ import { useViewStore } from '../store'
 import { askMethod, useViewChat } from '../ViewChat'
 import { usePreMortemGate, useViewLens } from '../lens'
 import { ViewPreMortemKey } from '../ViewPreMortemKey'
+import { useCanvasStore } from '../../canvas/store'
 
 const proposal = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/proposal.view.json'), 'utf8')) as View
 const WORDS = {
@@ -141,6 +142,20 @@ describe('a tap on the pre-mortem move while the gate is closed opens the entry 
     await act(async () => { await askMethod('go_wrong') })
     expect(useViewLens.getState().lens).toBe('full')
     expect(useViewChat.getState().said).toBe('not now')
+  })
+  it('catch: the pre-mortem press names the one option card selected, as "What could go wrong?" does; none or several selected names none', async () => {
+    core(() => viewIn('wrote'))
+    show(viewIn('wrote')); useViewLens.setState({ lens: 'full' })
+    const pick = (ids: string[]) => useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set<string>(), anchorPosition: null } })
+    pick(['add_one']); await act(async () => { await askMethod('pre_mortem') })
+    pick(['add_one', 'hold']); await act(async () => { await askMethod('pre_mortem') })
+    pick([]); await act(async () => { await askMethod('pre_mortem') })
+    pick(['add_one']); await act(async () => { await askMethod('rests') })
+    expect(posts.map((p) => p.url)).toEqual(Array(4).fill(`/api/scenarios/${SID}/method`))
+    expect(posts.map((p) => { const { op: _op, ...rest } = p.body as { op: string }; return rest })).toEqual([
+      { method: 'pre_mortem', option: 'add_one' }, { method: 'pre_mortem' }, { method: 'pre_mortem' }, { method: 'rests' },
+    ])
+    pick([])
   })
   it('contrast: a 409 for a gate that has opened since (another tab) does not open the entry: the View read again shows the stories', async () => {
     core(() => viewIn('wrote'), () => new Response(JSON.stringify({ error: WORDS.gate }), { status: 409 }))

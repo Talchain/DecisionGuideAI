@@ -1013,7 +1013,8 @@ export async function chooseGoal(goal: string | null): Promise<boolean> {
 export async function askMethod(method: string): Promise<boolean> {
   const { sid, uuid, view } = useViewStore.getState()
   if (sid === null) return false
-  const option = method === 'go_wrong' && view !== null ? optionInFocusOf(view, useCanvasStore.getState().selection.nodeIds) : null
+  // "What could go wrong?" and the pre-mortem name the one option card selected (core's named route, rule 1); none or several selected sends none.
+  const option = (method === 'go_wrong' || method === PRE_MORTEM) && view !== null ? optionInFocusOf(view, useCanvasStore.getState().selection.nodeIds) : null
   let refused = false
   const sent = await write('method', option === null ? method : `${method}:${option}`, async (op) => {
     try { return await writes.method(sid, method, op, option ?? undefined) } catch (e) { if (method === PRE_MORTEM && e instanceof TeamApiError && e.status === 409) refused = true; throw e }
