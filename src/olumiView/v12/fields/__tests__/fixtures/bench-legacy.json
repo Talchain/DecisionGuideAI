@@ -1,0 +1,986 @@
+{
+ "_source": "Copied read-only on 17 Nov 2026 from ~/olumi-work/bench-20261117/results/round0/head/<brief>/r1/view.json (olumi.view/3, a core without the sx fields). Invented benchmark briefs; every word is the bench's own. Each model is a SUBSET: the listed cards and only the links between them.",
+ "t08": {
+  "version": {
+   "id": 154,
+   "n": 1,
+   "label": "Version 1",
+   "changed": [],
+   "at": "2026-11-16T23:24:43.180Z",
+   "at_text": "16 Nov 2026"
+  },
+  "model": {
+   "cards": [
+    {
+     "id": "opt_stay",
+     "family": "option",
+     "glyph": "▣",
+     "heading": "Stay and pay the higher rent",
+     "typed": false,
+     "detail": "Stay and pay the higher rent · option · You said: “Stay and pay, move, or push back on the landlord?”",
+     "col": 0,
+     "h": 102,
+     "olumi": null,
+     "change": null,
+     "focus": true,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [
+      {
+       "glyph": "◇",
+       "text": "Your lease may be protected under the Landlord and Tenant Act 1954, giving a right to renew at market rent.",
+       "title": "Your lease may be protected under the Landlord and Tenant Act 1954, giving a right to renew at market rent. · assumption · Proposed by Olumi: Olumi's assumption; the lease terms are not known. · Applied in the calculation",
+       "id": "as_1954",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Olumi's assumption; the lease terms are not known."
+       }
+      },
+      {
+       "glyph": "◇",
+       "text": "Staff and other costs stay roughly the same under every route.",
+       "title": "Staff and other costs stay roughly the same under every route. · assumption · Proposed by Olumi: Olumi's assumption for the arithmetic; not stated by you. · Applied in the calculation",
+       "id": "as_costs_same",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Olumi's assumption for the arithmetic; not stated by you."
+       }
+      }
+     ],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": null,
+     "values": null,
+     "baseline": true,
+     "rests_on": [],
+     "sets": [
+      {
+       "id": "f_rent_ask",
+       "lever": "annual_rent",
+       "label": "Landlord's proposed rent",
+       "figure": {
+        "text": "£29,000/year",
+        "title": "£29,000/year"
+       },
+       "whose": "theirs",
+       "author": "Your figure",
+       "read_by": []
+      }
+     ],
+     "face": {
+      "title": {
+       "text": "Stay and pay the higher rent",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "Olumi’s wording of what you said",
+      "title": "You said: “Stay and pay, move, or push back on the landlord?”"
+     },
+     "committed": null,
+     "failed": [],
+     "failed_reason": null,
+     "headline": null
+    },
+    {
+     "id": "opt_push",
+     "family": "option",
+     "glyph": "▣",
+     "heading": "Negotiate harder with the landlord",
+     "typed": false,
+     "detail": "Negotiate harder with the landlord · option · You said: “I'm also wondering whether to just negotiate harder, because the unit next door has been empty for a year.”",
+     "col": 0,
+     "h": 148,
+     "olumi": null,
+     "change": null,
+     "focus": true,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [
+      {
+       "glyph": "◇",
+       "text": "Your lease may be protected under the Landlord and Tenant Act 1954, giving a right to renew at market rent.",
+       "title": "Your lease may be protected under the Landlord and Tenant Act 1954, giving a right to renew at market rent. · assumption · Proposed by Olumi: Olumi's assumption; the lease terms are not known. · Applied in the calculation",
+       "id": "as_1954",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Olumi's assumption; the lease terms are not known."
+       }
+      },
+      {
+       "glyph": "!",
+       "text": "The £25k offer is informal. Get it in writing, and check the notice needed to use the year-3 break.",
+       "title": "The £25k offer is informal. Get it in writing, and check the notice needed to use the year-3 break. · challenge · Proposed by Olumi: Olumi's check; break clauses often need months of notice (general knowledge, unverified).",
+       "id": "cond_break",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Olumi's check; break clauses often need months of notice (general knowledge, unverified)."
+       }
+      },
+      {
+       "glyph": "◇",
+       "text": "Staff and other costs stay roughly the same under every route.",
+       "title": "Staff and other costs stay roughly the same under every route. · assumption · Proposed by Olumi: Olumi's assumption for the arithmetic; not stated by you. · Applied in the calculation",
+       "id": "as_costs_same",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Olumi's assumption for the arithmetic; not stated by you."
+       }
+      }
+     ],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": {
+      "records": [
+       "rent_negotiated",
+       "lk_push_rent"
+      ],
+      "text": "1 figure, 1 link",
+      "title": "Figure: Rent you might negotiate\n+ Link: Negotiate harder with the landlord → Annual rent paid",
+      "label": "Show 2 notes behind this, 1 proposed changes",
+      "open": false,
+      "proposed": true,
+      "change": "+",
+      "words": "1 figure, 1 link",
+      "face": "1 figure, 1 link",
+      "icon": ""
+     },
+     "values": null,
+     "rests_on": [],
+     "sets": [
+      {
+       "id": "rent_negotiated",
+       "lever": "annual_rent",
+       "label": "Rent you might negotiate",
+       "figure": {
+        "text": "£21,000 to £29,000/year",
+        "title": "Plausible range: £21,000 to £29,000/year"
+       },
+       "whose": "olumi",
+       "author": "Olumi’s estimate",
+       "read_by": []
+      }
+     ],
+     "face": {
+      "title": {
+       "text": "Negotiate harder with the landlord",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "Olumi’s wording of what you said",
+      "title": "You said: “I'm also wondering whether to just negotiate harder, because the unit next door has been empty for a year.”"
+     },
+     "committed": null,
+     "failed": [],
+     "failed_reason": null,
+     "headline": null
+    },
+    {
+     "id": "f_rent_ask",
+     "family": "quantity",
+     "glyph": "●",
+     "heading": "Landlord's proposed rent",
+     "typed": false,
+     "detail": "Landlord's proposed rent · quantity · You said: “The landlord wants to put the rent up from £21k to £29k a year on our high street unit.” · £29,000/year",
+     "col": 1,
+     "h": 88,
+     "olumi": null,
+     "change": null,
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": {
+      "text": "£29,000/year",
+      "title": "£29,000/year",
+      "edit": null,
+      "range": {
+       "low": 29000,
+       "likely": 29000,
+       "high": 29000,
+       "unit": "GBP/year"
+      }
+     },
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": null,
+     "unused": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": {
+       "text": "Landlord's proposed rent",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "Your figure",
+      "title": "You said: “The landlord wants to put the rent up from £21k to £29k a year on our high street unit.”"
+     },
+     "failed": []
+    },
+    {
+     "id": "annual_rent",
+     "family": "quantity",
+     "glyph": "●",
+     "heading": "Annual rent paid",
+     "typed": false,
+     "detail": "Annual rent paid · quantity · Proposed by Olumi: Each route sets its own rent. · not sized yet · Set by whichever route you take.",
+     "col": 1,
+     "h": 116,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Proposed by Olumi: Each route sets its own rent."
+     },
+     "change": null,
+     "focus": true,
+     "challenged": false,
+     "doubt": true,
+     "figure": {
+      "text": "",
+      "title": "not sized yet · Set by whichever route you take.",
+      "edit": null
+     },
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": {
+      "records": [
+       "lk_push_rent"
+      ],
+      "text": "1 link",
+      "title": "+ Link: Negotiate harder with the landlord → Annual rent paid",
+      "label": "Show 1 notes behind this, 1 proposed changes",
+      "open": false,
+      "proposed": true,
+      "change": "+",
+      "words": "1 link",
+      "face": "1 link",
+      "icon": ""
+     },
+     "unused": null,
+     "values": [
+      {
+       "option": "opt_stay",
+       "text": "£29,000/year",
+       "p10": 29000,
+       "p50": 29000,
+       "p90": 29000,
+       "if_absent": [],
+       "olumi": false,
+       "if_approved": null
+      },
+      {
+       "option": "opt_move",
+       "text": "£13,000/year",
+       "p10": 13000,
+       "p50": 13000,
+       "p90": 13000,
+       "if_absent": [],
+       "olumi": false,
+       "if_approved": null
+      },
+      {
+       "option": "opt_push",
+       "text": "£21,000 to £29,000/year",
+       "p10": 21000,
+       "p50": null,
+       "p90": 29000,
+       "if_absent": [],
+       "olumi": true,
+       "if_approved": null
+      }
+     ],
+     "rests_on": [],
+     "face": {
+      "title": {
+       "text": "Annual rent paid",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "olumi",
+      "text": "Proposed by Olumi, not yet sized",
+      "title": "Proposed by Olumi: Each route sets its own rent."
+     },
+     "failed": []
+    },
+    {
+     "id": "risk_landlord_holds",
+     "family": "risk",
+     "glyph": "△",
+     "heading": "The landlord holds at £29k and you must stay or move",
+     "typed": false,
+     "detail": "The landlord holds at £29k and you must stay or move · risk · Proposed by Olumi: Not known; the empty unit next door suggests some room but the agent's answer will tell you.",
+     "col": 0,
+     "h": 102,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Proposed by Olumi: Not known; the empty unit next door suggests some room but the agent's answer will tell you."
+     },
+     "change": null,
+     "focus": false,
+     "challenged": false,
+     "doubt": true,
+     "figure": {
+      "text": "no size yet",
+      "title": "‘The landlord holds at £29k and you must stay or move’ acts on an option, not on a figure, so the calculation cannot size it.",
+      "edit": null
+     },
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": {
+       "text": "The landlord holds at £29k and you must stay or move",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Not known; the empty unit next door suggests some room but the agent's answer will tell you."
+     },
+     "failed": []
+    },
+    {
+     "id": "ev_offer",
+     "family": "evidence",
+     "glyph": "✓",
+     "heading": "Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3.",
+     "typed": true,
+     "detail": "Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3. · evidence · informs · You said: “Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3.”",
+     "col": 0,
+     "h": 112,
+     "olumi": null,
+     "change": {
+      "glyph": "+",
+      "title": "From your reply, waiting for approval",
+      "kind": "added"
+     },
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": "Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3.",
+     "badge": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": null,
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "You stated this",
+      "title": "You said: “Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3.”"
+     },
+     "failed": []
+    }
+   ],
+   "links": [
+    {
+     "from": "opt_push",
+     "to": "annual_rent",
+     "kind": "plain",
+     "label": "−",
+     "doubt": true,
+     "alert": false,
+     "proposed": true,
+     "title": "link in words: down, unsure; Pushing back has so far brought the rent from £29k to £25k on a longer term. · Proposed by Olumi: The agent's informal £25k sits below the £29k ask, but it is not in writing.",
+     "role": "effect",
+     "records": [
+      "lk_push_rent"
+     ],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "size": {
+      "record": "lk_push_rent",
+      "text": "stays a claim in words",
+      "title": "‘Negotiate harder with the landlord’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+      "edit": null
+     },
+     "causal": {
+      "sign": "decreases",
+      "of": "choosing_from",
+      "target": "annual_rent",
+      "disputed": false,
+      "author": {
+       "by": "olumi",
+       "text": "Olumi inferred",
+       "title": "Proposed by Olumi: The agent's informal £25k sits below the £29k ask, but it is not in writing."
+      },
+      "strength": {
+       "state": "in_words",
+       "figure": null,
+       "low": null,
+       "likely": null,
+       "high": null,
+       "unit": null,
+       "per": null,
+       "share": null,
+       "relative_to": null
+      },
+      "text": "In this model, choosing 'Negotiate harder with the landlord' lowers 'Annual rent paid'. It stays a claim in words: nothing is worked out from it."
+     }
+    },
+    {
+     "from": "opt_stay",
+     "to": "f_rent_ask",
+     "kind": "plain",
+     "label": "",
+     "doubt": false,
+     "alert": false,
+     "proposed": false,
+     "title": "option input",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    },
+    {
+     "from": "f_rent_ask",
+     "to": "annual_rent",
+     "kind": "replaces",
+     "label": "replaces",
+     "doubt": false,
+     "alert": false,
+     "proposed": false,
+     "title": "replaces Annual rent paid",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    },
+    {
+     "from": "opt_push",
+     "to": "annual_rent",
+     "kind": "through",
+     "label": "",
+     "doubt": false,
+     "alert": false,
+     "proposed": false,
+     "title": "worked out through Rent you might negotiate",
+     "role": "effect",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    },
+    {
+     "from": "risk_landlord_holds",
+     "to": "opt_push",
+     "kind": "plain",
+     "label": "",
+     "doubt": true,
+     "alert": false,
+     "proposed": false,
+     "title": "may change",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    },
+    {
+     "from": "ev_offer",
+     "to": "opt_push",
+     "kind": "reason",
+     "label": "✓",
+     "doubt": false,
+     "alert": false,
+     "proposed": false,
+     "title": "evidence · informs: Spoke to the agent informally: the landlord would accept £25k on a 5-year term with a break at year 3.",
+     "role": "reason",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    }
+   ]
+  }
+ },
+ "t09": {
+  "version": {
+   "id": 193,
+   "n": 1,
+   "label": "Version 1",
+   "changed": [],
+   "at": "2026-11-16T23:26:43.610Z",
+   "at_text": "16 Nov 2026"
+  },
+  "model": {
+   "cards": [
+    {
+     "id": "aim_pay",
+     "family": "goal",
+     "glyph": "★",
+     "heading": "Pay for itself",
+     "typed": false,
+     "detail": "Pay for itself · goal · You said: “Which looks more likely to pay for itself, and what would I need to believe for the robots to make sense?”",
+     "col": 2,
+     "h": 130,
+     "olumi": null,
+     "change": null,
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [
+      {
+       "glyph": "◇",
+       "text": "If the 40% of volume leaves, picking labour falls by about the same share, so every break-even labour figure has to be met by the 60% that remains.",
+       "title": "If the 40% of volume leaves, picking labour falls by about the same share, so every break-even labour figure has to be met by the 60% that remains. · assumption · Proposed by Olumi: Simple proportional reading; client pick profiles may differ, so check each client's share of picking hours. · Applied in the calculation",
+       "id": "assume_proportional",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Simple proportional reading; client pick profiles may differ, so check each client's share of picking hours."
+       }
+      }
+     ],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": {
+      "text": "kept in words, not measured",
+      "title": "Olumi left this aim in words: Payback depends on your annual picking labour cost and the cost of mis-picks, which are not yet known, so it stays in your words for now.",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Olumi’s proposal, for you to vet"
+      },
+      "measured": false
+     },
+     "reason": null,
+     "badge": {
+      "records": [
+       "picking_labour_year",
+       "l_robots_aim",
+       "l_ptl_aim",
+       "l_labour_aim",
+       "l_mispick_aim"
+      ],
+      "text": "1 figure, 4 links",
+      "title": "Figure: Annual picking labour cost (agency plus permanent)\nLink: Goods-to-person robots (buy £420k or lease) → Pay for itself\nLink: Pick-to-light and better racking → Pay for itself\nLink: Annual picking labour cost (agency plus permanent) → Pay for itself\nLink: Cost per mis-pick → Pay for itself",
+      "label": "Show 5 notes behind this",
+      "open": false,
+      "proposed": false,
+      "change": "",
+      "words": "1 figure, 4 links",
+      "face": "1 figure, 4 links",
+      "icon": ""
+     },
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": {
+       "text": "Pay for itself",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "You stated this",
+      "title": "You said: “Which looks more likely to pay for itself, and what would I need to believe for the robots to make sense?”"
+     },
+     "failed": []
+    },
+    {
+     "id": "opt_robots",
+     "family": "option",
+     "glyph": "▣",
+     "heading": "Goods-to-person robots (buy £420k or lease)",
+     "typed": false,
+     "detail": "Goods-to-person robots (buy £420k or lease) · option · You said: “Two quotes on the table: a goods-to-person robot system for £420k, or leased at about £9k a month over five years, which the supplier says doubles pick rates.”",
+     "col": 0,
+     "h": 130,
+     "olumi": null,
+     "change": null,
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [
+      {
+       "glyph": "◇",
+       "text": "A system sized for peak (2.5x a normal day) sits underused most of the year; one sized for a normal day does not fix peak.",
+       "title": "A system sized for peak (2.5x a normal day) sits underused most of the year; one sized for a normal day does not fix peak. · assumption · Proposed by Olumi: Your 6,000 versus 15,000 orders a day; sizing is not yet known. · Applied in the calculation",
+       "id": "assume_sizing",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Your 6,000 versus 15,000 orders a day; sizing is not yet known."
+       }
+      },
+      {
+       "glyph": "❝",
+       "text": "The supplier says the robots double pick rates; this is not yet shown for your pick profile.",
+       "title": "The supplier says the robots double pick rates; this is not yet shown for your pick profile. · claim · Proposed by Olumi: The doubling is the supplier's claim; the 1.5x case needs about £324k of labour.",
+       "id": "claim_double",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: The doubling is the supplier's claim; the 1.5x case needs about £324k of labour."
+       }
+      },
+      {
+       "glyph": "◇",
+       "text": "If the 40% of volume leaves, picking labour falls by about the same share, so every break-even labour figure has to be met by the 60% that remains.",
+       "title": "If the 40% of volume leaves, picking labour falls by about the same share, so every break-even labour figure has to be met by the 60% that remains. · assumption · Proposed by Olumi: Simple proportional reading; client pick profiles may differ, so check each client's share of picking hours. · Applied in the calculation",
+       "id": "assume_proportional",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: Simple proportional reading; client pick profiles may differ, so check each client's share of picking hours."
+       }
+      }
+     ],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": {
+      "records": [
+       "l_robots_aim"
+      ],
+      "text": "1 link",
+      "title": "Link: Goods-to-person robots (buy £420k or lease) → Pay for itself",
+      "label": "Show 1 notes behind this",
+      "open": false,
+      "proposed": false,
+      "change": "",
+      "words": "1 link",
+      "face": "1 link",
+      "icon": ""
+     },
+     "values": null,
+     "rests_on": [],
+     "sets": [],
+     "face": {
+      "title": {
+       "text": "Goods-to-person robots (buy £420k or lease)",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "Olumi’s wording of what you said",
+      "title": "You said: “Two quotes on the table: a goods-to-person robot system for £420k, or leased at about £9k a month over five years, which the supplier says doubles pick rates.”"
+     },
+     "committed": null,
+     "failed": [],
+     "failed_reason": null,
+     "headline": null
+    },
+    {
+     "id": "opt_carry_on",
+     "family": "option",
+     "glyph": "▣",
+     "heading": "Carry on with agency pickers",
+     "typed": false,
+     "detail": "Carry on with agency pickers · option · Proposed by Olumi: The status quo: agency pickers in peak at about £14.50 an hour.",
+     "col": 0,
+     "h": 84,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Proposed by Olumi: The status quo: agency pickers in peak at about £14.50 an hour."
+     },
+     "change": null,
+     "focus": true,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": null,
+     "badge": null,
+     "values": null,
+     "baseline": true,
+     "rests_on": [],
+     "sets": [],
+     "face": {
+      "title": {
+       "text": "Carry on with agency pickers",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "olumi",
+      "text": "Proposed by Olumi",
+      "title": "Proposed by Olumi: The status quo: agency pickers in peak at about £14.50 an hour."
+     },
+     "committed": null,
+     "failed": [],
+     "failed_reason": null,
+     "headline": null
+    }
+   ],
+   "links": [
+    {
+     "from": "opt_robots",
+     "to": "aim_pay",
+     "kind": "plain",
+     "label": "",
+     "doubt": true,
+     "alert": false,
+     "proposed": false,
+     "title": "link in words: depends on conditions, unsure; Lease totals £540k over five years against £420k to buy. · Proposed by Olumi: Pays back only if picking labour is high enough, around £216k a year or more if the doubling holds.",
+     "role": "effect",
+     "records": [
+      "l_robots_aim"
+     ],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "size": {
+      "record": "l_robots_aim",
+      "text": "stays a claim in words",
+      "title": "‘Goods-to-person robots (buy £420k or lease)’ is a choice, not a figure, so there is no amount to count it by. The link stays a claim in words.",
+      "edit": null
+     },
+     "causal": {
+      "sign": "unknown",
+      "of": "choosing_from",
+      "target": "aim_pay",
+      "disputed": false,
+      "author": {
+       "by": "olumi",
+       "text": "Olumi inferred",
+       "title": "Proposed by Olumi: Pays back only if picking labour is high enough, around £216k a year or more if the doubling holds."
+      },
+      "strength": {
+       "state": "in_words",
+       "figure": null,
+       "low": null,
+       "likely": null,
+       "high": null,
+       "unit": null,
+       "per": null,
+       "share": null,
+       "relative_to": null
+      },
+      "text": "In this model, which way choosing 'Goods-to-person robots (buy £420k or lease)' moves 'Pay for itself' is not settled. It stays a claim in words: nothing is worked out from it."
+     }
+    },
+    {
+     "from": "opt_carry_on",
+     "to": "aim_pay",
+     "kind": "plain",
+     "label": "",
+     "doubt": false,
+     "alert": false,
+     "proposed": false,
+     "title": "a route to",
+     "records": [],
+     "effect": null,
+     "remove": null,
+     "holds": null,
+     "causal": null
+    }
+   ]
+  }
+ },
+ "t10": {
+  "model": {
+   "cards": [
+    {
+     "id": "lim_budget",
+     "family": "limit",
+     "glyph": "□",
+     "heading": "About £75k a year of extra staff",
+     "typed": false,
+     "detail": "About £75k a year of extra staff · limit · You said: “We've got budget for roughly £75k a year of extra staff.”",
+     "col": 2,
+     "h": 102,
+     "olumi": null,
+     "change": null,
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [
+      {
+       "glyph": "◇",
+       "text": "An associate is paid about 45% of what they bill, so £110k to £130k of treatment costs roughly £50k to £59k plus lab fees and materials, inside your £75k.",
+       "title": "An associate is paid about 45% of what they bill, so £110k to £130k of treatment costs roughly £50k to £59k plus lab fees and materials, inside your £75k. · assumption · Proposed by Olumi: General knowledge, unverified; you have not given a pay arrangement. · Applied in the calculation",
+       "id": "ass_a_pay",
+       "olumi": {
+        "glyph": "◆",
+        "title": "Proposed by Olumi: General knowledge, unverified; you have not given a pay arrangement."
+       }
+      }
+     ],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": {
+      "text": "not measured; nothing is counted against it",
+      "title": "No measure is set for this limit, so nothing is counted against it. A measure can be added.",
+      "olumi": null,
+      "measured": false
+     },
+     "reason": null,
+     "badge": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": {
+       "text": "About £75k a year of extra staff",
+       "whole": true,
+       "words": "name"
+      },
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "Olumi’s wording of what you said",
+      "title": "You said: “We've got budget for roughly £75k a year of extra staff.”"
+     },
+     "failed": []
+    }
+   ],
+   "links": []
+  }
+ },
+ "t11": {
+  "model": {
+   "cards": [
+    {
+     "id": "assume_payer",
+     "family": "assumption",
+     "glyph": "◇",
+     "heading": "Capital comes from the co-op's reserves but running costs fall on members through their own bills.",
+     "typed": true,
+     "detail": "Capital comes from the co-op's reserves but running costs fall on members through their own bills. · assumption · Proposed by Olumi: Not stated; to be checked, as it decides who gains or loses from a running-cost change. · Applied in the calculation",
+     "col": 0,
+     "h": 112,
+     "olumi": {
+      "glyph": "◆",
+      "title": "Proposed by Olumi: Not stated; to be checked, as it decides who gains or loses from a running-cost change."
+     },
+     "change": {
+      "glyph": "+",
+      "title": "Olumi suggests adding this",
+      "kind": "added"
+     },
+     "focus": false,
+     "challenged": false,
+     "doubt": false,
+     "figure": null,
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": "Capital comes from the co-op's reserves but running costs fall on members through their own bills.",
+     "badge": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": null,
+      "line": null
+     },
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: Not stated; to be checked, as it decides who gains or loses from a running-cost change."
+     },
+     "failed": []
+    }
+   ],
+   "links": []
+  }
+ },
+ "t12": {
+  "model": {
+   "cards": [
+    {
+     "id": "dis_postdoc",
+     "family": "dissent",
+     "glyph": "⚑",
+     "heading": "Postdoc: A postdoc thinks the original was probably a fluke and wants us to move on.",
+     "typed": true,
+     "detail": "postdoc: A postdoc thinks the original was probably a fluke and wants us to move on. · dissent · You said: “A postdoc thinks the original was probably a fluke and wants us to move on.”",
+     "col": 0,
+     "h": 112,
+     "olumi": null,
+     "change": null,
+     "focus": false,
+     "challenged": true,
+     "doubt": false,
+     "figure": null,
+     "premises": [],
+     "rows": [],
+     "driver": null,
+     "status": null,
+     "bound": null,
+     "reason": "postdoc: A postdoc thinks the original was probably a fluke and wants us to move on.",
+     "badge": null,
+     "values": null,
+     "rests_on": [],
+     "face": {
+      "title": null,
+      "line": null
+     },
+     "author": {
+      "by": "person",
+      "text": "You stated this",
+      "title": "You said: “A postdoc thinks the original was probably a fluke and wants us to move on.”"
+     },
+     "failed": []
+    }
+   ],
+   "links": []
+  }
+ }
+}
