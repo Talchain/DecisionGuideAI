@@ -1311,4 +1311,21 @@ describe('S13 what counts as in view at the foot, and a board that lays itself o
     await press(d.button()!); await run(600)
     expect(rf.sets).toHaveLength(1)
   })
+  it('the cap is not proof of showing: a board that lays itself out further apart at every zoom is moved three times and no more; the cards still not being whole in view, the show says so and everything goes back; contrast above: the board that is still after one more move ends shown', async () => {
+    let spread = 2200
+    const apart = () => ({ opening_cash: { x: 2000, y: 2000 }, monthly_burn: { x: 2000 + spread, y: 2000 } })
+    install(golden); lay(apart())
+    rf.onZoom = () => { spread *= 4; layOut(apart()) } // every new zoom throws the cards four times further apart
+    const c = mount(14, two)
+    await press(c.button()!); await run(SETTLE_MS)
+    const shows = rf.sets.filter((m) => m.opts.duration === MOVE_MS)
+    expect(shows, 'three moves, each to a lower zoom, and no fourth').toHaveLength(3)
+    expect(shows[0]!.to.zoom).toBeGreaterThan(shows[1]!.to.zoom)
+    expect(shows[1]!.to.zoom).toBeGreaterThan(shows[2]!.to.zoom)
+    expect(c.said()).toBe(COULD_NOT_SHOW)
+    expect(c.button()!.textContent, 'the control does not read Return for cards that were not shown').toBe(SHOW_IN_WORKSPACE)
+    expect(rf.vp, 'the camera is back where it was').toStrictEqual(V0)
+    expect(pulsing()).toStrictEqual([])
+    expect(showHolds()).toBe(false)
+  })
 })

@@ -204,9 +204,11 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     const still = reducedMotion()
     // A camera the show moved is the person's own choice: the board does not refit under it.
     // A move that changes the zoom can make the board lay itself out again (Detailed draws its cards for the zoom they are seen at), and
-    // the cards are then somewhere else. So after such a move, once the board is still, the cards are looked for again and the camera
-    // goes the rest of the way: at most MAX_MOVES moves in all (seen served on Detailed at 1232 x 704, 17 Nov: the camera arrived where
-    // the card had been). A move that only pans changes no layout and is the last.
+    // the cards are then somewhere else. So after EVERY such move, once the board is still, the cards are looked for again on the camera
+    // the canvas really has (it may not have taken the zoom asked for), and the camera goes the rest of the way: at most MAX_MOVES
+    // moves in all (seen served on Detailed at 1232 x 704, 17 Nov: the camera arrived where the card had been). A move that only pans
+    // changes no layout and is the last. The cap is not proof of showing (Codex, 17 Nov): cards that cannot be found again, or that
+    // are still not whole in view after the last move allowed, were NOT shown, and that is said and undone like any failed show.
     let from = framing ?? port.capture().viewport
     let to = pane === null ? null : cameraFor(box, pane, from)
     let movedAt: number | null = null
@@ -214,13 +216,15 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
       port.moveTo(to, { duration: still ? 0 : MOVE_MS })
       movedAt = performance.now()
       held = true
-      if (to.zoom === from.zoom || moves >= MAX_MOVES) break
+      if (to.zoom === from.zoom) break
       await frames(2)
       if (signal.aborted) return
       if (!(await settledWithin(port, signal))) { if (!signal.aborted) failed = COULD_NOT_SHOW; return }
       const where = port.boxOf(cards), room = port.pane()
+      if (where === null || room === null) { failed = COULD_NOT_SHOW; return }
       from = port.capture().viewport
-      to = where === null || room === null ? null : cameraFor(where, room, from)
+      to = cameraFor(where, room, from)
+      if (to !== null && moves >= MAX_MOVES) { failed = COULD_NOT_SHOW; return }
     }
     // The cards are pulsed once the camera has arrived: after the last move the show made, or after the board's own framing.
     const arrives = still ? 0 : movedAt !== null ? Math.max(0, MOVE_MS + 20 - (performance.now() - movedAt)) : framing !== null ? MOVE_MS + 20 : 0
