@@ -65,6 +65,13 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
         <div role="group" aria-label={ACTIONS_MENU_NAME} data-testid="view-actions-menu"
           style={place === null ? undefined : { left: place.left, right: 'auto', width: place.width, maxHeight: place.maxHeight }}
           className={`${typography.viewPanelBody} absolute bottom-full right-0 z-30 mb-2 max-h-[60vh] w-[min(320px,calc(100vw-32px))] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-2 shadow-lg`}>
+          {/* Core's offer to build a model, first (pair v4 render, 08:3xZ: last in the tools it sat 776 px down an 813 px list, below the fold at 1232, 1.33
+              and 2000): the one press that changes what the scenario is, in view on opening, above what the person came for and core's questions. */}
+          {build === undefined ? null : (
+            <div className="border-b border-panel-border pb-2" data-testid="view-build-model-row">
+              <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={`${item} font-medium`} data-testid="view-build-model">{build.label}</button>
+            </div>
+          )}
           {goal}
           <div className="space-y-0.5" data-testid="view-session-menu">
             {menu.methods.map((m) => (
@@ -79,9 +86,8 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
               </button>
             ))}
           </div>
-          {menu.tools.length === 0 && build === undefined ? null : (
+          {menu.tools.length === 0 ? null : (
             <div className="space-y-0.5 border-t border-panel-border pt-2" data-testid="view-actions-tools">
-              {build === undefined ? null : <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={item} data-testid="view-build-model">{build.label}</button>}
               {menu.tools.map((t) => (
                 <button key={t} type="button" disabled={held} onClick={() => { setOpen(false); onTool(t) }} className={item} data-tool={t} data-testid={`view-tool-${t}`}>{TOOL_WORDS[t]}</button>
               ))}

@@ -14,7 +14,8 @@ import { useViewStore } from '../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
 import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
-import { placeMenu } from '../actionsMenu'
+import { ActionsMenu, placeMenu } from '../actionsMenu'
+import type { Menu } from '../actions'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
 const SID = 's_cb215d057b96', UUID = '00000000-0000-4000-8000-cb215d057b96'
@@ -248,5 +249,33 @@ describe('the ⋯ list stays inside its panel (Codex 006 #2)', () => {
     const p = placeMenu({ top: 650, left: 1180, right: 1208 }, { left: 1000, right: 1232 }, win)
     expect(p.width).toBe(216)
     expect(1180 + p.left).toBe(1008)
+  })
+})
+
+describe('core\'s offer to build a model is the menu\'s first row (pair v4 render: last in the tools it sat below the fold at 1232, 1.33 and 2000)', () => {
+  const methods = Array.from({ length: 11 }, (_, i) => ({ id: `m${i}`, text: `An invented question ${i}`, first: false, prerequisite: null, i })) as unknown as Menu['methods']
+  const menu: Menu = { goal: null, methods, tools: ['edit_brief', 'review_inputs'] }
+  const BUILD = { label: 'An invented offer to build', title: 'An invented hover.', onPress: () => undefined }
+  const open = async (build?: typeof BUILD) => {
+    const c = render(<ActionsMenu menu={menu} held={false} goal={<div data-testid="view-session-goal">An invented goal row</div>} onMethod={() => undefined} onTool={() => undefined} build={build} />).container
+    await press(c.querySelector('[data-testid="view-actions-button"]')!)
+    return c.querySelector<HTMLElement>('[data-testid="view-actions-menu"]')!
+  }
+  it('catch: the offer is the first press in the open menu, before the goal row and every question, and not among the tools', async () => {
+    const m = await open(BUILD)
+    const presses = [...m.querySelectorAll<HTMLElement>('button')]
+    expect(presses[0]?.dataset['testid']).toBe('view-build-model')
+    expect(presses[0]?.textContent).toBe(BUILD.label)
+    expect(presses[0]?.title).toBe(BUILD.title)
+    const order = (sel: string) => [...m.querySelectorAll('*')].indexOf(m.querySelector(sel)!)
+    expect(order('[data-testid="view-build-model"]')).toBeLessThan(order('[data-testid="view-session-goal"]'))
+    expect(m.querySelector('[data-testid="view-actions-tools"] [data-testid="view-build-model"]')).toBeNull()
+    expect(m.querySelectorAll('[data-testid="view-build-model"]')).toHaveLength(1)
+  })
+  it('contrast: with no offer from core the menu opens on the goal row, and the tools are as before', async () => {
+    const m = await open()
+    expect(m.querySelector('[data-testid="view-build-model"]')).toBeNull()
+    expect(m.querySelector('[data-testid="view-build-model-row"]')).toBeNull()
+    expect([...m.querySelectorAll<HTMLElement>('[data-testid="view-actions-tools"] button')].map((b) => b.dataset['tool'])).toEqual(['edit_brief', 'review_inputs'])
   })
 })
