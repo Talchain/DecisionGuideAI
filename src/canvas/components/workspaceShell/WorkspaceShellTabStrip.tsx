@@ -30,7 +30,7 @@
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { Activity, AlertTriangle, BarChart3, ChevronLeft, ChevronRight, Clock, FlaskConical, HelpCircle, Info, MoreHorizontal, Shuffle, Users } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
@@ -44,6 +44,7 @@ import {
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
   SHELL_TABSTRIP_HEIGHT_PX,
   SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX,
+  TAB_ICON,
   type WorkspaceSurfaceDescriptor,
 } from './shellContract'
 
@@ -74,16 +75,14 @@ export const railTabDomId = (id: OutputTab): string => `outputs-dock-rail-tab-${
 export const DOCK_PANEL_DOM_ID = 'outputs-dock-panel'
 
 /**
- * v10 review item 8: on the olumi-core lane an unselected dock tab is its icon alone (name in `title` and `aria-label`), the selected tab
- * icon plus word. Same icon map as the collapsed rail in `OutputsDock`; Olumi keeps its own mark.
+ * A dock tab's icon, the same in the strip and the collapsed rail (`TAB_ICON`): the Olumi tab is Olumi's logo alone (calm panel mock v2,
+ * Paul 17 Nov), every other tab its registry glyph. Journey is never presented, so it has none.
  */
-const LANE_TAB_ICON: Partial<Record<OutputTab, typeof Activity>> = {
-  results: BarChart3,
-  analysisNew: FlaskConical,
-  compare: Shuffle,
-  journey: Clock,
-  team: Users,
-  diagnostics: Activity,
+export function TabIcon({ id, size }: { id: OutputTab; size: 14 | 16 }): JSX.Element | null {
+  if (id === 'olumi') return <OlumiAiIcon size={size} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
+  if (id === 'journey') return null
+  const Icon = TAB_ICON[id]
+  return <Icon className={`${size === 16 ? 'h-4 w-4' : 'h-3.5 w-3.5'} shrink-0`} aria-hidden="true" data-testid={`outputs-dock-tab-icon-${id}`} />
 }
 
 /** The accessible name shared by both strips. Written once, used by both. */
@@ -585,27 +584,12 @@ export function WorkspaceShellTabStrip({
               >
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
-                {surface.id === 'olumi' ? (
-                  // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named "Olumi" on hover
-                  // (title and aria-label above), never a word beside it. The selected tab is told apart by its pill.
-                  <>
-                    <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
-                  </>
-                ) : coreLane ? (
-                  (() => {
-                    const Icon = LANE_TAB_ICON[surface.id] ?? Activity
-                    return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
-                  })()
+                {surface.id === 'olumi' || coreLane ? (
+                  // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named on hover
+                  // (title and aria-label above). The selected tab is told apart by its pill.
+                  <TabIcon id={surface.id} size={16} />
                 ) : (
-                  // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
-                  // five fit the 347px dock whole; the legacy lane is unchanged.
-                  <>
-                    {coreLane ? (() => {
-                      const Icon = LANE_TAB_ICON[surface.id] ?? Activity
-                      return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
-                    })() : null}
-                    <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
-                  </>
+                  <span className="truncate">{surface.label}</span>
                 )}
                 {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (
@@ -638,8 +622,7 @@ export function WorkspaceShellTabStrip({
                     // every class-based guard. `panelMeta` IS 11px, so the
                     // token replaces both and the badge stays legible on the
                     // warning fill by contrast rather than by weight.
-                    className={`inline-flex items-center justify-center rounded-full bg-warning text-text-on-color shrink-0 ${typography.panelMeta}`}
-                    style={{ minWidth: 16, height: 16, padding: '0 4px' }}
+                    className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-text-on-color shrink-0 ${typography.panelMeta}`}
                     title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                     aria-label={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                     data-testid="model-tab-verify-badge"

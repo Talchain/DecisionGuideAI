@@ -65,8 +65,22 @@
  * refactor.
  */
 
+import type { LucideIcon } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
+import { ICONS } from '../../../olumiView/look/icons'
 import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH } from '../dockWidth'
+
+/**
+ * ONE icon per dock tab, for the tab strip and the collapsed rail alike, taken from the icon registry (src/olumiView/look/icons.tsx).
+ * The Olumi tab has no glyph here: it is Olumi's logo alone (`TabIcon`). Journey is never presented as a tab (its row below).
+ */
+export const TAB_ICON: Readonly<Record<Exclude<OutputTab, 'olumi' | 'journey'>, LucideIcon>> = {
+  results: ICONS['tab-analysis'].Icon,
+  analysisNew: ICONS['tab-reasoning'].Icon,
+  compare: ICONS['tab-compare'].Icon,
+  diagnostics: ICONS['tab-model'].Icon,
+  team: ICONS.team.Icon,
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 // 1. GEOMETRY — the width budget, stated once and derived downstream

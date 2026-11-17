@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Users, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
+import { AlertTriangle, HelpCircle, MessageCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -65,6 +65,7 @@ import {
   DOCK_PANEL_DOM_ID,
   DOCK_TABLIST_LABEL,
   railTabDomId,
+  TabIcon,
   tabDomId,
 } from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
@@ -76,6 +77,7 @@ import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
+import { SELECTED } from '../../styles/selected'
 import {
   trackCompareOpened,
   trackAutoFixClicked,
@@ -3392,20 +3394,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           data-testid="outputs-dock-rail-tablist"
         >
           {OUTPUT_TABS.map(tab => {
-            const Icon =
-              tab.id === 'results'
-                ? BarChart3
-                : tab.id === 'analysisNew'
-                ? FlaskConical
-                : tab.id === 'compare'
-                ? Shuffle
-                : tab.id === 'journey'
-                ? Clock
-                : tab.id === 'olumi'
-                ? MessageSquare
-                : tab.id === 'team'
-                ? Users
-                : Activity
             return (
               <button
                 key={tab.id}
@@ -3439,16 +3427,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 // icon in the natural tab order, exactly as at `463fc931`.
                 data-testid={`outputs-dock-rail-tab-${tab.id}`}
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                  effectiveActiveTab === tab.id
-                    ? 'text-info border-info'
-                    : 'text-text-header bg-panel border-panel-border hover:bg-panel'
+                // The one selected state (selected.ts), never Olumi's blue; at rest the icon is grey on the panel.
+                className={`flex items-center justify-center w-7 h-7 rounded-full border border-panel-border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header focus-visible:ring-offset-1 ${
+                  effectiveActiveTab === tab.id ? SELECTED : 'bg-panel text-text-light hover:bg-panel-hover hover:text-text-header'
                 }`}
-                style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
-                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                <TabIcon id={tab.id} size={14} />
               </button>
             )
           })}
