@@ -1235,7 +1235,8 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
     <div ref={self} className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
       <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        <span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
+        {/* One flowing line: the heading, the dot and the version wrap together as one inline run, never three flex columns (DL look at 1500x904 at 1.33). */}
+        <span className="min-w-0 flex-1"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
         {open ? <ChevronUp className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />}
       </button>
       {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the

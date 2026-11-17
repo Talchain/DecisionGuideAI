@@ -32,7 +32,8 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
         {t !== null && <span data-testid="range-tried" data-at={t} style={{ position: 'absolute', top: -2, bottom: -2, borderLeft: `2px dashed ${INK}`, left: `${pctOf(axis, t)}%` }} />}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, whiteSpace: 'nowrap' }}>
-        <span data-testid="range-min">{fmt(axis.min)} {range.unit}</span>
+        {/* The unit once, at the high end (DL look at 1500x904 at 1.33: on a narrow card the two labels touched); the low end says it to a reader. */}
+        <span data-testid="range-min" aria-label={`${fmt(axis.min)} ${range.unit}`}>{fmt(axis.min)}</span>
         <span data-testid="range-max">{fmt(axis.max)} {range.unit}</span>
       </div>
     </div>
