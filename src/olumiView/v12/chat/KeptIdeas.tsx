@@ -1,5 +1,5 @@
 /**
- * "Your kept ideas" in the Olumi panel (V12 Solo-Return): each idea the scenario holds, with where it came from, from the stored idea itself:
+ * "Kept ideas" in the Olumi panel (a neutral heading for every reader: Codex root 10:34:38Z) (V12 Solo-Return): each idea the scenario holds, with where it came from, from the stored idea itself:
  * "Olumi's idea, from <the question it answered>" (the question is core's own menu words) and who kept it ("kept by you", or the person's name as
  * core gives it). Nothing is drawn with no ideas. The two provenance phrases are the board's fixed chrome; the idea's words are core's.
  *
@@ -13,7 +13,7 @@ import { useViewStore } from '../../store'
 import { ideaMethodOf, keptIdeasOf, type KeptIdea } from '../ideas'
 import type { View } from '../../client'
 
-export const KEPT_IDEAS_HEADING = 'Your kept ideas'
+export const KEPT_IDEAS_HEADING = 'Kept ideas'
 export const olumisIdea = (method: string | null): string => (method === null ? 'Olumi’s idea' : `Olumi’s idea, from ${method}`)
 /** The closed disclosure's line: a count before a list (contract §2). */
 export const keptIdeasWords = (n: number): string => `${KEPT_IDEAS_HEADING} · ${n}`

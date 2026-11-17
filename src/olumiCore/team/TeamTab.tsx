@@ -15,6 +15,7 @@ import { RevealDock, revealDockShown } from '../../olumiView/RevealDock'
 import { EvidenceDock, evidenceDockShown } from '../../olumiView/EvidenceDock'
 import { useReveal } from '../../olumiView/reveal'
 import { StrategyOverviewSection } from '../../olumiView/strategy/StrategyOverview'
+import { FirstArrival } from '../../olumiView/v12/arrival'
 
 /**
  * THE TEAM TAB (olumi-core lane only). The team's views, the reveal, evidence, commitments and their outcomes, every word and state as
@@ -82,6 +83,8 @@ export function TeamTab(): JSX.Element {
               dissent, so none of those panels is drawn twice (one draft, one write key, one set of test ids). After the reveal, doubt or keep one
               link in your own words (core POST …/links/stance) sits above it, as it did above the differences (the UI gate, 8 Nov). */}
           <fieldset disabled={past !== null} className="contents"><LinkStance sid={sid} view={shown} onWrote={refresh} /></fieldset>
+          {/* sx-methods 0a2c92ae (first arrival): on the latest version only, directly above "Where we differ"; it adds no focus, scroll or effect. */}
+          {past === null && <FirstArrival view={shown} />}
           <fieldset disabled={past !== null} className="contents"><WhereWeDiffer sid={sid} view={shown} onWrote={refresh} /></fieldset>
           <InvitePanel sid={sid} />
           <fieldset disabled={past !== null} className="contents"><EvidencePanel sid={sid} view={shown} onWrote={refresh} /></fieldset>

@@ -92,6 +92,13 @@ describe('the brief panel’s version line carries core’s save date (core ad57
     expect(meta.textContent).toBe(now.version!.label)
     expect(screen.getByTestId('brief-panel').textContent).not.toContain(other)
   })
+  it('its heading is the neutral "Original brief" for every reader, never "Your brief" (Codex root 10:34:38Z)', () => {
+    useViewStore.setState({ view: now, sid: now.id })
+    render(<BriefPanel />)
+    expect(screen.getByTestId('brief-panel').getAttribute('aria-label')).toBe('Original brief')
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Original brief')
+    expect(screen.getByTestId('brief-panel').textContent).not.toContain('Your brief')
+  })
   it('names the brief’s writer from core’s brief_by and the members, never the first chat turn’s writer; CONTRAST: a brief_by that is no member names no one', () => {
     const other = 'A teammate who spoke first', writer = 'The brief’s own writer'
     const base = { ...now, members: [...now.members, { id: 'p_writer', name: writer }, { id: 'p_other', name: other }], chat: [{ ...now.chat[0]!, by: other, by_id: 'p_other' }, ...now.chat.slice(1)] }

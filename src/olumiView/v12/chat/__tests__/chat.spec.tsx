@@ -1,6 +1,6 @@
 /**
  * V12 Olumi panel (chat lane): the composer's one sentence, the reply's disclosure, the "About <card>" chip, the method chip on the person's message,
- * keeping each approach on its own, "Your kept ideas" (behind a closed count since sx-panel), the newest next step said once (sx-panel, in place of
+ * keeping each approach on its own, "Kept ideas" (behind a closed count since sx-panel), the newest next step said once (sx-panel, in place of
  * "From my last reply"), the Undo control's accessible name and the card menu's header.
  * Bound by test id and exact words to the View a fixture holds; every word asserted is read back from that View, never typed from the design.
  */
@@ -137,7 +137,7 @@ describe('keeping an approach on its own', () => {
   })
 })
 
-describe('"Your kept ideas"', () => {
+describe('"Kept ideas"', () => {
   const held = (v: View, items: object[]): View => ({ ...v, strategy: { items } } as unknown as View)
   const idea = (o: object) => ({ id: 'i1', kind: 'idea', text: 'Add one line to the sign-in sheet.', by: 'Olumi', by_id: 'olumi', kept_by: { id: '1', name: 'Pat' }, source_turn: '6', concerns: [], status: 'live', ...o })
   it('lists each kept idea with "Olumi\'s idea, from <core\'s question>" and "kept by you"; someone else\'s keeping is named', () => {
@@ -150,7 +150,7 @@ describe('"Your kept ideas"', () => {
     const box = getByTestId('view-kept-ideas') as HTMLDetailsElement
     expect([box.tagName, box.open]).toEqual(['DETAILS', false])
     expect(getByTestId('view-kept-ideas-summary')).toHaveTextContent(keptIdeasWords(2))
-    expect(keptIdeasWords(2)).toBe('Your kept ideas · 2')
+    expect(keptIdeasWords(2)).toBe('Kept ideas · 2')
     const rows = getAllByTestId('view-kept-idea')
     expect(rows).toHaveLength(2)
     expect(within(rows[0]!).getByTestId('view-kept-idea-text')).toHaveTextContent('Add one line to the sign-in sheet.')
@@ -170,7 +170,7 @@ describe('"Your kept ideas"', () => {
   it('is drawn in the Olumi panel', () => {
     const v = held(fixture('after-find-first'), [idea({})])
     show(v)
-    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('Your kept ideas')
+    expect(render(<ViewChat />).container.querySelector('[data-testid="view-kept-ideas"]')).toHaveTextContent('Kept ideas')
   })
 })
 
