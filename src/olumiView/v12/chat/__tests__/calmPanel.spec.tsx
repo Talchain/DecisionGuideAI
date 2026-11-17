@@ -23,6 +23,7 @@ import { useViewStore } from '../../../store'
 import { aloneIn, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { aboutCountWords } from '../AboutChip'
 import { typography } from '../../../../styles/typography'
+import { ICON_HUE } from '../../../look/icons'
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => selection.value }))
@@ -32,6 +33,8 @@ const DIR = path.resolve('src/olumiView')
 const session = (n: string): View => { const v = JSON.parse(readFileSync(path.join(DIR, 'fixtures/session', `${n}.view3.json`), 'utf8')) as View; return { ...v, chat: v.chat.map((t) => ({ ...t, by_id: v.you_id })) } as View }
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 const q = (c: ParentNode, id: string) => c.querySelector<HTMLElement>(`[data-testid="${id}"]`)
+/** A registry icon's colour: the `ok-hue-*` classes on its glyph span (the first aria-hidden element inside), and that span's inline style (none). */
+const glyphHue = (el: Element) => { const span = el.querySelector('[aria-hidden="true"]')!; return [[...span.classList].filter((c) => c.startsWith('ok-hue-')), span.getAttribute('style')] }
 const qa = (c: ParentNode, id: string) => [...c.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)]
 const mount = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null })
@@ -163,7 +166,7 @@ describe('4. the selected card is a chip inside the composer', () => {
     expect(ask.title).toBe('Ask about per specialist')
     expect(ask.getAttribute('aria-label')).toBe('Ask about per specialist')
     expect(ask.querySelector('svg')).not.toBeNull() // drawn, not hidden
-    expect(ask.style.color).toBe('var(--text-light)') // neutral
+    expect(glyphHue(ask)).toEqual([[ICON_HUE['--text-light']], null]) // neutral, by class
     fireEvent.click(ask)
     expect(sendChip).toHaveBeenCalledTimes(1)
     expect(sendChip.mock.calls[0]![0]).toBe('Ask about per specialist')
@@ -181,6 +184,8 @@ describe('4. the selected card is a chip inside the composer', () => {
 // Mock v2 (Paul, 17 Nov): icons carry no hue; one type scale; Olumi's question card; green Send; D3; the change mix.
 const HUE_CLASS = /^(?:[a-z-]+:)*text-(?:info|success|warning|danger|option|goal|factor)$/
 const GREYS = new Set(['var(--text-light)', 'var(--text-header)', 'var(--text-body)', 'var(--border-default)'])
+/** The registry's colour classes that are not a grey (Olumi's blue, danger, warning, a kind's colour). */
+const HUED_ICON = new Set<string>(Object.entries(ICON_HUE).filter(([token]) => !GREYS.has(`var(${token})`)).map(([, cls]) => cls))
 const everything = (root: Element): HTMLElement[] => [...root.querySelectorAll<HTMLElement>('*')]
 const hued = (root: Element): string[] => {
   const out: string[] = []
@@ -190,7 +195,7 @@ const hued = (root: Element): string[] => {
   }
   for (const svg of root.querySelectorAll('svg')) {
     if (svg.getAttribute('data-icon') === 'olumi-ai' || svg.closest('[data-icon="olumi-ai"]') !== null) continue
-    for (let e: Element | null = svg; e !== null && e !== root; e = e.parentElement) if ((e.getAttribute('class') ?? '').split(/\s+/).some((t) => HUE_CLASS.test(t)) && e.querySelector('[data-icon="olumi-ai"]') === null) { out.push(`svg under .${e.getAttribute('class')}`); break }
+    for (let e: Element | null = svg; e !== null && e !== root; e = e.parentElement) if ((e.getAttribute('class') ?? '').split(/\s+/).some((t) => HUE_CLASS.test(t) || HUED_ICON.has(t)) && e.querySelector('[data-icon="olumi-ai"]') === null) { out.push(`svg under .${e.getAttribute('class')}`); break }
   }
   return out
 }
@@ -257,7 +262,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     const skip = q(card, 'view-question-skip')!
     expect(skip.textContent).toBe('')
     expect(skip.title).toBe('Skip')
-    expect(skip.style.color).toBe('var(--text-light)')
+    expect(glyphHue(skip)).toEqual([[ICON_HUE['--text-light']], null])
     fireEvent.click(skip)
     expect(q(card, 'view-question-count')!.textContent).toBe('2 of 3')
     expect(visible(card)[0]!.textContent).toBe(qs[1])
@@ -284,7 +289,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(use.className).not.toContain('bg-text-header')
     fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'By the end of June' } })
     expect(use.disabled).toBe(false)
-    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.style.color).toBe('var(--text-light)')
+    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(glyphHue(q(card, `view-question-method-${k}`)!)).toEqual([[ICON_HUE['--text-light']], null])
     fireEvent.click(q(card, 'view-question-method-opposite')!)
     expect(bodies).toEqual([]) // an ask-for-more icon only fills the message box
     expect(useViewChat.getState().text).not.toBe('')
@@ -303,7 +308,7 @@ describe('8. Send is the person\'s green act, never black', () => {
     expect(send.className).not.toMatch(/(^|\s)bg-text-header(\s|$)/)
     expect(send.className).not.toContain('text-text-on-color')
     expect(send.querySelector('svg')).not.toBeNull()
-    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).style.color).toBe('var(--text-header)') // the ink glyph (registry send)
+    expect(glyphHue(send)).toEqual([[ICON_HUE['--text-header']], null]) // the ink glyph (registry send)
   })
 })
 
