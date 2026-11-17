@@ -340,15 +340,15 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
   })
 
-  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the pinned proposal is the one Next step, at the TOP of the panel, above the thread; Olumi's
-  // question stays in the thread, so it now follows the pinned card. Was: question above the pinned proposal (which sat at the panel's foot).
-  it('CT8c (DL-538): Olumi\'s question stays in the thread; the pinned proposal sits above the thread, at the top', () => {
+  // CHANGED BY DESIGN (17 Nov, the calm panel): the pinned proposal is ONE line at the thread's FOOT, above the composer, so Olumi's question (in the
+  // thread) comes before it again. Was (sx-panel): the pinned card at the TOP, the question after it. Reverting moves the card back to the top and fails this row.
+  it('CT8c (DL-538): Olumi\'s question stays in the thread; the pinned proposal sits below the thread, at the foot', () => {
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
     show(asked)
     const { getByTestId } = render(<ViewChat />)
     expect(getByTestId('view-chat-scroll').contains(getByTestId('view-model-question'))).toBe(true)
     expect(getByTestId('view-chat-scroll').contains(getByTestId('view-chat-pinned'))).toBe(false)
-    follows(getByTestId('view-chat-pinned'), getByTestId('view-model-question'))
+    follows(getByTestId('view-model-question'), getByTestId('view-chat-pinned'))
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
@@ -448,8 +448,8 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(getByTestId('view-model-question-text').textContent).toBe(question)
     expect(getByTestId('view-model-question-text-1').textContent).toBe('What evidence could change your view?')
     follows(getByTestId('view-model-question-text'), getByTestId('view-model-question-text-1'))
-    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the step (approval) is the one card at the top, so the questions follow it. Was: above approval.
-    follows(getByTestId('view-next-step'), getByTestId('view-model-question'))
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the step (approval) is one line at the thread's foot, so the questions come before it. Was (sx-panel): after it.
+    follows(getByTestId('view-model-question'), getByTestId('view-next-step'))
     expect(posts).toEqual([])
   })
   it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each painted whole and reachable in the panel\'s scroll; the fourth is not drawn', () => {
@@ -556,7 +556,8 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
     expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')
-    expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/padding-bottom: 12px/)
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the row is no longer a sticky header at the box's top; it is the first item of the actions line at the foot.
+    expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/flex: 1 1 0/)
     expect(rule(".ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden])")).toMatch(/display: contents/)
   })
 
@@ -579,7 +580,9 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(step.firstElementChild, 'the review is the step\'s only child').toBe(review)
     const row = getByTestId('view-proposal-row')
     expect(row.tagName).toBe('BUTTON')
-    expect(review.firstElementChild).toBe(row)
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the row is in the actions line (the review's foot), not the review's first child.
+    expect(review.firstElementChild).toBe(bodyOf(review))
+    expect(row.closest('[data-testid="view-proposal-actions"]')).not.toBeNull()
     expect(row.textContent).toBe(`${p.heading} · ${p.on}`)
     expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
     expect(row.querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
@@ -601,7 +604,8 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(body.contains(getByTestId('view-approve'))).toBe(true)
     expect(body.querySelector('[data-testid="view-proposal-actions"]'), 'the actions are in the body').not.toBeNull()
     const proposalPart = getByTestId('view-chat-proposal')
-    expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal does not draw its heading again').toHaveLength(0)
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the heading is the actions line's own row, inside the proposal part, drawn once.
+    expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal draws its heading once, in its line').toHaveLength(1)
     fireEvent.click(rowOf(review))
     expect(isOpen(review), 'pressing the row again closes it').toBe(false)
     fireEvent.click(rowOf(review))

@@ -120,19 +120,21 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
     for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
-    // Contract 3: core's heading and `on` are the one row's own line (its row, a button), drawn once, outside the card body.
+    // Contract 3: core's heading and `on` are the one row's own line (its row, a button), drawn once. CHANGED BY DESIGN (17 Nov, the calm panel): that row is now
+    // the first item of the card's actions line at the thread's foot, so it is inside the card, still exactly once; reverting moves it back above the body and fails this row.
     const review = container.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
     const row = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
     for (const k of ['heading', 'on'] as const) expect(row.querySelector(`[data-view="proposal.${k}"]`)?.textContent).toBe(p[k])
-    expect(card.querySelector('[data-view="proposal.heading"]')).toBeNull()
-    expect(card.querySelector('[data-view="proposal.on"]')).toBeNull()
+    expect(card.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
+    expect(card.querySelector('[data-testid="view-proposal-actions"]')!.contains(row)).toBe(true)
+    expect(card.querySelectorAll('[data-view="proposal.on"]')).toHaveLength(1)
     // Opened, the review shows the same actions; Approve and Set aside post exactly as before.
     setOpen(review, true)
     await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
     await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
     useViewStore.setState({ view: held })
     const { container: again } = renderTab()
-    await act(async () => { fireEvent.click([...again.querySelectorAll('button')].find((b) => b.textContent === 'Set aside')!) })
+    await act(async () => { fireEvent.click(again.querySelector('[data-testid="view-set-aside"]')!) })
     await waitFor(() => expect(posts[1]).toEqual({ url: `/api/proposals/${p.id}/discard`, body: {} }))
   })
 
@@ -155,7 +157,9 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect([...step.querySelectorAll('p')].some((el) => el.textContent === 'Next step')).toBe(false)
     setOpen(review, true)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
-    expect([...review.querySelectorAll('button')].map((b) => b.textContent)).toEqual(expect.arrayContaining(['Approve', 'Set aside']))
+    // CHANGED BY DESIGN (17 Nov, the calm panel): Set aside is an icon button (name and hover "Set aside"), not words; Approve keeps its words.
+    expect([...review.querySelectorAll('button')].map((b) => b.textContent)).toEqual(expect.arrayContaining(['Approve']))
+    expect(review.querySelector('[data-testid="view-set-aside"]')!.getAttribute('aria-label')).toBe('Set aside')
   })
 
   // CATCH (contract 3). Fails before: land() had no closed-details early return, so a closed review's box was given a maxHeight from the rows.

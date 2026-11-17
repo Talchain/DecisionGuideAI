@@ -63,7 +63,8 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     const c = show(view)
     const top = q(c, 'view-chat-pinned')!, scroll = q(c, 'view-chat-scroll')!
     expect(top).not.toBeNull()
-    expect(before(top, scroll)).toBe(true) // above the thread, never under it
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the pending proposal is one line at the thread's FOOT, below the thread and never inside it (was: above it).
+    expect(before(scroll, top)).toBe(true) // below the thread, never over it
     expect(scroll.contains(top)).toBe(false)
     expect(qa(c, 'view-next-step')).toHaveLength(1) // ONE step on the panel
     const review = q(top, 'view-proposal-review')!

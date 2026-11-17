@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { stopDraft, tryAgain, useViewChat } from './ViewChat'
+import { OkIcon } from './look/icons'
 import { useViewStore } from './store'
 import type { View } from './client'
 import { EARLY_FAILED, earlyOf } from './early'
@@ -51,10 +52,19 @@ function Drafting({ draft }: { draft: Draft }): JSX.Element {
         </p>
         {early === null ? null : <EarlyAnswer text={early} testid="view-drafting-early" />}
         {early === null || running ? null : <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-drafting-early-failed">{EARLY_FAILED}</p>}
-        {running && s !== null ? <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p> : null}
+        {/* 17 Nov (the calm panel): Stop is a quiet icon beside the timer, not a box. Core's own label is its name and its title the hover. */}
         {running
-          ? (draft.stop == null ? null : <button type="button" disabled={busy} title={draft.stop.title} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
-              className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-body hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">{draft.stop.label}</button>)
+          ? (s === null && draft.stop == null ? null : (
+            <div className="flex items-center justify-center gap-1">
+              {s === null ? null : <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p>}
+              {draft.stop == null ? null : (
+                <button type="button" disabled={busy} title={draft.stop.title} aria-label={draft.stop.label} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed">
+                  <OkIcon id="stop" size={14} decorative /><span className="sr-only">{draft.stop.label}</span>
+                </button>
+              )}
+            </div>
+          ))
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
               className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
         {running || typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-info">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}

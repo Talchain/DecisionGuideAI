@@ -226,7 +226,6 @@ import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat } from '../../olumiView/ViewChat'
 import { DockComposer } from '../../olumiView/ViewWelcome'
-import { selectedRename } from '../../olumiView/SelectedRename'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
 
@@ -4614,7 +4613,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             body's overflow from clipping these. */}
         {aiPanelV2On && effectiveIsOpen ? (
           <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-panel-hover' : ''}${isOlumiCoreLane() ? ' relative shadow-[0_-10px_14px_-10px_rgba(38,38,38,0.16)]' : ''}`} data-testid="ai-panel-footer-stack">
-            {revealOpen && effectiveActiveTab === 'team' ? null : <SelectionPill after={isOlumiCoreLane() ? selectedRename : undefined} />}
+            {/* The olumi-core lane draws the selection as a chip inside its composer (ViewChat ViewComposerBody, 17 Nov). */}
+            {(revealOpen && effectiveActiveTab === 'team') || isOlumiCoreLane() ? null : <SelectionPill />}
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in
                 one dock, and its rerun bypassed the canonical runner. The
                 freshness strip owns stale + Rerun. */}

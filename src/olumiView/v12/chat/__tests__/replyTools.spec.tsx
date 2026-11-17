@@ -34,6 +34,7 @@ afterEach(() => {
   useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null })
 })
 
+// CHANGED BY DESIGN (17 Nov, the calm panel): the chip now reads "2 cards" (icon, count, hover list) and the version stamp sits in the same row (calmPanel.spec).
 describe('6. reply bookkeeping is one icon row', () => {
   it('the newest reply draws one tools row holding ONE "N on the canvas" chip ; CONTRAST: no per-card chip', () => {
     const c = mount(session('after-find-first'))
@@ -57,14 +58,15 @@ describe('6. reply bookkeeping is one icon row', () => {
   })
 })
 
-describe('10. no strip above the thread; the popout sits in the composer row; the edge fades', () => {
-  it('the popout is in the composer\'s icon row, not in the thread; the thread has a top fade', () => {
+describe('10. no strip above the thread; the popout sits in the composer row; no fade over the thread', () => {
+  // CHANGED BY DESIGN (17 Nov, the calm panel): the thread's top fade existed to soften a proposal card pinned ABOVE the thread. The proposal is now one line
+  // at the thread's foot, so nothing sticks above it and the fade (a clipped-looking edge Paul asked to lose) is gone. Reverting puts the fade back and fails this row.
+  it('the popout is in the composer\'s icon row, not in the thread; the thread has no top fade', () => {
     const c = mount(session('after-find-first'))
     const pop = q(c, 'view-chat-popout')!
     expect(q(c, 'view-composer-actions')!.contains(pop)).toBe(true)
     expect(q(c, 'view-chat')!.contains(pop)).toBe(false)
-    expect(q(c, 'view-chat-fade')).not.toBeNull()
-    expect(q(c, 'view-chat-scroll')!.previousElementSibling).toBe(q(c, 'view-chat-fade'))
+    expect(q(c, 'view-chat-fade')).toBeNull()
   })
 })
 

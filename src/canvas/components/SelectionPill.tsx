@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
-import { MessageCircleQuestion } from 'lucide-react'
+import { Info, MessageCircleQuestion, X } from 'lucide-react'
+import { useCanvasStore } from '../store'
 import { typo } from '../../styles/typography'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
@@ -54,7 +55,7 @@ import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 const REFIRE_GUARD_MS = 500
 
 /** `after`: what a lane offers for this selection at the end of the row (the olumi-core lane: a card's Rename, DL 7 Nov); none elsewhere. */
-export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode } = {}) {
+export const SelectionPill = memo(function SelectionPill({ after, chip = false }: { after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
   const selection = useSelectionContext()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
@@ -101,6 +102,29 @@ export const SelectionPill = memo(function SelectionPill({ after }: { after?: (s
 
   // V11 pixel pass (9 Nov): on the olumi-core lane the row is on Paul's three sizes (12 px, never the legacy 11).
   const meta: 'viewPanelMeta' | 'panelMeta' = isOlumiCoreLane() ? 'viewPanelMeta' : 'panelMeta'
+  if (chip) {
+    const extra = after?.(selection)
+    return (
+      <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5" data-testid="ai-panel-selection-pill" data-selection-kind={selection.kind} data-selection-actionable={canAsk ? 'true' : 'false'}>
+        <span className={`inline-flex min-w-0 max-w-full items-center gap-0.5 rounded-full border border-panel-border bg-panel-hover pl-2 ${typo(meta, 'text-text-body')}`} data-testid="selection-chip">
+          {canAsk ? (
+            <button type="button" onClick={ask} aria-label={`Ask about ${label}`} title={`Ask about ${label}`} data-testid="selection-pill-ask"
+              className="min-w-0 break-words rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info">About: {label}</button>
+          ) : <span className="min-w-0 break-words">About: {label}</span>}
+          <button type="button" onClick={() => useCanvasStore.getState().clearSelection()} aria-label="Clear the selection" title="Clear the selection" data-testid="selection-pill-clear"
+            className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+            <X size={12} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        </span>
+        {extra == null ? null : (
+          <details className="basis-full" data-testid="selection-detail">
+            <summary className="inline-flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full text-text-light hover:text-text-body" aria-label="More about this card" title="More about this card"><Info size={14} strokeWidth={1.75} aria-hidden="true" /></summary>
+            <div className="ok-selected flex flex-wrap items-center gap-1.5">{extra}</div>
+          </details>
+        )}
+      </div>
+    )
+  }
   return (
     <div
       // DL-538 (the target's selected card): on the olumi-core lane the row is drawn as a card (olumiLook.css `.ok-selected`).

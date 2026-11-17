@@ -195,12 +195,17 @@
 @media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
-/* His message: a warm bubble with his name inside it. */
+/* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). Their name is inside it only where a
+   colleague has written in the thread (ViewChat `aloneIn`). */
 .ok-said {
   background: var(--bg-panel-hover) !important;
-  border: 1px solid var(--border-default) !important;
+  border: 0 !important;
+  box-shadow: none !important;
   border-radius: 12px !important;
-  padding: 12px !important;
+  padding: 8px 12px !important;
+  margin-left: auto;
+  width: fit-content !important;
+  max-width: 88% !important;
 }
 .ok-said-by { margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--text-light); }
 /* Olumi's reply: Olumi's mark in the margin, its paragraphs and lists set as type, its cites small and quiet. */
@@ -219,11 +224,11 @@
 /* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
 .ok-reply .ok-reply-more { margin-top: 2px; }
 .ok-reply .ok-reply-more[open] > summary { margin-bottom: 8px; }
-/* Olumi's proposal, pinned above the composer: one panel card (1 px default border, 12 px padding; the refinement spec, 16 Nov). The pinned box is the card (its inner section and the
-   proposal are laid out as its own contents), so the actions' sticky foot is held by the box's own scroll and Approve stays in view
-   however short the panel. */
+/* Olumi's proposal, pinned at the foot of the thread just above the composer (17 Nov, the calm panel): ONE line (Olumi's mark, core's heading, Review,
+   Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
+   actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */
 .ok-pinned {
-  max-height: 50%; margin: 0 16px 8px; padding: 12px; border: 1px solid var(--border-default); border-radius: 12px; background: var(--bg-panel);
+  max-height: 50%; margin: 0; padding: 4px 16px 0; border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
 /* DL 06:57Z (2): the box is a column whose only shrinking part is the list of changes (it scrolls on its own); the step's words, the
@@ -246,7 +251,7 @@
 .ok-pinned [data-review-body] > * + * { margin-top: 8px; }
 /* Opened, the row stays at the box's top as its header (the box scrolls under it); its upward shadow covers the box's top padding, so no
    line scrolled away shows above it. */
-.ok-pinned [data-testid='view-proposal-row'] { flex: none; padding-bottom: 12px; position: sticky; top: 0; z-index: 1; background: var(--bg-panel); box-shadow: 0 -16px 0 var(--bg-panel); }
+.ok-pinned [data-testid='view-proposal-row'] { flex: 1 1 0; min-width: 0; }
 /* Contract 3 (Codex 15 Nov, held 329 with nine changes: the list was squeezed to 0 px at 1232 by the step's words and core's warning lines,
    which do not shrink). The list never shrinks: where the box cannot hold the words, the list and the actions, the pinned box itself
    (overflow-y auto) is the ONE scroll body for all of them, the actions sticky at its foot, so the checklist is always drawn whole. */
@@ -255,7 +260,7 @@
 /* Approve is the person's one filled action: Olumi's green with an ink label (Paul, 17 Nov: no black buttons; existing colours only). */
 .ok-pinned .ok-actions button[data-testid='view-approve'] { background: var(--success) !important; border-color: var(--success) !important; color: var(--text-header) !important; }
 .ok-pinned .ok-actions button[data-testid='view-approve']:hover:not(:disabled) { background: var(--success-hover) !important; border-color: var(--success-hover) !important; color: var(--text-header) !important; }
-.ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 8px 0 12px; box-shadow: 0 -8px 8px -8px color-mix(in srgb, var(--text-header) 12%, transparent); }
+.ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 0; }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */
 .ok-selected {

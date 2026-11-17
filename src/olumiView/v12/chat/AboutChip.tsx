@@ -23,8 +23,8 @@ export function aboutCardsOf(view: View | null, next: NonNullable<ViewTurn['answ
 
 export const aboutWords = (title: string): string => `About ${title} on the canvas`
 
-/** The chip's words: how many cards the reply points at, on the canvas. Fixed chrome; the cards' own titles are the hover (core's headings). */
-export const aboutCountWords = (n: number): string => `${n} on the canvas`
+/** The chip's count words (17 Nov, the calm panel: one icon with "2 cards"): how many cards the reply points at; the numeral is drawn beside the icon, the words are its label. Fixed chrome; the cards' own titles are the hover (core's headings). */
+export const aboutCountWords = (n: number): string => `${n} ${n === 1 ? 'card' : 'cards'}`
 
 /** v10 review item 6: ONE chip in the reply's icon row, not a wrapped chip per card. Hover or focus rings the cards (the same ring the next step
  *  lights); a press focuses the first and selects it on the canvas. The titles are on the hover, one per line. */
@@ -35,8 +35,8 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
     <div className="flex" data-testid="view-about-chips">
       <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
         title={cards.map((c) => aboutWords(c.title)).join('\n')} data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-        <Crosshair className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span>{aboutCountWords(cards.length)}</span>
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-info hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        <Crosshair className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
       </button>
     </div>
   )

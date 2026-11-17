@@ -192,18 +192,22 @@ describe('PL-1083 (1): placing the held reading rows', () => {
   })
 })
 
-describe('contract 3 on the redesign (Codex 15 Nov): the review\'s sticky row holds the box\'s top', () => {
-  it('CATCH: the rows rest whole BETWEEN the row\'s foot and the actions\' top, the box grown by the row\'s height too', () => {
+// CHANGED BY DESIGN (17 Nov, the calm panel): the review's row is no longer a sticky header held at the box's TOP; it is the first item of the actions line at
+// the FOOT, so its height is part of the foot (`footH`) and nothing is held above the rows. Was: the rows rested between the row's foot and the actions' top, the box
+// grown by the row's height too. Reverting (holding the row at the top again) adds its 44 px back to the box and moves the scroll to 248, failing this row.
+describe('the review\'s row sits in the actions line at the foot, so the rows rest from the box\'s top (17 Nov, the calm panel)', () => {
+  it('CATCH: the row\'s own height is not added above the rows: the rows rest whole between the box\'s top and the actions\' top', () => {
     rowH = 44
     show(held)
-    const b = boxOf()!, row = screen.getByTestId('view-proposal-row')
-    // Needed: rows 300..572 with 8 px either side (288), the actions (116) and the row (44) = 448 px of inner height; the box gives 348.
-    expect(b.style.maxHeight).toBe('450px')
-    expect(b.scrollTop).toBe(248) // the first row 8 px under the row's foot; ignoring the row: 292, the first row 8 px under the box's top, behind it
-    const rowFoot = row.getBoundingClientRect().bottom, actionsTop = BOX_TOP + boxH(b) - footH
+    const b = boxOf()!
+    expect(screen.getByTestId('view-proposal-actions').contains(screen.getByTestId('view-proposal-row'))).toBe(true)
+    // Needed: rows 300..572 with 8 px either side (288) and the actions (116) = 404 px of inner height; the box gives 348.
+    expect(b.style.maxHeight).toBe('406px')
+    expect(b.scrollTop).toBe(292) // the first row 8 px under the box's top
+    const actionsTop = BOX_TOP + boxH(b) - footH
     for (const [id, [y, h]] of Object.entries(ROWS)) {
       const on = BOX_TOP + y - b.scrollTop
-      expect(on, `${id} below the row`).toBeGreaterThanOrEqual(rowFoot)
+      expect(on, `${id} from the box's top`).toBeGreaterThanOrEqual(BOX_TOP)
       expect(on + h, `${id} above the actions`).toBeLessThanOrEqual(actionsTop)
     }
   })
@@ -225,22 +229,23 @@ describe('PL-1083 (1): a first row taller than the box can ever be', () => {
   })
 })
 
-describe('contract 3 on the redesign: the sticky row across closing and opening (Codex 15 Nov round 2)', () => {
-  it('a row that wraps to two lines places the rows again below its new foot; closed, the box keeps no height of ours; reopened, the rows are placed again', () => {
-    rowH = 44
+// CHANGED BY DESIGN (17 Nov, the calm panel): a heading that wraps now makes the actions LINE taller (the row is in it), so it is the foot that is watched and the
+// rows are placed again above the taller foot; was: the sticky row's own foot. Closing and reopening behave as before.
+describe('the actions line across a wrapping heading, closing and opening (17 Nov, the calm panel)', () => {
+  it('a heading that wraps to two lines makes the foot taller and the rows are placed again above it; closed, the box keeps no height of ours; reopened, the rows are placed again', () => {
     show(held)
-    const b = boxOf()!, review = screen.getByTestId('view-proposal-review'), row = screen.getByTestId('view-proposal-row')
-    expect(b.scrollTop).toBe(248)
-    rowH = 68 // the heading wraps to a second line
-    expect(resized(row)).toBe(1)
-    expect(BOX_TOP + ROWS['view-reading-0']![0] - b.scrollTop).toBeGreaterThanOrEqual(BOX_TOP + 68)
+    const b = boxOf()!, review = screen.getByTestId('view-proposal-review'), foot = screen.getByTestId('view-proposal-actions')
+    expect(b.scrollTop).toBe(292)
+    footH = 140 // the heading wraps to a second line, so the line is taller
+    expect(resized(foot)).toBeGreaterThan(0)
+    expect(BOX_TOP + ROWS['view-reading-1']![0] + ROWS['view-reading-1']![1] - b.scrollTop).toBeLessThanOrEqual(BOX_TOP + boxH(b) - 140)
     setOpen(review, false); for (const o of observers) if (o.seen.length > 0) o.fire()
     expect(isOpen(review)).toBe(false)
     expect(b.style.maxHeight).toBe('')
     b.scrollTop = 0
     setOpen(review, true); for (const o of observers) if (o.seen.length > 0) o.fire()
-    expect(BOX_TOP + ROWS['view-reading-0']![0] - b.scrollTop).toBeGreaterThanOrEqual(BOX_TOP + 68)
-    expect(BOX_TOP + ROWS['view-reading-1']![0] + ROWS['view-reading-1']![1] - b.scrollTop).toBeLessThanOrEqual(BOX_TOP + boxH(b) - footH)
+    expect(BOX_TOP + ROWS['view-reading-0']![0] - b.scrollTop).toBeGreaterThanOrEqual(BOX_TOP)
+    expect(BOX_TOP + ROWS['view-reading-1']![0] + ROWS['view-reading-1']![1] - b.scrollTop).toBeLessThanOrEqual(BOX_TOP + boxH(b) - 140)
   })
 })
 

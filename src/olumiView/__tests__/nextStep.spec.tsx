@@ -62,7 +62,9 @@ describe('the next step', () => {
     expect([...s.querySelectorAll('p')].map((e) => e.textContent)).not.toContain('Next step') // no header for this kind
     // The row IS the heading: the proposal's body does not draw it again, anywhere on the page.
     expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
-    expect(review.querySelector('[data-testid="view-chat-proposal"] [data-view="proposal.heading"]')).toBeNull()
+    // CHANGED BY DESIGN (17 Nov, the calm panel): the row is the first item of the proposal's actions line at the foot, so it sits inside the proposal part;
+    // the page-wide count above still binds it to ONE heading, and the body (above the line) draws none.
+    expect(review.querySelector('[data-testid="view-chat-proposal"] > :not([data-testid="view-proposal-actions"]) [data-view="proposal.heading"]')).toBeNull()
     // The words for the step sit in the review's body, with the card; opening it shows them without approving anything.
     setOpen(review, true)
     expect(isOpen(review)).toBe(true)

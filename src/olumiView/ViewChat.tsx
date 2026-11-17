@@ -39,7 +39,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, History, Info, MessageSquare, RefreshCw, RotateCcw, SearchX, Target, X, Zap } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, ChevronDown, ChevronUp, ExternalLink, FlipVertical2, Globe, MessageSquare, RefreshCw, RotateCcw, SearchX, Target, X, Zap } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -55,6 +55,9 @@ import { CommitFormSlot, RecordStepButton } from './v12/team'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
+import { OkIcon, OkIconButton } from './look/icons'
+import { SelectionPill } from '../canvas/components/SelectionPill'
+import { selectedRename } from './SelectedRename'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
@@ -243,7 +246,7 @@ export function stepTurnOf(view: View | null, sid: string | null, gone: string |
 export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
-function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
+function Turn({ t, at, latest = false, moves = false, primary = false, me, floor, alone = false }: { t: ViewTurn; /** Nobody but the viewer has written in this scenario's thread: their own bubble then carries no name (17 Nov, the calm panel). */ alone?: boolean; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const gone = useViewChat((st) => st.gone ?? null)
@@ -265,7 +268,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // DL-538 (the target panel): the bubble names whose words it holds, inside it (core's `by`): another person's name in ink, the viewer's own
   // quieter. A turn core names no one for has none.
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
-  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`}>{t.by}</p>
+  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}${alone && !other ? ' sr-only' : ''}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
   const early = earlyOf(t)
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
@@ -302,7 +305,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const answer = t.answer === null ? (reply === null ? null : (
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
-    <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-chat-answer">
+    <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       {lead !== null
         ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
@@ -327,31 +330,38 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         </details>
       )}
       <Stories answer={t.answer} at={at} />
-      {/* v10 review item 6: the reply's bookkeeping is ONE icon row (the cards it is about, show in the workspace, keep), never stacked chips and links. */}
-      <div className="flex flex-wrap items-center gap-1 empty:hidden" data-testid="view-reply-tools">
-        <AboutChips cards={aboutCards} />
-        <ShowInWorkspace turn={t.id} next={t.answer.next} />
-        {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
-      </div>
     </div>
   )
   // Who replied and the model version it read, under the reply, as DGAI's version chip (v10): core's words.
   // v10 review item 6: core's status line (for example "Suggested, not yet accepted") is a small icon with its words on hover; it is drawn in full only
   // while an Approve waits on the model. Core's words are unchanged and stay in the page for readers.
   const waiting = whole?.proposal != null
+  // The reply's ONE footer row (17 Nov, the calm panel: "one quiet footer row per reply in place of the stacked chips"): the cards it is about
+  // (one icon with a count, Olumi's blue), show in the workspace, keep as an idea (Olumi's blue), and the version stamp as a small icon whose hover
+  // is core's version and status words. Core's words stay in the page (sr-only), and its status line is drawn in full only while an Approve waits.
+  const stampWords = t.status === null ? t.version : `${t.version} · ${t.status}`
   const stamp = (
-    <div className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
-      <History size={14} strokeWidth={1.75} aria-hidden="true" />
-      <span><span data-view={`${at}.version`}>{t.version}</span>
-        {t.status === null ? null : <> · <span data-view={`${at}.status`} className={waiting ? undefined : 'sr-only'} title={t.status}>{t.status}</span></>}</span>
-      {t.status === null || waiting ? null : <span title={t.status} tabIndex={0} role="img" aria-label={t.status} className="inline-flex" data-testid="view-chat-status-icon"><Info size={12} strokeWidth={1.75} aria-hidden="true" /></span>}
+    <span className={`inline-flex items-center gap-1 text-text-light ${typography.chatMeta}`} data-testid="view-chat-version">
+      <span tabIndex={0} role="img" aria-label={stampWords} title={stampWords} className="inline-flex" data-testid={t.status === null || waiting ? 'view-chat-version-icon' : 'view-chat-status-icon'}>
+        <OkIcon id="version-tag" size={14} decorative />
+        <span className="sr-only"><span data-view={`${at}.version`}>{t.version}</span>{t.status === null || waiting ? null : <> · <span data-view={`${at}.status`}>{t.status}</span></>}</span>
+      </span>
+      {t.status === null || !waiting ? null : <span title={t.status} data-view={`${at}.status`}>{t.status}</span>}
+    </span>
+  )
+  const tools = (
+    <div className={`flex flex-wrap items-center gap-1${t.answer === null ? '' : ' pl-[26px]'}`} data-testid="view-reply-tools">
+      {t.answer === null ? null : <AboutChips cards={aboutCards} />}
+      {t.answer === null ? null : <ShowInWorkspace turn={t.id} next={t.answer.next} />}
+      {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
+      {stamp}
     </div>
   )
   return (
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
       {said}{lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
-      {answer}{stamp}
+      {answer}{tools}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.answer === null && t.problem !== null && t.said !== '' ? <AskAgain words={t.said} /> : null}
@@ -363,7 +373,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
 /** The conversation, oldest first, as the View holds it. */
 export function ViewTurns({ chat }: { chat: View['chat'] }) {
   return (
-    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
+    <ol className={`${typography.viewPanelBody} space-y-6`} data-testid="view-chat-turns">
       {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}
     </ol>
   )
@@ -394,7 +404,7 @@ function AskAgain({ words }: { words: string }) {
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
-function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
+function FloorLine({ f, me, latest, alone = false }: { f: FloorTurn; me?: string | null; latest: boolean; alone?: boolean }) {
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z and 04:41:16Z): core offers what can be kept on this row (`prose`: each line of Olumi's
   // own prose, as served, one entry each). Each entry is offered on the line that draws it and kept VERBATIM (Codex root 05:32:34Z): no length
@@ -412,7 +422,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
-        {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`}>{f.by}</p>}
+        {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}${alone && !other ? ' sr-only' : ''}`} data-testid="view-said-by">{f.by}</p>}
         <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
@@ -422,14 +432,21 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
             {un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>}
             {f.said === '' ? null : <AskAgain words={f.said} />}
           </>
-        : <div className={`${typography.viewPanelBody} ok-reply space-y-2`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
+        : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep stays on its lines there.
           : <ReplyLead lead={f.lead} at={`floor.${f.job}`}>{text}</ReplyLead>}</div>}
     </li>
   )
 }
+/** True when the viewer is the only person who has written in this scenario's thread (saved turns, floor exchanges and the turn in flight): their own
+ *  bubble then needs no name (17 Nov, the calm panel). A colleague's words, once there, bring the names back on every bubble. Unknown viewer: false. */
+export function aloneIn(me: string | null | undefined, chat: View['chat'], floor: readonly FloorTurn[] = [], turn?: View['turn']): boolean {
+  if (me == null) return false
+  const mine = (id: string | null | undefined) => id == null || id === '' || id === me
+  return chat.every((t) => mine(t.by_id)) && floor.every((f) => mine(f.by_id)) && (turn == null || mine(turn.by_id))
+}
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
-export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
+export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me, alone = false }: { alone?: boolean; chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
   const rows = threadRows(chat, floor, entries)
   if (!rows.length) return null
@@ -437,16 +454,16 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
   let newestSaved: number | null = null
   for (let i = rows.length - 1; i >= 0 && newestSaved === null; i--) newestSaved = rows[i]!.index
   return (
-    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
+    <ol className={`${typography.viewPanelBody} space-y-6`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
-        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
+        if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} alone={alone} />
         const t = chat[row.index]!
         const next = rows[position + 1]
         // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
         if (next?.index === row.index + 1 && row.floor === null && earlyOf(t) === null && retriedAt(chat, row.index)) return null
         const latestAnswer = row.index === newestSaved
-        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} />
+        return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} alone={alone} />
       })}
     </ol>
   )
@@ -465,7 +482,7 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 }
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
-export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean }) {
+export function TurnInFlight({ turn, me, shown = false, alone = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean; alone?: boolean }) {
   const running = turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -477,7 +494,7 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
         {shown ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
+          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}${alone && turn.by_id === me ? ' sr-only' : ''}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
         {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
@@ -555,7 +572,7 @@ export const REVIEW_CHANGES = 'Review the changes'
 /** The quiet text-link look for every action beside the one filled button (PANEL-SPEC 1). */
 const QUIET_ACTION = `${typography.viewPanelHeading} inline-flex min-h-[44px] items-center px-1 text-text-light hover:text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed`
 
-export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen }: { /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen, lead }: { /** The one-line review's own row (Olumi's mark, core's heading, Review), drawn first in the actions line, at the foot (17 Nov, the calm panel). */ lead?: ReactNode; /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   const closed = inRow && !open
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
@@ -618,7 +635,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       box.style.maxHeight = ''
       // Contract 3 (Codex 15 Nov on the redesign): the review's row stays at the box's top as its header (sticky, olumiLook.css); the rows
       // rest below it, never behind it.
-      const head = box.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')
+      // 17 Nov (the calm panel): the row now sits in the actions line at the foot, so nothing is held at the box's top.
+      const head = null
       const first = readingsRest(box, el, foot, 8, head)
       if (first === null) return
       if (first.short > 0) box.style.maxHeight = `${Math.ceil(box.getBoundingClientRect().height + first.short)}px`
@@ -735,7 +753,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
           quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
           not support the change, the filled button opens the review instead (nothing is approved blind). */}
-      <div className="ok-actions flex flex-wrap items-center gap-2" data-testid="view-proposal-actions">
+      <div className="ok-actions flex flex-wrap items-center gap-x-2 gap-y-0" data-testid="view-proposal-actions">
+        {lead}
         {closed && (readingIds.length > 0 || verdict?.supported === false)
           ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
           : verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
@@ -747,7 +766,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
-        {closed && readingIds.length > 0 ? null : <button type="button" disabled={busy} className={QUIET_ACTION} data-testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))}>Set aside</button>}
+        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
       </div>
     </div>
   )
@@ -1332,32 +1351,36 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   const [open, setOpen] = useState(false)
   const body = `view-proposal-body-${p.id}`
   const self = useRef<HTMLDivElement>(null)
-  // Codex 15 Nov (held 329, nine changes): the step's words and core's warning lines can fill the pinned box, so on opening the box is
-  // scrolled the least that brings the list of changes' top just under the row (the words stay a scroll up). Readings, where held, are
-  // placed after this by their own rule (Proposal's land).
+  // The list opens ABOVE the one line at the foot, so an opened review starts at its first words (Codex 15 Nov, held 329, nine changes: a long
+  // list is the box's own scroll). Readings, where held, are placed by their own rule (Proposal's land), which this leaves alone.
   useLayoutEffect(() => {
     if (!open) return
-    const el = self.current, box = el?.closest<HTMLElement>('.ok-pinned') ?? null, list = el?.querySelector<HTMLElement>('[data-testid="view-changes"]') ?? null
-    const row = el?.querySelector<HTMLElement>('[data-testid="view-proposal-row"]') ?? null
-    if (box === null || list === null) return
-    const under = box.getBoundingClientRect().top + (row?.getBoundingClientRect().height ?? 0) + 8
-    const below = list.getBoundingClientRect().top - under
-    const actions = el?.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')?.getBoundingClientRect().top ?? box.getBoundingClientRect().bottom
-    if (list.getBoundingClientRect().top + 24 > actions && below > 0) box.scrollTop += below
+    const box = self.current?.closest<HTMLElement>('.ok-pinned') ?? null
+    if (box !== null && box.querySelector('[data-reading-row]') === null) box.scrollTop = 0
   }, [open])
-  return (
-    <div ref={self} className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
-      <button type="button" className="flex min-h-[44px] w-full cursor-pointer items-center gap-1 text-left" data-testid="view-proposal-row"
+  // ONE line (17 Nov, the calm panel): Olumi's mark in --info, core's heading and version, Review (opens the list), then Approve as the one green
+  // filled button and Set aside as an icon (Proposal's actions). The mark is beside core's words, never in their place.
+  const lead = (
+    <>
+      <button type="button" className="flex min-h-[44px] min-w-0 flex-1 cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
+        <OkIcon id="olumi-mark" size={16} decorative />
         {/* One flowing line: the heading, the dot and the version wrap together as one inline run, never three flex columns (DL look at 1500x904 at 1.33). */}
         <span className="min-w-0 flex-1"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
-        {open ? <ChevronUp className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="ml-auto h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />}
       </button>
+      <button type="button" className={`${typography.viewPanelHeading} inline-flex min-h-[44px] items-center gap-1 px-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
+        data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
+        Review{open ? <ChevronUp className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
+      </button>
+    </>
+  )
+  return (
+    <div ref={self} className="ok-row-review" data-testid="view-proposal-review" data-open={open ? 'true' : 'false'}>
       {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the
-          change list and the readings join them. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
+          change list and the readings join them, above the line. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
       <div id={body} data-review-body="">
         {open ? <p>{NEXT_STEP_WORDS.approve}</p> : null}
-        <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} />
+        <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} lead={lead} />
       </div>
     </div>
   )
@@ -1628,27 +1651,24 @@ export function ViewChat() {
   // PANEL-SPEC 1: the ONE next step, chosen as core's state says (v12/actions.ts nextStepFor), drawn once, at the top under the tabs.
   const step = view === null ? null : nextStepOf(view, (turn, move) => sid !== null && gone === moveKey(sid, turn, move))
   const pinned = step?.kind === 'approve'
+  const alone = view === null ? false : aloneIn(view.you_id, view.chat, floorShown(view), view.turn)
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
-          the thread, never cut by the composer. Olumi's waiting proposal keeps its pinned box (olumiLook.css .ok-pinned: its own scroll, its
-          actions' sticky foot), now at the top. */}
-      {view === null || step === null ? null : pinned
-        ? <div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} step={step} /></div>
+          the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
+      {view === null || step === null || pinned ? null
         : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
       {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
       <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
-        {/* v10 review item 10: the thread's top edge fades under the sticky card instead of clipping a sliver of the previous bubble. */}
-        <div aria-hidden="true" data-testid="view-chat-fade" className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-3" style={{ background: 'linear-gradient(to bottom, var(--bg-panel), transparent)' }} />
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
-          <div ref={content} className="space-y-4">
+          <div ref={content} className="space-y-6">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move: in the Next step card when it is the step; under the reply, quiet, while another step (Olumi's
                 proposal) is the one filled button (PANEL-SPEC 1). */}
-            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves me={view.you_id} />}
-            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves me={view.you_id} alone={alone} />}
+            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} alone={alone} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
@@ -1694,6 +1714,10 @@ export function ViewChat() {
           <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />Latest</button>
         </div>
       ) : null}
+      {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
+          conversation: the thread above it keeps its own scroll. Opened, its list grows upward inside this box (its own scroll). */}
+      {view === null || step === null || !pinned ? null
+        : <div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} step={step} /></div>}
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
@@ -1816,6 +1840,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
+        {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
+        <SelectionPill chip after={selectedRename} />
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
           rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
