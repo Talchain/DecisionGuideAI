@@ -12,7 +12,6 @@ import { typography } from '../styles/typography'
 import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
-import { FOOT_GUTTER } from './footClear'
 
 /** The foot of the free canvas: the window's foot less the foot controls' band (the zoom row and this cue, FOOT_CONTROLS). */
 export const FOOT_BAND = 64
@@ -72,32 +71,19 @@ function useBesideZoom(): number {
   return left
 }
 
-/** The foot edge's least height: the foot gutter the framing keeps clear (footClear.ts FOOT_GUTTER). */
-export const FOOT_EDGE = FOOT_GUTTER
-/** The edge's soft top: it is the canvas's own ground from this many px down. */
-export const FOOT_EDGE_SOFT = 12
-/** How the foot edge fades in: clear at its top, the canvas's own ground from FOOT_EDGE_SOFT px down. */
+/** The foot fade's height: the board is drawn to the window's foot, and its last 24 px fade into the canvas's ground (v10 review item 7; was an
+ *  88 px opaque band). The foot controls stand over the board. FOOT_GUTTER stays for the fit and the cue's landing only. */
+export const FOOT_EDGE = 24
+/** The fade is soft over its whole height. */
+export const FOOT_EDGE_SOFT = FOOT_EDGE
+/** How the foot fades: clear at its top, the canvas's own ground at the window's foot. */
 export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px)`
-/** The edge's opaque top at rest (screen px): the gutter's line, less its soft top (628 in a 704 px window). */
-const restTopOf = (height: number): number => height - FOOT_EDGE + FOOT_EDGE_SOFT
-/**
- * The foot edge's height (screen px): the gutter, or taller where a card the cue's band counts (its foot below `height - FOOT_BAND`) starts above the
- * edge's resting opaque top, so that card is wholly behind the edge, never half shown over the foot controls (DL 17 Nov). On Simple's layout a row is
- * top-aligned, so the edge rises by at most that row. Never taller than half the window, so a very tall card cannot blank the board.
- */
-export const footEdgeHeightOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
-  let top = restTopOf(height)
-  for (const c of cards) { const t = c.y * zoom + ty, b = (c.y + c.h) * zoom + ty; if (b > height - FOOT_BAND && t < top) top = t }
-  return Math.min(Math.ceil(height / 2), Math.max(FOOT_EDGE, Math.ceil(height - top + FOOT_EDGE_SOFT)))
-}
-/** With the edge drawn (Simple), the cards behind it: below the cue's band at rest (as cardsBelowOf); once a cut card has raised the edge, every card whose
- *  foot is below its opaque top, so a card the edge hides is always counted (e385f882 F1), and the cue's press (to the band, panUpOf) never leaves the last
- *  row behind a risen edge (0df2339a F1). */
-export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
-  const opaque = height - footEdgeHeightOf(cards, ty, zoom, height) + FOOT_EDGE_SOFT
-  const line = opaque < restTopOf(height) ? opaque : height - FOOT_BAND
-  return cards.filter((c) => (c.y + c.h) * zoom + ty > line).length
-}
+/** The fade's height (screen px): always FOOT_EDGE now (it no longer rises over a cut card; the board is drawn to the foot). Arguments kept for callers. */
+export const footEdgeHeightOf = (_cards?: readonly Box[], _ty?: number, _zoom?: number, _height?: number): number => FOOT_EDGE
+/** With the fade drawn (Simple), the cards not wholly in view above it: those whose foot is below the fade's top. After the cue's press (to the band, panUpOf,
+ *  which stands above the fade) none is counted. */
+export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
+  cards.filter((c) => (c.y + c.h) * zoom + ty > height - FOOT_EDGE).length
 /** One press of the cue, in whole px: up by at least `panUpOf`, so the board's foot ends at or above the cue's band, never a fraction past it. */
 export const pressUpOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => Math.ceil(panUpOf(cards, ty, zoom, height))
 

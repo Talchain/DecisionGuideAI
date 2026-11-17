@@ -12,7 +12,7 @@ import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
 import { BANDS, bandLabelOf, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs, type BandId } from '../bands'
-import { bandLabelsOf } from '../BandLayer'
+import { bandLabelsOf, labelsAboveFold } from '../BandLayer'
 import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
@@ -257,5 +257,16 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     expect(open.nodes.some((n) => n.id === FOLD_ID)).toBe(false)
     setInputsOpen(view.id, false)
     showWholeModel(view.id)
+  })
+})
+
+describe('v10 item 7: a band label below the fold is skipped', () => {
+  const ls = [{ band: 'inputs', y: 100 }, { band: 'outcomes', y: 700 }]
+  it('B-fold the label whose row is under the foot fade (704 - 24) is not drawn; the one above it is', () => {
+    expect(labelsAboveFold(ls, 0, 1, 704).map((l) => l.band)).toEqual(['inputs'])
+    expect(labelsAboveFold(ls, -200, 1, 704).map((l) => l.band), 'panned up: both in view').toEqual(['inputs', 'outcomes'])
+  })
+  it('B-fold CONTRAST: before the pane is measured (height 0) every label is kept', () => {
+    expect(labelsAboveFold(ls, 0, 1, 0).map((l) => l.band)).toEqual(['inputs', 'outcomes'])
   })
 })

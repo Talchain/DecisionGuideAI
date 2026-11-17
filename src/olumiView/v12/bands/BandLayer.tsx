@@ -4,7 +4,7 @@
  * nodes as placed; no word here is core's: they are the boards' fixed notation chrome.
  */
 import { useMemo, type CSSProperties } from 'react'
-import { ViewportPortal, type Node } from '@xyflow/react'
+import { useStore, ViewportPortal, type Node } from '@xyflow/react'
 import { Unlink } from 'lucide-react'
 import { useCanvasStore } from '../../../canvas/store'
 import type { ViewModel } from '../../client'
@@ -15,6 +15,7 @@ import { levelOf, useSimpleLevel } from '../simpleStore'
 import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
 import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
+import { FOOT_EDGE } from '../../BelowCue'
 
 const INK = 'var(--text-light)'
 /** What the unlinked mark says, on hover and to a reader: the mark itself is an icon, quiet, so four of them do not read as four faults (DL look, 17 Nov). */
@@ -55,6 +56,10 @@ export function bandLabelsOf(nodes: readonly Pick<Node, 'id' | 'position'>[], mo
   return [...tops].map(([band, y]) => ({ band, x: left, y }))
 }
 
+/** v10 review item 7: a band label whose row's top is at or below the foot fade's top is not drawn (it would stand half faded under the foot). */
+export const labelsAboveFold = <T extends { y: number }>(labels: readonly T[], ty: number, zoom: number, height: number): T[] =>
+  height <= 0 ? [...labels] : labels.filter((l) => l.y * zoom + ty < height - FOOT_EDGE)
+
 export function BandLayer() {
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const core = useViewStore((s) => s.view?.model ?? null)
@@ -62,12 +67,14 @@ export function BandLayer() {
   const nodes = useCanvasStore((s) => s.nodes)
   const open = useInputsOpen((s) => s.open)
   const model = useMemo(() => (core === null ? null : drawnModelOf(core)), [core])
-  const labels = useMemo(() => bandLabelsOf(nodes, model), [nodes, model])
+  const all = useMemo(() => bandLabelsOf(nodes, model), [nodes, model])
+  const ty = useStore((s) => s.transform[1]), zoom = useStore((s) => s.transform[2]), paneH = useStore((s) => s.height)
+  const labels = labelsAboveFold(all, ty, zoom, paneH)
   // The board's type scale (layout.ts simpleScaleOf), the cards' own, so a label is the size of the text it labels.
   const scale = useMemo(() => nodes.map((n) => (n.data as { scale?: number }).scale).find((x) => x !== undefined), [nodes])
   const unlinked = useMemo(() => (model === null ? new Set<string>() : new Set(unlinkedIds(model))), [model])
   // With no model only the kept ideas' band is drawn, on either level; with one, the bands are Simple's.
-  if ((level !== 'simple' && model !== null) || labels.length === 0) return null
+  if ((level !== 'simple' && model !== null) || all.length === 0) return null
   const folds = model !== null && foldsInputs(model), expanded = folds && sid !== null && open[sid] === true
   return (
     <ViewportPortal>
