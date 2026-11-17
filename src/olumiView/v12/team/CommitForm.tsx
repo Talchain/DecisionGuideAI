@@ -100,6 +100,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     try {
       await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: anchored && d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
       drop()
+      // Saved: the form folds back to its one line. It stayed open and empty when the person had opened it by its own button (the native
+      // team journey, 17 Nov: an expanded empty form left after save).
+      setOpened(false)
       await onWrote()
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : view.team_words.failed)

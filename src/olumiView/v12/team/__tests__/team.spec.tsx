@@ -88,7 +88,25 @@ describe('Record what you will do', () => {
     expect(post.length).toBe(1)
     expect(post[0]!.url).toMatch(/\/commitments$/)
     expect(post[0]!.body).toMatchObject({ action: 'Ring the funder', owner: '1', expect: 'A yes by May', reconsider: 'If it slips past June', version: 1 })
+    // CHANGED BY DESIGN (Codex root's native team journey, 17 Nov, item 5; review 008 point 4): once saved, the form folds back to its one
+    // line. It used to stay open and empty; this row asserted the empty box.
+    await waitFor(() => expect(screen.queryByTestId('commit-form-action')).toBeNull())
+    expect(screen.getByTestId('commit-form-open').textContent).toBe('Record what you will do')
+    // It opens again, empty, for the next one.
+    fireEvent.click(screen.getByTestId('commit-form-open'))
     expect((screen.getByTestId('commit-form-action') as HTMLTextAreaElement).value).toBe('')
+  })
+  it('CONTRAST: a save core refuses leaves the form open with the person\'s words, never folded away', async () => {
+    serve(() => ({ status: 400, body: { error: 'Core says no.' } }))
+    render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
+    openForm()
+    fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Ring the funder' } })
+    fireEvent.change(screen.getByTestId('commit-form-expect'), { target: { value: 'A yes by May' } })
+    fireEvent.change(screen.getByTestId('commit-form-reconsider'), { target: { value: 'If it slips past June' } })
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(screen.getByTestId('commit-form-error')).toBeTruthy())
+    expect((screen.getByTestId('commit-form-action') as HTMLTextAreaElement).value).toBe('Ring the funder')
+    expect(screen.queryByTestId('commit-form-open')).toBeNull()
   })
   const fill = () => {
     fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Ask three customers' } })
