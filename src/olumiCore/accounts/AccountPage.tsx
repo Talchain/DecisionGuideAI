@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { typography } from '../../styles/typography'
+import { DeleteMyDataDialog } from '../DeleteMyDataDialog'
 import { useMe } from '../me'
 import { TeamApiError } from '../team/api'
 import { accountsApi } from './api'
@@ -12,6 +13,8 @@ const said = (e: unknown, otherwise: string) => (e instanceof TeamApiError ? e.m
 /** THE ACCOUNT PAGE (core `/api/account*`): the person's name, their email and organisation, and a new password. */
 export default function AccountPage(): JSX.Element {
   const who = useWho()
+  const navigate = useNavigate()
+  const [deleting, setDeleting] = useState(false)
   const [name, setName] = useState('')
   const [named, setNamed] = useState<string | null>(null)
   const [nameSaid, setNameSaid] = useState<string | null>(null)
@@ -43,7 +46,7 @@ export default function AccountPage(): JSX.Element {
   }
   return (
     <SignedInFrame who={who} title="Your account" testid="account-page">
-      {(w) => !w.account ? (
+      {(w) => <>{!w.account ? (
         <p className={`${CARD} ${BODY}`} data-testid="account-no-account">
           You are signed in as <b>{w.me.name}</b> with a private link. <Link to="/signup" className={LINK}>Add an email and password</Link> to sign in from any browser.
         </p>
@@ -80,6 +83,14 @@ export default function AccountPage(): JSX.Element {
           </form>
         </>
       )}
+      {/* The same dialog the scenario's person menu opens: core's own sentences first, nothing deleted unread. */}
+      <section className={`${CARD} grid gap-2`} aria-label="Your data" data-testid="account-your-data">
+        <h2 className={`${typography.h5} text-text-header m-0`}>Your data</h2>
+        <p className={BODY}>See what deleting your data would remove before anything is deleted.</p>
+        <div><Button variant="danger" onClick={() => setDeleting(true)} data-testid="account-delete-my-data">Delete my data</Button></div>
+      </section>
+      {deleting && <DeleteMyDataDialog onCancel={() => setDeleting(false)} onDeleted={() => { setDeleting(false); navigate('/signed-out?deleted=1', { replace: true }) }} />}
+      </>}
     </SignedInFrame>
   )
 }

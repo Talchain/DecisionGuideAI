@@ -97,6 +97,7 @@ export function SignedInFrame({ who, title, action, children, testid }: { who: W
         {who.status === 'loading' && <p className={BODY}>Loading…</p>}
         {who.status === 'error' && <p role="alert" className={ERR}>{who.message}</p>}
         {who.status === 'in' && children(who)}
+        <Notices />
       </div>
     </main>
   )
