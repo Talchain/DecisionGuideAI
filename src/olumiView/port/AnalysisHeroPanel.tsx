@@ -4,7 +4,7 @@
  * Props only: it reads the View slice it is given and nothing else, so the caller mounts it anywhere (the UI session wires it into the tabs).
  *
  * Every word is core's, at its View path (`data-view`):
- * - the headline is the Run's lead (`run.lead`), the panel's one 18px line;
+ * - the headline is the Run's lead (`run.lead`), the panel's lead at body size (v11 item A: the option's chance figure is the largest type);
  * - the subline is the most likely line (`run.most_likely`), core's hover on it;
  * - when every option waits, core's waits-on headline; a reason every option shares, once (`run.shared_blockers`);
  * - each aim's rows under that aim's own words (`row.aim`), core's reading of it (`run.readings`) and, when every option's chance for it
@@ -104,7 +104,7 @@ export function AnalysisHeroPanel({ model, chat = null, mostLikelyAction, nextAc
   return (
     <section className={`${TYPE.body} ${PORT_BOX}`} data-testid="port-analysis-hero">
       <div className="space-y-1.5" data-testid="port-hero-head">
-        {run.lead == null ? null : <h3 className={`${TYPE.headline} text-text-header`} data-view="run.lead">{run.lead}</h3>}
+        {run.lead == null ? null : <h3 className={`${TYPE.body} text-text-header`} data-view="run.lead">{run.lead}</h3>}
         {earlier === null ? null : <p className={`${TYPE.body} text-text-light`} data-view="run.earlier" title={earlier.title}>{earlier.text}</p>}
         {!allWait ? null : (
           <div data-testid="port-hero-waits-headline">

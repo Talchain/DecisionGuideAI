@@ -88,7 +88,7 @@ export const isLeader = ({ row }: AimRow, lens: HeroLensId): boolean => lens ===
  * marks) on the goal lens, the outcome band on the outcome lens, or why there is nothing yet. The one drawing of an option's chance on
  * the lane: the Analysis tab's option row and the Reasoning tab's rack both draw it with this (DL ruling 1, 7 Nov).
  */
-export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }) {
+export function HeroReadout({ entry, lens, figure = false }: { entry: AimRow; lens: HeroLensId; figure?: boolean }) {
   const { card, row, i } = entry
   const at = `${card.id}.rows.${i}`
   const chance = row.kind === 'chance' ? row : null
@@ -109,10 +109,12 @@ export function HeroReadout({ entry, lens }: { entry: AimRow; lens: HeroLensId }
         </>
       )
 
+  // v11 item A: on the Analysis tab's goal lens a chance is the option's figure, large; any other readout (a reason, an outcome band) stays at body size.
+  const big = figure && lens === 'goal' && chance !== null
   return (
     <>
       <span className="flex-none text-primary" data-testid="port-row-mark">{leader ? <Mark at={`${at}.likely`} mark={chance!.likely} /> : null}</span>
-      <span className={`${TYPE.body} min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="port-row-readout">{readout}</span>
+      <span className={`${big ? TYPE.figure : TYPE.body} min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="port-row-readout" data-figure={big ? 'true' : undefined}>{readout}</span>
     </>
   )
 }
@@ -208,9 +210,15 @@ export function HeroOptionRow({ entry, lens, isOpen, onToggle, domain, tipping =
       {/* Every option shows a chance or one plain reason (DL 9 Nov): a row a shared reason covers draws core's short mark ("No chance
           yet", design call 8 Nov (c)), its hover the reason; the reason itself is said once at the panel's head. */}
       <span className="flex w-full items-baseline gap-1.5">
-        <HeroReadout entry={entry} lens={lens} />
+        <HeroReadout entry={entry} lens={lens} figure />
         <Chevron aria-hidden="true" className={`h-3.5 w-3.5 flex-none self-center text-text-light ${expandable ? '' : 'invisible'}`} />
       </span>
+      {/* v11 item A: a small gauge under the figure, filled to core's typed chance (`row.chance`, 0 to 1); position only, no number is read from words. */}
+      {lens === 'goal' && chance !== null && Number.isFinite(chance.chance) && (
+        <span aria-hidden="true" className="relative block h-1.5 w-full overflow-hidden rounded-full bg-panel-border" data-testid="port-row-gauge" data-for={card.id}>
+          <span className={`absolute inset-y-0 left-0 rounded-full ${HERO_DOT_FILL.rest}`} style={{ width: `${trackPct(chance.chance)}%` }} data-testid="port-row-gauge-fill" />
+        </span>
+      )}
       {lens === 'outcome' && (
         <span aria-hidden="true" className="relative block h-5 w-full" data-testid="port-row-track">
           <span className="absolute inset-x-0 top-1/2 h-px bg-panel-border" />

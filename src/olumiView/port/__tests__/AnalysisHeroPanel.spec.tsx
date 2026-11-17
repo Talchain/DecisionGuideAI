@@ -32,12 +32,14 @@ describe('the ported hero draws the View exactly (design §3)', () => {
     })
   }
 
-  it('the headline is core\'s lead, the panel\'s one 18px line; the most likely line follows in core\'s words', () => {
+  // CHANGED BY DESIGN (v11 item A): core's lead is body size; the 18px headline class is no longer on screen (the option's chance figure is the largest type).
+  it('the lead is core\'s words at body size, not the 18px headline; the most likely line follows in core\'s words', () => {
     const c = draw(bakery)
     const h = c.querySelector('[data-view="run.lead"]')!
     expect(h.textContent).toBe(bakery.model!.run!.lead)
-    expect(h.className).toContain(TYPE.headline)
-    expect([...c.querySelectorAll<HTMLElement>('*')].filter((e) => typeof e.className === 'string' && e.className.includes(TYPE.headline)).length).toBe(1)
+    expect(h.className).toContain(TYPE.body)
+    expect(h.className).not.toContain(TYPE.headline)
+    expect([...c.querySelectorAll<HTMLElement>('*')].filter((e) => typeof e.className === 'string' && e.className.includes(TYPE.headline)).length).toBe(0)
     expect(c.querySelector('[data-view="run.most_likely.text"]')!.textContent).toBe(bakery.model!.run!.most_likely!.text)
   })
 
