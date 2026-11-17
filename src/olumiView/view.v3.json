@@ -10705,6 +10705,29 @@
      "held": {
       "type": "boolean",
       "const": true
+     },
+     "unanswered": {
+      "type": "object",
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "failed",
+         "lost"
+        ]
+       },
+       "words": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "status",
+       "words"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [

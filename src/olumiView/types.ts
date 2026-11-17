@@ -1971,6 +1971,10 @@ export type View = {
     text: string
     prose?: Array<string>
     held?: true
+    unanswered?: {
+      status: "failed" | "lost"
+      words: string | null
+    }
   }>
   start?: "words"
   build_model?: {
