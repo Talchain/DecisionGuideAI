@@ -237,6 +237,17 @@ describe('S1 show, nothing folded (golden turn 14)', () => {
     expect(pulsing()).toStrictEqual([...THREE].sort())
     expect(reads).toHaveLength(0)
   })
+  it('reduced motion: the camera goes there at once (duration 0) and the cards are pulsed without waiting for a move', async () => {
+    const was = window.matchMedia
+    window.matchMedia = ((q: string) => ({ matches: q.includes('prefers-reduced-motion: reduce'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
+    try {
+      install(golden); lay()
+      const c = mount(14, next)
+      await press(c.button()!); await run(100)
+      expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(THREE), pane(), V0), opts: { duration: 0 }, holds: true }])
+      expect(pulsing()).toStrictEqual([...THREE].sort())
+    } finally { window.matchMedia = was }
+  })
   it('contrast: a reply naming other cards moves to another viewport, the box of exactly those', async () => {
     install(golden); lay()
     const c = mount(14, pointing(next, 'horizon', ['horizon', 'cash_survival']))

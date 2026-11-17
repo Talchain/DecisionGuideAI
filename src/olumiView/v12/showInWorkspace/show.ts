@@ -21,8 +21,8 @@ import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setInputsOpen, useCanv
 import { restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
 
-/** Chrome words, said only where core gave none of its own for the read that failed. */
-export const COULD_NOT_SHOW = 'That could not be shown just now.'
+/** Chrome words, said only where core gave none of its own for the read that failed. Each says what did not happen and what to do next. */
+export const COULD_NOT_SHOW = 'That could not be shown just now. Try again.'
 export const COULD_NOT_RETURN = 'That did not go back just now. Try again.'
 
 /** The camera's move to the cards, as a new reply's own move takes (replyInView.ts); none under reduced motion. */
