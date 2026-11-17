@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider, useStoreApi } from '@xyflow/react'
-import { BelowCue, cardsBehindOf, cardsBelowOf, FOOT_EDGE, FOOT_EDGE_FADE, FOOT_EDGE_SOFT, footEdgeHeightOf } from '../BelowCue'
+import { BelowCue, cardsBehindOf, cardsBelowOf, FOOT_EDGE, FOOT_EDGE_FADE, FOOT_EDGE_SOFT, footEdgeHeightOf, pressUpOf } from '../BelowCue'
 import { VIEW_CARD } from '../canvas'
 import { FOOT_GUTTER } from '../footClear'
 
@@ -69,5 +69,21 @@ describe('every card the edge hides is counted (Line reviewer, e385f882 F1)', ()
     const short = [{ y: 560, h: 50 }]
     expect([footEdgeHeightOf(short, 0, 1, H), cardsBehindOf(short, 0, 1, H)]).toEqual([FOOT_EDGE, 0])
     expect(edgeOf(draw([{ ...card('short', 560), measured: { width: 200, height: 50 } }], true))).toBeNull()
+  })
+})
+
+describe('the cue\'s press brings the last row into view and the edge does not rise over it (Line reviewer, 0df2339a F1)', () => {
+  const last = [{ y: 600, h: 100 }]
+  it('E5 one press moves the last row\'s foot to the band (60 px) and then nothing is behind the edge: [88, 0] (was [176, 1], and a second press did nothing)', () => {
+    expect(pressUpOf(last, 0, 1, H)).toBe(60)
+    expect([footEdgeHeightOf(last, -60, 1, H), cardsBehindOf(last, -60, 1, H)]).toEqual([FOOT_EDGE, 0])
+  })
+  it('E5 a fractional foot: the press rounds up, so the foot ends at or above the band and nothing is counted', () => {
+    const f = [{ y: 600.4, h: 100 }]
+    expect(pressUpOf(f, 0, 1, H)).toBe(61)
+    expect(cardsBehindOf(f, -pressUpOf(f, 0, 1, H), 1, H)).toBe(0)
+  })
+  it('E5 CONTRAST: the same card before the press is behind the edge and counted', () => {
+    expect(cardsBehindOf(last, 0, 1, H)).toBe(1)
   })
 })
