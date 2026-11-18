@@ -156,33 +156,14 @@ function FillRow({ text, at, fill, testId }: { text: string; at: string; fill: s
   )
 }
 
-type AskKey = 'askOption' | 'askRisk'
-type Ask = { k: AskKey; label: string; draft: string }
-/** The sharpen moves that say the same thing as one of core's two widening asks: a row for such a move carries the ask, so the gap is said once. */
-const MOVE_ASK: Readonly<Record<string, AskKey | undefined>> = { widen_options: 'askOption', pre_mortem: 'askRisk' }
-
-/** Core's two asks that push past the current model (its own label and the draft it gives for the box), where it sends both. */
-function useWidenAsks(): Ask[] {
+function Questions({ model }: { model: ViewModel }) {
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, string | undefined> | null
-  return (['askOption', 'askRisk'] as const).flatMap((k) => {
+  const qs = (model.coaching_questions ?? []).map((q, i) => ({ q, i })).filter(({ q }) => q !== '')
+  // Core's two asks that push past the current model (its own label and the draft it gives for the box).
+  const widen = (['askOption', 'askRisk'] as const).flatMap((k) => {
     const label = words?.[k], draft = words?.[`${k}Draft`]
     return typeof label === 'string' && label !== '' && typeof draft === 'string' && draft !== '' ? [{ k, label, draft }] : []
   })
-}
-
-/** The sharpen rows drawn under "Try a method": each with the index of the method core offers for its move (-1: none offered). */
-function useSharpenRows(model: ViewModel) {
-  const methods = useViewStore((s) => s.view?.session?.methods ?? null)
-  const rows = (model.sharpen ?? []).map((s, i) => ({ s, i, m: methods?.findIndex((x) => x.id === s.move) ?? -1 })).filter(({ s }) => s.lead !== '' || s.emphasis !== '')
-  return { methods, rows }
-}
-
-function Questions({ model }: { model: ViewModel }) {
-  const qs = (model.coaching_questions ?? []).map((q, i) => ({ q, i })).filter(({ q }) => q !== '')
-  const { rows } = useSharpenRows(model)
-  // An ask a sharpen row already carries (as its method's press, or as its own) is not said a second time here.
-  const carried = new Set(rows.map(({ s }) => (s.move == null ? undefined : MOVE_ASK[s.move])))
-  const widen = useWidenAsks().filter((a) => !carried.has(a.k))
   if (qs.length + widen.length === 0) return null
   return (
     <section className="space-y-1" data-testid="reasoning-questions" aria-label={REASONING_LABELS.questions}>
@@ -196,40 +177,29 @@ function Questions({ model }: { model: ViewModel }) {
 }
 
 function Methods({ model }: { model: ViewModel }) {
-  const { methods, rows } = useSharpenRows(model)
-  const asks = useWidenAsks()
+  const methods = useViewStore((s) => s.view?.session?.methods ?? null)
+  const rows = (model.sharpen ?? []).map((s, i) => ({ s, i, m: methods?.findIndex((x) => x.id === s.move) ?? -1 })).filter(({ s }) => s.lead !== '' || s.emphasis !== '')
   if (rows.length === 0) return null
   return (
     <section className="space-y-1" data-testid="reasoning-methods" aria-label={REASONING_LABELS.methods}>
       <h3 className={H}>{REASONING_LABELS.methods}</h3>
       <ul className="m-0 list-none space-y-2 p-0">
-        {rows.map(({ s, i, m }) => {
-          // No method of its own offered: the row carries core's ask for the same gap as its press, so it is not a dead end.
-          const ask = m >= 0 && methods !== null || s.move == null ? undefined : asks.find((a) => a.k === MOVE_ASK[s.move!])
-          return (
-            <li key={s.id} className="space-y-1 px-1" title={s.rationale || undefined} data-sharpen={s.id}>
-              <p className={`${TYPE.body} m-0 text-text-body`}>
-                {s.lead === '' ? null : <span data-view={`sharpen.${i}.lead`}>{s.lead}</span>}
-                {s.lead !== '' && s.emphasis !== '' ? ' ' : null}
-                {s.emphasis === '' ? null : <span className="text-text-light" data-view={`sharpen.${i}.emphasis`}>{s.emphasis}</span>}
-              </p>
-              {m < 0 || methods === null ? null : (
-                <button type="button" onClick={() => runMethod(methods[m]!.id)} data-testid="reasoning-method"
-                  className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}>
-                  <OkIcon id="method-mark" size={12} decorative />
-                  <span data-view-words={`session.methods.${m}.text`}>{methods[m]!.text}</span>
-                </button>
-              )}
-              {ask === undefined ? null : (
-                <button type="button" onClick={() => prefillComposer(ask.draft)} title={REASONING_LABELS.fill} data-testid={`reasoning-widen-${ask.k}`}
-                  className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}>
-                  <OkIcon id="talk-first" size={12} decorative />
-                  <span data-view-words={`model_words.${ask.k}`}>{ask.label}</span>
-                </button>
-              )}
-            </li>
-          )
-        })}
+        {rows.map(({ s, i, m }) => (
+          <li key={s.id} className="space-y-1 px-1" title={s.rationale || undefined} data-sharpen={s.id}>
+            <p className={`${TYPE.body} m-0 text-text-body`}>
+              {s.lead === '' ? null : <span data-view={`sharpen.${i}.lead`}>{s.lead}</span>}
+              {s.lead !== '' && s.emphasis !== '' ? ' ' : null}
+              {s.emphasis === '' ? null : <span className="text-text-light" data-view={`sharpen.${i}.emphasis`}>{s.emphasis}</span>}
+            </p>
+            {m < 0 || methods === null ? null : (
+              <button type="button" onClick={() => runMethod(methods[m]!.id)} data-testid="reasoning-method"
+                className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}>
+                <OkIcon id="method-mark" size={12} decorative />
+                <span data-view-words={`session.methods.${m}.text`}>{methods[m]!.text}</span>
+              </button>
+            )}
+          </li>
+        ))}
       </ul>
     </section>
   )
