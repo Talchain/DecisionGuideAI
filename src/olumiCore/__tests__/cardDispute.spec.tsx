@@ -96,4 +96,21 @@ describe('a revealed difference on the card it is about', () => {
     for (const o of figure.options) for (const ch of o.chances) expect(section.textContent).not.toContain(ch.text)
     expect(section.textContent).not.toContain(figure.sides[0]!.text)
   })
+
+  it('PRIVATE UNTIL REVEALED: before two views are shown, or while gated, neither the mark nor "Where you differ" is drawn (contrast: the revealed View draws both)', async () => {
+    for (const v of [{ ...view, collab: { ...view.collab, shared: view.collab.shared.slice(0, 1) } }, { ...view, gated: true }] as View[]) {
+      useViewStore.setState({ view: v })
+      const m = render(<CardDisputeMark card={CARD} />)
+      await new Promise((r) => setTimeout(r, 30))
+      expect(m.container.querySelector('button')).toBeNull()
+      m.unmount()
+      const d = details(CARD)
+      await new Promise((r) => setTimeout(r, 30))
+      expect(screen.queryByTestId('lane-differ')).toBeNull()
+      d.unmount(); cleanup(); resetDifferences(); useLaneInspector.setState({ current: null })
+    }
+    useViewStore.setState({ view })
+    details(CARD)
+    expect(await screen.findByTestId('lane-differ')).toBeInTheDocument()
+  })
 })
