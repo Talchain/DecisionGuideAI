@@ -117,6 +117,24 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect(expectAllBound(view, sec, expect)).toBeGreaterThan(rows.length)
   })
 
+  it('the likely-outcome axis starts at zero where no outcome is below it: 80 is not at 0% (audit analysis-likely-outcome-axis-unlabelled)', () => {
+    const view = structuredClone(viewOf('golden/bakery')), m = view.model!, lead = leadAimOf(m)!
+    const set = (id: string, low: number, median: number, high: number) => {
+      const row = m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: { low: number; median: number; high: number } }
+      Object.assign(row.outcome, { low, median, high })
+    }
+    set('carry_on', 80, 80, 80); set('second_oven', 94.8, 100, 105); set('longer_hours', 85, 90, 95)
+    const at = (id: string) => outcomePlace(m, lead, (m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: Parameters<typeof outcomePlace>[2] }).outcome)
+    expect(at('carry_on').left, '80 is not at 0%').toBeCloseTo((80 / 105) * 100, 6)
+    expect([at('second_oven').left + at('second_oven').width]).toEqual([100]) // the axis ends at the greatest high
+    expect(at('second_oven').mid).toBeCloseTo((100 / 105) * 100, 6) // the middle tick is kept
+    ready(view); render(<PortAnalysisTab />)
+    expect(Number(document.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')!.getAttribute('data-outcome-point'))).toBeCloseTo((80 / 105) * 100, 6)
+    // CONTRAST: an outcome that goes below zero keeps the axis from the least low (the old rule).
+    set('carry_on', -10, 0, 10)
+    expect(at('carry_on').left).toBe(0)
+  })
+
   it('a View with outcomes but no outcome lens (real/hiring) keeps the section under the tab\'s own heading; CONTRAST app-launch (no chance) and bakery with every outcome removed draw none', () => {
     const hiring = viewOf('real/hiring')
     expect(hiring.model!.run!.lenses ?? []).toEqual([])
