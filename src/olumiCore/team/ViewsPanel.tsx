@@ -65,11 +65,13 @@ export function Effects({ at, view, figures, effects, headings }: { at: string; 
           {'refused' in e ? null : (
             <>
               <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
-              {/* Core's note for this side (cannot be compared, or rests on Olumi's own estimates), verbatim, at every status; else core's heading for no clear leader. Never both. */}
-              {said(e.leader_note) !== null ? <p data-effect-no-leader="" data-effect-leader-note="">{said(e.leader_note)}</p>
+              {/* Core's note for this side (cannot be compared, or rests on Olumi's own estimates), verbatim, at every status, as the VALUE of core's own side label (DL 14:4xZ: the note alone did not say whose side); else core's heading for no clear leader. Never both. */}
+              {said(e.leader_note) !== null ? (headings.leader === undefined ? <p data-effect-no-leader="" data-effect-leader-note="">{said(e.leader_note)}</p>
+                  : <Labelled label={headings.leader} at="data-effect-no-leader"><span data-effect-leader-note="">{said(e.leader_note)}</span></Labelled>)
                 : e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
               <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
-              {said(e.model_leader_note) !== null ? <p data-effect-no-model-leader="" data-effect-model-leader-note="">{said(e.model_leader_note)}</p>
+              {said(e.model_leader_note) !== null ? (headings.model_leader === undefined ? <p data-effect-no-model-leader="" data-effect-model-leader-note="">{said(e.model_leader_note)}</p>
+                  : <Labelled label={headings.model_leader} at="data-effect-no-model-leader"><span data-effect-model-leader-note="">{said(e.model_leader_note)}</span></Labelled>)
                 : e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
