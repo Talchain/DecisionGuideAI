@@ -32,14 +32,15 @@ export const STEP_WORDS = {
 export type StepState = 'done' | 'now' | 'later'
 
 /**
- * This viewer has given (or skipped) a view in this round: one of their own core does not mark `earlier` (a skip counts), or, once nobody is
- * waited for, one of theirs shown to the team. A shown view carries no round of its own, so while the round still waits for someone it is not
- * taken as this round's (Codex 008: history is not a current-round contribution).
+ * This viewer has given (or skipped) a view in this round: one of their own core does not mark `earlier` (a skip counts), or one of theirs
+ * shown to the team. Core moves a view shown early out of `mine` into `shared` while the round still waits (measured on core 9ad89f81, 18 Nov),
+ * so a shown view must count. A shown view carries no round marker, so one shown in an EARLIER round also counts here: that gap is core's to
+ * close (a round marker on `collab.shared[]`), and the page must not guess it from `waiting`'s words.
  */
 export function viewIn(view: View): boolean {
   if (view.gated) return false
   const c = view.collab
-  return c.mine.some((m) => !m.earlier) || (c.waiting === null && c.shared.some((s) => s.by_id === view.you_id))
+  return c.mine.some((m) => !m.earlier) || c.shared.some((s) => s.by_id === view.you_id)
 }
 
 /** Revealed views this viewer may see (core holds back nothing from them, and at least one is shown). */
@@ -102,27 +103,33 @@ export function stepSummary(view: View, id: StepId, differLine: string | null): 
  * they closed the open step. Anything outside the tab that sends the person to a step (an outcome form, the commitment form, the invite form)
  * calls `openStep`, which is chosen under whatever the current step is when the tab next draws.
  */
-interface FlowChoice { readonly sid: string | null; readonly under: StepId | null; readonly chosen: StepId | 'none' | null; readonly pending: StepId | null }
-export const useTeamFlow = create<FlowChoice>()(() => ({ sid: null, under: null, chosen: null, pending: null }))
+interface FlowChoice { readonly sid: string | null; readonly under: StepId | null; readonly chosen: StepId | 'none' | null; readonly pending: StepId | null
+  /** Held whatever the current step becomes, until the person presses a row: a one-time invite link must stay in view after core counts the
+   *  colleague as a member (core sets `alone` false when the link is made, not when they join; measured on core 9ad89f81). */
+  readonly held?: boolean }
+export const useTeamFlow = create<FlowChoice>()(() => ({ sid: null, under: null, chosen: null, pending: null, held: false }))
 
 /** Open a step from anywhere (it applies to the scenario on screen the next time the tab draws). */
 export function openStep(id: StepId): void { useTeamFlow.setState({ pending: id }) }
 /** For specs. */
-export function resetTeamFlow(): void { useTeamFlow.setState({ sid: null, under: null, chosen: null, pending: null }) }
+export function resetTeamFlow(): void { useTeamFlow.setState({ sid: null, under: null, chosen: null, pending: null, held: false }) }
+/** Keep a step open whatever the current step becomes, until the person presses a row (the invite link just made). */
+export function holdStep(sid: string, id: StepId): void { useTeamFlow.setState({ sid, under: null, chosen: id, pending: null, held: true }) }
 
 /** Which step is open now. */
 export function openStepOf(choice: FlowChoice, sid: string, current: StepId): StepId | null {
+  if (choice.sid === sid && choice.held === true && choice.chosen !== null && choice.chosen !== 'none') return choice.chosen
   if (choice.sid !== sid || choice.under !== current || choice.chosen === null) return current
   return choice.chosen === 'none' ? null : choice.chosen
 }
 
 /** The person presses a step's row: it opens, or (already open) closes. */
 export function toggleStep(sid: string, current: StepId, id: StepId, openNow: StepId | null): void {
-  useTeamFlow.setState({ sid, under: current, chosen: openNow === id ? 'none' : id, pending: null })
+  useTeamFlow.setState({ sid, under: current, chosen: openNow === id ? 'none' : id, pending: null, held: false })
 }
 
 /** A pending `openStep` becomes the person's choice under the current step. */
 export function takePending(sid: string, current: StepId): void {
   const p = useTeamFlow.getState().pending
-  if (p !== null) useTeamFlow.setState({ sid, under: current, chosen: p, pending: null })
+  if (p !== null) useTeamFlow.setState({ sid, under: current, chosen: p, pending: null, held: false })
 }
