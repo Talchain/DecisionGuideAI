@@ -14,7 +14,7 @@ import { differencesShape, resetDifferences, type Differences } from '../../../.
 import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
 import { groupDifferences, groupOf, countDifferences } from '../differGroups'
 import { frameBody, frameOf, frameWordsOf, EMPTY_FRAME } from '../frame'
-import { FrameEntry, NOT_KEPT } from '../FrameEntry'
+import { FrameEntry, MyFrames, NOT_KEPT } from '../FrameEntry'
 import { frameSupport } from '../frame'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 
@@ -213,7 +213,8 @@ describe('the frame as core gives it', () => {
   it('before a reveal draws only the viewer\'s own frame, under core\'s headings, and nothing of anyone else\'s', () => {
     serve(() => ({ status: 200, body: {} }))
     const v = view({ gated: true, collab: { ...fx.collab, shared: [], mine: [{ id: 3, text: 'mine', skip: false, figures: [], can_share: false, earlier: false, frame, frame_words: words } as never] } })
-    render(<WhereWeDiffer sid="s_x" view={v} onWrote={async () => true} />)
+    // The own frame is drawn in the flow's "Your view" step (MyFrames); "Where you differ" beside it draws nothing of anyone's.
+    render(<><MyFrames view={v} /><WhereWeDiffer sid="s_x" view={v} onWrote={async () => true} /></>)
     const mine = screen.getByTestId('frame-mine-3-frame')
     expect(mine.textContent).toContain('Their question: Should we grow or hold?')
     expect(mine.textContent).toContain('Hiring to Morale: Hiring lifts morale')

@@ -10,7 +10,9 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
-import { ViewsPanel } from '../team/ViewsPanel'
+import { RevealedViews, RevealMarks, ViewEntry } from '../team/ViewsPanel'
+/** The flow draws the entry ("Your view") and the revealed views ("Where you differ") as two steps; these rows read both, as the one panel did. */
+const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', n), 'utf8'))
 type Effect = { quantity: string; status?: 'changes' | 'moves' | 'same'; refused?: string; goal?: string; leader?: string | null; model_leader?: string | null; most?: string | null; gap_text?: string | null; if_absent?: string[] }

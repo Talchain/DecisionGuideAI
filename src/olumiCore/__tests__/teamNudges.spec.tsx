@@ -1,5 +1,5 @@
 /**
- * The Team tab's nudges and sharing one's own view early (DL, R2): whom the round waits for, the reveal once everyone has given, and each
+ * The Team tab's waiting, reveal and open outcomes (now the flow's steps 3 and 6) and sharing one's own view early (DL, R2): whom the round waits for, the reveal once everyone has given, and each
  * next action with no outcome yet, every word core's (`collab.waiting`, `can_reveal`, `commitments[].outcomes`); and a member's own
  * private view shown to the team before the reveal, offered only where core says it can be (`collab.mine[].can_share`, github-3c).
  */
@@ -12,6 +12,7 @@ import { setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { resetTeamFlow } from '../team/flow'
 import { useMe } from '../me'
 
 const SID = 's_0123456789ab'
@@ -57,7 +58,7 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
   useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); resetTeamFlow(); useMe.setState({ me: null, status: 'none' }) })
 
 const posts = () => calls.filter((c) => c.method === 'POST')
 const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
@@ -66,37 +67,49 @@ const show = (v: View) => { served = v; useViewStore.setState({ view: v }) }
 const withShare = (can: unknown, skip = false): View => twoPeople({ mine: [{ id: 4, text: 'Enter one country first.', shared: false, skip, figures: [], earlier: false, ...(can === undefined ? {} : { can_share: can }) } as unknown as View['collab']['mine'][number]] })
 const open9 = (over: Partial<View['collab']['commitments'][number]> = {}) => ({ ...twoPeople().collab.commitments[0]!, outcomes: [], ...over })
 
-describe('the nudges at the top of the Team tab are core\'s team state', () => {
-  it('whom the round waits for, in core\'s words, and no reveal yet', () => {
+// CHANGED BY DESIGN (overnight 18 Nov, one guided flow): the nudges panel is gone; what it said is the flow's own steps: whom the round waits
+// for and the reveal are step 3 ("Reveal together"), each next action with no outcome yet is step 6 ("What happened"), open when it is current.
+describe('what the team waits on is the flow\'s current step, in core\'s words', () => {
+  const step = (id: string) => screen.getByTestId(`team-step-${id}`)
+  it('whom the round waits for, in core\'s words, is the open Reveal step; no reveal yet', () => {
     show(twoPeople({ commitments: [] }))
     render(<TeamTab />)
-    expect(screen.getByTestId('team-nudges').contains(screen.getByTestId('team-waiting'))).toBe(true)
+    expect(step('reveal').getAttribute('data-step-open')).toBe('')
+    expect(step('reveal').contains(screen.getByTestId('team-waiting'))).toBe(true)
     expect(screen.getByTestId('team-waiting').textContent).toBe('waiting for Bea')
     expect(screen.queryByTestId('team-reveal-go')).toBeNull()
   })
-  it('everyone has given: the reveal is offered there, once, and goes to core\'s reveal route', async () => {
+  it('everyone has given: the reveal is offered there, once, as the step\'s green press, and goes to core\'s reveal route', async () => {
     show(twoPeople({ commitments: [], can_reveal: true, waiting: null }))
     render(<TeamTab />)
     expect(screen.getAllByTestId('team-reveal-go')).toHaveLength(1)
-    expect(screen.getByTestId('team-nudges').contains(screen.getByTestId('team-reveal-go'))).toBe(true)
+    expect(step('reveal').contains(screen.getByTestId('team-reveal-go'))).toBe(true)
+    expect(step('reveal').getAttribute('data-step-open')).toBe('')
+    expect(screen.getByTestId('team-reveal-go').className).toContain('bg-success')
     expect(screen.getByTestId('team-nudge-reveal').textContent).toContain('Everyone has given their view.')
     expect(screen.queryByTestId('team-waiting')).toBeNull()
     fireEvent.click(screen.getByTestId('team-reveal-go'))
     await waitFor(() => expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/reveal`]))
   })
-  it('a next action with no outcome yet is nudged with its action and owner as core holds them, and opens its outcome form', async () => {
+  it('a next action with no outcome yet stays one press away: "What happened" is a closed line with its count; opened, its form is there', async () => {
     show(twoPeople({ waiting: null, commitments: [open9(), open9({ id: 10, action: 'Ask two customers', owner: 'Ada', owner_id: 'p_1', outcomes: twoPeople().collab.commitments[0]!.outcomes })] }))
     render(<TeamTab />)
-    expect(screen.getByTestId('team-nudge-outcome-9').textContent).toContain('Pilot in Germany · Bea · no outcome yet')
-    expect(screen.queryByTestId('team-nudge-outcome-10')).toBeNull() // it has its outcome
+    // Codex 008 #3: a recorded action is not an overdue task; the flow stays on "Where you differ".
+    expect(step('outcome').hasAttribute('data-step-open')).toBe(false)
+    expect(screen.getByTestId('team-step-outcome-summary').textContent).toBe('1 recorded · add what happened when it does')
+    fireEvent.click(screen.getByTestId('team-step-outcome-row'))
+    expect(step('outcome').getAttribute('data-step-open')).toBe('')
+    expect(screen.getByTestId('team-commitment-action-9').textContent).toBe('Pilot in Germany')
     expect(screen.queryByTestId('team-outcome-form-9')).toBeNull()
-    await act(async () => { fireEvent.click(screen.getByTestId('team-nudge-outcome-9').querySelector('button')!) })
+    await act(async () => { fireEvent.click(screen.getByTestId('team-outcome-open-9')) })
     expect(screen.getByTestId('team-outcome-form-9')).toBeTruthy()
   })
-  it('nothing waiting, nothing to reveal, every action reviewed: no nudge at all', () => {
+  it('nothing waiting, nothing to reveal, every action reviewed: "Where you differ" is the open step, Reveal is done', () => {
     show(twoPeople({ waiting: null }))
     render(<TeamTab />)
-    expect(screen.queryByTestId('team-nudges')).toBeNull()
+    expect(screen.getByTestId('team-steps').getAttribute('data-current-step')).toBe('differ')
+    expect(step('reveal').getAttribute('data-step-state')).toBe('done')
+    expect(step('outcome').getAttribute('data-step-state')).toBe('done')
   })
 })
 

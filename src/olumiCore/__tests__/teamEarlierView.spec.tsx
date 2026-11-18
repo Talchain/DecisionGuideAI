@@ -12,7 +12,9 @@ import type { View } from '../../olumiView/client'
 import { setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
-import { ViewsPanel } from '../team/ViewsPanel'
+import { RevealedViews, RevealMarks, ViewEntry } from '../team/ViewsPanel'
+/** The flow draws the entry ("Your view") and the revealed views ("Where you differ") as two steps; these rows read both, as the one panel did. */
+const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View

@@ -82,11 +82,12 @@ export function countDifferences(data: Differences): DifferCount {
   return { places: all.size, changes: ch.size }
 }
 
-/** Chrome words for the count. Says "changes the answer" only for what core marks `changes`; never claims none do, since not all are run. */
+/** Chrome words for the count. Says "changes which option is most likely" only for what core marks `changes` (core's own meaning for it,
+ *  never "the answer"); never claims none do, since not all are run. */
 export function summaryLine(c: DifferCount): string | null {
   if (c.places === 0) return null
   const where = `${c.places} ${c.places === 1 ? 'place' : 'places'} you differ`
-  return c.changes === 0 ? where : `${where}; ${c.changes} ${c.changes === 1 ? 'changes' : 'change'} the answer`
+  return c.changes === 0 ? where : `${where}; ${c.changes} ${c.changes === 1 ? 'changes' : 'change'} which option is most likely`
 }
 
 /** Said under group 3 when core calculated none (Sprint-Differ board; fixed chrome, about no scenario). */

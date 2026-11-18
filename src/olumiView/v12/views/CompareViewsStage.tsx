@@ -21,7 +21,10 @@ import { useDockInset } from '../bands/KeyPill'
 import { revealedForYou } from './differGroups'
 import { FrameLines } from './FrameLines'
 import { useCompare } from './useCompare'
-import { COMPARE_WORDS, Differences } from './WhereWeDiffer'
+import { COMPARE_WORDS, Differences, startCommit } from './WhereWeDiffer'
+import { QUIET } from '../../../olumiCore/team/ui'
+import { OkIcon } from '../../look/icons'
+import { STEP_WORDS } from '../../../olumiCore/team/flow'
 
 type Shared = View['collab']['shared'][number]
 
@@ -54,7 +57,7 @@ function Person({ p }: { p: { by_id: string; by: string; views: Shared[] } }): J
   return (
     <section className="grid content-start gap-3 rounded-md border border-panel-border bg-panel p-4" data-testid={`compare-person-${p.by_id}`} data-by={p.by_id} aria-label={p.by}>
       <h3 className={`${typography.viewPanelBody} m-0 font-medium text-text-header`} data-testid={`compare-person-${p.by_id}-name`}>{p.by}</h3>
-      {p.views.map((v, i) => <div key={v.id} className={i === 0 ? '' : 'border-t border-panel-border pt-3'}><ViewBody v={v} /></div>)}
+      {p.views.map((v, i) => <div key={v.id} className={i === 0 ? '' : 'pt-3'}><ViewBody v={v} /></div>)}
     </section>
   )
 }
@@ -98,24 +101,26 @@ export function CompareViewsStage(): JSX.Element | null {
   const v = forPage!
   const people = byPerson(v.collab.shared)
   const hide = () => useCompare.getState().hide()
-  // Commit opens the Team tab's commitment form beside the comparison (the row writes the draft; the form lives in the dock).
-  const toCommit = () => useUIStore.getState().setActiveOutputTab('team')
+  // Commit opens the Team tab's commitment form beside the comparison (the draft is written; the form lives in the dock's Commit step).
+  const toCommit = () => startCommit(sid!, v, () => useUIStore.getState().setActiveOutputTab('team'))
   return (
     <div role="region" aria-label={COMPARE_WORDS.control} data-testid="compare-stage" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas" style={{ right: inset }}>
       <div className="mx-auto grid max-w-[1440px] gap-6 px-6 pb-12 pt-16">
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" data-testid="compare-back" onClick={hide}
-            className={`${typography.viewPanelMeta} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
+            className={`${typography.viewPanelMeta} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
             <ArrowLeft aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMPARE_WORDS.back}
           </button>
           <h2 className={`${typography.viewPanelHeadline} m-0 text-text-header`} data-testid="compare-heading">{v.collab.heading}</h2>
         </div>
+        <fieldset disabled={past !== null} className="contents">
+          <Differences sid={sid!} view={v} onWrote={refresh} wide onFocusCard={hide} />
+          {/* An action is one optional activity, offered quietly, never the comparison's lead (Codex 008 #3). */}
+          <div><button type="button" className={QUIET} data-testid="compare-commit" onClick={toCommit}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
+        </fieldset>
         {people.length === 0
           ? null
           : <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]" data-testid="compare-members">{people.map((p) => <Person key={p.by_id} p={p} />)}</div>}
-        <fieldset disabled={past !== null} className="contents">
-          <Differences sid={sid!} view={v} onWrote={refresh} wide onFocusCard={hide} onCommit={toCommit} />
-        </fieldset>
       </div>
     </div>
   )

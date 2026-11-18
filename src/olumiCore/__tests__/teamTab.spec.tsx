@@ -12,6 +12,7 @@ import { setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { resetTeamFlow } from '../team/flow'
 import { useMe } from '../me'
 
 const SID = 's_0123456789ab'
@@ -59,7 +60,7 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
   useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); resetTeamFlow(); useMe.setState({ me: null, status: 'none' }) })
 
 const posts = () => calls.filter((c) => c.method === 'POST')
 const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
@@ -98,8 +99,9 @@ describe('what the tab shows is the View, word for word', () => {
     useViewStore.setState({ view: { ...twoPeople(), members: [{ id: 'p_1', name: 'Ada' }, { id: 'p_2', name: 'Ada' }],
       team_presence: { title: 'Ada (you), Ada', label: 'Team: Ada (you), Ada', members: [{ id: 'p_1', text: 'Ada (you)' }, { id: 'p_2', text: 'Ada' }] } } })
     render(<TeamTab />)
-    expect(screen.getByTestId('team-member-p_1').textContent).toBe('AAda (you)')
-    expect(screen.getByTestId('team-member-p_2').textContent).toBe('AAda')
+    // The member's line is core's words exactly; whose view is in is a separate mark (yours: given; theirs: revealed to you).
+    expect(screen.getByTestId('team-member-p_1').querySelector('[data-member-text]')!.textContent).toBe('Ada (you)')
+    expect(screen.getByTestId('team-member-p_2').querySelector('[data-member-text]')!.textContent).toBe('Ada')
   })
   it('the reveal is offered exactly when core says it can be made', () => {
     const { rerender } = render(<TeamTab />)

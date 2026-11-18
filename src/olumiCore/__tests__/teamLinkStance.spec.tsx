@@ -17,7 +17,6 @@ import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
 import { resetDifferences, useDifferences, type Differences } from '../team/differences'
 import { LinkStance } from '../team/LinkStance'
-import { DifferencesPanel } from '../team/DifferencesPanel'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
 import { useMe } from '../me'
@@ -172,16 +171,5 @@ describe('Its place in the Team tab', () => {
     useMe.setState({ me: null, status: 'none' } as never)
   })
 })
-
-describe('Where your explanations differ: each side in its own words', () => {
-  it('LS5 a stance\'s words are drawn under its line, as core gives them; a side without words draws none', () => {
-    serve(() => ({ status: 200, body: diffStances }))
-    differences(diffStances)
-    useDifferences.setState({ key: `${SID}|none` })
-    const { container } = render(<DifferencesPanel sid={SID} view={stances} onWrote={async () => true} />)
-    const card = container.querySelector('[data-testid="team-difference-link:morale_link"]')!
-    expect([...card.querySelectorAll('[data-difference-words]')].map((x) => [x.getAttribute('data-difference-words'), x.textContent])).toEqual([['2', BEA], ['1', ADA]])
-    expect(card.querySelector('[data-testid="team-difference-link:morale_link-status"]')!.textContent).toBe('This link is a claim in words: the model does not calculate it, so no chance here turns on whether it holds.')
-    expect(container.querySelectorAll('[data-difference-words]').length).toBe(2)
-  })
-})
+// The unmounted DifferencesPanel and its per-side stance words (LS5) were deleted on 18 Nov with the flow redesign; the drawn card is
+// teamDifferences.spec. A stance's own words reach the person through the link stance form and the revealed views.

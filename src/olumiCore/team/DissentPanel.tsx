@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
-import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { BODY, CARD, ERR, FIELD, GO, LABEL, META, QUIET } from './ui'
 
 type Dissent = View['collab']['dissent'][number]
 interface DissentDraft { rewording: boolean; words: string; tell: string }
@@ -19,7 +18,6 @@ export function DissentPanel({ sid, view, onWrote }: { sid: string; view: View; 
   if (view.collab.dissent.length === 0) return null
   return (
     <section data-testid="team-dissent" aria-label="Disagreements" className="grid gap-2">
-      <h3 className={H}>Disagreements</h3>
       <ul className="m-0 grid list-none gap-4 p-0">
         {view.collab.dissent.map((d) => <DissentRow key={d.id} sid={sid} d={d} you={view.you_id} onWrote={onWrote} />)}
       </ul>
@@ -78,9 +76,9 @@ function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: st
             onChange={(e) => setDraft((p) => ({ ...p, tell: e.target.value }))} />
           {locked ? <p role="alert" data-testid={`team-dissent-error-${d.id}`} className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid={`team-dissent-error-${d.id}`} className={ERR}>{error}</p>}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" data-testid={`team-dissent-confirm-${d.id}`} disabled={!ready} onClick={() => void confirm()}>Confirm my words</Button>
+            <button type="button" className={GO} data-testid={`team-dissent-confirm-${d.id}`} disabled={!ready} onClick={() => void confirm()}>Confirm my words</button>
             {!draft.rewording && (
-              <Button size="sm" variant="secondary" data-testid={`team-dissent-reword-${d.id}`} disabled={busy} onClick={() => setDraft((p) => ({ ...p, rewording: true, words: shown }))}>Reword</Button>
+              <button type="button" className={QUIET} data-testid={`team-dissent-reword-${d.id}`} disabled={busy} onClick={() => setDraft((p) => ({ ...p, rewording: true, words: shown }))}>Reword</button>
             )}
           </div>
         </div>

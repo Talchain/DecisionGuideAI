@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Button } from '../../components/ui/Button'
 import { teamApi, TeamApiError } from './api'
 import { runWrite, useWriteSending } from './writes'
 import { putDraft, useDraft } from './drafts'
 import type { View } from '../../olumiView/client'
 import { dissentWords } from './DissentPanel'
-import { BODY, CARD, ERR, FIELD, LABEL, META } from './ui'
+import { BODY, CARD, ERR, FIELD, GO, LABEL, META, QUIET } from './ui'
 
 /** Core's verdict on a kept dissent (olumi.view/3 at d1fe5e2), and the words this panel says for each. */
 type Verdict = View['collab']['commitments'][number]['outcomes'][number]['dissent'][number]['verdict']
@@ -97,7 +96,7 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
         ))}
       </ul>
       {!open ? (
-        <div><Button size="sm" variant="secondary" data-testid={`team-outcome-open-${c.id}`} onClick={() => setOpen(true)}>Record what happened</Button></div>
+        <div><button type="button" className={GO} data-testid={`team-outcome-open-${c.id}`} onClick={() => setOpen(true)}>Record what happened</button></div>
       ) : (
         <div className={CARD} data-testid={`team-outcome-form-${c.id}`}>
           <label htmlFor={`${name}-happened`} className={LABEL}>What happened, in your own words?</label>
@@ -136,8 +135,8 @@ export function OutcomePanel({ sid, commitment, dissent, labelOf, onWrote }: { s
           <textarea id={`${name}-note`} data-testid={`${name}-note`} className={`${FIELD} min-h-[48px]`} value={note} disabled={busy} onChange={(e) => setNote(e.target.value)} />
           {error && <p role="alert" data-testid={`${name}-error`} className={ERR}>{error}</p>}
           <div className="flex gap-2">
-            <Button size="sm" data-testid={`${name}-save`} disabled={!ready || busy} onClick={() => void save()}>Record outcome</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
+            <button type="button" className={GO} data-testid={`${name}-save`} disabled={!ready || busy} onClick={() => void save()}>Record outcome</button>
+            <button type="button" className={QUIET} disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
           </div>
         </div>
       )}
