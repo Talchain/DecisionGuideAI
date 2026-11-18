@@ -40,8 +40,9 @@ describe('the menu', () => {
     const a = session('goal-understand')
     const none: View = { ...a, model: { ...a.model!, run: { ...a.model!.run!, aim: null } } }
     const byId = (v: View) => Object.fromEntries(menuOf(v)!.methods.map((m) => [m.id, m.prerequisite]))
-    expect(byId(none)['differ']).toBe(NEEDS_ANALYSIS_WORDS)
     expect(byId(none)['rests']).toBe(NEEDS_ANALYSIS_WORDS)
+    // 18 Nov: core does not ground "differ" in a calculation yet, so it never claims to need one.
+    expect(byId(none)['differ'] ?? null).toBeNull()
     expect(byId(none)['else_do']).toBeNull() // contrast: a qualitative question has no prerequisite
     expect(byId(none)['right_question']).toBeNull()
     expect(Object.values(byId(a)).every((x) => x === null)).toBe(true)

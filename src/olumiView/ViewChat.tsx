@@ -1337,6 +1337,7 @@ function useArmedChallenge(): ChallengeKind | null {
     const pick = () => {
       if (useViewChat.getState().armed !== armed) return
       if (useViewStore.getState().uuid !== at) { useViewChat.setState({ armed: null }); return }
+      if (useViewChat.getState().busy) return // Olumi is still answering: the challenge keeps waiting, never turned into a plain message
       // Words in the box are a new intent (Codex 008, 18 Nov): the waiting challenge stands down and the words stay.
       if (useViewChat.getState().text.trim() !== '') { useViewChat.setState({ armed: null }); return }
       const record = selectedRecord()
@@ -1446,7 +1447,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   )
 }
 
-/** The presses the menu and the next step share: one action system. A question is asked as a discussion-only turn (askMethod); "Let us give
+/** The presses the menu and the next step share: one action system. A question is asked as one answered turn that may propose a change, held for approval (askMethod); "Let us give
  *  our figure first" opens its blind entry; the reply or the entry is brought into view once drawn. */
 export function runMethod(id: string): void {
   const from = document.querySelector('[data-testid="view-chat"]')
@@ -1923,7 +1924,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
               {/* The four methods are the registry's method icons, neutral (Paul, 17 Nov: icons carry no hue); the method's own label is the hover. */}
               {V10_METHODS.map(({ key, label }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} testid={`view-composer-method-${key}`} size={14}
+                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} disabled={busy} testid={`view-composer-method-${key}`} size={14}
                   className={`h-7 w-7 rounded-md hover:bg-panel-hover${armed === key ? ' bg-panel-hover' : ''}`}
                   onClick={() => { if (pressChallenge(key) === 'prefixed') box.current?.focus() }} />
               ))}

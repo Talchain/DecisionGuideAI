@@ -8,6 +8,7 @@
  * Ask AI sends one bound chip question via `requestAsk` and reveals the conversation.
  */
 
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
@@ -1104,8 +1105,12 @@ export function askAI(
   const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
   const tryToAsk = () => {
     if (useGuidanceStore.getState()._dispatchAction) {
+      // The olumi-core lane (Codex 23:56Z; menu review 18 Nov): a challenge runs typed on its card; any other ask (Explain, gaps, a link) is
+      // put in the message box, bound to its target, for the person to change and send. Olumi's question is never sent in their name.
+      const typed = !isOlumiCoreLane() || intent === 'challenge_element'
+      const { intent: _askIntent, ...unsent } = askTargetRequest(target, intent)
       const landed = requestAsk({
-        text: prompt, ...askTargetRequest(target, intent),
+        text: prompt, ...(typed ? askTargetRequest(target, intent) : unsent),
         label,
         targetId: target.kind === 'node' ? target.nodeId : undefined,
         source: 'context-menu',

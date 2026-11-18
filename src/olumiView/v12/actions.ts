@@ -34,7 +34,8 @@ export type ToolId = keyof typeof TOOL_WORDS
  * in D5, "How much rests on Olumi's guesses?" in D8; the others read the run too). Without an analysis they can still be asked, and Olumi
  * answers in words only: the menu says so, so a qualitative answer is never taken for a calculated one.
  */
-export const NEEDS_ANALYSIS: ReadonlySet<string> = new Set(['differ', 'find_first', 'have_true', 'go_wrong', 'push', 'rests'])
+// Only the three core grounds in a calculation today (menu review 18 Nov); differ, find_first and push join once core grounds them (CORE-A).
+export const NEEDS_ANALYSIS: ReadonlySet<string> = new Set(['have_true', 'go_wrong', 'rests'])
 
 /** Chrome words for the prerequisite of an analysis-gated question while there is no analysis to read. */
 export const NEEDS_ANALYSIS_WORDS = 'Needs an analysis to be worked out. Until there is one, Olumi answers in words only, not from a calculation.'

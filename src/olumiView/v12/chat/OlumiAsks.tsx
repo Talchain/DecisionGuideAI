@@ -39,7 +39,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
   held: boolean
   /** The person's words for this question, through the conversation's own send; true once sent. */
   onAnswer: (q: AskedQuestion, answer: string) => Promise<boolean>
-  /** A method's lead-in prefix, for the message box (ViewChat puts it there; never sent). */
+  /** One of the four challenges pressed (ViewChat's `pressChallenge`: typed on the selected card, or waiting for one). */
   onMethod: (key: (typeof V10_METHODS)[number]['key']) => void
 }): JSX.Element | null {
   const [at, setAt] = useState(0)
