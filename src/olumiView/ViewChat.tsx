@@ -418,6 +418,19 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
     const entry = floorEntryOf(entries, line)
     return entry === null ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
   }
+  // Keep beside the concise reply (14 Nov, Codex root 05:47Z): the same core entries, offered on the lead's own lines where one carries an entry, and
+  // for any entry no lead line carries, one quiet row of keeps, so none sits only behind "Full answer". Nothing is kept unless pressed.
+  const leadLines = f.lead === undefined ? [] : [f.lead.opening, ...f.lead.points]
+  const leadKeep = sid === null || entries.length === 0 ? undefined : (line: string) => {
+    const entry = floorEntryOf(entries, line)
+    return entry === null ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
+  }
+  const unlaid = entries.filter((e) => !leadLines.some((l) => floorEntryOf([e], l) !== null))
+  const restKeep = sid === null || unlaid.length === 0 ? undefined : (
+    <ul className="m-0 !list-none !p-0" data-testid="view-floor-keep-row">
+      {unlaid.map((e, i) => <li key={i} className="flex items-center gap-1" data-testid="view-floor-keep-entry"><span className={`${typography.viewPanelMeta} min-w-0 truncate text-text-light`}>{e}</span><KeepIdea sid={sid} turn={f.job} text={e} floor /></li>)}
+    </ul>
+  )
   // A saved message whose reply failed or was lost (core `floor[].unanswered`): their words, then core's own sentence for that job as a quiet
   // line. No reply, no Keep and no Try again here: only the newest turn (`turn`) retries, and it is never also in the floor.
   const un = f.unanswered
@@ -437,7 +450,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
           </>
         : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep stays on its lines there.
-          : <ReplyLead lead={f.lead} at={`floor.${f.job}`}>{text}</ReplyLead>}</div>}
+          : <ReplyLead lead={f.lead} at={`floor.${f.job}`} keepLine={leadKeep} keepRest={restKeep}>{text}</ReplyLead>}</div>}
     </li>
   )
 }
