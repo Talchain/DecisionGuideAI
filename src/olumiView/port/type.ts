@@ -1,19 +1,14 @@
 /**
- * The three type roles the ported analysis components use (R25 scale A, by role: 12 metadata, 14 reading, 18 the one headline). The UI
- * session adds them as `typography.viewPanelMeta` / `viewPanelBody` / `viewPanelHeadline` on poc/r25-ui; until that lands, each falls back to
- * the same size here, so the swap at merge changes no rendered size. The shared panelMeta/panelBody tokens are not used: they return to
- * their legacy values for the legacy readers.
+ * The type roles the Analysis and Reasoning tabs use, from the panel's one scale (`typography.viewPanel*`): 12 metadata, 12 reading, 18 the
+ * sparing headline. No size of this module's own (the earlier raw fallbacks are gone now the tokens exist).
  */
 import { typography } from '../../styles/typography'
 
-type Roles = { viewPanelMeta?: string; viewPanelBody?: string; viewPanelHeadline?: string }
-const t: Roles = typography as unknown as Roles
-
 export const TYPE = {
-  /** 12px: marks, second lines, tab words. */
-  meta: t.viewPanelMeta ?? 'text-[12px] font-sans leading-snug',
-  /** 14px: every reading line. */
-  body: t.viewPanelBody ?? 'text-[14px] font-sans leading-relaxed',
-  /** 18px semibold: the panel's one headline. */
-  headline: t.viewPanelHeadline ?? 'text-[18px] font-medium font-sans leading-snug',
+  /** 12/16: marks, second lines, tab words. */
+  meta: typography.viewPanelMeta,
+  /** 12/18: every reading line. */
+  body: typography.viewPanelBody,
+  /** 18/500: the panel's one headline. */
+  headline: typography.viewPanelHeadline,
 } as const
