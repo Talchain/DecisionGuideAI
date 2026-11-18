@@ -37,6 +37,13 @@ const READ = ['text', 'title', 'why', 'add'] as const
  *    the line is core's shared `text`, and its hover holds only the fields every option sends alike, never one option's reason for the others.
  */
 export function sharedNoChance(model: ViewModel | null): Said | null {
+  const said = candidateNoChance(model)
+  // Said on the aim only where at least one option relies on it (its own line is dropped for it: the same test the option card uses, saysNoChanceOnce);
+  // otherwise the aim says nothing and each option keeps its own line.
+  return said !== null && noChanceOptions(optionsOf(model)).some((c) => saysNoChanceOnce(said, c.headline!)) ? said : null
+}
+
+function candidateNoChance(model: ViewModel | null): Said | null {
   const opts = optionsOf(model)
   const none = noChanceOptions(opts)
   if (opts.length < 2 || none.length !== opts.length) return null

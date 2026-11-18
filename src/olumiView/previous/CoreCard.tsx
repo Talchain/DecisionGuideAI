@@ -464,7 +464,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {WHAT_IF_COPY.whatIf}: <span className="font-medium text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
             </p>
           )}
-          {card.family === 'option' ? <><OptionMarkLine card={id} /><ConditionalBar card={card} /></> : null}
+          {card.family === 'option' ? <><OptionMarkLine card={id} />{setAside ? null : <ConditionalBar card={card} />}</> : null}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
             {card.committed == null ? null : <span className={`${typography.viewLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}

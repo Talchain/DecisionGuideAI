@@ -21,6 +21,7 @@ import { optionLetters } from '../../cards/letters'
 import { noChanceLineOf } from '../../cards/words'
 import { ROW_WORDS_MAX } from '../marks'
 import { figureRange } from '../../contract'
+import { driverChances } from '../../scale'
 import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
@@ -209,6 +210,18 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(aimSays(notAll)).toEqual([])
     expect([S, D, I].map((id) => ownLine(notAll, id))).toEqual([[S, false, 'No chance yet', 'Only this option: its release date is not set.'], [D, false, 'No chance yet', SHARED], [I, false, 'No chance yet', SHARED]])
   })
+  it('DT16b the shared no-chance line is said on the aim only where at least one option relies on it: where core marks the headline shared but every option carries a reason of its own, the aim says nothing and every option keeps its own line. CONTRAST: DT16\'s served board, where the options rely on it, says it once', () => {
+    const [S, D, I] = ['option_scheduled', 'option_delay', 'option_isolate'] as const, AIM = 'boss_discussion'
+    const reasons: Readonly<Record<string, string>> = { [S]: 'Only this option: its release date is not set.', [D]: 'Only this option: the delay is not costed.', [I]: 'Only this option: the isolation scope is not named.' }
+    const every = [S, D, I].reduce((v, id) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, why: reasons[id]! } } as ViewCard), APP)
+    expect([every.model!.run!.all_withheld, [S, D, I].every((id) => cardOf(every, id).headline!.shared === true)], 'precondition: core marks the headline shared').toEqual([true, true])
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
+    expect([sharedNoChance(every.model), saidOnceOf(every.model).none, aimSays(every)]).toEqual([null, null, []])
+    expect([S, D, I].map((id) => ownLine(every, id))).toEqual([S, D, I].map((id) => [id, false, 'No chance yet', reasons[id]]))
+    // CONTRAST: the served board, where every option relies on core's shared line, says it once on the same aim.
+    expect([sharedNoChance(APP.model)?.at, aimSays(APP).length]).toEqual([AIM, 1])
+  })
   it('DT17 a limit\'s state is said once only where every option\'s words AND title AND question AND Olumi mark are equal: one option with its own question means each option is listed by its letter with its own hover. CONTRASTS: all equal is said once with the shared title and question the hover; one row with Olumi\'s mark is not shared; the same mark on every row is shared and drawn', () => {
     const [A, B, C] = ['second_oven', 'longer_hours', 'carry_on'] as const, AIM = 'within_budget'
     type Over = { question: string; olumi?: { glyph: string; title: string } | null }
@@ -352,6 +365,10 @@ describe('Detailed: marks, not sentences', () => {
     }
     expect(state(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), LIVE)).toEqual({ status: ['ruled out'], marked: true, headline: [], gauge: false, drawnChance: false, hoverSaysStatus: false, lineHover: 'about 23% chance' })
     expect(state(HIRING, LIVE)).toEqual({ status: [], marked: false, headline: ['about 23% chance'], gauge: true, drawnChance: true, hoverSaysStatus: false, lineHover: null })
+    // A ruled-out option draws no live result track either: its conditional bar (bound by card id) is absent. CONTRAST: the live card draws one.
+    const barOf = (v: View, id: string) => { const n = faceOf(draw(v, id), id).querySelectorAll(`[data-testid="conditional-bar"][data-card="${id}"]`).length; cleanup(); return n }
+    expect(driverChances(live), 'precondition: the live fixture card has a conditional range to draw').not.toBeNull()
+    expect([barOf(HIRING, LIVE), barOf(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), LIVE)], 'conditional bar: live, ruled out').toEqual([1, 0])
     // An option with no face of its own (core sends it rows only, each said on its aim's card): the status line is still drawn, once.
     const bare = cardOf(HOSTING, 'own_hosting')
     expect([bare.headline ?? null, bare.status]).toEqual([null, null])
