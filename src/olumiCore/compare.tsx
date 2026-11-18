@@ -177,16 +177,29 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
   return (
     <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
       <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
-      {since.lines.length === 0 ? null : (
-        <ul className="m-0 grid list-none gap-2 p-0">
-          {since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0)).map(({ l, i }) => (
-            <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
-              <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
-              {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
-            </li>
-          ))}
-        </ul>
-      )}
+      {since.lines.length === 0 ? null : (() => {
+        // Each line keeps its place in core's list as its id; moved readings first where asked (`movedFirst`). A reading that did not move
+        // is counted at rest and its line is one press away (Paul, 18 Nov: a line per unmoved reading was the wall he asked about).
+        const order = since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0))
+        const row = ({ l, i }: { l: Since['lines'][number]; i: number }) => (
+          <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
+            <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
+            {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
+          </li>
+        )
+        const live = order.filter(({ l }) => lineMoved(l)), still = order.filter(({ l }) => !lineMoved(l))
+        return (
+          <>
+            {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
+            {still.length === 0 ? null : (
+              <details className="grid gap-1.5" data-testid="core-compare-since-still">
+                <summary className={`${META} cursor-pointer`}>{notMoved(still.length)}</summary>
+                <ul className="m-0 grid list-none gap-2 p-0">{still.map(row)}</ul>
+              </details>
+            )}
+          </>
+        )
+      })()}
       {since.sole !== null || since.changed.length === 0 ? null : (
         <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-since-changed">
           {since.changed.map((c, i) => (

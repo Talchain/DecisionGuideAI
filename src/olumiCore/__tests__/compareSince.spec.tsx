@@ -104,6 +104,17 @@ describe('where core credits no single change (sole null)', () => {
     const both = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [TWO_CHANGES.lines[0]!, same] }} />).container
     expect([both.querySelectorAll('[data-compare-track]').length, both.querySelector('[data-since-line^="carry_on:"] [data-compare-track]'), both.querySelectorAll('[data-compare-track-key]').length]).toEqual([1, null, 1])
   })
+  it('SI6 (Paul, 18 Nov): readings that did not move are counted at rest and their lines are one press away; the moved one stays at rest; CONTRAST: none unmoved draws no fold', () => {
+    const same = { ...TWO_CHANGES.lines[0]!, option: 'carry_on', from: 0, to: 0, from_text: 'never met in this model', to_text: 'never met in this model', line: 'LINE-SAME' }
+    const { container, unmount } = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [same, TWO_CHANGES.lines[0]!] }} movedFirst />)
+    const fold = screen.getByTestId('core-compare-since-still')
+    expect([fold.tagName, fold.hasAttribute('open'), fold.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, '1 result did not move.'])
+    expect([...fold.querySelectorAll('[data-view]')].map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([['run.since.lines.0.line', 'LINE-SAME']])
+    expect(fold.contains(container.querySelector('[data-view="run.since.lines.1.line"]'))).toBe(false)
+    unmount()
+    render(<SinceVersion since={TWO_CHANGES} />)
+    expect(screen.queryByTestId('core-compare-since-still')).toBeNull()
+  })
   it('SI4: each changed figure is listed by id in core\'s words; with `sole` set the list is not drawn', () => {
     const { unmount } = render(<SinceVersion since={TWO_CHANGES} />)
     const list = screen.getByTestId('core-compare-since-changed')
