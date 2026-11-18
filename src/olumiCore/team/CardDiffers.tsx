@@ -21,13 +21,13 @@ import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'
 import { CARD_WIDTH } from '../../olumiView/layout'
-import { differencesKey, readDifferences, useDifferences, type Difference } from './differences'
+import { differencesKey, readDifferences, useDifferences, type Difference, type Differences } from './differences'
 
 const NONE: readonly Difference[] = []
 
-/** The doubted links core names on this card, once each (its first aim's entry), in core's order. Reads the differences once per revealed
- *  View; the Team tab shares the read. */
-export function useLinkDiffers(card: string): readonly Difference[] {
+/** Core's differences for the View on screen, read once per revealed View (the Team tab shares the read); null before the reveal, while gated,
+ *  on an earlier version, or while the read is not for this very View. */
+export function useRevealedDifferences(): Differences | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
@@ -38,7 +38,14 @@ export function useLinkDiffers(card: string): readonly Difference[] {
   // Only an answer read for this very View: an older one (another version, before a reveal, or kept after a failed read) is never drawn as
   // this one's.
   const data = useDifferences((s) => (key !== null && s.read === key ? s.data : null))
-  if (data === null || data.gated) return NONE
+  return data === null || data.gated ? null : data
+}
+
+/** The doubted links core names on this card, once each (its first aim's entry), in core's order. Reads the differences once per revealed
+ *  View; the Team tab shares the read. */
+export function useLinkDiffers(card: string): readonly Difference[] {
+  const data = useRevealedDifferences()
+  if (data === null) return NONE
   const seen = new Set<string>()
   return data.differences.filter((d) => {
     if (d.kind !== 'link' || !(d.cards ?? []).includes(card) || seen.has(d.record)) return false

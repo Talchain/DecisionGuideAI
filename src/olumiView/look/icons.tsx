@@ -39,7 +39,7 @@ import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
-  Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
+  Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
@@ -211,6 +211,7 @@ export const ICONS = {
   'tab-reasoning': e(Brain, 'Reasoning', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'tab-compare': e(GitCompareArrows, 'Compare', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'tab-model': e(Network, 'Model', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
+  'revealed-difference': e(GitFork, 'Where you differ', '--text-light', 'icon-only', 'state', { keepWords: "core's status_text for the difference is the hover and name where the mark is drawn (CardDispute.tsx)" }),
   team: e(Users, 'Team', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   lenses: e(Layers2, "Core's lens words", '--text-light', 'icon-plus-word', 'navigate', { alt: Compass, hoverColour: '--text-header', keepWords: "core's lens_words (Model, Explore, Team)" }),
 
