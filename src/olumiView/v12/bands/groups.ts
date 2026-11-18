@@ -20,6 +20,8 @@ import { useWhatIf } from '../../whatif'
 import { useWhatIfFocus } from '../inspect/whatIfFocus'
 import { detailsOf, useLaneInspector } from '../edit/inspectorStore'
 import { bandOf, type BandId } from './bands'
+import { driversOf } from '../../layout'
+import { linkRole } from '../contract'
 
 /**
  * D1c (v9; pilot loop 12:17Z: all nine journeys called the canvas cluttered; Codex UI reviewer 008 v8 clutter answers): on Simple an APPROVED
@@ -64,8 +66,30 @@ export function foldActiveNow(view: View | null): FoldActive {
   return { tried: shown !== null && (view === null || shown.sid === view.id) ? shown.quantity : null, pressed: useWhatIfFocus.getState().id, inspected: open?.kind === 'card' ? open.id : null }
 }
 
-/** The cards D1c never folds: what the newest reply points at (its `next.at` and `next.about`), the figure being tried (the what-if shown, or the
- *  one just pressed) and the card open in the details panel. Read from the View and the active ids; nothing is worked out. */
+/** The most extra cards the explanation-critical set adds (D1d). "The few": a measured outcome (one per aim, so one or two) and the three or four
+ *  figures an option's chance moves most with; more than six would be the whole model again. */
+export const EXPLAIN_KEEP_CAP = 6
+
+/** D1d (Codex 18 Nov: on a first model Simple showed the person's own figures and a chip, not Olumi's mechanism): the few cards that explain the
+ *  answer stay drawn though Olumi proposed them or has not sized them. Read from core's own fields only: the figure an aim is measured by (the `from`
+ *  end of a link with role `measures`) and the figures core names as what an option's chance moves most with (`driversOf`: `card.driver.figure`).
+ *  Where core names no driver, the direct causes of that outcome that are figures stand in (the plain and through links into it; reason and size links are no cause).
+ *  Outcomes first, then drivers, in the View's own order, at most EXPLAIN_KEEP_CAP. Drawing a card is not approving it: its marks and its
+ *  accept, edit and reject stay as they are. */
+export function explanationKeepOf(model: ViewModel | null | undefined): readonly string[] {
+  if (model == null) return []
+  const ids = new Set(model.cards.map((c) => c.id)), figures = new Set(model.cards.filter((c) => c.family === 'quantity').map((c) => c.id))
+  const outcomes = [...new Set(model.links.filter((l) => linkRole(l) === 'measures' && ids.has(l.from)).map((l) => l.from))]
+  let drivers = [...driversOf(model).keys()]
+  if (drivers.length === 0) {
+    const causes = model.links.filter((l) => outcomes.includes(l.to) && l.kind !== 'reason' && linkRole(l) !== 'reason' && linkRole(l) !== 'size' && figures.has(l.from))
+    drivers = causes.map((l) => l.from)
+  }
+  return [...new Set([...outcomes, ...drivers])].slice(0, EXPLAIN_KEEP_CAP)
+}
+
+/** The cards D1c and D1a never fold: what the newest reply points at (its `next.at` and `next.about`), the figure being tried (the what-if shown, or the
+ *  one just pressed), the card open in the details panel, and the few that explain the answer (`explanationKeepOf`). Read from the View and the active ids. */
 export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow(view)): ReadonlySet<string> {
   const keep = new Set<string>(), chat = view?.chat ?? []
   for (let i = chat.length - 1; i >= 0; i--) {
@@ -76,13 +100,14 @@ export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow
     break
   }
   for (const id of [active.tried, active.pressed, active.inspected]) if (id !== null) keep.add(id)
+  for (const id of explanationKeepOf(view?.model)) keep.add(id)
   return keep
 }
 
 /** Which group a card folds into on Simple, or null where it is drawn. `keep`: the cards D1c leaves drawn (foldKeepOf). */
 export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, keep: ReadonlySet<string> = new Set()): GroupKind | null {
   const { kind } = cardKind(card, model, view)
-  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return 'proposed'
+  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return keep.has(card.id) ? null : 'proposed'
   if (approvedNote(card, kind)) return 'notes'
   return olumiUnsized(card, kind) && !keep.has(card.id) ? 'olumi' : null
 }

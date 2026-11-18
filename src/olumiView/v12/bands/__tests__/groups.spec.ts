@@ -9,7 +9,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View, ViewCard, ViewModel } from '../../../client'
-import { cardGroupsOf, challengedIn, groupIdOf, groupKindOf, groupLinksOf, withoutGrouped } from '../groups'
+import { cardGroupsOf, challengedIn, EXPLAIN_KEEP_CAP, explanationKeepOf, groupIdOf, groupKindOf, groupLinksOf, withoutGrouped } from '../groups'
 
 const base = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/bakery-asked.view3.json'), 'utf8')) as View
 const card = (id: string) => base.model!.cards.find((c) => c.id === id)!
@@ -82,5 +82,48 @@ describe('one group card per row, its links run to it', () => {
     expect(challengedIn(hot, inputs)).toBe(2)
     // CONTRAST: a challenge outside the group is not counted in it.
     expect(challengedIn({ ...model, cards: model.cards.map((c) => (c.id === 'base_sales' ? { ...c, challenged: true } : c)) }, inputs)).toBe(0)
+  })
+})
+
+// D1d (Codex 18 Nov): the cards that explain the answer stay drawn on a first model though Olumi proposed them; drawing is not approving.
+describe('D1d the explanation-critical cards stay drawn, still Olumi\'s proposals', () => {
+  /** A first model: Olumi proposed the figures; core names `sales` as what the aim is measured by (role measures), `oven_price` as the figure the
+   *  option's chance moves most with (`driver.figure`), and the newest reply's next step points at `fitting`. */
+  const first = () => {
+    const proposed = ['budget', 'oven_price', 'fitting', 'sales', 'oven_repair'].map((id) => as(id, id === 'oven_repair' ? 'risk' : 'driver', olumi, added))
+    const { model: m0, view: v0 } = withCards([...proposed, { ...card('second_oven'), driver: { text: 'x', title: 'x', figure: 'oven_price', low: 0.2, high: 0.8 } } as unknown as ViewCard])
+    const model = { ...m0, links: m0.links.map((l) => (l.from === 'sales' && l.to === 'sell_360' ? { ...l, role: 'measures' } : l)) } as unknown as ViewModel
+    const view = { ...v0, model, chat: [{ answer: { next: { at: 'fitting', about: [] } } }] } as unknown as View
+    return { model, view }
+  }
+  it('K1 the next step\'s target, the primary outcome and the figure core names as the driver are drawn, still marked as Olumi\'s proposals', () => {
+    const { model, view } = first()
+    const grouped = new Set(cardGroupsOf(model, view).flatMap((g) => g.cards))
+    for (const id of ['fitting', 'sales', 'oven_price']) {
+      expect(grouped.has(id), `${id} is not inside a group`).toBe(false)
+      const c = withoutGrouped(model, cardGroupsOf(model, view)).cards.find((x) => x.id === id)!
+      expect([c.id, c.change, c.author?.by], `${id} is drawn and keeps its proposed mark`).toEqual([id, added, 'olumi'])
+    }
+  })
+  it('K2 CONTRAST: a secondary Olumi proposal outside that set still folds into its group', () => {
+    const { model, view } = first()
+    const groups = cardGroupsOf(model, view)
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))!.cards).toEqual(['budget'])
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'outcomes'))!.cards).toEqual(['oven_repair'])
+  })
+  it('K3 the set is capped: outcomes first, then drivers, at most EXPLAIN_KEEP_CAP; with no driver named the outcome\'s direct causes stand in', () => {
+    const extra = Array.from({ length: 10 }, (_, i) => ({ ...card('budget'), id: `x${i}` }) as ViewCard)
+    const model = { ...base.model!, cards: [...base.model!.cards, ...extra], links: [...base.model!.links, ...extra.slice(0, 8).map((c) => ({ ...base.model!.links[0]!, from: c.id, to: 'sell_360', role: 'measures' }))] } as unknown as ViewModel
+    expect(explanationKeepOf(model)).toEqual(['x0', 'x1', 'x2', 'x3', 'x4', 'x5'])
+    expect(EXPLAIN_KEEP_CAP).toBe(6)
+    const withRole = { ...base.model!, links: base.model!.links.map((l) => (l.to === 'sell_360' && l.from === 'sales' ? { ...l, role: 'measures' } : l)) } as unknown as ViewModel
+    expect(explanationKeepOf(withRole), 'sales, then its causes').toEqual(['sales', 'base_sales', 'extra_hours_sold'])
+    expect(explanationKeepOf(base.model!), 'CONTRAST: core names no outcome: nothing is kept').toEqual([])
+  })
+  it('K4 approval is untouched: keeping a card drawn changes no card', () => {
+    const { model, view } = first(), before = JSON.stringify(model.cards)
+    cardGroupsOf(model, view)
+    expect(JSON.stringify(model.cards)).toBe(before)
+    expect(model.cards.find((c) => c.id === 'sales')!.change).toEqual(added)
   })
 })
