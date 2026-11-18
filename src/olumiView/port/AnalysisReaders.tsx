@@ -23,7 +23,8 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
   const run = model.run ?? null
   const t = tippingOf(run), lead = leadChangeOf(run)
   const lines = (t?.lines ?? []).filter(({ i }) => !(lead?.kind === 'tipping' && lead.at === `run.tipping.${i}.line`))
-  if (t === null || lines.length === 0) return null
+  const silents = t?.optionSilent ?? []
+  if (t === null || lines.length + silents.length === 0) return null
   return (
     <section className="space-y-1" data-testid="analysis-tipping" aria-label={t.heading}>
       <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.tipping_heading">{t.heading}</h3>
@@ -38,6 +39,12 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
           </p>
         )
       })}
+      {/* An option core says nothing about, in core's own reason, where its crossing would be (and core's nearest group after it, where sent). */}
+      {silents.map((x) => (
+        <p key={x.at} className={`${TYPE.body} m-0 text-text-body`} data-tipping-silent={x.option}>
+          <span data-view={x.at}>{x.line}</span>{x.best === null ? null : <>{' '}<span data-view={x.best.at}>{x.best.line}</span></>}
+        </p>
+      ))}
     </section>
   )
 }
@@ -51,7 +58,11 @@ export function FailureAfterYours({ model }: { model: ViewModel }) {
   return (
     <section className="space-y-1" data-testid="analysis-failure" aria-label={t.heading}>
       <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.failure_heading">{t.heading}</h3>
-      {t.lines.map(({ line: l, i }) => <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}><span data-view={`run.failure.${i}.line`}>{l.line}</span></p>)}
+      {/* Core's `hover` is the same finding with its count and its limit ("an association only…"): it is what is drawn at rest, whole, so the limit is
+          never hover-only (science lead, 18 Nov; no sentence is cut out of it). A line with no hover is drawn as before. */}
+      {t.lines.map(({ line: l, i }) => (l.hover ?? '') !== ''
+        ? <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} data-view-fact={l.id}><span data-view={`run.failure.${i}.hover`}>{l.hover}</span></p>
+        : <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} data-view-fact={l.id}><span data-view={`run.failure.${i}.line`}>{l.line}</span></p>)}
     </section>
   )
 }

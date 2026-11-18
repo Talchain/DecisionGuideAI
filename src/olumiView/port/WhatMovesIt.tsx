@@ -10,7 +10,7 @@
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { useViewStore } from '../store'
-import { cardOf, findOutOf, leadChangeOf } from './pick'
+import { cardOf, findOutOf, leadChangeOf, aimSilentsOf } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
@@ -22,7 +22,11 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
   const run = model.run ?? null
   const lead = leadChangeOf(run)
   const { aims, worth } = findOutOf(run)
-  if (lead === null && aims.length + worth.length === 0) return null
+  // Core's reason for each aim it tests no lead on, said where a lead's crossing would be; the one already drawn as `lead` is not drawn twice, and an
+  // aim whose lead crossing IS drawn has no reason to add.
+  const leadAim = lead?.kind === 'tipping' ? (run?.tipping ?? []).find((_, i) => lead.at === `run.tipping.${i}.line`)?.aim ?? null : null
+  const silents = aimSilentsOf(run).filter((x) => x.at !== lead?.at && x.aim !== leadAim)
+  if (lead === null && silents.length + aims.length + worth.length === 0) return null
   const leadCard = lead === null ? null : cardOf(model, lead.figure)
   return (
     <section className="space-y-2" data-testid="analysis-what-moves" aria-label={words?.label.what_changes ?? MOVES_FALLBACK}>
@@ -35,6 +39,9 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
           {leadCard?.figure?.edit == null ? null : <FigureEdit id={leadCard.id} edit={leadCard.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${leadCard.heading}`} />}
         </p>
       )}
+      {silents.map((x) => (
+        <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} title={x.hover} data-testid="analysis-aim-silent" data-silent-aim={x.aim}><span data-view={x.at}>{x.line}</span></p>
+      ))}
       {aims.length === 0 ? null : (
         <div className="space-y-1" data-testid="port-find-out">
           {run?.find_out_heading == null || run.find_out_heading === '' ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.find_out_heading">{run.find_out_heading}</p>}

@@ -478,15 +478,46 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     for (const s of ['closed', 'chose'] as const) { ready(gated(s)); render(<PortAnalysisTab />); expect(screen.queryByTestId('analysis-failure'), s).toBeNull(); cleanup() }
     ready(gated('wrote')); render(<PortAnalysisTab />)
     const p = screen.getByTestId('analysis-failure').querySelector<HTMLElement>('[data-view-fact="F90"]')!
-    expect(p.textContent).toBe('Core\'s failure sentence.')
-    expect(p.getAttribute('title')).toBe('Core\'s failure hover.')
+    // Core's hover carries the count and the limit ("an association only…"): drawn at rest, whole, never hover-only (science lead, 18 Nov).
+    expect([p.textContent, p.getAttribute('title'), p.querySelector('[data-view="run.failure.0.hover"]') !== null]).toEqual(['Core\'s failure hover.', null, true])
+    // CONTRAST: a line core sends no hover for keeps its line.
+    cleanup()
+    const bare = gated('wrote'); bare.model!.run!.failure = [{ id: 'F90', line: 'Core\'s failure sentence.', hover: '' }] as never
+    ready(bare); render(<PortAnalysisTab />)
+    expect(screen.getByTestId('analysis-failure').querySelector('[data-view="run.failure.0.line"]')!.textContent).toBe('Core\'s failure sentence.')
+  })
+
+  it('silent reasons: core\'s reason about an aim stands where a lead crossing would; its reason about one option stands under the tipping heading, with core\'s nearest group', () => {
+    const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
+    const AIM = 'Olumi tests no lead on this aim.', OPT = 'Nothing tested takes this option across.', BEST = 'The nearest group reached 40%.'
+    run.tipping = []
+    run.tipping_aims = [{ aim: 'aim_x', lines: [], silent: [
+      { crossing: 'chance', reason: 'never_above', text: 't', line: OPT, option: 'opt_x', best_group: { figure: { id: 'f', label: 'F', whose: 'olumi' }, share: 0.4, text: 't', end: null, line: BEST } },
+      { crossing: null, reason: 'not_separated', text: 'Aim hover.', line: AIM },
+      { crossing: null, reason: 'unclear', text: 't', line: 'A second aim reason, not drawn: one per aim.' },
+    ] }] as never
+    ready(view); render(<PortAnalysisTab />)
+    const aim = screen.getAllByTestId('analysis-aim-silent')
+    expect(aim.map((e) => [e.dataset['silentAim'], e.textContent, e.querySelector('[data-view="run.tipping_aims.0.silent.1.line"]') !== null])).toEqual([['aim_x', AIM, true]])
+    // No crossing lines at all, and the option's reason is still drawn, under core's heading, verbatim, with no figure press.
+    const box = screen.getByTestId('analysis-tipping'), row = box.querySelector<HTMLElement>('[data-tipping-silent="opt_x"]')!
+    expect(box.querySelector('[data-view="run.tipping_heading"]')!.textContent).toBe(run.tipping_heading)
+    expect([row.querySelector('[data-view="run.tipping_aims.0.silent.0.line"]')!.textContent, row.querySelector('[data-view="run.tipping_aims.0.silent.0.best_group.line"]')!.textContent, row.querySelectorAll('button').length]).toEqual([OPT, BEST, 0])
+    expect(document.body.textContent).not.toContain('A second aim reason')
+    // CONTRAST: with no silent reason, neither place is drawn.
+    cleanup()
+    const none = structuredClone(view); none.model!.run!.tipping_aims = [{ aim: 'aim_x', lines: [], silent: [] }] as never
+    ready(none); render(<PortAnalysisTab />)
+    expect([screen.queryAllByTestId('analysis-aim-silent').length, screen.queryByTestId('analysis-tipping')]).toEqual([0, null])
   })
 
   it('rests: core\'s full sentence is visible text on the tab, once per group, not only a hover', () => {
     const view = viewOf('golden/bakery'), r = view.model!.run!.rests[0]!
     ready(view); render(<PortAnalysisTab />)
     const box = screen.getByTestId('reasoning-rests')
-    expect([...box.querySelectorAll<HTMLElement>('[data-testid="rests-sentence"]')].map((e) => e.textContent)).toContain(r.line)
+    // Core's hover is its line plus what the people's ranges carry and the limit ("not a prediction"): it is the visible sentence, whole.
+    expect(r.hover.startsWith(r.line) && r.hover.length > r.line.length, 'fixture: the hover says more than the line').toBe(true)
+    expect(box.querySelector(`[data-rest="${r.id}"] [data-view="run.rests.0.hover"]`)!.textContent).toBe(r.hover)
     expect(box.querySelectorAll(`[data-rest="${r.id}"] [data-testid="rests-sentence"]`)).toHaveLength(1)
   })
 })

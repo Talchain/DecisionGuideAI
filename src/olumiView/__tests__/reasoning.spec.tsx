@@ -49,7 +49,7 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     expect(groups()).toEqual(rests.map((r) => r.id))
     for (const r of rests) {
       const g = box.querySelector<HTMLElement>(`[data-rest="${r.id}"]`)!
-      expect(g.getAttribute('title')).toBe(r.hover)
+      expect(g.querySelector('[data-testid="rests-sentence"]')!.textContent, 'core\'s hover is the sentence at rest').toBe(r.hover)
       const figs = (r.figures ?? []).filter((f) => f.line !== '')
       expect([...g.querySelectorAll<HTMLElement>('[data-rest-figure]')].map((e) => e.dataset['restFigure'])).toEqual(figs.map((f) => f.id))
       for (const f of figs) {

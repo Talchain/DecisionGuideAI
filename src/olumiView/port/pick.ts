@@ -121,6 +121,20 @@ export function leadChangeOf(run: ViewRun | null): LeadChange | null {
   return null
 }
 
+/**
+ * Core's reason, per aim, for saying nothing about what would change which option leads (`run.tipping_aims[].silent[]`): the aim's first line about
+ * the lead (crossing `lead`), else its first line about the aim itself (crossing null: no option is clearly ahead, or the lead rests on Olumi's own
+ * differing estimates, so there is no lead to test). One per aim, core's `line` verbatim; a reason about one option (crossing `chance`) is not this.
+ */
+export type AimSilent = { aim: string; at: string; line: string; hover: string }
+export function aimSilentsOf(run: ViewRun | null): AimSilent[] {
+  return (run?.tipping_aims ?? []).flatMap((a, ai): AimSilent[] => {
+    const pick = (crossing: 'lead' | null) => a.silent.findIndex((x) => x.crossing === crossing && x.option === undefined && x.line !== '')
+    const si = pick('lead') >= 0 ? pick('lead') : pick(null)
+    return si < 0 ? [] : [{ aim: a.aim, at: `run.tipping_aims.${ai}.silent.${si}.line`, line: a.silent[si]!.line, hover: a.silent[si]!.text }]
+  })
+}
+
 /** Each limit an option is checked against, with every option's row for it, in core's order (the aim's words are core's `row.aim`). */
 export function limitGroupsOf(model: ViewModel): { aimId: string; aim: { text: string; at: string }; rows: { card: ViewCard; row: LimitRow; i: number }[] }[] {
   const out: { aimId: string; aim: { text: string; at: string }; rows: { card: ViewCard; row: LimitRow; i: number }[] }[] = []

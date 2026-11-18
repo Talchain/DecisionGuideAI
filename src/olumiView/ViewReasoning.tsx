@@ -84,13 +84,17 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
       {shown.map(({ r, k }) => {
         const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
         return (
-          <div key={r.id} className="space-y-1" title={r.hover} data-rest={r.id}>
+          <div key={r.id} className="space-y-1" data-rest={r.id}>
             <p className={`${TYPE.meta} m-0 text-text-light`}>
               {option === undefined ? null : <span data-view={`${option.id}.heading`}>{option.heading}</span>}
               {option !== undefined && aim !== undefined ? ' · ' : null}
               {aim === undefined ? null : <span data-view={`${aim.id}.heading`}>{aim.heading}</span>}
             </p>
-            <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>
+            {/* Core's `hover` is its line plus what the people's ranges carry and the limit ("it is not a prediction"): drawn at rest, whole, so the limit
+                is never hover-only (science lead, 18 Nov). A row with no hover keeps its line. */}
+            {(r.hover ?? '') !== ''
+              ? <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.hover`}>{r.hover}</p>
+              : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
             <ul className="m-0 list-none space-y-1 p-0">
               {(r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '').map(({ f, j }) => {
                 const give = f.give !== null && !given.has(f.id)
