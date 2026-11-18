@@ -117,7 +117,7 @@ export const SHOW_LESS = 'Show less'
 /** A drawn line's plain words (its list marker dropped, whitespace squashed), for `everyLine`; null where it holds a cite (no prose entry does). */
 const lineWords = (l: readonly Piece[]): string | null =>
   l.some((x) => x.kind === 'cite') ? null : l.map((x) => (x.kind === 'text' ? x.s : '')).join('').replace(ITEM_MARK, '').replace(/\s+/g, ' ').trim() || null
-export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false }: { parts: Said; at: string; first?: number; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
+export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false, under }: { parts: Said; at: string; first?: number; /** A first draft's reply that has a lead (Codex 011): what stands under core's check heading in place of the check's own blocks, given those blocks (null where the reply ends at the first answer). The first answer above it keeps its own opening at rest. */ under?: (check: ReactNode | null) => ReactNode; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
@@ -149,7 +149,7 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
   }
   // How long the reply reads, in lines of the panel (about 44 characters to a line at 12 px): an estimate, never a measure.
   const chars = (l: Piece[]) => l.reduce((n, x) => n + (x.kind === 'text' ? x.s.length : 2), 0)
-  const est = groups.reduce((n, g) => n + g.lines.reduce((m, l) => m + Math.max(1, Math.ceil(chars(l) / 44)), 0), 0)
+  const linesIn = (gs: typeof groups) => gs.reduce((n, g) => n + g.lines.reduce((m, l) => m + Math.max(1, Math.ceil(chars(l) / 44)), 0), 0)
   // Core's own label and heading lines, by the words core sent on this turn (replyLabels.ts): drawn apart from the prose, and the label is not
   // counted as one of the two folded blocks.
   const lineOf = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }): ReplyLine => {
@@ -176,6 +176,8 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
     if (!opening.list && then !== null && then.list) rest.set(o + 1, Math.min(REST_ITEMS, then.lines.length))
   }
   const hides = groups.slice(0, head).some((g, gi) => (rest.get(gi) ?? 0) < g.lines.length)
+  // With `under`, the check is drawn short by its lead, so only the first answer's own length decides whether its later detail folds.
+  const est = linesIn(under === undefined ? groups : groups.slice(0, head))
   const foldable = fold && hides && est > 8
   const folded = foldable && !whole
   const textOf = (g: { lines: Piece[][] }) => g.lines.flatMap((l) => l.map((x) => (x.kind === 'text' ? x.s : ''))).join(' ')
@@ -201,7 +203,10 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
             className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}<FoldChevron open={!folded} /></button>
         : null}
-      {groups.slice(head).map((g, gi) => groupEl(g, head + gi))}
+      {under === undefined ? groups.slice(head).map((g, gi) => groupEl(g, head + gi))
+        : check === -1 ? under(null)
+        // Core's check heading stays at rest; under it the caller's short lead, with the check's own blocks handed to it to fold.
+        : <>{groupEl(groups[check]!, check)}{under(check + 1 < groups.length ? <>{groups.slice(check + 1).map((g, gi) => groupEl(g, check + 1 + gi))}</> : null)}</>}
     </>
   )
 }
@@ -316,7 +321,20 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
       <DegradedLine of={t} at={at} />
-      {lead !== null
+      {lead !== null && firstAnswerOf(t.answer) !== null
+        // A first draft's reply with a lead (Codex 011, 18 Nov: after a build the practical first answer was folded away under the model's readiness
+        // line): the first answer keeps its place at rest under core's own label (its opening, the rest one press away), then core's check heading
+        // with the lead under it and the check's body alone in "Full answer". The lead is supporting analysis here, so it is never the large line.
+        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} fold
+            under={(checkBody) => {
+              const folded = early === null && floor == null && checkBody === null ? null : <>
+                {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
+                {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
+                {checkBody}
+              </>
+              return <ReplyLead lead={lead} at={`${at}.answer`}>{folded}</ReplyLead>
+            }} />
+        : lead !== null
         ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
             {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
             {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}

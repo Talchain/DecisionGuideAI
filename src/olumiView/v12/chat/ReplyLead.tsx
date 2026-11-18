@@ -11,7 +11,7 @@ export const FULL_ANSWER = 'Full answer'
  * core's (`lead.opening`, `lead.points`), drawn verbatim; the full answer is whatever the caller draws today, unchanged. Nothing is cut, counted or
  * written here. `big`: the newest reply's short opening is the panel's one 18 px line (the caller decides, as for any reply's opening).
  */
-export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lead; at: string; big?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; children: ReactNode }) {
+export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lead; at: string; big?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; /** Absent or null: there is nothing to fold, so no "Full answer" is drawn. */ children?: ReactNode }) {
   return (
     <>
       <div className="space-y-2" data-testid="view-reply-lead">
@@ -23,10 +23,12 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
         )}
         {keep}
       </div>
-      <details className="ok-reply-more" data-testid="view-reply-full">
-        <summary>{FULL_ANSWER}</summary>
-        <div className="space-y-2" data-testid="view-reply-full-body">{children}</div>
-      </details>
+      {children == null ? null : (
+        <details className="ok-reply-more" data-testid="view-reply-full">
+          <summary>{FULL_ANSWER}</summary>
+          <div className="space-y-2" data-testid="view-reply-full-body">{children}</div>
+        </details>
+      )}
     </>
   )
 }
