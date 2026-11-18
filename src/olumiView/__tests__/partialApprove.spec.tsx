@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
-import { ViewChat, useViewChat } from '../ViewChat'
+import { KEPT_WITHOUT, LEAVE_OFF_SEP, NEEDED_BY, REFUSAL_NEEDS, TICK_NEEDED, WILL_LEAVE_OFF, ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
@@ -147,6 +147,156 @@ describe('partial approval', () => {
     expect([said.textContent, said.getAttribute('role'), c.querySelector('[data-testid="view-chat-proposal"]')!.contains(said), useViewChat.getState().said]).toEqual([WORDS, 'alert', true, null])
     expect((screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, 'the selection is kept').toBe(true)
     expect(posts).toHaveLength(1)
+  })
+  it('core\'s REQUIRED needs are kept whole and shown (015; Codex root 21:32Z): ticking a line ticks what it requires and what THAT requires, each saying why at rest; unticking a needed line unticks every line that needs it; unticking the first line leaves the others; the payload is the ticked set. CONTRAST: a line core marks with nothing is ticked alone and says nothing', async () => {
+    const base = p.changes[0]!
+    // Core's REQUIRED needs (mandatory, all of them); core sends each line's needs already followed to the end, and the page follows them again by id.
+    const mk = (id: string, text: string, ids: string[] | null) => ({ ...base, id, top: false, text, detail: '', together: null, needs: (ids ?? []).map((n) => ({ id: n, top: false, kind: 'required', why: `why ${id}` })) })
+    const changes = [mk('a', 'line A', ['b']), mk('b', 'line B', ['c']), mk('c', 'line C', null), mk('d', 'line D', null)]
+    const c = showOpen({ ...golden, proposal: { ...p, changes, groups: null } } as unknown as View)
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    const ticks = () => [0, 1, 2, 3].map((i) => tick(i).checked)
+    const why = (i: number) => screen.queryByTestId(`view-change-why-${i}`)?.textContent ?? null, by = (i: number) => screen.queryByTestId(`view-change-needed-by-${i}`)?.textContent ?? null
+    fireEvent.click(tick(0))
+    expect(ticks(), 'A brings B, and B brings C').toEqual([true, true, true, false])
+    expect([by(0), by(1), by(2), c.querySelector('[data-view="proposal.changes.0.needs.0.why"]')?.textContent, c.querySelector('[data-view="proposal.changes.1.needs.0.why"]')?.textContent]).toEqual([null, `${NEEDED_BY} line A`, `${NEEDED_BY} line B`, 'why a', 'why b'])
+    fireEvent.click(tick(2))
+    expect(ticks(), 'C unticked: B needs it and leaves, then A').toEqual([false, false, false, false])
+    fireEvent.click(tick(0)); fireEvent.click(tick(0))
+    expect(ticks(), 'A unticked: nothing needs A, so B and C stay, in view').toEqual([false, true, true, false])
+    expect([by(1), by(2)]).toEqual([null, `${NEEDED_BY} line B`])
+    fireEvent.click(tick(3))
+    expect([ticks(), why(3), by(3)], 'a line with no partners: ticked alone, nothing said').toEqual([[false, true, true, true], null, null])
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['b', 'c', 'd'], only_top: [] })
+  })
+  // Core's review-boundary contract (DL, 18 Nov 21:51Z): `changes[].needs [{ id, top, kind: 'required' | 'optional', why }]`, the approval's `without`, the typed 409.
+  const base0 = p.changes[0]!
+  const need = (id: string, kind: 'required' | 'optional', why: string) => ({ id, top: false, kind, why })
+  const ln = (id: string, text: string, needs: ReturnType<typeof need>[] = []) => ({ ...base0, id, top: false, text, detail: '', together: null, needs })
+  // h: a person's own words that Olumi tied to its note n (optional); f: a line that needs figure q (required); q and n: Olumi's additions.
+  const boundary = () => ({ ...golden, proposal: { ...p, groups: null, changes: [ln('h', 'their claim', [need('n', 'optional', 'core says: an association of Olumi’s')]), ln('n', 'Olumi’s note'), ln('f', 'a calculation', [need('q', 'required', 'core says: it reads this figure')]), ln('q', 'a figure')] } }) as unknown as View
+  const tickOf = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+  it('core\'s `needs` (the review-boundary contract): a REQUIRED need is ticked with the line and says core\'s why; an OPTIONAL one (Olumi\'s association on a person\'s own words) is never ticked for them: the kept line says what it is kept without, and the approval states it in `without`. CONTRAST: ticking the note too sends no `without`', async () => {
+    const c = showOpen(boundary())
+    fireEvent.click(tickOf(0))
+    expect([0, 1, 2, 3].map((i) => tickOf(i).checked), 'their claim alone: Olumi’s note is not ticked for them').toEqual([true, false, false, false])
+    const off = screen.getByTestId('view-change-without-0')
+    expect([off.textContent, off.getAttribute('data-view')]).toEqual([`${KEPT_WITHOUT} Olumi’s note · core says: an association of Olumi’s`, 'proposal.changes.0.needs.0.why'])
+    fireEvent.click(tickOf(2))
+    expect([0, 1, 2, 3].map((i) => tickOf(i).checked), 'the calculation brings its figure').toEqual([true, false, true, true])
+    expect([screen.getByTestId('view-change-needed-by-3').textContent, c.querySelector('[data-view="proposal.changes.2.needs.0.why"]')?.textContent]).toEqual([`${NEEDED_BY} a calculation`, 'core says: it reads this figure'])
+    fireEvent.click(tickOf(3))
+    expect([0, 1, 2, 3].map((i) => tickOf(i).checked), 'the figure unticked: the line that needs it leaves with it').toEqual([true, false, false, false])
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['h'], only_top: [], without: [{ id: 'h', concerns: ['n'] }] })
+    cleanup(); posts.length = 0
+    showOpen(boundary())
+    fireEvent.click(tickOf(0)); fireEvent.click(tickOf(1))
+    expect(screen.queryByTestId('view-change-without-0'), 'the note is ticked too: nothing is left off').toBeNull()
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['h', 'n'], only_top: [] })
+  })
+  it('every omission is said beside the approve controls, OUTSIDE any group (Codex root 22:08Z): a group ticked while CLOSED still shows, before the press, what Approve ticked will leave off; the payload is the same. CONTRAST: nothing left off, nothing said', async () => {
+    const grouped = boundary() as unknown as { proposal: { groups: unknown } }
+    grouped.proposal.groups = [{ heading: 'Statements', lines: [0] }, { heading: 'Olumi’s additions', lines: [1, 2, 3] }]
+    showOpen(grouped as unknown as View)
+    const group0 = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
+    expect(group0.open, 'fixture: the group is closed').toBe(false)
+    expect(screen.queryByTestId('view-proposal-leave-off')).toBeNull()
+    // The statements group ticked from its CLOSED heading: the claim is chosen, Olumi's note (in the other, closed group) is not.
+    fireEvent.click(screen.getByTestId('view-change-group-0'))
+    const box = screen.getByTestId('view-proposal-leave-off')
+    // In the card's foot with the actions (kept in view together by the stylesheet), never inside a group.
+    expect([group0.open, box.closest('details'), box.textContent, box.closest('[data-testid="view-proposal-foot"]')?.contains(screen.getByTestId('view-proposal-actions'))])
+      .toEqual([false, null, `${WILL_LEAVE_OFF}their claim · ${LEAVE_OFF_SEP} Olumi’s note`, true])
+    // CONTRAST: the note ticked too, nothing is left off, nothing is said; untick it again and it is said again.
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(screen.queryByTestId('view-proposal-leave-off')).toBeNull()
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(screen.queryByTestId('view-proposal-leave-off')).not.toBeNull()
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['h'], only_top: [], without: [{ id: 'h', concerns: ['n'] }] })
+  })
+  it('core\'s ONE_OF (core 2f0235e0): a figure that needs one of two readers ticks neither for the person; once ticked it says core\'s why until one reader is ticked; either one satisfies it. CONTRAST: a refusal naming the group marks the readers and offers no automatic tick for them', () => {
+    const one = (id: string) => ({ id, top: false, kind: 'one_of' as const, why: 'core says: read only by ‘r1’, ‘r2’; choose one of them too' })
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: [{ ...ln('f', 'a figure'), needs: [one('r1'), one('r2')] }, ln('r1', 'reader one', [need('f', 'required', 'core says: reads f')]), ln('r2', 'reader two', [need('f', 'required', 'core says: reads f')])] } } as unknown as View)
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0))
+    expect([[0, 1, 2].map((i) => tick(i).checked), screen.getByTestId('view-change-one-of-0').textContent, screen.getByTestId('view-change-one-of-0').getAttribute('data-view')]).toEqual([[true, false, false], 'core says: read only by ‘r1’, ‘r2’; choose one of them too', 'proposal.changes.0.needs.0.why'])
+    fireEvent.click(tick(2))
+    expect([[0, 1, 2].map((i) => tick(i).checked), screen.queryByTestId('view-change-one-of-0')], 'reader two satisfies it; reader one is not ticked').toEqual([[true, false, true], null])
+  })
+  it('a refused ONE_OF (core 2f0235e0 as served): a group with ONE member is ticked by the one press (no choice to make); a group of TWO is marked and never ticked for the person', async () => {
+    const one = (id: string) => ({ id, top: false, kind: 'one_of' as const, why: 'core says: choose one of them too' })
+    const lines = [{ ...ln('f', 'a figure'), needs: [one('r1')] }, ln('r1', 'reader one', [need('f', 'required', 'core says: reads f')]), { ...ln('g', 'another figure'), needs: [one('s1'), one('s2')] }, ln('s1', 'reader s1'), ln('s2', 'reader s2')]
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify({ error: 'core’s sentence', code: 'needs', needs: [{ of: 'f', id: 'r1', top: false, kind: 'one_of', why: 'w1' }, { of: 'g', id: 's1', top: false, kind: 'one_of', why: 'w2' }, { of: 'g', id: 's2', top: false, kind: 'one_of', why: 'w2' }] }), { status: 409 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: lines } } as unknown as View)
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0)); fireEvent.click(tick(2))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-tick-needed')).not.toBeNull())
+    expect([1, 3, 4].map((i) => screen.queryByTestId(`view-change-refused-${i}`) !== null), 'all three marked').toEqual([true, true, true])
+    fireEvent.click(screen.getByTestId('view-tick-needed'))
+    expect([0, 1, 2, 3, 4].map((i) => tick(i).checked), 'the sole reader ticked; s1 and s2 left to the person').toEqual([true, true, true, false, false])
+  })
+  it('a stated omission is part of the approval (core semantics 9): after an approval whose answer never came, a CHANGED omission is not sent; the same one is', async () => {
+    let n = 0
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); n++; return n === 1 ? new Response('{}', { status: 502 }) : new Response('{"version":9,"n":2,"receipt":"r"}', { status: 201 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    showOpen(boundary())
+    fireEvent.click(tickOf(0))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await waitFor(() => expect(screen.queryByTestId('view-proposal-said')).not.toBeNull())
+    fireEvent.click(tickOf(1))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    expect([posts.length, screen.queryByTestId('view-readings-refused') !== null], 'the omission changed: nothing sent').toEqual([1, true])
+    fireEvent.click(tickOf(1))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.body).toEqual(posts[0]!.body)
+  })
+  it('core\'s typed refusal (409 `code: needs`): the named line is MARKED with core\'s why and nothing is ticked for the person; one press of theirs ticks it. CONTRAST: a refusal with no code marks nothing and offers no press', async () => {
+    const refuse = (body: object) => setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify(body), { status: 409 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    refuse({ error: 'core’s sentence', code: 'needs', needs: [{ of: 'h', id: 'q', top: false, kind: 'required', why: 'core says: this is needed' }] })
+    showOpen(boundary())
+    fireEvent.click(tickOf(0))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-change-refused-3')).not.toBeNull())
+    expect([screen.getByTestId('view-change-refused-3').textContent, screen.getByTestId('view-proposal-said').textContent, tickOf(3).checked, [0, 1, 2].map((i) => screen.queryByTestId(`view-change-refused-${i}`))]).toEqual([`${REFUSAL_NEEDS} core says: this is needed`, 'core’s sentence', false, [null, null, null]])
+    expect(screen.getByTestId('view-tick-needed').textContent).toBe(TICK_NEEDED)
+    fireEvent.click(screen.getByTestId('view-tick-needed'))
+    expect([[0, 1, 2, 3].map((i) => tickOf(i).checked), screen.queryByTestId('view-change-refused-3'), screen.queryByTestId('view-tick-needed')]).toEqual([[true, false, false, true], null, null])
+    cleanup(); posts.length = 0
+    refuse({ error: 'another refusal' })
+    showOpen(boundary())
+    fireEvent.click(tickOf(0))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-proposal-said')).not.toBeNull())
+    expect([screen.getByTestId('view-proposal-said').textContent, screen.queryByTestId('view-tick-needed'), [0, 1, 2, 3].map((i) => screen.queryByTestId(`view-change-refused-${i}`))]).toEqual(['another refusal', null, [null, null, null, null]])
+  })
+  it('ANY-OF stays any-of (contract item 8): `together` is one step and never enforced by the page. A figure whose `together` lists two alternative readers is ticked with them, and unticking ONE reader leaves the figure and the other reader ticked (core needs one, not both); a partner\'s own partner is not followed', () => {
+    const tg = (id: string, text: string, ids: string[] | null) => ({ ...p.changes[0]!, id, top: false, text, detail: '', together: ids === null ? null : { ids, why: `why ${id}` } })
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: [tg('fig', 'a figure', ['r1', 'r2']), tg('r1', 'reader one', ['x']), tg('r2', 'reader two', null), tg('x', 'further', null)] } })
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0))
+    expect([0, 1, 2, 3].map((i) => tick(i).checked), 'the figure and its listed partners, one step: reader one’s own partner is not followed').toEqual([true, true, true, false])
+    expect(screen.getByTestId('view-change-why-0').textContent, 'core’s why, at rest once ticked').toBe('why fig')
+    fireEvent.click(tick(2))
+    expect([0, 1, 2, 3].map((i) => tick(i).checked), 'one reader unticked: the figure stays with the other').toEqual([true, true, false, false])
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)

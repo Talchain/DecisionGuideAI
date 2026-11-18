@@ -16,12 +16,15 @@ export class TeamApiError extends Error {
   readonly uncertain: boolean
   /** Core's machine-readable reason, where it gives one (core API v1.28: `turn_busy`, one turn answered at a time); null otherwise. */
   readonly code: string | null
-  constructor(status: number, message: string, uncertain = false, code: string | null = null) {
+  /** The refusal's parsed body, so a caller can read core's own typed fields beside `code` (never its words); null where there was none. */
+  readonly body: unknown
+  constructor(status: number, message: string, uncertain = false, code: string | null = null, body: unknown = null) {
     super(message)
     this.name = 'TeamApiError'
     this.status = status
     this.uncertain = uncertain
     this.code = code
+    this.body = body
   }
 }
 
@@ -135,7 +138,7 @@ async function settled<T>(method: 'GET' | 'POST', path: string, body: unknown, s
       : typeof said === 'string' && said !== '' ? said : WORDS[res.status] ?? 'That did not go through. Nothing was saved.'
     // A server failure on a write may have come after the save.
     const code = (json as { code?: unknown } | null)?.code
-    throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500, typeof code === 'string' ? code : null)
+    throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500, typeof code === 'string' ? code : null, readable ? json : null)
   }
   // A read whose body did not arrive whole is a failed read, never an empty scenario.
   if (method === 'GET' && !readable) throw new TeamApiError(0, READ_FAILED)
