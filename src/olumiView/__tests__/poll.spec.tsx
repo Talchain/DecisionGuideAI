@@ -85,7 +85,8 @@ describe('another member\'s input reaches this page on its own', () => {
     let release!: () => void
     hold = new Promise((r) => { release = r })
     void useViewStore.getState().refresh() // a write's own read, slow to answer
-    await tick(POLL_MS * 3)
+    // Held across a whole poll interval, yet inside the call timeout (CALL_TIMEOUT_MS, 20 s): a read still unanswered after that is abandoned (callTimeout.spec).
+    await tick(POLL_MS + 5000)
     expect(reads).toBe(1)
     hold = null; release()
     await tick(POLL_MS + 10)
@@ -118,7 +119,7 @@ describe('another member\'s input reaches this page on its own', () => {
     hold = new Promise((r) => { release = r })
     served = { ...at(0), version: { ...base.version!, id: 1, n: 1, label: 'version 1' } }
     const drawn = useViewStore.getState().look(1)
-    await tick(POLL_MS * 2)
+    await tick(POLL_MS + 5000) // a whole poll interval, inside the call timeout (CALL_TIMEOUT_MS): the Draw is still on its way
     expect(reads).toBe(1)
     hold = null; release()
     await act(async () => { await drawn })

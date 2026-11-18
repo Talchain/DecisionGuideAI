@@ -754,6 +754,33 @@
                 }
                ]
               },
+              "tail": {
+               "type": "object",
+               "properties": {
+                "text": {
+                 "type": "string"
+                },
+                "mean": {
+                 "type": "number"
+                },
+                "unit": {
+                 "type": [
+                  "string",
+                  "null"
+                 ]
+                },
+                "share": {
+                 "type": "number"
+                }
+               },
+               "required": [
+                "text",
+                "mean",
+                "unit",
+                "share"
+               ],
+               "additionalProperties": false
+              },
               "estimate": {
                "type": [
                 "string",
@@ -933,6 +960,39 @@
                 ],
                 "additionalProperties": false
                }
+              },
+              "tips": {
+               "type": "string"
+              },
+              "draw_bounds": {
+               "type": "object",
+               "properties": {
+                "draws": {
+                 "type": "integer",
+                 "exclusiveMinimum": 0,
+                 "maximum": 9007199254740991
+                },
+                "met": {
+                 "type": "integer",
+                 "minimum": 0,
+                 "maximum": 9007199254740991
+                },
+                "unresolved": {
+                 "type": "integer",
+                 "exclusiveMinimum": 0,
+                 "maximum": 9007199254740991
+                }
+               },
+               "required": [
+                "draws",
+                "met",
+                "unresolved"
+               ],
+               "additionalProperties": false
+              },
+              "aim_role": {
+               "type": "string",
+               "const": "reference"
               }
              },
              "required": [
@@ -4126,6 +4186,52 @@
             "id",
             "label",
             "edit"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "worth_checking": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "code": {
+             "type": "string",
+             "enum": [
+              "olumi_estimate_under_every_aim",
+              "result_rests_on_olumi_range",
+              "estimate_held_as_one_figure",
+              "only_supporting_evidence",
+              "one_evidence_for_several_figures",
+              "narrow_range",
+              "view_without_evidence",
+              "assumption_without_test"
+             ]
+            },
+            "title": {
+             "type": "string"
+            },
+            "text": {
+             "type": "string"
+            },
+            "rests_on": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "olumi": {
+             "type": "boolean",
+             "const": true
+            }
+           },
+           "required": [
+            "code",
+            "title",
+            "text",
+            "rests_on",
+            "olumi"
            ],
            "additionalProperties": false
           }
@@ -9707,6 +9813,29 @@
       },
       "required": [
        "text"
+      ],
+      "additionalProperties": false
+     },
+     "unanswered": {
+      "type": "object",
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "failed",
+         "lost"
+        ]
+       },
+       "words": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "status",
+       "words"
       ],
       "additionalProperties": false
      },

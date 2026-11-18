@@ -82,8 +82,7 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
 function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean }) {
   const range = rangeOf(row)
-  const t = (row as { tail?: { text?: unknown } | null }).tail
-  const tail = typeof t?.text === 'string' && t.text !== '' ? t.text : null
+  const tail = row.tail !== undefined && row.tail.text !== '' ? row.tail.text : null
   return (
     <li data-chart-option={card.id}>
       <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
@@ -101,7 +100,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
       </button>
       {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
-      {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional; the vendored contract predates it): supporting detail
+      {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional): supporting detail
           under its own bar, verbatim, never composed from its numbers and never a comparison across options. */}
       {tail === null ? null : <p className={`${TYPE.meta} m-0 mt-0.5 px-1 text-text-light`} data-view={`${card.id}.rows.${i}.tail.text`}>{tail}</p>}
     </li>

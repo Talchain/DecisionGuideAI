@@ -151,6 +151,12 @@ export type View = {
           glyph: string
           title: string
         } | null
+        tail?: {
+          text: string
+          mean: number
+          unit: string | null
+          share: number
+        }
         estimate: string | null
       } | {
         kind: "limit"
@@ -182,6 +188,13 @@ export type View = {
           ref: string
           role: "figure" | "link" | "calculation" | "risk" | "aim" | "limit" | "option" | "note"
         }>
+        tips?: string
+        draw_bounds?: {
+          draws: number
+          met: number
+          unresolved: number
+        }
+        aim_role?: "reference"
       }>
       driver: {
         text: string
@@ -735,6 +748,13 @@ export type View = {
             ask: string
           }>
         } | null
+      }>
+      worth_checking?: Array<{
+        code: "olumi_estimate_under_every_aim" | "result_rests_on_olumi_range" | "estimate_held_as_one_figure" | "only_supporting_evidence" | "one_evidence_for_several_figures" | "narrow_range" | "view_without_evidence" | "assumption_without_test"
+        title: string
+        text: string
+        rests_on: Array<string>
+        olumi: true
       }>
     }>
     links: Array<{
@@ -1773,6 +1793,10 @@ export type View = {
     } | null
     early?: {
       text: string
+    }
+    unanswered?: {
+      status: "failed" | "lost"
+      words: string | null
     }
     withheld?: {
       kind: "untraced_figure" | "unheld_source" | "unshown_lead" | "internal_name" | "shared_wording" | "choice_words" | "other"

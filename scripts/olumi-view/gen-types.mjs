@@ -4,13 +4,15 @@
  *   node scripts/olumi-view/gen-types.mjs
  * A spec (src/olumiView/__tests__/client.spec.ts) fails when the committed types differ from what this prints.
  *
- * Only the keywords core's schema uses: type, properties, required, additionalProperties, items, anyOf, oneOf, const, enum.
+ * Only the keywords core's schema uses: type, properties, required, additionalProperties, items, anyOf, oneOf, const, enum; minimum, maximum, exclusiveMinimum and minItems are accepted and ignored (they do not change a TypeScript type).
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const KEYWORDS = new Set(['$schema', 'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'oneOf', 'const', 'enum', 'propertyNames'])
+const KEYWORDS = new Set(['$schema', 'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'oneOf', 'const', 'enum', 'propertyNames',
+  // Validation-only keywords (core's Zod emits them for .int(), .positive(), .min(1)): they narrow what a value may be, never its TypeScript type.
+  'minimum', 'maximum', 'exclusiveMinimum', 'minItems'])
 
 export function typeOf(s, pad = '') {
   // An empty schema (`{}`, core's `accepted[].prior` and `.value`: any JSON) accepts anything: `unknown`, never a guess at its shape.
