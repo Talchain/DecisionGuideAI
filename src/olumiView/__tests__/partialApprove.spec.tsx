@@ -222,6 +222,34 @@ describe('partial approval', () => {
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p.base, only: ['h'], only_top: [], without: [{ id: 'h', concerns: ['n'] }] })
   })
+  it('core\'s ONE_OF (core 2f0235e0): a figure that needs one of two readers ticks neither for the person; once ticked it says core\'s why until one reader is ticked; either one satisfies it. CONTRAST: a refusal naming the group marks the readers and offers no automatic tick for them', () => {
+    const one = (id: string) => ({ id, top: false, kind: 'one_of' as const, why: 'core says: read only by ‘r1’, ‘r2’; choose one of them too' })
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: [{ ...ln('f', 'a figure'), needs: [one('r1'), one('r2')] }, ln('r1', 'reader one', [need('f', 'required', 'core says: reads f')]), ln('r2', 'reader two', [need('f', 'required', 'core says: reads f')])] } } as unknown as View)
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0))
+    expect([[0, 1, 2].map((i) => tick(i).checked), screen.getByTestId('view-change-one-of-0').textContent, screen.getByTestId('view-change-one-of-0').getAttribute('data-view')]).toEqual([[true, false, false], 'core says: read only by ‘r1’, ‘r2’; choose one of them too', 'proposal.changes.0.needs.0.why'])
+    fireEvent.click(tick(2))
+    expect([[0, 1, 2].map((i) => tick(i).checked), screen.queryByTestId('view-change-one-of-0')], 'reader two satisfies it; reader one is not ticked').toEqual([[true, false, true], null])
+  })
+  it('a stated omission is part of the approval (core semantics 9): after an approval whose answer never came, a CHANGED omission is not sent; the same one is', async () => {
+    let n = 0
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); n++; return n === 1 ? new Response('{}', { status: 502 }) : new Response('{"version":9,"n":2,"receipt":"r"}', { status: 201 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    showOpen(boundary())
+    fireEvent.click(tickOf(0))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await waitFor(() => expect(screen.queryByTestId('view-proposal-said')).not.toBeNull())
+    fireEvent.click(tickOf(1))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    expect([posts.length, screen.queryByTestId('view-readings-refused') !== null], 'the omission changed: nothing sent').toEqual([1, true])
+    fireEvent.click(tickOf(1))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.body).toEqual(posts[0]!.body)
+  })
   it('core\'s typed refusal (409 `code: needs`): the named line is MARKED with core\'s why and nothing is ticked for the person; one press of theirs ticks it. CONTRAST: a refusal with no code marks nothing and offers no press', async () => {
     const refuse = (body: object) => setTeamFetch((async (u: unknown, init?: RequestInit) => {
       if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify(body), { status: 409 }) }

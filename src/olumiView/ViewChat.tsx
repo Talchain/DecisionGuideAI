@@ -552,11 +552,12 @@ export const WILL_LEAVE_OFF = 'Approving the ticked changes will leave off these
  * What a change line needs (core's review-boundary contract, 18 Nov; additive on olumi.view/3 as `proposal.changes[].needs`, not yet in the generated
  * types, so read here, defensively): `{ id, top, kind, why }`, in the direction "this line needs that one", already followed to the end by core, from the
  * same function its approval refuses by. `required`: approved only together. `optional`: a context link (`concerns`) from a claim, evidence or dissent record, whoever wrote
- * it, to a record of Olumi's this proposal adds; it may be left off by a stated choice (`without` on the approval), the kept record's words, author and source untouched. A core that sends none: none.
+ * it, to a record of Olumi's this proposal adds; it may be left off by a stated choice (`without` on the approval), the kept record's words, author and source untouched. `one_of` (core 2f0235e0): ONE of the
+ * tagged lines is needed, not all; the page never ticks one for the person and says core's why on the ticked line until one is ticked. A core that sends none: none.
  */
-type Need = { id: string; top: boolean; kind: 'required' | 'optional'; why: string }
+type Need = { id: string; top: boolean; kind: 'required' | 'optional' | 'one_of'; why: string }
 const needOf = (x: unknown): Need[] => { const n = x as { id?: unknown; top?: unknown; kind?: unknown; why?: unknown } | null
-  return n !== null && typeof n === 'object' && typeof n.id === 'string' && (n.kind === 'required' || n.kind === 'optional') ? [{ id: n.id, top: n.top === true, kind: n.kind, why: typeof n.why === 'string' ? n.why : '' }] : [] }
+  return n !== null && typeof n === 'object' && typeof n.id === 'string' && (n.kind === 'required' || n.kind === 'optional' || n.kind === 'one_of') ? [{ id: n.id, top: n.top === true, kind: n.kind, why: typeof n.why === 'string' ? n.why : '' }] : [] }
 export const needsOf = (c: unknown): Need[] => { const n = (c as { needs?: unknown } | null)?.needs; return Array.isArray(n) ? n.flatMap(needOf) : [] }
 /** The lines core's refusal names (409 `{ code: 'needs', needs: [{ of, id, top, kind, why }] }`), by typed id; none for any other refusal. Its words are never read. */
 const refusedNeedsOf = (e: unknown): Need[] => { if (!(e instanceof TeamApiError) || e.code !== 'needs') return []; const n = (e.body as { needs?: unknown } | null)?.needs; return Array.isArray(n) ? n.flatMap(needOf) : [] }
@@ -565,7 +566,7 @@ const refusedNeedsOf = (e: unknown): Need[] => { if (!(e instanceof TeamApiError
  * One change line of core's change card (View `proposal.changes`, L8): its tick, core's line, and what a tap opens (`detail`), with Olumi's
  * mark on a line of Olumi's. Every word is core's.
  */
-function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], without = [], refused = [] }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one: why this line is ticked. */ neededBy?: readonly string[]; /** Core's `why` of each such need, with where core sent it (`needs[k].why` of the line that needs this one). */ reasons?: readonly { at: string; why: string }[]; /** The optional associations this ticked line is kept WITHOUT: core's text of each left-off line and core's why. */ without?: readonly { at: string; text: string; why: string }[]; /** Core's why for each need its refusal named this line for. */ refused?: readonly string[] }) {
+function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], without = [], refused = [], oneOf = null }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one: why this line is ticked. */ neededBy?: readonly string[]; /** Core's `why` of each such need, with where core sent it (`needs[k].why` of the line that needs this one). */ reasons?: readonly { at: string; why: string }[]; /** The optional associations this ticked line is kept WITHOUT: core's text of each left-off line and core's why. */ without?: readonly { at: string; text: string; why: string }[]; /** Core's why for each need its refusal named this line for. */ refused?: readonly string[]; /** A ticked line that needs one of several lines, none ticked yet: core's why for it, with where core sent it. */ oneOf?: { at: string; why: string } | null }) {
   // R4 (core v1.13): a line approved only with others carries core's why as its hover, verbatim (`together.why`).
   const why = c.together?.why ?? null
   const line = <><span data-view={`proposal.changes.${i}.text`} title={why ?? undefined} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
@@ -584,6 +585,7 @@ function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], w
         {ticked === true ? reasons.map((r) => <p key={r.at} className="m-0 text-text-light" data-view={r.at} data-change-reason="">{r.why}</p>) : null}
         {/* An optional link left off: said on the kept line before it is approved, in core's words, never silently; the line keeps its own author mark. */}
         {ticked === true ? without.map((w) => <p key={w.at} className="m-0 text-text-light" data-view={w.at} data-testid={`view-change-without-${i}`}>{KEPT_WITHOUT} {w.text}{w.why === '' ? null : <> · {w.why}</>}</p>) : null}
+        {ticked === true && oneOf !== null ? <p className="m-0 text-text-light" data-view={oneOf.at} data-testid={`view-change-one-of-${i}`}>{oneOf.why}</p> : null}
         {refused.length === 0 ? null : <p className="m-0 text-text-header" data-testid={`view-change-refused-${i}`}>{REFUSAL_NEEDS}{refused.filter((w) => w !== '').map((w, k) => <span key={k}> {w}</span>)}</p>}
       </div>
     </li>
@@ -683,7 +685,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
     const reasons = by.flatMap(({ o, oi }) => needsOf(o).flatMap((n, k) => (n.id === c.id && n.kind === 'required' && n.why !== '' ? [{ at: `proposal.changes.${oi}.needs.${k}.why`, why: n.why }] : [])))
     const off = tickable ? needsOf(c).flatMap((n, k) => (leftOff(c).some((x) => x.id === n.id) ? [{ at: `proposal.changes.${i}.needs.${k}.why`, text: records.get(n.id)!.text, why: n.why }] : [])) : []
     const refusedFor = c.top ? [] : missing.flatMap((n) => (n.id === c.id && !n.top ? [n.why] : []))
-    return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={on} toggle={toggle} busy={busy} neededBy={by.map(({ o }) => o.text)} reasons={reasons} without={off} refused={refusedFor} />
+    const ones = needsOf(c).map((n, k) => ({ n, k })).filter(({ n }) => n.kind === 'one_of' && !n.top)
+    const oneOf = !tickable || ones.length === 0 || ones.some(({ n }) => records.has(n.id) && ticked.has(keyOf(records.get(n.id)!))) || ones[0]!.n.why === '' ? null : { at: `proposal.changes.${i}.needs.${ones[0]!.k}.why`, why: ones[0]!.n.why }
+    return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={on} toggle={toggle} busy={busy} neededBy={by.map(({ o }) => o.text)} reasons={reasons} without={off} refused={refusedFor} oneOf={oneOf} />
   }
   const verdict = verdictOf(p)
   // THE FILLED BUTTON FOLLOWS THE TICKS (Codex root 21:10Z, 18 Nov, the native partial-approve read: with lines ticked the filled Approve still took the
@@ -771,7 +775,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
     const withReadings = onlyReadings.length + refuseReadings.length > 0
     const body = withReadings ? { ...(lines ?? every), ...(onlyReadings.length > 0 ? { only_readings: onlyReadings } : {}), ...(refuseReadings.length > 0 ? { refuse_readings: refuseReadings } : {}) } : lines
     const sent = JSON.stringify(body ?? null)
-    if (unsure.current !== null && unsure.current !== sent && (/"(only|refuse)_readings"/.test(unsure.current) || withReadings)) { setRefused(true); return }
+    if (unsure.current !== null && unsure.current !== sent && (/"((only|refuse)_readings|without)"/.test(unsure.current) || withReadings || lines?.without !== undefined)) { setRefused(true); return }
     setRefused(false); setMissing([])
     // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
     void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; setMissing(refusedNeedsOf(e)); throw e }), true, setSaid)
