@@ -16,7 +16,7 @@ import { useMe } from '../../olumiCore/me'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { DRAFT_POLL_MS, POLL_MS, useViewPoll } from '../poll'
-import { TurnInFlight, ViewConversation, retriedAt, turnAlreadyShown, ViewComposer, isAnswering, pendingTurn, useViewChat } from '../ViewChat'
+import { TurnInFlight, ViewConversation, retriedAt, turnAlreadyShown, ViewComposer, isAnswering, pendingTurn, useViewChat, ABOUT_GONE } from '../ViewChat'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -154,7 +154,7 @@ describe('a turn answered in core', () => {
     on(viewWith(null))
     const third = render(<ViewComposer />).container
     await tick(0)
-    expect([useViewChat.getState().text, useCanvasStore.getState().selection.nodeIds.size]).toEqual(['About a gone card', 0])
+    expect([useViewChat.getState().text, useCanvasStore.getState().selection.nodeIds.size, useViewChat.getState().said]).toEqual(['About a gone card', 0, ABOUT_GONE])
     await act(async () => { fireEvent.click(third.querySelector('[data-testid="view-composer-send"]')!) })
     await tick(0)
     expect(posts[2]!.body['op']).not.toBe('op-gone-0001')

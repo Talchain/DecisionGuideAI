@@ -926,11 +926,13 @@ export function restorePendingTurn(): boolean {
   // A message about a card comes back about that card (Codex 008, 18 Nov): the card is selected again, so the composer shows its subject and
   // Send asks core again with the same card and the same op. A card no longer in the model: the words come back alone, under a new op.
   const about = p.about !== null && view.model?.cards.some((c) => c.id === p.about) ? p.about : null
-  if (p.about !== null && about === null) { useViewChat.setState({ text: p.text }); return true }
+  if (p.about !== null && about === null) { useViewChat.setState({ text: p.text, said: ABOUT_GONE }); return true }
   if (about !== null) useCanvasStore.setState({ selection: { nodeIds: new Set([about]), edgeIds: new Set(), anchorPosition: null } })
   useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, about === null ? 'message' : `message:${about}`, p.text), p.op) })
   return true
 }
+/** Said when a message put back after a reload was about a card the model no longer holds (Codex 008 P2): it goes as a new message, about no card. */
+export const ABOUT_GONE = 'The card this message was about is no longer in the model, so it will be sent without it.'
 /** Try again on a plain message that ended unanswered (failed or lost): the same words, under a new op. A challenge, method question, move
  *  or evidence to consider is asked again from its own control, so it keeps what it was (Codex review 07 #4); it never becomes words. */
 export function sayAgain(): Promise<boolean> {
