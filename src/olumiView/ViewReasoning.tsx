@@ -8,7 +8,9 @@
  *   2. What the uncertainty rests on (`run.rests`): per option and aim, each figure as a bar to its share of the variation, coloured by whose
  *      figure it is, core's line beside it and core's give ✎, so the guess that carries the most uncertainty can be replaced in place;
  *   3. Also worth examining: the rest of the queue, each row core's words with one quiet action;
- *   4. Assumptions and evidence: every premise core puts on a card, once, behind one door.
+ *   4. Towards commitment (`reasoning/TowardsCommitment.tsx`): disagreements still open, what the team has recorded it will do, and one
+ *      press into the ONE commitment form (the chat's and Team tab's shared draft);
+ *   5. Assumptions and evidence: every premise core puts on a card, once, behind one door.
  * Every word about the person's model is core's, at its View path (`data-view`); the headings and action labels are this tab's own chrome.
  */
 import { useState } from 'react'
@@ -21,6 +23,7 @@ import { WhatIfShown } from './ViewChances'
 import { prefillComposer, runMethod } from './ViewChat'
 import { Door, SignalRow } from './reasoning/parts'
 import { actionable, examineOf, type Examine } from './reasoning/examine'
+import { TowardsCommitment } from './reasoning/TowardsCommitment'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
@@ -237,6 +240,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const run = model.run ?? null
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
+  const view = useViewStore((s) => s.view)
   const items = examineOf(model, methods, words)
   const lead = items.find(actionable)
   return (
@@ -245,6 +249,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
       {lead === undefined ? null : <Focus e={lead} />}
       <RestsOn model={model} run={run} />
       <Examined items={items.filter((e) => e !== lead)} />
+      {view === null ? null : <TowardsCommitment view={view} model={model} />}
       <Premises model={model} />
     </div>
   )
