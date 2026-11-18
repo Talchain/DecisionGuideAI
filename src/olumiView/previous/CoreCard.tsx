@@ -367,7 +367,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       return (
         <div data-core-lead={id} data-ok-face="fixed" title={hover}>
           <p className="ok-fixed"><span data-core-lead-clamp={id}>{fx.head}</span>{trail}</p>
-          {fx.condition === null ? null : <p className="ok-qual" title={fx.condition} data-view={`${id}.headline.condition`}>{fx.condition}</p>}
+          {/* Two lines at rest: the question's rail says the condition whole (charts.tsx), and it is this line's hover. */}
+          {fx.condition === null ? null : <p className="ok-qual ok-two-lines" title={fx.condition} data-view={`${id}.headline.condition`}>{fx.condition}</p>}
         </div>
       )
     }
