@@ -338,7 +338,7 @@ describe('Detailed: marks, not sentences', () => {
   })
   it('DT11 a figure with one stated value and no range draws no range bar on Detailed (no empty 0-to-x bar). CONTRAST: the same card with a range that has a spread draws one', () => {
     const c = cardOf(HIRING, 'weekly_churn')
-    const none = withCard(HIRING, { ...c, figure: { ...c.figure!, range: null } } as ViewCard)
+    const none = withCard(HIRING, { ...c, figure: { ...c.figure!, range: null } } as unknown as ViewCard)
     expect([faceOf(draw(none, c.id), c.id).querySelector('[data-testid="range-bar"]'), figureRange(none.model!.cards.find((x) => x.id === c.id)!)]).toEqual([null, null])
     cleanup()
     const ranged = withCard(HIRING, { ...c, figure: { ...c.figure!, range: { low: 8, likely: 12, high: 16, unit: 'ticket/week' } } } as ViewCard)
