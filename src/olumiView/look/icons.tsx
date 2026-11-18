@@ -182,8 +182,9 @@ export const ICONS = {
   // A challenge is a warning, so it keeps the board's challenge colour (the card's frame and a challenged link draw the same token).
   challenged: e(AlertTriangle, 'Challenged', '--olumi-mark-orange', 'icon-only', 'state'),
   // Olumi's own provisional observation about a card (core's `worth_checking`): Olumi's blue, because it is Olumi's and not the person's.
-  'worth-checking': e(SearchCheck, 'Olumi suggests checking this', '--info', 'icon-only', 'state', { keepWords: "core's finding title and text are the hover" }),
-  'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state', { keepWords: "core's own sentence (`card.unused`) is the hover" }),
+  'worth-checking': e(SearchCheck, 'Olumi suggests checking this', '--info', 'icon-only', 'state'),
+  // Core's own sentence (`card.unused`) is passed as this mark's words, so it is the hover and the name.
+  'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state'),
   'went-wrong': e(AlertOctagon, 'Something went wrong', '--danger', 'icon-only', 'state', { keepWords: 'a failure sentence stays words (drawn in --warning-ink)' }),
   unsaved: e(CloudOff, 'Unsaved', '--warning', 'icon-only', 'state'),
   'stale-analysis': e(RefreshCwOff, 'This analysis is out of date', '--warning', 'icon-only', 'state'),

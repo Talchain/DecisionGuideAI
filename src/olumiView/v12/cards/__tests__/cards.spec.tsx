@@ -518,7 +518,7 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
   it('K1 a challenged card draws core\'s reason as the mark\'s name and hover, on the id its readers bind; CONTRAST: an unchallenged card draws none', () => {
     expect([challenged.challenged, challenged.reason !== null && challenged.reason !== '']).toEqual([true, true])
     const marks = marksIn(draw(CAPACITY, challenged.id, 'simple'))
-    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-simple-challenged'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['challenged', challenged.id, challenged.reason, challenged.reason]])
+    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-simple-challenged'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['challenged', challenged.id, `Challenged: ${challenged.reason}`, `Challenged: ${challenged.reason}`]])
     cleanup()
     expect(idsIn(draw(withCard(CAPACITY, { ...challenged, challenged: false } as ViewCard), challenged.id, 'simple'))).toEqual([])
   })
@@ -539,6 +539,16 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
   it('K3b CONTRAST: the same three states on a card with no driver badge all draw, and there is no "+N"', () => {
     const el = draw(withCard(CAPACITY, { ...crowded, driver: null } as unknown as ViewCard), crowded.id, 'simple')
     expect([idsIn(el), el.querySelector('[data-card-more]')]).toEqual([['set-aside', 'challenged', 'unused'], null])
+  })
+  it('K4b once nothing is past the cap the control and its open state go: marks that return later start folded, not as the person left an earlier set', () => {
+    const { container, rerender } = render(<SimpleFace card={crowded} model={withCard(CAPACITY, crowded).model} noted={false} />)
+    fireEvent.click(container.querySelector<HTMLButtonElement>('[data-card-more]')!)
+    expect(idsIn(container)).toEqual(['set-aside', 'challenged', 'unused'])
+    const fewer = { ...crowded, unused: null } as ViewCard
+    rerender(<SimpleFace card={fewer} model={withCard(CAPACITY, fewer).model} noted={false} />)
+    expect([idsIn(container), container.querySelector('[data-card-more]')]).toEqual([['set-aside', 'challenged'], null])
+    rerender(<SimpleFace card={crowded} model={withCard(CAPACITY, crowded).model} noted={false} />)
+    expect([idsIn(container), container.querySelector('[data-card-more]')!.getAttribute('aria-expanded')]).toEqual([['set-aside', 'challenged'], 'false'])
   })
   it('K5 an option core has ruled out is marked for the look and says so first, in core\'s word; CONTRAST: the same option while live carries neither', () => {
     const live = { ...driven, driver: null } as unknown as ViewCard

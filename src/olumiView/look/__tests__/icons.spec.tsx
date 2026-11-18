@@ -69,6 +69,8 @@ describe('icons carry no hue (Paul, 17 Nov: "so far, we\'ve only had non-coloure
     expect(hued).toEqual([])
     expect([ICONS.delete.colour, ICONS['olumi-mark'].colour, ICONS.unsaved.colour]).toEqual(['--danger', '--info', '--warning'])
     expect([ICONS.goal.colour, ICONS['method-challenge'].colour, ICONS['idea-keep'].colour]).toEqual(['--text-light', '--text-light', '--text-light'])
+    // A card's challenge keeps the board's challenge colour and Olumi's own observation Olumi's blue; a plain state mark beside them stays grey.
+    expect([ICONS.challenged.colour, ICONS['worth-checking'].colour, ICONS['feeds-no-result'].colour, ICONS['set-aside'].colour]).toEqual(['--olumi-mark-orange', '--info', '--text-light', '--text-light'])
   })
 })
 

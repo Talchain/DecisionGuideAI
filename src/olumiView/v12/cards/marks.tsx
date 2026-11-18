@@ -3,7 +3,7 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter, "baseline",
  * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User } from 'lucide-react'
 import type { ViewCard } from '../../client'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
@@ -126,7 +126,8 @@ export function cardMarksOf(card: ViewCard): readonly CardMark[] {
   const marks: CardMark[] = []
   // Core's own word for a card that is no longer live (`status`, e.g. "ruled out"; null while it is live).
   if (card.status != null && card.status !== '') marks.push({ id: 'set-aside', icon: 'set-aside', words: card.status })
-  if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? card.reason : ICONS.challenged.hover })
+  // Named by its kind, then core's reason: a reason alone ("Two sources disagree…") does not say it is a challenge (line review, 18 Nov).
+  if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? `${ICONS.challenged.hover}: ${card.reason}` : ICONS.challenged.hover })
   // Olumi's observations on this card: ONE mark, in Olumi's blue, named by every observation in core's order (its title, then its sentence).
   const worth = worthCheckingOf(card)
   if (worth.length > 0) marks.push({ id: 'worth-checking', icon: 'worth-checking', words: worth.map((w) => `${w.title}\n${w.text}`).join('\n\n') })
@@ -147,13 +148,16 @@ export const MORE_MARKS = { lead: 'Also on this card', fewer: 'Show fewer' } as 
 export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const all = cardMarksOf(card)
-  if (all.length === 0) return null
   const over = all.slice(Math.max(0, MARK_CAP - taken)), words = over.map((m) => m.words)
+  // Once nothing is past the cap the control is gone, so its open state goes with it: marks that return later start folded (line review, 18 Nov).
+  const none = over.length === 0
+  useEffect(() => { if (none) setOpen(false) }, [none])
+  if (all.length === 0) return null
   const shown = open ? all : all.slice(0, all.length - over.length)
   return (
     <>
       {shown.map((m) => (
-        <span key={m.id} className="ok-am ok-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
+        <span key={m.id} className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
           <OkIcon id={m.icon} size={12} words={m.words} decorative={false} />
         </span>
       ))}
