@@ -83,7 +83,7 @@ function Committed({ card }: { card: string }): JSX.Element | null {
   if (k === null) return null
   return (
     <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-inspector-committed" data-commitment={k.id}>
-      <OkIcon id="committed" size={12} decorative className="mt-0.5" /><span className="min-w-0 break-words">{k.lines.join(' · ')}</span>
+      <OkIcon id="committed" size={14} decorative className="mt-0.5" /><span className="min-w-0 break-words">{k.lines.join(' · ')}</span>
     </p>
   )
 }
@@ -199,7 +199,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
           <h2 className={`${typography.panelHeader} break-words text-text-header`} data-testid="lane-inspector-title">{c.heading}</h2>
           <p className={`${typography.viewPanelMeta} m-0 mt-0.5 flex flex-wrap items-center gap-1.5 text-text-light`} data-testid="lane-inspector-kind">
             <NodeShapeIndicator nodeKind={kind} size={10} />{kindWord}
-            {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={12} decorative /></span>}
+            {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={14} decorative /></span>}
             {/* Whose the card is. Where the value's own source is this same line (a quantity's figure), it is said once, beside the value. */}
             {authorAtValue ? null : <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />}
             {c.status === null ? null : <span data-testid="lane-inspector-status">{c.status}</span>}
