@@ -33,10 +33,11 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 60
 let root: HTMLElement
 const q = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)
 const node = (id: string) => root.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!
-async function board(): Promise<{ id: string; author: string; basis: string; add: string; option: boolean }> {
+async function board(plain = false): Promise<{ id: string; author: string; basis: string; add: string; option: boolean; set: string; premise: string }> {
   // The fixture's cards carry no author line or basis, so one option is given core's two (verbatim words of the test's own, read back below).
   const base = approved(), CARD = 'broader_entry'
-  const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === CARD ? { ...c, author: { by: 'olumi', text: 'Olumi\'s estimate', title: 'Olumi estimated this from your brief' }, headline: { ...(c.headline ?? {}), title: 'Rests on Olumi\'s assumption about entry speed', add: 'Next: pilot the entry in one region' } } : c)) } } as typeof base
+  const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === CARD ? { ...c, author: { by: 'olumi', text: 'Olumi\'s estimate', title: 'Olumi estimated this from your brief' }, headline: { ...(c.headline ?? {}), title: 'Rests on Olumi\'s assumption about entry speed', add: 'Next: pilot the entry in one region' },
+    ...(plain ? { family: 'factor', sets: [], premises: [] } : { sets: [{ id: 'single_country_test', label: 'Pilot regions', figure: { text: '3 regions', title: 'Three regions' }, author: 'Your figure', whose: 'person' }], premises: [{ id: 'p1', glyph: '◆', text: 'Entry is faster than the last launch', title: 'Olumi\'s assumption' }] }) } : c)) } } as typeof base
   install(view)
   const model = currentModel({ view, error: null, stale: false })!
   const card = model.cards.find((c) => c.id === CARD)!
@@ -44,7 +45,7 @@ async function board(): Promise<{ id: string; author: string; basis: string; add
   act(() => { drawViewCanvas(model, places) })
   root = render(<div style={{ width: 1232, height: 704 }}><ViewCanvas /><ViewComposer /></div>).container
   await settle()
-  return { id: card.id, author: card.author!.text, basis: card.headline!.title, add: card.headline!.add as string, option: card.family === 'option' }
+  return { id: card.id, author: card.author!.text, basis: card.headline!.title, add: card.headline!.add as string, option: card.family === 'option', set: 'Pilot regions', premise: 'Entry is faster than the last launch' }
 }
 
 /** What the composer's selection row holds: the chip, the detail box, and any author or basis line inside the composer. */
@@ -67,12 +68,31 @@ describe('surfaces step 4: the AI panel keeps the chip', () => {
     expect(r.chip!.textContent).toContain('About:')
     expect(r.words, 'no author or basis line in the composer').toBe(0)
   })
-  it('S4-a2 (review NO-GO): an option\'s next step stays readable in the composer while its details are open (the details panel does not draw it), so nothing goes missing', async () => {
+  it('S4-a2 an option\'s next step and explanation are drawn in its details panel verbatim (panel test ids), and the composer row is the chip alone', async () => {
     const card = await board()
     expect(card.option, 'the fixture card is an option').toBe(true)
     fireEvent.click(node(card.id)); await settle()
+    const panel = q('lane-inspector')!
+    expect(panel).not.toBeNull()
+    expect(q('lane-inspector-add')!.textContent).toBe(card.add)
+    expect(q('lane-inspector-explain-sets')!.textContent).toContain(card.set)
+    expect(q('lane-inspector-explain-premises')!.textContent).toContain(card.premise)
+    expect(panel.contains(q('lane-inspector-add')) && panel.contains(q('lane-inspector-explain'))).toBe(true)
+    const r = composerRow()
+    expect(r.chip).not.toBeNull()
+    expect(r.box, 'no selection-detail box at all').toBeNull()
+    expect(q('selected-headline-add')).toBeNull()
+    expect(q('selected-explain')).toBeNull()
+    expect(document.querySelectorAll('[data-testid="lane-inspector-add"]').length).toBe(1)
+  })
+  it('S4-a3 a non-option card (no next step, no explanation) opens its details and the row is still the chip alone', async () => {
+    const card = await board(true)
+    fireEvent.click(node(card.id)); await settle()
     expect(q('lane-inspector')).not.toBeNull()
-    expect(q('selected-headline-add')!.textContent).toBe(card.add)
+    expect(q('lane-inspector-add')).toBeNull()
+    expect(q('lane-inspector-explain')).toBeNull()
+    expect(composerRow().box).toBeNull()
+    expect(composerRow().chip).not.toBeNull()
   })
   it('S4-b CONTRAST: the same card selected by right-click (no details open) keeps the box, with its author and basis, open', async () => {
     const card = await board()
@@ -83,6 +103,10 @@ describe('surfaces step 4: the AI panel keeps the chip', () => {
     expect((r.box as HTMLDetailsElement).open).toBe(true)
     expect(q('selected-author')!.textContent).toBe(card.author)
     expect(q('selected-headline-title')!.textContent).toBe(card.basis)
+    expect(q('selected-headline-add')!.textContent).toBe(card.add)
+    expect(q('selected-explain-sets')!.textContent).toContain(card.set)
+    expect(q('selected-explain-premises')!.textContent).toContain(card.premise)
+    expect(q('lane-inspector-add')).toBeNull()
   })
   it('S4-b2 CONTRAST: details open for ANOTHER card do not fold this selection\'s box (bound by id)', async () => {
     const card = await board()
@@ -100,8 +124,12 @@ describe('surfaces step 4: the AI panel keeps the chip', () => {
     expect(composerRow().chip, 'Escape closed the details, not the selection').not.toBeNull()
     expect((composerRow().box as HTMLDetailsElement).open).toBe(true)
     expect(q('selected-author')!.textContent).toBe(card.author)
+    expect(q('selected-headline-add')!.textContent).toBe(card.add)
+    expect(q('selected-explain-sets')!.textContent).toContain(card.set)
+    expect(q('lane-inspector-add')).toBeNull()
     act(() => { useLaneInspector.getState().open({ kind: 'card', id: card.id }) }); await settle()
     expect(composerRow().words).toBe(0)
+    expect(composerRow().box).toBeNull()
   })
   it('S4-d the draft in the message box and the chip survive press, Escape and re-open', async () => {
     const card = await board()
