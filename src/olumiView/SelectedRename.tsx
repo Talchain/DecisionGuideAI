@@ -12,6 +12,7 @@ import { typography } from '../styles/typography'
 import { SelectedExplain } from './look/SelectedExplain'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { drawKindOf } from './layout'
+import { detailsOf, useLaneInspector } from './v12/edit/inspectorStore'
 
 /**
  * A card's authorship and what its headline rests on, core's words verbatim (ORDER-UI-3, DL-348, 13 Nov; UI restore 11 Nov, R12): whose figure it is
@@ -37,12 +38,15 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // DL 04:59Z (4): an option's next step (core's `headline.add`) is cut to two lines on the card; here it is whole, verbatim.
   const add = useViewStore((s) => { const c = s.view?.model?.cards.find((x) => x.id === id); return c?.family === 'option' ? c.headline?.add ?? null : null })
   const view = useViewStore((s) => s.view)
+  const detailsHere = useLaneInspector((s) => { const t = detailsOf(s); return t !== null && t.kind === 'card' && t.id === id })
   if (heading === null) return null
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
   return (
     <>
       <Rename key={id} id={id} heading={heading} shown />
-      <CardWords id={id} />
+      {/* Surfaces step 4 (Codex root 05:31Z): while THIS card's details stand open beside it, they carry its authorship and basis, so the composer does not say
+          them again; the option's next step and explanation stay here (the details panel does not draw them). Closed, or another route: drawn here. */}
+      {detailsHere ? null : <CardWords id={id} />}
       {add === null || add === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-testid="selected-headline-add">{add}</p>}
       {/* DL journey 3: a selected option's explanation, from core's fields (look/SelectedExplain.tsx). */}
       {view === null ? null : <SelectedExplain view={view} id={id} />}
