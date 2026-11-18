@@ -8,7 +8,7 @@
  * The words that ask are core's where core sends them (`edit.prompt`, `edit.ask`, a size field's `prompt` and `ask`, `edit.note`); the
  * rest are chrome: button and field names.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { typography } from '../../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
@@ -21,7 +21,8 @@ import { ADD_FIGURE_WORDS, focusWhenDrawn } from '../../AddFigure'
 import { REMOVE_LINK_WORDS } from '../../LinkRemove'
 import { editGateNow } from './editGate'
 import { laneWrites, savedVersion, type ItemKind, type RiskGiven } from './editRoutes'
-import { draftKeyOf, useLaneInspector } from './inspectorStore'
+import { draftKeyOf, useLaneInspector, type DetailsTarget } from './inspectorStore'
+import { FORM_MIN_SHOWN, stayBeside } from './placeBeside'
 
 /** Where and how core takes a link's or a risk's size (the View's `SizeEdit`). */
 export type SizeEdit = { readonly prompt: string; readonly ask: string; readonly route: 'size'; readonly record: string; readonly note: string | null; readonly fields: ReadonlyArray<{ readonly key: 'typed' | 'chance' | 'change'; readonly prompt: string; readonly ask: string }> }
@@ -145,7 +146,8 @@ export async function submitEdit(spec: EditSpec, v: Readonly<Record<string, stri
 
 const inputClass = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
 
-export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor: { x: number; y: number }; onClose: () => void }): JSX.Element {
+/** `beside`: the lane's card or link the form stands next to (never over it, inside the free canvas, following it); without it the form stands at `anchor`, as it always did. */
+export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec; anchor: { x: number; y: number }; beside?: DetailsTarget; onClose: () => void }): JSX.Element {
   const fields = fieldsOf(spec)
   // The typed words are kept in the one surface store while this form is open (and when another surface takes its place), until it saves or is cancelled.
   const draftKey = draftKeyOf(spec)
@@ -153,6 +155,13 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
   const [error, setError] = useState<string | null>(null)
   const sending = useWriteSending(writeKeyOf(spec))
   const first = useRef<HTMLInputElement | null>(null)
+  const box = useRef<HTMLFormElement>(null)
+  const stand = beside === undefined ? '' : `${beside.kind}:${beside.id}`
+  useLayoutEffect(() => {
+    if (beside === undefined) return
+    return stayBeside(() => box.current, beside, { x: '--lane-form-x', y: '--lane-form-y', h: '--lane-form-h' }, undefined, FORM_MIN_SHOWN)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stand])
   useEffect(() => { first.current?.focus(); first.current?.select() }, [])
   const set = (k: string, x: string) => { const next = { ...values, [k]: x }; setValues(next); useLaneInspector.getState().setDraft(draftKey, next); if (error) setError(null) }
   const cancel = () => { useLaneInspector.getState().forgetDraft(draftKey); onClose() }
@@ -173,9 +182,10 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
   const left = Math.max(8, Math.min(anchor.x, (typeof window === 'undefined' ? 1200 : window.innerWidth) - 300)), top = Math.max(8, Math.min(anchor.y, (typeof window === 'undefined' ? 800 : window.innerHeight) - 260))
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
-    <form role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan w-[280px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}
-      style={{ left, top }} onSubmit={(e) => { e.preventDefault(); void go() }}>
+    <form ref={box} role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
+      style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>
+      <div className="min-h-0 space-y-2 overflow-y-auto">
       <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
       {needsFigure ? (
         <label className="block space-y-1"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
@@ -190,6 +200,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
             onChange={(e) => set(f.key, e.target.value)} className={inputClass} /></label>
       ))}
       {note === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="lane-edit-note">{note}</p>}
+      </div>
       {error === null ? null : <p role="alert" className="text-danger" data-testid="lane-edit-error">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"

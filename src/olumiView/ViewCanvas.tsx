@@ -498,7 +498,9 @@ function ViewFlow() {
         onNodeClick={(e, n) => {
           // The lane's own (the older look keeps its press as it was): a press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
           if (isOlumiCoreLane() && e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
-          if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id })
+          // Surfaces step 3: on the lane a press on ANY model card opens its details (beside it); the older look opens them for an option only, as before.
+          const card = useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)
+          if (card !== undefined && (card.family === 'option' || isOlumiCoreLane())) useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
         className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}

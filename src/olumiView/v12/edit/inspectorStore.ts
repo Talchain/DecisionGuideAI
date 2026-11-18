@@ -22,7 +22,7 @@ export type Point = { readonly x: number; readonly y: number }
 export type Surface =
   | { readonly kind: 'details'; readonly target: DetailsTarget }
   | { readonly kind: 'menu'; readonly target: ContextTarget }
-  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; readonly busyKey: string }
+  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly busyKey: string }
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
   | { readonly kind: 'add'; readonly busyKey: string }
 /** The open one; `n` is new for every showing, so a form opened again starts from its own words and not the last one's. */

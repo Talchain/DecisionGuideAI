@@ -50,7 +50,7 @@ function onEscape(e: KeyboardEvent): void {
 function SurfaceForm(): JSX.Element | null {
   const open = useLaneInspector((s) => s.current), close = useLaneInspector((s) => s.close)
   if (open === null || open.kind !== 'form') return null
-  return <LaneEditForm key={open.n} spec={open.spec} anchor={open.anchor} onClose={() => close('form')} />
+  return <LaneEditForm key={open.n} spec={open.spec} anchor={open.anchor} beside={open.beside} onClose={() => close('form')} />
 }
 
 export function LaneEditingLayer(): JSX.Element {
