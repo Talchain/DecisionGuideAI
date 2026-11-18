@@ -41,6 +41,9 @@ describe('the tab\'s state comes from the options\' rows', () => {
     expect(document.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
+    // Nor core's reading of the chances, though its Run carries notes: nothing is offered about chances that are not shown.
+    expect((launch.model!.run!.notes ?? []).length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('analysis-why')).toBeNull()
   })
 
   it('limit rows only (bakery with its chance rows made limit rows): each option\'s state against the limit, by its row path; no chart', () => {
