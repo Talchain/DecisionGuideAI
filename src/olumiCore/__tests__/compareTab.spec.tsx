@@ -26,6 +26,7 @@ vi.mock('../../olumiView/ViewChat', () => ({ prefillComposer: (t: string) => pre
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { useCanvasStore } from '../../canvas/store'
+import { useCompare } from '../../olumiView/v12/views/useCompare'
 import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { setTeamFetch } from '../team/api'
 import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
@@ -220,7 +221,7 @@ describe('one picker for every kind of comparison, and the empty states', () => 
   })
   it('CT8: one approved version with nothing else to compare is one line and nothing else; CONTRAST: with a saved what-if it is still compared (Codex P1)', async () => {
     const v = fixture('ui9-a6-since-v3')
-    const one = { ...v, version: { ...v.version!, n: 1 }, model: { ...v.model!, cards: v.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })), run: { ...v.model!.run!, since: undefined } } } as View
+    const one = { ...v, collab: { ...v.collab, shared: [] }, version: { ...v.version!, n: 1 }, model: { ...v.model!, cards: v.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })), run: { ...v.model!.run!, since: undefined } } } as View
     const { container } = show(one)
     await waitFor(() => expect(paths).toContain(`/api/scenarios/${v.id}/whatifs`))
     expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE)
@@ -234,6 +235,23 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     expect(screen.getByTestId('core-compare-base').textContent).toBe('Version 1 with')
     expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE_VERSIONS)
     expect(paths.some((p) => p.includes(`/scenarios/${v.id}/compare`))).toBe(false)
+  })
+  it('CT8b: with nothing to compare yet, the people comparison is one press where its stage can draw; CONTRAST: not before a reveal is authorised, not with two versions', async () => {
+    const v = fixture('ui9-a6-since-v3')
+    const one = { ...v, version: { ...v.version!, n: 1 }, model: { ...v.model!, run: { ...v.model!.run!, since: undefined } } } as View
+    const { container } = show(one)
+    await waitFor(() => expect(paths).toContain(`/api/scenarios/${v.id}/whatifs`))
+    expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE)
+    fireEvent.click(screen.getByTestId('core-compare-people'))
+    expect(useCompare.getState().open).toBe(true)
+    useCompare.setState({ open: false }); cleanup()
+    show({ ...one, gated: true, collab: { ...one.collab, shared: [] } } as View)
+    await waitFor(() => expect(screen.getByTestId('core-compare-one')).toBeTruthy())
+    expect(screen.queryByTestId('core-compare-people')).toBeNull()
+    cleanup(); show(v)
+    await waitFor(() => expect(screen.getByTestId('core-compare-picker')).toBeTruthy())
+    expect(screen.queryByTestId('core-compare-people')).toBeNull()
+    expect(container).toBeTruthy()
   })
   it('CT10: a pair that failed reads again when picked again, and draws its answer (Codex P2)', async () => {
     let failed = false
