@@ -7,10 +7,11 @@ import { teamApi, TeamApiError } from '../../../olumiCore/team/api'
 import { putDraft, useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
-import { useViewStore } from '../../store'
+import { currentModel, useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
+import { OkIcon } from '../../look/icons'
 
 /**
  * V12 Funding-Commit, "Record what you will do": the board's three questions and one primary button, on the EXISTING commitment write
@@ -29,6 +30,8 @@ export const COMMIT_WORDS = {
   /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
   /** v10 review item 12: the Next step card's secondary button, and the kept idea's "Use as my action" (fixed chrome). */
   nextStepButton: 'Record what you will do', useAsAction: 'Use as my action', yours: 'This is your draft, copied from an idea you kept. Change it as you like.',
+  /** A commitment started from an option's details: the form says which option it is about, and the person can take that off. */
+  about: 'About this option:', notAboutOption: 'Not about an option', commitToThis: 'Commit to this',
   unanchored: 'No option is chosen. This records what you will do now, and it does not approve the proposed model.',
 } as const
 
@@ -54,6 +57,27 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     if (typeof form?.scrollIntoView === 'function') form.scrollIntoView({ block: 'nearest' })
     document.getElementById('commit-form-action')?.focus()
   }, 0)
+}
+
+/**
+ * "Commit to this", from an option's details panel: the same form, the same draft, with the option's id and nothing else set. The person's three
+ * answers stay theirs; the version sent is the approved one on screen (`view.version`), as for any anchored commitment.
+ */
+export function openCommitTo(sid: string, view: View, option: string): void {
+  putDraft<Draft>(`${sid}:commitment`, (prev) => ({ ...EMPTY, owner: view.you_id, ...prev, open: true, option }))
+  openCommitDraft(sid, view)
+}
+
+/** The "Commit to this" press for an option's details: drawn only where this page may commit (the approved model, never a past version). */
+export function CommitToThisButton({ option }: { option: string }): JSX.Element | null {
+  const reach = useCommitReach()
+  if (reach === null || reach.view.version === null || reach.view.proposal !== null) return null
+  return (
+    <button type="button" data-testid="lane-inspector-commit" onClick={() => openCommitTo(reach.sid, reach.view, option)}
+      className={`${typography.viewPanelMeta} inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>
+      <OkIcon id="commit-action" size={14} decorative />{COMMIT_WORDS.commitToThis}
+    </button>
+  )
 }
 
 /** Whether this page may draw the commitment form at all: its own View, never a past version, only for the person it is for. */
@@ -99,6 +123,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
   // proposal stays unapproved; nothing here is read from it.
   const anchored = view.version !== null
+  // The option this commitment is about, named on the form when it is a live option of the approved model (the id itself is what is sent, as before).
+  const approved = useViewStore(currentModel)
+  const bound = anchored && d.option && d.option !== '-' ? approved?.cards.find((x) => x.id === d.option && x.family === 'option' && x.status === null) ?? null : null
   const owner = d.owner === '' ? view.you_id : d.owner
   const ready = [d.action, d.expect, d.reconsider].every((t) => t.trim() !== '') && view.collab.owners.some((o) => o.id === owner)
   const put = (p: Partial<Draft>) => { setD((x) => ({ ...x, ...p })); if (error) setError(null) }
@@ -147,6 +174,13 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
         </button>
       </div>
       {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
+      {bound === null ? null : (
+        <p className={`${META} flex flex-wrap items-center gap-1.5`} data-testid="commit-form-option" data-option={bound.id}>
+          <span>{COMMIT_WORDS.about} <span className="font-medium text-text-header">{bound.heading}</span></span>
+          <button type="button" data-testid="commit-form-option-clear" onClick={() => put({ option: '' })}
+            className={`${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.notAboutOption}</button>
+        </p>
+      )}
       {d.seeded && d.action.trim() !== '' && <p className={META} data-testid="commit-form-yours">{COMMIT_WORDS.yours}</p>}
       <L id="commit-form-action" t={COMMIT_WORDS.action}>{area('commit-form-action', 'action')}</L>
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
