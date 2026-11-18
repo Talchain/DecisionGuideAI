@@ -18,7 +18,7 @@ import { cardKind, type CardKindName } from '../fields/fields'
 import { unsizedWords } from '../cards/words'
 import { useWhatIf } from '../../whatif'
 import { useWhatIfFocus } from '../inspect/whatIfFocus'
-import { useLaneInspector } from '../edit/inspectorStore'
+import { detailsOf, useLaneInspector } from '../edit/inspectorStore'
 import { bandOf, type BandId } from './bands'
 
 /**
@@ -60,7 +60,7 @@ const olumiUnsized = (card: ViewCard, kind: CardKindName): boolean =>
 export type FoldActive = { readonly tried: string | null; readonly pressed: string | null; readonly inspected: string | null }
 /** The same ids read once from the existing stores, for a caller that is not subscribed (Show in workspace's targets, a one-off layout). */
 export function foldActiveNow(view: View | null): FoldActive {
-  const shown = useWhatIf.getState().shown, open = useLaneInspector.getState().target
+  const shown = useWhatIf.getState().shown, open = detailsOf(useLaneInspector.getState())
   return { tried: shown !== null && (view === null || shown.sid === view.id) ? shown.quantity : null, pressed: useWhatIfFocus.getState().id, inspected: open?.kind === 'card' ? open.id : null }
 }
 

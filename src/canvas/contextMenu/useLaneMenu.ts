@@ -3,14 +3,14 @@
  * left exactly as it was for the legacy canvas; `CanvasContextMenu` asks this one on the olumi-core lane (`isOlumiCoreLane`).
  */
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
-import { createElement, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useMe } from '../../olumiCore/me'
 import { placeViewCards } from '../../olumiView/canvas'
 import { QUESTION } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { toggleSimple, useLevel } from '../../olumiView/v12/simpleStore'
 import { editGateNow } from '../../olumiView/v12/edit/editGate'
-import { LaneEditForm, type EditSpec } from '../../olumiView/v12/edit/EditForm'
+import { writeKeyOf, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { clearLayoutUndo, pressUndo, useUndoChoices } from '../../olumiView/v12/edit/undo'
 import { askAI } from './actions'
@@ -51,10 +51,13 @@ export function useLaneMenu(o: CtxOptions & { target: ContextTarget }): MenuEntr
   return useMemo(() => buildLaneMenu(o.target, ctx), [o.target, ctx])
 }
 
-/** The shared menu's items hook on the lane: the rows, and the one small edit form that stands in for the menu while it is open and closes it when done. */
+/**
+ * The shared menu's items hook on the lane: the rows. A row that needs the one small edit form shows it through the one surface store, where it takes
+ * the menu's place (one thing open at a time); LaneEditingLayer draws it, so the menu itself has no overlay.
+ */
 export const useLaneItems: MenuItemsHook = (o) => {
-  const [form, setForm] = useState<EditSpec | null>(null)
-  const items = useLaneMenu({ target: o.target, showToast: o.showToast, onClose: o.onClose, openForm: setForm, interactionMode: o.interactionMode, onSetInteractionMode: o.onSetInteractionMode })
-  const overlay = form === null ? null : createElement(LaneEditForm, { spec: form, anchor: o.target.screenPos, onClose: () => { setForm(null); o.onClose() } })
-  return { items, overlay }
+  const { x, y } = o.target.screenPos
+  const openForm = useCallback((spec: EditSpec) => { useLaneInspector.getState().show({ kind: 'form', spec, anchor: { x, y }, busyKey: writeKeyOf(spec) }) }, [x, y])
+  const items = useLaneMenu({ target: o.target, showToast: o.showToast, onClose: o.onClose, openForm, interactionMode: o.interactionMode, onSetInteractionMode: o.onSetInteractionMode })
+  return { items, overlay: null }
 }

@@ -4,13 +4,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { FigureEdit } from '../../../FigureEdit'
+import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useViewStore } from '../../../store'
 import { RISK_EDIT, SID, install, uninstall, type Stub } from './harness'
 
 let stub: Stub
 beforeEach(() => { stub = install() })
 afterEach(() => { cleanup(); uninstall() })
-const mount = (edit: Parameters<typeof FigureEdit>[0]['edit']) => render(<ToastProvider><FigureEdit id="slow_ramp" edit={edit} glyph words={false} label="Change figure" /></ToastProvider>)
+// The size form is drawn by the lane's one editing layer, as on the real canvas.
+const mount = (edit: Parameters<typeof FigureEdit>[0]['edit']) => render(<ToastProvider><FigureEdit id="slow_ramp" edit={edit} glyph words={false} label="Change figure" /><LaneEditingLayer /></ToastProvider>)
 
 describe('FigureEdit with core\'s size edit', () => {
   it('a risk\'s chance posts to /size with {record, chance}, never to /edit', async () => {

@@ -21,6 +21,7 @@ import { ADD_FIGURE_WORDS, focusWhenDrawn } from '../../AddFigure'
 import { REMOVE_LINK_WORDS } from '../../LinkRemove'
 import { editGateNow } from './editGate'
 import { laneWrites, savedVersion, type ItemKind, type RiskGiven } from './editRoutes'
+import { draftKeyOf, useLaneInspector } from './inspectorStore'
 
 /** Where and how core takes a link's or a risk's size (the View's `SizeEdit`). */
 export type SizeEdit = { readonly prompt: string; readonly ask: string; readonly route: 'size'; readonly record: string; readonly note: string | null; readonly fields: ReadonlyArray<{ readonly key: 'typed' | 'chance' | 'change'; readonly prompt: string; readonly ask: string }> }
@@ -146,12 +147,15 @@ const inputClass = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm b
 
 export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor: { x: number; y: number }; onClose: () => void }): JSX.Element {
   const fields = fieldsOf(spec)
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.key, f.initial ?? ''])))
+  // The typed words are kept in the one surface store while this form is open (and when another surface takes its place), until it saves or is cancelled.
+  const draftKey = draftKeyOf(spec)
+  const [values, setValues] = useState<Record<string, string>>(() => ({ ...Object.fromEntries(fields.map((f) => [f.key, f.initial ?? ''])), ...useLaneInspector.getState().drafts[draftKey] }))
   const [error, setError] = useState<string | null>(null)
   const sending = useWriteSending(writeKeyOf(spec))
   const first = useRef<HTMLInputElement | null>(null)
   useEffect(() => { first.current?.focus(); first.current?.select() }, [])
-  const set = (k: string, x: string) => { setValues((o) => ({ ...o, [k]: x })); if (error) setError(null) }
+  const set = (k: string, x: string) => { const next = { ...values, [k]: x }; setValues(next); useLaneInspector.getState().setDraft(draftKey, next); if (error) setError(null) }
+  const cancel = () => { useLaneInspector.getState().forgetDraft(draftKey); onClose() }
   const needsFigure = spec.kind === 'item' && spec.item === 'risk' && spec.concerns.length === 0
   const ready = fields.every((f) => f.optional === true || (values[f.key] ?? '').trim() !== '')
     && (spec.kind !== 'size' || fields.some((f) => (values[f.key] ?? '').trim() !== ''))
@@ -161,7 +165,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
     setError(null)
     try {
       const done = await submitEdit(spec, values)
-      if (await useViewStore.getState().modelChanged()) { onClose(); if (done.record !== null) focusWhenDrawn(done.record) } else setError(FORM_WORDS.notShown)
+      if (await useViewStore.getState().modelChanged()) { useLaneInspector.getState().forgetDraft(draftKey); onClose(); if (done.record !== null) focusWhenDrawn(done.record) } else setError(FORM_WORDS.notShown)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : FORM_WORDS.failed)
     }
@@ -171,7 +175,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
   return createPortal(
     <form role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
       className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan w-[280px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}
-      style={{ left, top }} onSubmit={(e) => { e.preventDefault(); void go() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) { e.stopPropagation(); onClose() } }}>
+      style={{ left, top }} onSubmit={(e) => { e.preventDefault(); void go() }}>
       <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
       {needsFigure ? (
         <label className="block space-y-1"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
@@ -190,7 +194,7 @@ export function LaneEditForm({ spec, anchor, onClose }: { spec: EditSpec; anchor
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"
           className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm bg-primary px-3 text-text-on-color disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`}>{goLabel(spec)}</button>
-        <button type="button" disabled={sending} onClick={onClose} data-testid="lane-edit-cancel" className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
+        <button type="button" disabled={sending} onClick={cancel} data-testid="lane-edit-cancel" className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
           {spec.kind === 'remove-link' ? REMOVE_LINK_WORDS.keep : FORM_WORDS.cancel}</button>
       </div>
     </form>,

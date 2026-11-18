@@ -28,6 +28,7 @@ import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStor
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { armedIntent } from './armedIntent'
+import { anySurfaceOpen, escapeConsumed, useLaneInspector } from './v12/edit/inspectorStore'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
@@ -1365,7 +1366,9 @@ function useArmedChallenge(): ChallengeKind | null {
       const record = selectedRecord()
       if (record !== null) challengeCard(armed, record)
     }
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') useViewChat.setState({ armed: null }) }
+    // Escape closes the top canvas surface first (LaneEditingLayer's one listener marks the press taken); only the next one cancels the wait.
+    // With a canvas surface open, Escape is that surface's (typed in the message box or another field it is still the field's own): the wait is cancelled only when none is open.
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !escapeConsumed(e) && !anySurfaceOpen(useLaneInspector.getState())) useViewChat.setState({ armed: null }) }
     const typed = (st: ViewChatState, was: ViewChatState) => { if (st.armed === armed && st.text !== was.text && st.text.trim() !== '') useViewChat.setState({ armed: null }) }
     const off = useCanvasStore.subscribe(pick), offView = useViewStore.subscribe(pick), offChat = useViewChat.subscribe(typed)
     window.addEventListener('keydown', key)

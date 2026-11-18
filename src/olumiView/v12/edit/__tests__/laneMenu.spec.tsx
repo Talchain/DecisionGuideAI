@@ -10,6 +10,8 @@ import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextM
 import { buildLaneMenu, NOT_AVAILABLE_YET, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
 import { isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from '../../../../canvas/contextMenu/types'
 import { clearLayoutUndo, chooseRedo, chooseUndo, useLayoutUndo } from '../undo'
+import { LaneEditingLayer } from '../LaneEditingLayer'
+import { useLaneInspector } from '../inspectorStore'
 import { useViewStore } from '../../../store'
 import { QUESTION } from '../../../layout'
 import { BASE, SID, approved, install, uninstall, type Stub } from './harness'
@@ -122,11 +124,15 @@ describe('link menu', () => {
 describe('mounted on the lane: the real route is called', () => {
   let stub: Stub
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); stub = install(); clearLayoutUndo(); useLayoutUndo.setState({ undo: [], redo: [], seq: 0, savedSeq: 0, last: null }) })
-  afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs() })
-  const mount = (target: ContextTarget) => render(<ToastProvider><CanvasContextMenu target={target} onClose={() => undefined} screenToFlowPosition={(p) => p} interactionMode="select" onSetInteractionMode={() => undefined} /></ToastProvider>)
+  afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }) })
+  // As ViewCanvas mounts it: the menu is the one surface store's, and the layer draws the one small form that takes the menu's place.
+  const Host = (): JSX.Element => {
+    const target = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
+    return <ToastProvider>{target === null ? null : <CanvasContextMenu target={target} onClose={() => useLaneInspector.getState().close('menu')} screenToFlowPosition={(p) => p} interactionMode="select" onSetInteractionMode={() => undefined} />}<LaneEditingLayer /></ToastProvider>
+  }
+  const mount = (target: ContextTarget) => { useLaneInspector.getState().show({ kind: 'menu', target }); return render(<Host />) }
   it('Add > Option: the form posts /strategy/items as a choice and the menu closes itself after', async () => {
-    let closed = 0
-    render(<ToastProvider><CanvasContextMenu target={pane} onClose={() => { closed += 1 }} screenToFlowPosition={(p) => p} /></ToastProvider>)
+    mount(pane)
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Add/ }))
     fireEvent.click(await screen.findByRole('menuitem', { name: /Option/ }))
     fireEvent.change(await screen.findByTestId('lane-edit-text'), { target: { value: ' Pilot in Spain ' } })
@@ -134,7 +140,8 @@ describe('mounted on the lane: the real route is called', () => {
     await waitFor(() => expect(stub.posts()).toHaveLength(1))
     expect(stub.posts()[0]!.path).toBe(`/api/scenarios/${SID}/strategy/items`)
     expect(stub.posts()[0]!.body).toMatchObject({ base: BASE, kind: 'choice', text: 'Pilot in Spain' })
-    await waitFor(() => expect(closed).toBe(1))
+    await waitFor(() => expect(screen.queryByTestId('lane-edit-form')).toBeNull())
+    expect(screen.queryByRole('menu')).toBeNull()
   })
   it('a risk card: Set chance and size posts /size, never /edit', async () => {
     mount(nodeT('slow_ramp'))

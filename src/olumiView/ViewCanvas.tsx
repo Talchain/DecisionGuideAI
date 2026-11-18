@@ -27,7 +27,6 @@ import { OlumiAttentionCard } from '../canvas/components/OlumiAttentionCard'
 import { OutputsDock } from '../canvas/components/OutputsDock'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { CanvasOverlayBandProvider } from '../canvas/components/CanvasOverlayBand'
-import { LayerProvider } from '../canvas/components/LayerProvider'
 import { HighlightProvider } from '../canvas/highlighting/HighlightContext'
 import { OptionChanceCellProvider } from '../canvas/nodes/shared/OptionChanceCellProvider'
 import { ToastProvider } from '../canvas/ToastContext'
@@ -49,6 +48,7 @@ import { RootLinkEdge } from './previous/RootLinkEdge'
 import { LodSync } from '../canvas/components/LodSync'
 import { CanvasLabelScaleSync } from '../canvas/components/CanvasLabelScaleSync'
 import { useV10Lane } from './v10'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
@@ -398,7 +398,10 @@ function ViewFlow() {
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   // The previous product's right-click menu on the lane's canvas: its own items, those that reach core (ask Olumi in the chat, the card's
   // figure), the rest left out (useMenuItems.ts, lane.ts). Nothing is written here: every item asks Olumi in the chat.
-  const [menu, setMenu] = useState<ContextTarget | null>(null)
+  // The menu is one of the five surfaces the one surface store holds (v12/edit/inspectorStore): opening it closes what else was open.
+  const menu = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
+  const closeMenu = useCallback(() => { useLaneInspector.getState().close('menu') }, [])
+  const setMenu = useCallback((t: ContextTarget) => { useLaneInspector.getState().show({ kind: 'menu', target: t }) }, [])
   const legend = useKeyboardLegend()
   const { screenToFlowPosition } = useReactFlow()
   const userMoved = useRef(false)
@@ -492,7 +495,11 @@ function ViewFlow() {
     <>
       <ReactFlow snapToGrid={snapToGrid} snapGrid={snapGrid}
         // Paul's option inspector (audit F34): a press on an option card opens its details, as right-click "Open details" does.
-        onNodeClick={(_, n) => { if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id }) }}
+        onNodeClick={(e, n) => {
+          // The lane's own (the older look keeps its press as it was): a press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
+          if (isOlumiCoreLane() && e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
+          if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id })
+        }}
         className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
         onNodeContextMenu={(e, n) => {
@@ -509,7 +516,7 @@ function ViewFlow() {
         }}
         onNodeMouseEnter={(_, n) => useViewHover.setState({ id: n.id })} onNodeMouseLeave={() => useViewHover.setState({ id: null })}
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
-        onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }) }}
+        onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }); useLaneInspector.getState().dismiss(false) }}
         onMoveStart={mine} onMoveEnd={mineEnd} selectionOnDrag={tool === 'select'} panOnDrag={tool === 'select' ? SELECT_PAN_BUTTONS : PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
         nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
@@ -555,7 +562,7 @@ function ViewFlow() {
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}
-      {menu === null ? null : <CanvasContextMenu target={menu} onClose={() => setMenu(null)} screenToFlowPosition={screenToFlowPosition} interactionMode={tool} onSetInteractionMode={setTool} />}
+      {menu === null ? null : <CanvasContextMenu target={menu} onClose={closeMenu} screenToFlowPosition={screenToFlowPosition} interactionMode={tool} onSetInteractionMode={setTool} />}
       <KeyboardLegend isOpen={legend.isOpen} onClose={legend.close} />
       {/* V12: in Simple, Olumi's note is a badge on its card and its words are in the panel; the floating note card is Detailed's. */}
       {level === 'simple' ? null : <OlumiAttentionCard />}
@@ -570,25 +577,23 @@ export function ViewCanvas(): JSX.Element {
   useDockFullHeight()
   return (
     <ToastProvider>
-      <LayerProvider>
-        <ReactFlowProvider>
-          <HighlightProvider>
-            <OptionChanceCellProvider>
-              <CanvasOverlayBandProvider>
-                <MaybeConversationProvider>
-                  <div className="relative h-full w-full" data-testid="view-canvas-root">
-                    <ViewFlow />
-                    {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
-                    <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
-                    {/* V12 (proposal 005, Codex 16:52Z): each member's view side by side, then where they differ, over the canvas beside the dock. */}
-                    <CompareViewsStage />
-                  </div>
-                </MaybeConversationProvider>
-              </CanvasOverlayBandProvider>
-            </OptionChanceCellProvider>
-          </HighlightProvider>
-        </ReactFlowProvider>
-      </LayerProvider>
+      <ReactFlowProvider>
+        <HighlightProvider>
+          <OptionChanceCellProvider>
+            <CanvasOverlayBandProvider>
+              <MaybeConversationProvider>
+                <div className="relative h-full w-full" data-testid="view-canvas-root">
+                  <ViewFlow />
+                  {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
+                  <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
+                  {/* V12 (proposal 005, Codex 16:52Z): each member's view side by side, then where they differ, over the canvas beside the dock. */}
+                  <CompareViewsStage />
+                </div>
+              </MaybeConversationProvider>
+            </CanvasOverlayBandProvider>
+          </OptionChanceCellProvider>
+        </HighlightProvider>
+      </ReactFlowProvider>
     </ToastProvider>
   )
 }

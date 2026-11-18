@@ -11,6 +11,7 @@ import type { ViewCard } from '../../client'
 import { SAVED_NOT_SHOWN, setFigure } from '../../FigureEdit'
 import { triableCards } from '../../layout'
 import { useViewStore } from '../../store'
+import { useLaneInspector } from '../edit/inspectorStore'
 import { figureRange, type FigureRange } from '../contract'
 import { isSizeEdit } from '../edit/EditForm'
 import { isOlumis } from '../lenses/layers'
@@ -55,7 +56,10 @@ export function WhatItMoves({ figure }: { figure: string }): JSX.Element | null 
 /** The person's own figure: core's prompt labels the field, and what they type goes to core as typed. Offered only where core offers a plain figure edit. */
 export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), me = useMe((s) => s.me)
-  const [typed, setTyped] = useState('')
+  // The typed figure is kept in the one surface store while the panel is open or another surface takes its place, until it saves.
+  const draftKey = `${sid}:inspector-figure:${card.id}`
+  const [typed, setTypedNow] = useState(() => useLaneInspector.getState().drafts[draftKey]?.['typed'] ?? '')
+  const setTyped = (x: string) => { setTypedNow(x); if (x === '') useLaneInspector.getState().forgetDraft(draftKey); else useLaneInspector.getState().setDraft(draftKey, { typed: x }) }
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
   const edit = card.figure?.edit ?? null
@@ -100,7 +104,7 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}
       <WhatItMoves figure={card.id} />
-      <YourFigure card={card} />
+      <YourFigure key={card.id} card={card} />
       <div className="flex flex-wrap gap-1" role="group" aria-label="Ask or try">
         <button type="button" data-testid="inspector-ask" disabled={onAsk == null} onClick={() => onAsk?.()} className={btn}>{INSPECTOR_WORDS.ask}</button>
         <button type="button" data-testid="inspector-what-if" disabled={!canTry} onClick={() => { openWhatIf(card.id); onClose?.() }} className={btn}>{INSPECTOR_WORDS.whatIf}</button>

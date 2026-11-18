@@ -38,7 +38,7 @@ beforeEach(() => {
   useCanvasStore.setState({ nodes: [], edges: [], pendingLayout: true, currentScenarioId: null })
   useViewStore.setState({ uuid: 'a', sid: SID, view: european, status: 'ready', error: null })
 })
-afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }); useLaneInspector.setState({ target: null }); useWhatIf.setState({ shown: null }) })
+afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }); useLaneInspector.setState({ current: null }); useWhatIf.setState({ shown: null }) })
 
 // CHANGED BY DESIGN (the owner's ruling, 17 Nov; the DL's correction ~03:50Z the same day): on Simple, Olumi's unreviewed proposals fold into one group
 // card per row, and APPROVED records that are only a sentence (core's kind `note`: assumptions, claims, conditions, notes; no figure) into one notes

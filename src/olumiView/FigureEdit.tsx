@@ -14,6 +14,7 @@ import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
+import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
 import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
@@ -117,8 +118,23 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const me = useMe((s) => s.me)
   // Opened by a set-aside on this card (R25): open at once, with the set-aside said until the editor closes.
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
-  const [open, setOpen] = useState(asideFor)
-  useEffect(() => { if (asideFor) useAsideEdit.setState({ id: null }) }, [asideFor])
+  // The editor on a card (and the aim's, which opens its target's) is one of the five surfaces the one surface store holds (surfaces step 2): opening it
+  // closes whatever else was open, and anything else opening closes it. Its typed words stay here, in this card, whatever closes it. Editors in the panel
+  // and the chat keep their own open state.
+  const onCanvas = place === 'view-figure' || opener !== undefined
+  const surfaceKey = `${place}:${id}`
+  const heldHere = useLaneInspector((s) => s.current !== null && s.current.kind === 'editor' && s.current.key === surfaceKey)
+  const [openLocal, setOpenLocal] = useState(false)
+  const open = onCanvas ? heldHere : openLocal
+  const key = `${sid}:edit:${id}`
+  const setOpen = (v: boolean): void => {
+    if (!onCanvas) setOpenLocal(v)
+    else if (v) useLaneInspector.getState().show({ kind: 'editor', key: surfaceKey, busyKey: key })
+    else useLaneInspector.getState().close('editor', surfaceKey)
+  }
+  useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); setOpen(true) } }, [asideFor])
+  // A card that goes (or is drawn again) takes its open editor with it: nothing is left holding the one slot.
+  useEffect(() => () => { if (onCanvas) useLaneInspector.getState().close('editor', surfaceKey) }, [onCanvas, surfaceKey])
   // The base the editor opened on (PL 7 Nov): a background re-read while the person types never moves their draft onto a newer version;
   // core refuses an edit on any base but the latest in its own words ("this figure was edited on a different version").
   const live = view?.model?.edit_base ?? null
@@ -126,7 +142,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [trying, setTrying] = useState(false)
-  const key = `${sid}:edit:${id}`
+  useEffect(() => { if (!open) setError(null) }, [open])
   const sending = useWriteSending(key)
   // Row 6: an open card editor is on record while it is open, so its card keeps it when core stops offering the edit.
   useEffect(() => { if (place !== 'view-figure') return; keepOpen(id, open && edit ? edit : null); return () => { if (!open) keepOpen(id, null) } }, [place, id, open, edit])
@@ -191,7 +207,7 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
         flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place. */}
     <form className={`nodrag nopan grid gap-1 ${panel ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-md border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={panel ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
+      onKeyDown={(e) => { if (onCanvas && e.key === 'Escape') return; e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}
       <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
