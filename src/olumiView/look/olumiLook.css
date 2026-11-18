@@ -261,6 +261,8 @@
 .ok-pinned [data-testid='view-chat-proposal'] > [data-testid='view-changes'] { flex: none; }
 .ok-pinned [data-testid='view-next-step'] > * + *, .ok-pinned [data-testid='view-chat-proposal'] > * + * { margin-top: 8px; }
 .ok-pinned .ok-actions { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); padding: 0; }
+/* The review's foot: what the approval will leave off, core's refusal and the actions stay in view together (the actions keep their own rule inside it). */
+.ok-pinned .ok-actions-foot { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */
 .ok-selected {

@@ -210,8 +210,9 @@ describe('partial approval', () => {
     // The statements group ticked from its CLOSED heading: the claim is chosen, Olumi's note (in the other, closed group) is not.
     fireEvent.click(screen.getByTestId('view-change-group-0'))
     const box = screen.getByTestId('view-proposal-leave-off')
-    expect([group0.open, box.closest('details'), box.textContent, screen.getByTestId('view-proposal-actions').compareDocumentPosition(box) & Node.DOCUMENT_POSITION_PRECEDING])
-      .toEqual([false, null, `${WILL_LEAVE_OFF}their claim · ${LEAVE_OFF_SEP} Olumi’s note`, Node.DOCUMENT_POSITION_PRECEDING])
+    // In the card's foot with the actions (kept in view together by the stylesheet), never inside a group.
+    expect([group0.open, box.closest('details'), box.textContent, box.closest('[data-testid="view-proposal-foot"]')?.contains(screen.getByTestId('view-proposal-actions'))])
+      .toEqual([false, null, `${WILL_LEAVE_OFF}their claim · ${LEAVE_OFF_SEP} Olumi’s note`, true])
     // CONTRAST: the note ticked too, nothing is left off, nothing is said; untick it again and it is said again.
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
     expect(screen.queryByTestId('view-proposal-leave-off')).toBeNull()

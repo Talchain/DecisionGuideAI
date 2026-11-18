@@ -856,6 +856,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
+      {/* The foot of the card, kept in view however long the list (olumiLook.css `.ok-actions-foot`): what Approve ticked will leave off, core's refusal and the
+          actions, together, so nothing the approval states is ever scrolled out of sight while its button is in view (Codex root 22:08Z). */}
+      <div className="ok-actions-foot space-y-2" data-testid="view-proposal-foot">
       {/* Every omission the approval would state, said beside the controls that send it and outside any group (Codex root 22:08Z: a group ticked while
           closed hid the per-line note, so Approve ticked could send a choice the person never saw). Core's text of each kept line and each left-off link. */}
       {closed || !tickable || without.length === 0 ? null : (
@@ -885,6 +888,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
         {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings), false, setSaid)} />}
+      </div>
       </div>
     </div>
   )
