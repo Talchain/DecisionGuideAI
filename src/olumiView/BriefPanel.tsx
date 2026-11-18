@@ -14,9 +14,22 @@ import { useViewStore } from './store'
 import { briefAccountOf, isFirstLook } from './layout'
 import { TurnInFlight } from './ViewChat'
 
-/** The scenarios whose brief's account the person has left for the tabs, this session. */
-export const useBriefPanelLeft = create<{ left: ReadonlySet<string> }>(() => ({ left: new Set() }))
-export const leaveBriefPanel = (sid: string) => useBriefPanelLeft.setState((s) => ({ left: new Set([...s.left, sid]) }))
+/**
+ * The first look is shown ONCE per scenario for this viewer (DL ruling, 18 Nov; Codex's return journey landed on the person's own starting
+ * words): a scenario whose brief's account has been shown is remembered in the browser's own storage, so a return lands on the conversation and
+ * the brief stays on its tab. A per-viewer convenience, never shared state: where storage is blocked or unreadable it is today's in-memory rule.
+ */
+const SEEN_KEY = 'olumi.briefPanelSeen', SEEN_MAX = 200
+/** The scenarios this browser has already shown the brief's account for (read at load; empty where storage cannot be read). */
+export const seenBriefPanels = (): ReadonlySet<string> => {
+  try { const v: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]'); return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []) } catch { return new Set() }
+}
+const rememberSeen = (sid: string): void => {
+  try { const seen = seenBriefPanels(); if (!seen.has(sid)) localStorage.setItem(SEEN_KEY, JSON.stringify([...seen, sid].slice(-SEEN_MAX))) } catch { /* blocked storage: the in-memory rule stands */ }
+}
+/** The scenarios whose brief's account is not shown: those left for the tabs this session, and those already seen on an earlier visit. */
+export const useBriefPanelLeft = create<{ left: ReadonlySet<string> }>(() => ({ left: seenBriefPanels() }))
+export const leaveBriefPanel = (sid: string) => { rememberSeen(sid); useBriefPanelLeft.setState((s) => ({ left: new Set([...s.left, sid]) })) }
 
 /** Whether the dock shows the brief's account now. */
 export function useBriefPanelShown(): boolean {
@@ -32,6 +45,9 @@ export function BriefPanel(): JSX.Element | null {
   // The turn is brought into view as it starts and as it ends: the brief's account fills the panel, so it would sit below the fold.
   const turnAt = useRef<HTMLDivElement | null>(null), turnKey = view?.turn == null ? null : `${view.turn.job}:${view.turn.status}`
   useEffect(() => { if (turnKey !== null) turnAt.current?.scrollIntoView?.({ block: 'nearest' }) }, [turnKey])
+  // Shown now, so remembered for the next visit; this visit keeps the panel until the person leaves it.
+  const shown = view !== null && sid !== null && isFirstLook(view)
+  useEffect(() => { if (shown && sid !== null) rememberSeen(sid) }, [shown, sid])
   if (view === null || sid === null || !isFirstLook(view)) return null
   const a = briefAccountOf(view)
   return (

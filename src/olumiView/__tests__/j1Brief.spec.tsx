@@ -2,17 +2,17 @@
  * J1 step 4 (DL 8 Nov, Codex's order: "a focused panel"): on the real bookshop View (fixtures/j1, core 5d8a009b), a first look's dock is
  * the brief's account, every item in core's words; core's own notes (ED-12) are not served, and the panel says so.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { briefAccountOf, isFirstLook } from '../layout'
 import { useViewStore } from '../store'
-import { BriefPanel, useBriefPanelLeft } from '../BriefPanel'
+import { BriefPanel, seenBriefPanels, useBriefPanelLeft, useBriefPanelShown } from '../BriefPanel'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json'), 'utf8'))
-afterEach(() => { cleanup(); useBriefPanelLeft.setState({ left: new Set() }); useViewStore.setState({ view: null, sid: null }) })
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); useBriefPanelLeft.setState({ left: new Set() }); useViewStore.setState({ view: null, sid: null }) })
 
 describe('the brief’s account, from core’s data', () => {
   it('used: the cards the team stated (and the mixed one); inferred: Olumi’s own; left out: core’s left-out record; no aim, no chances', () => {
@@ -41,6 +41,29 @@ describe('the panel', () => {
     expect(screen.getByTestId('brief-panel-notes-missing')).toBeTruthy()
     fireEvent.click(screen.getByTestId('brief-panel-all-tabs'))
     expect(useBriefPanelLeft.getState().left.has(view.id)).toBe(true)
+  })
+})
+
+describe('the first look is shown once per scenario for this viewer (DL ruling, 18 Nov)', () => {
+  // What a reload does: the store starts from what this browser remembers.
+  const reload = () => useBriefPanelLeft.setState({ left: seenBriefPanels() })
+  const shownNow = () => { const h = renderHook(() => useBriefPanelShown()); const v = h.result.current; h.unmount(); return v }
+  it('first visit: the brief panel is shown and the scenario is remembered; RETURN after a reload: not shown, so the dock is its tabs. CONTRAST: another scenario at its first look is still shown', () => {
+    useViewStore.setState({ view, sid: view.id })
+    expect(shownNow()).toBe(true)
+    render(<BriefPanel />)
+    expect([screen.getByTestId('brief-panel') !== null, seenBriefPanels().has(view.id), shownNow()], 'this visit keeps the panel').toEqual([true, true, true])
+    cleanup(); reload()
+    expect(shownNow(), 'a return lands on the tabs').toBe(false)
+    useViewStore.setState({ view: { ...view, id: 's_other000000' }, sid: 's_other000000' })
+    expect(shownNow(), 'CONTRAST: a scenario never shown').toBe(true)
+  })
+  it('CONTRAST: storage that cannot be written is today\'s rule: after a reload the first look is shown again, and nothing throws', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    useViewStore.setState({ view, sid: view.id })
+    render(<BriefPanel />)
+    cleanup(); reload()
+    expect([seenBriefPanels().has(view.id), shownNow()]).toEqual([false, true])
   })
 })
 
