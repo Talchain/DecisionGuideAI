@@ -5,13 +5,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
 import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
 import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
-import { CommitForm, COMMIT_WORDS } from '../CommitForm'
+import { CommitForm, COMMIT_WORDS, openCommitDraft } from '../CommitForm'
 import { CommitmentPanel } from '../../../../olumiCore/team/CommitmentPanel'
 import { DriverDifferMark } from '../DriverDifferMark'
 import { FrameEntry } from '../../views/FrameEntry'
@@ -60,15 +60,39 @@ describe('Record what you will do', () => {
       expect(first.value).toBe('Ri')
     }
   })
-  it('draws the board\'s words, the Proposed tag and the footnote', () => {
+  it('draws the board\'s words: three questions, Keep it, and one quiet line that says what is still needed, then what keeping it is for', () => {
     render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.getByTestId('commit-form-heading').textContent).toBe('Record what you will do')
-    expect(screen.getByTestId('commit-form-proposed').textContent).toBe('Proposed')
+    expect(screen.queryByTestId('commit-form-proposed')).toBeNull() // the unexplained "Proposed" tag is gone (Paul, 18 Nov)
     for (const t of ['What will you do?', 'What do you expect to happen?', 'When would you reconsider?']) expect(screen.getByLabelText(t)).toBeTruthy()
     expect(screen.getByTestId('commit-form-keep').textContent).toBe('Keep it')
-    expect(screen.getByTestId('commit-form-footnote').textContent).toBe('You can compare what happened with what you expected later.')
+    expect([screen.getByTestId('commit-form-why').textContent, screen.queryByTestId('commit-form-footnote')]).toEqual(['Answer all three to keep it.', null])
+    for (const t of ['What will you do?', 'What do you expect to happen?', 'When would you reconsider?']) fireEvent.change(screen.getByLabelText(t), { target: { value: 'x' } })
+    expect([screen.queryByTestId('commit-form-why'), screen.getByTestId('commit-form-footnote').textContent]).toEqual([null, 'You can compare what happened with what you expected later.'])
     expect(COMMIT_WORDS.keep).toBe('Keep it')
+  })
+  it('Paul, 18 Nov ("no way to get rid of it"): Close folds the form and KEEPS the draft, which the folded line says; Discard draft empties it; CONTRAST: an empty form has no Discard', () => {
+    render(<CommitForm sid="s_close" view={view()} onWrote={async () => true} />)
+    openForm()
+    expect(screen.queryByTestId('commit-form-discard')).toBeNull()
+    fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Ask the two mechanics about hours' } })
+    fireEvent.click(screen.getByTestId('commit-form-close'))
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-heading'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', null, '· Draft kept'])
+    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics about hours')
+    fireEvent.click(screen.getByTestId('commit-form-discard'))
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-draft-kept')]).toEqual(['false', null])
+    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('')
+  })
+  it('a kept idea opens the form with its words as plain text (no "## " in the box), and Close gets rid of it', () => {
+    const v = view()
+    render(<CommitForm sid="s_idea" view={v} onWrote={async () => true} />)
+    act(() => openCommitDraft('s_idea', v, '## Find out first\nAsk whether the change caused the rise. **Then** decide.'))
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Find out first\nAsk whether the change caused the rise. Then decide.')
+    fireEvent.click(screen.getByTestId('commit-form-close'))
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('false')
   })
   it('holds Keep it until all three are answered, then posts them to the existing commitments route as typed', async () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 3 } }))
