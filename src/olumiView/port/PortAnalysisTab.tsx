@@ -140,7 +140,7 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
   const state = tabStateOf(model)
   // The dock's wrapper keeps a 16px gutter; the tab takes the panel's 12px (look rule) without a shared-file edit.
   return (
-    <div className={`${TYPE.body} -mx-1 space-y-4`} data-testid="port-analysis-tab" data-analysis-state={state}>
+    <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
       <WhatIfShown model={model} labelled={!stated} />
       {state === 'chance' ? <ChanceChart model={model} /> : null}
       {state === 'chance' ? <LikelyOutcome model={model} /> : null}

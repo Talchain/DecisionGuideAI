@@ -33,22 +33,30 @@ const ready = (view: View, more: object = {}) => {
 }
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
-describe('whose figures it rests on (run.rests)', () => {
-  it('european: one bar per rest core sends, by its id, Olumi\'s and the person\'s shares placing its two fills; each figure once, with core\'s give ✎', () => {
+describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
+  it('european: each rest by its id in core\'s order (two at rest, the rest behind one press); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
     const view = read('european.view.json'), run = view.model!.run!
-    const rests = run.rests.filter((r) => r.line !== '')
-    expect(rests.length).toBeGreaterThan(1)
+    const rests = run.rests.filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
+    expect(rests.length).toBeGreaterThan(2)
     ready(view)
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-rests')
-    expect([...box.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.map((r) => r.id))
-    rests.forEach((r) => {
-      const bar = box.querySelector<SVGElement>(`[data-rest="${r.id}"] [data-testid="reasoning-rests-bar"]`)!
-      expect([bar.getAttribute('data-rests-olumi'), bar.getAttribute('data-rests-person')]).toEqual([String(trackPct(r.olumi_share)), String(trackPct(r.person_share))])
-      expect(box.querySelector(`[data-rest="${r.id}"]`)!.getAttribute('title')).toBe(r.hover)
-    })
-    const ids = [...new Set(rests.flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '').map((f) => f.id)))]
-    expect([...box.querySelectorAll<HTMLElement>('[data-rest-figure]')].map((e) => e.dataset['restFigure'])).toEqual(ids)
+    const groups = () => [...box.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])
+    expect(groups()).toEqual(rests.slice(0, 2).map((r) => r.id))
+    fireEvent.click(screen.getByTestId('reasoning-rests-more'))
+    expect(groups()).toEqual(rests.map((r) => r.id))
+    for (const r of rests) {
+      const g = box.querySelector<HTMLElement>(`[data-rest="${r.id}"]`)!
+      expect(g.getAttribute('title')).toBe(r.hover)
+      const figs = (r.figures ?? []).filter((f) => f.line !== '')
+      expect([...g.querySelectorAll<HTMLElement>('[data-rest-figure]')].map((e) => e.dataset['restFigure'])).toEqual(figs.map((f) => f.id))
+      for (const f of figs) {
+        const bar = g.querySelector<SVGElement>(`[data-rest-figure="${f.id}"] [data-testid="reasoning-share-bar"]`)!
+        expect([bar.getAttribute('data-share'), bar.getAttribute('data-whose')]).toEqual([String(trackPct(f.share)), f.whose])
+      }
+    }
+    const given = [...new Set(rests.flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '' && f.give !== null).map((f) => f.id)))]
+    for (const id of given) expect(box.querySelectorAll(`[data-testid="reasoning-rests-edit-${id}"]`), id).toHaveLength(1)
     expect(expectAllBound(view, box, expect)).toBeGreaterThan(0)
   })
   it('CONTRAST: a model whose Run sends no rests (app-launch, no chance yet) draws no such section and no bar', () => {
@@ -57,18 +65,56 @@ describe('whose figures it rests on (run.rests)', () => {
     ready(view)
     render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-rests')).toBeNull()
-    expect(screen.queryAllByTestId('reasoning-rests-bar')).toHaveLength(0)
+    expect(screen.queryAllByTestId('reasoning-share-bar')).toHaveLength(0)
+  })
+})
+
+describe('start here: the first actionable item, large, with ONE green action', () => {
+  it('capacity: a challenged card leads; its words are core\'s heading, and its action focuses that card by its id', () => {
+    const view = real('capacity'), cs = challengedCards(view.model!)
+    expect(cs.length).toBeGreaterThan(0)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const lead = screen.getByTestId('reasoning-focus')
+    expect([lead.dataset['focusKind'], lead.dataset['reasoningChallenge']]).toEqual(['challenge', cs[0]!.id])
+    expect(lead.querySelector('[data-testid="view-reasoning-challenge-question"]')!.textContent).toBe(cs[0]!.heading)
+    expect(screen.getAllByTestId('reasoning-focus')).toHaveLength(1)
+    fireEvent.click(lead.querySelector('[data-testid="reasoning-challenge-show"]')!)
+    expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
+  })
+  it('app-launch (no challenge, no offered method): core\'s first coaching question leads, and its action fills the box with it', () => {
+    const view = read('app-launch.view.json'), qs = view.model!.coaching_questions!
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const lead = screen.getByTestId('reasoning-focus')
+    expect(lead.dataset['focusKind']).toBe('question')
+    expect(lead.querySelector('[data-view-words="coaching_questions.0"]')!.textContent).toBe(qs[0])
+    fireEvent.click(lead.querySelector('[data-testid="reasoning-question"]')!)
+    expect(chat.prefill.mock.calls).toEqual([[qs[0]]])
+  })
+  it('CONTRAST: nothing to examine (no challenge, question, offered method or ask) draws no Start here', () => {
+    const view = structuredClone(read('app-launch.view.json'))
+    view.model!.coaching_questions = []
+    for (const x of view.model!.sharpen) x.move = 'not_offered'
+    const w = view.model_words as unknown as Record<string, unknown>
+    delete w.askOption; delete w.askRisk
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
   })
 })
 
 describe('questions worth answering: one press fills the message box with core\'s words, nothing sent', () => {
-  it('app-launch (no chance yet): each coaching question is a press, in core\'s order, that fills the box with that exact question', () => {
+  it('app-launch: every coaching question once, in core\'s order (the first leads); each press fills the box with that exact question', () => {
     const view = read('app-launch.view.json'), qs = view.model!.coaching_questions!
     expect(qs.length).toBeGreaterThan(1)
     ready(view)
     render(<ViewReasoningBlock />)
+    const more = screen.queryByTestId('reasoning-examine-more')
+    if (more !== null) fireEvent.click(more)
+    expect([...document.querySelectorAll('[data-view-words^="coaching_questions."]')].map((e) => e.textContent)).toEqual(qs)
     const rows = screen.getAllByTestId('reasoning-question')
-    expect(rows.map((r) => r.textContent)).toEqual(qs)
+    expect(rows).toHaveLength(qs.length)
     fireEvent.click(rows[1]!)
     expect(chat.prefill.mock.calls).toEqual([[qs[1]]])
     expect(chat.method).not.toHaveBeenCalled()
@@ -77,6 +123,8 @@ describe('questions worth answering: one press fills the message box with core\'
     const view = read('app-launch.view.json'), w = view.model_words as unknown as Record<string, string>
     ready(view)
     render(<ViewReasoningBlock />)
+    const more = screen.queryByTestId('reasoning-examine-more')
+    if (more !== null) fireEvent.click(more)
     const ask = screen.queryByTestId('reasoning-widen-askRisk')
     if (typeof w.askRisk !== 'string') { expect(ask).toBeNull(); return }
     expect(ask!.textContent).toBe(w.askRisk)
@@ -93,43 +141,58 @@ describe('questions worth answering: one press fills the message box with core\'
 })
 
 describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'s method words', () => {
-  it('each sharpen row whose move core offers in session.methods carries that method\'s words, and pressing runs that method by its id', () => {
-    // No captured View offers its sharpen move among its methods yet (core adds pre_mortem to session.methods later), so the move is offered
-    // here as core's newer Views offer it: one method entry by the move's id. Its words are this row's data, read back by identity.
+  it('a sharpen row whose move core offers in session.methods leads when nothing is challenged; its press runs that method by its id', () => {
     const view = structuredClone(read('app-launch.view.json'))
     const s = view.model!.sharpen.find((x) => x.move !== null)
     expect(s, 'precondition: a sharpen row names a move').toBeDefined()
     view.session!.methods.push({ ...view.session!.methods[0]!, id: s!.move!, text: 'Method words for the move' })
-    const methods = view.session!.methods
     ready(view)
     render(<ViewReasoningBlock />)
-    const row = document.querySelector<HTMLElement>(`[data-sharpen="${s!.id}"]`)!
-    const press = row.querySelector<HTMLElement>('[data-testid="reasoning-method"]')!
-    expect(press.textContent).toBe(methods.find((m) => m.id === s!.move)!.text)
+    const lead = screen.getByTestId('reasoning-focus')
+    expect([lead.dataset['focusKind'], lead.dataset['sharpen']]).toEqual(['method', s!.id])
+    const press = lead.querySelector<HTMLElement>('[data-testid="reasoning-method"]')!
+    expect(press.textContent).toBe('Method words for the move')
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([[s!.move]])
   })
-  it('CONTRAST: a sharpen row whose move core does not offer has no press', () => {
+  it('pricing: core names the move widen_options but offers it as else_do; the option-breadth row runs else_do with core\'s words for it', () => {
+    const view = read('pricing.view.json'), methods = view.session!.methods
+    const s = view.model!.sharpen.find((x) => x.move === 'widen_options')!
+    expect([s, methods.some((m) => m.id === 'widen_options'), methods.some((m) => m.id === 'else_do')]).toEqual([expect.anything(), false, true])
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const press = document.querySelector<HTMLElement>(`[data-sharpen="${s.id}"] [data-testid="reasoning-method"]`)!
+    expect(press.textContent).toBe(methods.find((m) => m.id === 'else_do')!.text)
+    fireEvent.click(press)
+    expect(chat.method.mock.calls).toEqual([['else_do']])
+  })
+  it('CONTRAST: a sharpen row whose move core does not offer has no press, and never leads', () => {
     const view = structuredClone(read('app-launch.view.json'))
     for (const x of view.model!.sharpen) x.move = 'not_offered'
     ready(view)
     render(<ViewReasoningBlock />)
+    const more = screen.queryByTestId('reasoning-examine-more')
+    if (more !== null) fireEvent.click(more)
     expect(document.querySelectorAll('[data-sharpen]').length).toBeGreaterThan(0)
     expect(screen.queryAllByTestId('reasoning-method')).toHaveLength(0)
+    expect(screen.getByTestId('reasoning-focus').dataset['focusKind']).not.toBe('method')
   })
 })
 
 describe('challenge your thinking', () => {
-  it('capacity: each challenged card once, its heading and core\'s reason; a press focuses that card by its id', () => {
+  it('capacity: each challenged card once (the first leads), its heading and core\'s reason; each row\'s press focuses that card by its id', () => {
     const view = real('capacity'), cs = challengedCards(view.model!)
-    expect(cs.length).toBeGreaterThan(0)
     ready(view)
     render(<ViewReasoningBlock />)
+    const more = screen.queryByTestId('reasoning-examine-more')
+    if (more !== null) fireEvent.click(more)
     const rows = [...document.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')]
     expect(rows.map((r) => r.dataset['reasoningChallenge'])).toEqual(cs.map((c) => c.id))
-    expect(expectAllBound(view, screen.getByTestId('view-reasoning-challenge'), expect)).toBeGreaterThan(0)
-    fireEvent.click(rows[0]!.querySelector('button')!)
-    expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
+    expect(expectAllBound(view, screen.getByTestId('view-reasoning'), expect)).toBeGreaterThan(0)
+    if (rows.length > 1) {
+      fireEvent.click(rows[1]!.querySelector('[data-testid="reasoning-challenge-show"]')!)
+      expect(focus.node.mock.calls).toEqual([[cs[1]!.id]])
+    }
   })
   it('the Reasoning tab draws none of the Analysis tab\'s chances, and none of the deleted strips (glance, rack, people, commitment)', () => {
     const view = read('bakery.view.json')
