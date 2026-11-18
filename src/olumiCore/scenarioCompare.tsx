@@ -7,10 +7,10 @@ import { shownModel, useViewStore } from '../olumiView/store'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
- * ANY TWO THINGS, SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts):
- * the person picks two sides, each one of: this scenario as it is now (`s_…`), one of its approved versions (`s_…@n`), one of its saved
- * what-ifs (`w_…`), or another of their scenarios. Core reads each side's saved Run (no Run, no AI call) and this page draws it.
- * Not version history (`compare.tsx`, the other half of this tab).
+ * SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts): this scenario as
+ * it is now (`s_…`) or one of its approved versions (`s_…@n`), beside one of its saved what-ifs (`w_…`) or another of the person's
+ * scenarios. The Compare tab's ONE picker (`compare.tsx`, 18 Nov redesign) chooses the second side; `SideBySide` reads core's answer (no
+ * Run, no AI call) and this page draws it. Version against version is `compare.tsx`'s own (`VersionDiff`).
  *
  * A WHAT-IF is saved here by name (core `POST /api/scenarios/:s/whatifs`): one figure, as the person types it, tried on a copy of the
  * approved model and kept, shared with the scenario's members. The word is always "what-if", never "scenario".
@@ -181,10 +181,10 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   )
 }
 
-const PICK = `${typography.viewPanelBody} min-h-[28px] min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const PICK = `${typography.viewPanelBody} min-h-[28px] min-w-0 max-w-full flex-1 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body`
 
 /** The person's other scenarios (`GET /api/me` `scenarios[]`), read once; null while reading, [] when there is none. */
-function useOtherScenarios(sid: string): { id: string; title: string; label: string }[] | null | 'error' {
+export function useOtherScenarios(sid: string): { id: string; title: string; label: string }[] | null | 'error' {
   const [list, setList] = useState<{ id: string; title: string; label: string }[] | null | 'error'>(null)
   useEffect(() => {
     let live = true
@@ -198,7 +198,7 @@ function useOtherScenarios(sid: string): { id: string; title: string; label: str
 
 /** This scenario's saved what-ifs and its approved version numbers, read once and again after a what-if is saved. A list core cannot give
  *  is drawn as none (the rest of the picker still works). */
-function useOwnSides(sid: string): { whatifs: SavedWhatIf[]; versions: number[]; reread: () => Promise<SavedWhatIf[]> } {
+export function useOwnSides(sid: string): { whatifs: SavedWhatIf[]; versions: number[]; reread: () => Promise<SavedWhatIf[]> } {
   const [whatifs, setWhatifs] = useState<SavedWhatIf[]>([])
   const [versions, setVersions] = useState<number[]>([])
   const reread = useCallback(async () => {
@@ -218,9 +218,10 @@ function useOwnSides(sid: string): { whatifs: SavedWhatIf[]; versions: number[];
   return { whatifs, versions, reread }
 }
 
-type Choice = { value: string; label: string; title: string }
-type Group = { label: string; choices: Choice[] }
-function Pick({ id, label, groups, value, disabled, onChange }: { id: string; label: string; groups: Group[]; value: string; disabled: boolean; onChange: (v: string) => void }): JSX.Element {
+export type Choice = { value: string; label: string; title: string }
+export type Group = { label: string; choices: Choice[] }
+/** A grouped select: one group draws its choices alone; several draw each under its own heading. */
+export function Pick({ id, label, groups, value, disabled, onChange }: { id: string; label: string; groups: Group[]; value: string; disabled: boolean; onChange: (v: string) => void }): JSX.Element {
   const shown = groups.filter((g) => g.choices.length > 0)
   return (
     <select aria-label={label} data-testid={id} className={PICK} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
@@ -242,7 +243,7 @@ const WHATIF_FIGURES = 5
 type Row = { quantity: string | null; label: string | null; typed: string }
 const EMPTY: Row[] = [{ quantity: null, label: null, typed: '' }]
 
-function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => void }): JSX.Element | null {
+export function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => void }): JSX.Element | null {
   const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at), shownSid = useViewStore((s) => s.sid)
   const model = useViewStore(shownModel)
   const figures = arr(model?.cards).filter((c) => c.figure?.edit != null)
@@ -345,70 +346,26 @@ function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string) => vo
 }
 
 /**
- * "Compare side by side": pick two sides, each this scenario now, one of its versions, one of its saved what-ifs, or another of the person's
- * scenarios, and read core's side-by-side of the two saved Runs. The first side starts as this scenario; the second as its newest saved
- * what-if, else the first other scenario.
+ * One side-by-side read (core's `GET /api/compare?a=&b=`): the Compare tab's one picker chose a saved what-if or another scenario as the
+ * second side; the first is this scenario (or one of its versions). Read at once on each pick; an answer a newer pick has overtaken is
+ * dropped, and nothing is drawn once the tab has moved on.
  */
-export function CompareWithScenario({ sid }: { sid: string }): JSX.Element {
-  // Keyed by the scenario (Codex review-ui item 2): another scenario starts afresh, with none of this one's picks, result, error or draft.
-  return <CompareSides key={sid} sid={sid} />
-}
-
-function CompareSides({ sid }: { sid: string }): JSX.Element {
-  const others = useOtherScenarios(sid)
-  const own = useOwnSides(sid)
-  const [pickedA, setPickedA] = useState<string | null>(null)
-  const [picked, setPicked] = useState<string | null>(null)
+export function SideBySide({ a, b }: { a: string; b: string }): JSX.Element {
   const [shown, setShown] = useState<ScenarioComparison | null>(null)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const seq = useRef(0), here = useRef(true)
-  // Once this scenario is left, an answer still on its way is never drawn and nothing more is asked.
-  useEffect(() => { here.current = true; return () => { here.current = false; seq.current += 1 } }, [])
-  const list = Array.isArray(others) ? others : []
-  const latest = own.versions.length ? Math.max(...own.versions) : null
-  const thisOne: Group = { label: 'This scenario', choices: [{ value: sid, label: latest === null ? 'This scenario now' : `This scenario now (version ${latest})`, title: 'This scenario as it is now' },
-    ...own.versions.filter((n) => n !== latest).sort((x, y) => y - x).map((n) => ({ value: `${sid}@${n}`, label: `Version ${n}`, title: `Version ${n} of this scenario, as approved` }))] }
-  const whatIfs: Group = { label: 'Saved what-ifs', choices: [...own.whatifs].reverse().map((w) => ({ value: w.id, label: `What-if: ${w.name}`, title: w.about })) }
-  const otherOnes: Group = { label: 'Your other scenarios', choices: list.map((s) => ({ value: s.id, label: s.label, title: s.title })) }
-  const valuesOf = (gs: Group[]) => gs.flatMap((g) => g.choices.map((c) => c.value))
-  const groupsA = [thisOne, whatIfs, otherOnes]
-  const a = pickedA !== null && valuesOf(groupsA).includes(pickedA) ? pickedA : sid
-  // The second side never offers the first side's own choice.
-  const groupsB = [otherOnes, whatIfs, thisOne].map((g) => ({ ...g, choices: g.choices.filter((c) => c.value !== a) }))
-  const firstB = valuesOf([whatIfs, otherOnes]).find((v) => v !== a) ?? valuesOf(groupsB).find((v) => v !== a) ?? ''
-  const b = picked !== null && valuesOf(groupsB).includes(picked) ? picked : firstB
-  const any = list.length > 0 || own.whatifs.length > 0 || own.versions.length > 1
-  const go = async (x = a, y = b) => {
-    if (x === '' || y === '' || !here.current) return
+  const seq = useRef(0)
+  useEffect(() => {
     const mine = ++seq.current
-    setBusy(true); setError(null)
-    try {
-      const r = await call<ScenarioComparison>('GET', `/api/compare?a=${encodeURIComponent(x)}&b=${encodeURIComponent(y)}`)
-      if (mine === seq.current) setShown(r)
-    } catch (e) {
-      if (mine === seq.current) { setShown(null); setError(e instanceof TeamApiError ? e.message : 'That did not go through.') }
-    } finally { if (mine === seq.current) setBusy(false) }
-  }
-  const saved = async (id: string) => { await own.reread(); setPicked(id); void go(a, id) }
+    setShown(null); setError(null)
+    call<ScenarioComparison>('GET', `/api/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`)
+      .then((r) => { if (mine === seq.current) setShown(r) })
+      .catch((e) => { if (mine === seq.current) setError(e instanceof TeamApiError ? e.message : 'That did not go through.') })
+    return () => { seq.current += 1 }
+  }, [a, b])
   return (
-    <section className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="scenario-compare" aria-label="Compare side by side">
-      <h3 className={H}>Compare side by side</h3>
-      {others === null ? <p className={META} data-testid="scenario-compare-loading">Reading your scenarios…</p>
-        : others === 'error' && !any ? <p className={ERR} data-testid="scenario-compare-list-error">Your scenarios could not be read just now.</p>
-        : !any ? <p className={BODY} data-testid="scenario-compare-none">You have no other scenario to compare with yet.</p>
-        : (
-          <div className="flex flex-wrap items-center gap-2">
-            <Pick id="scenario-compare-pick-a" label="First side" groups={groupsA} value={a} disabled={busy} onChange={(v) => { setPickedA(v); setShown(null); setError(null) }} />
-            <span className={META} aria-hidden="true">beside</span>
-            <Pick id="scenario-compare-pick" label="Second side" groups={groupsB} value={b} disabled={busy} onChange={(v) => { setPicked(v); setShown(null); setError(null) }} />
-            <Button size="sm" variant="secondary" data-testid="scenario-compare-go" disabled={busy || a === b} onClick={() => void go()}>Compare</Button>
-            {!busy && a === b ? <span className={META} data-testid="scenario-compare-why">Pick two different sides</span> : null}
-          </div>
-        )}
-      {error && <p role="alert" className={ERR} data-testid="scenario-compare-error">{error}</p>}
-      <div aria-live="polite">{shown ? <ScenarioComparisonView c={shown} /> : null}</div>
-      <WhatIfSave sid={sid} onSaved={(id) => void saved(id)} />
-    </section>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="scenario-compare" aria-live="polite">
+      {error ? <p role="alert" className={ERR} data-testid="scenario-compare-error">{error}</p>
+        : shown ? <ScenarioComparisonView c={shown} /> : <p className={META} data-testid="scenario-compare-loading">Reading both sides…</p>}
+    </div>
   )
 }

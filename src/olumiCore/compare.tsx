@@ -1,11 +1,16 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META } from './team/ui'
 import { typography } from '../styles/typography'
-import { CompareWithScenario } from './scenarioCompare'
+import { Pick, SideBySide, useOtherScenarios, useOwnSides, WhatIfSave, type Group } from './scenarioCompare'
+import { focusNodeById } from '../canvas/utils/focusHelpers'
+import { useCanvasStore } from '../canvas/store'
+import { focusWhenDrawn } from '../olumiView/AddFigure'
+import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
+import { OkIcon } from '../olumiView/look/icons'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
@@ -24,7 +29,8 @@ export type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | 
   before: Side | null; after: Side | null; move: 'up' | 'down' | 'changed' | 'unchanged' | 'new' | 'gone'; label?: string; move_text?: string }
 /** `who` (core wip/compare, 7 Nov): core's own words for who proposed and approved the version. */
 export type Compared = { versions: { n: number; at: string; proposedBy: string | null; briefBy: string | null; approvedBy: string; who?: string }[]
-  changes: { text: string; detail: string; mark: { glyph: string; title: string } | null }[]; results: Move[] }
+  /** `olumi` (API v1.8): true exactly where `mark` is core's ◆, Olumi's. */
+  changes: { text: string; detail: string; mark: { glyph: string; title: string } | null; olumi?: boolean }[]; results: Move[] }
 
 /**
  * Core's own words for a move, for what a result is about and for who proposed and approved a version (`move_text`, `label`, `who`: core
@@ -49,7 +55,7 @@ export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Eleme
 
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
-export function ComparedLists({ c, id = 'team-compare', who = true, boxed = false }: { c: Compared; id?: string; who?: boolean; boxed?: boolean }): JSX.Element {
+export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
   // The two marks are core's `before` and `after`, which core always reads from the lower version to the higher whatever order it was asked
   // in (core service.ts compare: [lo, hi]; pinned by its service.test 'compare(…, 3, 1) equals compare(…, 1, 3)'). Its `versions` list runs
   // from the one to the other in that same order, so the key is named from that list's ends, in core's order, never sorted here.
@@ -58,12 +64,8 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
     ? <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
-  // `boxed` (the dock's Compare tab, a whole panel of its own): each list in the panel's card under its heading (the dock's design language,
-  // Paul's 6 Nov side-by-side). Inline (the Team tab's and the version history's, already inside their own sections): a heading line. The
-  // words are the same either way.
-  const part = (name: string, heading: string, body: JSX.Element) => (boxed
-    ? <section className={CARD} data-compare-part={name} aria-label={heading}><h4 className={H}>{heading}</h4>{body}</section>
-    : <Fragment key={name}><p className={`${BODY} text-text-header`}>{heading}</p>{body}</Fragment>)
+  // Inline (the Team tab's and the version history's, already inside their own sections): a heading line, then the list.
+  const part = (name: string, heading: string, body: JSX.Element) => <Fragment key={name}><p className={`${BODY} text-text-header`}>{heading}</p>{body}</Fragment>
   return (
     <div className="grid gap-2" data-testid={`${id}-out`}>
       {who && part('versions', 'Who proposed and approved',
@@ -83,13 +85,13 @@ export function ComparedLists({ c, id = 'team-compare', who = true, boxed = fals
 }
 
 /** The version pickers' compact field (the dock's measure: never the full-width answer field, which stacked two tall boxes). */
-const PICK = `${typography.viewPanelBody} min-h-[28px] rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const PICK = `${typography.viewPanelBody} min-h-[28px] rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body`
 
 /**
- * Pick two of the scenario's `latest` versions and read core's comparison. `auto`: read the previous version against the latest at once
- * (the Compare tab, "previous against this"); otherwise only on Compare (the Team tab and the version history).
+ * Pick two of the scenario's `latest` versions and read core's comparison (the Team tab and the version history). `auto`: read the
+ * previous version against the latest at once; otherwise only on Compare.
  */
-export function CoreCompare({ sid, latest, id, auto = false, boxed = false }: { sid: string; latest: number; id: string; auto?: boolean; boxed?: boolean }): JSX.Element {
+export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; latest: number; id: string; auto?: boolean }): JSX.Element {
   const [from, setFrom] = useState<number | null>(null)
   const [to, setTo] = useState<number | null>(null)
   const [shown, setShown] = useState<Compared | null>(null)
@@ -128,7 +130,7 @@ export function CoreCompare({ sid, latest, id, auto = false, boxed = false }: { 
         <Button size="sm" variant="secondary" data-testid={`${id}-go`} disabled={busy} onClick={() => void go(f, t)}>Compare</Button>
       </div>
       {error && <p role="alert" className={ERR} data-testid={`${id}-error`}>{error}</p>}
-      <div aria-live="polite">{shown ? <ComparedLists c={shown} id={id} boxed={boxed} /> : null}</div>
+      <div aria-live="polite">{shown ? <ComparedLists c={shown} id={id} /> : null}</div>
     </div>
   )
 }
@@ -173,21 +175,35 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
   const names = { first: since.from.label, second: since.to.label }
   // A track is drawn only for a reading that MOVED (Paul, 18 Nov: two dots on top of each other at 0% on an empty axis said nothing): where
   // core's number and words for the two versions are both the same, core's line stands alone, and the key is drawn only if some track is.
-  const moved = (l: Since['lines'][number]) => (l.from !== l.to || l.from_text !== l.to_text) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
+  // Moved means core's words differ (as its own `move` reads two versions): a drift in the number under the same words is not a move.
+  const moved = (l: Since['lines'][number]) => lineMoved(l) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
   const tracked = since.lines.some(moved)
   return (
     <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
       <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
-      {since.lines.length === 0 ? null : (
-        <ul className="m-0 grid list-none gap-2 p-0">
-          {since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0)).map(({ l, i }) => (
-            <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
-              <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
-              {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
-            </li>
-          ))}
-        </ul>
-      )}
+      {since.lines.length === 0 ? null : (() => {
+        // Each line keeps its place in core's list as its id; moved readings first where asked (`movedFirst`). A reading that did not move
+        // is counted at rest and its line is one press away (Paul, 18 Nov: a line per unmoved reading was the wall he asked about).
+        const order = since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0))
+        const row = ({ l, i }: { l: Since['lines'][number]; i: number }) => (
+          <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
+            <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
+            {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
+          </li>
+        )
+        const live = order.filter(({ l }) => lineMoved(l)), still = order.filter(({ l }) => !lineMoved(l))
+        return (
+          <>
+            {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
+            {still.length === 0 ? null : (
+              <details data-testid="core-compare-since-still">
+                <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{notMoved(still.length)}</summary>
+                <ul className="m-0 mt-1.5 grid list-none gap-2 p-0">{still.map(row)}</ul>
+              </details>
+            )}
+          </>
+        )
+      })()}
       {since.sole !== null || since.changed.length === 0 ? null : (
         <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-since-changed">
           {since.changed.map((c, i) => (
@@ -201,29 +217,272 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
 }
 
 /**
- * The dock's Compare tab on the olumi-core lane: the previous approved version against the latest, as core compares them, and, beneath it,
- * "Compare with another scenario" (core's `GET /api/compare`, scenarioCompare.tsx). The second half needs only an open scenario, not two versions.
- * Above both, where the View carries it, the version shown beside the one before it (`run.since`, SinceVersion).
+ * THE COMPARE TAB on the olumi-core lane (overnight redesign, 18 Nov; Paul: "Is the scenario/version comparison working?"). One picker:
+ * the version shown with an earlier version, a saved what-if or another of the person's scenarios. Against an earlier version it answers
+ * two questions at a glance, every word core's:
+ *  · WHAT CHANGED, each change by whose it is (Olumi's blue mark, a person's mark), each a press to its card on the canvas where core
+ *    names the card (`run.since.changed[].id`); otherwise core's change lines (`/compare` `changes`), which carry no card;
+ *  · WHAT MOVED, one before-and-after track per result that moved, the largest move first (ordered by core's own numbers, never printed),
+ *    and one line counting the results that did not move.
+ * Where the View's own comparison is the pair shown, core's line for the largest move is said once; where core credits no single change
+ * (`sole` null) one press puts an editable question in the chat box (nothing is sent). Against a what-if or another scenario: core's
+ * side-by-side (`SideBySide`). With one approved version, or none, one line.
  */
 export const COMPARE_NONE = 'Start a model in the chat first. Compare reads the versions you approve.'
 export const COMPARE_HELD = "This model is still Olumi's proposal. Compare reads the versions you approve: approve it in the chat to start."
+export const COMPARE_ONE = 'Compare needs two approved versions. Approve a change to the model to make the second.'
+/** With one version and something else to compare it with: only comparing VERSIONS waits for a second (Codex live read, wording). */
+export const COMPARE_ONE_VERSIONS = 'Comparing versions needs two approved versions; you can compare this one with a what-if or another scenario.'
+/** Fixed chrome: the one ask where core credits no single change. It names no figure and makes no claim about the model. */
+export const ASK_WHICH = {
+  label: 'Ask Olumi which change mattered',
+  request: 'Between these two versions, which single change moved the results most, and how could I check it?',
+  placed: 'Your question is in the message box. Edit it if you like, then send it.',
+} as const
+export const notMoved = (n: number) => (n === 1 ? '1 result did not move.' : `${n} results did not move.`)
+
+const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6'
+
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
-  const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
   const held = useViewStore((s) => s.view?.proposal != null)
   const latest = useLatestApproved()
-  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6"><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
+  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className={TAB}><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
-    <div data-testid="core-compare-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6">
-      {since === null ? null : <SinceVersion since={since} />}
+    <div data-testid="core-compare-tab" className={TAB}>
       {!sid || latest === null || latest === undefined
         // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
         ? <p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p>
-        : latest < 2
-          ? <p className={BODY} data-testid="core-compare-one">Compare needs two approved versions. Approve a change to the model to make the second.</p>
-          : <CoreCompare sid={sid} latest={latest} id="core-compare" auto boxed />}
-      {sid ? <CompareWithScenario sid={sid} /> : null}
+        // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
+        // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
+        : <ComparePicked key={sid} sid={sid} latest={latest} />}
+    </div>
+  )
+}
+
+/** The version this side of the comparison is: the one the View's own comparison is of, else the latest approved. */
+function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.Element {
+  const since = useViewStore((s) => s.view?.model?.run?.since ?? null)
+  const others = useOtherScenarios(sid)
+  const own = useOwnSides(sid)
+  const base = since !== null && since.to.n <= latest ? since.to.n : latest
+  const first = since !== null && since.to.n === base ? since.from.n : base - 1
+  const [picked, setPicked] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  // The what-if press is offered only where the form has something to show: a figure core lets the person set on the version shown, or
+  // the line saying a waiting change must be dealt with first (WhatIfSave draws nothing otherwise).
+  const canSave = useViewStore((s) => s.at === null && s.sid === sid && (s.view?.proposal != null || (s.view?.model?.cards ?? []).some((c) => c.figure?.edit != null)))
+  const earlier: Group = { label: 'Earlier versions', choices: Array.from({ length: base - 1 }, (_, i) => base - 1 - i).map((n) => ({ value: `v:${n}`, label: `Version ${n}`, title: `Version ${n} of this scenario, as approved` })) }
+  const whatIfs: Group = { label: 'Saved what-ifs', choices: [...own.whatifs].reverse().map((w) => ({ value: w.id, label: `What-if: ${w.name}`, title: w.about })) }
+  const scenarios: Group = { label: 'Your other scenarios', choices: (Array.isArray(others) ? others : []).map((o) => ({ value: o.id, label: o.label, title: o.title })) }
+  const groups = [earlier, whatIfs, scenarios]
+  const all = groups.flatMap((g) => g.choices.map((c) => c.value))
+  // The first choice: core's own pair where the View has one, else the version before; with one version, the newest what-if or the
+  // first other scenario; none at all is '' (nothing to compare yet).
+  const value = picked !== null && all.includes(picked) ? picked : base >= 2 ? `v:${first}` : all[0] ?? ''
+  const version = value.startsWith('v:') ? Number(value.slice(2)) : null
+  // This side, for core's side-by-side: the scenario now when it is the latest, else that version of it.
+  const self = base === latest ? sid : `${sid}@${base}`
+  // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only); pressed again, the form closes.
+  const whatIfPress = !canSave ? null : (
+    <div className="grid gap-2">
+      <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} onClick={() => setSaving((x) => !x)}>
+        <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}</button></div>
+      {saving ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /> : null}
+    </div>
+  )
+  // One approved version and nothing else to compare it with: the one line, and the what-if press where a figure can be set.
+  if (value === '') return <><p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>{whatIfPress}</>
+  return (
+    <>
+      {base < 2 ? <p className={META} data-testid="core-compare-one">{COMPARE_ONE_VERSIONS}</p> : null}
+      <div className="flex min-w-0 items-center gap-2" data-testid="core-compare-picker">
+        <span className={`${BODY} flex-none text-text-header`} data-testid="core-compare-base">Version {base} with</span>
+        <Pick id="core-compare-with" label={`Compare version ${base} with`} groups={groups} value={value} disabled={false} onChange={setPicked} />
+      </div>
+      {version !== null
+        ? <VersionDiff sid={sid} from={version} to={base} since={since !== null && since.from.n === version && since.to.n === base ? since : null} />
+        : <SideBySide a={self} b={value} />}
+      {whatIfPress}
+    </>
+  )
+}
+
+/** One press to more of core's own rows: a quiet summary line, the rows under it. */
+function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
+  return (
+    // A plain block while closed (a closed grid still spaced its hidden rows); the rows sit under the summary once open.
+    <details data-testid={id}>
+      <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{summary}</summary>
+      <div className="mt-1.5">{children}</div>
+    </details>
+  )
+}
+
+/** A result moved where core says so (`move`), never by a rule of the page's. */
+const movedOf = (r: Move) => r.move !== 'unchanged'
+/** The size of a move, from core's two numbers: an order only, never drawn. A move without both numbers goes after those with them. */
+const sizeOf = (r: Move) => (typeof r.before?.chance === 'number' && typeof r.after?.chance === 'number' ? Math.abs(r.after.chance - r.before.chance) : -1)
+const sizeOfLine = (l: Since['lines'][number]) => Math.abs(l.to - l.from)
+/** A reading moved where core's words for it differ between the two versions: the same rule as core's own `move` (`unchanged` = same words). */
+const lineMoved = (l: Since['lines'][number]) => l.from_text !== l.to_text
+
+function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: number; since: Since | null }): JSX.Element {
+  const [shown, setShown] = useState<{ key: string; c: Compared } | null>(null)
+  const [error, setError] = useState<{ key: string; text: string } | null>(null)
+  const key = `${sid}:${from}:${to}`
+  useEffect(() => {
+    let live = true
+    const [lo, hi] = from < to ? [from, to] : [to, from]
+    // A fresh read clears any earlier failure (Codex live read P2: pair A failed, then B, then A again must draw A's answer).
+    setError(null)
+    call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${lo}&to=${hi}`)
+      .then((r) => { if (live) { setError(null); setShown({ key, c: r }) } })
+      .catch((e) => { if (live) setError({ key, text: e instanceof TeamApiError ? e.message : 'That did not go through.' }) })
+    return () => { live = false }
+  }, [sid, from, to, key])
+  const c = shown?.key === key ? shown.c : null
+  if (error?.key === key) return <p role="alert" className={ERR} data-testid="core-compare-error">{error.text}</p>
+  if (c === null) return <p className={META} data-testid="core-compare-loading">Reading both versions…</p>
+  // The two sides named from core's own answer (its `versions` run from the earlier to the later), never from the pick.
+  const ends = [c.versions[0]?.n ?? Math.min(from, to), c.versions.at(-1)?.n ?? Math.max(from, to)]
+  const names = { first: `Version ${ends[0]}`, second: `Version ${ends[1]}` }
+  const moved = c.results.map((r, i) => ({ r, i })).filter(({ r }) => movedOf(r)).sort((a, b) => sizeOf(b.r) - sizeOf(a.r) || a.i - b.i)
+  const still = c.results.length - moved.length
+  // Core's line for the largest move in its own comparison, said once (its tail credits a single change, or says none is credited).
+  const told = since === null ? null : [...since.lines.map((l, i) => ({ l, i }))].filter(({ l }) => lineMoved(l)).sort((a, b) => sizeOfLine(b.l) - sizeOfLine(a.l) || a.i - b.i)[0] ?? null
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="core-compare-out" aria-live="polite">
+      <Changes c={c} since={since} />
+      <section className="grid gap-2" aria-label="What moved" data-testid="core-compare-moved">
+        <h4 className={H}>What moved</h4>
+        {moved.length === 0 ? null : (
+          <ul className="m-0 grid list-none gap-3 p-0">
+            {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} names={names} />)}
+          </ul>
+        )}
+        {/* The key to the two marks, right under the tracks it names. */}
+        {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
+        {c.results.length === 0 ? <p className={META} data-testid="core-compare-results-none">No results in either version.</p>
+          : still === 0 ? null : (
+            // Counted at rest; core's own rows one press away, each with its words in both versions.
+            <Fold id="core-compare-still" summary={notMoved(still)}>
+              <ul className="m-0 grid list-none gap-1.5 p-0">
+                {c.results.map((r, i) => ({ r, i })).filter(({ r }) => !movedOf(r)).map(({ r, i }) => (
+                  <li key={i} className={`${META} break-words`} data-compare-still-row={i}><span className="text-text-body">{what(r)}</span>: <SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</li>
+                ))}
+              </ul>
+            </Fold>
+          )}
+      </section>
+      {told === null ? null : (
+        // Where a reading moved: the one useful press where core credits no single change, and core's own line for every result one press
+        // away (the largest move first), each in its own words, so no one result's line stands for the rest.
+        <section className="grid gap-2" aria-label="What Olumi credits" data-testid="core-compare-credit" data-sole={since!.sole ?? ''}>
+          {since!.sole === null ? <AskWhich /> : null}
+          <Fold id="core-compare-readings" summary={since!.lines.length === 1 ? 'Olumi’s reading' : `Olumi’s reading of each result (${since!.lines.length})`}>
+            <ul className="m-0 grid list-none gap-1.5 p-0">
+              {[told, ...since!.lines.map((l, i) => ({ l, i })).filter(({ i }) => i !== told.i)].map(({ l, i }) => (
+                <li key={i} className={`${META} break-words`} data-view={`run.since.lines.${i}.line`}>{l.line}</li>
+              ))}
+            </ul>
+          </Fold>
+        </section>
+      )}
+      {c.versions.length === 0 ? null : (
+        <Fold id="core-compare-who" summary="Who proposed and approved">
+          <ul className="m-0 grid list-none gap-1 p-0">{c.versions.map((v) => <li key={v.n} className={`${META} break-words`}><span className="text-text-body">Version {v.n}:</span> {whoOf(v)}</li>)}</ul>
+        </Fold>
+      )}
+    </div>
+  )
+}
+
+/** One moved result: what it is (core's `label`), the track where core gives the numbers, and its words before and after. */
+function MovedResult({ r, i, names }: { r: Move; i: number; names: { first: string; second: string } }): JSX.Element {
+  const track = r.kind === 'most_likely' ? null : <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} names={names} />
+  return (
+    <li className="grid gap-1" data-compare-result={i} data-compare-move={r.move}>
+      <p className={`${BODY} break-words text-text-header`}>{what(r)}</p>
+      {track}
+      <p className={`${META} break-words`}><SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</p>
+    </li>
+  )
+}
+
+/** Whose a change is, as an icon from the one registry: Olumi's blue mark, a person's mark, or nothing where core says neither. */
+function Whose({ olumi, theirs, words }: { olumi: boolean; theirs: boolean; words?: string }): JSX.Element | null {
+  return olumi ? <OkIcon id="olumi-mark" size={14} words={words ?? 'Olumi’s'} /> : theirs ? <OkIcon id="person-mark" size={14} words={words ?? 'A person’s'} /> : null
+}
+
+/**
+ * What changed. The View's own comparison names each changed figure by its card (`since.changed`): each is a press that selects and centres
+ * that card. Otherwise core's change lines between the two versions. Where both exist, core's full lines sit behind one press, counted at
+ * rest, so one named figure never reads as the only change.
+ */
+function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Element {
+  const cards = useViewStore((s) => s.view?.model?.cards)
+  const sid = useViewStore((s) => s.sid)
+  const named = since !== null && since.changed.length > 0 ? since.changed : null
+  const onCanvas = (id: string) => Array.isArray(cards) && cards.some((x) => x.id === id)
+  const lines = (
+    <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="core-compare-lines">
+      {c.changes.map((l, i) => (
+        <li key={i} className={`${BODY} flex min-w-0 items-start gap-1.5`} data-compare-line={i}>
+          <span className="mt-0.5 flex-none">{/* Core's mark, with its hover: ◆ is Olumi's; ◐ is the person's figure Olumi read as a range, so the person's. */}
+          <Whose olumi={l.olumi ?? l.mark?.glyph === '◆'} theirs={l.mark !== null && !(l.olumi ?? l.mark.glyph === '◆')} words={l.mark?.title} /></span>
+          <span className="min-w-0 break-words">{l.text}{l.detail ? <> <span className="whitespace-pre-line text-text-light">{l.detail}</span></> : null}</span>
+        </li>
+      ))}
+    </ul>
+  )
+  return (
+    <section className="grid gap-2" aria-label="What changed" data-testid="core-compare-changes">
+      <h4 className={H}>What changed</h4>
+      {named === null
+        ? (c.changes.length === 0 ? <p className={META} data-testid="core-compare-changes-none">No change to the model</p> : lines)
+        : (
+          <>
+            <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-named">
+              {named.map((x, i) => {
+                const body = <><span className="mt-0.5 flex-none"><Whose olumi={x.whose === 'olumi'} theirs={x.whose === 'theirs'} /></span><span className="min-w-0 break-words" data-view={`run.since.changed.${i}.label`}>{x.label}</span></>
+                return (
+                  <li key={x.id} data-since-changed={x.id} data-since-whose={x.whose ?? ''}>
+                    {onCanvas(x.id)
+                      ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} title="Show it on the canvas" onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</button>
+                      : <p className={`${BODY} flex min-w-0 items-start gap-1.5`}>{body}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+            {c.changes.length === 0 ? null : (
+              <Fold id="core-compare-all-lines" summary={c.changes.length === 1 ? 'The change line' : `All ${c.changes.length} change lines`}>{lines}</Fold>
+            )}
+          </>
+        )}
+    </section>
+  )
+}
+
+/** A press on a changed figure: its card selected and centred. A card Simple has folded into the inputs group is not drawn, so the group is
+ *  opened first (the group's own press, `setInputsOpen`) and the card is centred once the board draws it (`focusWhenDrawn`). */
+export function showCard(sid: string, id: string): void {
+  if (useCanvasStore.getState().nodes.some((n) => n.id === id)) { focusNodeById(id); return }
+  setInputsOpen(sid, true)
+  focusWhenDrawn(id)
+}
+
+/** One press: an editable question in the chat's message box, never sent (the chat is loaded on the press, so this module never imports it). */
+function AskWhich(): JSX.Element {
+  const [placed, setPlaced] = useState(false)
+  const ask = () => { void import('../olumiView/ViewChat').then((m) => { m.prefillComposer(ASK_WHICH.request); setPlaced(true) }) }
+  return (
+    <div className="grid justify-items-start gap-1" data-testid="core-compare-ask">
+      <Button size="sm" variant="secondary" data-testid="core-compare-ask-go" onClick={ask}>
+        <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative />{ASK_WHICH.label}</span>
+      </Button>
+      <p role="status" className={META} data-testid="core-compare-ask-placed">{placed ? ASK_WHICH.placed : ''}</p>
     </div>
   )
 }

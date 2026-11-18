@@ -61,10 +61,12 @@ describe('the catch row: Compare is on the lane and shows a two-version scenario
     render(<CoreCompareTab />)
     await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
     expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=2`)
-    const lines = [...screen.getByTestId('core-compare-changes').querySelectorAll('li')].map((l) => l.textContent)
-    expect(lines).toEqual(['+ figure: staff absence 2 to 10 ticket/week ◆', '↻ figure: per specialist from 20 to 15'])
-    expect(screen.getByLabelText('Proposed by Olumi: typical absence').textContent).toBe('◆') // Olumi's mark, its hover core's
-    expect(screen.getByTestId('core-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
+    // No `since` on this View: core's change lines, each in core's words, Olumi's with core's own hover on the registry mark.
+    const lines = [...screen.getByTestId('core-compare-lines').querySelectorAll('li')].map((l) => l.textContent)
+    expect(lines).toEqual(['+ figure: staff absence 2 to 10 ticket/week', '↻ figure: per specialist from 20 to 15'])
+    expect(screen.getByLabelText('Proposed by Olumi: typical absence').closest('[data-compare-line]')!.getAttribute('data-compare-line')).toBe('0')
+    expect(screen.getByTestId('core-compare-lines').querySelectorAll('[role="img"]').length).toBe(1) // CONTRAST: the person's line carries no mark
+    expect(screen.getByTestId('core-compare-moved').querySelector('[data-compare-result="0"]')!.textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’about 50% chance → about 40% chance ◆ (down)')
   }, 120_000)
 })
 
@@ -75,39 +77,35 @@ describe('the Compare tab', () => {
     expect(screen.getByTestId('core-compare-one')).toBeTruthy()
     expect(paths.filter((p) => p.includes('/compare'))).toEqual([])
   })
-  it('a pair the person picks is read from core; the same version twice is refused here, as core refuses it', async () => {
+  it('one picker: the version shown with each earlier version, newest first; a pick is read from core at once, with no Compare button', async () => {
     useViewStore.setState({ view: withVersion(3) })
+    setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? COMPARED : p.includes('/versions') ? { versions: [...VERSIONS.versions, { ...VERSIONS.versions[1]!, id: 43, n: 3 }] } : useViewStore.getState().view), { status: 200 }) }) as unknown as typeof fetch)
     render(<CoreCompareTab />)
     await waitFor(() => expect(paths).toContain(`/api/scenarios/${SID}/compare?from=2&to=3`))
-    fireEvent.change(screen.getByTestId('core-compare-from'), { target: { value: '1' } })
-    fireEvent.click(screen.getByTestId('core-compare-go'))
+    expect(screen.getByTestId('core-compare-base').textContent).toBe('Version 3 with')
+    const pick = screen.getByTestId('core-compare-with') as HTMLSelectElement
+    expect(pick.querySelectorAll('optgroup').length).toBe(0) // one kind of choice: no group headings (compareTab.spec CT7 has all three)
+    expect([...pick.options].filter((o) => o.value.startsWith('v:')).map((o) => [o.value, o.textContent])).toEqual([['v:2', 'Version 2'], ['v:1', 'Version 1']])
+    expect(screen.queryByTestId('core-compare-go')).toBeNull()
+    fireEvent.change(pick, { target: { value: 'v:1' } })
     await waitFor(() => expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=3`))
-    fireEvent.change(screen.getByTestId('core-compare-from'), { target: { value: '3' } })
-    fireEvent.click(screen.getByTestId('core-compare-go'))
-    expect(screen.getByTestId('core-compare-error').textContent).toBe('Pick two different versions.')
   })
 })
 
-// The panel's design language (Paul, 6 Nov side-by-side: native full-width selects and bare text lines): on the dock's Compare tab each list
-// sits in the panel's card under a panel heading and the version pickers are compact; inside the Team tab's own section it stays inline.
-describe('the Compare tab reads in the panel\'s design language', () => {
-  it('catch: three cards with panel headings, compact pickers; the words unchanged; inline (no cards) where another section holds it', async () => {
+// Removed with the redesign (18 Nov): the boxed three-card layout and its "Who proposed and approved" list in the tab. The Team tab's compare,
+// inside its own section, stays inline and keeps who proposed and approved.
+describe('the Compare tab and the Team tab\'s compare', () => {
+  it('the tab keeps "Who proposed and approved" one press away, in core\'s words, and no boxed parts; CONTRAST: the Team tab\'s compare keeps its inline lists', async () => {
     render(<CoreCompareTab />)
     await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
-    const parts = [...screen.getByTestId('core-compare-out').querySelectorAll('[data-compare-part]')]
-    expect(parts.map((p) => p.getAttribute('data-compare-part'))).toEqual(['versions', 'changes', 'results'])
-    for (const p of parts) {
-      expect(p.className, p.getAttribute('data-compare-part')!).toMatch(/\bborder\b.*\bbg-panel\b|\bbg-panel\b.*\bborder\b/)
-      expect(p.querySelector('h4')?.className).toContain('text-sm')
-    }
-    expect(parts.map((p) => p.querySelector('h4')?.textContent)).toEqual(['Who proposed and approved', 'What changed', 'How the results moved'])
-    for (const t of ['core-compare-from', 'core-compare-to']) expect(screen.getByTestId(t).className, t).not.toContain('w-full')
-    // The words are core's and unchanged: the result's line reads as before.
-    expect(screen.getByTestId('core-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
+    const who = screen.getByTestId('core-compare-who')
+    expect([who.tagName, who.hasAttribute('open'), who.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, 'Who proposed and approved'])
+    expect(who.querySelector('li')!.textContent).toBe('Version 2: proposed by Bea · approved by Ada')
+    expect(screen.getByTestId('core-compare-tab').querySelectorAll('[data-compare-part]').length).toBe(0)
     cleanup()
-    // CONTRAST: the Team tab's compare, inside its own section, stays inline.
     render(<CoreCompare sid={SID} latest={2} id="team-compare" auto />)
     await waitFor(() => expect(screen.getByTestId('team-compare-out')).toBeTruthy())
+    expect(screen.getByTestId('team-compare-out').textContent).toContain('Who proposed and approved')
     expect(screen.getByTestId('team-compare-out').querySelectorAll('[data-compare-part]').length).toBe(0)
   })
 })
@@ -211,11 +209,12 @@ describe('R1 review 2: Compare takes the latest approved version from core, not 
     setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? COMPARED : THREE), { status: 200 }) }) as unknown as typeof fetch)
     useViewStore.setState({ view: withVersion(1), at: 1 }) // version 1 drawn on the canvas; core holds 3
   })
-  it('the dock\'s Compare tab offers all three versions and reads 2 against 3', async () => {
+  it('the dock\'s Compare tab reads 2 against 3 and offers both earlier versions', async () => {
     render(<CoreCompareTab />)
     await waitFor(() => expect(paths).toContain(`/api/scenarios/${SID}/compare?from=2&to=3`))
     expect(screen.queryByTestId('core-compare-one')).toBeNull()
-    expect([...screen.getByTestId('core-compare-to').querySelectorAll('option')].map((o) => o.textContent)).toEqual(['version 1', 'version 2', 'version 3'])
+    expect(screen.getByTestId('core-compare-base').textContent).toBe('Version 3 with')
+    expect([...(screen.getByTestId('core-compare-with') as HTMLSelectElement).options].filter((o) => o.value.startsWith('v:')).map((o) => o.textContent)).toEqual(['Version 2', 'Version 1'])
   })
   it('the Team tab\'s compare offers all three too', async () => {
     render(<ComparePanel sid={SID} view={withVersion(1)} />)

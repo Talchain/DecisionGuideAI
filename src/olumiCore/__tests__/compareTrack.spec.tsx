@@ -25,7 +25,7 @@ const CORE: Compared = {
 
 describe('the version compare: core says every word; the shift track sits where core\'s numbers put it', () => {
   it("draws core's label, move and who verbatim, never the page's own sentence; one track for the chance, none for the most-likely line", () => {
-    const { container } = render(<ComparedLists c={CORE} boxed />)
+    const { container } = render(<ComparedLists c={CORE} />)
     const text = container.textContent!
     for (const w of ['CORE-WHO-1', 'CORE-WHO-2', 'CORE-LABEL', 'CORE-MOVE', 'CORE-LEAD', 'CORE-SAME']) expect(text).toContain(w)
     expect(text).not.toContain('‘Add one specialist’ on ‘At least 100 a week’')
@@ -38,7 +38,7 @@ describe('the version compare: core says every word; the shift track sits where 
   it("an older core without the words or numbers: the page's same words as before, and no track (never a mark at 0%)", () => {
     const old = { ...CORE, versions: CORE.versions.map(({ who: _w, ...v }) => v), results: [{ ...CORE.results[0]!, label: undefined, move_text: undefined,
       before: { value: 'about 50%', title: 't', olumi: null }, after: { value: 'about 90%', title: 't', olumi: null } }] } as Compared
-    const { container } = render(<ComparedLists c={old} boxed />)
+    const { container } = render(<ComparedLists c={old} />)
     expect(container.textContent).toContain('‘Add one specialist’ on ‘At least 100 a week’')
     expect(container.textContent).toContain('(up)')
     expect(container.querySelector('[data-compare-track]')).toBeNull()
@@ -89,7 +89,7 @@ describe("each chance as its option card draws it: core's headline, then the car
   })
   it('version compare: the headline, then the companion in light words; an older core draws its value as before', () => {
     const withSplit = { ...CORE, results: [{ ...CORE.results[0]!, before: { value: LONG, title: 't', olumi: null, chance: 0.13, headline: 'about 13%', companion: COMP } }] } as Compared
-    const { container } = render(<ComparedLists c={withSplit} boxed />)
+    const { container } = render(<ComparedLists c={withSplit} />)
     const li = container.querySelector('[data-testid="team-compare-results"] li')!
     expect(li.textContent).toContain(`about 13% (${COMP.text})`)
     expect(li.textContent).not.toContain(LONG)
@@ -220,7 +220,7 @@ describe('UI audit item 1: versions picked later-first are asked earlier-first, 
       changes: [], results: [{ kind: 'chance', option: 'hire', optionLabel: 'Hire', aim: 'Aim', condition: null, move: 'up', label: 'L', move_text: 'up',
         before: { value: 'about 20%', title: 't', olumi: null, chance: 0.2, headline: 'about 20%', companion: null }, after: { value: 'about 70%', title: 't', olumi: null, chance: 0.7, headline: 'about 70%', companion: null } }] }
     setTeamFetch((async (u: unknown) => { asked.push(String(u)); return new Response(JSON.stringify(answer), { status: 200 }) }) as unknown as typeof fetch)
-    render(<CoreCompare sid="s_1" latest={3} id="v" boxed />)
+    render(<CoreCompare sid="s_1" latest={3} id="v" />)
     fireEvent.change(screen.getByTestId('v-from'), { target: { value: '3' } })
     fireEvent.change(screen.getByTestId('v-to'), { target: { value: '2' } })
     fireEvent.click(screen.getByTestId('v-go'))
