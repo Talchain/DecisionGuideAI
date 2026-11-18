@@ -397,4 +397,16 @@ describe('the Model tab: every model word carries its View path', () => {
     expect(detail.querySelector(`[data-model-action="from"] [data-view="${linkEndPath(model, l.from)}"]`)?.textContent).toBe(linkEndHeading(model, l.from))
     expect(detail.querySelector(`[data-model-action="to"] [data-view="${linkEndPath(model, l.to)}"]`)?.textContent).toBe(linkEndHeading(model, l.to))
   })
+
+  it('polish 8: the Plain | Expert switch draws its chosen arm in the lens bar\'s selected style, never filled black', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    const arm = (k: 'plain' | 'expert') => c.querySelector<HTMLElement>(`[data-model-expert-arm="${k}"]`)!
+    for (const k of ['plain', 'expert'] as const) expect(arm(k).className, k).not.toContain('bg-text-header')
+    expect(arm('plain').className).toContain('border-text-header')
+    expect(arm('plain').className).toContain('bg-panel-hover')
+    expect(arm('expert').className).not.toContain('border-text-header')
+    fireEvent.click(arm('expert'))
+    expect(arm('expert').className).toContain('border-text-header')
+    expect(arm('plain').className).not.toContain('border-text-header')
+  })
 })
