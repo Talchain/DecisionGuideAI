@@ -52,11 +52,14 @@ export async function go(target: JourneyTarget): Promise<boolean> {
   if (target.kind === 'olumi') { useUIStore.getState().forceActivateOutputTab('olumi'); return true }
   // A piece of evidence opens in the Team tab as its chip opens it (`RevealMarks.openEvidence`); nothing opens there while an earlier
   // version is drawn.
-  if (target.kind === 'evidence') {
-    if (useViewStore.getState().at !== null) return false
-    const { useReveal } = await import('../../reveal')
-    useReveal.getState().selectEvidence(target.id)
-  }
+  // A commitment, an outcome, a disagreement or the views: the Team tab's own panels. A reveal or evidence panel open there fills the tab in
+  // their place, so it steps aside first, as `goToOutcome` does (olumiCore/team/outcomeNav.ts; picture run 3: a commitment press after an
+  // evidence press left the evidence showing).
+  if (target.kind === 'evidence' && useViewStore.getState().at !== null) return false
+  const [{ useReveal }, { forgetLanded }] = await Promise.all([import('../../reveal'), import('../../revealReturn')])
+  forgetLanded()
+  if (target.kind === 'evidence') useReveal.getState().selectEvidence(target.id)
+  else useReveal.getState().select(null)
   useUIStore.getState().forceActivateOutputTab('team')
   return true
 }
