@@ -703,6 +703,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   // choices and approve again.
   const unsure = useRef<string | null>(null)
   const [refused, setRefused] = useState(false)
+  // What core said when it refused this card's own approval or set-aside (its words, verbatim), drawn IN the card beside the actions it answers
+  // (015, 18 Nov: a refused selective approval was said under the message box, away from the ticked lines it was about). Said once: not under the composer too.
+  const [said, setSaid] = useState<string | null>(null)
   const approve = (lines?: { only: string[]; only_top: string[] }) => {
     const every = { only: changes.flatMap((c) => (c.top ? [] : [c.id])), only_top: changes.flatMap((c) => (c.top ? [c.id] : [])) }
     const withReadings = onlyReadings.length + refuseReadings.length > 0
@@ -711,7 +714,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
     if (unsure.current !== null && unsure.current !== sent && (/"(only|refuse)_readings"/.test(unsure.current) || withReadings)) { setRefused(true); return }
     setRefused(false)
     // After it is saved the controls go back to the original: the screen then draws the View core returns, never what was chosen here.
-    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true)
+    void act(() => writes.approve(p.id, p.base, body).then((answer) => { unsure.current = null; setChoice({}); noteSaved(answer) }, (e: unknown) => { if (e instanceof TeamApiError && e.uncertain) unsure.current = sent; throw e }), true, setSaid)
   }
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
@@ -754,6 +757,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
           <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
             {groups.map((g, gi) => {
               const all = g.lines.length > 0 && g.lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
+              // Some but not all of its lines are ticked (a line ticked inside it, or pulled in as another line's partner while the group is closed): the
+              // box shows the mixed state, so a closed group never hides that part of it is chosen.
+              const part = !all && g.lines.some((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
               return (
                 <li key={gi}>
                   {/* Closed at rest, a group opens on press (DL 11 Nov, replacing PL 7 Nov's open groups: 36 lines filled the panel). The heading
@@ -761,7 +767,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
                   <details data-testid={`view-change-group-box-${gi}`}>
                     <summary className="cursor-pointer">
                       <label className="mr-1 inline-flex min-h-[24px] min-w-[24px] cursor-pointer items-center justify-center align-middle" onClick={(e) => e.stopPropagation()} data-target-for={`view-change-group-${gi}`}>
-                        <input type="checkbox" checked={all} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
+                        <input type="checkbox" checked={all} ref={(el) => { if (el !== null) el.indeterminate = part }} data-group-part={part ? '' : undefined} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
                           aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
                       </label>
                       <span className="font-medium text-text-header" data-view={`proposal.groups.${gi}.heading`}>{g.heading}</span>
@@ -790,6 +796,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
+      {said === null ? null : <p role="alert" data-testid="view-proposal-said">{said}</p>}
       {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
           quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
           not support the change, the filled button opens the review instead (nothing is approved blind). */}
@@ -803,7 +810,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
-        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
+        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings), false, setSaid)} />}
       </div>
     </div>
   )

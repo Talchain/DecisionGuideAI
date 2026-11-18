@@ -179,7 +179,7 @@ describe('choose per reading', () => {
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
-    expect(useViewChat.getState().said).not.toBeNull() // core's or the client's words for the write that did not go through
+    expect(screen.queryByTestId('view-proposal-said'), 'said in the card, beside the actions').not.toBeNull() // core's or the client's words for the write that did not go through
     expect(radio(0, 'use').checked).toBe(true) // the choice is still on screen for the retry
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(2))
@@ -215,7 +215,7 @@ describe('choose per reading', () => {
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
-    expect(useViewChat.getState().said).toBe('That reading is no longer on offer.') // core's own words
+    expect(screen.getByTestId('view-proposal-said').textContent).toBe('That reading is no longer on offer.') // core's own words
     fireEvent.click(radio(0, 'keep')); fireEvent.click(radio(1, 'use'))
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(2))
