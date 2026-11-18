@@ -123,9 +123,10 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
   // proposal stays unapproved; nothing here is read from it.
   const anchored = view.version !== null
-  // The option this commitment is about, named on the form when it is a live option of the approved model (the id itself is what is sent, as before).
+  // The option this commitment is about: sent ONLY when it is a live option of the approved model and so named on the form (a draft's option set
+  // aside or removed since is never written unseen; review finding 18 Nov).
   const approved = useViewStore(currentModel)
-  const bound = anchored && d.option && d.option !== '-' ? approved?.cards.find((x) => x.id === d.option && x.family === 'option' && x.status === null) ?? null : null
+  const bound = anchored && d.option && d.option !== '-' ? (approved ?? view.model)?.cards.find((x) => x.id === d.option && x.family === 'option' && x.status === null) ?? null : null
   const owner = d.owner === '' ? view.you_id : d.owner
   const ready = [d.action, d.expect, d.reconsider].every((t) => t.trim() !== '') && view.collab.owners.some((o) => o.id === owner)
   const put = (p: Partial<Draft>) => { setD((x) => ({ ...x, ...p })); if (error) setError(null) }
@@ -133,7 +134,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     if (!ready || locked || busy) return
     setBusy(true); setError(null)
     try {
-      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: anchored && d.option && d.option !== '-' ? d.option : null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
+      await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: bound?.id ?? null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
       drop()
       // Saved: the form folds back to its one line. It stayed open and empty when the person had opened it by its own button (the native
       // team journey, 17 Nov: an expanded empty form left after save).

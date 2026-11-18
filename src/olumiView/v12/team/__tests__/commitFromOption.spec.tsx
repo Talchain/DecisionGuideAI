@@ -39,6 +39,22 @@ describe('Commit to this', () => {
     expect(body.option).toBe(OPT)
     expect(body.version).toBe(1)
   })
+  it('an option set aside after "Commit to this" is never written unseen: the form names no option and the POST carries option null', async () => {
+    useLaneInspector.getState().open({ kind: 'card', id: OPT })
+    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    fireEvent.click(await screen.findByTestId('lane-inspector-commit'))
+    await screen.findByTestId('commit-form-option')
+    const v = useViewStore.getState().view!
+    useViewStore.setState({ view: { ...v, model: { ...v.model!, cards: v.model!.cards.map((c) => (c.id === OPT ? { ...c, status: 'set_aside' } : c)) } } as View })
+    await waitFor(() => expect(screen.queryByTestId('commit-form-option')).toBeNull())
+    fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Open one market first' } })
+    fireEvent.change(screen.getByTestId('commit-form-expect'), { target: { value: 'Sign-ups by March' } })
+    fireEvent.change(screen.getByTestId('commit-form-reconsider'), { target: { value: 'Below 50' } })
+    stub.answer.body = { commitment: 8 }
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    await waitFor(() => expect(stub.posts().some((c) => c.path.endsWith('/commitments'))).toBe(true))
+    expect((stub.posts().find((c) => c.path.endsWith('/commitments'))!.body as Record<string, unknown>).option ?? null).toBeNull() // api.ts sends no key for no option
+  })
   it('CONTRAST: a factor card offers no "Commit to this"', async () => {
     const factor = approved().model!.cards.find((c) => c.family !== 'option' && c.family !== 'risk')!
     useLaneInspector.getState().open({ kind: 'card', id: factor.id })
