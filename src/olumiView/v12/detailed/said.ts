@@ -2,7 +2,7 @@
  * DETAILED: EACH FACT SAID ONCE ON THE BOARD (Paul, 17 Nov 2026: "a much better version of the detailed view to make it not overwhelming but
  * truly valuable with rich data"; his capture showed every option card repeating "No chance yet", the same limit and "Not calculated").
  * Where every option card would say the same words, the board says them once, on the card they are about (the aim, else the question), and
- * the option cards keep only the visual: an outlined empty track. Read by field and compared as core's words; no word is changed or reordered.
+ * the option cards then say nothing of it (no empty track: Paul, 16 Nov). Read by field and compared as core's words; no word is changed or reordered.
  * Two or more options only: one option's words are never "shared".
  */
 import type { ViewCard, ViewModel } from '../../client'
@@ -41,7 +41,7 @@ const noneWords = (r: Row): string | null => {
 
 /**
  * Per aim an option's other rows name (rows[].aim_id, other than its headline's): the state words every option says alike for that aim, when
- * every option has such a row and none of them is worked out. Said once on that aim's card; the option rows keep the empty track.
+ * every option has such a row and none of them is worked out. Said once on that aim's card; the option rows say nothing of it.
  */
 export function sharedRowStates(model: ViewModel | null): ReadonlyMap<string, Said> {
   const opts = optionsOf(model), out = new Map<string, Said>()

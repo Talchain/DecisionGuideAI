@@ -5,8 +5,8 @@
  * Icons are Lucide (14 px, stroke 1.75); the icon registry the UI lane is building takes this map over when it lands.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useLayoutEffect, useRef, useState } from 'react'
-import { CalendarClock, ChevronDown, Layers, ScrollText, Unlink } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarClock, Layers, ScrollText, Unlink } from 'lucide-react'
 import type { ViewCard, ViewModel } from '../../client'
 import { toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
@@ -89,14 +89,14 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
   )
 }
 
-/** One result row: a lead (the aim's marker, or the option's letter), a mini track (core's chance, else an outlined empty track where nothing can
+/** One result row: a lead (the aim's marker, or the option's letter), a mini track (core's chance, else no track where nothing can
  *  be worked out yet), core's value or state words, and Olumi's mark where the value rests on Olumi's figures. */
 function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: RowT; at: string; words: string; hover: string; mark: Record<string, string | boolean | undefined> }): JSX.Element {
   const chance = typeof r.chance === 'number' && r.chance >= 0 && r.chance <= 1 ? r.chance : null
   return (
     <div className="ok-dt-aim" title={hover} data-view={at} data-aim-row={r.kind} {...mark}>
       {lead}
-      {r.kind === 'none' ? <span className="ok-dt-mini ok-dt-mini-empty" data-withheld-row={at} />
+      {r.kind === 'none' ? <span className="ok-dt-mini-none" data-withheld-row={at} />
         : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
         : <span className="ok-dt-mini-none" />}
       <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} /></span>
@@ -110,7 +110,7 @@ const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) =>
 /**
  * EACH AIM'S RESULTS, ON THE AIM'S OWN CARD (Paul's 17 Nov capture: every option card repeated the same limit, "Avoid dipping into personal
  * savings"). The aim names itself once; under it, one row per option by its letter (the option's name is said on its own card): core's chance
- * as a mini track, or an outlined empty track where nothing can be worked out yet, and core's words. A state every option says alike for the
+ * as a mini track, or no track where nothing can be worked out yet, and core's words. A state every option says alike for the
  * aim is said once instead (said.ts sharedRowStates, drawn by SaidOnce), with no rows. The headline's own aim is not drawn here: the option
  * cards and the question's rail carry it.
  */
@@ -150,7 +150,7 @@ export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }):
   if (lines.length === 0) return null
   return (
     <div className="ok-dt-said" data-said-once-on={at}>
-      {lines.map((s, i) => <p key={i} className="ok-dt-said-line" title={s.title}><span className="ok-dt-mini ok-dt-mini-empty" aria-hidden="true" /><RowWords words={s.text} at={`${at}.said.${i}`} /></p>)}
+      {lines.map((s, i) => <p key={i} className="ok-dt-said-line" title={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} /></p>)}
     </div>
   )
 }
@@ -159,29 +159,4 @@ export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }):
 export const hasSpread = (card: ViewCard): boolean => {
   const r = figureRange(card)
   return r !== null && Number.isFinite(r.low) && Number.isFinite(r.high) && r.high > r.low
-}
-
-/**
- * A long title on Detailed shows three lines (the look clamps it); where it is cut, this press opens the whole words out of the card's flow
- * (`.ok-pop`), so the board never moves. Core's words whole, never reworded; also the title's own hover.
- */
-export function WholeTitle({ id, words }: { id: string; words: string }): JSX.Element | null {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [cut, setCut] = useState(false), [open, setOpen] = useState(false)
-  useLayoutEffect(() => {
-    const title = ref.current?.closest('[role="group"]')?.querySelector<HTMLElement>('[data-testid="node-title"]') ?? null
-    if (title === null) return
-    const check = () => setCut(title.scrollHeight > title.clientHeight + 1)
-    check()
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check)
-    ro?.observe(title)
-    return () => ro?.disconnect()
-  }, [words])
-  return (
-    <span ref={ref} className="ok-dt-whole" data-whole-title={id} hidden={!cut || undefined}>
-      {cut ? <button type="button" className="ok-dt-icon ok-dt-press nodrag nopan" title="Show the whole title" aria-label="Show the whole title" aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}><ChevronDown {...ICON} /></button> : null}
-      {cut && open ? <p className="ok-pop nodrag nopan" role="note" data-whole-title-words={id}>{words}</p> : null}
-    </span>
-  )
 }

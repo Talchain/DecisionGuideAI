@@ -28,7 +28,7 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowWords, SaidOnce, UnusedMark, WholeTitle } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -306,8 +306,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // verbatim; nothing formatted, rounded or worked out here. Each fact is said once on the board (v12/detailed/said.ts), whose it is is a
   // mark, and what a sentence used to say is a visual where the View gives one:
   //  - an option: its headline as the View serves it: a chance (core's words up to its first clause, 18 px, over its gauge; the clause under
-  //    it unless every option says the same one, which the question's rail says once), a fixed result said as fixed, or no chance yet (an
-  //    outlined empty track, with core's line only where it is the option's own: R6's line, said once where every option says it);
+  //    it unless every option says the same one, which the question's rail says once), a fixed result said as fixed, or no chance yet (core's line only, no empty track: R6's line, said once where every option says it);
   //    its other aims are compact marker rows (v12/detailed/marks.tsx AimRows);
   //  - a figure: Olumi's estimate underlined in Olumi's blue with Olumi's mark, the person's solid, ✎ on its line; the options' values as
   //    letter strips (v12/detailed/charts.tsx Strips);
@@ -318,11 +317,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
     // An option core sends no headline for (its rows only): each aim's card says its rows by letter (AimResults). Only where nothing can be worked
-    // out on any aim is the option's own face the empty gauge, core's first row its words; a row with a result is never drawn as "no chance".
+    // out on any aim and the first row is about no aim is the option's own face core's words, with no empty track; a row with a result is never drawn as "no chance".
     // A row about no aim (core's own line for the option, such as its setting question) is the option's own: drawn whole, or one press away when long.
-    if (card.family === 'option' && card.headline == null) return card.rows.length > 0 && card.rows.every((r) => r.kind === 'none') ? (
-      <div data-core-lead={id} data-ok-face="none" title={lead}><span className="ok-dt-mini ok-dt-mini-empty ok-dt-gauge-empty" role="img" aria-label={lead} data-withheld-track={id} />
-        {card.rows[0]!.aim_id == null ? <p className="ok-quiet" data-view={`${id}.rows.0.text`}><RowWords words={lead} at={`${id}.rows.0`} /></p> : null}</div>
+    if (card.family === 'option' && card.headline == null) return card.rows.length > 0 && card.rows.every((r) => r.kind === 'none') && card.rows[0]!.aim_id == null ? (
+      <div data-core-lead={id} data-ok-face="none" title={lead}><p className="ok-quiet" data-view={`${id}.rows.0.text`}><RowWords words={lead} at={`${id}.rows.0`} /></p></div>
     ) : null
     const hover = [lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined
     const trail = cueOnLead ? <>{' '}{editCue}</> : null
@@ -354,7 +352,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       const once = said.none !== null
       return (
         <div data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} title={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
-          <span className="ok-dt-mini ok-dt-mini-empty ok-dt-gauge-empty" role="img" aria-label={line} data-withheld-track={id} />
           {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </div>
@@ -476,7 +473,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
           {/* THE FOOT, ONE ROW OF MARKS (Detailed, 17 Nov; Paul: provenance as marks and colour, not sentences; text as icons with a hover): the
               notation's tags ("baseline", "assumption", the limit's word), core's honesty mark, the working, what core folded behind the card as a
-              count, a change the frame does not say, the whole title where it is cut; whose it is at the right (Olumi's mark or a person's, both
+              count, a change the frame does not say; whose it is at the right (Olumi's mark or a person's, both
               where mixed), core's author words its hover and name. */}
           <div className="ok-dt-foot">
             {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
@@ -487,7 +484,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}
             {changeOn === 'foot' ? changeMark : null}
             {cueOnAuthor ? editCue : null}
-            <WholeTitle id={id} words={titleOverride ?? label} />
             <span className="ok-dt-whose" data-core-author={id}><AuthorMark card={card} size={14} /></span>
           </div>
           </>}

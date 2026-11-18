@@ -1,11 +1,11 @@
 /**
  * THE DETAILED FACE'S TWO CHARTS, each a fact said once with the options named by their letters (the option's name is said on its own card):
  *  - Rail (the question card): every option's chance on ONE 0..100% scale, a dot at core's served chance and core's range as a whisker, core's
- *    number words at the right. An option with no chance yet is its letter over an outlined empty lane: never a zero, never a run-on of names.
+ *    number words at the right. An option with no chance yet is its letter and core's words, with no lane (no empty track at rest): never a zero, never a run-on of names.
  *    No option with a chance: no rail (nothing to compare).
  *  - Strips (a figure worked out per option): each option's middle band on one true axis shared by the rows (SimpleFace bandRowsOf, the same
- *    numbers Simple draws), its median tick, core's value words at the right; an option core could not calculate is its letter, an outlined
- *    lane and core's reason; the aim's own value a gold tick where this card is what the aim measures.
+ *    numbers Simple draws), its median tick, core's value words at the right; an option core could not calculate is its letter and core's
+ *    reason, with no lane; the aim's own value a gold tick where this card is what the aim measures.
  * Read only from the View (railRows.ts, SimpleFace.tsx, contract.ts); nothing is worked out, rounded or reworded here. Look: `.ok-dt-*`.
  */
 import { useMemo } from 'react'
@@ -43,11 +43,13 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
         return (
           <div key={l.id} className="ok-dt-rail-row" data-rail-row={l.id} title={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
             <span className="ok-letter" data-letter-chip={letterOf(letters, l.id)}>{letterOf(letters, l.id)}</span>
-            <span className={`ok-dt-rail-lane ${l.on ? '' : 'ok-dt-rail-lane-empty'}`} role="img" aria-label={`${l.name}: ${l.text}`} data-rail-lane={l.id}>
-              {l.on && l.band !== null ? <i className="ok-dt-rail-whisker" data-rail-whisker={l.id} style={{ left: `${l.band.from}%`, width: `${l.band.to - l.band.from}%` }} /> : null}
-              {l.on ? <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ left: `${l.at * 100}%` }} /> : null}
-            </span>
-            <span className="ok-dt-rail-val" data-view={`${l.id}.headline.text`}>{l.on ? head : ''}{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
+            {l.on ? (
+              <span className="ok-dt-rail-lane" role="img" aria-label={`${l.name}: ${l.text}`} data-rail-lane={l.id}>
+                {l.band !== null ? <i className="ok-dt-rail-whisker" data-rail-whisker={l.id} style={{ left: `${l.band.from}%`, width: `${l.band.to - l.band.from}%` }} /> : null}
+                <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ left: `${l.at * 100}%` }} />
+              </span>
+            ) : null}
+            <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`} data-view={`${l.id}.headline.text`}>{l.on ? head : l.text}{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
           </div>
         )
       })}
@@ -81,8 +83,7 @@ export function Strips({ card, model }: { card: ViewCard; model: ViewModel | nul
       {held.map((w) => (
         <div key={w.option} className="ok-dt-strip" title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-strip-withheld={w.option}>
           <span className="ok-letter">{letterOf(letters, w.option)}</span>
-          <span className="ok-dt-strip-lane ok-dt-rail-lane-empty" />
-          <span className="ok-dt-strip-val ok-dt-quiet">{w.text}</span>
+          <span className="ok-dt-strip-val ok-dt-strip-none ok-dt-quiet">{w.text}</span>
         </div>
       ))}
       {axis === null || rows.length === 0 ? null : (

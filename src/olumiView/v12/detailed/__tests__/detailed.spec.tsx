@@ -20,6 +20,7 @@ import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { optionLetters } from '../../cards/letters'
 import { chanceParts, noChanceLineOf } from '../../cards/words'
 import { ROW_WORDS_MAX } from '../marks'
+import { figureRange } from '../../contract'
 import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
@@ -46,14 +47,14 @@ beforeEach(() => { window.localStorage.clear(); useSimpleLevel.setState({ levels
 afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('Detailed: each fact said once on the board (said.ts)', () => {
-  it('DT1 every option\'s no-chance line alike: said once on the aim it is about; each option keeps only the empty track. CONTRAST: one option\'s own step differs, so every option says its own line and the aim says none', () => {
+  it('DT1 every option\'s no-chance line alike: said once on the aim it is about; each option draws no empty track and no line. CONTRAST: one option\'s own step differs, so every option says its own line and the aim says none', () => {
     const opts = optionsOf(ASKED), line = noChanceLineOf(opts[0]!.headline!).line, aim = opts[0]!.headline!.aim_id!
     expect(opts.length, 'precondition: three options').toBe(3)
     expect(sharedNoChance(ASKED.model!)).toMatchObject({ text: line, at: aim })
     for (const o of opts) {
       const face = faceOf(draw(ASKED, o.id), o.id)
       expect([o.id, face.querySelector('[data-ok-face="none"]')?.hasAttribute('data-said-once'), face.querySelector(`[data-view="${o.id}.headline.add"]`), face.textContent?.includes(line)]).toEqual([o.id, true, null, false])
-      expect(face.querySelector(`[data-withheld-track="${o.id}"]`)?.getAttribute('aria-label')).toBe(line)
+      expect(face.querySelector('[data-withheld-track], .ok-dt-mini-empty, .ok-dt-gauge-empty'), 'no empty track at rest (Paul, 16 Nov)').toBeNull()
       cleanup()
     }
     expect(faceOf(draw(ASKED, aim), aim).querySelector(`[data-said-once-on="${aim}"]`)?.textContent).toBe(line)
@@ -66,6 +67,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(faceOf(draw(differs, opts[0]!.id), opts[0]!.id).querySelector(`[data-view="${opts[0]!.id}.headline.add"]`)?.textContent).toBe(line)
     cleanup()
     expect(faceOf(draw(differs, aim), aim).querySelector(`[data-said-once-on="${aim}"]`)).toBeNull()
+    cleanup()
+    expect(faceOf(draw(differs, opts[1]!.id), opts[1]!.id).querySelector('[data-withheld-track], .ok-dt-mini-empty'), 'the option with its own words draws them and no track').toBeNull()
   })
   it('DT2 a limit every option says alike ("Needs an answer"): said once on the limit\'s card, no row per option. CONTRAST: one option\'s row differs, so the limit card lists every option by its letter with its own words', () => {
     const aim = 'within_budget', opts = optionsOf(ASKED), letters = optionLetters(ASKED.model!)
@@ -149,5 +152,25 @@ describe('Detailed: marks, not sentences', () => {
     const v = withCard(HOSTING, { ...opt, rows: opt.rows.map((r, i) => (i === 1 ? { ...r, text: short } : r)) } as ViewCard)
     const s = faceOf(draw(v, 'protect_delivery_quality'), 'protect_delivery_quality').querySelector<HTMLElement>('[data-row-words="own_hosting.rows.1"]')!
     expect([s.hasAttribute('data-row-words-long'), s.textContent]).toEqual([false, short])
+  })
+  it('DT10 a title is never clamped or cut on Detailed (Paul, 16 Nov): core\'s heading whole as its hover, no press to show it, no clamp rule on the title. CONTRAST: Simple\'s compact card keeps its own two-line rule in the same stylesheet', () => {
+    const o = optionsOf(HIRING)[0]!, long = `${o.heading} ${'and the long rest of its name '.repeat(8)}`.trim()
+    for (const heading of [o.heading, long]) {
+      const el = draw(withCard(HIRING, { ...o, heading } as ViewCard), o.id)
+      const title = el.querySelector<HTMLElement>('[data-testid="node-title"]')!
+      expect([title.getAttribute('title') === heading && (title.textContent ?? '') !== '', title.className.includes('line-clamp'), el.querySelector('[data-whole-title], [data-whole-title-words]')]).toEqual([true, false, null])
+      cleanup()
+    }
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const clampOn = (sel: string) => css.split('}').filter((r) => r.includes(sel) && r.includes('node-title') && r.includes('-webkit-line-clamp: ') && !r.includes('line-clamp: unset')).length
+    expect([clampOn('[data-ok-detailed]'), clampOn('[data-simple-compact]')]).toEqual([0, 1])
+  })
+  it('DT11 a figure with one stated value and no range draws no range bar on Detailed (no empty 0-to-x bar). CONTRAST: the same card with a range that has a spread draws one', () => {
+    const c = cardOf(HIRING, 'weekly_churn')
+    const none = withCard(HIRING, { ...c, figure: { ...c.figure!, range: null } } as ViewCard)
+    expect([faceOf(draw(none, c.id), c.id).querySelector('[data-testid="range-bar"]'), figureRange(none.model!.cards.find((x) => x.id === c.id)!)]).toEqual([null, null])
+    cleanup()
+    const ranged = withCard(HIRING, { ...c, figure: { ...c.figure!, range: { low: 8, likely: 12, high: 16, unit: 'ticket/week' } } } as ViewCard)
+    expect(faceOf(draw(ranged, c.id), c.id).querySelector('[data-testid="range-bar"]')).not.toBeNull()
   })
 })

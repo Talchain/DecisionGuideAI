@@ -171,7 +171,7 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
   const gone = '.ok-q, summary, details, .ok-empty, .ok-track, [data-testid$="-empty-bar"], [data-withheld-chance]'
 
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): every option on this board says the same step, so the aim
-  // says it once and the option keeps the outlined empty track (detailed.spec DT1); the option's own line is checked where its step is its own.
+  // says it once and the option draws no empty track (detailed.spec DT1); the option's own line is checked where its step is its own.
   it('W1 Detailed: core\'s next step is the one line where it is the option\'s own, its reason and the step the hover; said once where every option says it; no "?", no "Why not"', () => {
     expect([h.state, (h.why ?? '') !== '', h.why !== h.text, (h.add ?? '') !== ''], 'precondition: withheld, with a reason and a next step').toEqual(['none', true, true, true])
     const shared = draw(ASKED, o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
@@ -366,12 +366,13 @@ describe('a calculated figure core could not calculate for an option says so, wi
   const held = withCard(ASKED, { ...sales, values: sales.values!.filter((v) => v.option !== 'longer_hours'), values_withheld: [{ option: 'longer_hours', text: REASON }] } as ViewCard)
 
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): each option's value is one strip row by its letter
-  // (band, median, core's words: v12/detailed/charts.tsx Strips); a withheld option is its letter, an outlined lane and core's reason.
-  it('H1 Detailed: the strips give the withheld option its own row (its letter, an outlined empty lane, core\'s reason) and no band or value; the card\'s state is withheld', () => {
+  // (band, median, core's words: v12/detailed/charts.tsx Strips); a withheld option is its letter and core's reason, no lane.
+  it('H1 Detailed: the strips give the withheld option its own row (its letter and core\'s reason, no lane) and no band or value; the card\'s state is withheld', () => {
     const el = draw(held, 'sales'), row = el.querySelector<HTMLElement>('[data-strip-withheld="longer_hours"]')!
     expect(row, 'the withheld option has its own row').not.toBeNull()
     expect(faceOf(el, 'sales').getAttribute('data-ok-state')).toBe('withheld')
-    expect([row.querySelector('.ok-letter')?.textContent, row.querySelector('.ok-dt-strip-val')?.textContent, row.querySelector('.ok-dt-rail-lane-empty') !== null]).toEqual(['B', REASON, true])
+    expect([row.querySelector('.ok-letter')?.textContent, row.querySelector('.ok-dt-strip-val')?.textContent, row.querySelector('.ok-dt-strip-lane, .ok-dt-rail-lane-empty')]).toEqual(['B', REASON, null])
+    expect(el.querySelector('[data-strip="second_oven"] .ok-dt-strip-lane'), 'CONTRAST: a calculated option keeps its lane').not.toBeNull()
     expect(el.querySelector('[data-strip="longer_hours"]'), 'no band for it').toBeNull()
     expect(el.querySelectorAll('[data-core-value="sales.longer_hours"]').length, 'no value for it').toBe(0)
     expect(el.querySelectorAll('[data-strip-withheld="longer_hours"]').length, 'drawn once').toBe(1)

@@ -45,9 +45,8 @@ describe('the shared chance rail', () => {
     expect(rail.rest.map((r) => [r.id, r.challenge === null ? null : [r.challenge.glyph, r.challenge.title]])).toEqual([[ANGEL, [key.glyph, badgeTitle(ANGEL)]], [WIDEN, [key.glyph, badgeTitle(WIDEN)]], [CUT, null]])
   })
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences; v12/detailed): the rail names each option by its letter
-  // (its name is said on its own card), one lane per option in the View's order: a dot and core's range whisker where it has a result, an outlined
-  // empty lane where it has none, core's number words at the right; no run-on line of names. R3's label column is gone with it.
-  it('R2 on the question bar: one rail, a lane per option by its letter in the View\'s order; every dot and whisker on the 0..100 scale; an option with no result is an empty lane with no dot; core\'s challenge mark kept', () => {
+  // (its name is said on its own card), one lane per option in the View's order: a dot and core's range whisker where it has a result, its letter and core's words and no lane where it has none, core's number words at the right; no run-on line of names. R3's label column is gone with it.
+  it('R2 on the question bar: one rail, a lane per option by its letter in the View\'s order; every dot and whisker on the 0..100 scale; an option with no result has no lane and no dot, only core\'s words; core\'s challenge mark kept', () => {
     const el = drawQuestion(RUN2)
     const rail = el.querySelector('[data-detailed-rail]')!
     expect(rail, 'mounted on the question bar').not.toBeNull()
@@ -56,7 +55,10 @@ describe('the shared chance rail', () => {
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent])).toEqual(opts.map((id) => [id, letters.get(id)]))
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
-    for (const id of [ANGEL, WIDEN, CUT]) expect(rail.querySelector(`[data-rail-lane="${id}"]`)?.className, id).toContain('ok-dt-rail-lane-empty')
+    const headOf = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.headline!.text
+    for (const id of [ANGEL, WIDEN, CUT]) expect([id, rail.querySelector(`[data-rail-lane="${id}"]`), rail.querySelector(`[data-view="${id}.headline.text"]`)?.textContent?.startsWith(headOf(id))]).toEqual([id, null, true])
+    for (const id of [KEEP, SEEK]) expect(rail.querySelector(`[data-rail-lane="${id}"]`), `CONTRAST: ${id} has a result, so it keeps its lane`).not.toBeNull()
+    expect(rail.querySelector('.ok-dt-rail-lane-empty'), 'no empty track').toBeNull()
     expect(rail.querySelectorAll('[data-rail-rest], [data-rail-unworked]').length, 'no run-on line of names').toBe(0)
     for (const c of RUN2.model!.cards.filter((x) => x.family === 'option')) expect(rail.textContent, c.heading).not.toContain(c.heading)
     const glyph = RUN2.model!.key.find((k) => k.id === 'challenge')!.glyph
