@@ -94,6 +94,8 @@ describe('a revealed difference on the card it is about', () => {
     await new Promise((r) => setTimeout(r, 30))
     expect(brought, 'CONTRAST: a press on the card moves nothing').not.toContain(plain)
     expect(plain.querySelector('summary [data-differ-status-text]')?.textContent, 'the fold\'s own line is core\'s sentence').toBe(figure.status_text)
+    // Closed, that line is two lines at most; its OWN details open (never an outer one) shows it whole.
+    expect(plain.querySelector('summary [data-differ-status-text]')?.className).toContain('line-clamp-2 [details[open]>summary>&]:line-clamp-none')
     // Core's sentence runs to many lines: the chevron and the mark stay on its first line (seen on the built page at its middle, 140 px down).
     expect(plain.querySelector('summary')!.className.split(/\s+/).filter((c) => c.startsWith('items-'))).toEqual(['items-start'])
     cleanup(); useLaneInspector.setState({ current: null, peek: { kind: 'card', id: CARD } })

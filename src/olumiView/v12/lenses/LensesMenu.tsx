@@ -8,6 +8,8 @@ import { OkIcon } from '../../look/icons'
 import Tooltip from '../../../components/Tooltip'
 import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
 import { typography } from '../../../styles/typography'
+import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
+import { MENU_ROW, MENU_SEPARATOR, MENU_SHELL } from '../../look/menu'
 import { useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
 import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
@@ -29,7 +31,9 @@ export const LEVEL_WORDS = {
 
 const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
-const pop = `absolute left-full top-0 ml-3 nodrag nopan z-[1200] rounded-lg border border-panel-border bg-panel shadow-2 ${typography.viewPanelBody}`
+/** Where the menu and a layer's panel stand: beside the rail, on the chrome menus' layer. */
+const at = `absolute left-full top-0 ml-3 nodrag nopan ${CANVAS_LAYER_CLASS.chromeMenu}`
+const pop = `${at} rounded-lg border border-panel-border bg-panel shadow-2 ${typography.viewPanelBody}`
 
 export function LensesMenu(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
@@ -72,23 +76,23 @@ export function LensesMenu(): JSX.Element | null {
         </button>
       </Tooltip>
       {menu ? (
-        <div role="menu" aria-label={NO_LAYER_LABEL} className={`${pop} w-[240px] p-1`} data-testid={`${LENSES_TESTID}-menu`}>
+        <div role="menu" aria-label={NO_LAYER_LABEL} className={`${at} ${MENU_SHELL} w-[240px]`} data-testid={`${LENSES_TESTID}-menu`}>
           {/* Paul, 18 Nov: Simple | Detailed lives here, with the other ways to look at the model, not in a panel of its own at the canvas foot. */}
           <div role="group" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
             <p role="presentation" className={`${typography.viewPanelMeta} px-3 pb-0.5 pt-1 text-text-light`}>{LEVEL_WORDS.group}</p>
             {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
               <button key={id} type="button" role="menuitemradio" aria-checked={level === id} title={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
-                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded-sm px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
+                className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
                 <span className="min-w-0 truncate">{label}</span>
               </button>
             ))}
           </div>
-          {entries.length <= 1 ? null : <div role="separator" className="my-1 border-t border-panel-border" />}
+          {entries.length <= 1 ? null : <div role="separator" className={MENU_SEPARATOR} />}
           {entries.length <= 1 ? null : entries.map((e, i) => (
             <div key={e.id} role="none">
-              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className="my-1 border-t border-panel-border" /> : null}
+              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className={MENU_SEPARATOR} /> : null}
               <button type="button" role="menuitemradio" aria-checked={e.id === layer} data-layer={e.id} onClick={() => choose(e.id)}
-                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded-sm px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
+                className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
                 <span className="min-w-0 truncate">{e.label}</span>
               </button>
             </div>

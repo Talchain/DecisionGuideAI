@@ -11,6 +11,8 @@ import { typography } from '../../styles/typography'
 import { OkIcon } from '../../olumiView/look/icons'
 import { isDivider, isMenuItem, type MenuEntry, type MenuItemDef } from './types'
 import { CANVAS_LAYER_CLASS } from '../layers'
+import { menuLook } from '../../olumiView/look/menu'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 
 interface SubmenuProps {
   items: MenuEntry[]
@@ -58,6 +60,8 @@ export function getSubmenuPosition(
 }
 
 export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideTooltip }: SubmenuProps) {
+  // The lane wears the one menu shell (surfaces step B); the older look keeps its own box and row.
+  const look = menuLook(isOlumiCoreLane())
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<SubmenuPosition>({
     left: 0, top: 0, maxWidth: 320, maxHeight: window.innerHeight - 16,
@@ -110,7 +114,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
     <div
       ref={menuRef}
       role="menu"
-      className={`fixed ${CANVAS_LAYER_CLASS.submenu} min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
+      className={`fixed ${CANVAS_LAYER_CLASS.submenu} min-w-[180px] max-w-[320px] ${look.shell}`}
       style={{
         ...position,
         minWidth: Math.min(180, position.maxWidth),
@@ -120,7 +124,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
     >
       {items.map((entry, i) => {
         if (isDivider(entry)) {
-          return <div key={i} role="separator" className="mx-2 my-2" />
+          return <div key={i} role="separator" className={look.separator} />
         }
 
         actionIdx++
@@ -140,7 +144,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
               if (item.tooltip) onShowTooltip?.(item.tooltip, e.currentTarget)
             }}
             onMouseLeave={() => onHideTooltip?.()}
-            className={`group flex h-9 w-full items-center gap-1.5 px-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset ${typography.panelBody} transition-colors ${
+            className={`group flex ${look.row} w-full items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset transition-colors ${
               !item.enabled
                 ? 'cursor-not-allowed text-text-light opacity-50'
                 : item.destructive && isFocused

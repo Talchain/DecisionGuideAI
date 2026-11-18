@@ -20,6 +20,7 @@ import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMen
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
 import { useShowToast } from '../../../canvas/ToastContext'
 import { useCanvasStore } from '../../../canvas/store'
+import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import type { NodeTarget } from '../../../canvas/contextMenu/types'
 import type { ViewCard } from '../../client'
@@ -146,7 +147,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
   if (target === null || (card === null && link === null)) return null
-  const frame = `nodrag nopan fixed z-[60] w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`
+  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => (
     <button key={r.id} type="button" title={r.tooltip} aria-disabled={!r.enabled || undefined} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (r.enabled) r.action() }}
@@ -279,7 +280,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
   const ask = node === undefined ? null : () => ctx.act.ask({ kind: 'node', nodeId: node.id, nodeType: node.type as NodeTarget['nodeType'], node, screenPos: { x: 0, y: 0 } }, 'explain_element')
   return (
     <aside role="complementary" aria-label="Details" data-testid="lane-inspector" data-kind={target.kind}
-      className={`nodrag nopan fixed left-[76px] top-[112px] z-[60] max-h-[60vh] w-[280px] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
+      className={`nodrag nopan fixed left-[76px] top-[112px] ${CANVAS_LAYER_CLASS.sheet} max-h-[60vh] w-[280px] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
       <div className="flex items-start justify-between gap-2">
         <h2 className={`${typography.viewPanelBody} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{title}</h2>
         <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>

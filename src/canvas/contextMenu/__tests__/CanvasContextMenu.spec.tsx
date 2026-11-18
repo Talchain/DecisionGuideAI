@@ -6,6 +6,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { EdgeData } from '../../domain/edges'
 import { CANVAS_LAYER_CLASS } from '../../layers'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 
 const storeSpies = vi.hoisted(() => ({
   undo: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock('../../store', () => {
 })
 
 vi.mock('../../stores/guidanceStore', () => ({
+  withOlumiReveal: <T,>(fn: T): T => fn, // the real one wraps a send; these rows never send
   useGuidanceStore: {
     getState: () => ({ _sendMessage: null }),
   },
@@ -504,5 +506,21 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.queryByText('Copy')).toBeNull()
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expectLocalSemanticActionsInert()
+  })
+
+  // Surfaces step B (18 Nov): the lane's right-click menu wears the one menu shell (bound on the lane in oneSurface.spec B-2). OFF the lane, which
+  // this file runs, the older look keeps the box, row and gap it had: nothing there changes until that look has been pictured.
+  it('off the lane the menu keeps its own box, rows and gaps (py-2 box, 36 px rows with px-4, bare gaps), not the lane\'s shell', () => {
+    expect(isOlumiCoreLane(), 'this row is about the older look: it must run off the lane').toBe(false)
+    render(<CanvasContextMenu target={factorTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
+    const menu = screen.getByRole('menu', { name: 'Canvas context menu' })
+    expect(menu.classList.contains('py-2')).toBe(true)
+    expect(menu.classList.contains('p-1')).toBe(false)
+    const rows = [...menu.querySelectorAll('[role="menuitem"]')]
+    expect(rows.length).toBeGreaterThan(2)
+    for (const r of rows) { expect(r.classList.contains('h-9'), r.textContent ?? '').toBe(true); expect(r.classList.contains('px-4')).toBe(true); expect(r.classList.contains('min-h-[32px]')).toBe(false) }
+    const gaps = [...menu.querySelectorAll('[role="separator"]')]
+    expect(gaps.length).toBeGreaterThan(0)
+    for (const g of gaps) { expect(g.className).toBe('mx-2 my-2') }
   })
 })

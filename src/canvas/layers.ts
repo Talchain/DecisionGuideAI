@@ -9,10 +9,13 @@
  * "Set value" popover (101) sat below the menu's own dismiss backdrop.
  *
  * The order, bottom to top, and why each sits where it does:
+ *   · sheet (60)          — the lane's one box beside a card (its preview and its pinned details, `olumiView/v12/edit/LaneInspector`):
+ *                           over the board, under the dock and every menu and dialog (it is placed inside the free canvas).
  *   · dock (900)          — the right-hand dock (`OutputsDock`, Panel-owned; its
  *                           literal stays in that file and is mirrored here so
  *                           the order is readable in one place).
  *   · overlayBand (1050)  — status chips over the board (focus chip, notices).
+ *   · chromeMenu (1200)   — a menu opened from the canvas's own chrome (the left rail's Lenses): above the band and the box.
  *   · edgeEditPopover (3000) — editing a link, anchored to the board.
  *   · inspector (5000)    — the floating node inspector.
  *   · contextMenu (5010/5011/5012) — the "…" / right-click menu and its
@@ -27,7 +30,9 @@
  *                           inspector, so DOM order decided.)
  *   · hoverPreview (9999) — the node hover preview; the menu's backdrop takes
  *                           the pointer while a menu is open, so the two never
- *                           compete.
+ *                           compete. (Surfaces step B meant to lower it under the menus and dialogs; at 1500x904 at 1.33 the
+ *                           question card's preview then stood under the top bar (3000), so it stays here until its placement
+ *                           keeps clear of the bar.)
  *
  * ⚠ LITERAL CLASS STRINGS, NOT TEMPLATES: Tailwind emits CSS only for class
  * text it can see (`tailwind.config.js` content covers `src/**\/*.ts`).
@@ -35,8 +40,10 @@
  * and that the order holds, so the two maps cannot drift.
  */
 export const CANVAS_LAYER = {
+  sheet: 60,
   dock: 900,
   overlayBand: 1050,
+  chromeMenu: 1200,
   edgeEditPopover: 3000,
   inspector: 5000,
   contextMenuBackdrop: 5010,
@@ -51,7 +58,9 @@ export const CANVAS_LAYER = {
 export type CanvasLayer = keyof typeof CANVAS_LAYER
 
 export const CANVAS_LAYER_CLASS: Readonly<Record<Exclude<CanvasLayer, 'dock'>, string>> = Object.freeze({
+  sheet: 'z-[60]',
   overlayBand: 'z-[1050]',
+  chromeMenu: 'z-[1200]',
   edgeEditPopover: 'z-[3000]',
   inspector: 'z-[5000]',
   contextMenuBackdrop: 'z-[5010]',

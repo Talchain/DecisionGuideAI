@@ -19,7 +19,6 @@ import { CanvasContextMenu } from '../canvas/contextMenu/CanvasContextMenu'
 import type { ContextTarget } from '../canvas/contextMenu/types'
 import type { NodeType } from '../canvas/domain/nodes'
 import { isStructuralEdge } from '../canvas/domain/edgeUtils'
-import { KeyboardLegend, useKeyboardLegend } from '../canvas/help/KeyboardLegend'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
 import { registerFocusHelpers } from '../canvas/utils/focusHelpers'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
@@ -401,7 +400,6 @@ function ViewFlow() {
   const menu = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
   const closeMenu = useCallback(() => { useLaneInspector.getState().close('menu') }, [])
   const setMenu = useCallback((t: ContextTarget) => { useLaneInspector.getState().show({ kind: 'menu', target: t }) }, [])
-  const legend = useKeyboardLegend()
   const { screenToFlowPosition } = useReactFlow()
   const userMoved = useRef(false)
   // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
@@ -562,7 +560,7 @@ function ViewFlow() {
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}
       {menu === null ? null : <CanvasContextMenu target={menu} onClose={closeMenu} screenToFlowPosition={screenToFlowPosition} interactionMode={tool} onSetInteractionMode={setTool} />}
-      <KeyboardLegend isOpen={legend.isOpen} onClose={legend.close} />
+      {/* The keyboard legend is LaneHelp's (above): one legend, one "?" listener. A second one here opened a second dialog under the first (surfaces step B). */}
       {/* V12: in Simple, Olumi's note is a badge on its card and its words are in the panel; the floating note card is Detailed's. */}
       {level === 'simple' ? null : <OlumiAttentionCard />}
       <OutputsDock />

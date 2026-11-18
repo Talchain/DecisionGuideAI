@@ -12,7 +12,9 @@ import { typography } from '../../styles/typography'
 import { useShowToast } from '../ToastContext'
 import { useMenuItems } from './useMenuItems'
 import { Submenu } from './Submenu'
-import { MenuTooltip, useTooltipDelay } from './MenuTooltip'
+import { MenuTooltip } from './MenuTooltip'
+import { Tip, rowTipOf, useTipDelay } from '../../olumiView/look/Tip'
+import { menuLook } from '../../olumiView/look/menu'
 import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from './types'
 import { SetValuePopover } from './SetValuePopover'
 import { setValueCustom, type FactorValueWriter } from './actions'
@@ -74,7 +76,9 @@ export function CanvasContextMenuBase({
   const closeSubmenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [customValueNodeId, setCustomValueNodeId] = useState<string | null>(null)
 
-  const { activeTooltip, showTooltip, hideTooltip } = useTooltipDelay(300)
+  const { activeTooltip, showTooltip, hideTooltip } = useTipDelay(300)
+  // The lane wears the one menu shell and the one Tip (surfaces step B); the older look keeps its own box, row and tooltip.
+  const lane = isOlumiCoreLane(), look = menuLook(lane)
 
   /**
    * ⭐⭐ THE CARD'S WRITER, KEYED TO THIS MENU'S NODE — the one path a value set
@@ -295,13 +299,13 @@ export function CanvasContextMenuBase({
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
-        className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
+        className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} min-w-[220px] max-w-[320px] ${look.shell}`}
         style={{ left: position.x, top: position.y }}
       >
         {isOlumiCoreLane() && target.kind === 'node' ? <CardMenuHeader nodeId={target.nodeId} /> : null}
         {items.map((entry, i) => {
           if (isDivider(entry)) {
-            return <div key={i} role="separator" className="mx-2 my-2" />
+            return <div key={i} role="separator" className={look.separator} />
           }
 
           actionIdx++
@@ -337,7 +341,9 @@ export function CanvasContextMenuBase({
               onMouseEnter={(e) => {
                 setFocusedIndex(currentIdx)
                 // Always start tooltip timer — submenu open (150ms) cancels it before it fires (300ms)
-                if (item.tooltip) showTooltip(item.tooltip, e.currentTarget, item.id)
+                // (Surfaces step B, the lane: a label the row cut is said whole in the same tip, before the row's own note.)
+                const tip = lane ? rowTipOf(e.currentTarget, item.label, item.tooltip) : item.tooltip || null
+                if (tip !== null) showTooltip(tip, e.currentTarget, item.id)
                 if (item.hasSubmenu && item.enabled) {
                   handleSubmenuHoverEnter(item.id, e.currentTarget)
                 } else {
@@ -349,7 +355,7 @@ export function CanvasContextMenuBase({
                 hideTooltip()
                 if (item.hasSubmenu) handleSubmenuHoverLeave()
               }}
-              className={`group flex h-9 w-full items-center justify-between gap-2 px-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset ${typography.panelBody} transition-colors ${
+              className={`group flex ${look.row} w-full items-center justify-between gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset transition-colors ${
                 !item.enabled
                   ? 'cursor-not-allowed text-text-light opacity-50'
                   : item.destructive && isFocused
@@ -435,12 +441,20 @@ export function CanvasContextMenuBase({
       })()}
 
       {/* Tooltip */}
-      <MenuTooltip
-        id={activeTooltip?.itemId ? `tooltip-${activeTooltip.itemId}` : undefined}
-        text={activeTooltip?.text ?? ''}
-        anchorRect={activeTooltip?.rect ?? null}
-        visible={!!activeTooltip}
-      />
+      {lane ? (
+        <Tip
+          id={activeTooltip?.itemId ? `tooltip-${activeTooltip.itemId}` : undefined}
+          text={activeTooltip?.text ?? ''}
+          anchorRect={activeTooltip?.rect ?? null}
+        />
+      ) : (
+        <MenuTooltip
+          id={activeTooltip?.itemId ? `tooltip-${activeTooltip.itemId}` : undefined}
+          text={activeTooltip?.text ?? ''}
+          anchorRect={activeTooltip?.rect ?? null}
+          visible={!!activeTooltip}
+        />
+      )}
 
     </>,
     document.body,
