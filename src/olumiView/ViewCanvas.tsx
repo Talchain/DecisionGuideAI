@@ -539,7 +539,7 @@ function ViewFlow() {
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; clearLayoutUndo(); if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
-      {hasModel ? null : <DraftingBoard />}
+      {hasModel ? null : <DraftingBoard secondary={ideasOnly} />}
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
       {hasModel || ideasOnly ? null : <ViewWelcome />}
       <IdeaPanel />

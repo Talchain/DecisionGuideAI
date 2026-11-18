@@ -18,6 +18,7 @@ import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { Button } from '../components/ui/Button'
+import { useBesideZoom } from './BelowCue'
 import { buildModel, buildOfferOf, stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { OkIcon } from './look/icons'
 import { useViewStore } from './store'
@@ -45,19 +46,24 @@ function useDockInset(): number {
   return right
 }
 
-export function DraftingBoard(): JSX.Element | null {
+/** `secondary`: kept ideas lead the central workspace (no model yet), so the board's card shrinks to a small control at the foot, never over the idea cards. */
+export function DraftingBoard({ secondary = false }: { secondary?: boolean } = {}): JSX.Element | null {
   const draft = useViewStore((s) => (s.at === null ? boardDraftOf(s.view) : null))
   // Two plain strings, so the selector hands back the same value while core's offer is unchanged.
   const label = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.label ?? null : null))
   const title = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.title ?? null : null))
-  return draft !== null ? <Drafting draft={draft} /> : label === null ? null : <BuildOffer offer={{ label, title: title ?? '' }} />
+  return draft !== null ? <Drafting draft={draft} secondary={secondary} /> : label === null ? null : <BuildOffer offer={{ label, title: title ?? '' }} secondary={secondary} />
 }
 
-function BuildOffer({ offer }: { offer: { label: string; title: string } }): JSX.Element {
-  const busy = useViewChat((s) => s.busy), right = useDockInset()
+const WRAP = 'pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6'
+/** Secondary: beside the zoom row and above the foot cues' row (BelowCue stands at 40 px, 36 tall), never under the viewport controls. */
+const WRAP_SECONDARY = 'pointer-events-none fixed bottom-[88px] z-[5] flex items-end justify-start'
+
+function BuildOffer({ offer, secondary }: { offer: { label: string; title: string }; secondary: boolean }): JSX.Element {
+  const busy = useViewChat((s) => s.busy), right = useDockInset(), left = useBesideZoom()
   return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-build-board">
-      <div className="pointer-events-auto grid max-w-[420px] justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm">
+    <div className={secondary ? WRAP_SECONDARY : WRAP} style={secondary ? { left, right } : { right }} data-testid="view-build-board" data-secondary={secondary ? '' : undefined}>
+      <div className={secondary ? 'pointer-events-auto grid max-w-[320px] justify-items-start gap-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-left' : 'pointer-events-auto grid max-w-[420px] justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm'}>
         <Button size="sm" disabled={busy} data-view="build_model.label" data-testid="view-build-board-go" onClick={() => void buildModel()}>{offer.label}</Button>
         {offer.title === '' ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-view="build_model.title" data-testid="view-build-board-title">{offer.title}</p>}
       </div>
@@ -65,19 +71,19 @@ function BuildOffer({ offer }: { offer: { label: string; title: string } }): JSX
   )
 }
 
-function Drafting({ draft }: { draft: Draft }): JSX.Element {
+function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): JSX.Element {
   const brief = useViewStore((s) => s.view?.brief ?? null)
   const running = draft.status === 'drafting'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
-  const right = useDockInset()
+  const right = useDockInset(), left = useBesideZoom()
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
   const early = earlyOf(draft)
   const from = draft.started === undefined ? Number.NaN : Date.parse(draft.started)
   const s = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
   return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-drafting-board" data-draft={draft.status}>
-      <div role="status" aria-live="polite" className={`pointer-events-auto space-y-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm ${early === null ? 'max-w-[420px]' : 'max-h-[80vh] max-w-[560px] overflow-y-auto'}`}>
+    <div className={secondary ? WRAP_SECONDARY : WRAP} style={secondary ? { left, right } : { right }} data-testid="view-drafting-board" data-draft={draft.status} data-secondary={secondary ? '' : undefined}>
+      <div role="status" aria-live="polite" className={`pointer-events-auto space-y-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm ${secondary ? 'max-h-[40vh] max-w-[360px] overflow-y-auto' : early === null ? 'max-w-[420px]' : 'max-h-[80vh] max-w-[560px] overflow-y-auto'}`}>
         <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
           {running ? <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-info motion-safe:animate-pulse" /> : null}
           <span data-view="draft.words" data-testid="view-drafting-words">{draft.words}</span>

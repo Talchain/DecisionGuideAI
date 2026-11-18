@@ -212,3 +212,26 @@ describe('the ideas strip\'s heading is the neutral "Kept ideas" for every reade
     expect(screen.getByTestId('view-idea-card').getAttribute('title')).toContain('kept by Sam')
   })
 })
+
+describe('kept ideas lead; the build offer is secondary (never over the idea cards)', () => {
+  const OFFER = { label: 'Build a model from this', title: 'Olumi drafts a model from the ideas kept.' }
+  const offered = (kept: unknown[]): View => ({ ...noModel(kept), build_model: OFFER, draft: null } as unknown as View)
+  it('with kept ideas and no model: the cards are drawn, the Build offer is the small secondary control and still presses; it is not the centred board', () => {
+    show(offered(KEPT))
+    mount()
+    expect(screen.getAllByTestId('view-idea-card')).toHaveLength(2)
+    const board = screen.getByTestId('view-build-board')
+    expect(board.hasAttribute('data-secondary')).toBe(true)
+    expect(board.className).not.toContain('items-center')
+    expect(board.className).toContain('items-end')
+    const go = within(board).getByTestId('view-build-board-go') as HTMLButtonElement
+    expect([go.textContent, go.disabled]).toEqual([OFFER.label, false])
+  })
+  it('CONTRAST: with no kept ideas the drafting board is as before (centred, not secondary)', () => {
+    show(offered([]))
+    mount()
+    const board = screen.getByTestId('view-build-board')
+    expect(board.hasAttribute('data-secondary')).toBe(false)
+    expect(board.className).toContain('items-center')
+  })
+})

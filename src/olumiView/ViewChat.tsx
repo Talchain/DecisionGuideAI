@@ -405,6 +405,8 @@ function AskAgain({ words }: { words: string }) {
     </button>
   )
 }
+/** Whether a lead line of this reply carries `entry` (the lead then offers its Keep, and the folded full answer does not offer it again). */
+const inLeadOf = (lead: NonNullable<FloorTurn['lead']>, entry: string): boolean => [lead.opening, ...lead.points].some((l) => floorEntryOf([entry], l) !== null)
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
@@ -415,6 +417,13 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   const sid = useViewStore((st) => st.sid)
   const entries = sid === null ? [] : f.prose ?? []
   const keepEach = sid === null || entries.length === 0 ? undefined : (line: string) => {
+    const entry = floorEntryOf(entries, line)
+    return entry === null || (f.lead !== undefined && inLeadOf(f.lead, entry)) ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
+  }
+  // Keep beside the concise reply (Codex root 05:47Z): core's entries are offered on the lead's own lines where a lead line carries one, outside the
+  // closed "Full answer"; an entry no lead line carries stays keepable on its line inside the fold. Each entry has ONE Keep: the fold does not offer
+  // again what the lead offers (two controls for one entry could post it twice before the View refreshes). Nothing is kept unless pressed.
+  const leadKeep = sid === null || entries.length === 0 ? undefined : (line: string) => {
     const entry = floorEntryOf(entries, line)
     return entry === null ? null : <KeepIdea sid={sid} turn={f.job} text={entry} inline floor />
   }
@@ -437,7 +446,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
           </>
         : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep stays on its lines there.
-          : <ReplyLead lead={f.lead} at={`floor.${f.job}`}>{text}</ReplyLead>}</div>}
+          : <ReplyLead lead={f.lead} at={`floor.${f.job}`} keepLine={leadKeep}>{text}</ReplyLead>}</div>}
     </li>
   )
 }

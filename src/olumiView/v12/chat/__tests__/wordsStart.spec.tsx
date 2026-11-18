@@ -440,3 +440,52 @@ describe('5. A saved message whose reply failed stays in the conversation (floor
     expect(floorShown({ floor: [cAnswered], turn: { job: 12 } } as never).map((f) => f.job)).toEqual([12]) // an answered row is never dropped
   })
 })
+
+describe('3b. Keep is reachable at rest beside the concise reply, not only inside "Full answer"', () => {
+  const A = 'Lend the second workshop’s tools to the first on quiet days.'
+  const B = 'Run a weekend repair stall at the station before signing a lease.'
+  const C = 'Ask the part-time mechanics about more hours first.'
+  const FULL = `A short opening.\n- ${A}\n- ${B}\n- ${C}`
+  const withLead = (lead: { opening: string; points: string[] }, prose: string[] | undefined) =>
+    inWords({ floor: [{ ...row(21, FULL), lead, ...(prose === undefined ? {} : { prose }) }] })
+  const openFold = (c: ParentNode) => c.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
+  it('RED/GREEN: a lead line carrying core\'s entry has its Keep outside the closed fold; pressing posts core\'s exact text with the floor job; the lead\'s other lines and the user\'s draft are untouched', async () => {
+    answer = () => new Response(JSON.stringify({ kept: 80 }), { status: 201 })
+    const c = show(withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]))
+    const t = floorTurn(c, 21)!
+    const fold = openFold(t)
+    expect(fold.open).toBe(false)
+    const lead = t.querySelector('[data-testid="view-reply-lead"]')!
+    const points = lead.querySelector('[data-testid="view-reply-lead-points"]')!
+    const inLead = [...points.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
+    expect(inLead.filter((b) => !fold.contains(b))).toHaveLength(2)
+    expect([...points.querySelectorAll('li')].map((li) => li.querySelectorAll('[data-testid="view-keep-idea-button"]').length)).toEqual([1, 1])
+    type(c, 'my draft')
+    await press(inLead[0]!)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: A } })
+    expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('my draft')
+  })
+  it('ONE Keep per entry: an entry the lead carries is not offered again inside the fold; an entry no lead line carries keeps its Keep on its line inside the fold (no list of leftovers at rest)', async () => {
+    answer = () => new Response(JSON.stringify({ kept: 81 }), { status: 201 })
+    const c = show(withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]))
+    const t = floorTurn(c, 21)!, fold = openFold(t)
+    const inFold = [...fold.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
+    // A and B are offered in the lead only; C, which no lead line carries, is offered on its own line inside the fold.
+    expect(inFold).toHaveLength(1)
+    expect(inFold[0]!.closest('li')?.textContent).toContain(C)
+    expect(qa(c, 'view-floor-keep-row')).toHaveLength(0)
+    await press(inFold[0]!)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ floor: 21, text: C })
+  })
+  it('a line already kept shows kept in the lead; CONTRAST: no prose from core means no Keep anywhere, and no keep row', () => {
+    const kept = { id: 50, turn: 21, text: A, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], from: 'floor' }
+    const c = show({ ...withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]), kept: [kept] } as unknown as View)
+    const lead = c.querySelector('[data-testid="view-reply-lead-points"]')!
+    expect([...lead.querySelectorAll('li')].map((li) => li.querySelector('[data-testid="view-keep-idea-kept"]') !== null)).toEqual([true, false])
+    cleanup()
+    const d = show(withLead({ opening: 'A short opening.', points: [A, B] }, undefined))
+    expect([qa(d, 'view-keep-idea').length, qa(d, 'view-floor-keep-row').length]).toEqual([0, 0])
+  })
+})
