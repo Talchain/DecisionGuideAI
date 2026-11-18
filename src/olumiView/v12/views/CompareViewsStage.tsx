@@ -22,7 +22,7 @@ import { revealedForYou } from './differGroups'
 import { FrameLines } from './FrameLines'
 import { useCompare } from './useCompare'
 import { COMPARE_WORDS, Differences, startCommit } from './WhereWeDiffer'
-import { GO } from '../../../olumiCore/team/ui'
+import { QUIET } from '../../../olumiCore/team/ui'
 import { OkIcon } from '../../look/icons'
 import { STEP_WORDS } from '../../../olumiCore/team/flow'
 
@@ -115,7 +115,8 @@ export function CompareViewsStage(): JSX.Element | null {
         </div>
         <fieldset disabled={past !== null} className="contents">
           <Differences sid={sid!} view={v} onWrote={refresh} wide onFocusCard={hide} />
-          <div><button type="button" className={GO} data-testid="compare-commit" onClick={toCommit}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
+          {/* An action is one optional activity, offered quietly, never the comparison's lead (Codex 008 #3). */}
+          <div><button type="button" className={QUIET} data-testid="compare-commit" onClick={toCommit}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
         </fieldset>
         {people.length === 0
           ? null
