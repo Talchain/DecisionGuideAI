@@ -121,7 +121,7 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
   })
 
-  it('the panel\'s one large line, on the NEWEST reply: the CURRENT answer\'s lead is the large line, and an earlier first answer beneath it never is, however short. CONTRASTS: a first answer with no lead yet (still arriving, or incomplete) keeps today\'s large opening; a lead with no first answer is the large line', () => {
+  it('the panel\'s one large line, on the NEWEST reply: the CURRENT answer\'s lead is the large line, and an earlier first answer beneath it never is, however short. With NO lead (a reply stored before leads existed) the first answer under core\'s label is still never the large line, and nothing is folded or reordered. CONTRASTS: a no-lead reply with no first answer keeps its large opening; a lead with no first answer is the large line', () => {
     const newest = base.chat.map((t) => t.answer !== null).lastIndexOf(true), turn = `chat.${newest}`
     const OPENING = 'Open on Sundays only if thirty more covers a day pay for the staff.'
     const TEXT = [LABEL, '', OPENING, '', HEADING, '', CHECK].join('\n')
@@ -130,9 +130,17 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     const t = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
     expect([big(q(t, 'view-reply-lead')!.querySelector('[data-reply-opening]')), big(t.querySelector('[data-reply-para][data-reply-opening]'))], 'the lead, not the earlier answer').toEqual([true, false])
     cleanup()
-    // No lead yet: the first answer is all there is to read, drawn as today (its short opening large, the check at rest under core's heading).
+    // No lead (a reply stored before leads existed, or one whose lead is not well formed): drawn whole in stored order, nothing folded (the check at rest under
+    // core's heading), and the first answer under core's label is NOT the large line: it would stand largest above its own check.
     const n = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
-    expect([q(n, 'view-reply-lead'), q(n, 'view-reply-full'), big(n.querySelector('[data-reply-para][data-reply-opening]')), n.querySelector('[data-reply-heading]')?.closest('details') ?? null]).toEqual([null, null, true, null])
+    const under = n.querySelector<HTMLElement>('[data-reply-para][data-reply-opening]')
+    expect([q(n, 'view-reply-lead'), q(n, 'view-reply-full'), under?.textContent, big(under), n.querySelector('[data-reply-label]')?.textContent, n.querySelector('[data-reply-heading]')?.closest('details') ?? null]).toEqual([null, null, OPENING, false, LABEL, null])
+    expect(n.querySelector('[data-reply-label]')!.compareDocumentPosition(under!) & Node.DOCUMENT_POSITION_FOLLOWING, 'stored order kept: the label, then the first answer').toBeTruthy()
+    cleanup()
+    // CONTRAST, the same words with NO first answer from core (no label line): an ordinary newest reply keeps its large opening.
+    const o = show(withTurn(base, newest, { answer: [{ text: [OPENING, '', CHECK].join('\n') }] } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
+    const plain = o.querySelector<HTMLElement>('[data-reply-para][data-reply-opening]')
+    expect([plain?.textContent, big(plain), o.querySelector('[data-reply-label]')]).toEqual([OPENING, true, null])
     cleanup()
     const c = show(withTurn(base, newest, { answer: [{ text: 'A later reply.\n\nIts second paragraph.' }], lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
     expect(big(q(c, 'view-reply-lead')!.querySelector('[data-reply-opening]'))).toBe(true)

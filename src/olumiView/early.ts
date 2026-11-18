@@ -5,8 +5,9 @@ import type { ViewTurn } from './client'
  * `view.chat[i].early` on a turn, each `{ text }` in plain text: a blank line is a new paragraph, a line starting "- " is a list item.
  * Additive on olumi.view/3 and not yet in the generated types, so it is read here, defensively; absent or empty means today's rendering.
  */
-/** The early answer's caption (UI chrome: core sends `early` as text only). Worded as core's first-answer label, so the two read the same. */
-export const EARLY_LABEL = 'A first answer from your brief and general knowledge, written before the model. Not checked against the model.'
+/** The early answer's caption (UI chrome: core sends `early` as text only): what it is and what it draws on, true while the model builds, after a
+ *  failed build and on a saved turn. It never narrates the order of work ("written before the model", "not checked": DL and Codex, 18 Nov). */
+export const EARLY_LABEL = 'A first answer from your brief and general knowledge.'
 export const EARLY_FAILED = 'The model could not be built this time. You can try again, or keep talking below.'
 
 /** The early text of a draft or a chat turn, or null where there is none. */
