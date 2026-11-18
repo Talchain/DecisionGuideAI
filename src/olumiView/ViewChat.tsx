@@ -1702,7 +1702,13 @@ export function ViewChat() {
     // or from its top where it is taller than the thread.
     const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
     // It wins over the Next step below it (the person's own save is what they look for); the step stays a scroll away.
-    if (saved !== null) top = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
+    if (saved !== null) {
+      const first = top, own = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
+      // Where the receipt would slice the reply (its top lands inside the reply's body), the reply's first line wins: a half-cut headline
+      // is worse than a receipt a scroll away (audit chat-1). Where the reply would be wholly above the thread, nothing is cut: the receipt wins.
+      const cuts = newest !== null && own > newest.offsetTop && own < newest.offsetTop + newest.offsetHeight
+      top = cuts ? first : own
+    }
     // Someone who has scrolled on themselves (readerTop, contract 3) is never pulled back above where they scrolled, except to bring the
     // receipt of a save they have just made into view, once; the floor is then theirs again from where that leaves them.
     if (saved !== null && receiptDue.current) { receiptDue.current = false; readerTop.current = null }
