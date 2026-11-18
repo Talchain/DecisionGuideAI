@@ -73,7 +73,6 @@ import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
 import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
-import { SimpleSwitch } from './v12/SimpleSwitch'
 export { showSimple, showWholeModel, toggleSimple } from './v12/simpleStore'
 import { levelOf, useLevel, useSimpleLevel } from './v12/simpleStore'
 import { LaneEditingLayer } from './v12/edit/LaneEditingLayer'
@@ -542,8 +541,9 @@ function ViewFlow() {
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}
       <LaneHelp />
-      {/* V12: the Simple | Detailed pill, bottom centre, with the Views switch beside it once a reveal is authorised (no top strip). */}
-      {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2"><SimpleSwitch /><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
+      {/* Paul, 18 Nov: Simple | Detailed moved into the left Lenses menu (v12/lenses/LensesMenu); the foot keeps only the Views switch, which
+          draws nothing until a reveal is authorised, so there is no panel at the canvas foot at rest. */}
+      {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2 empty:hidden"><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
       {hasModel ? <LayerCanvasStyle /> : null}
       {/* Paul, 17 Nov: no always-on key at the bottom right; the one key is "How to read this" in the left foot menu (ViewLegend, KeyLines). */}
       {/* Hand edits (the right-click menu's forms, the details panel and Undo's keys), inside the toast provider. */}

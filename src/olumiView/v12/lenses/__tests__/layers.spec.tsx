@@ -158,7 +158,8 @@ describe('the menu in the left floating menu', () => {
     rerender(<LeftSidebar layers={<LensesMenu />} />)
     fireEvent.click(screen.getByRole('button', { name: 'Layers' }))
     const menu = screen.getByRole('menu', { name: 'Layers' })
-    expect(within(menu).getAllByRole('menuitemradio').map((b) => b.textContent)).toEqual(layerEntries(golden()).map((e) => e.label))
+    // The level of detail leads the menu (Paul, 18 Nov: Simple | Detailed lives here), then core's layers in core's order.
+    expect(within(menu).getAllByRole('menuitemradio').map((b) => b.textContent)).toEqual(['Simple', 'Detailed', ...layerEntries(golden()).map((e) => e.label)])
     fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Causal graph' }))
     expect(useLayer.getState().layer).toBe('causal')
     const edges = screen.getByTestId('v12-layers-edges')

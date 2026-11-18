@@ -19,6 +19,13 @@ import {
   sensitiveAssumptionsOf, type Basis, type EdgeRow, type LayerId,
 } from './layers'
 import { chooseLayer, useActiveLayer } from './store'
+import { showSimple, showWholeModel, useLevel } from '../simpleStore'
+
+/** Fixed UI chrome: the level of detail, the first choice in this menu (Simple draws each card as visuals; Detailed draws each card's words). Both draw the whole model. */
+export const LEVEL_WORDS = {
+  group: 'Level of detail', simple: 'Simple', detailed: 'Detailed',
+  simpleTitle: 'Visuals first: the whole model, with the words behind hover', detailedTitle: "The whole model with each card's words",
+} as const
 
 const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
@@ -27,6 +34,7 @@ const pop = `absolute left-full top-0 ml-3 nodrag nopan z-[1200] rounded-lg bord
 export function LensesMenu(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const layer = useActiveLayer()
+  const level = useLevel()
   const [menu, setMenu] = useState(false)
   const [panel, setPanel] = useState(false)
   const root = useRef<HTMLDivElement | null>(null)
@@ -41,7 +49,7 @@ export function LensesMenu(): JSX.Element | null {
     return () => { document.removeEventListener('pointerdown', away); window.removeEventListener(MENU_EXCLUSIVE_EVENT, exclusive) }
   }, [menu])
 
-  if (view === null || view.model === null || entries.length <= 1) return null
+  if (view === null || view.model === null) return null
   const on = layer !== 'full'
   const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full') }
   const onKey = (e: React.KeyboardEvent) => {
@@ -65,7 +73,18 @@ export function LensesMenu(): JSX.Element | null {
       </Tooltip>
       {menu ? (
         <div role="menu" aria-label={NO_LAYER_LABEL} className={`${pop} w-[240px] p-1`} data-testid={`${LENSES_TESTID}-menu`}>
-          {entries.map((e, i) => (
+          {/* Paul, 18 Nov: Simple | Detailed lives here, with the other ways to look at the model, not in a panel of its own at the canvas foot. */}
+          <div role="group" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
+            <p role="presentation" className={`${typography.viewPanelMeta} px-3 pb-0.5 pt-1 text-text-light`}>{LEVEL_WORDS.group}</p>
+            {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
+              <button key={id} type="button" role="menuitemradio" aria-checked={level === id} title={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
+                className={`flex min-h-[32px] w-full cursor-pointer items-center rounded-sm px-3 text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
+                <span className="min-w-0 truncate">{label}</span>
+              </button>
+            ))}
+          </div>
+          {entries.length <= 1 ? null : <div role="separator" className="my-1 border-t border-panel-border" />}
+          {entries.length <= 1 ? null : entries.map((e, i) => (
             <div key={e.id} role="none">
               {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className="my-1 border-t border-panel-border" /> : null}
               <button type="button" role="menuitemradio" aria-checked={e.id === layer} data-layer={e.id} onClick={() => choose(e.id)}

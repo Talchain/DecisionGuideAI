@@ -15,7 +15,7 @@ import { useWhatIf } from '../../whatif'
 import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandAxisOf, bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
-import { SimpleSwitch } from '../SimpleSwitch'
+import { LensesMenu } from '../lenses/LensesMenu'
 import { figureRange } from '../contract'
 import { RangeBar } from '../scale/RangeBar'
 import { axisOf, pctOf } from '../scale/axis'
@@ -284,15 +284,22 @@ describe('V12 Simple faces', () => {
   })
 })
 
-describe('V12 Simple | Detailed pill', () => {
-  it('S9 two buttons; the choice is kept per scenario and another scenario is unaffected', () => {
-    render(<SimpleSwitch />)
-    expect(screen.getByTestId('view-level-simple').getAttribute('aria-pressed')).toBe('true')
+describe('V12 Simple | Detailed, in the left Lenses menu (Paul, 18 Nov: no panel of its own at the canvas foot)', () => {
+  it('S9 two choices at the head of the Lenses menu; the choice is kept per scenario and another scenario is unaffected', () => {
+    render(<LensesMenu />)
+    // Closed, the menu draws neither choice: nothing sits on the canvas at rest.
+    expect(screen.queryByTestId('view-level-simple')).toBeNull()
+    fireEvent.click(screen.getByTestId('v12-layers-button'))
+    expect([screen.getByTestId('view-level-simple').getAttribute('aria-checked'), screen.getByTestId('view-level-detailed').getAttribute('aria-checked')]).toEqual(['true', 'false'])
+    expect([screen.getByTestId('view-level-simple').textContent, screen.getByTestId('view-level-detailed').textContent]).toEqual(['Simple', 'Detailed'])
     fireEvent.click(screen.getByTestId('view-level-detailed'))
     expect(levelOf(SID)).toBe('working')
     expect(window.localStorage.getItem(`olumi.v12.level.${SID}`)).toBe('working')
     expect(levelOf('s_other')).toBe('simple')
-    expect(screen.getByTestId('view-level-detailed').getAttribute('aria-pressed')).toBe('true')
+    // The press closes the menu; reopened, it shows the choice made.
+    expect(screen.queryByTestId('view-level-detailed')).toBeNull()
+    fireEvent.click(screen.getByTestId('v12-layers-button'))
+    expect(screen.getByTestId('view-level-detailed').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('view-level-simple'))
     expect(levelOf(SID)).toBe('simple')
     act(() => showSimple(SID))
