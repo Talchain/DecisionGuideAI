@@ -14,6 +14,7 @@ import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
 import type { EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
+import { plainWords } from '../../olumiView/plainWords'
 import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
 
 export const NOT_AVAILABLE_YET = 'Not available yet'
@@ -65,7 +66,8 @@ const notYet = (id: string, label: string, tooltip: string, extra: Partial<MenuI
 
 const undoRows = (c: LaneMenuCtx): MenuEntry[] => {
   const row = (dir: 'undo' | 'redo', icon: MenuItemDef['icon'], shortcut: string): MenuItemDef => {
-    const x = c.undo[dir]
+    // Core's words for what an undo takes back can carry a kept idea's own markdown ("## …"): a menu row is plain text (plainWords).
+    const x = { ...c.undo[dir], label: plainWords(c.undo[dir].label) }
     return {
       id: dir, label: x.label, icon, shortcut, enabled: x.kind !== 'none', ...(x.kind === 'none' ? { disabledReason: x.note } : {}),
       tooltip: x.kind === 'none' ? x.note : x.note === null ? x.label : `${x.label}. ${x.note}`, action: () => c.act.pressUndo(dir),

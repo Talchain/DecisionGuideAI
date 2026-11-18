@@ -3,7 +3,7 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter, "baseline",
  * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User } from 'lucide-react'
 import type { ViewCard } from '../../client'
 import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
@@ -83,15 +83,38 @@ export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null
  *
  * A mark is made only for what the card does not already say at rest. So there is none for: a figure that waits (its quiet line says "waits
  * on: …" in core's words), a provisional card (its dashed frame), a worked-out figure (its kind's shape), the baseline (its word) or an
- * option's driver (the corner badge, which takes one of the three places). Olumi's findings on a card take the place after "challenged" once
- * core sends them: none is made up here.
+ * option's driver (the corner badge, which takes one of the three places). Olumi's own observations (core's `worth_checking`) take the
+ * place after "challenged": one mark however many there are, so a card is not crowded by its own caveats; none is made up here.
  */
-export type CardMark = { readonly id: 'set-aside' | 'challenged' | 'unused'; readonly icon: IconId; readonly words: string }
+export type CardMark = { readonly id: 'set-aside' | 'challenged' | 'worth-checking' | 'unused'; readonly icon: IconId; readonly words: string }
+
+/** One of Olumi's own provisional observations about a card: core's short title and its sentence. */
+export type WorthChecking = { readonly code: string; readonly title: string; readonly text: string }
+/**
+ * Core's `worth_checking` on a card (core candidate 6, `src/view/schema.ts`: `{ code, title, text, rests_on, olumi: true }[]`, present only
+ * when there is at least one): where the model's own structure shows its reasoning may be weak (every aim resting on one figure of Olumi's, an
+ * estimate held as a single number, evidence that only supports). This is the one place the page reads it. Only a well-formed item that core
+ * marks as Olumi's is kept; nothing is worked out or worded here.
+ */
+export function worthCheckingOf(card: ViewCard): readonly WorthChecking[] {
+  const raw = (card as unknown as { worth_checking?: unknown }).worth_checking
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((f: unknown) => {
+    const x = f as { code?: unknown; title?: unknown; text?: unknown; olumi?: unknown } | null
+    return x !== null && typeof x === 'object' && x.olumi === true && typeof x.code === 'string' && typeof x.title === 'string' && x.title !== '' && typeof x.text === 'string' && x.text !== ''
+      ? [{ code: x.code, title: x.title, text: x.text }] : []
+  })
+}
+
 export function cardMarksOf(card: ViewCard): readonly CardMark[] {
   const marks: CardMark[] = []
   // Core's own word for a card that is no longer live (`status`, e.g. "ruled out"; null while it is live).
   if (card.status != null && card.status !== '') marks.push({ id: 'set-aside', icon: 'set-aside', words: card.status })
-  if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? card.reason : ICONS.challenged.hover })
+  // Named by its kind, then core's reason: a reason alone ("Two sources disagree…") does not say it is a challenge (line review, 18 Nov).
+  if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? `${ICONS.challenged.hover}: ${card.reason}` : ICONS.challenged.hover })
+  // Olumi's observations on this card: ONE mark, in Olumi's blue, named by every observation in core's order (its title, then its sentence).
+  const worth = worthCheckingOf(card)
+  if (worth.length > 0) marks.push({ id: 'worth-checking', icon: 'worth-checking', words: worth.map((w) => `${w.title}\n${w.text}`).join('\n\n') })
   if (card.unused != null && card.unused !== '') marks.push({ id: 'unused', icon: 'feeds-no-result', words: card.unused })
   return marks
 }
@@ -109,13 +132,16 @@ export const MORE_MARKS = { lead: 'Also on this card', fewer: 'Show fewer' } as 
 export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const all = cardMarksOf(card)
-  if (all.length === 0) return null
   const over = all.slice(Math.max(0, MARK_CAP - taken)), words = over.map((m) => m.words)
+  // Once nothing is past the cap the control is gone, so its open state goes with it: marks that return later start folded (line review, 18 Nov).
+  const none = over.length === 0
+  useEffect(() => { if (none) setOpen(false) }, [none])
+  if (all.length === 0) return null
   const shown = open ? all : all.slice(0, all.length - over.length)
   return (
     <>
       {shown.map((m) => (
-        <span key={m.id} className="ok-am ok-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
+        <span key={m.id} className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
           <OkIcon id={m.icon} size={12} words={m.words} decorative={false} />
         </span>
       ))}

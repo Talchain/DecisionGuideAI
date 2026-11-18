@@ -357,11 +357,10 @@ export function WorkspaceShellTabStrip({
   // still do not fit, the row scrolls sideways (a deliberate overflow), never a second row.
   const narrowLane = coreLane && width < LANE_ONE_ROW_BELOW_PX
   const wrapTabs = (coreLane && !narrowLane) || !isCompact
-  // DL round 5 (9 Nov, rehearsal item 3): on the olumi-core lane the dock's controls (…, the collapse) sit in a header above the one row of
-  // four tabs, never floating over its end; elsewhere they stay in the row.
-  const wrapHead = (c: JSX.Element) => coreLane
-    ? <div className="order-first flex basis-full items-center justify-end gap-1 pt-1" data-testid="outputs-dock-tabstrip-head">{c}</div>
-    : c
+  // Paul, 18 Nov ("Is it doing anything? If not, remove it and move the collapse icon to match the other icons so they're all in one row"):
+  // on the olumi-core lane the "…" menu held two things that do nothing new there (version history is the top bar's own control; expert
+  // mode changes only the older look's Model tab), so the lane draws neither, and the collapse control sits at the end of the tabs' row.
+  // This replaces the 9 Nov header row above the tabs. The older look keeps its controls as they were.
 
   const inspect =
     onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
@@ -369,7 +368,8 @@ export function WorkspaceShellTabStrip({
       : undefined
   // The ⓘ is a row control wherever the row has room for it, compact or not; only
   // below `SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX` does it fold into the overflow menu.
-  const inspectInRow = inspect !== undefined && width >= SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX
+  // The olumi-core lane has no overflow menu (18 Nov), so its ⓘ is a row control at every width: it is never left with nowhere to live.
+  const inspectInRow = inspect !== undefined && (coreLane || width >= SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX)
   const inspectControl = inspectInRow ? (
     <button
       type="button"
@@ -659,9 +659,8 @@ export function WorkspaceShellTabStrip({
           control is omitted — both stay reachable, just behind one more
           keypress. */}
       {/* The prototype's `.tabbar>.iconbtn`: the ⓘ sits first after the tabs. */}
-      {wrapHead(<>
       {inspectControl}
-      {isCompact ? (
+      {coreLane ? null : isCompact ? (
         <TabStripOverflowMenu
           expertMode={expertMode}
           onToggleExpertMode={onToggleExpertMode}
@@ -696,7 +695,6 @@ export function WorkspaceShellTabStrip({
         </>
       )}
       <CollapseControl isOpen={isOpen} onToggle={onToggleOpen} />
-      </>)}
     </div>
   )
 }

@@ -60,12 +60,16 @@ describe('Since the version before, in the Compare tab, on the served A6 journey
     expect([...box.querySelectorAll('[data-since-line]')].map((e) => e.getAttribute('data-since-line'))).toEqual(since.lines.map((l) => `${l.option}:${l.aim}`))
     since.lines.forEach((l, i) => {
       expect(at(`run.since.lines.${i}.line`).map((e) => e.textContent)).toEqual([l.line])
-      const track = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"] [data-compare-track]`)!
-      expect([track.getAttribute('data-first'), track.getAttribute('data-second')]).toEqual([String(Math.round(l.from * 100)), String(Math.round(l.to * 100))])
-      expect(track.getAttribute('aria-label')).toBe(`${since.from.label}: ${l.from_text}; ${since.to.label}: ${l.to_text}`)
+      const track = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"] [data-compare-track]`)
+      // 18 Nov: a reading core serves unchanged (same number, same words) draws its line and no track (SI5).
+      if (l.from === l.to && l.from_text === l.to_text) { expect(track).toBeNull(); return }
+      expect([track!.getAttribute('data-first'), track!.getAttribute('data-second')]).toEqual([String(Math.round(l.from * 100)), String(Math.round(l.to * 100))])
+      expect(track!.getAttribute('aria-label')).toBe(`${since.from.label}: ${l.from_text}; ${since.to.label}: ${l.to_text}`)
     })
-    // The key names the two versions in core's words; the change is named in each line, so no separate list.
-    expect([...box.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)).toEqual([since.from.label, since.to.label])
+    // In this served journey neither reading moved (control), so there is no track and no key: core's two lines stand alone. A moved reading's
+    // track and the key that names the two versions are pinned in SI5 and SI2.
+    expect(since.lines.map((l) => l.from !== l.to || l.from_text !== l.to_text)).toEqual([false, false])
+    expect([box.querySelectorAll('[data-compare-track]').length, [...box.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)]).toEqual([0, []])
     expect(within(box).queryByTestId('core-compare-since-changed')).toBeNull()
   })
 
@@ -92,6 +96,14 @@ describe('Since the version before, in the Compare tab, on the served A6 journey
 })
 
 describe('where core credits no single change (sole null)', () => {
+  it('SI5 (Paul, 18 Nov): a reading that did NOT move draws core\'s line and no track or key (two marks on one spot said nothing); CONTRAST: the moved line keeps both', () => {
+    const same = { ...TWO_CHANGES.lines[0]!, option: 'carry_on', from: 0, to: 0, from_text: 'never met in this model', to_text: 'never met in this model', line: "Version comparison: the chance that 'Carry on' meets the aim reads never met in this model in both version 1 and version 3." }
+    const { container, unmount } = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [same] }} />)
+    expect([container.querySelector('[data-since-line^="carry_on:"]')!.textContent, container.querySelectorAll('[data-compare-track]').length, container.querySelectorAll('[data-compare-track-key]').length]).toEqual([same.line, 0, 0])
+    unmount()
+    const both = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [TWO_CHANGES.lines[0]!, same] }} />).container
+    expect([both.querySelectorAll('[data-compare-track]').length, both.querySelector('[data-since-line^="carry_on:"] [data-compare-track]'), both.querySelectorAll('[data-compare-track-key]').length]).toEqual([1, null, 1])
+  })
   it('SI4: each changed figure is listed by id in core\'s words; with `sole` set the list is not drawn', () => {
     const { unmount } = render(<SinceVersion since={TWO_CHANGES} />)
     const list = screen.getByTestId('core-compare-since-changed')

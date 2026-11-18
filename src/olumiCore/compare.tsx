@@ -171,7 +171,10 @@ export type Since = NonNullable<ViewRun['since']>
 export function SinceVersion({ since, movedFirst = false, dense = false }: { since: Since; movedFirst?: boolean; dense?: boolean }): JSX.Element | null {
   if (since.lines.length === 0 && since.changed.length === 0) return null
   const names = { first: since.from.label, second: since.to.label }
-  const tracked = since.lines.some((l) => markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
+  // A track is drawn only for a reading that MOVED (Paul, 18 Nov: two dots on top of each other at 0% on an empty axis said nothing): where
+  // core's number and words for the two versions are both the same, core's line stands alone, and the key is drawn only if some track is.
+  const moved = (l: Since['lines'][number]) => (l.from !== l.to || l.from_text !== l.to_text) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
+  const tracked = since.lines.some(moved)
   return (
     <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
       <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
@@ -180,7 +183,7 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
           {since.lines.map((l, i) => ({ l, i })).sort((a, b) => (movedFirst ? Number(a.l.from_text === a.l.to_text) - Number(b.l.from_text === b.l.to_text) : 0)).map(({ l, i }) => (
             <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
               <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
-              <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} />
+              {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
             </li>
           ))}
         </ul>

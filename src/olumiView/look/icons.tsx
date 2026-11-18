@@ -42,7 +42,7 @@ import {
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
-  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchX, Shapes,
+  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
   UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
@@ -183,7 +183,10 @@ export const ICONS = {
   // states: one meaning each
   // A challenge is a warning, so it keeps the board's challenge colour (the card's frame and a challenged link draw the same token).
   challenged: e(AlertTriangle, 'Challenged', '--olumi-mark-orange', 'icon-only', 'state'),
-  'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state', { keepWords: "core's own sentence (`card.unused`) is the hover" }),
+  // Olumi's own provisional observation about a card (core's `worth_checking`): Olumi's blue, because it is Olumi's and not the person's.
+  'worth-checking': e(SearchCheck, 'Olumi suggests checking this', '--info', 'icon-only', 'state'),
+  // Core's own sentence (`card.unused`) is passed as this mark's words, so it is the hover and the name.
+  'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state'),
   'went-wrong': e(AlertOctagon, 'Something went wrong', '--danger', 'icon-only', 'state', { keepWords: 'a failure sentence stays words (drawn in --warning-ink)' }),
   unsaved: e(CloudOff, 'Unsaved', '--warning', 'icon-only', 'state'),
   'stale-analysis': e(RefreshCwOff, 'This analysis is out of date', '--warning', 'icon-only', 'state'),

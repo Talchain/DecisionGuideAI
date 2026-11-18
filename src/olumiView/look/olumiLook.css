@@ -208,10 +208,12 @@
   max-width: 88% !important;
 }
 .ok-said-by { margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--text-light); }
-/* Olumi's reply: Olumi's mark in the margin, its paragraphs and lists set as type, its cites small and quiet. */
-.ok-reply { position: relative; padding-left: 26px; color: var(--text-body); font-size: 12px; line-height: 18px; }
+/* Olumi's reply: its paragraphs and lists set as type, its cites small and quiet. Olumi's mark sits at the start of the FIRST line and the
+   words run the panel's whole width under it (Paul, 18 Nov: "use the width of the right-hand panel more effectively"; a 26 px margin column
+   beside every line cost about a tenth of a 347 px panel). */
+.ok-reply { position: relative; color: var(--text-body); font-size: 12px; line-height: 18px; }
 .ok-reply-mark {
-  position: absolute; left: 0; top: 2px; display: inline-grid; place-items: center; width: 18px; height: 18px;
+  float: left; margin: 0 6px 0 0; display: inline-grid; place-items: center; width: 18px; height: 18px;
   border: 1px solid var(--info); border-radius: 999px; color: var(--info); font-size: 12px; line-height: 1;
 }
 .ok-reply [data-reply-list] { list-style: none; padding-left: 12px; }
@@ -354,6 +356,9 @@
 /* A card core no longer holds as live (`status`, e.g. "ruled out"): its name in the light ink, so it does not read as a live option at a glance;
    the foot's first mark (Simple) or its quiet status line (Detailed) says why, in core's word. (The title's ink above is set with !important, so this one must be too.) */
 .olumi-look .react-flow__node:has([data-simple-set-aside], [data-detailed-set-aside]) [data-testid='node-title'] { color: var(--text-light) !important; }
+/* The Simple foot's marks read at the card's small text size on screen, as its words do: the board is zoomed out, so a raw 12 px icon drew at
+   about 7 px beside 12 px words (measured 17 Nov). Simple only: the Detailed face keeps its own sizes. */
+.olumi-look [data-simple-foot] .ok-am svg { width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s)); }
 /* A card's state marks on the Simple foot (cards/marks.tsx CardMarks): each icon takes its colour from the registry; "+N" is the card's small
    text, light at rest and ink under the pointer, with a 24 px press area that does not grow the row. */
 .olumi-look .ok-more {

@@ -22,6 +22,9 @@ vi.mock('../../../../canvas/ToastContext', () => ({
 }))
 
 import { useUIStore } from '../../../../stores/uiStore'
+import { isOlumiCoreLane } from '../../../../olumiCore/lane'
+
+const LANE = isOlumiCoreLane()
 import { useCanvasStore } from '@/canvas/store'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AboutThisAnalysis } from '../sections/AboutThisAnalysis'
@@ -109,7 +112,21 @@ describe('the strip carries the ⓘ "Inspect this analysis"', () => {
     expect(screen.queryByTestId('dock-inspect-analysis')).toBeNull()
   })
 
-  it('⭐ at the 360 default (compact) the ⓘ is a ROW control, not behind "…" (served 38cfd9da hid it there)', () => {
+  // 18 Nov (Paul: the panel's "…" menu did nothing new on the olumi-core lane, so it is gone there): on that lane the ⓘ is a row control at
+  // every width and never behind a menu; the three rows after this one pin the older look, which keeps its overflow menu.
+  it.runIf(LANE)('olumi-core lane: the ⓘ is a row control at 360 and at 280, it calls the handler, and there is no "…" menu', () => {
+    for (const width of [360, 280]) {
+      const onInspect = strip({ width })
+      expect(screen.queryByTestId('dock-overflow-trigger')).toBeNull()
+      const btn = screen.getByTestId('dock-inspect-analysis')
+      expect(btn).toHaveAttribute('aria-label', INSPECT_ANALYSIS_LABEL)
+      fireEvent.click(btn)
+      expect(onInspect).toHaveBeenCalledTimes(1)
+      cleanup()
+    }
+  })
+
+  it.skipIf(LANE)('older look: ⭐ at the 360 default (compact) the ⓘ is a ROW control, not behind "…" (served 38cfd9da hid it there)', () => {
     const onInspect = strip({ width: 360 })
     expect(screen.getByTestId('dock-overflow-trigger')).toBeInTheDocument()
     const btn = screen.getByTestId('dock-inspect-analysis')
@@ -120,7 +137,7 @@ describe('the strip carries the ⓘ "Inspect this analysis"', () => {
     expect(screen.getAllByTestId('dock-inspect-analysis'), 'never twice: not also in the menu').toHaveLength(1)
   })
 
-  it('from SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX it is in the row; one pixel below, it folds', () => {
+  it.skipIf(LANE)('older look: from SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX it is in the row; one pixel below, it folds', () => {
     strip({ width: SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX })
     expect(screen.getByTestId('dock-inspect-analysis')).toBeInTheDocument()
     cleanup()
@@ -128,7 +145,7 @@ describe('the strip carries the ⓘ "Inspect this analysis"', () => {
     expect(screen.queryByTestId('dock-inspect-analysis')).toBeNull()
   })
 
-  it('compact (280px): the ⓘ folds into the overflow menu, labelled, and still calls the handler', () => {
+  it.skipIf(LANE)('older look: compact (280px): the ⓘ folds into the overflow menu, labelled, and still calls the handler', () => {
     const onInspect = strip({ width: 280 })
     expect(screen.queryByTestId('dock-inspect-analysis')).toBeNull()
     fireEvent.click(screen.getByTestId('dock-overflow-trigger'))

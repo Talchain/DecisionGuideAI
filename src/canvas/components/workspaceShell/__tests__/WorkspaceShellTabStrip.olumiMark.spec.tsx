@@ -46,14 +46,15 @@ describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
     expect(tab.textContent).toBe('')
   })
 
-  it('on the olumi-core lane the dock\'s controls sit in a header above the tabs, not in the tab row (DL round 5)', () => {
+  it('on the olumi-core lane the collapse control sits in the tabs\' own row, with no header row above it and no "…" menu (Paul, 18 Nov); CONTRAST: the older look keeps its row controls', () => {
     draw()
-    const head = screen.queryByTestId('outputs-dock-tabstrip-head')
-    if (!isOlumiCoreLane()) { expect(head).toBeNull(); return }
-    expect(head).not.toBeNull()
-    expect(head!.querySelector('[role="tab"]')).toBeNull()
-    expect(head!.querySelectorAll('button').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByTestId('outputs-dock-tablist').contains(head)).toBe(false)
+    expect(screen.queryByTestId('outputs-dock-tabstrip-head')).toBeNull()
+    const strip = screen.getByTestId('outputs-dock-tabstrip'), collapse = screen.getByTestId('dock-collapse-control')
+    expect(collapse.parentElement).toBe(strip)
+    expect(screen.getByTestId('outputs-dock-tablist').contains(collapse)).toBe(false)
+    const extras = [screen.queryByTestId('dock-overflow-trigger'), screen.queryByTestId('dock-versions-trigger'), screen.queryByRole('button', { name: /expert mode/i })].map((e) => e !== null)
+    if (isOlumiCoreLane()) expect(extras).toEqual([false, false, false])
+    else expect(extras.some(Boolean)).toBe(true)
   })
 
   it('keeps "Olumi" as its accessible name and its tooltip', () => {

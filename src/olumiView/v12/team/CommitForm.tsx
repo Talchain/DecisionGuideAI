@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
@@ -10,6 +10,7 @@ import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
+import { plainWords } from '../../plainWords'
 
 /**
  * V12 Funding-Commit, "Record what you will do": the board's three questions and one primary button, on the EXISTING commitment write
@@ -19,8 +20,10 @@ import { ExpectationEntry } from '../learning/ExpectationEntry'
  * records an action, and the Team tab still holds the option choice. Olumi writes none of the answers.
  */
 export const COMMIT_WORDS = {
-  heading: 'Record what you will do', proposed: 'Proposed', action: 'What will you do?', expect: 'What do you expect to happen?',
+  heading: 'Record what you will do', action: 'What will you do?', expect: 'What do you expect to happen?',
   reconsider: 'When would you reconsider?', keep: 'Keep it', footnote: 'You can compare what happened with what you expected later.',
+  /** Paul, 18 Nov ("There's no way to get rid of the 'Record what you will do' panel"): the form closes, and a draft can be thrown away. */
+  close: 'Close', discard: 'Discard draft', draftKept: 'Draft kept', notReady: 'Answer all three to keep it.',
   /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
   /** v10 review item 12: the Next step card's secondary button, and the kept idea's "Use as my action" (fixed chrome). */
   nextStepButton: 'Record what you will do', useAsAction: 'Use as my action', yours: 'This is your draft, copied from an idea you kept. Change it as you like.',
@@ -40,7 +43,9 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     const base: Draft = { ...EMPTY, owner: view.you_id, ...prev, open: true }
     if (action === undefined) return base
     const typed = base.action.trim() !== ''
-    return { ...base, action: !typed ? action : base.action.includes(action) ? base.action : `${base.action}\n\n${action}`, seeded: true }
+    // The idea's words, as plain text (a text box draws markdown's "## " as typed characters): every word kept, in order.
+    const words = plainWords(action)
+    return { ...base, action: !typed ? words : base.action.includes(words) ? base.action : `${base.action}\n\n${words}`, seeded: true }
   })
   setTimeout(() => {
     const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
@@ -84,7 +89,8 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const [error, setError] = useState<string | null>(null)
   const locked = useWriteLocked(key), sending = useWriteSending(key)
   const busy = mine || sending
-  // Collapsed to one quiet line until pressed (V12 refinement spec 6); a draft already typed (here or in the Team tab) keeps it open.
+  // Collapsed to one quiet line until pressed (V12 refinement spec 6). Open only while the person has it open (its own line, the Next step
+  // card or a kept idea opened it): Close folds it and KEEPS the draft, which the folded line then says; Discard draft empties it.
   const [opened, setOpened] = useState(false)
   const hasDraft = [d.action, d.expect, d.reconsider].some((t) => t.trim() !== '')
   // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
@@ -109,23 +115,30 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     } finally { setBusy(false) }
   }
   const area = (id: string, k: 'action' | 'expect' | 'reconsider') => (
-    <textarea id={id} data-testid={id} className={`${FIELD} min-h-[56px]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
+    // One line tall at rest and as tall as what is typed, to about seven lines (three empty tall boxes read as a long form).
+    <textarea id={id} data-testid={id} rows={1} className={`${FIELD} min-h-[36px] max-h-[168px] [field-sizing:content]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
   )
-  if (!opened && !hasDraft && !d.open) {
+  const close = () => { setOpened(false); if (d.open) put({ open: false }) }
+  const discard = () => { drop(); setOpened(false); setError(null) }
+  if (!opened && !d.open) {
     return (
-      <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} aria-label={COMMIT_WORDS.heading} className="grid">
+      <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
         <button type="button" data-testid="commit-form-open" onClick={() => setOpened(true)}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
           <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
+          {hasDraft ? <span className="font-normal" data-testid="commit-form-draft-kept">· {COMMIT_WORDS.draftKept}</span> : null}
         </button>
       </section>
     )
   }
   return (
-    <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} aria-label={COMMIT_WORDS.heading} className={CARD}>
+    <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="true" aria-label={COMMIT_WORDS.heading} className={CARD}>
       <div className="flex items-center justify-between gap-2">
         <h3 className={H} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
-        <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid="commit-form-proposed">{COMMIT_WORDS.proposed}</span>
+        <button type="button" aria-label={COMMIT_WORDS.close} title={COMMIT_WORDS.close} data-testid="commit-form-close" onClick={close}
+          className="inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-md text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+          <X aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />
+        </button>
       </div>
       {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
       {d.seeded && d.action.trim() !== '' && <p className={META} data-testid="commit-form-yours">{COMMIT_WORDS.yours}</p>}
@@ -135,9 +148,14 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       {locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" data-testid="commit-form-keep" disabled={!ready || busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
-        {!busy && !locked && !ready && <span className={META} data-testid="commit-form-why">Answer all three first</span>}
+        {/* A quiet grey text press, never blue (blue is Olumi's) and never a second filled button beside Keep it. */}
+        {hasDraft && !busy && !locked ? (
+          <button type="button" data-testid="commit-form-discard" onClick={discard}
+            className={`${typography.viewPanelMeta} inline-flex min-h-[28px] cursor-pointer items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.discard}</button>
+        ) : null}
       </div>
-      <p className={META} data-testid="commit-form-footnote">{COMMIT_WORDS.footnote}</p>
+      {/* One quiet line under the buttons: what is still needed, or (once all three are answered) what keeping it is for. */}
+      {!busy && !locked && !ready ? <p className={META} data-testid="commit-form-why">{COMMIT_WORDS.notReady}</p> : <p className={META} data-testid="commit-form-footnote">{COMMIT_WORDS.footnote}</p>}
     </section>
   )
 }

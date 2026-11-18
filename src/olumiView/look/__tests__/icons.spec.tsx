@@ -63,12 +63,14 @@ describe('the icon registry', () => {
 describe('icons carry no hue (Paul, 17 Nov: "so far, we\'ve only had non-coloured icons. If we keep them non-coloured, that\'s one less thing that\'s busy")', () => {
   const GREYS = new Set(['--text-light', '--text-body', '--text-header', '--border-default'])
   // Colour stays only where it is the meaning: Olumi's own mark, a failure or warning, a kind's own shape, and a filled person's act.
-  const HUED = new Set(['olumi-mark', 'delete', 'went-wrong', 'save-failed', 'unsaved', 'stale-analysis', 'challenged', 'limit-tag', 'band-kind-shapes'])
+  const HUED = new Set(['olumi-mark', 'delete', 'went-wrong', 'save-failed', 'unsaved', 'stale-analysis', 'challenged', 'worth-checking', 'limit-tag', 'band-kind-shapes'])
   it('N1 every unfilled icon draws a grey at rest and when active; CONTRAST: the named exceptions keep their token', () => {
     const hued = entries.filter(([id, e]) => !e.fill && (!GREYS.has(e.colour) || (e.activeColour !== undefined && !GREYS.has(e.activeColour))) && !HUED.has(id)).map(([id]) => id)
     expect(hued).toEqual([])
     expect([ICONS.delete.colour, ICONS['olumi-mark'].colour, ICONS.unsaved.colour]).toEqual(['--danger', '--info', '--warning'])
     expect([ICONS.goal.colour, ICONS['method-challenge'].colour, ICONS['idea-keep'].colour]).toEqual(['--text-light', '--text-light', '--text-light'])
+    // A card's challenge keeps the board's challenge colour and Olumi's own observation Olumi's blue; a plain state mark beside them stays grey.
+    expect([ICONS.challenged.colour, ICONS['worth-checking'].colour, ICONS['feeds-no-result'].colour, ICONS['set-aside'].colour]).toEqual(['--olumi-mark-orange', '--info', '--text-light', '--text-light'])
   })
 })
 
