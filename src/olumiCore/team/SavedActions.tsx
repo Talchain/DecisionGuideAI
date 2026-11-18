@@ -4,6 +4,8 @@ import { openStep } from './flow'
 import { goToOutcome, withoutOutcome } from './outcomeNav'
 import { BODY, CARD, GO, META } from './ui'
 
+type Kept = { id: string; d: View['collab']['dissent'][number] | null; label: string | null }
+
 /** Fixed chrome for the commit step's done state: the one-line continuation. Everything else on the card is the team's own record. */
 export const SAVED_WORDS = { next: 'Record what happened', see: 'See what happened', saved: 'Recorded' } as const
 
@@ -22,7 +24,8 @@ export function SavedActions({ sid, view }: { sid: string; view: View }): JSX.El
     <div className="grid gap-2" data-testid="team-saved-actions">
       <ul className="m-0 grid list-none gap-2 p-0">
         {c.commitments.map((k) => {
-          const kept = k.keeps.map((id) => c.dissent.find((x) => x.id === id)).filter((x): x is NonNullable<typeof x> => x !== undefined)
+          // Every id the action keeps open, in core's order, none dropped: a disagreement record (writer's name first), else the record's own label.
+          const kept: Kept[] = k.keeps.flatMap((id): Kept[] => { const d = c.dissent.find((x) => x.id === id); if (d !== undefined) return [{ id, d, label: null }]; const l = labelOf(id); return l === null ? [] : [{ id, d: null, label: l }] })
           return (
             <li key={k.id} data-testid={`team-saved-action-${k.id}`} className={CARD}>
               <p className={`${BODY} whitespace-pre-wrap break-words text-text-header`} data-testid={`team-saved-action-words-${k.id}`}>{k.action}</p>
@@ -33,13 +36,12 @@ export function SavedActions({ sid, view }: { sid: string; view: View }): JSX.El
               </dl>
               {kept.length > 0 && (
                 <ul className="m-0 grid list-none gap-0.5 p-0" data-testid={`team-saved-action-keeps-${k.id}`}>
-                  {kept.map((x) => {
-                    const name = dissentHolderName(c, x)
-                    return <li key={x.id} data-testid={`team-saved-action-keep-${k.id}-${x.id}`} className={`${META} whitespace-pre-wrap break-words`}>Keeps open: {name === null ? '' : `${name}: `}{x.confirmed?.words ?? x.position}</li>
+                  {kept.map(({ id, d, label }) => {
+                    const name = d === null ? null : dissentHolderName(c, d)
+                    return <li key={id} data-testid={`team-saved-action-keep-${k.id}-${id}`} className={`${META} whitespace-pre-wrap break-words`}>Keeps open: {name === null ? '' : `${name}: `}{d === null ? label : d.confirmed?.words ?? d.position}</li>
                   })}
                 </ul>
               )}
-              {kept.length === 0 && k.keeps.map(labelOf).some((l) => l !== null) && <p className={META}>Keeps open: {k.keeps.map(labelOf).filter((l): l is string => l !== null).join('; ')}</p>}
             </li>
           )
         })}

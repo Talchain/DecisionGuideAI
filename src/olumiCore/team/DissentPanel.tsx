@@ -19,7 +19,7 @@ export function DissentPanel({ sid, view, onWrote }: { sid: string; view: View; 
   return (
     <section data-testid="team-dissent" aria-label="Disagreements" className="grid gap-2">
       <ul className="m-0 grid list-none gap-4 p-0">
-        {view.collab.dissent.map((d) => <DissentRow key={d.id} sid={sid} d={d} you={view.you_id} onWrote={onWrote} />)}
+        {view.collab.dissent.map((d) => <DissentRow key={d.id} sid={sid} d={d} name={dissentHolderName(view.collab, d)} you={view.you_id} onWrote={onWrote} />)}
       </ul>
     </section>
   )
@@ -42,7 +42,7 @@ export const dissentLine = (c: View['collab'], d: Dissent): string => {
   return name === null ? dissentWords(d) : `${name}: ${dissentWords(d)}`
 }
 
-function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: string; onWrote: () => Promise<boolean> }): JSX.Element {
+function DissentRow({ sid, d, name, you, onWrote }: { sid: string; d: Dissent; /** The writer's name (stored holder, else the member core names), or null: then no leading colon. */ name: string | null; you: string; onWrote: () => Promise<boolean> }): JSX.Element {
   // Core's R2b fields (olumi.view/3 at d1fe5e2): the member the holder names, and the holder's confirmed words.
   const confirmed = d.confirmed ?? null
   const holder = d.holder_id ?? null
@@ -73,7 +73,7 @@ function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: st
 
   return (
     <li data-testid={`team-dissent-${d.id}`} className={CARD}>
-      <p className={`${BODY} whitespace-pre-wrap break-words`}><span className="text-text-header">{d.holder}</span>: {shown}</p>
+      <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid={`team-dissent-line-${d.id}`}>{name === null ? null : <><span className="text-text-header">{name}</span>: </>}{shown}</p>
       <p className={META} data-testid={`team-dissent-state-${d.id}`}>
         {confirmed !== null ? `Confirmed by ${d.holder}` : holder === null ? 'Not yet confirmed. No member is named as its holder, so no one can confirm it.' : `Not yet confirmed by ${d.holder}. Only ${d.holder} can confirm it.`}
       </p>

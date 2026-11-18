@@ -3,6 +3,7 @@
  * continuation into "What happened", which is no longer "Later"; and each dissent checkbox names its writer, never opening on a bare colon.
  * Rows bind to the commitment id and the dissent id.
  */
+import { SAVED_WORDS } from '../team/SavedActions'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import golden from '../../olumiView/golden/european.view.json'
@@ -12,6 +13,7 @@ import { setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { DissentPanel } from '../team/DissentPanel'
 import { resetTeamFlow, type StepId } from '../team/flow'
 import { useMe } from '../me'
 
@@ -76,6 +78,27 @@ describe('the Commit step after an action is recorded', () => {
     await waitFor(() => expect(step('outcome').getAttribute('data-step-open')).toBe(''))
     expect(screen.getByTestId('team-outcome-form-9')).toBeTruthy()
   })
+  it('two actions, the FIRST already has its outcome: the continuation opens the SECOND\'s outcome form, by its id; all outcomes in -> "See what happened"', async () => {
+    const out2 = { id: 2, at: '2026-11-03T11:00:00Z', by: 'Bea', by_id: 'p_2', happened: 'Seven customers.', versus: 'worse', reconsider_triggered: false, note: null, figure: null, dissent: [] }
+    const k12 = { ...k9, id: 12, action: 'Pilot in Austria', outcomes: [] }
+    show(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [out2] }, k12] }))
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-saved-next').getAttribute('data-commitment')).toBe('12')
+    expect(screen.getByTestId('team-saved-next').textContent).toBe(SAVED_WORDS.next)
+    cleanup()
+    show(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [out2] }, { ...k12, outcomes: [{ ...out2, id: 3 }] }] }))
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-saved-next').textContent).toBe(SAVED_WORDS.see)
+    expect(screen.getByTestId('team-saved-next').hasAttribute('data-commitment')).toBe(false)
+  })
+  it('every id an action keeps open is listed, none dropped: a disagreement (writer first) AND an id that names only a record (its label)', () => {
+    const rec = (base.collab as unknown as { records?: { id: string; label: string }[] }).records?.[0]
+    const recs = rec === undefined ? [{ id: 'r_x', label: 'Weekly cap' }] : [rec]
+    show(team({ waiting: null, shared: [bea3], dissent: [dis1], records: recs as never, commitments: [{ ...k9, keeps: ['d_1', recs[0]!.id] }] } as never))
+    render(<TeamTab />)
+    expect(screen.getByTestId('team-saved-action-keep-9-d_1').textContent).toBe('Keeps open: Bea: Hold until the pilot reports.')
+    expect(screen.getByTestId(`team-saved-action-keep-9-${recs[0]!.id}`).textContent).toBe(`Keeps open: ${recs[0]!.label}`)
+  })
   it('CONTRAST no action: the entry button as today, no saved card, What happened is Later', () => {
     show(team({ waiting: null, shared: [bea3] }))
     render(<TeamTab />)
@@ -92,6 +115,13 @@ describe('a dissent checkbox names its writer', () => {
     expect(screen.getByTestId('team-c-keep-words-d_1').textContent).toBe('Bea: Hold until the pilot reports.')
     expect(screen.getByTestId('team-c-keep-words-d_3').textContent).toBe('Bea: Wait a quarter.')
     for (const id of ['d_1', 'd_3']) expect(screen.getByTestId(`team-c-keep-${id}`).closest('label')!.textContent!.startsWith('Bea: ')).toBe(true)
+  })
+  it('the dissents list names the same writer (else no colon), by dissent id', () => {
+    const v = team({ waiting: null, shared: [bea3], dissent: [dis3, dis2] })
+    show(v)
+    render(<DissentPanel sid={SID} view={v} onWrote={async () => true} />)
+    expect(screen.getByTestId('team-dissent-line-d_3').textContent).toBe('Bea: Wait a quarter.')
+    expect(screen.getByTestId('team-dissent-line-d_2').textContent).toBe('Germany is too small.')
   })
   it('CONTRAST a dissent no one is named for shows its words with no leading colon', async () => {
     await open(team({ waiting: null, shared: [bea3], dissent: [dis2] }))
