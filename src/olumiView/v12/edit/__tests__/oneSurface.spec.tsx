@@ -711,12 +711,14 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     expect(box()).toBeNull()
   })
 
-  it('A-7 on the mounted board a press on a previewed card does not move the box, though pinned it is taller. CONTRAST: the same taller box opened with no preview first stands elsewhere', async () => {
+  it('A-7 on the mounted board a press on a previewed card does not move the box, though pinned it is taller and the pressed card itself grows (its quick actions). CONTRAST: the same taller box opened with no preview first stands elsewhere', async () => {
     const CARD = { left: 100, top: 400, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    // The pressed (selected) card is 30 px taller while its box is pinned, as Detailed draws it.
+    const cardNow = () => (document.querySelector('[data-box-card][data-state="pinned"]') === null ? CARD : { ...CARD, height: CARD.height + 30 })
     const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
     const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(CARD)
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(cardNow())
       if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
       return rectOf({ left: 0, top: 0, width: 0, height: 0 })
     })
