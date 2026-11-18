@@ -236,7 +236,7 @@ describe('the chance chart', () => {
   })
 
   it('worth finding out: what the ranking is and its limit ("the order is approximate") is core\'s line at rest, once per aim\'s list; CONTRAST none where core sends no line', () => {
-    const view = structuredClone(viewOf('golden/bakery')), fo = view.model!.run!.find_out
+    const view = structuredClone(viewOf('golden/bakery')), fo = view.model!.run!.find_out!
     expect(fo.length > 0 && fo[0]!.line.includes('approximate'), 'fixture: core\'s line carries the limit').toBe(true)
     ready(view); render(<PortAnalysisTab />)
     const box = screen.getByTestId('port-find-out'), said = [...box.querySelectorAll<HTMLElement>('[data-testid="find-out-limit"]')]
