@@ -626,6 +626,14 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const chosen = pick.only.length + pick.only_top.length
   const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
   const verdict = verdictOf(p)
+  // THE FILLED BUTTON FOLLOWS THE TICKS (Codex root 21:10Z, 18 Nov, the native partial-approve read: with lines ticked the filled Approve still took the
+  // whole batch, so a person who ticked three lines and pressed the one green button approved all of them). With nothing ticked the filled button is the
+  // whole proposal, as before. Once a line is ticked the filled button is Approve ticked, first, and the whole proposal is the quiet one beside it, saying
+  // how many lines it takes: the green button never approves more than the person chose. What each sends is unchanged (`only` / `only_top`, or `base` alone).
+  const followsTicks = tickable && !closed && chosen > 0
+  const wholeWords = actions.approve === APPROVE_WORD ? (followsTicks ? 'Approve all' : 'Approve these changes') : actions.approve
+  const approveWhole = <OkIconButton id="approve" tone={followsTicks ? 'ghost' : 'primary'} words={followsTicks ? `${wholeWords} · ${changes.length}` : wholeWords} count={followsTicks ? changes.length : undefined} disabled={busy} testid="view-approve" onClick={() => approve()} />
+  const approveTicked = !tickable ? null : <OkIconButton id="approve-ticked" tone={followsTicks ? 'primary' : 'ghost'} words={`Approve ticked · ${chosen}`} count={chosen} disabled={busy || chosen === 0} testid="view-approve-ticked" onClick={() => approve(pick)} />
   // The readings Olumi offers, by core's own id for each (`marks[].reading.id`). A core that serves no change list offers no choice: the
   // proposal's own lines could not be named beside the readings, and core would then drop them. Nor does a proposal core does not support:
   // it has no Approve, so there is nothing a choice could be sent with.
@@ -786,10 +794,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         {lead}
         {closed && (readingIds.length > 0 || verdict?.supported === false)
           ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
-          : verdict?.supported === false ? null : <OkIconButton id="approve" tone="primary" words={actions.approve === APPROVE_WORD ? 'Approve these changes' : actions.approve} disabled={busy} testid="view-approve" onClick={() => approve()} />}
-        {!tickable || closed || verdict?.supported === false ? null : (
-          <OkIconButton id="approve-ticked" tone="ghost" words={`Approve ticked · ${chosen}`} count={chosen} disabled={busy || chosen === 0} testid="view-approve-ticked" onClick={() => approve(pick)} />
-        )}
+          : verdict?.supported === false ? null : followsTicks ? approveTicked : approveWhole}
+        {closed || verdict?.supported === false ? null : followsTicks ? approveWhole : approveTicked}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled

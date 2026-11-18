@@ -15,6 +15,7 @@ import { ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
+import { VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const p = golden.proposal!
@@ -86,6 +87,23 @@ describe('partial approval', () => {
     box.open = true
     expect(screen.getByTestId('view-change-tick-0')).toBeVisible()
     expect(screen.getByTestId('view-change-tick-1')).toBeVisible()
+  })
+  it('the filled button follows the ticks (Codex root 21:10Z, 18 Nov): nothing ticked, the filled button is the whole proposal; a line ticked, the filled button is Approve ticked, first, and the whole proposal is the quiet one saying how many lines it takes; unticked, back as it was. What each sends does not change', async () => {
+    showOpen(golden)
+    const filled = (id: string) => VIEW_ICON_BUTTON_PRIMARY_CLASS.split(' ').every((k) => screen.getByTestId(id).classList.contains(k))
+    const first = () => screen.getByTestId('view-proposal-actions').querySelector('[data-testid="view-approve"],[data-testid="view-approve-ticked"]')?.getAttribute('data-testid')
+    const rest = () => [filled('view-approve'), filled('view-approve-ticked'), first(), screen.getByTestId('view-approve').getAttribute('aria-label'), screen.queryByTestId('view-approve-count')?.textContent ?? null]
+    expect(rest(), 'nothing ticked').toEqual([true, false, 'view-approve', 'Approve these changes', null])
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(rest(), 'one line ticked: the green button is the ticked one').toEqual([false, true, 'view-approve-ticked', `Approve all · ${p.changes.length}`, String(p.changes.length)])
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(rest(), 'unticked again').toEqual([true, false, 'view-approve', 'Approve these changes', null])
+    // The filled button, pressed with one line ticked, sends that line and no other.
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    fireEvent.click(screen.getByTestId(first()!))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base, only: [p.changes[0]!.id], only_top: [] } })
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)
