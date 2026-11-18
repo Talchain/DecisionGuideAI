@@ -1,8 +1,8 @@
 /**
  * UI-BRIEF-20261115 section 3, the central move: every option with a worked-out result for the goal, on ONE shared true 0..100% rail, its
  * chance as a dot and core's saved range as a whisker, so how far the options overlap (and how fragile their order is) reads at a glance.
- * Read ONLY from the View: the dot is the chance row core serves for the headline's own aim (`rows[kind=chance].chance`), the whisker is core's
- * `headline.range` sentence (rangeBandOf), the words beside it are core's `headline.text`. A result core calls fixed ("never met in this
+ * Read ONLY from the View: the dot is the chance row core serves for the headline's own aim (`rows[kind=chance].chance`), the whisker is the chance row's
+ * `driver.low`/`driver.high` numbers (rangeBandOf), the words beside it are core's `headline.text`. A result core calls fixed ("never met in this
  * model") is on the rail at its served row value, with no whisker. Options with no result yet are NOT on the rail (an empty rail reads as
  * zero; they are unworked, not losing): one group, under core's own words for them when core words them all alike.
  */
@@ -38,7 +38,7 @@ export function chanceRailOf(model: ViewModel | null): ChanceRailT | null {
   for (const c of model.cards) {
     if (c.family !== 'option' || c.headline == null) continue
     const h = c.headline, at = rowAt(c)
-    if (at !== null) rows.push({ id: c.id, name: c.heading, text: h.text, title: h.title, range: h.range ?? null, at, band: h.state === 'chance' ? rangeBandOf(h.range) : null, challenge: challengeOf(model, c) })
+    if (at !== null) rows.push({ id: c.id, name: c.heading, text: h.text, title: h.title, range: h.range ?? null, at, band: h.state === 'chance' ? rangeBandOf(c) : null, challenge: challengeOf(model, c) })
     else rest.push({ id: c.id, name: c.heading, text: h.text, title: h.title, challenge: challengeOf(model, c) })
   }
   if (rows.length === 0 && rest.length === 0) return null

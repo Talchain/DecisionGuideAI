@@ -13,7 +13,7 @@ import { chanceAtOf, NEUTRAL_REST_WORDS, rangeBandOf, restWordsOf, restsShareOf,
 export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
   const at = chanceAtOf(card)
   if (at === null) return null
-  const range = card.headline?.range ?? null, band = rangeBandOf(range), id = card.id
+  const range = card.headline?.range ?? null, band = rangeBandOf(card), id = card.id
   // UI-BRIEF-20261115 (Paul, 15 Nov: "so much text and busy content"; DL ruling 02:0xZ): core's range sentence is no longer printed under every
   // card. It is the band's own words, byte for byte: shown on hover and on keyboard focus of the track (the tip), and its accessible name. The
   // band, the fill and the mark keep their places; quarter ticks put every card's track on one readable scale. No range: the track is as before.
