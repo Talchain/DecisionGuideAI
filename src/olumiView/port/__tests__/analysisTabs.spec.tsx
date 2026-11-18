@@ -17,6 +17,7 @@ import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
 import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
+import { TIPPING_FIGURE } from '../AnalysisReaders'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
 import { useUIStore } from '../../../stores/uiStore'
@@ -463,6 +464,9 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     expect(p.getAttribute('title')).toBe(opt.hover)
     expect(box.querySelector(`[data-view-fact="${lead.id}"]`)).toBeNull()
     expect([...document.querySelectorAll('span')].filter((e) => e.textContent === lead.line)).toHaveLength(1)
+    // Seen at rest (DL 14:0xZ): core's heading is a section heading, not a quiet caption; the figure press is named, never a bare card heading.
+    const fig = box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!
+    expect([box.querySelector('[data-view="run.tipping_heading"]')!.tagName, fig.title.startsWith(`${TIPPING_FIGURE}: `), fig.querySelectorAll('svg').length]).toEqual(['H3', true, 1])
     fireEvent.click(box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!)
     expect(focus.node).toHaveBeenCalled()
   })

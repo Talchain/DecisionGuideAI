@@ -13,6 +13,11 @@ import { pressCard } from '../reasoning/tabRing'
 import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 import { cardOf, leadChangeOf } from './pick'
 import { TYPE } from './type'
+import { typography } from '../../styles/typography'
+import { OkIcon } from '../look/icons'
+
+/** The pressable figure's name (mark + hover), as the finding line names its own: never a bare card heading after the sentence. */
+export const TIPPING_FIGURE = 'Show this figure on the model'
 
 export function TippingPerOption({ model }: { model: ViewModel }) {
   const run = model.run ?? null
@@ -21,15 +26,15 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
   if (t === null || lines.length === 0) return null
   return (
     <section className="space-y-1" data-testid="analysis-tipping" aria-label={t.heading}>
-      <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.tipping_heading">{t.heading}</p>
+      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.tipping_heading">{t.heading}</h3>
       {lines.map(({ line: l, i }) => {
         const card = l.figure?.id == null ? null : cardOf(model, l.figure.id)
         return (
-          <p key={l.id} className={`${TYPE.meta} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}>
+          <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}>
             {l.olumi == null ? null : <><span className="text-info" title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
             <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
-            {card == null ? null : <> <button type="button" className={`${TYPE.meta} nodrag w-fit max-w-full truncate rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={card.heading}
-              onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }} data-tipping-figure={card.id}>{card.heading}</button></>}
+            {card == null ? null : <button type="button" className={`${TYPE.meta} nodrag mt-0.5 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={`${TIPPING_FIGURE}: ${card.heading}`} aria-label={`${TIPPING_FIGURE}: ${card.heading}`}
+              onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }} data-tipping-figure={card.id}><OkIcon id="why-moves" size={14} inherit decorative /><span className="min-w-0 truncate">{card.heading}</span></button>}
           </p>
         )
       })}
@@ -45,8 +50,8 @@ export function FailureAfterYours({ model }: { model: ViewModel }) {
   if (!written || t === null) return null
   return (
     <section className="space-y-1" data-testid="analysis-failure" aria-label={t.heading}>
-      <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.failure_heading">{t.heading}</p>
-      {t.lines.map(({ line: l, i }) => <p key={l.id} className={`${TYPE.meta} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}><span data-view={`run.failure.${i}.line`}>{l.line}</span></p>)}
+      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.failure_heading">{t.heading}</h3>
+      {t.lines.map(({ line: l, i }) => <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}><span data-view={`run.failure.${i}.line`}>{l.line}</span></p>)}
     </section>
   )
 }
