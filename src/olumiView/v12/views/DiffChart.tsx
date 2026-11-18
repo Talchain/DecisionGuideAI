@@ -1,8 +1,8 @@
 /**
  * Where two or more people differ on one card, DRAWN (overnight 18 Nov, lane wip/v12-tab-team): who said what as marks on one shared axis,
  * and what each person's figure does to each option's chance as bars on a 0–100% track. Every number drawn is the engine's own: a revealed
- * figure's `value` or `low`/`high` (`collab.shared[].figures`, found by the side's `view` id and the difference's `record`), and core's
- * `chance` for each holder; every label is core's text (`figure`, `text`). Nothing is rounded, averaged, ranked or marked right; the axis
+ * figure's `value` or `low`/`high` (`collab.shared[].figures`, found by the side's `view` id and the difference's `record`), labelled with that
+ * same figure's own `text`, and core's `chance` for each holder, labelled with its `text`. Nothing is rounded, averaged, ranked or marked right; the axis
  * carries no tick of its own. Lengths are SVG attributes, so no inline style is written.
  */
 import type { View } from '../../client'
@@ -11,17 +11,19 @@ import { AVATAR, LABEL, META } from '../../../olumiCore/team/ui'
 import { typography } from '../../../styles/typography'
 
 type Span = { readonly lo: number; readonly hi: number }
+/** A side's span and the words for it, both from the one revealed figure, so the mark and its label can never disagree. */
+type Side = Span & { readonly text: string }
 
 /** Each side's span from the revealed figure it names, or null when any side has none (a link, a factor, or a figure core did not send). */
-export function sideSpans(view: View, d: Difference): Span[] | null {
+export function sideSpans(view: View, d: Difference): Side[] | null {
   if (d.sides.length < 2) return null
   const spans = d.sides.map((s) => {
     const v = view.collab.shared.find((x) => x.id === s.view)
     const f = v?.figures.find((x) => x.quantity === d.record)
     if (f === undefined) return null
-    return 'value' in f ? { lo: f.value, hi: f.value } : { lo: f.low, hi: f.high }
+    return 'value' in f ? { lo: f.value, hi: f.value, text: f.text } : { lo: f.low, hi: f.high, text: f.text }
   })
-  return spans.every((s): s is Span => s !== null && Number.isFinite(s.lo) && Number.isFinite(s.hi)) ? spans : null
+  return spans.every((s): s is Side => s !== null && Number.isFinite(s.lo) && Number.isFinite(s.hi)) ? spans : null
 }
 
 /** The shared axis's ends: every span inside with a small margin; one point alone gets a margin of its own size (or 1). */
@@ -53,7 +55,7 @@ export function FigureSides({ view, d, at: id }: { view: View; d: Difference; at
             <p className={`${META} flex items-center gap-1.5`}>
               <span aria-hidden="true" className={AVATAR}>{initial(s.holder)}</span>
               <span className="text-text-header">{s.holder}</span>
-              <span className="min-w-0 break-words text-text-body" data-range-text="">{s.figure}</span>
+              <span className="min-w-0 break-words text-text-body" data-range-text="">{sp.text}</span>
             </p>
             <svg viewBox="0 0 100 8" preserveAspectRatio="none" className={TRACK} aria-hidden="true" data-range-lo={sp.lo} data-range-hi={sp.hi}>
               <rect x="0" y="3.5" width="100" height="1" className="fill-current text-panel-border" />

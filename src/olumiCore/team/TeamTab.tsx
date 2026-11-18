@@ -90,7 +90,7 @@ function TabHead({ heading, sid }: { heading: string; sid: string | null }): JSX
 const VIEW_IN_WORDS = { yours: 'Your view is in', theirs: 'Their view is revealed' } as const
 
 /** The first five seconds: who is in (core's lines for each member, "(you)" by `you_id`), whose view is in. */
-function Members({ view }: { view: View }): JSX.Element {
+export function Members({ view }: { view: View }): JSX.Element {
   const shownBy = new Set(view.collab.shared.filter((s) => !s.skip).map((s) => s.by_id))
   return (
     <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1.5 p-0" data-testid="team-members">
@@ -99,7 +99,7 @@ function Members({ view }: { view: View }): JSX.Element {
         return (
           <li key={m.id} data-testid={`team-member-${m.id}`} data-view-in={inWords === null ? undefined : ''} title={inWords ?? undefined} className={`${META} inline-flex items-center gap-1.5 text-text-body`}>
             <span aria-hidden="true" className={`${AVATAR} ${inWords === null ? '' : 'border-success'}`}>{(Array.from(m.text)[0] ?? '').toUpperCase()}</span>
-            {m.text}
+            <span data-member-text="">{m.text}</span>
             {inWords !== null && <span className="sr-only">{inWords}</span>}
           </li>
         )

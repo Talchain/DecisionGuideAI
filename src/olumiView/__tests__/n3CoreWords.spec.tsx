@@ -20,7 +20,10 @@ import { ViewLensBar } from '../ViewLensBar'
 import { Compare } from '../WhatIfCompare'
 import { StrategyOverviewPage } from '../strategy/overview/StrategyOverviewPage'
 import { EvidencePanel } from '../../olumiCore/team/EvidencePanel'
-import { ViewsPanel } from '../../olumiCore/team/ViewsPanel'
+import { RevealedViews, RevealMarks, ViewEntry } from '../../olumiCore/team/ViewsPanel'
+import { Members } from '../../olumiCore/team/TeamTab'
+/** The flow draws the entry ("Your view") and the revealed views ("Where you differ") as two steps; these rows read both, as the one panel did. */
+const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><Members view={view} /><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { resetDrafts } from '../../olumiCore/team/drafts'
@@ -133,7 +136,7 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     expect((await screen.findByTestId('team-views-error')).textContent).toBe('‹tw failed›')
     setTeamFetch(null); setPagePerson(null)
     // Each member's line, by member id.
-    for (const m of v.members) expect(screen.getByTestId(`team-member-${m.id}`).textContent).toBe(`‹‹member ${m.id}›`) // its initial, then core's line
+    for (const m of v.members) expect(screen.getByTestId(`team-member-${m.id}`).querySelector("[data-member-text]")!.textContent).toBe(`‹member ${m.id}›`) // core's line, exactly (the initial and whose view is in are marks beside it)
     // Each piece of evidence says who holds it and how, in core's line for that piece.
     for (const e of v.evidence) expect(screen.getByTestId(`team-evidence-${e.id}`).querySelector('p')!.textContent).toBe(`‹stance ${e.id}›`)
     expect(screen.getByTestId('team-evidence-open').textContent).toBe('‹tw evidence.add›')

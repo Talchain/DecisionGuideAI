@@ -13,6 +13,7 @@ import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { resetTeamFlow } from '../team/flow'
 import { NO_OPTION_YET, NO_OPTION_YET_WORDS } from '../team/CommitmentPanel'
 import { useMe } from '../me'
 
@@ -55,7 +56,7 @@ const serve = (v: View) => {
   useMe.setState({ me: { id: v.you_id, name: v.you }, status: 'ready' })
 }
 beforeEach(() => { calls = []; answer = null })
-afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }); useViewStore.setState({ at: null }) })
+afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetDrafts(); resetWrites(); resetTeamFlow(); useMe.setState({ me: null, status: 'none' }); useViewStore.setState({ at: null }) })
 const posts = () => calls.filter((c) => c.method === 'POST' && c.path !== '/api/me')
 const reread = () => calls.filter((c) => c.method === 'GET' && c.path === `/api/scenarios/${SID}/view?schema=3`).length
 
@@ -208,6 +209,8 @@ describe('an outcome takes a figure and the team\'s verdict on each dissent kept
   it('one verdict per kept dissent, none preset and all needed; the figure is optional; both are sent', async () => {
     serve(teamView('p_2', { commitments: [commitment()] }))
     render(<TeamTab />)
+    // A member core holds (the golden's `gated`) opens on their own view; "What happened" is one press away (overnight 18 Nov flow).
+    fireEvent.click(screen.getByTestId('team-step-outcome-row'))
     fireEvent.click(screen.getByTestId('team-outcome-open-9'))
     fireEvent.change(screen.getByTestId('team-o-9-happened'), { target: { value: 'Eight.' } })
     fireEvent.click(screen.getAllByLabelText('Mixed')[0]!)

@@ -76,6 +76,9 @@ export function Differences({ sid, view, onWrote, wide = false, onFocusCard }: {
           <p className={META} data-testid="differ-group-consequence-empty">{NOTHING_CALCULATED}</p>
         </div>
       ) })()}
+      {/* The coaching step (./AskToCompare): views in words can be compared in words, before or after a model is approved; it reads only the
+          View's revealed views, so it stands whether or not core's read of figures has arrived. One wherever the differences are drawn. */}
+      <AskToCompare view={view} at="differ" />
     </div>
   )
 }
@@ -183,9 +186,9 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   const c = view.collab
   const line = useDifferLine(sid, view)
   const centred = useCompare((s) => s.open)
-  if (view.gated) return <RevealedViews view={view} />
-  // The disagreements the approved model records are the model's, not anyone's private view: drawn before a reveal too.
+  // The disagreements the approved model records are the model's, not anyone's private view: drawn before a reveal, and to a member core holds.
   const dissent = c.dissent.length > 0 ? <Fold at="differ-dissent" summary={FLOW_WORDS.dissent(c.dissent.length)}><DissentPanel sid={sid} view={view} onWrote={onWrote} /></Fold> : null
+  if (view.gated) return <div className="grid gap-3"><RevealedViews view={view} />{dissent}</div>
   if (!revealed(view)) return <div className="grid gap-3"><p className={META} data-testid="differ-later">{STEP_WORDS.differLaterBody}</p>{dissent}</div>
   const marks = markCounts(view)
   const shared = c.shared.length
@@ -197,6 +200,8 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
         </p>
       )}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
+      {/* Doubt or keep one link in your own words (core POST …/links/stance) sits above the differences (the UI gate, 8 Nov). */}
+      <LinkStance sid={sid} view={view} onWrote={onWrote} />
       {centred ? (
         <div className="grid justify-items-start gap-2" data-testid="differ-in-centre">
           <p className={META}>{COMPARE_WORDS.inCentre}</p>
@@ -208,13 +213,11 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
           <div><button type="button" className={QUIET} data-testid="differ-open-centre" onClick={() => useCompare.getState().show()}><OkIcon id="compare-views" size={14} decorative />{COMPARE_WORDS.open}</button></div>
         </>
       )}
-      <AskToCompare view={view} at="differ" />
       <div className="grid gap-2">
         {!centred && <Fold at="differ-views" summary={FLOW_WORDS.views(shared)}><RevealedViews view={view} /><MemberFrames view={view} /></Fold>}
         {marks.all > 0 && <Fold at="differ-marks" summary={marks.shared > 0 ? FLOW_WORDS.common(marks.shared) : FLOW_WORDS.marked(marks.all)}><RevealMarks view={view} /></Fold>}
         {dissent}
       </div>
-      <LinkStance sid={sid} view={view} onWrote={onWrote} />
       <div><button type="button" className={GO} data-testid="differ-commit" onClick={() => startCommit(sid, view)}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
     </section>
   )

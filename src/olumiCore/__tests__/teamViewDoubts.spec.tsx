@@ -12,7 +12,9 @@ import { setPagePerson, setTeamFetch } from '../team/api'
 import { DOUBTS_FAILED, DOUBTS_MAY_HAVE_SAVED, DoubtsFailure, resetDoubts, retryDoubts, sendDoubts, ViewDoubts } from '../team/ViewDoubts'
 import { resetWrites } from '../team/writes'
 import { resetDifferences, useDifferences, type Differences } from '../team/differences'
-import { ViewsPanel } from '../team/ViewsPanel'
+import { RevealedViews, RevealMarks, ViewEntry } from '../team/ViewsPanel'
+/** The flow draws the entry ("Your view") and the revealed views ("Where you differ") as two steps; these rows read both, as the one panel did. */
+const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 import { draftOf, resetDrafts } from '../team/drafts'
 import { signOutOfOlumi } from '../signout'
 import { deleteMyData } from '../erase'

@@ -18,6 +18,7 @@ import { useOverview } from '../../../strategy/overview/useOverview'
 import { CompareViewsStage } from '../CompareViewsStage'
 import { ViewsToggle } from '../ViewsToggle'
 import { WhereWeDiffer, COMPARE_WORDS } from '../WhereWeDiffer'
+import { useTeamFlow } from '../../../../olumiCore/team/flow'
 import { useCompare } from '../useCompare'
 
 const core = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/differences.core.json'), 'utf8'))
@@ -95,8 +96,11 @@ describe('Compare views in the main workspace', () => {
     await waitFor(() => expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1))
     expect(sent.find((s) => s.method === 'POST')).toMatchObject({ url: '/api/scenarios/s_x/differences/per_specialist/steps', body: { step: 'research' } })
     useUIStore.setState({ activeOutputTab: 'olumi' } as never)
-    fireEvent.click(screen.getByTestId(`${at}-commit`))
+    // CHANGED BY DESIGN (overnight 18 Nov): one Commit for the comparison (its green press), not one per card; it brings the Team tab's Commit step.
+    expect(screen.queryByTestId(`${at}-commit`)).toBeNull()
+    fireEvent.click(screen.getByTestId('compare-commit'))
     expect(useUIStore.getState().activeOutputTab).toBe('team')
+    expect(useTeamFlow.getState().pending).toBe('commit')
     expect(document.body.textContent).not.toMatch(/\b(best|recommend|winner|should)\b/i)
   })
   it('draws nothing and asks core for nothing before an authorised reveal, and closes itself; contrast: revealed, it draws the other member', async () => {

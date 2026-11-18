@@ -10,7 +10,9 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
-import { ViewsPanel } from '../team/ViewsPanel'
+import { RevealedViews, RevealMarks, ViewEntry } from '../team/ViewsPanel'
+/** The flow draws the entry ("Your view") and the revealed views ("Where you differ") as two steps; these rows read both, as the one panel did. */
+const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 import { Failure, Rests, Tipping } from '../../olumiView/ViewChances'
 import { tippingOf } from '../../olumiView/layout'
 
@@ -35,37 +37,33 @@ describe('per-person effect rows read "<label>: <value>" and do not repeat what 
     expect(rows.length).toBeGreaterThan(0)
     for (const r of rows) expect(r.textContent, r.outerHTML).toMatch(/^.+: .+/)
   })
-  it('CATCH: with two people placed, the status line is left to the lane picture; with one person (no picture) it stays', () => {
-    show(viewOf([paul, bea]))
-    expect(screen.getByTestId('team-differ')).toBeTruthy()
-    expect(document.querySelectorAll(`[data-testid="team-revealed-${paul.id}-effects"] [data-effect-status]`)).toHaveLength(0)
-    // nor the leader rows the lanes already carry; the move (not in a lane) stays
+  // CHANGED BY DESIGN (overnight 18 Nov): the lanes picture is gone (each of core's differences is drawn as a chart in "Where you differ"),
+  // so every person's effect rows say all of it, with two people as with one.
+  it('CATCH: each revealed view\'s rows carry their status and leaders whether one person or two are revealed', () => {
     const rowsOf = `[data-testid="team-revealed-${paul.id}-effects"]`
-    expect(document.querySelectorAll(`${rowsOf} [data-effect-leader], ${rowsOf} [data-effect-model-leader], ${rowsOf} [data-effect-no-leader]`)).toHaveLength(0)
+    show(viewOf([paul, bea]))
+    expect(screen.queryByTestId('team-differ')).toBeNull()
+    expect(document.querySelectorAll(`${rowsOf} [data-effect-status]`).length).toBeGreaterThan(0)
     expect(document.querySelectorAll(`${rowsOf} [data-effect-most]`).length).toBeGreaterThan(0)
     cleanup()
     show(viewOf([paul]))
-    expect(screen.queryByTestId('team-differ')).toBeNull()
-    expect(document.querySelectorAll(`[data-testid="team-revealed-${paul.id}-effects"] [data-effect-status]`).length).toBeGreaterThan(0)
+    expect(document.querySelectorAll(`${rowsOf} [data-effect-status]`).length).toBeGreaterThan(0)
   })
 })
 
-describe('a changes figure with no clear leader is placed, in core\'s words', () => {
+describe('a changes figure with no clear leader says so, in core\'s words', () => {
   const noLead = (s: Sh): Sh => ({ ...s, effects: s.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, status: 'changes' as const, leader: null, model_leader: null } : e)) })
-  it('CATCH: the no_leader lane holds the person; the model side says no_model_leader; both verbatim', () => {
+  it('CATCH: core\'s no_leader and no_model_leader words, verbatim, on that figure\'s row', () => {
     show(viewOf([paul, noLead(bea)]))
-    const pic = screen.getByTestId('team-differ')
-    const lane = pic.querySelector<HTMLElement>('[data-differ-option="__no_leader__"]')!
-    expect(lane.querySelector('[data-differ-option-heading]')?.textContent).toBe(words.no_leader)
-    // Paul's own `per_specialist` is a changes figure with no leader (hidden before R17), so he stands there too.
-    expect([...lane.querySelectorAll('[data-differ-by]')].map((e) => e.textContent)).toEqual(['Paul', 'Bea'])
-    expect([...pic.querySelectorAll('[data-differ-no-model-leader]')].map((e) => e.textContent)).toEqual([words.no_model_leader])
+    const row = document.querySelector(`[data-testid="team-revealed-${bea.id}-effects"] [data-effect="capacity_target"]`)!
+    expect(row.querySelector('[data-effect-no-leader]')?.textContent).toBe(words.no_leader)
+    expect(row.querySelector('[data-effect-no-model-leader]')?.textContent).toBe(words.no_model_leader)
   })
-  it('a moves/same figure with a null leader stays unplaced (only changes matters here)', () => {
-    const quiet = { ...bea, effects: bea.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, leader: null } : e.quantity === 'per_specialist' ? { ...e, status: 'moves' as const } : e.leader === 'add_one' ? { ...e, leader: 'hold' } : e)) }
+  it('a moves figure with a null leader says neither (only changes matters here)', () => {
+    const quiet = { ...bea, effects: bea.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, status: 'moves' as const, leader: null } : e)) }
     show(viewOf([paul, quiet]))
-    const lane = document.querySelector<HTMLElement>('[data-differ-option="__no_leader__"]')!
-    expect([...lane.querySelectorAll('[data-differ-by]')].map((e) => e.textContent)).toEqual(['Paul'])
+    const row = document.querySelector(`[data-testid="team-revealed-${bea.id}-effects"] [data-effect="capacity_target"]`)!
+    expect(row.querySelector('[data-effect-no-leader]')).toBeNull()
   })
 })
 

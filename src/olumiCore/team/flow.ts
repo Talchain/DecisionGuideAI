@@ -44,9 +44,12 @@ export const revealed = (view: View): boolean => !view.gated && view.collab.shar
 export function currentStep(view: View): StepId {
   const c = view.collab
   if (c.alone) return 'invite'
-  if (view.gated || !viewIn(view)) return 'view'
-  if (c.can_reveal || c.waiting !== null || !revealed(view)) return 'reveal'
+  if (view.gated) return 'view'
+  if (c.can_reveal) return 'reveal'
+  // A next action still waiting for what happened outranks starting a view of one's own (a member core does not hold, such as the brief's writer).
   if (withoutOutcome(c.commitments).length > 0) return 'outcome'
+  if (!viewIn(view)) return 'view'
+  if (c.waiting !== null || !revealed(view)) return 'reveal'
   return 'differ'
 }
 

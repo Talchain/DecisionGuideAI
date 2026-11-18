@@ -13,6 +13,7 @@ import { setTeamFetch } from '../team/api'
 import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
+import { resetTeamFlow } from '../team/flow'
 import { useMe } from '../me'
 
 const SID = 's_0123456789ab'
@@ -52,23 +53,28 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served2, status: 'ready', error: null, stale: false })
   useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); resetTeamFlow(); setTeamFetch(null); resetDrafts(); resetWrites(); useMe.setState({ me: null, status: 'none' }) })
 
 const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 const setView = (v: View) => useViewStore.setState({ view: v })
 
 describe('Team first arrival (v10 review item 9)', () => {
-  it('a held member reads the private-view box and its first button above "Team views"; one not held reads them below it (contrast)', () => {
+  // CHANGED BY DESIGN (overnight 18 Nov flow): the tab's heading is the header above every step; what v10 item 9 asked for (the box and its
+  // first button in view on arrival) is now the open "Your view" step, with nothing but the header and one closed line above it.
+  it('a held member arrives on the open "Your view" step: first arrival, then the box and its first button; one not held does not (contrast)', () => {
     render(<TeamTab />)
-    const heading = screen.getByTestId('team-views-heading')
+    const stepView = screen.getByTestId('team-step-view')
+    expect(stepView.getAttribute('data-step-open')).toBe('')
+    expect(stepView.contains(screen.getByTestId('team-view-text'))).toBe(true)
     expect(before(screen.getByTestId('first-arrival'), screen.getByTestId('team-view-text'))).toBe(true)
-    expect(before(screen.getByTestId('team-view-text'), heading)).toBe(true)
-    expect(before(screen.getByTestId('team-view-give'), heading)).toBe(true)
+    expect(before(screen.getByTestId('team-view-text'), screen.getByTestId('team-view-give'))).toBe(true)
+    // Only the invite step's one line stands between the header and this step.
+    expect(screen.getByTestId('team-step-invite').hasAttribute('data-step-open')).toBe(false)
     cleanup()
     setView(twoPeople({ shared: [] }, { gated: false }))
     render(<TeamTab />)
     expect(screen.queryByTestId('first-arrival')).toBeNull()
-    expect(before(screen.getByTestId('team-views-heading'), screen.getByTestId('team-view-text'))).toBe(true)
+    expect(screen.getByTestId('team-step-view').hasAttribute('data-step-open')).toBe(false)
   })
 
   it("the box's placeholder is the scenario's own question text from the View; a View without one keeps core's placeholder", () => {

@@ -13,7 +13,7 @@ import { differencesShape, resetDifferences, type Differences } from '../../../.
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { countDifferences, groupDifferences, groupOf, summaryLine } from '../differGroups'
 import { WhereWeDiffer } from '../WhereWeDiffer'
-import { SimpleSummary } from '../SimpleSummary'
+import { useDifferLine } from '../SimpleSummary'
 import { ViewsToggle } from '../ViewsToggle'
 import { useViewsMarks } from '../viewsMarks'
 
@@ -64,26 +64,30 @@ describe('grouping', () => {
 })
 
 describe('before a reveal', () => {
-  it('asks core for no differences and draws no count or summary, only the own-view entry and core\'s reveal state', async () => {
+  // CHANGED BY DESIGN (overnight 18 Nov flow): the own-view entry and the reveal are the Team flow's steps 2 and 3 (teamFlow.spec); this
+  // step, before a reveal, draws only core's held line and asks for nothing.
+  it('asks core for no differences and draws no count or summary, only core\'s held line', async () => {
     const sent = serve(() => ({ status: 200, body: payload([figure]) }))
     const gated = view({ gated: true, collab: { ...fx.collab, shared: [], can_reveal: true, waiting: null } })
     render(<WhereWeDiffer sid="s_x" view={gated} onWrote={async () => true} />)
-    expect(screen.getByTestId('differ-before')).toBeTruthy()
-    expect(screen.getByTestId('team-view-text')).toBeTruthy()            // the member's own private-view entry
-    expect(screen.getByTestId('team-reveal-go')).toBeTruthy()            // core says everyone has contributed: reveal together
+    expect(screen.getByTestId('team-revealed-held').textContent).toBe(gated.team_words.views.held)
     expect(screen.queryByTestId('differ-after')).toBeNull()
     expect(screen.queryByTestId('differ-summary')).toBeNull()
     expect(document.body.textContent).not.toMatch(/\d+ places? you differ/)
     await act(async () => { await Promise.resolve() })
     expect(sent.filter((s) => s.url.includes('/differences'))).toHaveLength(0)
   })
-  it('the summary alone draws nothing before a reveal, and nothing when only one person has given a view', async () => {
+  it('the count line is nothing before a reveal, and nothing when only one person has given a view', async () => {
     serve(() => ({ status: 200, body: payload([figure]) }))
-    const { container, rerender } = render(<SimpleSummary sid="s_x" view={view({ gated: true, collab: { ...fx.collab, shared: [] } })} />)
+    const Line = ({ v }: { v: View }) => <>{useDifferLine('s_x', v)}</>
+    const { container, rerender } = render(<Line v={view({ gated: true, collab: { ...fx.collab, shared: [] } })} />)
     expect(container.textContent).toBe('')
-    rerender(<SimpleSummary sid="s_x" view={view({ collab: { ...fx.collab, shared: fx.collab.shared.slice(0, 1) } })} />)
+    rerender(<Line v={view({ collab: { ...fx.collab, shared: fx.collab.shared.slice(0, 1) } })} />)
     await act(async () => { await Promise.resolve() })
     expect(container.textContent).toBe('')
+    // Contrast: two people revealed, core's read in: the line is drawn.
+    rerender(<Line v={view()} />)
+    await waitFor(() => expect(container.textContent).toBe('1 place you differ; 1 changes the answer'))
   })
 })
 
