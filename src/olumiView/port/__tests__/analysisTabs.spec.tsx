@@ -13,7 +13,8 @@ vi.mock('../../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(a
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
-import { optionCards } from '../../layout'
+import { optionCards, outcomePlace } from '../../layout'
+import { OUTCOME_WORDS } from '../LikelyOutcome'
 import { PortAnalysisTab } from '../PortAnalysisTab'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
@@ -87,6 +88,55 @@ describe('every option\'s line for every aim is drawn somewhere, never dropped',
     expect(drawn.map((e) => e.dataset['chartAim'])).toEqual(groups.map((g) => g.aimId))
     expect(drawn[0]!.querySelector('[data-view="run.lead"]')).not.toBeNull()
     expect(drawn[1]!.querySelector(`[data-view="${groups[1]!.aim.at}"]`)!.textContent).toBe(groups[1]!.aim.text)
+  })
+})
+
+describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () => {
+  it('bakery: under the chart, one likely range per option with an outcome, in core\'s order; each band at outcomePlace and core\'s line under it; heading is core\'s lens label', () => {
+    const view = viewOf('golden/bakery'), m = view.model!, lead = leadAimOf(m)
+    const rows = chartRowsOf(m).filter((r) => r.row.outcome != null)
+    expect(rows.map((r) => r.card.id)).toEqual(['second_oven', 'longer_hours', 'carry_on'])
+    ready(view); render(<PortAnalysisTab />)
+    const sec = screen.getByTestId('analysis-likely-outcome')
+    const li = m.run!.lenses!.findIndex((l) => l.id === 'outcome')
+    expect(sec.querySelector(`[data-view="run.lenses.${li}.label"]`)!.textContent).toBe(m.run!.lenses![li]!.label)
+    expect([...sec.querySelectorAll<HTMLElement>('[data-outcome-option]')].map((e) => e.dataset['outcomeOption'])).toEqual(rows.map((r) => r.card.id))
+    for (const { card, row, i } of rows) {
+      const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
+      expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
+      expect(el.querySelector('button')!.getAttribute('title')).toBe(row.outcome!.title)
+      if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
+      else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
+    }
+    // carry_on's one value is a point; the two ranged options are bands with a middle tick.
+    expect(sec.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')).not.toBeNull()
+    expect(sec.querySelector('[data-outcome-option="second_oven"] [data-outcome-mid]')).not.toBeNull()
+    // It sits after the chance chart.
+    const chart = screen.getByTestId('analysis-chance-chart')
+    expect(chart.compareDocumentPosition(sec) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(expectAllBound(view, sec, expect)).toBeGreaterThan(rows.length)
+  })
+
+  it('a View with outcomes but no outcome lens (real/hiring) keeps the section under the tab\'s own heading; CONTRAST app-launch (no chance) and bakery with every outcome removed draw none', () => {
+    const hiring = viewOf('real/hiring')
+    expect(hiring.model!.run!.lenses ?? []).toEqual([])
+    ready(hiring); render(<PortAnalysisTab />)
+    expect(screen.getByTestId('analysis-likely-outcome').querySelector('h3')!.textContent).toBe(OUTCOME_WORDS.heading)
+    cleanup()
+    ready(viewOf('core/an01-app-launch')); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-likely-outcome')).toBeNull()
+    cleanup()
+    const bare = structuredClone(viewOf('golden/bakery'))
+    for (const c of bare.model!.cards) for (const r of c.rows) if (r.kind === 'chance') (r as { outcome: unknown }).outcome = null
+    ready(bare); render(<PortAnalysisTab />)
+    expect(screen.getByTestId('analysis-chance-chart')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-likely-outcome')).toBeNull()
+  })
+
+  it('a press on a likely range focuses that option\'s card on the canvas, by its id', () => {
+    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
+    fireEvent.click(screen.getByTestId('analysis-likely-outcome').querySelector('[data-outcome-option="longer_hours"] button')!)
+    expect(focus.node.mock.calls).toEqual([['longer_hours']])
   })
 })
 

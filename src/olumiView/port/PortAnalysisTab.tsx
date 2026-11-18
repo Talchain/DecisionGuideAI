@@ -19,6 +19,7 @@ import { WhatIfShown } from '../ViewChances'
 import { StateStrip, useTabState } from '../reasoning/StateStrip'
 import { comparedGroupsOf } from '../layout'
 import { ChanceChart } from './ChanceChart'
+import { LikelyOutcome } from './LikelyOutcome'
 import { cardOf, limitGroupsOf, tabStateOf } from './pick'
 import { ResultNeeds } from './ResultNeeds'
 import { TYPE } from './type'
@@ -141,6 +142,7 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
     <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
       <WhatIfShown model={model} labelled={!stated} />
       {state === 'chance' ? <ChanceChart model={model} /> : null}
+      {state === 'chance' ? <LikelyOutcome model={model} /> : null}
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
       <Limits model={model} />
       <ResultNeeds model={model} under={state !== 'none'} />
