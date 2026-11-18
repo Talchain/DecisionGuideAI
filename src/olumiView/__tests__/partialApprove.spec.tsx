@@ -148,22 +148,23 @@ describe('partial approval', () => {
     expect((screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, 'the selection is kept').toBe(true)
     expect(posts).toHaveLength(1)
   })
-  it('core\'s partners are followed TO THE END and shown (015; Codex root 21:32Z): ticking a line ticks what it is approved with and what THAT needs, each saying why at rest; unticking a needed line unticks every line that needs it; unticking the first line leaves the others; the payload is the ticked set. CONTRAST: a line core marks with nothing is ticked alone and says nothing', async () => {
+  it('core\'s REQUIRED needs are kept whole and shown (015; Codex root 21:32Z): ticking a line ticks what it requires and what THAT requires, each saying why at rest; unticking a needed line unticks every line that needs it; unticking the first line leaves the others; the payload is the ticked set. CONTRAST: a line core marks with nothing is ticked alone and says nothing', async () => {
     const base = p.changes[0]!
-    const mk = (id: string, text: string, ids: string[] | null) => ({ ...base, id, top: false, text, detail: '', together: ids === null ? null : { ids, why: `why ${id}` } })
+    // Core's REQUIRED needs (mandatory, all of them); core sends each line's needs already followed to the end, and the page follows them again by id.
+    const mk = (id: string, text: string, ids: string[] | null) => ({ ...base, id, top: false, text, detail: '', together: null, needs: (ids ?? []).map((n) => ({ id: n, top: false, kind: 'required', why: `why ${id}` })) })
     const changes = [mk('a', 'line A', ['b']), mk('b', 'line B', ['c']), mk('c', 'line C', null), mk('d', 'line D', null)]
-    showOpen({ ...golden, proposal: { ...p, changes, groups: null } })
+    const c = showOpen({ ...golden, proposal: { ...p, changes, groups: null } } as unknown as View)
     const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
     const ticks = () => [0, 1, 2, 3].map((i) => tick(i).checked)
     const why = (i: number) => screen.queryByTestId(`view-change-why-${i}`)?.textContent ?? null, by = (i: number) => screen.queryByTestId(`view-change-needed-by-${i}`)?.textContent ?? null
     fireEvent.click(tick(0))
     expect(ticks(), 'A brings B, and B brings C').toEqual([true, true, true, false])
-    expect([why(0), why(1), why(2), by(0), by(1), by(2)]).toEqual(['why a', 'why b', null, null, `${NEEDED_BY} line A`, `${NEEDED_BY} line B`])
+    expect([by(0), by(1), by(2), c.querySelector('[data-view="proposal.changes.0.needs.0.why"]')?.textContent, c.querySelector('[data-view="proposal.changes.1.needs.0.why"]')?.textContent]).toEqual([null, `${NEEDED_BY} line A`, `${NEEDED_BY} line B`, 'why a', 'why b'])
     fireEvent.click(tick(2))
     expect(ticks(), 'C unticked: B needs it and leaves, then A').toEqual([false, false, false, false])
     fireEvent.click(tick(0)); fireEvent.click(tick(0))
     expect(ticks(), 'A unticked: nothing needs A, so B and C stay, in view').toEqual([false, true, true, false])
-    expect([why(0), by(1), by(2)]).toEqual([null, null, `${NEEDED_BY} line B`])
+    expect([by(1), by(2)]).toEqual([null, `${NEEDED_BY} line B`])
     fireEvent.click(tick(3))
     expect([ticks(), why(3), by(3)], 'a line with no partners: ticked alone, nothing said').toEqual([[false, true, true, true], null, null])
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
@@ -220,6 +221,16 @@ describe('partial approval', () => {
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(screen.queryByTestId('view-proposal-said')).not.toBeNull())
     expect([screen.getByTestId('view-proposal-said').textContent, screen.queryByTestId('view-tick-needed'), [0, 1, 2, 3].map((i) => screen.queryByTestId(`view-change-refused-${i}`))]).toEqual(['another refusal', null, [null, null, null, null]])
+  })
+  it('ANY-OF stays any-of (contract item 8): `together` is one step and never enforced by the page. A figure whose `together` lists two alternative readers is ticked with them, and unticking ONE reader leaves the figure and the other reader ticked (core needs one, not both); a partner\'s own partner is not followed', () => {
+    const tg = (id: string, text: string, ids: string[] | null) => ({ ...p.changes[0]!, id, top: false, text, detail: '', together: ids === null ? null : { ids, why: `why ${id}` } })
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: [tg('fig', 'a figure', ['r1', 'r2']), tg('r1', 'reader one', ['x']), tg('r2', 'reader two', null), tg('x', 'further', null)] } })
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0))
+    expect([0, 1, 2, 3].map((i) => tick(i).checked), 'the figure and its listed partners, one step: reader one’s own partner is not followed').toEqual([true, true, true, false])
+    expect(screen.getByTestId('view-change-why-0').textContent, 'core’s why, at rest once ticked').toBe('why fig')
+    fireEvent.click(tick(2))
+    expect([0, 1, 2, 3].map((i) => tick(i).checked), 'one reader unticked: the figure stays with the other').toEqual([true, true, false, false])
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)

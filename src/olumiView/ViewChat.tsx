@@ -544,13 +544,13 @@ type Change = NonNullable<View['proposal']>['changes'][number]
 const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
 /** Chrome label before core's own text of the ticked line(s) that need this one. */
 export const NEEDED_BY = 'Needed by:'
-/** Chrome labels of the review's dependency lines: a ticked record kept without an optional association of Olumi's; a line core's refusal says the ticked lines need. */
+/** Chrome labels of the review's dependency lines: a ticked statement or note kept without an optional link (never said to be the person's own: the kept record keeps its author); a line core's refusal says the ticked lines need. */
 export const KEPT_WITHOUT = 'Kept without:', REFUSAL_NEEDS = 'What you ticked needs this:', TICK_NEEDED = 'Tick what these need'
 /**
  * What a change line needs (core's review-boundary contract, 18 Nov; additive on olumi.view/3 as `proposal.changes[].needs`, not yet in the generated
  * types, so read here, defensively): `{ id, top, kind, why }`, in the direction "this line needs that one", already followed to the end by core, from the
- * same function its approval refuses by. `required`: approved only together. `optional`: an association of Olumi's on a person's own words, which may be
- * left off by a stated choice (`without` on the approval), their words and source untouched. A core that sends none: none.
+ * same function its approval refuses by. `required`: approved only together. `optional`: a context link (`concerns`) from a claim, evidence or dissent record, whoever wrote
+ * it, to a record of Olumi's this proposal adds; it may be left off by a stated choice (`without` on the approval), the kept record's words, author and source untouched. A core that sends none: none.
  */
 type Need = { id: string; top: boolean; kind: 'required' | 'optional'; why: string }
 const needOf = (x: unknown): Need[] => { const n = x as { id?: unknown; top?: unknown; kind?: unknown; why?: unknown } | null
@@ -580,7 +580,7 @@ function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], w
         {ticked === true && why !== null ? <p className="m-0 text-text-light" data-view={`proposal.changes.${i}.together.why`} data-testid={`view-change-why-${i}`}>{why}</p> : null}
         {ticked === true && neededBy.length > 0 ? <p className="m-0 text-text-light" data-testid={`view-change-needed-by-${i}`}>{NEEDED_BY} {neededBy.join(' · ')}</p> : null}
         {ticked === true ? reasons.map((r) => <p key={r.at} className="m-0 text-text-light" data-view={r.at} data-change-reason="">{r.why}</p>) : null}
-        {/* An optional association of Olumi's on a person's own record, left off: said on the kept line before it is approved, in core's words, never silently. */}
+        {/* An optional link left off: said on the kept line before it is approved, in core's words, never silently; the line keeps its own author mark. */}
         {ticked === true ? without.map((w) => <p key={w.at} className="m-0 text-text-light" data-view={w.at} data-testid={`view-change-without-${i}`}>{KEPT_WITHOUT} {w.text}{w.why === '' ? null : <> · {w.why}</>}</p>) : null}
         {refused.length === 0 ? null : <p className="m-0 text-text-header" data-testid={`view-change-refused-${i}`}>{REFUSAL_NEEDS}{refused.filter((w) => w !== '').map((w, k) => <span key={k}> {w}</span>)}</p>}
       </div>
@@ -645,22 +645,27 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const [missing, setMissing] = useState<readonly Need[]>([])
   // ⛔ NEVER ORPHAN OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with
   // them (the records named in its `together.ids`), so a tick can never leave the figure without the line that reads it.
-  // The lines a line is approved only with, FOLLOWED TO THE END (015: one step left a partner's own partner unticked, and core refused): core's `together.ids`
-  // of the line, then of each line that brings, by record id. Core's field, no rule of the page's.
   const records = new Map(changes.flatMap((o) => (o.top ? [] : [[o.id, o] as const])))
-  // What a line is approved only with: core's partners (`together.ids`) and core's required needs (`needs[]`, the review-boundary contract), by record id.
-  const requiredOf = (c: Change): string[] => [...(c.together?.ids ?? []), ...needsOf(c).flatMap((n) => (n.kind === 'required' && !n.top ? [n.id] : []))]
-  const withPartners = (c: Change): Change[] => {
+  // TWO fields of core's, two meanings, never merged:
+  //  - `needs` kind `required` (the review-boundary contract): mandatory, all of them, already followed to the end by core through mandatory edges only. The
+  //    ticked set is kept whole over these: ticking a line ticks them, and unticking one unticks every ticked line that requires it (a hard dependent leaves
+  //    with its rejected target; Codex root 21:32Z). An `optional` need is never followed and never ticked for the person (contract item 7).
+  //  - `together.ids` (core v1.13): the line's partners as before, ONE step, ticked and unticked with it. It may list ALTERNATIVE readers of a figure, where core
+  //    needs one of them and not all (contract item 8, any-of): so it is never followed further and never enforced here; core's own check decides.
+  const requiredOf = (c: Change): string[] => needsOf(c).flatMap((n) => (n.kind === 'required' && !n.top ? [n.id] : []))
+  const partnersOf = (c: Change): Change[] => (c.together?.ids ?? []).flatMap((id) => { const o = records.get(id); return o === undefined ? [] : [o] })
+  const withRequired = (c: Change): Change[] => {
     const out = new Map<string, Change>([[keyOf(c), c]]), walk = [c]
     while (walk.length > 0) for (const id of requiredOf(walk.pop()!)) { const o = records.get(id); if (o !== undefined && !out.has(keyOf(o))) { out.set(keyOf(o), o); walk.push(o) } }
     return [...out.values()]
   }
+  /** What ticking a line ticks: the line, its partners (one step) and what each of those requires, to the end. */
+  const withPartners = (c: Change): Change[] => [...new Map([c, ...partnersOf(c)].flatMap(withRequired).map((o) => [keyOf(o), o] as const)).values()]
   const set = (n: Set<string>, cs: readonly Change[], on: boolean) => { for (const x of cs) { if (on) n.add(keyOf(x)); else n.delete(keyOf(x)) } }
-  // After a line is unticked, a ticked line that needs it leaves with it (a hard dependent goes with its rejected target; Codex root 21:32Z), to the end:
-  // the ticked set always holds everything each ticked line needs, so Approve ticked never sends a selection core's own partners rule refuses.
-  const settle = (n: Set<string>): Set<string> => { for (let again = true; again;) { again = false; for (const o of changes) if (n.has(keyOf(o)) && withPartners(o).some((x) => !n.has(keyOf(x)))) { n.delete(keyOf(o)); again = true } } return n }
-  const toggle = (c: Change) => { setMissing([]); setTicked((t) => { const n = new Set(t), on = !n.has(keyOf(c)); if (on) set(n, withPartners(c), true); else n.delete(keyOf(c)); return settle(n) }) }
-  const toggleGroup = (lines: number[], on: boolean) => { setMissing([]); setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) { if (on) set(n, withPartners(c), true); else n.delete(keyOf(c)) } } return settle(n) }) }
+  const settle = (n: Set<string>): Set<string> => { for (let again = true; again;) { again = false; for (const o of changes) if (n.has(keyOf(o)) && withRequired(o).some((x) => !n.has(keyOf(x)))) { n.delete(keyOf(o)); again = true } } return n }
+  // Unticking a line unticks its partners with it, as before (`together`), then every ticked line that requires something no longer ticked (`needs`).
+  const toggle = (c: Change) => { setMissing([]); setTicked((t) => { const n = new Set(t), on = !n.has(keyOf(c)); set(n, on ? withPartners(c) : [c, ...partnersOf(c)], on); return settle(n) }) }
+  const toggleGroup = (lines: number[], on: boolean) => { setMissing([]); setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, on ? withPartners(c) : [c, ...partnersOf(c)], on) } return settle(n) }) }
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
@@ -670,7 +675,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const without = changes.flatMap((c) => { const off = leftOff(c); return off.length === 0 ? [] : [{ id: c.id, concerns: off.map((n) => n.id) }] })
   const picked = without.length === 0 ? pick : { ...pick, without }
   // Which ticked lines are approved only with this one (it is in their partners or their required needs): core's own text of each, and core's why.
-  const needers = (c: Change) => (c.top ? [] : changes.flatMap((o, oi) => (o !== c && ticked.has(keyOf(o)) && requiredOf(o).includes(c.id) ? [{ o, oi }] : [])))
+  const needers = (c: Change) => (c.top ? [] : changes.flatMap((o, oi) => (o !== c && ticked.has(keyOf(o)) && (requiredOf(o).includes(c.id) || (o.together?.ids ?? []).includes(c.id)) ? [{ o, oi }] : [])))
   const line = (i: number) => {
     const c = changes[i]!, on = tickable ? ticked.has(keyOf(c)) : null, by = tickable ? needers(c) : []
     const reasons = by.flatMap(({ o, oi }) => needsOf(o).flatMap((n, k) => (n.id === c.id && n.kind === 'required' && n.why !== '' ? [{ at: `proposal.changes.${oi}.needs.${k}.why`, why: n.why }] : [])))
