@@ -68,6 +68,20 @@ describe('a saved figure says what it changed (journey 4)', () => {
     top.mockRestore(); tall.mockRestore()
   })
 
+  it('S3b the receipt never slices the newest reply: where it would land inside the reply, the reply opens on its first line (audit chat-1)', () => {
+    const reply = (n: HTMLElement) => ['view-chat-answer', 'view-chat-latest', 'view-chat-early'].includes(n.dataset.testid ?? '') || n.hasAttribute('data-latest-floor')
+    const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 1000 : 600 })
+    const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : reply(this) ? 500 : 0 })
+    useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: RUN2, status: 'ready', error: null, stale: false } as never)
+    const el = render(<ViewChat />).container
+    const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
+    Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
+    act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
+    expect(scroll.scrollTop).toBe(584) // the reply's first line, 16 px under the top (600 - 16), not 916 (inside the reply: a sliced headline)
+    top.mockRestore(); tall.mockRestore()
+  })
+
   it('S4 with a Next step card below it (core asks to bring in a colleague after the save), the receipt still comes into view, not the step', () => {
     const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 700 : this.dataset.testid === 'view-next-step' ? 1300 : 600 })
     const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : this.dataset.testid === 'view-next-step' ? 150 : 0 })

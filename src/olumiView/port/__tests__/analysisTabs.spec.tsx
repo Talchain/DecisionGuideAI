@@ -15,6 +15,7 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
+import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
@@ -117,6 +118,24 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect(expectAllBound(view, sec, expect)).toBeGreaterThan(rows.length)
   })
 
+  it('the likely-outcome axis starts at zero where no outcome is below it: 80 is not at 0% (audit analysis-likely-outcome-axis-unlabelled)', () => {
+    const view = structuredClone(viewOf('golden/bakery')), m = view.model!, lead = leadAimOf(m)!
+    const set = (id: string, low: number, median: number, high: number) => {
+      const row = m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: { low: number; median: number; high: number } }
+      Object.assign(row.outcome, { low, median, high })
+    }
+    set('carry_on', 80, 80, 80); set('second_oven', 94.8, 100, 105); set('longer_hours', 85, 90, 95)
+    const at = (id: string) => outcomePlace(m, lead, (m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: Parameters<typeof outcomePlace>[2] }).outcome)
+    expect(at('carry_on').left, '80 is not at 0%').toBeCloseTo((80 / 105) * 100, 6)
+    expect([at('second_oven').left + at('second_oven').width]).toEqual([100]) // the axis ends at the greatest high
+    expect(at('second_oven').mid).toBeCloseTo((100 / 105) * 100, 6) // the middle tick is kept
+    ready(view); render(<PortAnalysisTab />)
+    expect(Number(document.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')!.getAttribute('data-outcome-point'))).toBeCloseTo((80 / 105) * 100, 6)
+    // CONTRAST: an outcome that goes below zero keeps the axis from the least low (the old rule).
+    set('carry_on', -10, 0, 10)
+    expect(at('carry_on').left).toBe(0)
+  })
+
   it('a View with outcomes but no outcome lens (real/hiring) keeps the section under the tab\'s own heading; CONTRAST app-launch (no chance) and bakery with every outcome removed draw none', () => {
     const hiring = viewOf('real/hiring')
     expect(hiring.model!.run!.lenses ?? []).toEqual([])
@@ -184,16 +203,46 @@ describe('the chance chart', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
-    // What the two ends mean is said at rest, in core's words, once.
+    // What the two ends mean is core's sentence, once, in the key's one disclosure (CHANGED 18 Nov, audit analysis-first-screen-scrolls: was three lines open at rest).
     expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
     expect(document.querySelector('[data-view="run.sensitivity.text"]')!.textContent).toBe(view.model!.run!.sensitivity.text)
+    const fold = screen.getByTestId('analysis-chart-meaning')
+    expect([fold.tagName, fold.hasAttribute('open'), fold.contains(document.querySelector('[data-view="run.sensitivity.text"]'))]).toEqual(['DETAILS', false, true])
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getAllByTestId('analysis-chance-track').length).toBe(3)
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
+    expect(screen.queryByTestId('analysis-chart-marks'), 'CONTRAST: the mark\'s own meaning is still offered, in the marks key and not the range key').not.toBeNull()
     expect(document.querySelectorAll('[data-chance-range]')).toHaveLength(0)
     expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+  })
+})
+
+describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)', () => {
+  it('the axis stands under the FIRST track (once, not at the foot); the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, in the key\'s disclosure', () => {
+    const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
+    ready(view); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    expect(chart.querySelectorAll('[data-testid="analysis-chart-axis"]')).toHaveLength(1)
+    const first = chart.querySelector(`[data-chart-option="${rows[0]!.card.id}"]`)!
+    const axis = chart.querySelector('[data-testid="analysis-chart-axis"]')!
+    expect(first.contains(axis), 'in the first option, under its track').toBe(true)
+    expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
+    const w = chart.querySelector('[data-chance-whisker]')!
+    expect([w.getAttribute('stroke-width'), w.getAttribute('class')]).toEqual(['2', 'stroke-text-body'])
+    const likely = rows.find((r) => r.row.likely != null)!.row.likely!
+    const mark = screen.getByTestId('analysis-chart-meaning').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
+    expect(mark.textContent).toBe(`${likely.glyph}${likely.title}`)
+  })
+  it('the first screen is shorter: the long sentences sit behind ONE disclosure that is a real summary control, never hover alone', () => {
+    const view = viewOf('golden/bakery')
+    ready(view); render(<PortAnalysisTab />)
+    const fold = screen.getByTestId('analysis-chart-meaning')
+    expect(fold.querySelector('summary')!.textContent).toBe(CHART_WORDS.meaning)
+    const key = screen.getByTestId('analysis-chart-key')
+    expect([...key.querySelectorAll('[data-view="run.sensitivity.text"], [data-chart-mark]')].every((e) => fold.contains(e))).toBe(true)
   })
 })
 

@@ -82,14 +82,22 @@ describe('what changed, each by its author and a press to its card', () => {
     expect(screen.getByTestId('core-compare-named').querySelector('[data-compare-card]')).toBeNull()
     expect(within(screen.getByTestId('core-compare-named')).getByRole('img').getAttribute('aria-label')).toBe('Olumi’s')
   })
-  it('CT2: one named figure but three change lines: the full lines are behind one press, counted at rest, so one figure never reads as the only change', async () => {
+  it('CT2 CHANGED BY DESIGN (18 Nov audit compare-model-01): one named figure and three change lines: core\'s lines are open at rest (no fold), so one figure never reads as the only change', async () => {
     answer = { versions: [], changes: LINES, results: [] }
+    show(fixture('ui9-a6-since-v3'))
+    await screen.findByTestId('core-compare-out')
+    expect(screen.queryByTestId('core-compare-all-lines'), 'no fold for three').toBeNull()
+    const lines = screen.getByTestId('core-compare-lines')
+    expect(lines.closest('details'), 'not inside any closed fold').toBeNull()
+    expect([...lines.querySelectorAll('[data-compare-line]')].map((l) => [l.textContent, l.querySelector('[role="img"]')?.getAttribute('aria-label') ?? null]))
+      .toEqual([['↻ figure: hours from 20 to 25', null], ['+ risk: delay', 'Proposed by Olumi'], ['↻ figure: spend from 1,000 to 1,200', 'Their figure, read as a range']])
+  })
+  it('CT2b CONTRAST: four change lines stay behind one press, counted at rest', async () => {
+    answer = { versions: [], changes: [...LINES, LINES[0]!], results: [] }
     show(fixture('ui9-a6-since-v3'))
     const all = await screen.findByTestId('core-compare-all-lines')
     expect(all.tagName).toBe('DETAILS'); expect(all.hasAttribute('open')).toBe(false)
-    expect(all.querySelector('summary')!.textContent).toBe('All 3 changes in full')
-    expect([...all.querySelectorAll('[data-compare-line]')].map((l) => [l.textContent, l.querySelector('[role="img"]')?.getAttribute('aria-label') ?? null]))
-      .toEqual([['↻ figure: hours from 20 to 25', null], ['+ risk: delay', 'Proposed by Olumi'], ['↻ figure: spend from 1,000 to 1,200', 'Their figure, read as a range']])
+    expect(all.querySelector('summary')!.textContent).toBe('All 4 changes in full')
   })
   it('CT3: with no View comparison for the pair, core\'s change lines are the list; CONTRAST: none at all says so once', async () => {
     answer = { versions: [], changes: LINES, results: [] }
@@ -135,7 +143,12 @@ describe('what moved: one track per moved result, the largest move first, the re
     answer = { versions: [], changes: [], results: [result('same', 0.5, 0.5, 'unchanged'), result('also', 0.1, 0.1, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))
     expect((await screen.findByTestId('core-compare-still')).querySelector('summary')!.textContent).toBe('2 results did not move.')
+    expect(screen.getByTestId('core-compare-moved').querySelector('h4'), 'no "What moved" heading over nothing that moved (audit compare-model-02)').toBeNull()
     expect([document.querySelectorAll('[data-compare-track]').length, document.querySelectorAll('[data-compare-track-key]').length]).toEqual([0, 0])
+    cleanup()
+    answer = { versions: [], changes: [], results: [result('large', 0.6, 0.1, 'down'), result('same', 0.5, 0.5, 'unchanged')] }
+    show(fixture('ui9-a6-since-v3'))
+    expect((await screen.findByTestId('core-compare-moved')).querySelector('h4')?.textContent, 'CONTRAST: with a move the heading stands').toBe('What moved')
   })
 })
 

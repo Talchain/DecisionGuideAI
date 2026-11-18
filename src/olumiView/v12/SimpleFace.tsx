@@ -232,7 +232,11 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   if (trying !== undefined && card.family !== 'option') visual = <div className="min-w-0 basis-full">{trying}</div>
   // The card's own result or state is the one quiet line (a chance's condition, what a figure waits on, a withheld reason, the shared no-chance line): it is
   // never moved to the hover. Core's description is the line only where the card has no state to say, and is added to the hover where it has (Codex root, 1b9).
-  const description = cardTitle(card).description
+  // Said once (18 Nov audit canvas-goal-said-three-times): a description that is, string for string, the card's own heading, its figure or its bound is
+  // that same text said again, so it is no line. Identity only, never a fuzzy match: a different wording (core's quote of the brief) is kept.
+  const said = [card.heading, card.face?.title?.text, card.figure?.text, card.bound?.text].filter((x): x is string => x != null && x.trim() !== '').map((x) => x.trim())
+  const described = cardTitle(card).description
+  const description = described !== null && said.includes(described.trim()) ? null : described
   const quiet: StateLine | null = state !== null
     ? (description === null ? state : { ...state, title: [state.title !== '' ? state.title : state.text, description].join('\n') })
     : description === null ? null : { text: description, title: description, marks: { 'data-simple-description': id } }

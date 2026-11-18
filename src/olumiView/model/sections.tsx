@@ -18,9 +18,10 @@ import { Accordion } from '../../components/results/Accordion'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import type { View, ViewModel } from '../client'
 import { cardsOfRecords } from '../layout'
+import { cardKind } from '../v12/fields/fields'
 
 /** The previous tab's section headings (`GoalConstraintsSection` "Limits", `ModelHealthSection` "Model card"). UI words, not model words. */
-export const MODEL_SECTION_LABELS = { limits: 'Limits', structure: 'Structural issues', card: 'Model card', audit: 'Audit trail', changed: 'Changed in this version', removed: 'Removed' } as const
+export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'Audit trail', changed: 'Changed in this version', removed: 'Removed' } as const
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)]
 const HEAD = `${typography.panelHeader} m-0 mb-1 text-text-header`
@@ -38,9 +39,12 @@ function CardLink({ id, children }: { id: string; children: ReactNode }) {
 function Limits({ model }: { model: ViewModel }) {
   const rows = model.cards.filter((c) => c.bound != null)
   if (rows.length === 0) return null
+  // An aim's target is listed here with the limits (the previous tab's section did), but never called a limit (18 Nov audit model-06): core's own
+  // kind of each card (`aim`: goal or limit) decides the heading's words.
+  const label = rows.every((c) => cardKind(c, model).aim === 'limit') ? MODEL_SECTION_LABELS.limits : MODEL_SECTION_LABELS.aimsAndLimits
   return (
-    <section aria-label={MODEL_SECTION_LABELS.limits} data-testid="view-model-limits" className="py-2.5">
-      <h3 className={HEAD}>{MODEL_SECTION_LABELS.limits}</h3>
+    <section aria-label={label} data-testid="view-model-limits" className="py-2.5">
+      <h3 className={HEAD}>{label}</h3>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {rows.map((c) => (
           <li key={c.id} data-model-limit={c.id}>

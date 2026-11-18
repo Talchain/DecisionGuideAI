@@ -48,8 +48,11 @@ export const bandPlace = (bands: Band[], band: Band): Place => placeOn(bands.map
 
 export type Place = { left: number; width: number; mid: number | null }
 /** One range on the axis that runs from the least low to the greatest high of `all`, as percentages; one value everywhere is the start. */
-function placeOn(all: [number, number][], low: number, mid: number | null, high: number): Place {
-  const lo = Math.min(...all.map(([l]) => l)), span = Math.max(...all.map(([, h]) => h)) - lo
+function placeOn(all: [number, number][], low: number, mid: number | null, high: number, fromZero = false): Place {
+  const least = Math.min(...all.map(([l]) => l))
+  // `fromZero` (an outcome's axis, 18 Nov audit): where no option's low is below zero the axis starts at zero, so a value of 80 is not drawn at the
+  // left edge as if it were nothing; it still ends at the greatest high.
+  const lo = fromZero && least >= 0 ? 0 : least, span = Math.max(...all.map(([, h]) => h)) - lo
   const at = (x: number) => (span === 0 ? 0 : ((x - lo) / span) * 100)
   return { left: at(low), width: at(high) - at(low), mid: mid === null ? null : at(mid) }
 }
@@ -58,10 +61,10 @@ type Outcome = NonNullable<Extract<ViewRow, { kind: 'chance' }>['outcome']>
 /** Since core c838f56 a chance row carries `outcome`, the aim's measured quantity under that option (null where it has none). */
 export const rowsCarryOutcome = (model: ViewModel): boolean => model.cards.some((c) => c.rows.some((r) => r.kind === 'chance' && 'outcome' in r))
 
-/** Where an option's outcome sits on its aim's one axis: from the least low to the greatest high of every option's outcome for that aim. */
+/** Where an option's outcome sits on its aim's one axis: from zero (or, where an outcome goes below zero, the least low) to the greatest high of every option's outcome for that aim. */
 export const outcomePlace = (model: ViewModel, aim: string, o: Outcome): Place => placeOn(
   optionCards(model).flatMap((c) => c.rows.flatMap((r) => (r.kind === 'chance' && r.aim_id === aim && r.outcome != null ? [[r.outcome.low, r.outcome.high] as [number, number]] : []))),
-  o.low, o.median, o.high)
+  o.low, o.median, o.high, true)
 
 /**
  * ⛔ A PENDING PROPOSAL'S RUN IS NEVER READ AS THE CURRENT MODEL (DL ruling, 4 Nov, R4). While core's View shows a pending proposal, its
@@ -210,8 +213,9 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 export const SIMPLE_GAP_X = LAYOUT_NODE_GAP, SIMPLE_GAP_Y = LAYOUT_LAYER_GAP
 /** The zoom at which 12 px type at the counter-scale cap draws 11 px (the card text floor on screen): the board is laid out to fit across at it. */
 export const SIMPLE_READABLE_ZOOM = 11 / (12 * LABEL_COUNTER_SCALE_CAP)
-/** Where a band's label stands above its first row: this far over the row's top, clear of the kind marker's overhang (BandLayer). */
-export const SIMPLE_LABEL_GAP = 4
+/** Where a band's label stands above its first row: this far over the row's top, clear of the kind marker's overhang and of an arrow head arriving
+ *  at the row's top (BandLayer; 18 Nov audit: at 4 the green head landed on the words). */
+export const SIMPLE_LABEL_GAP = 10
 /** One Simple placement: its place, the width its band gives it and the type scale the board is drawn at (the same on every card). */
 export type SimplePlace = { x: number; y: number; w?: number; s?: number }
 /** The widest a Simple card is drawn (flow px; Paul, 17 Nov: "max widths on all of the graph elements… in case it's a really small graph… I don't think

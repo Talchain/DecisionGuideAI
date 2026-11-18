@@ -464,6 +464,7 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     const scroll = getByTestId('view-chat-scroll')
     // CHANGED BY DESIGN (17 Nov, calm panel mock v2, Paul: ONE question at a time with progressive disclosure of the rest): was all three painted at once.
     // Now the first is painted and the other two are in the page, in core's words, hidden until Skip (or a progress dash) reaches them.
+    fireEvent.click(getByTestId('view-question-toggle')) // CHANGED 18 Nov (audit chat-3): the card is one quiet row at rest; Skip is behind the chevron
     for (const at of [0, 1, 2]) {
       if (at > 0) fireEvent.click(getByTestId('view-question-skip'))
       const el = getByTestId(at === 0 ? 'view-model-question-text' : `view-model-question-text-${at}`)

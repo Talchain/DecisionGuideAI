@@ -274,10 +274,36 @@ describe('6. one type scale: 12/18 reading, 12/16 meta, 12 medium heading, 18 me
 describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   const asked = () => golden('s_ce285b3617bb')
   const visible = (c: ParentNode) => [...c.querySelectorAll<HTMLElement>('[data-view^="model.coaching_questions"]')].filter((e) => !e.hidden && e.closest('[hidden]') === null)
+  const open = (card: HTMLElement) => { fireEvent.click(q(card, 'view-question-toggle')!); return card }
+  it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
+    const c = mount(asked())
+    const card = q(c, 'view-model-question')!
+    expect(card.getAttribute('data-open')).toBeNull()
+    expect(q(card, 'view-question-toggle')!.getAttribute('aria-expanded')).toBe('false')
+    for (const id of ['view-question-answer', 'view-question-use', 'view-question-more', 'view-question-dashes', 'view-question-skip']) expect(q(card, id), id).toBeNull()
+    expect(card.className).toContain('bg-panel')
+    expect(card.className).toContain('border-info/30')
+    expect(card.className).not.toContain('bg-info/10')
+  })
+  it('OPEN (audit chat-2): the answer box has a visible placeholder and "Use this" is not drawn until words are typed (never seen disabled); the draft survives closing and opening', () => {
+    const card = open(q(mount(asked()), 'view-model-question')!)
+    const box = q(card, 'view-question-answer') as HTMLTextAreaElement
+    expect(box.placeholder).toBe('Your answer')
+    expect(q(card, 'view-question-use'), 'no button before words').toBeNull()
+    fireEvent.change(box, { target: { value: '   ' } })
+    expect(q(card, 'view-question-use'), 'blank is not words').toBeNull()
+    fireEvent.change(box, { target: { value: 'By the end of June' } })
+    const use = q(card, 'view-question-use') as HTMLButtonElement
+    expect([use.disabled, use.className.includes('bg-success'), use.className.includes('disabled:')]).toEqual([false, true, false])
+    fireEvent.click(q(card, 'view-question-toggle')!)
+    expect(q(card, 'view-question-answer')).toBeNull()
+    open(card)
+    expect((q(card, 'view-question-answer') as HTMLTextAreaElement).value).toBe('By the end of June')
+  })
   it('shows one question, "1 of 3", three progress dashes; the other two stay in the page, hidden, in core\'s words', () => {
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)
-    const card = q(c, 'view-model-question')!
+    const card = open(q(c, 'view-model-question')!)
     expect(visible(card)).toHaveLength(1)
     expect(visible(card)[0]!.textContent).toBe(qs[0])
     expect(q(card, 'view-question-count')!.textContent).toBe('1 of 3')
@@ -286,12 +312,12 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(card, 'view-model-question-text-1')!.hidden).toBe(true)
     expect(q(card, 'view-model-question-text-1')!.textContent).toBe(qs[1])
     expect(card.querySelector(`[data-testid="view-model-question-text-3"]`)).toBeNull() // three at most
-    expect(card.className).toContain('border-info/40') // Olumi\'s card: a token at opacity, no new colour
+    expect(card.className).toContain('border-info/30') // Olumi\'s card: a token at opacity, no new colour (CHANGED 18 Nov: was border-info/40 on a bg-info/10 fill)
   })
   it('Skip (a neutral icon) moves to the next question and "2 of 3"; the last has no Skip (CONTRAST: a single question draws no count)', () => {
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)
-    const card = q(c, 'view-model-question')!
+    const card = open(q(c, 'view-model-question')!)
     const skip = q(card, 'view-question-skip')!
     expect(skip.textContent).toBe('')
     expect(skip.title).toBe('Skip')
@@ -305,23 +331,24 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     cleanup()
     const one = asked(); one.model!.coaching_questions = [qs[0]!]
     const c1 = mount(one)
+    open(q(c1, 'view-model-question')!)
     expect(q(c1, 'view-question-count')).toBeNull()
     expect(q(c1, 'view-question-skip')).toBeNull()
   })
-  it('"Use this" is green and idle until words are typed; it sends the person\'s answer ALONE (never core\'s question as theirs) through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
+  it('"Use this" is green and drawn only once words are typed; it sends the person\'s answer ALONE (never core\'s question as theirs) through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
     const bodies: string[] = []
     setTeamFetch((async (_u: unknown, init?: RequestInit) => { bodies.push(String(init?.body ?? '')); return new Response('{}', { status: 201 }) }) as never)
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)
-    const card = q(c, 'view-model-question')!
+    const card = open(q(c, 'view-model-question')!)
+    expect(q(card, 'view-question-use')).toBeNull() // CHANGED 18 Nov (audit chat-2): was drawn disabled; now absent until words are typed
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'By the end of June' } })
     const use = q(card, 'view-question-use') as HTMLButtonElement
     expect(use.textContent).toBe('Use this')
-    expect(use.disabled).toBe(true)
+    expect(use.disabled).toBe(false)
     expect(use.className).toContain('bg-success')
     expect(use.className).toContain('text-text-header')
     expect(use.className).not.toContain('bg-text-header')
-    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'By the end of June' } })
-    expect(use.disabled).toBe(false)
     for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.style.color).toBe('var(--text-light)')
     fireEvent.click(q(card, 'view-question-method-opposite')!)
     expect(bodies).toEqual([]) // with no card selected an ask-for-more icon waits for a card (menu brief UI-A, 18 Nov): nothing typed, nothing sent
@@ -339,6 +366,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   it('a draft belongs to one question of one scenario: core rewriting the question, or another scenario at the same place, shows an empty box (CONTRAST: the same question keeps its draft)', () => {
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)
+    open(q(c, 'view-model-question')!)
     const box = () => q(q(c, 'view-model-question')!, 'view-question-answer') as HTMLTextAreaElement
     fireEvent.change(box(), { target: { value: 'By the end of June' } })
     act(() => useViewStore.setState({ view: { ...view, chat: [...view.chat] } }))
@@ -348,6 +376,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     act(() => useViewStore.setState({ view }))
     expect(box().value).toBe('By the end of June') // the first question again: its own draft
     act(() => useViewStore.setState({ view: { ...view, id: 's_another0000' } }))
+    open(q(c, 'view-model-question')!) // a new scenario is a new card, closed at rest
     expect(box().value).toBe('') // another scenario: nothing carried over
     expect(draftKeyOf('s_a', { key: 'c:0', text: 'x' })).not.toBe(draftKeyOf('s_b', { key: 'c:0', text: 'x' }))
   })
