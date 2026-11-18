@@ -142,7 +142,8 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   useEffect(() => { if (choice.pending !== null) takePending(sid, current) }, [choice.pending, sid, current])
   // The header's "Named in the brief but not matched" notice puts a name in the invite form (TeamPresence `inviteUnjoined`): open that step.
   const [inviteName] = useDraft(inviteNameKey(sid), '')
-  const lastName = useRef(inviteName)
+  // From '' so a name put in before this tab was drawn (the header's notice opens Team and fills the form in one go) opens the step too.
+  const lastName = useRef('')
   useEffect(() => {
     if (inviteName !== lastName.current && inviteName !== '' && open !== 'invite') toggleStep(sid, current, 'invite', open)
     lastName.current = inviteName

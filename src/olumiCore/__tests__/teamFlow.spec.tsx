@@ -85,10 +85,15 @@ describe('the current step is the View\'s, field by field', () => {
     // and "Where you differ" is never marked finished by a commitment
     expect(stepDone(team({ waiting: null, shared: [bea3], commitments: [k9] }), 'differ')).toBe(false)
   })
-  it('a view of yours shown in an earlier round is not this round\'s while the round still waits; once nobody is waited for it is (Codex 008 #1)', () => {
+  it('a view of yours shown early counts while the round still waits (core moves it out of `mine`, measured on 9ad89f81); one from an earlier round in `mine` does not (Codex 008 #1)', () => {
     const mineShown = { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }
-    expect(currentStep(team({ mine: [], shared: [mineShown], waiting: 'waiting for Ada, Bea' }))).toBe('view')
-    expect(currentStep(team({ mine: [], shared: [mineShown, bea3], waiting: null }))).toBe('differ')
+    // Core's own sequence: after "show yours now" the view is in `shared`, `mine` is empty, the round still waits for Bea.
+    expect(currentStep(team({ mine: [], shared: [mineShown], waiting: 'waiting for Bea' }))).toBe('reveal')
+    expect(stepSummary(team({ mine: [], shared: [mineShown], waiting: 'waiting for Bea' }), 'view', null)).toBe(STEP_WORDS.viewShared)
+    // Contrast: only an earlier round's view of yours, nothing shown: your view is still to give.
+    expect(currentStep(team({ mine: [{ ...mine4, earlier: true }], shared: [], waiting: 'waiting for Ada, Bea' }))).toBe('view')
+    // and an invited owner who has given nothing yet is on their own view, not the reveal
+    expect(currentStep(team({ mine: [], shared: [], waiting: 'waiting for Ada, Bea' }))).toBe('view')
     // a skip is a contribution this round
     expect(currentStep(team({ mine: [{ ...mine4, skip: true }], waiting: 'waiting for Bea' }))).toBe('reveal')
   })
@@ -168,6 +173,30 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(isOpen('invite')).toBe(false)
     act(() => { putDraft<string>(inviteNameKey(SID), () => 'Cara') })
     expect(isOpen('invite')).toBe(true)
+  })
+  it('the one-time invite link stays in view when core, read again, no longer counts the person alone (core sets `alone` false when the link is made)', async () => {
+    show(alone())
+    const r = render(<TeamTab />)
+    fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cara' } })
+    fireEvent.click(screen.getByTestId('team-invite-go'))
+    await waitFor(() => expect(screen.getByTestId('team-invite-link')).toBeTruthy())
+    // The View read after the write: two members, not alone, no view of yours yet → the current step is now "Your view".
+    act(() => { show(team({ mine: [], waiting: 'waiting for Ada, Cara' })) })
+    r.rerender(<TeamTab />)
+    expect(currentStep(team({ mine: [], waiting: 'waiting for Ada, Cara' }))).toBe('view')
+    expect(isOpen('invite')).toBe(true)
+    expect((screen.getByTestId('team-invite-link') as HTMLInputElement).value).toContain('/k/tok')
+    // Pressing another row lets the flow go on.
+    fireEvent.click(screen.getByTestId('team-step-view-row'))
+    expect(isOpen('view')).toBe(true)
+    expect(isOpen('invite')).toBe(false)
+  })
+  it('a name put in the invite form before the tab is drawn (the header\'s notice opens Team and fills it in one go) opens the invite step', () => {
+    show(team())
+    putDraft<string>(inviteNameKey(SID), () => 'Cara')
+    render(<TeamTab />)
+    expect(isOpen('invite')).toBe(true)
+    expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
   })
   it('an outcome form opened from elsewhere (goToOutcome) opens "What happened" with that form', async () => {
     show(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }, { ...k9, id: 10, action: 'Ask two customers' }] }))

@@ -4,6 +4,7 @@ import { teamApi, TeamApiError, type Invite } from './api'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, GO, LABEL, META } from './ui'
 import { useDraft } from './drafts'
+import { holdStep } from './flow'
 
 /** The invite form's name, as a draft: the header's "Named in the brief but not matched" notice fills it with the first name core lists. */
 export const inviteNameKey = (sid: string) => `${sid}:invite-name`
@@ -30,6 +31,8 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
     try {
       const r = await runWrite(`${sid}:invite`, { op: false, anyVersion: true }, null, () => teamApi.invite(sid, name))
       setMade({ name, link: new URL(r.link, window.location.origin).href })
+      // The link is shown only now: the step stays open over it when the View, read again, no longer counts the person alone.
+      holdStep(sid, 'invite')
       setName('')
       await list()
     } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }
