@@ -84,3 +84,37 @@ describe('one group card per row, its links run to it', () => {
     expect(challengedIn({ ...model, cards: model.cards.map((c) => (c.id === 'base_sales' ? { ...c, challenged: true } : c)) }, inputs)).toBe(0)
   })
 })
+
+// D1a on a first model (the lead, 18 Nov): with nothing approved yet (`view.version === null`) Olumi's proposed figures, drivers, results and risks are drawn,
+// still marked as proposals; only its proposed notes fold. Once a version is approved the proposal adds to an approved model and folds as before.
+describe('D1a on a first model: Olumi\'s proposed figures, drivers, results and risks are drawn; only its notes fold', () => {
+  const PROPOSED: ReadonlyArray<readonly [string, string]> = [['budget', 'driver'], ['oven_repair', 'risk'], ['sales', 'result'], ['fitting', 'note']]
+  const pending = () => withCards(PROPOSED.map(([id, kind]) => as(id, kind, olumi, added)))
+  const firstOf = (v: { model: ViewModel; view: View }) => ({ model: v.model, view: { ...v.view, version: null } as View })
+  it('F1 first model: a proposed driver, risk and result are drawn, in no group, and keep their proposed mark (by id)', () => {
+    expect(base.version, 'precondition: the fixture is an approved model').not.toBeNull()
+    const { model, view } = firstOf(pending()), groups = cardGroupsOf(model, view), grouped = new Set(groups.flatMap((g) => g.cards))
+    const drawn = withoutGrouped(model, groups)
+    for (const id of ['budget', 'oven_repair', 'sales']) {
+      expect(grouped.has(id), `${id} is in no group`).toBe(false)
+      const c = drawn.cards.find((x) => x.id === id)!
+      expect([c.id, c.change, c.author?.by], `${id} is drawn and keeps its proposed mark`).toEqual([id, added, 'olumi'])
+    }
+  })
+  it('F2 CONTRAST, same fixture: the proposed note still folds into the proposed group', () => {
+    const { model, view } = firstOf(pending()), groups = cardGroupsOf(model, view)
+    expect(groups.filter((g) => g.kind === 'proposed').map((g) => [g.id, g.cards]), 'only the note is in a proposed group').toEqual([[groupIdOf('proposed', 'inputs'), ['fitting']]])
+  })
+  it('F3 CONTRAST: on an approved model the same pending proposal folds as before: driver, risk, result and note into their rows\' groups', () => {
+    const { model, view } = pending(), groups = cardGroupsOf(model, view)
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))!.cards).toEqual(['budget', 'fitting'])
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'outcomes'))!.cards.slice().sort()).toEqual(['oven_repair', 'sales'])
+    for (const id of ['budget', 'oven_repair', 'sales']) expect(groupKindOf(model.cards.find((c) => c.id === id)!, model, view), id).toBe('proposed')
+  })
+  it('F4 no card object is mutated: the drawn card is the very object core sent, change and author intact', () => {
+    const { model, view } = firstOf(pending()), before = JSON.stringify(model.cards)
+    const drawn = withoutGrouped(model, cardGroupsOf(model, view))
+    expect(JSON.stringify(model.cards)).toBe(before)
+    for (const id of ['budget', 'oven_repair', 'sales']) expect(drawn.cards.find((c) => c.id === id)).toBe(model.cards.find((c) => c.id === id))
+  })
+})

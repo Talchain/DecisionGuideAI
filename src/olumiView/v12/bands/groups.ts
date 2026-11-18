@@ -3,6 +3,9 @@
  *  - D1a: a card Olumi proposed that the person has not approved, of kind driver, risk, result or note, is not drawn on Simple; ONE group card per row
  *    stands for them, their links run to it, and one press opens that row's group in place for the session. Options, aims and positions are never
  *    grouped; the person's own cards and approved cards never are.
+ *  - D1a on a FIRST model (the lead, 18 Nov, on Paul's first-model complaint): while nothing is approved yet (`view.version === null`: types.ts View.version,
+ *    core's own "no saved version"), Olumi's proposed figures, drivers, results and risks are DRAWN, each keeping its proposed mark and its accept, edit and
+ *    reject; drawing is never approving. Its proposed NOTES still fold into the group. Once a version is approved, a proposal adds to an approved model and folds as above.
  *  - D1b (DL 17 Nov, after looking at the approved funding board): on Simple an APPROVED record that is only a sentence (core's kind `note`: a claim,
  *    an assumption, evidence, a left-out note, an earlier statement; no figure) folds into ONE notes stack per row, whoever wrote it, as v1 drew it.
  *    Structural cards (options, figures, risks, results, aims, positions) are never folded once approved. Detailed draws every note. (v2 had briefly
@@ -44,6 +47,8 @@ export function groupBandOf(id: string): GroupBand | null {
 
 /** The kinds a proposal group may hold (D1a); options, aims and positions never. */
 const PROPOSAL_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'risk', 'result', 'note'])
+/** The scenario has no approved version yet: core sends `version: null` (types.ts View.version; schema view.v3.json "version" anyOf object | null). */
+export const firstModelOf = (view: View | null): boolean => view != null && view.version === null
 /** Olumi proposed it and the person has not approved it (see the header for the fields). */
 export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null && card.author?.by === 'olumi'
 /** An approved record that is only a sentence (D1b): core's kind `note`, no change pending, no figure. */
@@ -82,7 +87,7 @@ export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow
 /** Which group a card folds into on Simple, or null where it is drawn. `keep`: the cards D1c leaves drawn (foldKeepOf). */
 export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, keep: ReadonlySet<string> = new Set()): GroupKind | null {
   const { kind } = cardKind(card, model, view)
-  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return 'proposed'
+  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return kind !== 'note' && firstModelOf(view) ? null : 'proposed'
   if (approvedNote(card, kind)) return 'notes'
   return olumiUnsized(card, kind) && !keep.has(card.id) ? 'olumi' : null
 }
