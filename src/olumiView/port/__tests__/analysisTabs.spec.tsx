@@ -17,6 +17,8 @@ import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
 import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
+import { ViewReasoningBlock } from '../../ViewReasoning'
+import { actionable, examineOf } from '../../reasoning/examine'
 import { TIPPING_FIGURE } from '../AnalysisReaders'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
@@ -257,6 +259,36 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const key = screen.getByTestId('analysis-chart-key')
     expect([...key.querySelectorAll('[data-chart-mark]')].every((e) => fold.contains(e))).toBe(true)
     expect(fold.contains(key.querySelector('[data-view="run.sensitivity.text"]'))).toBe(false)
+  })
+})
+
+describe('no chance yet: something to do before what a result needs (Codex 011)', () => {
+  it('app-launch (no option has a chance): the tab opens on the Reasoning tab\'s own place to start, the same item and words, above "What a result needs". CONTRASTS: bakery (chances drawn) offers none here; a model with nothing to start offers none', () => {
+    const launch = viewOf('golden/app-launch'), model = launch.model!
+    const first = examineOf(model, launch.session?.methods ?? null, (launch.model_words ?? null) as Record<string, unknown> | null).find(actionable)
+    expect([tabStateOf(model), first !== undefined], 'fixture: no chance, and something to start').toEqual(['none', true])
+    ready(launch); render(<PortAnalysisTab />)
+    const focus = screen.getByTestId('reasoning-focus'), needs = screen.getByTestId('analysis-needs')
+    expect([tab().contains(focus), focus.dataset['focusKind'], focus.querySelectorAll('button').length > 0]).toEqual([true, first!.kind, true])
+    expect(focus.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING, 'the activity comes before the readiness list').toBeTruthy()
+    const said = focus.textContent
+    cleanup()
+    // The same item as the Reasoning tab's, not a second choice of what to start with.
+    ready(launch); render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-focus').textContent).toBe(said)
+    cleanup()
+    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
+    expect([tab().dataset['analysisState'], screen.queryByTestId('reasoning-focus')]).toEqual(['chance', null])
+    cleanup()
+    // Nothing to start (no method, question or widening, and no challenged card): no start block; the needs list is drawn as before.
+    const bare = structuredClone(launch); bare.model_words = null as never
+    bare.model!.sharpen = []; bare.model!.coaching_questions = []
+    const left = examineOf(bare.model!, bare.session?.methods ?? null, null).filter((e) => e.kind !== 'challenge').find(actionable)
+    expect(left, 'fixture: nothing but challenged cards could remain').toBeUndefined()
+    const still = examineOf(bare.model!, bare.session?.methods ?? null, null).find(actionable)
+    ready(bare); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('reasoning-focus') === null).toBe(still === undefined)
+    expect(screen.queryByTestId('reasoning-focus')?.dataset['focusKind'] ?? null).toBe(still?.kind ?? null)
   })
 })
 

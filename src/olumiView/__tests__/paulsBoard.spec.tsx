@@ -98,7 +98,11 @@ describe('the panel on a pending first model', () => {
     ready(bare)
     const empty = render(<PortAnalysisTab />).container
     expect(empty.querySelector('[data-testid="analysis-needs"]')).toBeNull()
-    expect(empty.querySelectorAll('section').length).toBe(0)
+    // CHANGED BY DESIGN (Codex 011, 18 Nov): with no chance the tab opens on the Reasoning tab's place to start, so that one block may stand
+    // here. The rule this row guards is unchanged: no section is drawn EMPTY, and no readiness list with nothing in it.
+    const sections = [...empty.querySelectorAll<HTMLElement>('section')]
+    expect(sections.map((x) => x.dataset['testid']).filter((id) => id !== 'reasoning-focus')).toEqual([])
+    for (const x of sections) expect(x.textContent!.trim().length, x.dataset['testid']).toBeGreaterThan(0)
   })
 
   it('PB5 (P2): Compare on a first model held as Olumi\'s proposal says so, not "start a model"; CONTRAST: with no scenario it says start one', () => {
