@@ -196,9 +196,9 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
           <>
             {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
             {still.length === 0 ? null : (
-              <details className="grid gap-1.5" data-testid="core-compare-since-still">
+              <details data-testid="core-compare-since-still">
                 <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{notMoved(still.length)}</summary>
-                <ul className="m-0 grid list-none gap-2 p-0">{still.map(row)}</ul>
+                <ul className="m-0 mt-1.5 grid list-none gap-2 p-0">{still.map(row)}</ul>
               </details>
             )}
           </>
@@ -312,9 +312,10 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
 /** One press to more of core's own rows: a quiet summary line, the rows under it. */
 function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
   return (
-    <details className="grid gap-1.5" data-testid={id}>
+    // A plain block while closed (a closed grid still spaced its hidden rows); the rows sit under the summary once open.
+    <details data-testid={id}>
       <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{summary}</summary>
-      {children}
+      <div className="mt-1.5">{children}</div>
     </details>
   )
 }
@@ -361,6 +362,8 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
             {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} names={names} />)}
           </ul>
         )}
+        {/* The key to the two marks, right under the tracks it names. */}
+        {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
         {c.results.length === 0 ? <p className={META} data-testid="core-compare-results-none">No results in either version.</p>
           : still === 0 ? null : (
             // Counted at rest; core's own rows one press away, each with its words in both versions.
@@ -372,7 +375,6 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
               </ul>
             </Fold>
           )}
-        {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
       </section>
       {told === null ? null : (
         // Where a reading moved: the one useful press where core credits no single change, and core's own line for every result one press
