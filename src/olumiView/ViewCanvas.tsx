@@ -495,8 +495,8 @@ function ViewFlow() {
       <ReactFlow snapToGrid={snapToGrid} snapGrid={snapGrid}
         // Paul's option inspector (audit F34): a press on an option card opens its details, as right-click "Open details" does.
         onNodeClick={(e, n) => {
-          // A press on one of the card's own controls (its pencil, a quick action) is that control's, never also "open details": it would close what the control just opened.
-          if (e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action]') !== null) return
+          // A press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
+          if (e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
           if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
         className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}

@@ -9,12 +9,14 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ViewCanvas } from '../../../ViewCanvas'
 import { ViewComposer, useViewChat } from '../../../ViewChat'
-import { currentModel } from '../../../store'
+import { currentModel, useViewStore } from '../../../store'
 import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces } from '../../../layout'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
+import { setTeamFetch } from '../../../../olumiCore/team/api'
+import type { View } from '../../../client'
 import { approved, install, uninstall } from './harness'
 
 vi.mock('../../../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
@@ -30,9 +32,9 @@ afterEach(() => { cleanup(); useLaneInspector.getState().close(); vi.useRealTime
 const FIG = 'starting_customers', FIG2 = 'customer_target', OPT = 'broader_entry', OTHER = 'single_country_test'
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 60)) })
 let root: HTMLElement
-async function board(withComposer = false): Promise<void> {
-  install()
-  const model = currentModel({ view: approved(), error: null, stale: false })!
+async function board(withComposer = false, view: View = approved()): Promise<void> {
+  install(view)
+  const model = currentModel({ view, error: null, stale: false })!
   const places = await causalPlaces(model, new Map())
   act(() => { drawViewCanvas(model, places) })
   root = render(<div style={{ width: 1232, height: 704 }}><ViewCanvas />{withComposer ? <ViewComposer /> : null}</div>).container
@@ -146,6 +148,70 @@ describe('surfaces step 2: one thing open at a time', () => {
     await settle()
     expect(open()).toEqual(['details'])
     other.remove()
+  })
+
+  it('ONE-8 a "Your figure" save in flight holds the details panel open: empty-canvas press, Escape and another surface leave it; core\'s refusal then lands in it', async () => {
+    await board()
+    await OPENERS.details()
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: FIG }) })
+    let release: (r: Response) => void = () => {}
+    const held = new Promise<Response>((r) => { release = r })
+    // Hold only core's POST; everything else answers as the harness stub does.
+    const calls: string[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push(`${method} ${String(u)}`)
+      if (method === 'POST') return held
+      return new Response(JSON.stringify(useViewStore.getState().view), { status: 200 })
+    }) as unknown as typeof fetch)
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '1200' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-set'))
+    await settle()
+    expect(calls.some((c) => c.startsWith('POST')), 'the save is in flight').toBe(true)
+    fireEvent.click(pane()); await settle()
+    expect(open(), 'empty-canvas press while saving').toEqual(['details'])
+    fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
+    expect(open(), 'Escape while saving').toEqual(['details'])
+    fireEvent.contextMenu(node(OTHER)); await settle()
+    expect(open(), 'right-click while saving').toEqual(['details'])
+    fireEvent.click(screen.getByTestId('canvas-add-to-model')); fireEvent.click(screen.getByRole('menuitem', { name: 'Add a figure' })); await settle()
+    expect(open(), 'opening another surface while saving').toEqual(['details'])
+    await act(async () => { release(new Response(JSON.stringify({ error: 'That figure is outside what the model allows.' }), { status: 409 })); await new Promise((r) => setTimeout(r, 60)) })
+    expect(screen.getByTestId('inspector-figure-note'), 'core\'s refusal is shown in the panel').toHaveTextContent('That figure is outside what the model allows.')
+    expect(open()).toEqual(['details'])
+  })
+
+  it('ONE-9 Escape in the message box with a canvas surface open leaves the waiting challenge waiting and the surface open; with none open it cancels the challenge', async () => {
+    await board(true)
+    act(() => { useViewChat.setState({ armed: 'opposite' }) })
+    // Opened from the store: pressing a card would pick it for the waiting challenge.
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: OPT }) }); await settle()
+    expect(open()).toEqual(['details'])
+    const field = document.getElementById('view-chat-text') as HTMLElement
+    field.focus()
+    fireEvent.keyDown(field, { key: 'Escape' }); await settle()
+    expect(useViewChat.getState().armed, 'surface open: the challenge keeps waiting').toBe('opposite')
+    expect(open()).toEqual(['details'])
+    act(() => { useLaneInspector.getState().close() })
+    fireEvent.keyDown(field, { key: 'Escape' }); await settle()
+    expect(useViewChat.getState().armed, 'contrast: nothing open, Escape cancels it').toBeNull()
+  })
+
+  it('ONE-10 a press on the figure editor\'s own label or padding on an option card does not open the details panel over it', async () => {
+    const base = approved()
+    const quantity = base.model!.cards.find((c) => c.id === FIG)!
+    const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === OPT ? { ...c, figure: quantity.figure } : c)) } } as View
+    await board(false, view)
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`))
+    expect(open(), 'the option card\'s figure editor is open').toEqual(['editor'])
+    const panel = document.querySelector<HTMLElement>(`[data-figure-edit-panel="${OPT}"]`)!
+    // The panel itself is the exclusion's subject: take away the wrapper's own card-action mark (WorkedSteps' wrapper has none), so only [data-figure-edit-panel] can exclude it.
+    document.querySelectorAll('[data-figure-edit-wrap]').forEach((w) => w.removeAttribute('data-card-action'))
+    expect(panel.closest('[data-card-action]'), 'no card-action mark above the panel').toBeNull()
+    fireEvent.click(panel.querySelector('label')!); await settle()
+    expect(open(), 'press on the editor\'s label').toEqual(['editor'])
+    fireEvent.click(panel); await settle()
+    expect(open(), 'press on the editor\'s padding').toEqual(['editor'])
   })
 
   it('ONE-6 (kept as today) words typed in the edit form survive another surface opening, and are there when it is opened again', async () => {

@@ -5,13 +5,14 @@
  *     (ViewCanvas) and the add form (AddFigure) all read their open state from `current`;
  *   - Escape and a press on empty canvas are decided in one place each (LaneEditingLayer's one key listener, ViewCanvas's pane press);
  *   - the card's hover pop-up reads `current !== null` and stays hidden while any of them is open.
- * A write in flight is never cut off: while the open surface is sending, nothing replaces it and Escape or a pane press leave it be.
+ * A write in flight is never cut off (the details panel's is its card's "Your figure" save): while the open surface is sending, nothing replaces it and Escape or a pane press leave it be.
  * Drafts: a form's typed words are kept here, keyed by what it writes, until it saves or the person cancels it (Escape or Cancel), so showing another
  * surface never throws a person's typing away. (The figure editor and the add form keep their own words in components that stay mounted.)
  */
 import { create } from 'zustand'
 import type { ContextTarget } from '../../../canvas/contextMenu/types'
 import { useWrites } from '../../../olumiCore/team/writes'
+import { useViewStore } from '../../store'
 import type { EditSpec } from './EditForm'
 
 /** What the details panel is showing: a card (by its record id) or a link (by its canvas edge id, `from->to:kind`). */
@@ -44,7 +45,13 @@ type State = {
 }
 
 let seq = 0
-const busyKeyOf = (s: Showing | null): string | null => (s === null ? null : s.kind === 'form' || s.kind === 'editor' || s.kind === 'add' ? s.busyKey : null)
+/** The details panel of a card holds its "Your figure" save, which writes under `${sid}:edit:${id}` (FigureEdit's setFigure); a link's panel writes nothing itself (its forms are their own surface). */
+const busyKeyOf = (s: Showing | null): string | null => {
+  if (s === null) return null
+  if (s.kind === 'form' || s.kind === 'editor' || s.kind === 'add') return s.busyKey
+  if (s.kind === 'details' && s.target.kind === 'card') { const sid = useViewStore.getState().sid; return sid === null ? null : `${sid}:edit:${s.target.id}` }
+  return null
+}
 /** Is the open surface sending a write? Its keys are the writers' own (`${sid}:edit:${id}`, `writeKeyOf(spec)`, `${sid}:add-figure`). */
 export const surfaceBusy = (s: Showing | null): boolean => { const k = busyKeyOf(s); return k !== null && useWrites.getState().sending[k] === true }
 
