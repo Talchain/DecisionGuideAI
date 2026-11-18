@@ -18,7 +18,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { ViewChat, useViewChat } from '../../../ViewChat'
 import { floorOf, leadOf } from '../../../early'
 import { FULL_ANSWER } from '../ReplyLead'
-import { SHOW_WHOLE_FIRST } from '../../../ViewChat'
+import { LEAD_WORDS, SHOW_WHOLE_FIRST } from '../../../ViewChat'
 import { typography } from '../../../../styles/typography'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -66,8 +66,6 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     for (let k = 0; k + 1 < order.length; k++) expect(order[k]!.compareDocumentPosition(order[k + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING, `order ${k}`).toBeTruthy()
     expect(t0.querySelector('[data-view="chat.0.answer.lead.opening"]')?.textContent).toBe(LEAD.opening)
     expect([0, 1].map((i) => t0.querySelector(`[data-view="chat.0.answer.lead.points.${i}"]`)?.textContent)).toEqual(LEAD.points)
-    // The lead is supporting analysis under the check heading: it is not the panel's one large line while a first answer stands above it.
-    expect(lead.querySelector('[data-reply-opening]')!.className).not.toContain(typography.viewPanelHeadline)
     // ONE fold, closed, holding the check's own words and the kept first answer; the label, the first answer and the heading are NOT said again in it.
     expect(t0.querySelectorAll('[data-testid="view-reply-full"]')).toHaveLength(1)
     expect([full.open, full.querySelector('summary')?.textContent]).toEqual([false, FULL_ANSWER])
@@ -113,6 +111,19 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-reply-fold')).toBeNull() // CHANGED BY DESIGN (Codex UI P1, 17 Nov): no lead, drawn whole
     expect(p0).toHaveTextContent(MIDDLE)
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
+  })
+
+  it('the panel\'s one large line, on the NEWEST reply: with a first answer above it the lead is never the large line (it is supporting analysis); the first answer\'s own short opening is. CONTRAST: a lead with no first answer is the large line', () => {
+    const newest = base.chat.map((t) => t.answer !== null).lastIndexOf(true), turn = `chat.${newest}`
+    const OPENING = 'Open on Sundays only if thirty more covers a day pay for the staff.'
+    const TEXT = [LABEL, '', OPENING, '', HEADING, '', CHECK].join('\n')
+    const big = (e: Element | null | undefined) => e != null && e.className.includes(typography.viewPanelHeadline)
+    expect([OPENING, LEAD.opening].map((x) => x.trim().split(/\s+/).length <= LEAD_WORDS), 'fixture: both are short enough to be the large line').toEqual([true, true])
+    const t = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
+    expect([big(q(t, 'view-reply-lead')!.querySelector('[data-reply-opening]')), big(t.querySelector('[data-reply-para][data-reply-opening]'))]).toEqual([false, true])
+    cleanup()
+    const c = show(withTurn(base, newest, { answer: [{ text: 'A later reply.\n\nIts second paragraph.' }], lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
+    expect(big(q(c, 'view-reply-lead')!.querySelector('[data-reply-opening]'))).toBe(true)
   })
 
   it('a floor reply with core\'s lead: the lead first, the reply as today folded beneath, Keep is the one chooser beside the lead (the fold offers none, so each entry has one control). CONTRAST: no lead, the reply at rest as today', () => {
