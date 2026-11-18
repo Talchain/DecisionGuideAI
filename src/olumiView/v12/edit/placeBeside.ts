@@ -63,6 +63,8 @@ const MIN_SHOWN = 64
 /** A form's least useful height: its padding, one field, the error line and the Save/Cancel row (44 px) - below it Save could be cut off. */
 export const FORM_MIN_SHOWN = 160
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
+/** Controls at the canvas foot that a box beside a card must also leave clear (they are not the board's own foot controls, which its layout reserves room for: regions.ts FOOT_CONTROLS). */
+const ALSO_FOOT = ['[data-testid="views-toggle"]', '[data-testid="views-compare"]'] as const
 const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
@@ -72,7 +74,8 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
   const h = Math.min(size.height, Math.max(minShown, H - 2 * gap))
-  const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+  // (And the team's Views buttons at the canvas foot, where they are drawn: the box's action row once sat under them.)
+  const foot = [...regionsOf().foot, ...ALSO_FOOT.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect())).filter((r) => r.width > 0 && r.height > 0)].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
   const footIn = foot.map(shift)
   // The foot controls (the zoom row, the "N more cards below" cue) are never covered (Codex 2f witness: the panel's last row sat under the cue): a place whose
   // box would reach one is cut to end a gap above it, or lifted when that leaves less than a usable panel.

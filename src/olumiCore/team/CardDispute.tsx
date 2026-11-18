@@ -11,6 +11,7 @@
  * A difference core has not run (`not_run`, `pending`) says core's sentence alone: no figure and no chance is drawn for it.
  * Links and factors are CardDiffers' chips; the Team tab is unchanged. Nothing is composed here beyond naming whose chance a line is.
  */
+import { useEffect, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
@@ -47,6 +48,10 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
 /** "Where you differ", in the card's details: core's words for each aim the difference was run for. Nothing when none is about this card. */
 export function WhereYouDiffer({ card, peek = false, open = false }: { card: string; /** The box's preview: core's sentence alone, three lines of it at most (it is whole in the pinned box). */ peek?: boolean; /** The difference mark opened these details: the fold starts open. */ open?: boolean }): JSX.Element | null {
   const own = useFigureDiffers(card)
+  // Opened from the difference mark, the section is what the person asked for: it is brought into view in the box's own scrolling body (never moving the page).
+  const fold = useRef<HTMLDetailsElement>(null)
+  const there = own.length > 0
+  useEffect(() => { if (open && there) fold.current?.scrollIntoView?.({ block: 'nearest' }) }, [open, there])
   if (own.length === 0) return null
   const said = [...new Set(own.map((d) => d.status_text))].join(' ')
   const one = own.length === 1
@@ -54,7 +59,7 @@ export function WhereYouDiffer({ card, peek = false, open = false }: { card: str
     <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" /><span className="line-clamp-3 min-w-0 break-words">{said}</span></p>
   )
   return (
-    <details open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
+    <details ref={fold} open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
       <summary className={`${FOLD_SUMMARY} cursor-pointer items-start text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
       {own.map((d) => {
         const whose = (id: string) => d.sides.find((s) => s.holder_id === id)?.holder ?? ''

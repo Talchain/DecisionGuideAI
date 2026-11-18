@@ -188,7 +188,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   // (A person's author line carries core's account of it, their own words quoted: drawn here, not left to a browser tip.)
   const also = [c.author != null && c.author.by !== 'olumi' && c.author.title !== c.author.text ? c.author.title : null, option ? c.face?.line?.text ?? null : null, c.figure === null && c.rows.length === 0 ? null : c.reason ?? null, ...(drives ?? []).map((o) => o.driver?.title ?? null)]
     .filter((x, i, a): x is string => x != null && x !== '' && x !== value?.text && x !== c.headline?.title && a.indexOf(x) === i)
-  const hasFrom = c.detail !== '' || figureSaid !== null || explain || also.length > 0
+  const olumiSaid = c.olumi === null || said.has(c.olumi.title) ? null : c.olumi.title
+  const hasFrom = olumiSaid !== null || c.detail !== '' || figureSaid !== null || explain || also.length > 0
   return (
     <aside ref={box} role={pinned ? 'complementary' : 'tooltip'} aria-label="Details" data-testid={pinned ? 'lane-inspector' : 'lane-peek'} data-state={pinned ? 'pinned' : 'peek'} data-kind="card" data-box-card={c.id}
       className={`${frame}${pinned ? '' : ' pointer-events-none'}`}>
@@ -223,7 +224,6 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
             {/* The basis sentence, unless it IS the Value row's line (core withholds the chance and its one sentence says why): said once. */}
             {c.headline?.title === value?.text ? null : <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="basis" />}
             {option && c.headline?.add != null && c.headline.add !== '' ? <p className="m-0 whitespace-pre-wrap break-words text-text-body" data-testid="lane-inspector-add">{c.headline.add}</p> : null}
-            {c.olumi === null || said.has(c.olumi.title) ? null : <p className={`${typography.viewPanelMeta} m-0 text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{c.olumi.glyph} </span>{c.olumi.title}</p>}
             {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(c, r)}</div>}
             {c.figure === null ? null : <ValueRow key={c.id} item={{ kind: 'card', id: c.id, edit: c.figure.edit ?? null, subject: c.heading, olumis: isOlumis(c) }} />}
             {c.figure === null ? null : <WhatItMoves figure={c.id} />}
@@ -237,6 +237,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         {!pinned || !hasFrom ? null : (
           <details className="space-y-1.5" data-testid="lane-inspector-from">
             <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} cursor-pointer text-text-light`}><FoldChevron />{BOX_WORDS.from}</summary>
+            {/* Olumi's own account of what it proposed (its mark is in the header, and the value says whose it is): whole here, in Olumi's blue. */}
+            {olumiSaid === null ? null : <p className="m-0 break-words text-info" data-testid="lane-inspector-source">{olumiSaid}</p>}
             {c.detail === '' ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-detail">{c.detail}</p>}
             {figureSaid === null ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-figure-said">{figureSaid}</p>}
             {also.map((x) => <p key={x} className="m-0 break-words text-text-body" data-testid="lane-inspector-also">{x}</p>)}

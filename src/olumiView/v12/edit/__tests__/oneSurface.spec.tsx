@@ -546,6 +546,24 @@ describe('surfaces step 3: details beside their card', () => {
     expect(without.maxHeight, 'CONTRAST: with no cue the same place keeps its full height').toBeNull()
   })
 
+  it('S3-q (step A) the box never covers the team\'s Views buttons at the canvas foot either (its action row once sat under them). CONTRAST without them the same place keeps its full height', () => {
+    const free = { left: 0, top: 0, right: 900, bottom: 700 }, card = { left: 100, top: 300, right: 320, bottom: 420 }
+    const views = { left: 340, top: 650, right: 560, bottom: 686 }
+    const without = placeBeside(card, null, { width: 280, height: 380 }, free)
+    const btn = document.createElement('button'); btn.setAttribute('data-testid', 'views-compare'); document.body.appendChild(btn)
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return (this === btn ? { ...views, x: views.left, y: views.top, width: 220, height: 36, toJSON: () => ({}) } : { left: 0, top: 0, right: 0, bottom: 0, x: 0, y: 0, width: 0, height: 0, toJSON: () => ({}) }) as DOMRect
+    })
+    try {
+      const p = placeBeside(card, null, { width: 280, height: 380 }, free)
+      const b = { left: p.left, top: p.top, right: p.left + 280, bottom: p.top + (p.maxHeight ?? 380) }
+      expect(b.left < views.right && b.right > views.left && b.top < views.bottom && b.bottom > views.top, `box ${JSON.stringify(b)}`).toBe(false)
+      expect(b.left >= card.right || b.right <= card.left || b.bottom <= card.top || b.top >= card.bottom, 'still clear of its own card').toBe(true)
+    } finally { spy.mockRestore(); btn.remove() }
+    const w = { left: without.left, top: without.top, right: without.left + 280, bottom: without.top + (without.maxHeight ?? 380) }
+    expect(w.left < views.right && w.right > views.left && w.top < views.bottom && w.bottom > views.top, 'CONTRAST: with no Views buttons the same box reaches that place, so the row can fail').toBe(true)
+  })
+
   it('S3-p (Codex 30422 hold) lifting the panel off a foot control never puts it on its own card: with a clear place above the card, that place is chosen', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 400 }, card = { left: 180, top: 80, right: 420, bottom: 300 }
     const cueBox = { left: 190, top: 340, right: 470, bottom: 376 }

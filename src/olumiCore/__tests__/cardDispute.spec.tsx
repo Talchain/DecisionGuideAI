@@ -37,7 +37,7 @@ beforeEach(() => {
   serve(core)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000000', sid: view.id, view, status: 'ready', error: null, stale: false, at: null })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }); delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView; vi.restoreAllMocks() })
 
 const details = (card: string) => {
   useLaneInspector.getState().open({ kind: 'card', id: card })
@@ -80,14 +80,19 @@ describe('a revealed difference on the card it is about', () => {
   it('surfaces step A: opened from the mark, "Where you differ" is drawn open; opened by a press on the card it is a closed fold whose line is core\'s sentence; previewed, it is that one sentence and nothing to open', async () => {
     const m = render(<CardDisputeMark card={CARD} />)
     fireEvent.click(await waitFor(() => { const b = m.container.querySelector(`[data-differ-mark="${CARD}"]`); expect(b).not.toBeNull(); return b as HTMLElement }))
+    const brought: Element[] = []
+    Element.prototype.scrollIntoView = function (this: Element) { brought.push(this) } as never
     render(<ToastProvider><LaneInspector /></ToastProvider>)
     const fromMark = await screen.findByTestId('lane-differ')
     expect(fromMark.tagName).toBe('DETAILS')
     expect((fromMark as HTMLDetailsElement).open, 'from the mark: open').toBe(true)
-    cleanup(); useLaneInspector.setState({ current: null })
+    await waitFor(() => expect(brought, 'and brought into view in the box (it sits below the Value row)').toContain(fromMark))
+    cleanup(); useLaneInspector.setState({ current: null }); brought.length = 0
     details(CARD)
     const plain = await screen.findByTestId('lane-differ')
     expect((plain as HTMLDetailsElement).open, 'CONTRAST, from a press on the card: folded').toBe(false)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(brought, 'CONTRAST: a press on the card moves nothing').not.toContain(plain)
     expect(plain.querySelector('summary [data-differ-status-text]')?.textContent, 'the fold\'s own line is core\'s sentence').toBe(figure.status_text)
     cleanup(); useLaneInspector.setState({ current: null, peek: { kind: 'card', id: CARD } })
     render(<ToastProvider><LaneInspector /></ToastProvider>)
