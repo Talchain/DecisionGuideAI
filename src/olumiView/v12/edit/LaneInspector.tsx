@@ -43,6 +43,7 @@ import { writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
 import { movedBy, SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
+import { optionValuesOf } from './optionValues'
 import { DETAILS_H, DETAILS_X, DETAILS_Y, PEEK_RESERVE, stayBeside } from './placeBeside'
 
 const NOOP = () => undefined
@@ -172,6 +173,9 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const c = card!
   const kind = model === null ? 'factor' : drawKindOf(c, model), kindWord = kindWordsOf(c)
   const value = valueOf(c)
+  // A calculated card's value is one per option, each with core's own mark where a held proposal moves it (optionValues.ts): the preview and the pinned
+  // box both draw it so, never the joined line alone, which loses which value a proposal moves (final-pair P1, 18 Nov). Null: the one line, as before.
+  const perOption = optionValuesOf(c, model)
   // The card's author line is the value's own source on a quantity (core says so): it is then drawn once, beside the value, and not in the header too.
   const authorAtValue = value !== null && value.source !== null && value.source === c.author?.text
   // Olumi's mark in words is not said a second time where the value's source or the author line already says it.
@@ -214,7 +218,18 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
           <div className={row} data-testid="lane-inspector-value">
             <span className={rowLabel}>{BOX_WORDS.value}</span>
             <div className="min-w-0 break-words">
-              <span className="text-text-header" data-testid="lane-inspector-figure">{value.text}</span>{' '}
+              {perOption === null ? <span className="text-text-header" data-testid="lane-inspector-figure">{value.text}</span> : (
+                <ul className="m-0 list-none space-y-0.5 p-0 text-text-header" data-testid="lane-inspector-figure">
+                  {perOption.map((o) => (
+                    <li key={o.option} data-option-value={o.option} data-option-withheld={o.withheld || undefined}>
+                      {o.heading === '' ? null : `${o.heading}: `}<span className={o.withheld ? 'text-text-light' : undefined}>{o.text}</span>
+                      {o.ifApproved === null ? null : (
+                        <>{' '}<span className="text-info" data-testid="lane-inspector-if-approved" data-view={`${c.id}.values.${o.at}.if_approved`}><span aria-hidden="true">{o.ifApproved.glyph} </span>{o.ifApproved.title}</span></>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}{' '}
               {authorAtValue ? <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />
                 : value.source === null ? null : <span className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-value-source">{value.source}</span>}
             </div>

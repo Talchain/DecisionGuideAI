@@ -169,3 +169,66 @@ describe('the core-lane hover\'s Value line: core\'s words and core\'s own attri
     expect(document.querySelector('[data-testid="lane-peek"]')).toBeNull()
   })
 })
+
+/**
+ * FINAL-PAIR P1 (18 Nov; Codex CODEX-UI-A998B787, read-only s_69e1e4b03a72 v2 / pending 816): the box drew a calculated card's joined figure line, so
+ * "Use supplier's cardboard inserts: about 8.7 hours/week" lost core's "if approved; now about 7.5 hours/week" (`values[1].if_approved`), in the preview
+ * and pinned alike. Each option's value is now drawn with core's own mark for THAT value. The EU board holds a pending proposal throughout, so the
+ * all-current row is the unrelated-proposal control. Invented card on the live harness; every word below is a core field.
+ */
+describe('the box keeps each option\'s value and core\'s approval mark for it (preview and pinned)', () => {
+  const OPTS = EU.model!.cards.filter((c) => c.family === 'option').slice(0, 2)
+  const [A, B] = [OPTS[0]!, OPTS[1]!]
+  const NOW = 'if approved; now about 7.5 hours/week (6.29 to 8.69 hours/week)'
+  const TA = 'about 11.7 hours/week (9.92 to 13.5 hours/week)', TB = 'about 8.7 hours/week (7.49 to 9.89 hours/week)'
+  const base = LIVE.find((c) => c.family === 'quantity' && (c.figure?.text ?? '') !== '')!
+  const value = (option: string, text: string, if_approved: { glyph: string; title: string } | null) => ({ option, text, p10: 1, p50: 2, p90: 3, if_absent: [], olumi: true, if_approved })
+  const calc = (values: ReturnType<typeof value>[], extra: Record<string, unknown> = {}) => ({ ...base, id: 'weekly_dispatch_hours', heading: 'Weekly dispatch hours',
+    figure: { ...base.figure!, text: values.map((v) => `${OPTS.find((o) => o.id === v.option)!.heading}: ${v.text}`).join(' · '), edit: null }, values, ...extra }) as unknown as ViewCard
+  /** The box in both states: the preview on hover, then pinned by a press. */
+  const both = (card: ViewCard): HTMLElement[] => {
+    const peek = hover(card, [...LIVE, card])!
+    const peekValue = part(peek, 'lane-inspector-value')!.cloneNode(true) as HTMLElement
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: card.id }) })
+    return [peekValue, part(document.querySelector<HTMLElement>('[data-testid="lane-inspector"]'), 'lane-inspector-value')!]
+  }
+  const item = (row: HTMLElement, option: string) => row.querySelector<HTMLElement>(`[data-option-value="${option}"]`)
+  expect(EU.proposal, 'precondition: the board holds a pending proposal').not.toBeNull()
+
+  it('P1-1 mixed: the moved option carries core\'s "if approved; now …" beside ITS value, the current option carries none (RED before: the joined line, no mark)', () => {
+    for (const row of both(calc([value(A.id, TA, null), value(B.id, TB, { glyph: '↻', title: NOW })]))) {
+      expect(item(row, A.id)?.textContent).toBe(`${A.heading}: ${TA}`)
+      expect(item(row, B.id)?.textContent?.replace(/\s+/g, ' ')).toBe(`${B.heading}: ${TB} ↻ ${NOW}`)
+      expect(row.querySelectorAll('[data-testid="lane-inspector-if-approved"]').length, 'once, on its own value').toBe(1)
+      expect(item(row, A.id)!.querySelector('[data-testid="lane-inspector-if-approved"]')).toBeNull()
+    }
+  })
+  it('P1-2 CONTROL all current with an unrelated pending proposal: each option\'s value, and no approval mark anywhere', () => {
+    for (const row of both(calc([value(A.id, TA, null), value(B.id, TB, null)]))) {
+      expect([item(row, A.id)?.textContent, item(row, B.id)?.textContent]).toEqual([`${A.heading}: ${TA}`, `${B.heading}: ${TB}`])
+      expect(row.querySelector('[data-testid="lane-inspector-if-approved"]')).toBeNull()
+      expect(row.textContent).not.toMatch(/if approved/)
+    }
+  })
+  it('P1-3 a single option whose value a proposal moves keeps core\'s mark (not the bare line); CONTROL a single current value is the one line, as before', () => {
+    for (const row of both(calc([value(B.id, TB, { glyph: '↻', title: NOW })]))) {
+      expect(item(row, B.id)?.textContent?.replace(/\s+/g, ' ')).toBe(`${B.heading}: ${TB} ↻ ${NOW}`)
+    }
+    cleanup(); vi.useRealTimers(); useLaneInspector.setState({ current: null, peek: null })
+    const one = calc([value(A.id, TA, null)])
+    for (const row of both(one)) {
+      expect(part(row, 'lane-inspector-figure')?.textContent).toBe(one.figure!.text)
+      expect(row.querySelector('[data-option-value]'), 'no per-option list for one current value').toBeNull()
+    }
+  })
+  it('P1-4 an option core could not work out is core\'s reason alone: no number and no approval mark for it; the other option keeps its own', () => {
+    const WHY = '170 samples gave a time below zero'
+    const card = calc([value(A.id, TA, { glyph: '↻', title: NOW })], { values_withheld: [{ option: B.id, text: WHY, cause: 'invalid_domain' }] })
+    for (const row of both(card)) {
+      expect(item(row, B.id)?.textContent).toBe(`${B.heading}: ${WHY}`)
+      expect(item(row, B.id)?.getAttribute('data-option-withheld')).toBe('true')
+      expect(item(row, B.id)!.querySelector('[data-testid="lane-inspector-if-approved"]')).toBeNull()
+      expect(item(row, A.id)?.textContent?.replace(/\s+/g, ' ')).toBe(`${A.heading}: ${TA} ↻ ${NOW}`)
+    }
+  })
+})
