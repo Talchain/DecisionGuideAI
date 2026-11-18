@@ -48,6 +48,7 @@ export function Effects({ at, view, figures, effects, headings }: { at: string; 
   if (effects.length === 0 || headings === null) return null
   const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
+  const said = (note: string | undefined) => (typeof note === 'string' && note !== '' ? note : null)
   const Option = ({ id }: { id: string | null }) => { const h = card(id); return h === null ? null : <span className="text-text-header" data-effect-option="">{h}</span> }
   // A row core labels: its label as core gives it, then the value; a core that gives no label for it draws no row (no words of the UI's own).
   const Labelled = ({ label, at, children }: { label: string | undefined; at: string; children: JSX.Element | string | null }) =>
@@ -64,9 +65,12 @@ export function Effects({ at, view, figures, effects, headings }: { at: string; 
           {'refused' in e ? null : (
             <>
               <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
-              {e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
+              {/* Core's note for this side (cannot be compared, or rests on Olumi's own estimates), verbatim, at every status; else core's heading for no clear leader. Never both. */}
+              {said(e.leader_note) !== null ? <p data-effect-no-leader="" data-effect-leader-note="">{said(e.leader_note)}</p>
+                : e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
               <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
-              {e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
+              {said(e.model_leader_note) !== null ? <p data-effect-no-model-leader="" data-effect-model-leader-note="">{said(e.model_leader_note)}</p>
+                : e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
               {/* A partial comparison (PL-243): core's words for what was and was not compared, beside the consequences, verbatim; nothing when absent. */}

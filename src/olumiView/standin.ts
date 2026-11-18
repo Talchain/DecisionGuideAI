@@ -57,6 +57,9 @@ export type ViewEffectRun = {
   readonly most: string | null; readonly gap_text?: string | null; readonly if_absent: readonly string[]
   /** A partial comparison (core 65cf0711, PL-243): the options not compared, by id, and core's words for the scope. Absent when every pair was compared. */
   readonly not_compared?: readonly string[]; readonly scope_text?: string
+  /** Core's own words for a side that names no leader because it cannot be compared (a reveal stored before the one leader rule) or rests on
+   *  Olumi's own differing estimates (core leader head on 449702c2, additive, any status). Drawn verbatim in place of the heading fallback. */
+  readonly leader_note?: string; readonly model_leader_note?: string
 }
 export type ViewEffect = ViewEffectRun | { readonly quantity: string; readonly refused: string }
 /** Core's labels: each status, a figure not run, and (core 066287e) the drawer's four row labels; a core before 066287e lacks those four. */

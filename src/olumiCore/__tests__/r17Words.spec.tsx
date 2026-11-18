@@ -67,6 +67,22 @@ describe('a changes figure with no clear leader says so, in core\'s words', () =
   })
 })
 
+describe('a side core says cannot be compared, or rests on Olumi\'s own estimates, says so in core\'s note (leader_note / model_leader_note)', () => {
+  const NOTE = 'UNAVAILABLE words from core', MODEL_NOTE = 'ASSUMED model-side words from core'
+  const withEffect = (over: Record<string, unknown>): Sh => ({ ...bea, effects: bea.effects.map((e) => (e.quantity === 'capacity_target' ? { ...e, ...over } : e)) })
+  const rowOf = (s: Sh) => { show(viewOf([paul, s])); return document.querySelector(`[data-testid="team-revealed-${bea.id}-effects"] [data-effect="capacity_target"]`)! }
+  const read = (row: Element) => [...row.querySelectorAll('[data-effect-no-leader], [data-effect-no-model-leader]')].map((e) => e.textContent)
+  it('CATCH: an unavailable member leader at status moves draws core\'s note verbatim (it read as "moves the chances only" with no limit)', () => {
+    expect(read(rowOf(withEffect({ status: 'moves', leader: null, leader_note: NOTE })))).toEqual([NOTE])
+  })
+  it('an assumed model side at status changes: the note replaces the heading for that side only, never both', () => {
+    expect(read(rowOf(withEffect({ status: 'changes', leader: null, model_leader: null, model_leader_note: MODEL_NOTE })))).toEqual([words.no_leader, MODEL_NOTE])
+  })
+  it('CONTRAST: an effect with no note is unchanged (a named leader says neither; an empty note is no note)', () => {
+    expect(read(rowOf(withEffect({ status: 'moves', leader: 'hold', model_leader: 'add_one', leader_note: '' })))).toEqual([])
+  })
+})
+
 describe('the view form uses core\'s limit and words', () => {
   const form = (over: Partial<View['collab']>) => viewOf([], { mine: [], ...over })
   it('private_view_prompt shows while writing; null shows nothing', () => {
