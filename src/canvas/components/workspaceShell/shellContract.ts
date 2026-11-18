@@ -558,8 +558,12 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     // Research-CTA defect in another costume — the product advertising an
     // action that terminates in nothing. It also cost a fifth of the tab strip
     // at the width where the strip is tightest.
+    // ⭐ 18 Nov 2026 (wip/v12-tab-journey): the ruling holds for the older look, whose strip still leaves it out. On the olumi-core lane
+    // it is a real mounted capability, drawn from core's own records (src/olumiView/v12/journey: versions, commitments, outcomes,
+    // evidence), so `laneOnly` puts it in the lane's strip there and nowhere else (`presentedSurfacesWithLane`).
     presentedAsTab: false,
-    hiddenReason: 'Dark capability — empty event feed even under a flag override (Paul, 17 Aug 2026)',
+    hiddenReason: 'Older look: dark capability — empty event feed even under a flag override (Paul, 17 Aug 2026). On the olumi-core lane it is shown, drawn from core (laneOnly).',
+    laneOnly: true,
   },
 }
 
@@ -699,7 +703,7 @@ export const MAX_PRESENTED_SURFACES = 5
  * (DL 4 Nov, R2: Paul's staging has the Model tab). Recorded, not derived, like the strip's maximum; the dock is a vertical rail, and
  * `scripts/olumi-core/two-people.mjs` witnesses every lane tab inside it at 1280 and 1440. Re-record it here in the same change.
  */
-export const MAX_LANE_PRESENTED_SURFACES = 6
+export const MAX_LANE_PRESENTED_SURFACES = 7
 
 /**
  * The surfaces offered as tabs, in strip order.
@@ -724,7 +728,8 @@ export function presentedSurfacesWithLane(): WorkspaceSurfaceDescriptor[] {
   }
   return (Object.keys(WORKSPACE_SURFACES) as OutputTab[])
     .map(id => WORKSPACE_SURFACES[id])
-    .filter(s => s.presentedAsTab)
+    // A `laneOnly` row is offered on the lane even where the older look's ruling hides it (Journey, 18 Nov).
+    .filter(s => s.presentedAsTab || s.laneOnly === true)
     .sort((a, z) => rank(a.id) - rank(z.id))
 }
 
