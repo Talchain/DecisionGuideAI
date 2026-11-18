@@ -3,7 +3,8 @@
  * panel the top bar's clock opens, above core's version list. Top: the cards that changed at the version shown, each one press to the card.
  * Then one rail, newest first, a dot per record (Olumi's in blue), one line each with core's time; each line is one press to the thing it
  * names: a commitment, outcome or disagreement opens the Team tab, a piece of evidence opens in it, a kept idea is put in front on the
- * canvas. At rest the newest few; the rest behind one press. No boxes, no paragraphs. Every press closes the panel (`onDone`), so the
+ * canvas. At rest the newest few; the rest behind one press. No boxes, no paragraphs. Flex columns, not grid: a grid item keeps its
+ * min-content width, so a long line pushed the dates past the panel's edge (picture run 2, 02:42Z). Every press closes the panel (`onDone`), so the
  * person sees what it opened.
  */
 import { useMemo, useState } from 'react'
@@ -43,7 +44,7 @@ export async function go(target: JourneyTarget): Promise<void> {
 
 function Entry({ e, press }: { e: JourneyEntry; press: (t: JourneyTarget) => void }): JSX.Element {
   return (
-    <li className="relative pl-3" data-testid={`journey-entry-${e.key}`} data-kind={e.kind}>
+    <li className="relative min-w-0 pl-3" data-testid={`journey-entry-${e.key}`} data-kind={e.kind}>
       <span aria-hidden="true" className={`absolute -left-[3px] top-[6px] h-1.5 w-1.5 rounded-full ${e.kind === 'kept' ? 'bg-info' : 'bg-text-light'}`} />
       <button type="button" className={ROW} onClick={() => press(e.target)} data-testid={`journey-go-${e.key}`}>
         <span className={`${BODY} min-w-0 flex-1 truncate`}>{e.line}</span>
@@ -61,7 +62,7 @@ export function JourneyRecord({ view, onDone }: { view: View; onDone?: () => voi
   if (j.changed === null && j.entries.length === 0 && j.views === null && !j.pending) return null
   const shown = all ? j.entries : j.entries.slice(0, AT_REST)
   return (
-    <section className="grid gap-3 pb-4" aria-label={JOURNEY_WORDS.heading} data-testid="journey-record">
+    <section className="flex min-w-0 flex-col gap-3 pb-4" aria-label={JOURNEY_WORDS.heading} data-testid="journey-record">
       <p className={HEAD}>{JOURNEY_WORDS.heading}</p>
       {j.pending && (
         <button type="button" className={`${META} ${ROW} text-info`} onClick={() => press({ kind: 'olumi' })} data-testid="journey-pending">{JOURNEY_WORDS.pending}</button>
@@ -78,12 +79,12 @@ export function JourneyRecord({ view, onDone }: { view: View; onDone?: () => voi
         </div>
       )}
       {j.entries.length > 0 && (
-        <ol className="m-0 ml-1 grid list-none gap-2 border-l border-panel-border p-0" data-testid="journey-rail">
+        <ol className="m-0 ml-1 flex min-w-0 list-none flex-col gap-2 border-l border-panel-border p-0" data-testid="journey-rail">
           {shown.map((e) => <Entry key={e.key} e={e} press={press} />)}
         </ol>
       )}
       {j.entries.length > AT_REST && (
-        <button type="button" className={`${META} justify-self-start underline underline-offset-2 hover:text-text-header`} onClick={() => setAll((x) => !x)} data-testid="journey-all">
+        <button type="button" className={`${META} self-start underline underline-offset-2 hover:text-text-header`} onClick={() => setAll((x) => !x)} data-testid="journey-all">
           {all ? JOURNEY_WORDS.showFewer : JOURNEY_WORDS.showAll(j.entries.length)}
         </button>
       )}
