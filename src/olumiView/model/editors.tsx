@@ -29,7 +29,8 @@ import { noteEditSaved, noticeWords } from '../notice'
 import { clearWhatIf, tryWhatIf, useWhatIf } from '../whatif'
 import { editKey, useModelWords, readAfterSave, useModelEdit } from './editing'
 import { tagOf, useModelTab, type Editing } from './state'
-import { LaneEditForm, isSizeEdit, type CoreEdit } from '../v12/edit/EditForm'
+import { isSizeEdit, writeKeyOf, type CoreEdit, type EditSpec } from '../v12/edit/EditForm'
+import { useLaneInspector } from '../v12/edit/inspectorStore'
 
 /**
  * The tab's control recipes, from the lane's own (chipClass, AddFigure): one name per role, so no control is styled twice. The person's own
@@ -165,6 +166,27 @@ function useSave(mine: Editing, key: string, focusOn: 'value' | 'name') {
 }
 
 /**
+ * A size form asked for from the Model tab is one of the surfaces the one store holds (surfaces step 2), drawn by the lane's layer
+ * (LaneEditingLayer, mounted in the same canvas as the dock that holds this tab): Escape closes it, another surface closes it, a waiting challenge
+ * is not cancelled while it is open. This row's editor closes with it (saved, cancelled or replaced): `onGone`.
+ */
+function SizeFormOnStore({ spec, anchor, from, onGone }: { spec: EditSpec; anchor: { x: number; y: number }; from: RefObject<HTMLElement>; onGone: () => void }): null {
+  const gone = useRef(onGone); gone.current = onGone
+  useEffect(() => {
+    const r = from.current?.getBoundingClientRect(), at = r ? { x: r.left, y: r.bottom + 4 } : anchor
+    const st = useLaneInspector.getState()
+    if (!st.show({ kind: 'form', spec, anchor: at, busyKey: writeKeyOf(spec) })) { gone.current(); return }
+    const mine = useLaneInspector.getState().current!.n
+    const held = (c: ReturnType<typeof useLaneInspector.getState>['current']) => c !== null && c.kind === 'form' && c.n === mine
+    const unsub = useLaneInspector.subscribe((s) => { if (!held(s.current)) { unsub(); gone.current() } })
+    return () => { unsub(); if (held(useLaneInspector.getState().current)) useLaneInspector.getState().close('form') }
+    // Shown once, as the editor opens: a later re-render never reopens it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return null
+}
+
+/**
  * Change one figure (`POST …/edit`, typed as the person wrote it). `mine.quantity` is the figure's own card id: the row's own, or for an
  * aim the target figure, for a link the figure that sizes it. The base is the one the editor opened on, never a later one (FigureEdit rule).
  */
@@ -203,7 +225,7 @@ export function FigureEditor({ mine, edit }: { mine: Editing & { readonly what: 
 
   // A risk's chance and size (or a link's strength) is core's `…/size` route, never `…/edit`, which refuses it: core's own `route: 'size'` sends
   // it to the lane's size form, on the base this editor opened on. The form closes this row's editor when it is done.
-  if (isSizeEdit(edit)) return <><span ref={here} data-model-editor-size={row} /><LaneEditForm spec={{ kind: 'size', sid, base, edit, subject: row }} anchor={at} onClose={cancel} /></>
+  if (isSizeEdit(edit)) return <><span ref={here} data-model-editor-size={row} /><SizeFormOnStore spec={{ kind: 'size', sid, base, edit, subject: row }} anchor={at} from={here} onGone={cancel} /></>
   return (
     <form ref={form} className="mt-2 space-y-2" data-model-editor={row} data-model-editor-for={quantity} aria-busy={pending || undefined}
       onSubmit={(e) => { e.preventDefault(); save() }}

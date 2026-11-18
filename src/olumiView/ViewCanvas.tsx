@@ -48,6 +48,7 @@ import { RootLinkEdge } from './previous/RootLinkEdge'
 import { LodSync } from '../canvas/components/LodSync'
 import { CanvasLabelScaleSync } from '../canvas/components/CanvasLabelScaleSync'
 import { useV10Lane } from './v10'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
@@ -495,8 +496,8 @@ function ViewFlow() {
       <ReactFlow snapToGrid={snapToGrid} snapGrid={snapGrid}
         // Paul's option inspector (audit F34): a press on an option card opens its details, as right-click "Open details" does.
         onNodeClick={(e, n) => {
-          // A press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
-          if (e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
+          // The lane's own (the older look keeps its press as it was): a press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
+          if (isOlumiCoreLane() && e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
           if (useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)?.family === 'option') useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
         className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}

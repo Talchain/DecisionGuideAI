@@ -104,7 +104,7 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}
       <WhatItMoves figure={card.id} />
-      <YourFigure card={card} />
+      <YourFigure key={card.id} card={card} />
       <div className="flex flex-wrap gap-1" role="group" aria-label="Ask or try">
         <button type="button" data-testid="inspector-ask" disabled={onAsk == null} onClick={() => onAsk?.()} className={btn}>{INSPECTOR_WORDS.ask}</button>
         <button type="button" data-testid="inspector-what-if" disabled={!canTry} onClick={() => { openWhatIf(card.id); onClose?.() }} className={btn}>{INSPECTOR_WORDS.whatIf}</button>

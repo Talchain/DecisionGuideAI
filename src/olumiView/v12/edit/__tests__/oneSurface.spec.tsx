@@ -21,13 +21,14 @@ import { approved, install, uninstall } from './harness'
 
 vi.mock('../../../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
 vi.mock('../../../../canvas/components/OlumiAttentionCard', () => ({ OlumiAttentionCard: () => null }))
-vi.mock('../../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
+const lane = vi.hoisted(() => ({ on: true }))
+vi.mock('../../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
 vi.mock('../../../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: 'u1', accessToken: null }), supabase: {} }))
 vi.mock('../../../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 beforeAll(() => { ;(window as unknown as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly ??= class { m22 = 1 } })
-afterEach(() => { cleanup(); useLaneInspector.getState().close(); vi.useRealTimers(); uninstall(); useViewChat.setState({ armed: null, text: '' }); useCanvasStore.setState({ nodes: [], edges: [] }) })
+afterEach(() => { lane.on = true; cleanup(); useLaneInspector.getState().close(); vi.useRealTimers(); uninstall(); useViewChat.setState({ armed: null, text: '' }); useCanvasStore.setState({ nodes: [], edges: [] }) })
 
 const FIG = 'starting_customers', FIG2 = 'customer_target', OPT = 'broader_entry', OTHER = 'single_country_test'
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 60)) })
@@ -212,6 +213,58 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open(), 'press on the editor\'s label').toEqual(['editor'])
     fireEvent.click(panel); await settle()
     expect(open(), 'press on the editor\'s padding').toEqual(['editor'])
+  })
+
+  it('ONE-11 the size forms are on the one store: the pencil on a risk card opens the size form; Escape closes it; opening the details closes it; a waiting challenge is not cancelled while it is open', async () => {
+    await board(true)
+    const pencil = () => within(node('slow_ramp')).getByTestId('lane-size-edit')
+    fireEvent.click(pencil()); await settle()
+    expect(open(), 'the pencil opens the size form').toEqual(['form'])
+    expect(useLaneInspector.getState().current?.kind, 'held by the one store').toBe('form')
+    fireEvent.keyDown(document.querySelector('[data-testid="lane-edit-form"] input')!, { key: 'Escape' }); await settle()
+    expect(open(), 'Escape closes the size form').toEqual([])
+    fireEvent.click(pencil()); await settle()
+    expect(open()).toEqual(['form'])
+    await OPENERS.details()
+    expect(open(), 'opening details closes the size form').toEqual(['details'])
+    fireEvent.click(pencil()); await settle()
+    expect(open(), 'the size form takes the details\' place').toEqual(['form'])
+    act(() => { useViewChat.setState({ armed: 'opposite' }) })
+    fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
+    expect(open()).toEqual([])
+    expect(useViewChat.getState().armed, 'the first Escape closed the form and left the challenge waiting').toBe('opposite')
+  })
+
+  it('ONE-12 "Your figure" is per card: typed on card A and the panel retargeted to card B, B starts from its own (empty) draft, A\'s words are kept for A, and Change on B never posts A\'s number', async () => {
+    await board()
+    const calls: string[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push(`${method} ${String(u)} ${String(init?.body ?? '')}`)
+      return new Response(JSON.stringify(useViewStore.getState().view), { status: 200 })
+    }) as unknown as typeof fetch)
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: FIG }) }); await settle()
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '777' } })
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: FIG2 }) }); await settle()
+    expect((screen.getByTestId('inspector-figure-typed') as HTMLInputElement).value, 'card B starts from its own draft').toBe('')
+    fireEvent.click(screen.getByTestId('inspector-figure-set')); await settle()
+    expect(calls.filter((c) => c.startsWith('POST')), 'nothing of A\'s is posted for B').toEqual([])
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: FIG }) }); await settle()
+    expect((screen.getByTestId('inspector-figure-typed') as HTMLInputElement).value, 'back on A: A\'s words').toBe('777')
+  })
+
+  it('ONE-13 the older look is unchanged: where the core lane is off, a press on a card\'s own control still reaches "open details" (the exclusion list is the lane\'s)', async () => {
+    const base = approved()
+    const quantity = base.model!.cards.find((c) => c.id === FIG)!
+    const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === OPT ? { ...c, figure: quantity.figure } : c)) } } as View
+    await board(false, view)
+    lane.on = false
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`)); await settle()
+    expect(open(), 'older look: the press on the pencil also opens the details, as before').toEqual(['details'])
+    lane.on = true
+    fireEvent.click(pane()); await settle()
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`)); await settle()
+    expect(open(), 'contrast, lane on: the pencil is the control\'s own').toEqual(['editor'])
   })
 
   it('ONE-6 (kept as today) words typed in the edit form survive another surface opening, and are there when it is opened again', async () => {
