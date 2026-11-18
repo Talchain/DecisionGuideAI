@@ -516,6 +516,21 @@ describe('surfaces step 3: details beside their card', () => {
     expect({ x: form.style.getPropertyValue('--lane-form-x'), y: form.style.getPropertyValue('--lane-form-y') }, 'the form uses the same fallback').toEqual(at)
   })
 
+  it('S3-n a target with no drawn card and a form taller than the free canvas: the form is capped to the free canvas\'s height (Save stays reachable), never left to run below the window (Codex 008 item 4)', async () => {
+    mockBoxes()
+    await board()
+    cards[OPT] = { left: 500, top: 350, width: 220, height: 120 }; cards[OTHER] = { left: 100, top: 400, width: 220, height: 120 }
+    node(OTHER).setAttribute('data-id', 'undrawn')
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: OTHER }) }); await settle()
+    formHeight.now = freeCanvas().bottom - freeCanvas().top + 300   // taller than the free canvas, whatever this window is
+    fireEvent.click(OPEN_EDIT()); await settle(); await settle()
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    const free = freeCanvas(), cap = parseFloat(form.style.getPropertyValue('--lane-form-h'))
+    expect(Number.isFinite(cap), 'the form carries a height cap').toBe(true)
+    expect(parseFloat(form.style.getPropertyValue('--lane-form-y')) + cap).toBeLessThanOrEqual(free.bottom)
+    expect(form.querySelector('[data-testid="lane-edit-save"], button[type="submit"]'), 'Save is drawn').not.toBeNull()
+  })
+
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 340 }, card = { left: 180, top: 110, right: 420, bottom: 230 }
     const form = placeBeside(card, null, { width: 280, height: 420 }, free, FORM_MIN_SHOWN)

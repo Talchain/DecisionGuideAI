@@ -131,7 +131,10 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
       if (key !== last) {
         last = key
         // Its item is not drawn at all (nothing to stand beside): the free canvas's top-left, at its own height. Otherwise beside it.
-        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: null } : placeBeside(anchor, own, size, free, minShown)
+        // Its item is not drawn: the free canvas's top-left, capped to the free canvas's height (Codex 008 item 4: uncapped, a tall form ran below the window
+        // and took Save with it); the panel's and form's own structure keeps the header and Save/Cancel outside the scrolling body.
+        const room = Math.max(minShown, free.bottom - free.top - 2 * HOVER_CARD_GAP)
+        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown)
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
         if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }
