@@ -24,43 +24,48 @@ export const STEP_WORDS = {
   differLater: 'After the reveal', differOpen: 'Revealed views to compare',
   commitNone: 'Nothing recorded yet',
   outcomeLater: 'After a commitment', outcomeAll: 'All recorded',
-  outcomeOpen: (n: number) => `${n} with no outcome yet`,
+  outcomeOpen: (n: number) => `${n} recorded · add what happened when it does`,
   differLaterBody: 'Once your views are revealed, where you differ shows here, drawn side by side.',
   commitGo: 'Commit to an action',
 } as const
 
 export type StepState = 'done' | 'now' | 'later'
 
-/** This viewer has given (or skipped) a view in this round: one of theirs that is not from an earlier round, or one shown to the team. */
+/**
+ * This viewer has given (or skipped) a view in this round: one of their own core does not mark `earlier` (a skip counts), or, once nobody is
+ * waited for, one of theirs shown to the team. A shown view carries no round of its own, so while the round still waits for someone it is not
+ * taken as this round's (Codex 008: history is not a current-round contribution).
+ */
 export function viewIn(view: View): boolean {
   if (view.gated) return false
-  return view.collab.mine.some((m) => !m.earlier) || view.collab.shared.some((s) => s.by_id === view.you_id)
+  const c = view.collab
+  return c.mine.some((m) => !m.earlier) || (c.waiting === null && c.shared.some((s) => s.by_id === view.you_id))
 }
 
 /** Revealed views this viewer may see (core holds back nothing from them, and at least one is shown). */
 export const revealed = (view: View): boolean => !view.gated && view.collab.shared.length > 0
 
-/** The current step, the first of these that holds. */
+/** The current step, the first of these that holds. After the reveal it is "Where you differ": exploring, evidence, dissent, an action and
+ *  its review are activities the person opens when they want them; nothing here decides the thinking is finished (Codex 008 #3). */
 export function currentStep(view: View): StepId {
   const c = view.collab
   if (c.alone) return 'invite'
   if (view.gated) return 'view'
   if (c.can_reveal) return 'reveal'
-  // A next action still waiting for what happened outranks starting a view of one's own (a member core does not hold, such as the brief's writer).
-  if (withoutOutcome(c.commitments).length > 0) return 'outcome'
   if (!viewIn(view)) return 'view'
   if (c.waiting !== null || !revealed(view)) return 'reveal'
   return 'differ'
 }
 
-/** Whether a step is finished, from the View alone. */
+/** Whether a step is finished, from the View alone: only facts (a colleague joined, your view given, the reveal made, an action recorded,
+ *  each action's outcome recorded). "Where you differ" is never marked finished: a commitment does not settle a disagreement. */
 export function stepDone(view: View, id: StepId): boolean {
   const c = view.collab
   switch (id) {
     case 'invite': return !c.alone
     case 'view': return viewIn(view)
     case 'reveal': return revealed(view) && !c.can_reveal && c.waiting === null
-    case 'differ': return revealed(view) && c.commitments.length > 0
+    case 'differ': return false
     case 'commit': return c.commitments.length > 0
     case 'outcome': return c.commitments.length > 0 && withoutOutcome(c.commitments).length === 0
   }

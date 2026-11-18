@@ -91,13 +91,15 @@ describe('what the team waits on is the flow\'s current step, in core\'s words',
     fireEvent.click(screen.getByTestId('team-reveal-go'))
     await waitFor(() => expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/reveal`]))
   })
-  it('a next action with no outcome yet makes "What happened" the open step, its action as core holds it, and opens its outcome form', async () => {
+  it('a next action with no outcome yet stays one press away: "What happened" is a closed line with its count; opened, its form is there', async () => {
     show(twoPeople({ waiting: null, commitments: [open9(), open9({ id: 10, action: 'Ask two customers', owner: 'Ada', owner_id: 'p_1', outcomes: twoPeople().collab.commitments[0]!.outcomes })] }))
     render(<TeamTab />)
+    // Codex 008 #3: a recorded action is not an overdue task; the flow stays on "Where you differ".
+    expect(step('outcome').hasAttribute('data-step-open')).toBe(false)
+    expect(screen.getByTestId('team-step-outcome-summary').textContent).toBe('1 recorded · add what happened when it does')
+    fireEvent.click(screen.getByTestId('team-step-outcome-row'))
     expect(step('outcome').getAttribute('data-step-open')).toBe('')
-    expect(screen.getByTestId('team-step-outcome-body').hidden).toBe(false)
     expect(screen.getByTestId('team-commitment-action-9').textContent).toBe('Pilot in Germany')
-    expect(screen.getByTestId('team-outcome-open-9').className).toContain('bg-success') // the step's green press
     expect(screen.queryByTestId('team-outcome-form-9')).toBeNull()
     await act(async () => { fireEvent.click(screen.getByTestId('team-outcome-open-9')) })
     expect(screen.getByTestId('team-outcome-form-9')).toBeTruthy()

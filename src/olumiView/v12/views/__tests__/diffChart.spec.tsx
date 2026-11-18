@@ -19,11 +19,15 @@ afterEach(cleanup)
 describe('who said what, on one axis', () => {
   it('each side\'s span is that person\'s own revealed figure for this card, found by view id and record, with its own words', () => {
     // View 8 (Paul) gave a single figure, view 9 (Sam) a range, for `per_specialist`.
-    expect(sideSpans(fx, d)).toEqual([{ lo: 5, hi: 5, text: '5 tickets/week/specialist' }, { lo: 20, hi: 40, text: '20 to 40 tickets/week/specialist' }])
+    const U = 'ticket/week/specialist'
+    expect(sideSpans(fx, d)).toEqual([{ lo: 5, hi: 5, text: '5 tickets/week/specialist', unit: U }, { lo: 20, hi: 40, text: '20 to 40 tickets/week/specialist', unit: U }])
     // Contrast: the same difference about a card neither view gave a figure for draws no axis (the words list stands instead).
     expect(sideSpans(fx, { ...d, record: 'hold' })).toBeNull()
     // Contrast: a side whose view is not revealed to this viewer draws no axis at all, never a half chart.
     expect(sideSpans(fx, { ...d, sides: [d.sides[0]!, { ...d.sides[1]!, view: 777 }] })).toBeNull()
+    // Contrast: the same two figures in different units are never drawn on one axis.
+    const other = { ...fx, collab: { ...fx.collab, shared: fx.collab.shared.map((v) => v.id !== 9 ? v : { ...v, figures: v.figures.map((f) => f.quantity === 'per_specialist' ? { ...f, unit: 'ticket/month/specialist' } : f) }) } } as View
+    expect(sideSpans(other, d)).toBeNull()
   })
   it('the axis holds every span with a margin; one point alone still gets a width', () => {
     const a = axisOf([{ lo: 5, hi: 5 }, { lo: 20, hi: 40 }])

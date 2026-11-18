@@ -79,9 +79,18 @@ describe('the current step is the View\'s, field by field', () => {
     expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', shared: [bea3] }))).toBe('reveal')
     expect(currentStep(team({ can_reveal: false, waiting: null, shared: [bea3] }))).toBe('differ')
   })
-  it('a commitment with no outcome → what happened; with its outcome → where you differ', () => {
-    expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [k9] }))).toBe('outcome')
+  it('a commitment with no outcome does not take over: after the reveal the current step stays "Where you differ" (Codex 008 #3)', () => {
+    expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [k9] }))).toBe('differ')
     expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }] }))).toBe('differ')
+    // and "Where you differ" is never marked finished by a commitment
+    expect(stepDone(team({ waiting: null, shared: [bea3], commitments: [k9] }), 'differ')).toBe(false)
+  })
+  it('a view of yours shown in an earlier round is not this round\'s while the round still waits; once nobody is waited for it is (Codex 008 #1)', () => {
+    const mineShown = { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }
+    expect(currentStep(team({ mine: [], shared: [mineShown], waiting: 'waiting for Ada, Bea' }))).toBe('view')
+    expect(currentStep(team({ mine: [], shared: [mineShown, bea3], waiting: null }))).toBe('differ')
+    // a skip is a contribution this round
+    expect(currentStep(team({ mine: [{ ...mine4, skip: true }], waiting: 'waiting for Bea' }))).toBe('reveal')
   })
   it('done marks: commit once a commitment exists, outcome once each has its outcome', () => {
     const one = team({ waiting: null, shared: [bea3], commitments: [k9] })
@@ -163,8 +172,7 @@ describe('the tab: only the current step open, one green press, any row opens', 
   it('an outcome form opened from elsewhere (goToOutcome) opens "What happened" with that form', async () => {
     show(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }, { ...k9, id: 10, action: 'Ask two customers' }] }))
     render(<TeamTab />)
-    // current is outcome (10 has none): close it first, so the open is the call's doing
-    fireEvent.click(screen.getByTestId('team-step-outcome-row'))
+    expect(isOpen('differ')).toBe(true)
     expect(isOpen('outcome')).toBe(false)
     await act(async () => { goToOutcome(SID, 10) })
     await waitFor(() => expect(isOpen('outcome')).toBe(true))

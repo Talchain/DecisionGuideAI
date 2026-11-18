@@ -9,7 +9,7 @@ import { readDifferences, stepDifference, differencesKey, useDifferences, type D
 import { runWrite } from '../../../olumiCore/team/writes'
 import { openStep, revealed, STEP_WORDS } from '../../../olumiCore/team/flow'
 import { effectHeadingsOf } from '../../standin'
-import { AVATAR, BODY, ERR, FOLD, GO, LABEL, META, QUIET } from '../../../olumiCore/team/ui'
+import { AVATAR, BODY, ERR, FOLD, LABEL, META, QUIET } from '../../../olumiCore/team/ui'
 import { emptyConsequence, groupDifferences, NOTHING_CALCULATED, revealedForYou } from './differGroups'
 import { useDifferLine, useRevealedDifferences } from './SimpleSummary'
 import { AskToCompare } from './AskToCompare'
@@ -142,6 +142,8 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
           </p>
         )}
       </div>
+      {/* Core's own sentence stands at rest wherever it has no short word for the status (withheld, pending, not run): a limit is never only in the fold. */}
+      {statusWords === null && <p className={`${META} break-words text-text-body`} data-testid={`${at}-status-rest`}>{d.status_text}</p>}
       {drawn ? <FigureSides view={view} d={d} at={at} /> : (
         <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-sides`}>
           {d.sides.map((s) => (
@@ -180,7 +182,8 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
 /**
  * Step 4, after an authorised reveal: Olumi's one question for the round (core's `collab.next`, blue as Olumi's), the count line, each of
  * core's differences drawn, the coaching step (ask Olumi to compare, which only fills the message box), then the detail folded: everyone's
- * views in words, the canvas marks (common ground counted), the disagreements kept; and the one green press, commit to an action.
+ * views in words (open and first where nothing is plotted), the canvas marks (common ground counted), the disagreements kept; and,
+ * quietly, commit to an action.
  */
 export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
@@ -192,6 +195,11 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   if (!revealed(view)) return <div className="grid gap-3"><p className={META} data-testid="differ-later">{STEP_WORDS.differLaterBody}</p>{dissent}</div>
   const marks = markCounts(view)
   const shared = c.shared.length
+  // Views in words are the comparison wherever core draws nothing to plot (before approval, or no figures): their positions lead, open,
+  // in their own words (Codex 008 #2). Where core's read plots figures or chances, the charts lead and the words fold below.
+  const data = useRevealedDifferences(sid, view)
+  const plotted = data !== null && !data.gated && data.differences.some((d) => sideSpans(view, d) !== null || d.options.some((o) => o.chances.some((x) => x.chance !== null)))
+  const words = <><RevealedViews view={view} /><MemberFrames view={view} /></>
   return (
     <section data-testid="differ-after" aria-label={c.heading} className="grid gap-4">
       {c.next == null ? null : (
@@ -200,6 +208,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
         </p>
       )}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
+      {!plotted && !centred && <div className="grid gap-3" data-testid="differ-views-open">{words}</div>}
       {/* Doubt or keep one link in your own words (core POST …/links/stance) sits above the differences (the UI gate, 8 Nov). */}
       <LinkStance sid={sid} view={view} onWrote={onWrote} />
       {centred ? (
@@ -214,11 +223,12 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
         </>
       )}
       <div className="grid gap-2">
-        {!centred && <Fold at="differ-views" summary={FLOW_WORDS.views(shared)}><RevealedViews view={view} /><MemberFrames view={view} /></Fold>}
+        {plotted && !centred && <Fold at="differ-views" summary={FLOW_WORDS.views(shared)}>{words}</Fold>}
         {marks.all > 0 && <Fold at="differ-marks" summary={marks.shared > 0 ? FLOW_WORDS.common(marks.shared) : FLOW_WORDS.marked(marks.all)}><RevealMarks view={view} /></Fold>}
         {dissent}
       </div>
-      <div><button type="button" className={GO} data-testid="differ-commit" onClick={() => startCommit(sid, view)}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
+      {/* An action is one optional activity among exploring, evidence and dissent (Codex 008 #3): offered, never the lead. */}
+      <div><button type="button" className={QUIET} data-testid="differ-commit" onClick={() => startCommit(sid, view)}><OkIcon id="commit-action" size={14} decorative />{STEP_WORDS.commitGo}</button></div>
     </section>
   )
 }

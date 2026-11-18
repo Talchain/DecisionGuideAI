@@ -57,7 +57,7 @@ describe('grouping', () => {
     const twoAims = { ...link, goal: 'other' }
     const d = differencesShape(payload([figure, link, twoAims, factor])) as Differences
     expect(countDifferences(d)).toEqual({ places: 3, changes: 1 })
-    expect(summaryLine({ places: 3, changes: 1 })).toBe('3 places you differ; 1 changes the answer')
+    expect(summaryLine({ places: 3, changes: 1 })).toBe('3 places you differ; 1 changes which option is most likely')
     expect(summaryLine({ places: 1, changes: 0 })).toBe('1 place you differ')
     expect(summaryLine({ places: 0, changes: 0 })).toBeNull()
   })
@@ -87,7 +87,7 @@ describe('before a reveal', () => {
     expect(container.textContent).toBe('')
     // Contrast: two people revealed, core's read in: the line is drawn.
     rerender(<Line v={view()} />)
-    await waitFor(() => expect(container.textContent).toBe('1 place you differ; 1 changes the answer'))
+    await waitFor(() => expect(container.textContent).toBe('1 place you differ; 1 changes which option is most likely'))
   })
 })
 
@@ -95,7 +95,7 @@ describe('after an authorised reveal', () => {
   it('lists the groups in core\'s words with the one-line summary', async () => {
     serve(() => ({ status: 200, body: payload([figure, link, factor]) }))
     render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
-    expect((await screen.findByTestId('differ-summary')).textContent).toBe('3 places you differ; 1 changes the answer')
+    expect((await screen.findByTestId('differ-summary')).textContent).toBe('3 places you differ; 1 changes which option is most likely')
     expect(['question', 'reasoning', 'consequence'].map((g) => !!screen.getByTestId(`differ-group-${g}`))).toEqual([true, true, true])
     expect(screen.getByTestId('differ-row-per_specialist-capacity_goal-status').textContent).toBe(base.status_text)
     expect(document.body.textContent).not.toMatch(/\b(best|recommend|winner|should)\b/i)
@@ -116,6 +116,26 @@ describe('after an authorised reveal', () => {
     fireEvent.click(await screen.findByTestId('differ-row-link:a:b-capacity_goal-dissent'))
     await waitFor(() => expect(sent.some((s) => s.method === 'POST')).toBe(true))
     expect(sent.find((s) => s.method === 'POST')!.url).toBe('/api/scenarios/s_x/differences/link:a:b/steps')
+  })
+})
+
+describe('views in words lead where nothing is plotted (Codex 008 #2, #4)', () => {
+  it('no figure or chance from core: everyone\'s words are open, first; contrast: core plots a figure, the words fold under the chart', async () => {
+    serve(() => ({ status: 200, body: payload([link]) }))
+    const { unmount } = render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+    await screen.findByTestId('differ-row-link:a:b-capacity_goal')
+    expect(screen.getByTestId('differ-views-open').contains(screen.getByTestId(`team-revealed-${fx.collab.shared[0]!.id}`))).toBe(true)
+    expect(screen.queryByTestId('differ-views')).toBeNull()
+    // the pending link's own status sentence stands beside it at rest, not only in the fold
+    expect(screen.getByTestId('differ-row-link:a:b-capacity_goal-status-rest').textContent).toBe(base.status_text)
+    unmount(); resetDifferences()
+    serve(() => ({ status: 200, body: payload([figure]) }))
+    render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+    await screen.findByTestId('differ-row-per_specialist-capacity_goal')
+    await waitFor(() => expect(screen.queryByTestId('differ-views-open')).toBeNull())
+    expect(screen.getByTestId('differ-views')).toBeTruthy()
+    expect(screen.queryByTestId('differ-row-per_specialist-capacity_goal-status-rest')).toBeNull() // core's short word stands instead
+    expect(screen.getByTestId('differ-row-per_specialist-capacity_goal-mark').textContent).toBe(fx.collab.effect_headings.changes)
   })
 })
 

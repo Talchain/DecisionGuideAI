@@ -21,9 +21,11 @@ export function sideSpans(view: View, d: Difference): Side[] | null {
     const v = view.collab.shared.find((x) => x.id === s.view)
     const f = v?.figures.find((x) => x.quantity === d.record)
     if (f === undefined) return null
-    return 'value' in f ? { lo: f.value, hi: f.value, text: f.text } : { lo: f.low, hi: f.high, text: f.text }
+    return 'value' in f ? { lo: f.value, hi: f.value, text: f.text, unit: f.unit } : { lo: f.low, hi: f.high, text: f.text, unit: f.unit }
   })
-  return spans.every((s): s is Side => s !== null && Number.isFinite(s.lo) && Number.isFinite(s.hi)) ? spans : null
+  if (!spans.every((s): s is Side & { unit: string } => s !== null && Number.isFinite(s.lo) && Number.isFinite(s.hi))) return null
+  // One axis only for one typed quantity in one unit: figures in different units are never drawn against each other.
+  return new Set(spans.map((s) => s.unit)).size === 1 ? spans : null
 }
 
 /** The shared axis's ends: every span inside with a small margin; one point alone gets a margin of its own size (or 1). */
