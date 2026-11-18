@@ -3,7 +3,7 @@ import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
-import { BODY, CARD, ERR, H, META } from './team/ui'
+import { BODY, CARD, ERR, H, META, QUIET } from './team/ui'
 import { typography } from '../styles/typography'
 import { Pick, SideBySide, useOtherScenarios, useOwnSides, WhatIfSave, type Group } from './scenarioCompare'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
@@ -13,6 +13,10 @@ import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { OkIcon } from '../olumiView/look/icons'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
+import { isForThisPage, useMe } from './me'
+import { revealedForYou } from '../olumiView/v12/views/differGroups'
+import { useCompare } from '../olumiView/v12/views/useCompare'
+import { COMPARE_WORDS } from '../olumiView/v12/views/WhereWeDiffer'
 
 /**
  * TWO APPROVED VERSIONS, AS CORE COMPARES THEM (olumi-core API.md v1.7, "Comparing two versions"): core's read-only
@@ -242,6 +246,18 @@ export const ASK_WHICH = {
 } as const
 export const notMoved = (n: number) => (n === 1 ? '1 result did not move.' : `${n} results did not move.`)
 
+/**
+ * The tab reads approved VERSIONS; comparing PEOPLE is the "Compare views" workspace. Where nothing is comparable yet, one press to that
+ * workspace, offered only where its stage can draw (the stage's own gate: this person's page, a reveal authorised for them).
+ */
+function PeopleViewsPress(): JSX.Element | null {
+  const view = useViewStore((s) => s.view)
+  const sid = useViewStore((s) => s.sid)
+  const me = useMe((s) => s.me)
+  if (sid === null || view === null || !isForThisPage(view, me) || !revealedForYou(view)) return null
+  return <div><button type="button" className={QUIET} data-testid="core-compare-people" onClick={() => useCompare.getState().show()}><OkIcon id="compare-views" size={14} decorative />{COMPARE_WORDS.control}</button></div>
+}
+
 const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6'
 
 export function CoreCompareTab(): JSX.Element {
@@ -254,7 +270,7 @@ export function CoreCompareTab(): JSX.Element {
     <div data-testid="core-compare-tab" className={TAB}>
       {!sid || latest === null || latest === undefined
         // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
-        ? <p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p>
+        ? <><p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p><PeopleViewsPress /></>
         // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
         // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
         : <ComparePicked key={sid} sid={sid} latest={latest} />}
@@ -294,7 +310,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
     </div>
   )
   // One approved version and nothing else to compare it with: the one line, and the what-if press where a figure can be set.
-  if (value === '') return <><p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>{whatIfPress}</>
+  if (value === '') return <><p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>{whatIfPress}<PeopleViewsPress /></>
   return (
     <>
       {base < 2 ? <p className={META} data-testid="core-compare-one">{COMPARE_ONE_VERSIONS}</p> : null}
