@@ -231,6 +231,22 @@ describe('partial approval', () => {
     fireEvent.click(tick(2))
     expect([[0, 1, 2].map((i) => tick(i).checked), screen.queryByTestId('view-change-one-of-0')], 'reader two satisfies it; reader one is not ticked').toEqual([[true, false, true], null])
   })
+  it('a refused ONE_OF (core 2f0235e0 as served): a group with ONE member is ticked by the one press (no choice to make); a group of TWO is marked and never ticked for the person', async () => {
+    const one = (id: string) => ({ id, top: false, kind: 'one_of' as const, why: 'core says: choose one of them too' })
+    const lines = [{ ...ln('f', 'a figure'), needs: [one('r1')] }, ln('r1', 'reader one', [need('f', 'required', 'core says: reads f')]), { ...ln('g', 'another figure'), needs: [one('s1'), one('s2')] }, ln('s1', 'reader s1'), ln('s2', 'reader s2')]
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify({ error: 'core’s sentence', code: 'needs', needs: [{ of: 'f', id: 'r1', top: false, kind: 'one_of', why: 'w1' }, { of: 'g', id: 's1', top: false, kind: 'one_of', why: 'w2' }, { of: 'g', id: 's2', top: false, kind: 'one_of', why: 'w2' }] }), { status: 409 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    showOpen({ ...golden, proposal: { ...p, groups: null, changes: lines } } as unknown as View)
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    fireEvent.click(tick(0)); fireEvent.click(tick(2))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-tick-needed')).not.toBeNull())
+    expect([1, 3, 4].map((i) => screen.queryByTestId(`view-change-refused-${i}`) !== null), 'all three marked').toEqual([true, true, true])
+    fireEvent.click(screen.getByTestId('view-tick-needed'))
+    expect([0, 1, 2, 3, 4].map((i) => tick(i).checked), 'the sole reader ticked; s1 and s2 left to the person').toEqual([true, true, true, false, false])
+  })
   it('a stated omission is part of the approval (core semantics 9): after an approval whose answer never came, a CHANGED omission is not sent; the same one is', async () => {
     let n = 0
     setTeamFetch((async (u: unknown, init?: RequestInit) => {

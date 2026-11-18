@@ -555,9 +555,9 @@ export const WILL_LEAVE_OFF = 'Approving the ticked changes will leave off these
  * it, to a record of Olumi's this proposal adds; it may be left off by a stated choice (`without` on the approval), the kept record's words, author and source untouched. `one_of` (core 2f0235e0): ONE of the
  * tagged lines is needed, not all; the page never ticks one for the person and says core's why on the ticked line until one is ticked. A core that sends none: none.
  */
-type Need = { id: string; top: boolean; kind: 'required' | 'optional' | 'one_of'; why: string }
+type Need = { id: string; top: boolean; kind: 'required' | 'optional' | 'one_of'; why: string; /** On a refusal's need: the ticked line it is unmet for. */ of?: string }
 const needOf = (x: unknown): Need[] => { const n = x as { id?: unknown; top?: unknown; kind?: unknown; why?: unknown } | null
-  return n !== null && typeof n === 'object' && typeof n.id === 'string' && (n.kind === 'required' || n.kind === 'optional' || n.kind === 'one_of') ? [{ id: n.id, top: n.top === true, kind: n.kind, why: typeof n.why === 'string' ? n.why : '' }] : [] }
+  return n !== null && typeof n === 'object' && typeof n.id === 'string' && (n.kind === 'required' || n.kind === 'optional' || n.kind === 'one_of') ? [{ id: n.id, top: n.top === true, kind: n.kind, why: typeof n.why === 'string' ? n.why : '', ...(typeof (n as { of?: unknown }).of === 'string' ? { of: (n as { of: string }).of } : {}) }] : [] }
 export const needsOf = (c: unknown): Need[] => { const n = (c as { needs?: unknown } | null)?.needs; return Array.isArray(n) ? n.flatMap(needOf) : [] }
 /** The lines core's refusal names (409 `{ code: 'needs', needs: [{ of, id, top, kind, why }] }`), by typed id; none for any other refusal. Its words are never read. */
 const refusedNeedsOf = (e: unknown): Need[] => { if (!(e instanceof TeamApiError) || e.code !== 'needs') return []; const n = (e.body as { needs?: unknown } | null)?.needs; return Array.isArray(n) ? n.flatMap(needOf) : [] }
@@ -647,6 +647,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   // The lines core's last refusal said the ticked lines need (its typed `needs`), marked until the selection changes or is sent again. Nothing is ticked for
   // the person: one press of theirs ticks them (TICK_NEEDED), and an excluded line is never approved by the page.
   const [missing, setMissing] = useState<readonly Need[]>([])
+  // What the one press may tick: a required need, and a one_of group with a single member (core names only one line, so there is no choice to make). A group of
+  // several stays the person's choice: each is marked, none is ticked.
+  const pressable = (n: Need): boolean => !n.top && records.has(n.id) && (n.kind === 'required' || (n.kind === 'one_of' && n.of !== undefined && missing.filter((m) => m.kind === 'one_of' && m.of === n.of).length === 1))
   // ⛔ NEVER ORPHAN OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with
   // them (the records named in its `together.ids`), so a tick can never leave the figure without the line that reads it.
   const records = new Map(changes.flatMap((o) => (o.top ? [] : [[o.id, o] as const])))
@@ -875,8 +878,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       )}
       {said === null ? null : <p role="alert" data-testid="view-proposal-said">{said}</p>}
       {/* Core's refusal named lines by id: they are marked in the list, and ONE press of the person's ticks the required ones (with what those need). */}
-      {closed || !missing.some((n) => n.kind === 'required' && !n.top && records.has(n.id)) ? null : (
-        <button type="button" disabled={busy} className={VIEW_CHIP_CLASS} data-testid="view-tick-needed" onClick={() => { const add = missing.flatMap((n) => (n.kind === 'required' && !n.top && records.has(n.id) ? withPartners(records.get(n.id)!) : [])); setMissing([]); setTicked((t) => { const n = new Set(t); set(n, add, true); return settle(n) }) }}>{TICK_NEEDED}</button>
+      {closed || !missing.some((n) => pressable(n)) ? null : (
+        <button type="button" disabled={busy} className={VIEW_CHIP_CLASS} data-testid="view-tick-needed" onClick={() => { const add = missing.flatMap((n) => (pressable(n) ? withPartners(records.get(n.id)!) : [])); setMissing([]); setTicked((t) => { const n = new Set(t); set(n, add, true); return settle(n) }) }}>{TICK_NEEDED}</button>
       )}
       {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
           quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
