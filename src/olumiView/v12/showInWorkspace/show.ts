@@ -23,6 +23,9 @@ import { VIEW_CARD, levelOf, openBadgesKeyOf, pulseCards, setGroupOpen, setInput
 import { noteUnfolded, restoreLocal, restoreSelection, restoreStores, scopeOf, takeSnapshot, type Snapshot } from './snapshot'
 import { activeLayerOf, cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type BoardNow, type Next } from './targets'
 
+/** What a show reads of a reply's next step: the ids alone. */
+type Pointer = Pick<NonNullable<Next>, 'at' | 'about'>
+
 /** Chrome words, said only where core gave none of its own for the read that failed. Each says what did not happen and what to do next. */
 export const COULD_NOT_SHOW = 'That could not be shown just now. Try again.'
 export const COULD_NOT_RETURN = 'That did not go back just now. Try again.'
@@ -129,7 +132,7 @@ function stepAside(view: View | null, sid: string | null, cards: readonly string
  * Show the cards a reply is about. Does nothing with no canvas on the page or when nothing the reply names is in the reader's View.
  * Resolves when the cards are in view, when it failed (and said so), or when something newer took over.
  */
-export async function showInWorkspace(turn: number, next: Next | null): Promise<void> {
+export async function showInWorkspace(turn: number | null, next: Pointer | null): Promise<void> {
   const port = showCameraPort()
   const st = useViewStore.getState()
   const plan = planShow(st.view, next, boardNow(st.sid))
@@ -143,7 +146,7 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
   const mine: Run = { ctl: new AbortController(), kind: 'show', turn, fresh, was: useShown.getState().turn }
   run = mine
   const signal = mine.ctl.signal
-  useShown.setState({ turn, busy: true, said: null })
+  if (turn !== null) useShown.setState({ turn, busy: true, said: null }) // a show from no reply leaves every reply's control as it is
   const release = port.hold()
   let held = port.capture().held
   let failed: string | null = null, overtaken = false
@@ -229,7 +232,7 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
     // The cards are pulsed once the camera has arrived: after the last move the show made, or after the board's own framing.
     const arrives = still ? 0 : movedAt !== null ? Math.max(0, MOVE_MS + 20 - (performance.now() - movedAt)) : framing !== null ? MOVE_MS + 20 : 0
     pulseTimer = setTimeout(() => { pulseTimer = null; if (!signal.aborted) unpulse = pulseCards(cards) }, arrives)
-    useShown.setState({ turn, busy: false, said: null })
+    if (turn !== null) useShown.setState({ turn, busy: false, said: null })
   } finally {
     // Overtaken by the person's own read: the board is theirs now and so is the canvas's word on who holds the camera. Nothing is written.
     release(signal.aborted || overtaken ? null : held)
@@ -240,9 +243,9 @@ export async function showInWorkspace(turn: number, next: Next | null): Promise<
 
 /** A show that did not happen. A first show leaves nothing behind (everything goes back); a later one leaves the earlier show standing. */
 async function undo(mine: Run, words: string, overtaken: boolean): Promise<void> {
-  if (mine.turn === null || run !== null) return // something newer has taken over: it owns what is on screen
-  const said = { turn: mine.turn, words }
-  if (!mine.fresh) { useShown.setState({ turn: mine.was, busy: false, said }); return }
+  if (run !== null) return // something newer has taken over: it owns what is on screen
+  const said = mine.turn === null ? null : { turn: mine.turn, words } // a show from no reply has no control to say it under
+  if (!mine.fresh) { if (said !== null) useShown.setState({ turn: mine.was, busy: false, said }); return }
   if (overtaken) {
     // The badges are as the newer read left them and stay so; only what this show changed of the page's own goes back.
     if (snapshot !== null) restoreLocal(snapshot)
@@ -253,7 +256,7 @@ async function undo(mine: Run, words: string, overtaken: boolean): Promise<void>
   }
   await returnToBefore()
   // Said only when the return went through (or the snapshot was let go): a return that failed has said so itself, and stands.
-  if (run === null && snapshot === null) useShown.setState({ said })
+  if (run === null && snapshot === null && said !== null) useShown.setState({ said })
 }
 
 /** Put the person back where they were before the first show. Cancels a show still on its way. */
@@ -320,3 +323,17 @@ export function resetShow(): void {
   forget()
   useShown.setState({ turn: null, busy: false, said: null })
 }
+
+/**
+ * How the workspace reaches a record now: 'card' (a card the board draws as it is: select it), 'show' (a link's ends, a record behind a
+ * fold or badge, a premise's host: shown as a reply's "Show in the workspace" shows it), or null (nothing here can place it, or no canvas).
+ */
+export function recordReach(id: string): 'card' | 'show' | null {
+  const st = useViewStore.getState()
+  const plan = showCameraPort() === null ? null : planShow(st.view, { at: id, about: [] }, boardNow(st.sid))
+  if (plan === null) return null
+  return plan.cards.length === 1 && plan.cards[0] === id && plan.open.length === 0 && !plan.inputs && plan.groups.length === 0 ? 'card' : 'show'
+}
+
+/** Show one record in the workspace as a reply's "Show in the workspace" does, from no reply: that reply's return control is not lit. */
+export const showRecord = (id: string): Promise<void> => showInWorkspace(null, { at: id, about: [] })

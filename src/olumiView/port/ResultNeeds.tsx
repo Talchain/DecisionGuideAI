@@ -10,6 +10,8 @@ import { FigureEdit } from '../FigureEdit'
 import { OkIcon, type IconId } from '../look/icons'
 import { FoldChevron } from '../look/FoldChevron'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
+import { useViewStore } from '../store'
+import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 import { cardOf, needsOf, type Need } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
@@ -22,6 +24,7 @@ const RING = 'analysis-needs'
 
 export function ResultNeeds({ model, under = false }: { model: ViewModel; under?: boolean }) {
   const [all, setAll] = useState(false)
+  useViewStore((s) => s.view) // the View decides which rows the workspace can show
   const needs = needsOf(model)
   if (needs.length === 0) return null
   const shown = all ? needs : needs.slice(0, AT_REST)
@@ -32,9 +35,11 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
       <ul className="m-0 list-none p-0">
         {shown.map((n) => {
           const card = cardOf(model, n.card)
+          // A relation drawn as a link, a record behind a badge or a fold, a premise: shown as a reply's "Show in the workspace" shows it.
+          const place = n.card !== null && recordReach(n.card) === 'show' ? n.card : null
           return (
             <li key={n.key} className={`${TYPE.body} flex items-center gap-1`} data-need={n.key} data-need-class={n.cls}>
-              <button type="button" disabled={card === null} onClick={() => { if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
+              <button type="button" disabled={card === null && place === null} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
                 title={n.title} className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-1 text-left hover:bg-panel-hover disabled:cursor-default disabled:hover:bg-transparent">
                 <OkIcon id={ICON_OF[n.cls]} size={14} decorative />
                 <span className="min-w-0 flex-1 text-text-body" {...(n.at === null ? {} : { 'data-view': n.at })}>{n.text}</span>

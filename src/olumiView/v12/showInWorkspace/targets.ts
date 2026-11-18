@@ -100,7 +100,7 @@ const WAITING = '\u0000'
  * The plan for one reply against the View now: null when nothing it names can be shown to this reader (no control is drawn then).
  * `next` null is a turn core has not answered.
  */
-export function planShow(view: View | null, next: Next | null, board: BoardNow): ShowPlan | null {
+export function planShow(view: View | null, next: Pick<NonNullable<Next>, 'at' | 'about'> | null, board: BoardNow): ShowPlan | null {
   const model = view?.model ?? null
   if (view === null || model === null || next === null) return null
   const ids = [...new Set([...(next.at == null ? [] : [next.at]), ...next.about])]

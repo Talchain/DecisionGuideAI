@@ -25,6 +25,8 @@ vi.mock('../../../revealCamera', async (orig) => ({
   // A fresh object per call, as the real one measures the pane each time: a pane change is a new value, never the same object mutated.
   freePane: () => ({ size: { ...paneNow.value.size }, inset: { ...paneNow.value.inset } }),
 }))
+const pressed = vi.hoisted(() => ({ cards: [] as string[] }))
+vi.mock('../../../reasoning/tabRing', async (orig) => ({ ...(await orig<typeof import('../../../reasoning/tabRing')>()), pressCard: (id: string) => { pressed.cards.push(id) } }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
@@ -34,8 +36,9 @@ import { QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, in
 import { setLevel, showSimple, showWholeModel } from '../../simpleStore'
 import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
-import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore } from '../show'
+import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore, useShown } from '../show'
 import { RETURN_TO_BEFORE, SHOW_IN_WORKSPACE, ShowInWorkspace } from '../ShowInWorkspace'
+import { ResultNeeds } from '../../../port/ResultNeeds'
 import { cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type Next } from '../targets'
 
 // ── fixtures ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1327,5 +1330,65 @@ describe('S13 what counts as in view at the foot, and a board that lays itself o
     expect(rf.vp, 'the camera is back where it was').toStrictEqual(V0)
     expect(pulsing()).toStrictEqual([])
     expect(showHolds()).toBe(false)
+  })
+})
+
+// ── S14 ──────────────────────────────────────────────────────────────────────────────────
+describe('S14 a result need whose record the board does not draw as a card (Analysis tab, ResultNeeds)', () => {
+  /** INVENTED: the run names `id` as the one blocker (invented words), so the list has one row about that record. */
+  function needing(v: View, id: string): View {
+    const out = clone(v)
+    out.model!.run!.shared_blockers = [{ aim_id: id, options: [], text: 'Invented words: this is not known yet.' }]
+    return out
+  }
+  const rowButton = (c: { container: HTMLElement }): HTMLButtonElement => c.container.querySelector<HTMLButtonElement>('[data-need="blocks:0"] button')!
+  const mountNeeds = (_v: View) => render(<ResultNeeds model={useViewStore.getState().view!.model!} />, { container: document.body.appendChild(document.createElement('div')) })
+  beforeEach(() => { pressed.cards = [] })
+
+  it('a relation drawn as a link: the press is enabled and shows the link\'s two end cards, as a reply would', async () => {
+    const m = needing(growth, 'i_adoption_pilot'); install(m); lay()
+    expect(rf.at.has('i_adoption_pilot'), 'precondition: the model lists it, the board draws it as a link, not a card').toBe(false)
+    const c = mountNeeds(m)
+    expect(rowButton(c).disabled).toBe(false)
+    expect(rowButton(c).closest('[data-need]')!.getAttribute('data-need')).toBe('blocks:0')
+    await press(rowButton(c)); await run(100)
+    expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(['cross_team_adoption', 'pilot_conversion']), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
+    expect(pressed.cards).toStrictEqual([])
+  })
+
+  it('a show from this row does not light a reply\'s return control: useShown.turn stays as it was', async () => {
+    const m = needing(growth, 'i_adoption_pilot'); install(m); lay()
+    useShown.setState({ turn: 7 })
+    const c = mountNeeds(m)
+    await press(rowButton(c)); await run(100)
+    expect(rf.sets).toHaveLength(1)
+    expect(useShown.getState()).toMatchObject({ turn: 7, busy: false, said: null })
+  })
+
+  it('a record behind a closed badge: the press asks core to open that badge, by its host id', async () => {
+    const record = cardOf(closed, 'monthly_revenue').badge!.records[0]!
+    const v = needing(closed, record); install(v); lay()
+    expect(cardOf(v, record), 'precondition: not a card of the closed model').toBeUndefined()
+    const c = mountNeeds(v)
+    expect(rowButton(c).disabled).toBe(false)
+    await press(rowButton(c)); await run(50)
+    expect(reads.map((r) => Object.keys(r.open ?? {}))).toStrictEqual([['monthly_revenue']])
+    await answer(reads[0]!, ok(opened)); lay(); await run(300)
+  })
+
+  it('contrast: a need that is a plain card still presses that card by id and shows nothing; a need nothing can place stays disabled', async () => {
+    const v = needing(growth, 'cross_team_adoption'); install(v); lay()
+    const c = mountNeeds(v)
+    expect(rowButton(c).disabled).toBe(false)
+    await press(rowButton(c)); await run(100)
+    expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
+    expect(rf.sets).toStrictEqual([])
+    cleanup()
+    const n = needing(growth, 'invented_nothing_draws_this'); install(n); lay()
+    const d = mountNeeds(n)
+    expect(rowButton(d).disabled).toBe(true)
+    await press(rowButton(d)); await run(100)
+    expect(rf.sets).toStrictEqual([])
+    expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
   })
 })
