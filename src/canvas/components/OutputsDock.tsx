@@ -156,7 +156,6 @@ import {
   readinessNothingHasAnswered,
 } from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
-import { JourneyTabBlock } from '../../olumiView/v12/journey/JourneyTab'
 import { CompareRunPairBody } from '../compare-tab/CompareRunPairBody'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
@@ -229,6 +228,8 @@ import { useAnswersAsks, ViewChat } from '../../olumiView/ViewChat'
 import { DockComposer } from '../../olumiView/ViewWelcome'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
+// Last, so the dock's own load order is unchanged (a lane body imported earlier once moved olumiView/layout ahead of its readers).
+import { JourneyTabBlock } from '../../olumiView/v12/journey/JourneyTab'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format

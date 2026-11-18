@@ -10,7 +10,6 @@ import { Button } from '../../../components/ui/Button'
 import { useUIStore } from '../../../stores/uiStore'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { call } from '../../../olumiCore/team/api'
-import { openEvidence } from '../../RevealMarks'
 import { useViewStore } from '../../store'
 import type { View } from '../../types'
 import { AT_REST, JOURNEY_WORDS, journeyOf, type JourneyEntry, type JourneyTarget, type StoredVersion } from './journey'
@@ -26,10 +25,19 @@ export const journeyWhen = (iso: string): string => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-/** One press on a line: the thing it names. */
-export function go(target: JourneyTarget): void {
+/** One press on a line: the thing it names. Async only for evidence, whose store is loaded on the press (see below). */
+export async function go(target: JourneyTarget): Promise<void> {
   if (target.kind === 'version') { void useViewStore.getState().look(target.latest ? null : target.n); return }
-  if (target.kind === 'evidence') { openEvidence(target.id); return }
+  if (target.kind === 'card') { focusNodeById(target.id); return }
+  if (target.kind === 'olumi') { useUIStore.getState().forceActivateOutputTab('olumi'); return }
+  // A piece of evidence opens in the Team tab as its chip opens it (`RevealMarks.openEvidence`); nothing opens there while an earlier
+  // version is drawn. The reveal store is imported on the press, never at load: a static import here (it reads `olumiView/layout.ts`)
+  // put layout's CARD_WIDTH in the dock's load order before it was set ("Cannot access … before initialization", picture run 1).
+  if (target.kind === 'evidence') {
+    if (useViewStore.getState().at !== null) return
+    const { useReveal } = await import('../../reveal')
+    useReveal.getState().selectEvidence(target.id)
+  }
   useUIStore.getState().forceActivateOutputTab('team')
 }
 
@@ -51,8 +59,8 @@ function Entry({ e, drawn }: { e: JourneyEntry; drawn: number | null }): JSX.Ele
   const onCanvas = e.target.kind === 'version' && e.target.n === drawn
   return (
     <li className="relative pl-3" data-testid={`journey-entry-${e.key}`} data-kind={e.kind}>
-      <span aria-hidden="true" className={`absolute -left-[3px] top-[6px] h-1.5 w-1.5 rounded-full ${onCanvas ? 'bg-success' : 'bg-text-light'}`} />
-      <button type="button" className={ROW} onClick={() => go(e.target)} data-testid={`journey-go-${e.key}`}>
+      <span aria-hidden="true" className={`absolute -left-[3px] top-[6px] h-1.5 w-1.5 rounded-full ${onCanvas ? 'bg-success' : e.kind === 'kept' ? 'bg-info' : 'bg-text-light'}`} />
+      <button type="button" className={ROW} onClick={() => void go(e.target)} data-testid={`journey-go-${e.key}`}>
         <span className={`${onCanvas ? HEAD : BODY} min-w-0 flex-1 truncate`}>{e.line}</span>
         <span className={`${META} shrink-0 whitespace-nowrap`}>{onCanvas ? JOURNEY_WORDS.latest : journeyWhen(e.at)}</span>
       </button>
@@ -85,6 +93,9 @@ export function JourneyTab({ view, sid, at }: { view: View; sid: string | null; 
       <div className="grid gap-1" data-testid="journey-where">
         <p className={HEAD}>{JOURNEY_WORDS.where(j.where.n, j.where.by)}</p>
         {j.where.at !== null && <p className={META}>{journeyWhen(j.where.at)}</p>}
+        {j.pending && at === null && (
+          <button type="button" className={`${META} ${ROW} text-info`} onClick={() => void go({ kind: 'olumi' })} data-testid="journey-pending">{JOURNEY_WORDS.pending}</button>
+        )}
         {at !== null && (
           <div className="flex flex-wrap items-center gap-2" data-testid="journey-earlier">
             <p className={META}>{JOURNEY_WORDS.earlier(at)}</p>
@@ -104,9 +115,7 @@ export function JourneyTab({ view, sid, at }: { view: View; sid: string | null; 
         <ul className="m-0 grid list-none gap-1 p-0" data-testid="journey-counts">
           {j.counts.map((c) => (
             <li key={c.key} data-testid={`journey-count-${c.key}`}>
-              {c.target === null
-                ? <p className={META}>{c.line}</p>
-                : <button type="button" className={`${META} ${ROW} hover:text-text-header`} onClick={() => go(c.target!)}>{c.line}</button>}
+              <button type="button" className={`${META} ${ROW} hover:text-text-header`} onClick={() => void go(c.target)}>{c.line}</button>
             </li>
           ))}
         </ul>

@@ -20,8 +20,7 @@ vi.mock('../../../../olumiCore/team/api', () => ({
 }))
 const focused: string[] = []
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusNodeById: (id: string) => { focused.push(id) } }))
-const evidenceOpened: number[] = []
-vi.mock('../../../RevealMarks', () => ({ openEvidence: (id: number) => { evidenceOpened.push(id) } }))
+import { useReveal } from '../../../reveal'
 
 const { JourneyTab } = await import('../JourneyTab')
 
@@ -46,7 +45,7 @@ const team = (): View => ({
   collab: { ...base.collab, commitments: [COMMITMENT] },
 } as unknown as View)
 
-afterEach(() => { cleanup(); calls.length = 0; focused.length = 0; evidenceOpened.length = 0; answer = { versions: [] } })
+afterEach(() => { cleanup(); calls.length = 0; focused.length = 0; answer = { versions: [] }; useReveal.getState().selectEvidence(null) })
 
 describe('journeyOf: core records only, newest first, bound by id', () => {
   it('orders every record by core\'s own time, newest first, each keyed by its kind and core id', () => {
@@ -72,11 +71,20 @@ describe('journeyOf: core records only, newest first, bound by id', () => {
     expect(cold.where).toMatchObject({ n: 2, by: null })
     expect(cold.entries.filter((e) => e.kind === 'version').map((e) => e.key)).toEqual(base.version?.at === undefined ? [] : ['version:2'])
   })
-  it('views given and kept ideas are counts, never dated lines (the View sends no time for them)', () => {
+  it('a kept idea is dated by its keep row and named as Olumi\'s; views given stay a count (the View sends no time for them)', () => {
     const kept = [{ id: 1, turn: 2, text: 'An invented idea.', by: 'olumi', kept_by: { id: 'p', name: 'Priya' }, at: '2026-11-07T11:00:00Z', concerns: [] }]
     const j = journeyOf({ ...team(), kept } as unknown as View, VERSIONS)
-    expect(j.counts.map((c) => c.line)).toEqual(['3 views given · Priya, Tom, Maya', '1 idea kept'])
-    expect(j.entries.some((e) => e.key.startsWith('kept') || e.key.startsWith('view'))).toBe(false)
+    const e = j.entries.find((x) => x.key === 'kept:1')
+    expect(e).toMatchObject({ line: 'Olumi’s idea kept by Priya', detail: 'An invented idea.', target: { kind: 'card', id: 'idea:kept:1' } })
+    expect(j.entries.map((x) => x.key).indexOf('kept:1')).toBe(j.entries.map((x) => x.key).indexOf('version:1') - 1)
+    expect(j.counts.map((c) => c.line)).toEqual(['3 views given · Priya, Tom, Maya'])
+    expect(j.entries.some((x) => x.key.startsWith('view'))).toBe(false)
+    // contrast: no kept rows, no kept line
+    expect(journeyOf(team(), VERSIONS).entries.some((x) => x.kind === 'kept')).toBe(false)
+  })
+  it('an Olumi proposal not yet approved is provisional, said once at the top, never a record', () => {
+    expect(journeyOf({ ...team(), proposal: { id: 9 } } as unknown as View, VERSIONS).pending).toBe(true)
+    expect(journeyOf({ ...team(), proposal: null } as unknown as View, VERSIONS).pending).toBe(false)
   })
   it('claims no stage: no line names STRATEGISE…IMPROVE', () => {
     const words = JSON.stringify(journeyOf(team(), VERSIONS))
@@ -117,7 +125,8 @@ describe('JourneyTab: one press to the thing each line names', () => {
     expect(screen.getByTestId('journey-card-card_b')).toHaveAttribute('data-olumi', 'true')
     expect(screen.getByTestId('journey-card-card_a')).not.toHaveAttribute('data-olumi')
     fireEvent.click(screen.getByTestId('journey-go-evidence:28'))
-    expect(evidenceOpened).toEqual([28])
+    await waitFor(() => expect(useReveal.getState().evidence).toBe(28))
+    expect(force).toHaveBeenLastCalledWith('team')
     fireEvent.click(screen.getByTestId('journey-go-commitment:501'))
     expect(force).toHaveBeenCalledWith('team')
   })
