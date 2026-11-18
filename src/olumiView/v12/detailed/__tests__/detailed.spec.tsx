@@ -112,6 +112,31 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const gone = { ...ASKED.model!, cards: ASKED.model!.cards.filter((c) => c.id !== 'sell_360') }
     expect(saidOnceOf(gone).question.map((x) => x.text)).toEqual([noChanceLineOf(optionsOf(ASKED)[0]!.headline!).line])
   })
+  it('DT14 the rail keeps each row\'s own condition, whole, beside its number; nothing is said once unless every row carries the same one. CONTRASTS: one shared condition is drawn once under the rail and the rows keep the number alone; two rows that share one and a third with none keep their own', () => {
+    const [A, B, C] = ['hire_a_tech_lead', 'hire_two_developers', 'reallocate_a_developer_day_each_week_to_technical_leadership'] as const
+    const saying = (texts: Readonly<Record<string, string>>): View => Object.entries(texts).reduce((v, [id, text]) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, text } } as ViewCard), HIRING)
+    const railOf = (v: View) => {
+      const rail = draw(v, QUESTION).querySelector<HTMLElement>('[data-detailed-rail]')!
+      return { rows: [...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('.ok-dt-rail-val')?.textContent, r.querySelector('[data-rail-qualifier]')?.textContent ?? null]),
+        once: [...rail.querySelectorAll('[data-shared-qualifier]')].map((e) => e.textContent) }
+    }
+    const differ = saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if a partner helps' })
+    expect(railOf(differ)).toEqual({ rows: [[A, '60% chance, if capacity is available', ', if capacity is available'], [B, '30% chance, if a partner helps', ', if a partner helps'], [C, 'about 4% chance', null]], once: [] })
+    cleanup()
+    // Each option's own card keeps its condition too (the board says nothing once).
+    expect(faceOf(draw(differ, B), B).querySelector(`[data-view="${B}.headline.qualifier"]`)?.textContent).toBe('if a partner helps')
+    cleanup()
+    const sole = saying({ [A]: '60% chance, if capacity is available' })
+    expect(railOf(sole)).toEqual({ rows: [[A, '60% chance, if capacity is available', ', if capacity is available'], [B, 'about 9% chance', null], [C, 'about 4% chance', null]], once: [] })
+    cleanup()
+    const twoOfThree = saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if capacity is available' })
+    expect(railOf(twoOfThree)).toEqual({ rows: [[A, '60% chance, if capacity is available', ', if capacity is available'], [B, '30% chance, if capacity is available', ', if capacity is available'], [C, 'about 4% chance', null]], once: [] })
+    cleanup()
+    const shared = saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if capacity is available', [C]: '10% chance, if capacity is available' })
+    expect(railOf(shared)).toEqual({ rows: [[A, '60% chance', null], [B, '30% chance', null], [C, '10% chance', null]], once: ['if capacity is available'] })
+    cleanup()
+    expect(faceOf(draw(shared, B), B).querySelector(`[data-view="${B}.headline.qualifier"]`), 'said once on the rail, so not again on the card').toBeNull()
+  })
 })
 
 describe('Detailed: marks, not sentences', () => {

@@ -462,3 +462,5 @@
 .olumi-look .ok-dt-quiet { color: var(--text-light); white-space: normal; }
 .olumi-look .ok-dt-ia { margin-left: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-rail-val .ok-rail-challenge { margin-left: calc(4px * var(--o-s)); }
+/* A row's own condition after its number (core's words, whole): the quiet ink at the body weight, so the number still leads. */
+.olumi-look .ok-dt-rail-val .ok-dt-quiet { font-weight: 400; }

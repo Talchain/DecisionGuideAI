@@ -1,7 +1,9 @@
 /**
  * THE DETAILED FACE'S TWO CHARTS, each a fact said once with the options named by their letters (the option's name is said on its own card):
  *  - Rail (the question card): every option's chance on ONE 0..100% scale, a dot at core's served chance and core's range as a whisker, core's
- *    number words at the right. An option with no chance yet is its letter and core's words, with no lane (no empty track at rest): never a zero, never a run-on of names.
+ *    chance words at the right, WHOLE: the number and, after it, the row's own condition ("60% chance, if capacity is available"). Only where every
+ *    row carries the same condition (said.ts sharedQualifier) is it drawn once under the rail and the rows keep the number alone.
+ *    An option with no chance yet is its letter and core's words, with no lane (no empty track at rest): never a zero, never a run-on of names.
  *    No option with a chance: no rail (nothing to compare).
  *  - Strips (a figure worked out per option): each option's middle band on one true axis shared by the rows (SimpleFace bandRowsOf, the same
  *    numbers Simple draws), its median tick, core's value words at the right; an option core could not calculate is its letter and core's
@@ -39,7 +41,10 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
     <div className="ok-dt-rail nodrag" data-chance-rail="" data-detailed-rail="">
       <div className="ok-dt-rail-axis" aria-hidden="true">{[0, 25, 50, 75, 100].map((t) => <i key={t} style={{ left: `${t}%` }} />)}</div>
       {lanes.map((l) => {
-        const head = chanceParts(l.text).head
+        // Core's line is drawn whole: its number, then its own condition in the quiet ink (both are slices of core's string, nothing re-joined).
+        // The number alone only where the one condition every row shares is said once under the rail (`qualifier`).
+        const parts = chanceParts(l.text), tail = parts.qualifier === null ? '' : l.text.slice(parts.head.length)
+        const words = !l.on ? l.text : qualifier !== null || tail === '' ? parts.head : <>{parts.head}<span className="ok-dt-quiet" data-rail-qualifier={l.id}>{tail}</span></>
         return (
           <div key={l.id} className="ok-dt-rail-row" data-rail-row={l.id} title={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
             <span className="ok-letter" data-letter-chip={letterOf(letters, l.id)}>{letterOf(letters, l.id)}</span>
@@ -49,7 +54,7 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
                 <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ left: `${l.at * 100}%` }} />
               </span>
             ) : null}
-            <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`} data-view={`${l.id}.headline.text`}>{l.on ? head : l.text}{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
+            <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`} data-view={`${l.id}.headline.text`}>{words}{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
           </div>
         )
       })}
