@@ -380,9 +380,10 @@
    data"). Scoped to the Detailed face (`data-ok-detailed`, CoreCard); Simple's rules above are untouched. Each fact said once on the board
    (v12/detailed/said.ts), whose it is a mark, a text action an icon with its words on hover, a chart where the View gives numbers. Type is the
    card's own 12 / 14 / 18 at the board's scale; tokens only. ── */
-/* The card is as wide as its content needs, from a floor up to the layout's slot (BaseNode sets the slot as width and max-width inline). */
+/* The card is as wide as its content needs, from a floor up to the layout's slot (BaseNode sets the slot as width and max-width inline). The floor
+   is never wider than the slot (`--ok-slot`, CoreCard): a wider floor drew the card over its neighbour where the stage is narrow. */
 .olumi-look .react-flow__node:not(.react-flow__node-viewQuestion):has([data-ok-detailed]) [role='group'][aria-label] {
-  width: fit-content !important; min-width: calc(208px * var(--o-s)) !important;
+  width: fit-content !important; min-width: min(calc(208px * var(--o-s)), var(--ok-slot, calc(208px * var(--o-s)))) !important;
 }
 /* The foot: one row of marks, whose it is at the right. */
 .olumi-look .ok-dt-foot {

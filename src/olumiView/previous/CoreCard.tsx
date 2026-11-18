@@ -404,7 +404,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
     // V12: an option's letter is drawn before its title by the look (olumiLook.css reads `--ok-letter`; the title is the frame's own element).
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}
-      style={letter === null ? undefined : ({ '--ok-letter': `"${letter}"` } as CSSProperties)}>
+      // `--ok-slot`: the width the lane's layout placed this card at, so the Detailed face's floor (olumiLook.css) never draws it wider than its
+      // slot and over its neighbour (1232 and 1128: the floor beat a narrower slot by 6 to 26 px).
+      style={letter === null && !(hosted && width !== undefined) ? undefined : ({ ...(letter === null ? {} : { '--ok-letter': `"${letter}"` }), ...(hosted && width !== undefined ? { '--ok-slot': `${width}px` } : {}) } as CSSProperties)}>
     <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>

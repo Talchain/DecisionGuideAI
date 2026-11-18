@@ -28,6 +28,10 @@ describe("the look's recipes, each written once", () => {
     expect(rules.filter((r) => r.selectors.includes(".olumi-look .react-flow__node [data-testid='node-title']") && /color:/.test(r.body)).map((r) => /color: var\(--text-header\) !important/.test(r.body))).toEqual([true])
     expect(rules.filter((r) => /\.ok-am svg/.test(r.selectors.join(',')) && !r.selectors.every((x) => x.includes('[data-simple-foot]')))).toEqual([])
   })
+  it('the Detailed card\'s floor is never wider than its layout slot (--ok-slot): at 1232 a 228.8 px floor drew cards over their neighbours', () => {
+    const r = rules.filter((x) => x.selectors.some((y) => y.includes(':has([data-ok-detailed])') && y.includes("[role='group'][aria-label]")))
+    expect(r.map((x) => /min-width: min\(calc\(208px \* var\(--o-s\)\), var\(--ok-slot,/.test(x.body))).toEqual([true])
+  })
   it('a text action (a press that opens something) is light and underlined, never blue', () => {
     const actions = rules.filter((r) => r.selectors.some((s) => /summary$|\.ok-share$/.test(s)))
     expect(actions.length).toBeGreaterThan(0)
