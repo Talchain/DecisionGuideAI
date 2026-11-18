@@ -4,6 +4,7 @@
  * path: the A6 journey View (`ui9-a6-since-v3`, served by olumi-core, copied unedited; version 3 beside version 2, one figure changed, no
  * reading moved). Core's comparison answers are shaped as API.md v1.7 gives them; the moved pair is core's own SCI-6 example (compareSince.spec).
  */
+import { DETAILS_TURN } from '../../olumiView/look/FoldChevron'
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -99,6 +100,12 @@ describe('what changed, each by its author and a press to its card', () => {
     expect(all.tagName).toBe('DETAILS'); expect(all.hasAttribute('open')).toBe(false)
     expect(all.querySelector('summary')!.textContent).toBe('All 4 changes in full')
     expect(all.querySelector('summary [data-fold-chevron="details"]'), 'polish 13: a chevron, not the native marker').not.toBeNull()
+    // Review of dd8283b4: a chevron turns only with its OWN details (direct child of that summary), never with an open details further out.
+    for (const ch of document.querySelectorAll<SVGElement>('[data-fold-chevron="details"]')) {
+      expect(ch.parentElement?.tagName, 'the summary\'s direct child').toBe('SUMMARY')
+      expect(ch.getAttribute('class')).toContain(DETAILS_TURN)
+      expect(ch.getAttribute('class')).not.toContain('group-open:')
+    }
   })
   it('CT3: with no View comparison for the pair, core\'s change lines are the list; CONTRAST: none at all says so once', async () => {
     answer = { versions: [], changes: LINES, results: [] }
