@@ -97,13 +97,10 @@ export type WorthChecking = { readonly code: string; readonly title: string; rea
  * marks as Olumi's is kept; nothing is worked out or worded here.
  */
 export function worthCheckingOf(card: ViewCard): readonly WorthChecking[] {
-  const raw = (card as unknown as { worth_checking?: unknown }).worth_checking
+  const raw = card.worth_checking
+  // Typed since core's schema carries the key; still guarded as a list (a View from outside the contract is not drawn from).
   if (!Array.isArray(raw)) return []
-  return raw.flatMap((f: unknown) => {
-    const x = f as { code?: unknown; title?: unknown; text?: unknown; olumi?: unknown } | null
-    return x !== null && typeof x === 'object' && x.olumi === true && typeof x.code === 'string' && typeof x.title === 'string' && x.title !== '' && typeof x.text === 'string' && x.text !== ''
-      ? [{ code: x.code, title: x.title, text: x.text }] : []
-  })
+  return raw.flatMap((x) => (x.olumi === true && x.title !== '' && x.text !== '' ? [{ code: x.code, title: x.title, text: x.text }] : []))
 }
 
 export function cardMarksOf(card: ViewCard): readonly CardMark[] {
