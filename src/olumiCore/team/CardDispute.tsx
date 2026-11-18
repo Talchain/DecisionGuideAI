@@ -56,11 +56,11 @@ export function WhereYouDiffer({ card, peek = false, open = false }: { card: str
   const said = [...new Set(own.map((d) => d.status_text))].join(' ')
   const one = own.length === 1
   if (peek) return (
-    <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" /><span className="line-clamp-3 min-w-0 break-words">{said}</span></p>
+    <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={14} decorative className="mt-0.5" /><span className="line-clamp-3 min-w-0 break-words">{said}</span></p>
   )
   return (
     <details ref={fold} open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
-      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
+      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={14} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
       {own.map((d) => {
         const whose = (id: string) => d.sides.find((s) => s.holder_id === id)?.holder ?? ''
         return (
