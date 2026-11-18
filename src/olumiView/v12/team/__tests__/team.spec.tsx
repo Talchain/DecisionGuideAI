@@ -112,7 +112,7 @@ describe('Record what you will do', () => {
     const v = view()
     render(<CommitForm sid="s_idea" view={v} onWrote={async () => true} />)
     act(() => openCommitDraft('s_idea', v, '## Find out first\nAsk whether the change caused the rise. **Then** decide.'))
-    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Find out first\nAsk whether the change caused the rise. Then decide.')
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Find out first\nAsk whether the change caused the rise. **Then** decide.') // lossless seed (Codex 008): only the heading mark goes
     fireEvent.click(screen.getByTestId('commit-form-close'))
     expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('false')
   })

@@ -10,7 +10,7 @@ import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { useViewStore } from '../../store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
-import { plainWords } from '../../plainWords'
+import { seedWords } from '../../plainWords'
 
 /**
  * V12 Funding-Commit, "Record what you will do": the board's three questions and one primary button, on the EXISTING commitment write
@@ -46,7 +46,7 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     if (action === undefined) return base
     const typed = base.action.trim() !== ''
     // The idea's words, as plain text (a text box draws markdown's "## " as typed characters): every word kept, in order.
-    const words = plainWords(action)
+    const words = seedWords(action)
     return { ...base, action: !typed ? words : base.action.includes(words) ? base.action : `${base.action}\n\n${words}`, seeded: true }
   })
   setTimeout(() => {

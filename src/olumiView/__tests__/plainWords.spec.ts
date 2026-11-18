@@ -3,7 +3,7 @@
  * right-click menu's Undo row and in the first box of "Record what you will do"). Invented wording throughout.
  */
 import { describe, expect, it } from 'vitest'
-import { plainWords } from '../plainWords'
+import { plainWords, seedWords } from '../plainWords'
 
 describe('plainWords', () => {
   it('drops a heading\'s hashes at a line\'s start and after other words on the line; bold and code marks go; the words stay', () => {
@@ -12,6 +12,11 @@ describe('plainWords', () => {
     expect(plainWords('Use `churn_rate` as given')).toBe('Use churn_rate as given')
   })
   it('CONTRAST: words that merely contain these characters are left exactly as written', () => {
-    for (const same of ['Option #2 costs £600', 'A * B is the product', 'Three #tags and a 5% rise', 'plain words, nothing to drop']) expect(plainWords(same)).toBe(same)
+    for (const same of ['Option #2 costs £600', 'A * B is the product', 'Three #tags and a 5% rise', 'Count # of staff', 'plain words, nothing to drop']) expect(plainWords(same)).toBe(same)
+  })
+  it('seedWords (a box the person edits and keeps): only a heading\'s hashes at a line\'s start go; marks and mid-line hashes stay exactly as written. CONTRAST: plainWords drops the marks', () => {
+    const text = '## Find out first\nUse `churn_rate`: **Then** decide. Undo ## this'
+    expect(seedWords(text)).toBe('Find out first\nUse `churn_rate`: **Then** decide. Undo ## this')
+    expect(plainWords(text)).toBe('Find out first\nUse churn_rate: Then decide. Undo this')
   })
 })
