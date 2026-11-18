@@ -2,8 +2,7 @@
  * Paul's "do now" screen items (11 Nov, ranked by the DL): S1, X1 and G3 (B1 is in wholeView.spec, beside the overview rule it changes).
  * Bound by identity on core's own Views: each row by its id, each word at its View path, each mark by the card it is about.
  * - S1: core's give words end on the ✎ ("Give your figure with ✎"); the UI adds no full stop after it.
- * - X1: on the lane a closed focus row says its whole title (core's words), never cut to one line (the off-lane contrast row is
- *   focus-now/__tests__/wholeOnTheLane.spec.tsx, where the focus-now module may be imported).
+ * - X1 (retired with the Analysis redesign, 18 Nov: Focus now and Strengthen are gone; core's rows are drawn whole in port/ResultNeeds).
  * - G3: zoomed out, the Rests on number is drawn beside the far line (the one line the zoomed-out card keeps), not only in the blanked body.
  */
 import '@testing-library/jest-dom/vitest'
@@ -43,20 +42,6 @@ describe('S1: no stop of the UI\'s after the ✎', () => {
       expect(give.textContent, f.id).toBe(`${f.give!.text} `)
       expect(give.querySelector('[data-icon="edit"]'), f.id).not.toBeNull()
     }
-  })
-})
-
-describe('X1: a closed row on the lane says its whole title', () => {
-  const longest = (view: View) => view.model!.run!.waits_on!.items.filter((it) => it.text !== '').map((it) => it.id)
-  it('Focus now\'s waits-on rows and Strengthen\'s rows draw their title with no one-line clamp, at rest (A10 workshop, served)', () => {
-    const view = viewOf('core/ui9-a10-workshop')
-    ready(view); render(<PortAnalysisTab />)
-    const ids = longest(view)
-    expect(ids.length, 'precondition: core names figures the chances wait on').toBeGreaterThan(0)
-    const titles = [...document.querySelectorAll<HTMLElement>('[data-testid="port-focus-now"] [data-testid="focus-card"], [data-testid="port-strengthen"] [data-testid="focus-card"]')]
-      .map((card) => within(card).getAllByRole('button')[0]!.querySelector<HTMLElement>('span[id]')!)
-    expect(titles.length).toBeGreaterThanOrEqual(ids.length)
-    for (const t of titles) expect([t.textContent, t.style.webkitLineClamp, t.style.overflow]).toEqual([t.textContent, '', ''])
   })
 })
 

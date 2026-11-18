@@ -84,16 +84,21 @@ describe('the panel on a pending first model', () => {
     expect(p.textContent).toBe(`${EU.proposal!.heading} · ${EU.proposal!.on}`)
   })
 
-  it('PB4 (P3, derived: the European first model without its lead, waits or option rows, as Paul\'s first model had): the Analysis hero draws no empty box; CONTRAST: with its lead it does', () => {
+  it('PB4 (P3, redesign 18 Nov): on the pending first model no option has a chance, so the Analysis tab draws no chart and no lead, and says what a result needs; CONTRAST: with nothing to say it draws no empty section', () => {
     ready(EU)
-    const withLead = render(<PortAnalysisTab />).container
-    expect(withLead.querySelector('[data-testid="port-analysis-hero"] [data-view="run.lead"]')?.textContent).toBe(EU.model!.run!.lead)
+    const withNeeds = render(<PortAnalysisTab />).container
+    expect(withNeeds.querySelector('[data-testid="port-analysis-tab"]')!.getAttribute('data-analysis-state')).toBe('none')
+    expect(withNeeds.querySelector('[data-testid="analysis-chance-chart"]')).toBeNull()
+    expect(withNeeds.querySelector('[data-view="run.lead"]')).toBeNull()
+    expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).not.toBeNull()
     cleanup()
     const bare = structuredClone(EU)
-    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null })
-    for (const c of bare.model!.cards) if (c.family === 'option') Object.assign(c, { rows: [], headline: null })
+    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], compared: [] })
+    for (const c of bare.model!.cards) { if (c.family === 'option') Object.assign(c, { rows: [], headline: null }); if (c.figure != null) Object.assign(c, { figure: { ...c.figure, edit: null } }) }
     ready(bare)
-    expect(render(<PortAnalysisTab />).container.querySelector('[data-testid="port-analysis-hero"]')).toBeNull()
+    const empty = render(<PortAnalysisTab />).container
+    expect(empty.querySelector('[data-testid="analysis-needs"]')).toBeNull()
+    expect(empty.querySelectorAll('section').length).toBe(0)
   })
 
   it('PB5 (P2): Compare on a first model held as Olumi\'s proposal says so, not "start a model"; CONTRAST: with no scenario it says start one', () => {

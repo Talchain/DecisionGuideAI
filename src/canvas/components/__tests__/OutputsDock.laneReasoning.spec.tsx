@@ -61,9 +61,10 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     await dockOn('analysisNew')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     const body = screen.getByTestId('view-reasoning')
-    // Paul, 6 Nov: the previous PoC's Reasoning sections, drawn from the View (ViewReasoning.tsx): the brief and the model at a glance.
-    expect(body.querySelector('[data-view="brief"]')?.textContent).toBe(view.brief)
-    expect(body.querySelector('[data-testid="view-reasoning-glance"]')).not.toBeNull()
+    // Redesign, 18 Nov: how sound the thinking is. The model-at-a-glance strip is gone (the canvas and Model tab draw the model); core's
+    // rests are drawn as whose figures it rests on.
+    expect(body.querySelector('[data-testid="view-reasoning-glance"]')).toBeNull()
+    expect(body.querySelectorAll('[data-testid="reasoning-rests-bar"]').length).toBe(view.model.run.rests.filter((r: { line: string }) => r.line !== '').length)
     // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
     expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)

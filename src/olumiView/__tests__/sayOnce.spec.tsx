@@ -25,65 +25,54 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const drawn = (path: string) => document.querySelectorAll(`[data-view="${path}"]`).length
-const waitRows = (id: string) => document.querySelectorAll(`[data-testid="focus-card"][data-row-id="wait:${id}"]`).length
 const closed = () => [...document.querySelectorAll<HTMLElement>('button[aria-expanded="false"]')]
 
 describe('SC-02: each tab says each thing once', () => {
-  it('Analysis: an option\'s driver sentence and its tipping lines are said under its row, never again in "Why and what could change it"', () => {
+  it('Analysis and Reasoning together (bakery; redesign 18 Nov): each option\'s chance words, each figure it moves with and core\'s most-likely line are drawn once across both tabs, with the fold open', () => {
     const view = golden('bakery'), m = view.model!
     ready(view)
-    render(<PortAnalysisTab />)
-    fireEvent.click(screen.getByTestId('port-evidence-toggle'))
-    const drivers = optionCards(m).filter((c) => c.driver != null).map((c) => `${c.id}.driver.text`)
-    const tipping = m.run!.tipping.flatMap((t, i) => (t.line === '' ? [] : [`run.tipping.${i}.line`]))
-    expect(drivers.length * tipping.length).toBeGreaterThan(0)
-    const most = new Map<string, number>()
-    const look = () => { for (const p of [...drivers, ...tipping]) most.set(p, Math.max(most.get(p) ?? 0, drawn(p))) }
-    look()
-    // Every evidence chip in turn, and each row's detail in turn (one open at a time): at no moment is a sentence drawn twice.
-    for (const chip of [...document.querySelectorAll<HTMLElement>('[data-testid^="port-evidence-tab-"]')]) { fireEvent.click(chip); look() }
-    for (const row of [...document.querySelectorAll<HTMLElement>('[data-testid="port-option-row"] > button[aria-expanded]')]) { fireEvent.click(row); look(); fireEvent.click(row) }
-    expect([...most].filter(([, n]) => n > 1)).toEqual([])
-    // Contrast: each is still said, once.
-    expect(drivers.filter((p) => most.get(p) !== 1)).toEqual([])
-    expect(tipping.filter((p) => most.get(p) !== 1)).toEqual([])
+    render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
+    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+    for (const b of closed()) fireEvent.click(b)
+    const values = optionCards(m).flatMap((c) => c.rows.flatMap((r, i) => (r.kind === 'chance' ? [`${c.id}.rows.${i}.value`] : [])))
+    const paths = [...values, 'run.most_likely.text', 'run.lead']
+    expect(values.length).toBeGreaterThan(1)
+    expect(paths.map((p) => [p, drawn(p)])).toEqual(paths.map((p) => [p, 1]))
+    // Each mover figure is named once in its section (the chart names none: its bars are the options).
+    const movers = [...document.querySelectorAll<HTMLElement>('[data-mover]')].map((e) => e.dataset['mover']!)
+    expect(movers.length).toBeGreaterThan(0)
+    for (const id of movers) expect([id, document.querySelectorAll(`[data-testid="analysis-what-moves"] [data-mover="${id}"] [data-view="${id}.heading"]`).length]).toEqual([id, 1])
+    // A chance's words are core's for one row: the text appears once on the page, wherever it is bound.
+    for (const p of values) { const t = document.querySelector(`[data-view="${p}"]`)!.textContent!; expect(document.body.textContent!.split(t).length - 1, p).toBe(1) }
   })
 
   for (const n of ['capacity', 'hosting'] as const) {
-    it(`Analysis (${n}): each figure the chances wait on is named once, in its own row with its edit, not again in the head`, () => {
+    it(`Analysis (${n}): each thing the chances wait on is drawn at most once, as a row of "what a result needs" with all rows shown`, () => {
       const view = real(n), w = view.model!.run!.waits_on!
       ready(view)
       render(<PortAnalysisTab />)
-      // Re-pinned, UI recovery row 17 (DL 10 Nov): the figures are rows of the restored Focus now (the previous product's focus rows,
-      // which carry the item's id, not a View path), all shown once "Show all" is pressed. Still one row per figure, by its id.
-      for (const b of document.querySelectorAll<HTMLElement>('[data-testid="focus-reveal"]')) fireEvent.click(b)
-      for (const d of document.querySelectorAll('details:not([open])')) (d as HTMLDetailsElement).open = true
-      const items = w.items.flatMap((it) => (it.text === '' ? [] : [it.id]))
+      const more = screen.queryByTestId('analysis-needs-more')
+      if (more !== null) fireEvent.click(more)
+      const items = w.items.flatMap((it, i) => (it.text === '' ? [] : [`run.waits_on.items.${i}.text`]))
       expect(items.length).toBeGreaterThan(0)
-      expect(items.map((id) => [id, waitRows(id)])).toEqual(items.map((id) => [id, 1]))
-      expect(document.querySelectorAll('[data-view^="run.waits_on.items."]')).toHaveLength(0)
-      // Contrast: the head keeps core's own words for it where every chance waits (the headline), with no list of its own.
-      if (view.model!.run!.all_withheld) expect(screen.getByTestId('port-hero-waits-headline').querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(w.text)
-      expect(document.querySelector('[data-testid="port-hero-waits-on"]')).toBeNull()
+      expect(items.filter((p) => drawn(p) > 1)).toEqual([])
+      // Contrast: an item is either drawn (once) or its card is already listed above it (a blocker about the same card).
+      const listed = new Set([...document.querySelectorAll<HTMLElement>('[data-need]')].map((e) => e.dataset['need']!))
+      for (const it of w.items) if (it.text !== '' && !listed.has(`waits:${it.id}`)) expect([...listed].some((k) => k.startsWith('blocks:') || k.startsWith('none:')), it.id).toBe(true)
     })
   }
 
-  it('Analysis (strategy, every chance waits; strategy witness, 8 Nov): the head says core\'s count only; each figure and its "which no one can size yet" is said once, under What to act on next', () => {
+  it('Analysis (strategy, every chance waits): each figure is drawn at most once, and the clause core adds for a figure no one can size is never run together in a head', () => {
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8')) as View, w = view.model!.run!.waits_on!
     expect(view.model!.run!.all_withheld).toBe(true)
-    const unknown = w.items.flatMap((it, i) => (it.unknown === null ? [] : [i]))
-    expect(unknown.length).toBeGreaterThan(1)
     ready(view)
     render(<PortAnalysisTab />)
-    const head = screen.getByTestId('port-hero-waits-headline')
-    expect(head.querySelector('[data-view="run.waits_on.text"]')?.textContent).toBe(w.text)
-    expect(head.querySelectorAll('[data-view^="run.waits_on.items."]')).toHaveLength(0)
-    // Re-pinned, UI recovery row 17 (DL 10 Nov): each figure is one row of the restored Focus now, by its id.
-    for (const b of document.querySelectorAll<HTMLElement>('[data-testid="focus-reveal"]')) fireEvent.click(b)
-    for (const i of unknown) expect([i, waitRows(w.items[i]!.id)]).toEqual([i, 1])
-    // Contrast: the clause is core's, said at most once per figure on the tab, never as a run in the head.
+    const more = screen.queryByTestId('analysis-needs-more')
+    if (more !== null) fireEvent.click(more)
+    expect(w.items.map((_, i) => drawn(`run.waits_on.items.${i}.text`)).filter((n) => n > 1)).toEqual([])
+    expect(document.querySelectorAll('[data-view="run.waits_on.text"], [data-view="run.waits_on.head"]')).toHaveLength(0)
     const tab = document.querySelector('[data-testid="port-analysis-tab"]')!.textContent!
-    expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(unknown.length)
+    expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(w.items.filter((it) => it.unknown !== null).length)
   })
 
   it('Model: the question is said once, above the outline; the Goal group, opened, keeps the aim it is measured by', () => {
@@ -105,7 +94,7 @@ describe('SC-02: each tab says each thing once', () => {
     expect(c).toBeDefined()
     ready(view)
     render(<ViewReasoningBlock />)
-    // The door opens where it has rows (an option's own premises are said in its rack row, PL-252, so it may have none).
+    // The door opens where it has rows.
     const door = screen.queryByTestId('view-reasoning-premises-toggle')
     if (door !== null) fireEvent.click(door)
     const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
