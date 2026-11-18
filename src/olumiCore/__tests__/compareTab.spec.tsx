@@ -25,7 +25,7 @@ vi.mock('../../olumiView/ViewChat', () => ({ prefillComposer: (t: string) => pre
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
-import { ASK_WHICH, COMPARE_ONE, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
+import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
 const side = (value: string, chance: number | null) => ({ value, title: 't', olumi: null, chance, headline: value, companion: null })
@@ -169,15 +169,40 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     await waitFor(() => expect(paths).toContain(`/api/compare?a=${view.id}&b=w_7`))
     expect(screen.queryByTestId('core-compare-out')).toBeNull()
   })
-  it('CT8: one approved version is one line and nothing else; CONTRAST: two versions draw the picker and the what-if press', async () => {
+  it('CT8: one approved version with nothing else to compare is one line and nothing else; CONTRAST: with a saved what-if it is still compared (Codex P1)', async () => {
     const v = fixture('ui9-a6-since-v3')
-    const { container } = show({ ...v, version: { ...v.version!, n: 1 }, model: { ...v.model!, run: { ...v.model!.run!, since: undefined } } })
+    const one = { ...v, version: { ...v.version!, n: 1 }, model: { ...v.model!, cards: v.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })), run: { ...v.model!.run!, since: undefined } } } as View
+    const { container } = show(one)
+    await waitFor(() => expect(paths).toContain(`/api/scenarios/${v.id}/whatifs`))
     expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE)
     expect(container.querySelector('[data-testid="core-compare-tab"]')!.children.length).toBe(1)
-    expect(compared()).toEqual([])
-    cleanup()
-    show(v)
-    expect([!!screen.queryByTestId('core-compare-picker'), !!screen.queryByTestId('core-compare-whatif-open')]).toEqual([true, v.model!.cards.some((c) => c.figure?.edit != null)])
+    expect([screen.queryByTestId('core-compare-picker'), compared()]).toEqual([null, []])
+    cleanup(); paths = []
+    whatifs = { whatifs: [{ id: 'w_7', name: 'Busier week', by: 'Ada', at: 't', version: 1, edits: [], about: 'A what-if on version 1' }] }
+    show(one)
+    await waitFor(() => expect(paths).toContain(`/api/compare?a=${v.id}&b=w_7`))
+    expect([...(screen.getByTestId('core-compare-with') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['w_7'])
+    expect(screen.getByTestId('core-compare-base').textContent).toBe('Version 1 with')
+    expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE_VERSIONS)
+    expect(paths.some((p) => p.includes(`/scenarios/${v.id}/compare`))).toBe(false)
+  })
+  it('CT10: a pair that failed reads again when picked again, and draws its answer (Codex P2)', async () => {
+    let failed = false
+    setTeamFetch((async (u: unknown) => {
+      const p = String(u); paths.push(p)
+      if (p.includes('compare?from=2&to=3') && !failed) { failed = true; return new Response(JSON.stringify({ error: 'core was busy' }), { status: 500 }) }
+      const body = p === '/api/me' ? me : p.endsWith('/whatifs') ? whatifs : p.endsWith('/versions') ? { versions: [] } : answer
+      return new Response(JSON.stringify(body), { status: 200 })
+    }) as unknown as typeof fetch)
+    show(fixture('ui9-a6-since-v3'))
+    expect((await screen.findByTestId('core-compare-error')).textContent).toBe('core was busy')
+    const pick = screen.getByTestId('core-compare-with') as HTMLSelectElement
+    fireEvent.change(pick, { target: { value: 'v:1' } })
+    await screen.findByTestId('core-compare-out')
+    fireEvent.change(pick, { target: { value: 'v:2' } })
+    await waitFor(() => expect(compared().filter((p) => p.includes('from=2&to=3')).length).toBe(2))
+    await screen.findByTestId('core-compare-out')
+    expect(screen.queryByTestId('core-compare-error')).toBeNull()
   })
   it('CT9: the what-if press only where a figure can be set; CONTRAST: none settable and nothing waiting offers no press; no results says so once', async () => {
     const v = fixture('ui9-a6-since-v3')

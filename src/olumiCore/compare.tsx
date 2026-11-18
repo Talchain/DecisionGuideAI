@@ -214,6 +214,8 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
 export const COMPARE_NONE = 'Start a model in the chat first. Compare reads the versions you approve.'
 export const COMPARE_HELD = "This model is still Olumi's proposal. Compare reads the versions you approve: approve it in the chat to start."
 export const COMPARE_ONE = 'Compare needs two approved versions. Approve a change to the model to make the second.'
+/** With one version and something else to compare it with: only comparing VERSIONS waits for a second (Codex live read, wording). */
+export const COMPARE_ONE_VERSIONS = 'Comparing versions needs two approved versions; you can compare this one with a what-if or another scenario.'
 /** Fixed chrome: the one ask where core credits no single change. It names no figure and makes no claim about the model. */
 export const ASK_WHICH = {
   label: 'Ask Olumi which change mattered',
@@ -235,10 +237,9 @@ export function CoreCompareTab(): JSX.Element {
       {!sid || latest === null || latest === undefined
         // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
         ? <p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p>
-        : latest < 2
-          ? <p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>
-          // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer.
-          : <ComparePicked key={sid} sid={sid} latest={latest} />}
+        // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
+        // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
+        : <ComparePicked key={sid} sid={sid} latest={latest} />}
     </div>
   )
 }
@@ -260,12 +261,22 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const scenarios: Group = { label: 'Your other scenarios', choices: (Array.isArray(others) ? others : []).map((o) => ({ value: o.id, label: o.label, title: o.title })) }
   const groups = [earlier, whatIfs, scenarios]
   const all = groups.flatMap((g) => g.choices.map((c) => c.value))
-  const value = picked !== null && all.includes(picked) ? picked : `v:${first}`
+  // The first choice: core's own pair where the View has one, else the version before; with one version, the newest what-if or the
+  // first other scenario; none at all is '' (nothing to compare yet).
+  const value = picked !== null && all.includes(picked) ? picked : base >= 2 ? `v:${first}` : all[0] ?? ''
   const version = value.startsWith('v:') ? Number(value.slice(2)) : null
   // This side, for core's side-by-side: the scenario now when it is the latest, else that version of it.
   const self = base === latest ? sid : `${sid}@${base}`
+  const whatIfPress = !canSave ? null : saving
+    ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} />
+    // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only).
+    : <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
+        <OkIcon id="what-if" size={14} decorative />Save a what-if to compare</button></div>
+  // One approved version and nothing else to compare it with: the one line, and the what-if press where a figure can be set.
+  if (value === '') return <><p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>{whatIfPress}</>
   return (
     <>
+      {base < 2 ? <p className={META} data-testid="core-compare-one">{COMPARE_ONE_VERSIONS}</p> : null}
       <div className="flex min-w-0 items-center gap-2" data-testid="core-compare-picker">
         <span className={`${BODY} flex-none text-text-header`} data-testid="core-compare-base">Version {base} with</span>
         <Pick id="core-compare-with" label={`Compare version ${base} with`} groups={groups} value={value} disabled={false} onChange={setPicked} />
@@ -273,11 +284,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
       {version !== null
         ? <VersionDiff sid={sid} from={version} to={base} since={since !== null && since.from.n === version && since.to.n === base ? since : null} />
         : <SideBySide a={self} b={value} />}
-      {!canSave ? null : saving
-        ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} />
-        // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only).
-        : <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
-            <OkIcon id="what-if" size={14} decorative />Save a what-if to compare</button></div>}
+      {whatIfPress}
     </>
   )
 }
@@ -306,8 +313,10 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   useEffect(() => {
     let live = true
     const [lo, hi] = from < to ? [from, to] : [to, from]
+    // A fresh read clears any earlier failure (Codex live read P2: pair A failed, then B, then A again must draw A's answer).
+    setError(null)
     call<Compared>('GET', `/api/scenarios/${encodeURIComponent(sid)}/compare?from=${lo}&to=${hi}`)
-      .then((r) => { if (live) setShown({ key, c: r }) })
+      .then((r) => { if (live) { setError(null); setShown({ key, c: r }) } })
       .catch((e) => { if (live) setError({ key, text: e instanceof TeamApiError ? e.message : 'That did not go through.' }) })
     return () => { live = false }
   }, [sid, from, to, key])
