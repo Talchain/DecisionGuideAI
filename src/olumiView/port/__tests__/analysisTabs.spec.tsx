@@ -160,6 +160,17 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
 })
 
 describe('the chance chart', () => {
+  it('R7 tail (core 4e411e82, `rows[].tail` on a chance row): core\'s finished sentence is drawn verbatim under THAT option\'s bar, as supporting detail; CONTRAST: an option whose row carries no tail draws none', () => {
+    const view = structuredClone(viewOf('golden/bakery')), rows = chartRowsOf(view.model!)
+    const [a, b] = rows as [typeof rows[0], typeof rows[0]]
+    const words = "In the worst tenth of the runs for 'A', 'B' comes to about 3 a week, in this model on current information, not a forecast."
+    ;(view.model!.cards.find((c) => c.id === a.card.id)!.rows[a.i] as { tail?: unknown }).tail = { text: words, mean: 3, unit: null, share: 0.1 }
+    ready(view); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    expect(chart.querySelector(`[data-chart-option="${a.card.id}"] [data-view="${a.card.id}.rows.${a.i}.tail.text"]`)?.textContent).toBe(words)
+    expect(chart.querySelector(`[data-chart-option="${b.card.id}"] [data-view$=".tail.text"]`)).toBeNull()
+    expect(chart.querySelectorAll('[data-view$=".tail.text"]')).toHaveLength(1)
+  })
   it('bakery: one bar per option with a chance for the lead aim, in core\'s order; each bar filled to its chance and its whisker at its driver\'s two chances; core\'s words under it', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     expect(rows.length).toBe(3)
