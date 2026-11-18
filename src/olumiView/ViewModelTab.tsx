@@ -73,7 +73,7 @@ function Group({ id, title, count, open, onToggle, mark, note, children }: { id:
 }
 
 /**
- * Plain | Expert: the crafted tab's one detail switch, in its own look (legacy `ModelTabV2Panel`: a pill pair, the chosen arm filled), with
+ * Plain | Expert: the crafted tab's one detail switch, in its own look (legacy `ModelTabV2Panel`: a pill pair, the chosen arm outlined in ink on the warm tint like the lens bar's chosen pill, never filled black), with
  * the lens bar's keyboard (`ViewLensBar.tsx`): arrow keys move along it, the chosen arm is the only one in the tab order.
  */
 function ExpertSwitch() {
@@ -87,7 +87,7 @@ function ExpertSwitch() {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); choose(false) }
   }
   const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
-    ? 'bg-text-header text-text-on-color' : 'text-text-light hover:text-text-body'}`
+    ? 'border border-text-header bg-panel-hover text-text-header' : 'border border-transparent text-text-light hover:text-text-body'}`
   return (
     <div role="radiogroup" aria-label={W?.detail} onKeyDown={onKey} data-testid="view-model-expert"
       className="inline-flex flex-none items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5">

@@ -124,6 +124,7 @@ describe('the tab: only the current step open, one green press, any row opens', 
     for (const id of ['view', 'reveal', 'differ', 'commit', 'outcome'] as const) {
       expect(isOpen(id)).toBe(false)
       expect(screen.getByTestId(`team-step-${id}-summary`).textContent).not.toBe('')
+      expect(screen.getByTestId(`team-step-${id}-summary`).className, `${id} summary is whole, never clipped`).not.toContain('truncate')
     }
   })
   it('a member core holds sees their view open first (the private box and its green press), the reveal one line', () => {

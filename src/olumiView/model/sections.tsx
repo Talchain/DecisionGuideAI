@@ -21,7 +21,7 @@ import { cardsOfRecords } from '../layout'
 import { cardKind } from '../v12/fields/fields'
 
 /** The previous tab's section headings (`GoalConstraintsSection` "Limits", `ModelHealthSection` "Model card"). UI words, not model words. */
-export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'Audit trail', changed: 'Changed in this version', removed: 'Removed' } as const
+export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'History of this model', changed: 'Changed in this version', removed: 'Removed' } as const
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)]
 const HEAD = `${typography.panelHeader} m-0 mb-1 text-text-header`
@@ -95,7 +95,7 @@ function ModelCard({ model }: { model: ViewModel }) {
   const sharpen = model.sharpen ?? []
   if (sharpen.length === 0) return null
   return (
-    <Accordion title={MODEL_SECTION_LABELS.card} testId="view-model-card">
+    <Accordion title={MODEL_SECTION_LABELS.card} testId="view-model-card" flush className="py-1">
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {sharpen.map((s) => (
           <li key={s.id} data-model-sharpen={s.id}>
@@ -116,7 +116,7 @@ function Audit({ model, version }: { model: ViewModel; version: View['version'] 
   const changed = version == null ? [] : cardsOfRecords(model, version.changed).map((id) => model.cards.find((c) => c.id === id)!)
   if (version == null && readings.length + notes.length + removed.length === 0) return null
   return (
-    <Accordion title={MODEL_SECTION_LABELS.audit} testId="view-model-audit">
+    <Accordion title={MODEL_SECTION_LABELS.audit} testId="view-model-audit" flush className="py-1">
       <div className="flex flex-col gap-2">
         {version == null ? null : (
           <div data-model-audit="version">

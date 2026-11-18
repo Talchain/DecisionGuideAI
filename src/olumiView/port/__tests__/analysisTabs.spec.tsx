@@ -330,6 +330,7 @@ describe('what a result needs', () => {
     expect(document.querySelectorAll('[data-need]')).toHaveLength(5)
     fireEvent.click(screen.getByTestId('analysis-needs-more'))
     expect(document.querySelectorAll('[data-need]')).toHaveLength(all.length)
+    expect(screen.getByTestId('analysis-needs-more').querySelector('[data-fold-chevron="open"]'), 'polish 13: the chevron turns when open').not.toBeNull()
     // CONTRAST: five or fewer draw no fold (app-launch).
     cleanup(); const few = viewOf('golden/app-launch'); expect(needsOf(few.model!).length).toBeLessThanOrEqual(5)
     ready(few); render(<PortAnalysisTab />)
@@ -415,7 +416,9 @@ describe('why this reading: core\'s long reading, one press away', () => {
     const view = viewOf('golden/bakery'), ml = view.model!.run!.most_likely!
     ready(view); render(<PortAnalysisTab />)
     expect(document.querySelector('[data-view="run.most_likely.text"]')).toBeNull()
+    expect(screen.getByTestId('analysis-why-toggle').querySelector('[data-fold-chevron="closed"]'), 'polish 13: a chevron, pointing right while closed').not.toBeNull()
     fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+    expect(screen.getByTestId('analysis-why-toggle').querySelector('[data-fold-chevron="open"]')).not.toBeNull()
     const said = document.querySelectorAll('[data-view="run.most_likely.text"]')
     expect(said).toHaveLength(1)
     expect(said[0]!.textContent).toBe(ml.text)

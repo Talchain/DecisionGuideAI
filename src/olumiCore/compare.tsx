@@ -11,6 +11,7 @@ import { useCanvasStore } from '../canvas/store'
 import { focusWhenDrawn } from '../olumiView/AddFigure'
 import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { OkIcon } from '../olumiView/look/icons'
+import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
@@ -196,8 +197,8 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
           <>
             {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
             {still.length === 0 ? null : (
-              <details data-testid="core-compare-since-still">
-                <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{notMoved(still.length)}</summary>
+              <details data-testid="core-compare-since-still" className="group">
+                <summary className={FOLD_ROW}><FoldChevron />{notMoved(still.length)}</summary>
                 <ul className="m-0 mt-1.5 grid list-none gap-2 p-0">{still.map(row)}</ul>
               </details>
             )}
@@ -309,12 +310,15 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   )
 }
 
+/** A fold's summary line: the one chevron, then core's words in body ink (a control, not a caption). */
+const FOLD_ROW = `${FOLD_SUMMARY} ${typography.caption} min-h-[24px] cursor-pointer py-1 text-text-body`
+
 /** One press to more of core's own rows: a quiet summary line, the rows under it. */
 function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
   return (
     // A plain block while closed (a closed grid still spaced its hidden rows); the rows sit under the summary once open.
-    <details data-testid={id}>
-      <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{summary}</summary>
+    <details data-testid={id} className="group">
+      <summary className={FOLD_ROW}><FoldChevron />{summary}</summary>
       <div className="mt-1.5">{children}</div>
     </details>
   )

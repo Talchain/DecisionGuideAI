@@ -24,6 +24,7 @@ import { cardOf, limitGroupsOf, tabStateOf } from './pick'
 import { ResultNeeds } from './ResultNeeds'
 import { TYPE } from './type'
 import { WhatMovesIt } from './WhatMovesIt'
+import { FoldChevron } from '../look/FoldChevron'
 import { REASONING_LABELS } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
@@ -98,8 +99,8 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && !compared && notes.length === 0) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-why-toggle">
-        {ANALYSIS_WORDS.why}
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
+        <FoldChevron open={open} />{ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
         <div className={`${TYPE.meta} mt-2 space-y-2 text-text-body`} data-testid="analysis-why-region">

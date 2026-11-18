@@ -1,6 +1,7 @@
 import type { View } from '../../olumiView/client'
 import { CoreCompare, useLatestApproved } from '../compare'
-import { BODY, H, META } from './ui'
+import { FOLD_SUMMARY, FoldChevron } from '../../olumiView/look/FoldChevron'
+import { BODY, H, META, PLAIN_LINK } from './ui'
 
 /**
  * THE TEAM'S RECORD AND HOW THE MODEL MOVED (PL review, 4 Nov: both already on core). Compare any two approved versions through core's
@@ -14,11 +15,11 @@ export function ComparePanel({ sid, view }: { sid: string; view: View }): JSX.El
     <section data-testid="team-review" aria-label="Record and versions" className="grid gap-2">
       <h3 className={H}>Record and versions</h3>
       <p className={META}>
-        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[24px] items-center text-info underline underline-offset-2" data-testid="team-record-link">Printable record</a>
+        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-[24px] items-center ${PLAIN_LINK}`} data-testid="team-record-link">Printable record</a>
       </p>
       {latest < 2 ? null : (
-        <details data-testid="team-compare">
-          <summary className={BODY}>Compare versions</summary>
+        <details data-testid="team-compare" className="group">
+          <summary className={`${FOLD_SUMMARY} ${BODY}`}><FoldChevron />Compare versions</summary>
           <div className="mt-2"><CoreCompare sid={sid} latest={latest} id="team-compare" /></div>
         </details>
       )}

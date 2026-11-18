@@ -3,7 +3,7 @@ import { Button } from '../components/ui/Button'
 import { useViewStore } from '../olumiView/store'
 import { ChangeItem, ComparedLists, CoreCompare, SideText, what, whoOf, type Compared } from './compare'
 import { call, TeamApiError } from './team/api'
-import { BODY, ERR, META } from './team/ui'
+import { BODY, ERR, META, PLAIN_LINK } from './team/ui'
 
 /**
  * VERSION HISTORY ON THE OLUMI-CORE LANE: the scenario's approved versions as core stores them (olumi-core API.md v1.7, "Stored versions",
@@ -71,7 +71,7 @@ function VersionRecord({ sid, v, versions, drawn }: { sid: string; v: Version; v
         : <p className={META} data-testid={`${id}-found-none`}>No results in this version</p>)}
       {/* Core's printable record, at this version's heading (`#version-n`, API v1.10); a core before it opens the record at its top. */}
       <p className={META}>
-        <a href={`/s/${encodeURIComponent(sid)}/record#version-${v.n}`} target="_blank" rel="noopener noreferrer" className="text-info underline underline-offset-2" data-testid={`${id}-record-link`}>On the printable record</a>
+        <a href={`/s/${encodeURIComponent(sid)}/record#version-${v.n}`} target="_blank" rel="noopener noreferrer" className={PLAIN_LINK} data-testid={`${id}-record-link`}>On the printable record</a>
       </p>
     </div>
   )
@@ -122,7 +122,7 @@ export function CoreVersions(): JSX.Element {
       </ul>
       {versions.length >= 2 && <CoreCompare sid={sid} latest={versions[versions.length - 1]!.n} id="versions-compare" />}
       <p className={META}>
-        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[24px] items-center text-info underline underline-offset-2" data-testid="core-versions-record-link">Printable record</a>
+        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-[24px] items-center ${PLAIN_LINK}`} data-testid="core-versions-record-link">Printable record</a>
       </p>
     </div>
   )
