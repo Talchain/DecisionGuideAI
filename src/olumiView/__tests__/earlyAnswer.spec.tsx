@@ -28,6 +28,8 @@ describe('the early answer on the drafting board', () => {
   it('while the model builds: the label, the paragraphs and the list items as such, beside core\'s words; no failure line, no Try again', () => {
     const c = show(drafting('drafting', { text: TEXT }), <DraftingBoard />)
     expect(c.querySelector('[data-testid="view-drafting-early-label"]')?.textContent).toBe(EARLY_LABEL)
+    // The words on screen, bound whole: what it is and what it draws on, no narration of the order of work.
+    expect(c.querySelector('[data-testid="view-drafting-early-label"]')?.textContent).toBe('A first answer from your brief and general knowledge.')
     expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model')
     const body = c.querySelector('[data-testid="view-drafting-early-text"]')!
     expect([...body.querySelectorAll('[data-reply-para]')].map((p) => p.textContent)).toEqual(['A month is tight for a raise.', 'Lenders usually want:', 'Start with the shortest route.'])
