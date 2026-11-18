@@ -4,9 +4,9 @@
  * `compareScenarios` (core src/app/compare-scenarios.ts at 5cdae21f): a comparable aim, a different target, a not-comparable aim, an aim
  * only one side has, an option only one side has, a cell resting on Olumi's proposals, and a side with no saved results.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { CompareWithScenario, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
+import { ScenarioComparisonView, SideBySide, WhatIfSave, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
 import { useViewStore } from '../../olumiView/store'
 
@@ -57,35 +57,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null) })
 const aim = (c: HTMLElement, label: string) => [...c.querySelectorAll<HTMLElement>('[data-compare-aim]')].find((e) => e.getAttribute('aria-label') === label)!
 
-describe('compare with another scenario: the picker and the request', () => {
-  it('offers the person\'s other scenarios from /api/me (never this one), and reads core\'s comparison by both ids only on Compare', async () => {
-    render(<CompareWithScenario sid="s_a" />)
-    const pick = (await screen.findByTestId('scenario-compare-pick')) as HTMLSelectElement
-    expect([...pick.options].map((o) => [o.value, o.textContent])).toEqual([['s_b', 'Rota'], ['s_c', 'Launch']])
-    expect(paths.filter((p) => p.startsWith('/api/compare'))).toEqual([])
-    fireEvent.change(pick, { target: { value: 's_c' } })
-    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+describe('compare with another scenario: the request (the one picker is the tab\'s, compareTab.spec)', () => {
+  it('reads core\'s comparison by both ids at once, and again when the second side changes', async () => {
+    const { rerender } = render(<SideBySide a="s_a" b="s_c" />)
     await screen.findByTestId('scenario-compare-out')
     expect(paths.filter((p) => p.startsWith('/api/compare'))).toEqual(['/api/compare?a=s_a&b=s_c'])
+    rerender(<SideBySide a="s_a@1" b="s_b" />)
+    await waitFor(() => expect(paths.filter((p) => p.startsWith('/api/compare')).at(-1)).toBe('/api/compare?a=s_a%401&b=s_b'))
   })
-  it('R17: the picker draws core\'s own `label` (two scenarios sharing a title are told apart), the value stays the id and the title is its hover', async () => {
-    setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ada' }, scenarios: [{ id: 's_a', title: 'Rota', label: 'Rota (saved 1 Nov)' }, { id: 's_b', title: 'Rota', label: 'Rota (saved 6 Nov 14:20 UTC)' }, { id: 's_c', title: 'Launch', label: 'Launch' }] }), { status: 200 })) as unknown as typeof fetch)
-    render(<CompareWithScenario sid="s_a" />)
-    const pick = (await screen.findByTestId('scenario-compare-pick')) as HTMLSelectElement
-    expect([...pick.options].map((o) => [o.value, o.textContent, o.title])).toEqual([['s_b', 'Rota (saved 6 Nov 14:20 UTC)', 'Rota'], ['s_c', 'Launch', 'Launch']])
-  })
-  it('no other scenario: said once, no picker; a refusal is core\'s own words', async () => {
-    setTeamFetch((async () => new Response(JSON.stringify({ me: { id: 'p_1', name: 'Ada' }, scenarios: [{ id: 's_a', title: 'Rota' }] }), { status: 200 })) as unknown as typeof fetch)
-    render(<CompareWithScenario sid="s_a" />)
-    expect((await screen.findByTestId('scenario-compare-none')).textContent).toBe('You have no other scenario to compare with yet.')
-    expect(screen.queryByTestId('scenario-compare-pick')).toBeNull()
-    cleanup()
-    setTeamFetch((async (u: unknown) => String(u) === '/api/me'
-      ? new Response(JSON.stringify({ scenarios: [{ id: 's_b', title: 'B' }] }), { status: 200 })
-      : new Response(JSON.stringify({ error: 'no such scenario' }), { status: 404 })) as unknown as typeof fetch)
-    render(<CompareWithScenario sid="s_a" />)
-    fireEvent.click(await screen.findByTestId('scenario-compare-go'))
+  it('a refusal is core\'s own words', async () => {
+    compareAnswer = { status: 404, body: { error: 'no such scenario' } }
+    render(<SideBySide a="s_a" b="s_c" />)
     await waitFor(() => expect(screen.getByTestId('scenario-compare-error').textContent).toBe('no such scenario'))
+    expect(screen.queryByTestId('scenario-compare-out')).toBeNull()
   })
 })
 
@@ -173,25 +157,7 @@ const routed = (over: Record<string, unknown> = {}) => setTeamFetch((async (u: u
   return new Response(JSON.stringify(over[p] ?? body), { status: init?.method === 'POST' ? 201 : 200 })
 }) as unknown as typeof fetch)
 
-describe('compare side by side: two sides from this scenario, its versions, its saved what-ifs and other scenarios', () => {
-  it('the second side offers other scenarios, then the saved what-ifs, then earlier versions; the newest what-if is picked first and asked for by its ref', async () => {
-    routed()
-    render(<CompareWithScenario sid="s_a" />)
-    await waitFor(() => expect([...(screen.getByTestId('scenario-compare-pick') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['s_c', 'w_7', 's_a@1']))
-    const b = screen.getByTestId('scenario-compare-pick') as HTMLSelectElement
-    expect([...b.querySelectorAll('optgroup')].map((g) => g.label)).toEqual(['Your other scenarios', 'Saved what-ifs', 'This scenario'])
-    expect(b.value).toBe('w_7')
-    expect([...b.options].find((o) => o.value === 'w_7')!.textContent).toBe('What-if: Busier week')
-    // The first side: this scenario now, its earlier version, the what-if, other scenarios; never called a scenario when it is a what-if.
-    expect([...(screen.getByTestId('scenario-compare-pick-a') as HTMLSelectElement).options].map((o) => [o.value, o.textContent])).toEqual([['s_a', 'This scenario now (version 2)'], ['s_a@1', 'Version 1'], ['w_7', 'What-if: Busier week'], ['s_c', 'Launch']])
-    fireEvent.click(screen.getByTestId('scenario-compare-go'))
-    await screen.findByTestId('scenario-compare-out')
-    expect(paths.filter((p) => p.startsWith('/api/compare'))).toEqual(['/api/compare?a=s_a&b=w_7'])
-    fireEvent.change(screen.getByTestId('scenario-compare-pick-a'), { target: { value: 's_a@1' } })
-    fireEvent.change(screen.getByTestId('scenario-compare-pick'), { target: { value: 's_a' } })
-    fireEvent.click(screen.getByTestId('scenario-compare-go'))
-    await waitFor(() => expect(paths.filter((p) => p.startsWith('/api/compare')).at(-1)).toBe('/api/compare?a=s_a%401&b=s_a'))
-  })
+describe('compare side by side, and saving a what-if to compare', () => {
   it("each option's chance with core's uncertainty and main driver under it, each aim's most-likely line, and who brought each differing figure in: all verbatim, nothing ranked", () => {
     const { container } = render(<ScenarioComparisonView c={PAIR} />)
     expect([...container.querySelectorAll('[data-compare-side]')].map((e) => e.getAttribute('data-compare-kind'))).toEqual(['scenario', 'whatif'])
@@ -205,18 +171,19 @@ describe('compare side by side: two sides from this scenario, its versions, its 
     expect([...container.querySelectorAll('[data-compare-figure="differs"] [data-compare-by]')].map((e) => e.textContent)).toEqual(['Ada', 'Ada, in this what-if'])
     expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
   })
-  it('save a what-if: a figure core lets the person set, typed as they type it, and a name; posted on the version shown with an op, then set beside this scenario', async () => {
+  it('save a what-if: a figure core lets the person set, typed as they type it, and a name; posted on the version shown with an op, then handed back by its id', async () => {
     routed()
+    const saved = vi.fn()
     useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: null, version: { id: 41, n: 2, label: 'v2', changed: [] },
       model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: { prompt: 'Tickets a week today', ask: 'Type a number of tickets a week' } } },
         { id: 'aim', heading: 'Reach 100', figure: null }] } } as never })
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={saved} />)
     const form = await screen.findByTestId('whatif-save')
     expect([...(within(form).getByTestId('whatif-save-figure') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['today'])
     fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '70' } })
     fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Quieter week' } })
     fireEvent.click(within(form).getByTestId('whatif-save-go'))
-    await waitFor(() => expect(paths.filter((p) => p.startsWith('/api/compare')).at(-1)).toBe('/api/compare?a=s_a&b=w_8'))
+    await waitFor(() => expect(saved).toHaveBeenCalledWith('w_8'))
     const posted = paths.find((p) => p.startsWith('POST /api/scenarios/s_a/whatifs'))!
     const body = JSON.parse(posted.slice('POST /api/scenarios/s_a/whatifs '.length)) as { base: number; name: string; edits: unknown; op: string }
     expect([body.base, body.name, body.edits]).toEqual([41, 'Quieter week', [{ quantity: 'today', typed: '70' }]])
@@ -227,7 +194,7 @@ describe('compare side by side: two sides from this scenario, its versions, its 
     routed()
     useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: { id: 9 }, version: { id: 41, n: 2, label: 'v2', changed: [] },
       model: { cards: [{ id: 'today', heading: 'today', figure: { text: '80 tickets/week', title: 'T', edit: null } }] } } as never })
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={() => {}} />)
     expect((await screen.findByTestId('whatif-save-waiting')).textContent).toBe('Approve or set aside the waiting change to save a what-if here.')
     expect(screen.queryByTestId('whatif-save')).toBeNull()
     useViewStore.setState({ view: null, sid: null })
@@ -240,7 +207,7 @@ describe('a what-if of several figures, and the change that moves each chance mo
       { id: 'target', heading: 'target', figure: { text: '100 tickets/week', title: 'T', edit: { prompt: 'The target', ask: 'A' } } }] } } as never })
   it('"Add another figure" takes the next figure; both are posted as typed, in order, with one op', async () => {
     routed(); twoFigures()
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={() => {}} />)
     const form = await screen.findByTestId('whatif-save')
     fireEvent.click(within(form).getByTestId('whatif-save-more'))
     const [f1, f2] = within(form).getAllByTestId('whatif-save-figure') as HTMLSelectElement[]
@@ -256,7 +223,7 @@ describe('a what-if of several figures, and the change that moves each chance mo
   })
   it('the same figure twice is said and cannot be saved', async () => {
     routed(); twoFigures()
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={() => {}} />)
     const form = await screen.findByTestId('whatif-save')
     fireEvent.click(within(form).getByTestId('whatif-save-more'))
     fireEvent.change(within(form).getAllByTestId('whatif-save-figure')[1]!, { target: { value: 'today' } })
@@ -277,33 +244,22 @@ describe('a what-if of several figures, and the change that moves each chance mo
 })
 
 describe('Codex review-ui items 2 and 4: a compare and a what-if draft stay with the scenario and version they started on', () => {
-  it('switching scenario clears the result shown and drops an answer still on its way for the scenario left', async () => {
+  it('a new pair clears the result shown and drops an answer still on its way for the pair left', async () => {
     let land: (r: Response) => void = () => {}
-    routed()
-    const base = (async (u: unknown, init?: { method?: string; body?: string }) => {
+    setTeamFetch((async (u: unknown) => {
       const p = String(u); paths.push(p)
-      if (p.startsWith('/api/compare?a=s_a') && paths.filter((x) => x.startsWith('/api/compare')).length === 2) return new Promise<Response>((r) => { land = r })
-      const body = p === '/api/me' ? { scenarios: [{ id: 's_a', title: 'Rota' }, { id: 's_c', title: 'Launch' }] }
-        : p.endsWith('/whatifs') ? { whatifs: p.includes('s_a') ? [WHATIF] : [] } : p.endsWith('/versions') ? { versions: [{ n: 1 }, { n: 2 }] } : PAIR
-      return new Response(JSON.stringify(body), { status: init?.method === 'POST' ? 201 : 200 })
-    })
-    setTeamFetch(base as unknown as typeof fetch)
-    const { rerender } = render(<CompareWithScenario sid="s_a" />)
-    await waitFor(() => expect((screen.getByTestId('scenario-compare-pick') as HTMLSelectElement).value).toBe('w_7'))
-    // A's first comparison lands and is drawn; switching to C clears it.
-    fireEvent.click(screen.getByTestId('scenario-compare-go'))
+      if (p === '/api/compare?a=s_a&b=w_7') return new Promise<Response>((r) => { land = r })
+      return new Response(JSON.stringify(PAIR), { status: 200 })
+    }) as unknown as typeof fetch)
+    const { rerender } = render(<SideBySide a="s_a" b="w_7" />)
+    await waitFor(() => expect(paths).toContain('/api/compare?a=s_a&b=w_7'))
+    rerender(<SideBySide a="s_c" b="s_a" />)
     await screen.findByTestId('scenario-compare-out')
-    // A's second comparison is still on its way when the person switches to C.
-    fireEvent.click(screen.getByTestId('scenario-compare-go'))
-    await waitFor(() => expect(paths.filter((x) => x.startsWith('/api/compare')).length).toBe(2))
-    rerender(<CompareWithScenario sid="s_c" />)
-    expect(screen.queryByTestId('scenario-compare-out')).toBeNull()
-    land(new Response(JSON.stringify(PAIR), { status: 200 }))
+    // The left pair's answer lands late: the drawn comparison stays the new pair's, and nothing is said.
+    land(new Response(JSON.stringify({ ...PAIR, a: { ...PAIR.a, name: 'LATE' } }), { status: 200 }))
     await new Promise((r) => setTimeout(r, 20))
-    expect(screen.queryByTestId('scenario-compare-out')).toBeNull()
+    expect(screen.queryByText('LATE')).toBeNull()
     expect(screen.queryByTestId('scenario-compare-error')).toBeNull()
-    // C's own pickers: its first side is C now.
-    await waitFor(() => expect((screen.getByTestId('scenario-compare-pick-a') as HTMLSelectElement).value).toBe('s_c'))
   })
 
   const two = (over: Record<string, unknown> = {}) => useViewStore.setState({ sid: 's_a', at: null, error: null, stale: false, view: { proposal: null, version: { id: 41, n: 2, label: 'v2', changed: [] },
@@ -312,7 +268,7 @@ describe('Codex review-ui items 2 and 4: a compare and a what-if draft stay with
   /** Start a draft of today = 95 named 'Busier', then let `change` happen, then press Save: what is said, and what was posted. */
   async function drafted(change: () => void) {
     routed(); two()
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={() => {}} />)
     const form = await screen.findByTestId('whatif-save')
     fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '95' } })
     fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Busier' } })
@@ -339,7 +295,7 @@ describe('Codex review-ui items 2 and 4: a compare and a what-if draft stay with
   })
   it('Start again clears the draft, and a what-if then saves on the version shown', async () => {
     routed(); two()
-    render(<CompareWithScenario sid="s_a" />)
+    render(<WhatIfSave sid="s_a" onSaved={() => {}} />)
     let form = await screen.findByTestId('whatif-save')
     fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '95' } })
     act(() => two({ version: { id: 42, n: 3, label: 'v3', changed: [] } }))

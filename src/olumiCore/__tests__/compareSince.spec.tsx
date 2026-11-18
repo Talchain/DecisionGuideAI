@@ -40,7 +40,7 @@ const TWO_CHANGES: Since = {
 
 const show = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
-  render(<CoreCompareTab />)
+  render(<SinceVersion since={view.model!.run!.since!} />)
 }
 beforeEach(() => {
   vi.stubEnv('VITE_OLUMI_CORE', '1')
@@ -49,7 +49,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', at: null } as never) })
 const at = (p: string) => [...document.querySelectorAll<HTMLElement>(`[data-view="${p}"]`)]
 
-describe('Since the version before, in the Compare tab, on the served A6 journey', () => {
+describe('Since the version before, under a save\'s receipt in the chat (SinceVersion), on the served A6 journey', () => {
   it('SI1: the latest version (3) beside version 2: core\'s heading, each option\'s line verbatim, and its two marks at core\'s fractions', () => {
     const view = fixture('ui9-a6-since-v3'), since = view.model!.run!.since!
     expect([view.version!.n, since.from.n, since.to.n, since.lines.length]).toEqual([3, 2, 3, 2]) // control: the field is served here
@@ -86,10 +86,10 @@ describe('Since the version before, in the Compare tab, on the served A6 journey
     expect([track.getAttribute('data-first'), track.getAttribute('data-second')]).toEqual(['48', '1'])
   })
 
-  it('SI3: no field (a View without `since`), nothing is drawn and the rest of the tab is unchanged', () => {
-    const view = fixture('ui9-a6-since-v3'), run = { ...view.model!.run! } as Record<string, unknown>
-    delete run.since
-    show({ ...view, model: { ...view.model!, run: run as never } })
+  it('SI3 (18 Nov redesign): the Compare tab no longer draws this card; it reads the same field into its own lists (compareTab.spec)', () => {
+    const view = fixture('ui9-a6-since-v3')
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
+    render(<CoreCompareTab />)
     expect(screen.queryByTestId('core-compare-since')).toBeNull()
     expect(screen.getByTestId('core-compare-tab')).toBeInTheDocument()
   })
