@@ -119,6 +119,47 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
   })
 })
 
+describe('polish 12: a gap is said once, and a method row with no method of its own carries core\'s ask as its press', () => {
+  const asks = (v: View) => v.model_words as unknown as Record<string, string>
+  it('the risk ask is the press of the sharpen row about risks, not a second row in Questions; pressing it fills core\'s draft', () => {
+    const view = read('app-launch.view.json'), w = asks(view)
+    expect(view.model!.sharpen.find((x) => x.id === 'risk_count')!.move).toBe('pre_mortem')
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const all = screen.getAllByTestId('reasoning-widen-askRisk')
+    expect(all, 'said once').toHaveLength(1)
+    expect(all[0]!.closest('[data-sharpen="risk_count"]'), 'inside its own sharpen row').not.toBeNull()
+    expect(screen.getByTestId('reasoning-questions').contains(all[0]!)).toBe(false)
+    expect(all[0]!.textContent).toBe(w.askRisk)
+    fireEvent.click(all[0]!)
+    expect(chat.prefill.mock.calls).toEqual([[w.askRiskDraft]])
+  })
+  it('the option ask is the press of the widen-options row, so that row is no dead end', () => {
+    const view = structuredClone(read('app-launch.view.json')), w = asks(view)
+    view.model!.sharpen.push({ id: 'option_breadth', lead: 'You are comparing two options.', emphasis: 'A materially different route widens the comparison.', rationale: 'r', move: 'widen_options' } as never)
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const ask = screen.getAllByTestId('reasoning-widen-askOption')
+    expect(ask).toHaveLength(1)
+    expect(ask[0]!.closest('[data-sharpen="option_breadth"]')).not.toBeNull()
+    expect(ask[0]!.textContent).toBe(w.askOption)
+  })
+  it('CONTRAST: with no sharpen row about it, the ask stays in Questions; and where core offers the row\'s method, the method press stands alone', () => {
+    const view = structuredClone(read('app-launch.view.json'))
+    view.model!.sharpen = []
+    ready(view)
+    const { unmount } = render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-questions').contains(screen.getByTestId('reasoning-widen-askRisk'))).toBe(true)
+    unmount()
+    const offered = structuredClone(read('app-launch.view.json'))
+    offered.session!.methods.push({ ...offered.session!.methods[0]!, id: 'pre_mortem', text: 'Imagine it failed' })
+    ready(offered)
+    render(<ViewReasoningBlock />)
+    expect(screen.queryAllByTestId('reasoning-widen-askRisk')).toHaveLength(0)
+    expect(document.querySelector('[data-sharpen="risk_count"] [data-testid="reasoning-method"]')?.textContent).toBe('Imagine it failed')
+  })
+})
+
 describe('challenge your thinking', () => {
   it('capacity: each challenged card once, its heading and core\'s reason; a press focuses that card by its id', () => {
     const view = real('capacity'), cs = challengedCards(view.model!)
