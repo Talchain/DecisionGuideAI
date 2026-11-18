@@ -5,6 +5,7 @@ import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
 import { CommitmentPanel } from './CommitmentPanel'
+import { SavedActions } from './SavedActions'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel, inviteNameKey } from './InvitePanel'
@@ -162,7 +163,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
     ),
     reveal: <fieldset disabled={past} className="contents"><RevealStep sid={sid} view={view} onWrote={refresh} /></fieldset>,
     differ: <fieldset disabled={past} className="contents"><WhereWeDiffer sid={sid} view={view} onWrote={refresh} /></fieldset>,
-    commit: <fieldset disabled={past} className="contents"><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="form" /></fieldset>,
+    commit: <fieldset disabled={past} className="contents"><SavedActions sid={sid} view={view} /><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="form" /></fieldset>,
     outcome: view.collab.commitments.length === 0
       ? <p className={META} data-testid="team-outcome-later">{STEP_WORDS.outcomeLater}</p>
       : <fieldset disabled={past} className="contents"><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="list" /></fieldset>,

@@ -74,6 +74,8 @@ export function stepDone(view: View, id: StepId): boolean {
 
 export function stepState(view: View, id: StepId): StepState {
   if (id === currentStep(view)) return 'now'
+  // Once an action is recorded, "What happened" is what comes next for it: not "Later" (Codex 008 finding 6).
+  if (id === 'outcome' && !stepDone(view, id) && view.collab.commitments.length > 0) return 'now'
   return stepDone(view, id) ? 'done' : 'later'
 }
 

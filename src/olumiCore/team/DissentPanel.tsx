@@ -28,6 +28,20 @@ export function DissentPanel({ sid, view, onWrote }: { sid: string; view: View; 
 /** A dissent as the team reads it: its holder's confirmed words where they confirmed them, else the words the model records (R2 review P1-4). */
 export const dissentWords = (d: Dissent): string => d.confirmed?.words ?? d.position
 
+/** A dissent's writer by name: the stored holder name where core has one, else the member core names as its holder (`holder_id`, the same
+ *  name the owners list and the header show). `null` when neither names anyone, so no line ever opens on a bare colon. */
+export function dissentHolderName(c: View['collab'], d: Dissent): string | null {
+  const stored = d.holder.trim()
+  if (stored !== '') return d.holder
+  const member = d.holder_id === null ? undefined : c.owners.find((o) => o.id === d.holder_id)
+  return member !== undefined && member.name.trim() !== '' ? member.name : null
+}
+/** The dissent as one line: its writer's name, a colon, their words; just the words when no name is known. */
+export const dissentLine = (c: View['collab'], d: Dissent): string => {
+  const name = dissentHolderName(c, d)
+  return name === null ? dissentWords(d) : `${name}: ${dissentWords(d)}`
+}
+
 function DissentRow({ sid, d, you, onWrote }: { sid: string; d: Dissent; you: string; onWrote: () => Promise<boolean> }): JSX.Element {
   // Core's R2b fields (olumi.view/3 at d1fe5e2): the member the holder names, and the holder's confirmed words.
   const confirmed = d.confirmed ?? null

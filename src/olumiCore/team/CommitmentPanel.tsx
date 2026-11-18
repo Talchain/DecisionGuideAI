@@ -5,7 +5,7 @@ import { useDraft } from './drafts'
 import { OutcomePanel } from './OutcomePanel'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, GO, H, LABEL, META, QUIET } from './ui'
-import { dissentWords } from './DissentPanel'
+import { dissentHolderName, dissentLine } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
@@ -96,7 +96,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
             {k.keeps.map(labelOf).some((l) => l !== null) && <p className={META} data-testid={`team-commitment-keeps-${k.id}`}>Keeps open: {k.keeps.map(labelOf).filter((l): l is string => l !== null).join('; ')}</p>}
             {/* Each kept dissent's tell, in its holder's own words (board 20). */}
             {c.dissent.filter((x) => k.keeps.includes(x.id) && x.confirmed?.tell != null).map((x) => (
-              <p key={x.id} className={`${META} whitespace-pre-wrap break-words`} data-testid={`team-commitment-keeps-tell-${k.id}-${x.id}`}>{x.holder}: what would tell them they are wrong: {x.confirmed!.tell}</p>
+              <p key={x.id} className={`${META} whitespace-pre-wrap break-words`} data-testid={`team-commitment-keeps-tell-${k.id}-${x.id}`}>{dissentHolderName(c, x) === null ? 'What' : `${dissentHolderName(c, x)}: what`} would tell them they are wrong: {x.confirmed!.tell}</p>
             ))}
             <OutcomePanel sid={sid} commitment={k} dissent={c.dissent} labelOf={labelOf} onWrote={onWrote} />
           </li>
@@ -109,7 +109,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
           <CommitForm sid={sid} view={view} onWrote={onWrote} />
         </>
       ) : !open ? (
-        <div><button type="button" className={GO} data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</button></div>
+        <div><button type="button" className={c.commitments.length > 0 ? QUIET : GO} data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</button></div>
       ) : (
         <div className={CARD} data-testid="team-commitment-form">
           <label htmlFor="team-c-action" className={LABEL}>The next action</label>
@@ -163,8 +163,8 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
                   <input type="checkbox" className="mt-1" data-testid={`team-c-keep-${x.id}`} checked={keeps.includes(x.id)} disabled={busy}
                     onChange={(e) => put({ keeps: e.target.checked ? [...keeps, x.id] : keeps.filter((id) => id !== x.id) })} />
                   <span className="grid gap-0.5 break-words">
-                    <span>{x.holder}: {dissentWords(x)}</span>
-                    {x.confirmed?.tell != null && <span className={META} data-testid={`team-c-keep-tell-${x.id}`}>What would tell {x.holder} they are wrong: {x.confirmed.tell}</span>}
+                    <span data-testid={`team-c-keep-words-${x.id}`}>{dissentLine(c, x)}</span>
+                    {x.confirmed?.tell != null && <span className={META} data-testid={`team-c-keep-tell-${x.id}`}>What would tell {dissentHolderName(c, x) ?? 'them'} they are wrong: {x.confirmed.tell}</span>}
                   </span>
                 </label>
               ))}
