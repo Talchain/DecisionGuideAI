@@ -89,6 +89,8 @@ export function writeTargetsAddress(path: string, hash: string): boolean {
  * leave every caller's busy flag, and the View poll's reading counter, set for good, since each clears only when the call ends.
  */
 export const CALL_TIMEOUT_MS = 20_000
+/** A write may run an AI turn on the server (`considerEvidence`), so it gets longer than a read; a write that is cut is uncertain, never an empty success. */
+export const WRITE_CALL_TIMEOUT_MS = 120_000
 
 export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   if (method === 'POST' && typeof window !== 'undefined' && !writeTargetsAddress(path, window.location.hash)) throw new TeamApiError(409, NOT_THIS_SCENARIO)
@@ -96,7 +98,7 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
   // One timer covers the request and the reading of its body. It aborts the request AND rejects, so a fetch that ignores its signal still ends.
   const ctl = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
-  const timedOut = new Promise<never>((_, reject) => { timer = setTimeout(() => { ctl.abort(); reject(new Error('timeout')) }, CALL_TIMEOUT_MS) })
+  const timedOut = new Promise<never>((_, reject) => { timer = setTimeout(() => { ctl.abort(); reject(new Error('timeout')) }, method === 'GET' ? CALL_TIMEOUT_MS : WRITE_CALL_TIMEOUT_MS) })
   timedOut.catch(() => {})
   try {
     return await settled<T>(method, path, body, ctl.signal, timedOut)
@@ -135,8 +137,11 @@ async function settled<T>(method: 'GET' | 'POST', path: string, body: unknown, s
     const code = (json as { code?: unknown } | null)?.code
     throw new TeamApiError(res.status, message, method === 'POST' && res.status >= 500, typeof code === 'string' ? code : null)
   }
-  // A read whose body did not arrive whole is a failed read, never an empty scenario. (A write that was answered 2xx was saved, whatever its body.)
+  // A read whose body did not arrive whole is a failed read, never an empty scenario.
   if (method === 'GET' && !readable) throw new TeamApiError(0, READ_FAILED)
+  // A write answered 2xx whose body never arrived (stalled, cut or unreadable) is not known to have succeeded or what it made (an invite's id and link
+  // are in that body): uncertain, so each caller's existing uncertain path runs and its draft stays. Never `{}` as a success.
+  if (!readable) throw new TeamApiError(res.status, UNCERTAIN_WRITE, true)
   return json as T
 }
 
