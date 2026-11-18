@@ -69,7 +69,6 @@ import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
 import { registerRevealReturnCamera } from './revealReturn'
 import { registerShowCameraPort, showHolds } from './v12/showInWorkspace/cameraPort'
 import { makeShowCameraPort } from './v12/showInWorkspace/canvasSide'
-import { useRevealLanding } from './revealLanding'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
 import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
@@ -414,8 +413,6 @@ function ViewFlow() {
   const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
-  // P1 (DL 10 Nov): the dock lands on the contested card's panel, once per reveal (./revealLanding.ts).
-  useRevealLanding()
   useOpenInView(movedAt)
   // AI and canvas as one partner: a new reply that points at cards brings them into view and pulses their ring once (./replyInView.ts).
   useReplyInView(movedAt, activity)

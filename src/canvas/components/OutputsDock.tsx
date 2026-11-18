@@ -822,8 +822,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
   const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
-  // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the tab strip
-  // and the selection footer step out of its way (the prototype's Reveal dock is the one panel).
+  // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the selection
+  // footer and the composer step out of its way. The tab strip stays (18 Nov: a detail never hides the dock's navigation).
   const revealOpen = useReveal((r) => r.selected !== null || r.evidence !== null) && isOlumiCoreLane()
   // A member core holds until they have given or skipped their own view (the View's `gated`) lands on it, in the Team tab, and no Olumi
   // note is drawn until they have (PILOT-PACK 1.1, src/olumiCore/ownViewFirst.ts). The landing happens once per scenario and person: once
@@ -3341,7 +3341,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             factors-to-verify badge exempt, `shrink-0` on every control, an
             icon rather than an ASCII glyph on the collapse button — live in
             `workspaceShell/WorkspaceShellTabStrip.tsx` with the reasoning. */}
-        {effectiveIsOpen && !briefPanel && !(revealOpen && effectiveActiveTab === 'team') && (
+        {effectiveIsOpen && !briefPanel && (
           <WorkspaceShellTabStrip
             surfaces={OUTPUT_TABS}
             activeTab={effectiveActiveTab}
