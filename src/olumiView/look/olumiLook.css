@@ -451,7 +451,7 @@
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(64px * var(--o-s)), 1fr) minmax(0, 55%); align-items: center;
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
-.olumi-look .ok-dt-strip-lane { position: relative; display: block; height: calc(8px * var(--o-s)); border-radius: 3px; background: var(--border-default); }
+.olumi-look .ok-dt-strip-lane { position: relative; display: block; height: calc(8px * var(--o-s)); border-radius: 999px; background: var(--border-default); }
 .olumi-look .ok-dt-strip-band { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--text-header) 45%, transparent); }
 .olumi-look .ok-dt-olumi-band { background: color-mix(in srgb, var(--info) 60%, transparent); }
 .olumi-look .ok-dt-strip-mid { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
