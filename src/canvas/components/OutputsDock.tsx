@@ -24,7 +24,8 @@
  */
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Users, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -65,6 +66,7 @@ import {
   DOCK_PANEL_DOM_ID,
   DOCK_TABLIST_LABEL,
   railTabDomId,
+  LANE_TAB_ICON,
   tabDomId,
 } from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
@@ -3403,20 +3405,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           data-testid="outputs-dock-rail-tablist"
         >
           {OUTPUT_TABS.map(tab => {
-            const Icon =
-              tab.id === 'results'
-                ? BarChart3
-                : tab.id === 'analysisNew'
-                ? FlaskConical
-                : tab.id === 'compare'
-                ? Shuffle
-                : tab.id === 'journey'
-                ? Clock
-                : tab.id === 'olumi'
-                ? MessageSquare
-                : tab.id === 'team'
-                ? Users
-                : Activity
             return (
               <button
                 key={tab.id}
@@ -3459,7 +3447,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 aria-label={tab.label}
                 title={tab.label}
               >
-                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                <OkIcon id={LANE_TAB_ICON[tab.id]} decorative inherit={tab.id !== 'olumi'} />
               </button>
             )
           })}
@@ -4020,7 +4008,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                     data-testid="conv-results-indicator"
                     onClick={() => setConvIndicatorVisible(false)}
                   >
-                    <MessageCircle className="w-3 h-3 text-text-light flex-shrink-0" aria-hidden="true" />
+                    <OkIcon id="talk-first" size={14} decorative />
                     <span className={`${typography.caption} text-text-light`}>
                       Updated from conversation
                     </span>
@@ -4076,7 +4064,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                         role="status"
                         data-testid="stale-results-banner"
                       >
-                        <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
+                        <OkIcon id="stale-analysis" size={14} decorative />
                         <span className={`${typography.caption} text-text-header`}>
                           Showing results from previous analysis
                         </span>
@@ -4680,7 +4668,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             data-testid="scenario-comparison-loading"
           >
             <div className="bg-panel px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin text-info" aria-hidden="true" />
+              <OkIcon id="olumi-thinking" decorative inherit className="animate-spin text-info" />
               <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>
           </div>

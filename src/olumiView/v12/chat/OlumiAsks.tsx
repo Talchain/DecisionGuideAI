@@ -15,9 +15,9 @@
  * question core rewrites, or another scenario's question at the same place, never shows words typed for a different question (Codex, 17 Nov).
  */
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { OkIcon, OkIconButton } from '../../look/icons'
+import { FoldChevron } from '../../look/FoldChevron'
 import { V10_METHODS } from '../../../presentation/V10MethodChips'
 import { HIT_44 } from '../../../styles/hitArea'
 
@@ -78,8 +78,8 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
           ))}
         </div>
         <button type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} title={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
-          className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
-          {open ? <ChevronUp aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" /> : <ChevronDown aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />}
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
+          <FoldChevron open={open} />
         </button>
       </div>
       {!open ? null : (
@@ -102,10 +102,10 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
           )}
           <div className="flex flex-wrap items-center gap-1">
             {own || typed.trim() === '' ? null : <button type="button" disabled={held || sending} onClick={() => void use()} className={USE_CLASS} data-testid="view-question-use">{USE_THIS}</button>}
-            {i >= n - 1 ? null : <OkIconButton id="skip-question" testid="view-question-skip" size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" onClick={() => setAt(i + 1)} />}
+            {i >= n - 1 ? null : <OkIconButton id="skip-question" testid="view-question-skip" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={() => setAt(i + 1)} />}
             <span role="group" aria-label="Ways to ask for more" className="ml-auto flex items-center gap-0.5" data-testid="view-question-more">
               {V10_METHODS.map(({ key, label }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-question-method-${key}`} size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" disabled={held} onClick={() => onMethod(key)} />
+                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-question-method-${key}`} className="h-7 w-7 rounded-md hover:bg-panel-hover" disabled={held} onClick={() => onMethod(key)} />
               ))}
             </span>
           </div>

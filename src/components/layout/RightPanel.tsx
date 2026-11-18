@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import styles from './RightPanel.module.css'
 
 interface RightPanelProps {
@@ -30,7 +30,7 @@ export function RightPanel({ children, width = '32rem', className, title, onClos
               className={styles.closeButton}
               aria-label="Close panel"
             >
-              <X size={18} />
+              <OkIcon id="cancel-close" decorative inherit />
             </button>
           )}
         </header>

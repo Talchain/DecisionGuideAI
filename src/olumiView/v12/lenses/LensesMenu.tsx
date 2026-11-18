@@ -4,7 +4,7 @@
  * heads; everything about the scenario is the View's, verbatim. Olumi's own contributions stay Olumi's: a figure's author line is core's words.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Layers, X } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import Tooltip from '../../../components/Tooltip'
 import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
 import { typography } from '../../../styles/typography'
@@ -68,7 +68,7 @@ export function LensesMenu(): JSX.Element | null {
         <button type="button" className={on ? styles.iconButtonActive : styles.iconButton} aria-label={NO_LAYER_LABEL} aria-haspopup="menu" aria-expanded={menu} aria-pressed={on}
           data-testid={`${LENSES_TESTID}-button`}
           onClick={() => { setPanel(false); setMenu((m) => { if (!m) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: LENSES_TESTID })); return !m }) }}>
-          <Layers className={styles.icon} aria-hidden="true" />
+          <OkIcon id="lenses" decorative inherit />
         </button>
       </Tooltip>
       {menu ? (
@@ -110,7 +110,7 @@ function Head({ title, tag = null, count = null, onClose }: { title: string; tag
       {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
       {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
       <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
-        <X className="h-4 w-4" aria-hidden="true" />
+        <OkIcon id="cancel-close" decorative inherit />
       </button>
     </div>
   )

@@ -6,7 +6,7 @@
  * mark. Nothing is reworded, reordered or dropped.
  */
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { FoldChevron } from '../../look/FoldChevron'
 import type { ViewCard } from '../../client'
 import { typography } from '../../../styles/typography'
 import { OlumiMark } from './marks'
@@ -21,13 +21,13 @@ export function RestsOn({ card, open: initial }: { card: ViewCard; open: boolean
     <div className="nodrag grid min-w-0 gap-1" data-rests-on-card={card.id}>
       <button type="button" aria-expanded={open} data-testid={`rests-on-${card.id}`} onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
         className={`${typography.viewLabel} inline-flex min-h-[24px] items-center gap-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
-        {RESTS_ON(premises.length)}{open ? <ChevronUp aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" /> : <ChevronDown aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />}
+        {RESTS_ON(premises.length)}<FoldChevron open={open} />
       </button>
       {open ? (
         <ul className="m-0 grid list-none gap-1 p-0" data-testid={`rests-on-${card.id}-list`}>
           {premises.map((p, i) => (
             <li key={p.id ?? i} title={p.title} className={`${typography.viewLabel} flex items-start gap-1 text-text-body`} data-view={`${card.id}.premises.${i}.text`}>
-              {p.olumi != null ? <OlumiMark words={p.olumi.title} size={12} /> : <span aria-hidden="true" className="text-text-light">{p.glyph}</span>}
+              {p.olumi != null ? <OlumiMark words={p.olumi.title} /> : <span aria-hidden="true" className="text-text-light">{p.glyph}</span>}
               <span className="min-w-0 break-words">{p.text}</span>
             </li>
           ))}

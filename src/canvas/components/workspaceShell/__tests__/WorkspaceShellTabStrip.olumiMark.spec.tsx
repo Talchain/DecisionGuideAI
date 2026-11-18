@@ -42,7 +42,7 @@ describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
   it('draws the mark and no visible word, on every lane', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-olumi')
-    expect(tab.querySelector('[data-testid="outputs-dock-tab-olumi-mark"][data-icon="olumi-ai"]')).not.toBeNull()
+    expect(tab.querySelector('[data-testid="outputs-dock-tab-olumi-mark"] svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(tab.textContent).toBe('')
   })
 

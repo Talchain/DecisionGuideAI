@@ -58,7 +58,7 @@
  */
 
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Minus, Plus, Maximize, MoreHorizontal, Percent, LayoutGrid, Eye, HelpCircle } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
@@ -156,7 +156,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
             aria-label="Zoom out"
             onClick={onZoomOut}
           >
-            <Minus className={styles.icon} aria-hidden="true" />
+            <OkIcon id="zoom" variant="alt" decorative inherit />
           </button>
         </Tooltip>
 
@@ -167,7 +167,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
             aria-label="Zoom in"
             onClick={onZoomIn}
           >
-            <Plus className={styles.icon} aria-hidden="true" />
+            <OkIcon id="zoom" decorative inherit />
           </button>
         </Tooltip>
 
@@ -178,7 +178,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
             aria-label="Fit to view"
             onClick={onFitView}
           >
-            <Maximize className={styles.icon} aria-hidden="true" />
+            <OkIcon id="zoom-fit" decorative inherit />
           </button>
         </Tooltip>
 
@@ -195,7 +195,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
               data-testid="viewport-more"
               onClick={() => setMenuOpen(o => !o)}
             >
-              <MoreHorizontal className={styles.icon} aria-hidden="true" />
+              <OkIcon id="more" decorative inherit />
             </button>
           </Tooltip>
 
@@ -216,7 +216,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 aria-label={`Zoom to 100% (now ${zoomPct})`}
                 onClick={run(onZoomReset)}
               >
-                <Percent aria-hidden="true" />
+                <OkIcon id="zoom-percent" size={14} decorative inherit />
                 <span>Zoom to 100%</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">{zoomPct}</span>
               </button>
@@ -232,7 +232,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 aria-keyshortcuts="Shift+A"
                 onClick={run(onAutoArrange)}
               >
-                <LayoutGrid aria-hidden="true" />
+                <OkIcon id="layout-grid" size={14} decorative inherit />
                 <span>Auto-arrange</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">⇧A</span>
               </button>
@@ -246,7 +246,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 data-testid="viewport-detailed-view"
                 onClick={run(() => setViewMode(isDetailed ? 'standard' : 'expert'))}
               >
-                <Eye aria-hidden="true" />
+                <OkIcon id="level-simple-detailed" size={14} decorative inherit />
                 <span>Detailed view</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">{isDetailed ? 'On' : 'Off'}</span>
               </button>}
@@ -258,7 +258,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 aria-haspopup="dialog"
                 onClick={run(() => setLegendOpen(true))}
               >
-                <HelpCircle aria-hidden="true" />
+                <OkIcon id="key-legend" size={14} decorative inherit />
                 <span>How to read this</span>
               </button>}
             </div>

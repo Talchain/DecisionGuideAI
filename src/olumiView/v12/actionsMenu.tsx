@@ -5,8 +5,8 @@
  * stay beside it. Presses are the caller's (`onMethod`, `onTool`), so this file holds no write and imports nothing from ViewChat.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Calculator, MoreHorizontal } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { OkIcon } from '../look/icons'
 import { TOOL_WORDS, type Menu, type ToolId } from './actions'
 
 /** The menu's name for assistive technology (the same words the question menu always had). */
@@ -62,7 +62,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
     <span ref={root} className="relative inline-flex" data-testid="view-actions">
       <button type="button" aria-label={MORE_ACTIONS} title={MORE_ACTIONS} aria-haspopup="true" aria-expanded={open} data-testid="view-actions-button" onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
-        <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+        <OkIcon id="more" decorative inherit />
       </button>
       {!open ? null : (
         <div role="group" aria-label={ACTIONS_MENU_NAME} data-testid="view-actions-menu"
@@ -85,7 +85,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
                 gated question carries (DL, 08:5xZ: on a words board it sat under six rows); the mark gives it again as its hover and name. */}
             {onceWords === null ? null : (
               <p className={`${typography.viewPanelMeta} flex items-start gap-1.5 px-2 pb-1 text-text-light`} data-testid="view-method-prerequisite-once">
-                <Calculator className="mt-0.5 h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />{onceWords}
+                <OkIcon id="needs-analysis" size={14} decorative className="mt-0.5" />{onceWords}
               </p>
             )}
             {menu.methods.map((m) => (
@@ -96,7 +96,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
                   <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
                   {m.prerequisite === null || onceWords === null ? null : (
                     <span role="img" aria-label={m.prerequisite} title={m.prerequisite} className="mt-0.5 inline-flex flex-none text-text-light" data-testid="view-method-prerequisite">
-                      <Calculator className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+                      <OkIcon id="needs-analysis" size={14} decorative />
                     </span>
                   )}
                   {m.first ? <span className="sr-only"> ({FIRST_FOR_YOUR_GOAL})</span> : null}

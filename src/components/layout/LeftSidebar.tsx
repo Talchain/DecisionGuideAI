@@ -1,10 +1,5 @@
 import { useRef, useCallback, type ReactNode } from 'react'
-import {
-  Hand,
-  Plus,
-  Undo2,
-  MousePointer2,
-} from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import Tooltip from '../Tooltip'
 import styles from './CanvasFloatingToolbar.module.css'
 import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcuts'
@@ -171,7 +166,7 @@ export function LeftSidebar({
               data-testid="canvas-add-to-model"
               onClick={handleAddClick}
             >
-              <Plus className={styles.icon} aria-hidden="true" />
+              <OkIcon id="add" decorative inherit />
             </button>
           </Tooltip>
         </div>
@@ -198,7 +193,7 @@ export function LeftSidebar({
             data-testid="canvas-tool-select"
             onClick={interactionMode === 'select' ? undefined : onSelectClick}
           >
-            <MousePointer2 className={styles.icon} aria-hidden="true" />
+            <OkIcon id="selected-row" decorative inherit />
           </button>
         </Tooltip>
 
@@ -211,7 +206,7 @@ export function LeftSidebar({
             data-testid="canvas-tool-hand"
             onClick={interactionMode === 'hand' ? undefined : onSelectClick}
           >
-            <Hand className={styles.icon} aria-hidden="true" />
+            <OkIcon id="tool-hand" decorative inherit />
           </button>
         </Tooltip>
 
@@ -273,7 +268,7 @@ export function LeftSidebar({
             aria-disabled={undoUnavailable ? true : undefined}
             disabled={undoUnavailable ? false : !canUndo}
           >
-            <Undo2 className={styles.icon} aria-hidden="true" />
+            <OkIcon id="undo" decorative inherit />
           </button>
         </Tooltip>)}
 

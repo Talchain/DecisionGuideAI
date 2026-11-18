@@ -144,8 +144,10 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     fireEvent.scroll(scroll)
     const latest = getByTestId('view-chat-to-latest')
     expect(latest).toHaveAccessibleName('Go to the latest message')
-    expect(latest.textContent).toBe('Latest')
-    expect(latest).toHaveClass('min-h-[44px]', 'min-w-[44px]', 'text-text-body', 'border-panel-border', 'bg-panel')
+    // CHANGED BY DESIGN (18 Nov, Paul: standard text that is not dynamic is an icon): the word is gone; the arrow, named by its accessible name and title, is the control.
+    expect(latest.textContent).toBe('')
+    expect(latest).toHaveAttribute('title', 'Go to the latest message')
+    expect(latest).toHaveClass('h-7', 'w-7', 'text-text-body', 'border-panel-border', 'bg-panel')
     expect(latest).not.toHaveClass('text-info')
     // CHANGED BY DESIGN (17 Nov, icons carry no hue): the arrow is the registry's go-latest icon (grey), drawn as an svg inside a decorative span.
     expect(latest.querySelector('span[aria-hidden="true"] svg.lucide-arrow-down-to-line')).not.toBeNull()
@@ -391,7 +393,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(getByTestId('view-chat-proposal')).not.toBeNull()
     height = 1600; grow()
     expect(scroll.scrollTop).toBe(100)
-    expect(getByTestId('view-chat-to-latest').textContent).toBe('Latest')
+    expect(getByTestId('view-chat-to-latest')).toHaveAccessibleName('Go to the latest message')
     // DL 15 Nov: "Latest" never covers the thread or the review's words at 1232: its own row under the thread, outside the scroller's box.
     expect(getByTestId('view-chat-to-latest').closest('[data-testid="view-chat-latest-row"]')).not.toBeNull()
     expect(scroll.parentElement!.contains(getByTestId('view-chat-to-latest')), 'not drawn over the thread').toBe(false)

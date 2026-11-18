@@ -225,7 +225,7 @@
 .dropdownMenuButton {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
@@ -447,7 +447,7 @@
 .coreShare {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 38px;
   padding: 0 16px;
   border: 1px solid rgba(38, 38, 38, 0.16);

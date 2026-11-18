@@ -2,7 +2,8 @@
  * THE ICON REGISTRY (Paul, 17 Nov: "we should utilise icons and images as a priority… Anything that's standard text should be an icon with a
  * hover-over"). One meaning per icon and one icon per meaning; each entry names its hover words, its colour (a token in `src/styles/brand.css`,
  * never a new colour), whether it stands alone or sits beside words, and its group. Designed in output/icon-system-20261117/icon-system.json.
- * This file is the registry only: no call site is migrated here.
+ * Since 18 Nov the lane's surfaces draw every icon through `OkIcon` / `OkIconButton` (the Olumi mark is the registry's `olumi-mark`, the one exception);
+ * `look/__tests__/oneIconSystem.spec.tsx` lists those files and fails on a direct lucide-react or Olumi-mark import.
  *
  * Words that come from core (data-view paths) are content: an icon may sit beside them, never replace them. Where an entry names such words it
  * carries `keepWords`, and a site draws them (or passes them as `words`, which becomes the hover and label).
@@ -18,7 +19,7 @@
  *  - Plus was Add and the "increases" chip: Plus stays Add; the effect chips are TrendingUp and TrendingDown.
  *  - SlidersHorizontal was "Not sized yet" and "Why, and what moves it": it stays "not sized"; the why is Waypoints.
  *  - User carried four provenance meanings: User stays a person's figure; "Asked by" is MessageSquareQuote, "kept by you" UserCheck, and
- *    "Keep the original" Undo2.
+ *    "Keep the original" Undo.
  *  - Olumi had two icons: OlumiAiIcon is Olumi's identity (the mark); Sparkles is only the "Olumi contributes" lead (two meanings, two icons,
  *    as marks.tsx says Olumi's mark is never a sparkle).
  *  - Info and HelpCircle: Info is "more detail", HelpCircle only "cannot confirm". Legacy Edit2, MoreVertical, ArrowLeftRight (outside
@@ -37,7 +38,7 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
+  AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, Undo, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
@@ -165,7 +166,7 @@ export const ICONS = {
   'person-mark': e(User, 'A person’s figure', '--text-header', 'icon-only', 'kind'),
   'asked-by': e(MessageSquareQuote, 'Asked by', '--text-light', 'icon-only', 'kind'),
   'kept-by-you': e(UserCheck, 'Kept by you', '--text-light', 'icon-only', 'kind'),
-  'keep-original': e(Undo2, 'Keep the original', '--text-body', 'icon-plus-word', 'kind', { keepWords: "core's label (Keep the original)" }),
+  'keep-original': e(Undo, 'Keep the original', '--text-body', 'icon-plus-word', 'kind', { keepWords: "core's label (Keep the original)" }),
   goal: e(Target, 'What did you come here for?', '--text-light', 'icon-plus-word', 'kind', { keepWords: 'GOAL_QUESTION stays visible (core session.goals question); the icon sits beside it, on --goal-light' }),
   option: e(Split, 'Option', '--text-light', 'icon-only', 'kind', { keepWords: "the option card heading from core stays; only the page's own 'Option:' lead is replaced" }),
   'rests-on': e(Landmark, 'Rests on', '--text-light', 'icon-only', 'kind', { keepWords: "the rests-on card heading from core stays; only the page's own 'Rests on:' lead is replaced" }),
@@ -236,6 +237,20 @@ export const ICONS = {
   import: e(Upload, 'Import', '--text-light', 'icon-plus-word', 'chrome'),
   duplicate: e(Copy, 'Duplicate', '--text-light', 'icon-only', 'chrome'),
   'selected-row': e(MousePointer2, 'Selected', '--text-light', 'icon-only', 'chrome'),
+  // chrome added 18 Nov for the lane's one icon system: every glyph on the lane's surfaces draws from here
+  scenario: e(Folder, 'Scenario', '--text-body', 'icon-only', 'chrome'),
+  share: e(Share2, 'Share', '--text-light', 'icon-only', 'chrome'),
+  'tab-journey': e(Clock, 'Journey', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
+  'fold-chevron': e(ChevronRight, 'Open or close', '--text-light', 'icon-only', 'chrome'),
+  undo: e(Undo2, 'Undo', '--text-light', 'icon-only', 'chrome', { alt: Redo2 }),
+  'tool-hand': e(Hand, 'Pan', '--text-light', 'icon-only', 'chrome'),
+  'zoom-fit': e(Maximize, 'Fit to screen', '--text-light', 'icon-only', 'chrome'),
+  'zoom-percent': e(Percent, 'Zoom level', '--text-light', 'icon-only', 'chrome'),
+  'layout-grid': e(LayoutGrid, 'Layout', '--text-light', 'icon-only', 'chrome'),
+  snapshot: e(Camera, 'Save a snapshot', '--text-light', 'icon-only', 'chrome'),
+  'new-scenario': e(FilePlus, 'New scenario', '--text-light', 'icon-only', 'chrome'),
+  shortcuts: e(Keyboard, 'Keyboard shortcuts', '--text-light', 'icon-only', 'chrome'),
+  cut: e(Scissors, 'Cut', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
 } as const satisfies Record<string, IconEntry>
 
@@ -267,6 +282,10 @@ interface OkIconProps {
   variant?: 'alt'
   /** Draw in the entry's `activeColour` (running, held, on). */
   active?: boolean
+  /** Take the colour of the control around it (a tab's active text, a danger row, a disabled button) instead of the entry's own token. */
+  inherit?: boolean
+  /** A test id on the drawn icon's wrapper. */
+  testid?: string
   /** Beside visible words: hidden from assistive tech. Default: true for icon-plus-word entries. */
   decorative?: boolean
   className?: string
@@ -293,21 +312,21 @@ function Glyph({ id, size, variant, className }: { id: IconId; size: number; var
 }
 
 /** The icon in its token colour. Beside words it is decorative; alone it is an image labelled and titled with the hover (or core's words). */
-export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, decorative, className }: OkIconProps) {
+export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, className }: OkIconProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
-  const cls = `inline-flex shrink-0 items-center justify-center ${colourClass(token)}${className ? ` ${className}` : ''}`
+  const cls = `inline-flex shrink-0 items-center justify-center${inherit ? '' : ` ${colourClass(token)}`}${className ? ` ${className}` : ''}`
   if (hidden) {
     return (
-      <span aria-hidden="true" className={cls}>
+      <span aria-hidden="true" className={cls} data-testid={testid}>
         <Glyph id={id} size={size} variant={variant} />
       </span>
     )
   }
   return (
-    <span role="img" aria-label={label} title={label} className={cls}>
+    <span role="img" aria-label={label} title={label} className={cls} data-testid={testid}>
       <Glyph id={id} size={size} variant={variant} />
     </span>
   )

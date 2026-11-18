@@ -104,7 +104,7 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
         : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
         : <span className="ok-dt-mini-none" />}
       <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} /></span>
-      {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} size={12} />}
+      {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} />}
     </div>
   )
 }
@@ -157,7 +157,7 @@ export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }):
     <div className="ok-dt-said" data-said-once-on={at}>
       {lines.map((s, i) => (
         <p key={i} className="ok-dt-said-line" title={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} />
-          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} size={12} /></span>}</p>
+          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} /></span>}</p>
       ))}
     </div>
   )

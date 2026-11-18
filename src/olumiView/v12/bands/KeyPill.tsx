@@ -5,7 +5,7 @@
  * size, doubted, unsettled, measures, target); only the items core sends are drawn. Row 2: Olumi's mark and a person's mark (fixed notation chrome).
  */
 import { useEffect, useState } from 'react'
-import { HelpCircle } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { ViewModel } from '../../client'
 import { cardLinks, drawnModelOf } from '../../layout'
@@ -58,7 +58,7 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
 
 function LineSample({ id, sample }: { id: KeyLineId | string; sample?: Sample }) {
   // D4 (17 Nov): the canvas's own small icon for a direction not settled (canvas/edges/ViewLinkEdge VERDICTLESS_ICON), never a "?" text glyph.
-  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none`} style={{ color: EFFECT_STROKES.neutral }}><HelpCircle size={14} strokeWidth={1.75} /></span>
+  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none`} style={{ color: EFFECT_STROKES.neutral }}><OkIcon id="cannot-confirm" size={14} decorative inherit /></span>
   const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
@@ -100,10 +100,10 @@ export function KeyLines() {
       )}
       <div className="flex items-center gap-3" data-key-row="marks">
         <span className={item} data-key-item="olumi-mark">
-          <OlumiMark words="Olumi's estimate" size={12} />Olumi&apos;s
+          <OlumiMark words="Olumi's estimate" />Olumi&apos;s
         </span>
         <span className={item} data-key-item="person-mark">
-          <svg viewBox="0 0 24 24" role="img" aria-label="A person's figure" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 12, height: 12, flex: 'none' }}><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 0 0-16 0" /></svg>a person&apos;s
+          <OkIcon id="person-mark" size={14} words="A person's figure" inherit />a person&apos;s
         </span>
       </div>
     </div>

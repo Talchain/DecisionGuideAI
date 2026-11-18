@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { autoUpdate, flip, FloatingFocusManager, offset, shift, useClick, useDismiss, useFloating, useInteractions, useMergeRefs, useRole } from '@floating-ui/react'
-import { Plus } from 'lucide-react'
+import { OkIcon } from './look/icons'
 import { typography } from '../styles/typography'
 import styles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { TeamApiError } from '../olumiCore/team/api'
@@ -105,11 +105,11 @@ export function AddFigure(): JSX.Element | null {
     <div className="relative nodrag nopan">
       {why !== null ? (
         <button type="button" disabled aria-disabled="true" className={styles.iconButton} aria-label={`Add to model: ${why}`} title={why} data-testid="canvas-add-to-model-held">
-          <Plus className={styles.icon} aria-hidden="true" />
+          <OkIcon id="add" decorative inherit />
         </button>
       ) : <button ref={reference} type="button"
         className={styles.iconButton} aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
-        <Plus className={styles.icon} aria-hidden="true" />
+        <OkIcon id="add" decorative inherit />
       </button>}
       {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}

@@ -133,7 +133,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
           <ChanceBand card={card} />
           <p className={`${typography.viewValue} mt-1 min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
-            {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} size={12} /></span>}
+            {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} /></span>}
           </p>
         </div>
       )
@@ -197,7 +197,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
         <span className="ok-pill ok-bound min-w-0">
           {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
-          {olumi ? <OlumiMark words={card.bound.olumi!.title} size={12} /> : null}
+          {olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null}
         </span>
       </p>
     )

@@ -7,7 +7,7 @@
  * a closed disclosure; a press opens every idea, readable, with its provenance. It is never only a pointer: Detailed draws no idea cards
  * (canvas.ts extras), so the words must stay reachable here.
  */
-import { Lightbulb } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { typography } from '../../../styles/typography'
 import { useViewStore } from '../../store'
 import { ideaMethodOf, keptIdeasOf, type KeptIdea } from '../ideas'
@@ -32,12 +32,12 @@ export function KeptIdeas(): JSX.Element | null {
   return (
     <details aria-label={KEPT_IDEAS_HEADING} className={typography.viewPanelBody} data-testid="view-kept-ideas">
       <summary className={`${typography.viewPanelHeading} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 text-text-header`} data-testid="view-kept-ideas-summary">
-        <Lightbulb className="h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />{keptIdeasWords(ideas.length)}
+        <OkIcon id="idea-keep" size={14} decorative />{keptIdeasWords(ideas.length)}
       </summary>
       <ul className="m-0 mt-2 list-none space-y-2 p-0">
         {ideas.map((i) => (
           <li key={i.id} className="flex items-start gap-1.5" data-testid="view-kept-idea" data-idea={i.id}>
-            <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" strokeWidth={1.75} aria-hidden="true" />
+            <OkIcon id="idea-keep" size={14} decorative className="mt-0.5" />
             <div>
               <p data-testid="view-kept-idea-text">{i.text}</p>
               <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-kept-idea-from">{provenanceOf(view, i).join(' · ')}</p>

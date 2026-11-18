@@ -27,10 +27,8 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Activity } from 'lucide-react'
 import Tooltip from '../components/Tooltip'
-import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
-import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvas/nodes/shared/canvasGlyphScale'
+import { OkIcon } from './look/icons'
 import { NODE_TOOLTIP_DELAY_MS } from '../canvas/nodes/shared/nodeTooltip'
 import { V10_CHANGE_COPY } from '../presentation/V10ChangeLens'
 import { VIEW_CARD_SLOTS, type ViewCardData } from '../canvas/nodes/ViewCardNode'
@@ -61,7 +59,7 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
   if (card.driver === null) return null
   const disclosure = (
     <span className="inline-flex items-start gap-1.5">
-      <OlumiAiIcon size={12} aria-hidden="true" data-testid={`view-driver-mark-${card.id}`} className={`mt-[2px] flex-none ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
+      <OkIcon id="olumi-mark" size={14} decorative testid={`view-driver-mark-${card.id}`} className="mt-[2px]" />
       <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
     </span>
   )
@@ -69,7 +67,7 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
     <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}>
       <span data-testid={`view-driver-${card.id}`} data-node-tooltip="true" role="img" tabIndex={0} aria-label={V10_CHANGE_COPY.driverAria}
         className="nodrag pointer-events-auto relative z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1">
-        <Activity aria-hidden="true" className="h-3 w-3" />
+        <OkIcon id="why-moves" size={14} decorative inherit />
       </span>
     </Tooltip>
   )

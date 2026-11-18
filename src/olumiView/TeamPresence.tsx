@@ -5,7 +5,7 @@
  * Nothing while there is no View, or when the scenario has one member and core names no one else.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { UserPlus } from 'lucide-react'
+import { OkIcon } from './look/icons'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { useUIStore } from '../stores/uiStore'
 import { typography } from '../styles/typography'
@@ -40,7 +40,7 @@ export function TeamPresence() {
           // UI restore stage 1, row 1 (DL ruling 10 Nov: no stray header notice): in the pill the sentence is the control's name and hover,
           // not a line of text beside Share (it widened the pill under the dock at 1232); the press is unchanged.
           className={`${typography.viewPanelMeta} inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-full border border-dashed border-panel-border text-text-body hover:border-text-header hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
-          title={unjoined.text} data-testid="team-presence-unjoined"><UserPlus size={14} aria-hidden="true" /><span className="sr-only" data-view="team_presence.unjoined.text">{unjoined.text}</span></button>
+          title={unjoined.text} data-testid="team-presence-unjoined"><OkIcon id="invite" decorative inherit /><span className="sr-only" data-view="team_presence.unjoined.text">{unjoined.text}</span></button>
       )}
     </span>
   )
