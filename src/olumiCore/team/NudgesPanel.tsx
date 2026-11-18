@@ -44,9 +44,13 @@ export function NudgesPanel({ sid, view, onWrote }: { sid: string; view: View; o
         </div>
       )}
       {open.map((k) => (
+        // The action's words keep a usable width (Codex UI review, 17 Nov: beside the button they were squeezed to about 100 px in the dock): the
+        // summary asks for 14rem, so in a narrow dock the button drops under it and the words take the whole row; in a wide place they share one.
         <div key={k.id} className="flex flex-wrap items-center gap-2" data-testid={`team-nudge-outcome-${k.id}`}>
-          <ClipboardCheck strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none text-text-light" />
-          <span className={`${BODY} min-w-0 flex-1 break-words`}>{k.action} <span className={META}>· {k.owner} · no outcome yet</span></span>
+          <span className={`${BODY} flex min-w-0 flex-[1_1_14rem] items-start gap-1.5`} data-testid={`team-nudge-outcome-words-${k.id}`}>
+            <ClipboardCheck strokeWidth={1.75} aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-none text-text-light" />
+            <span className="min-w-0 break-words">{k.action} <span className={META}>· {k.owner} · no outcome yet</span></span>
+          </span>
           <Button size="sm" variant="secondary" onClick={() => goToOutcome(sid, k.id)}>Record what happened</Button>
         </div>
       ))}
