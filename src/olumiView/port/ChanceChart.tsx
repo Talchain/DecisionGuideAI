@@ -22,10 +22,10 @@ import { typography } from '../../styles/typography'
 export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], meaning: 'What the marks and ends mean' } as const
 const RING = 'analysis-chart'
 
-/** The 0 to 100 axis, under the first track it belongs to: three equal columns, so 50% stands at the middle of the track. */
+/** The 0 to 100 axis, over the first track (never between a bar and core's words for it): three equal columns, so 50% stands at the middle. */
 function Axis() {
   return (
-    <span className={`${TYPE.meta} mt-0.5 grid grid-cols-3 tabular-nums text-text-light`} aria-hidden="true" data-testid="analysis-chart-axis">
+    <span className={`${TYPE.meta} mb-0.5 grid grid-cols-3 tabular-nums text-text-light`} aria-hidden="true" data-testid="analysis-chart-axis">
       <span className="text-left">{CHART_WORDS.axis[0]}</span><span className="text-center">{CHART_WORDS.axis[1]}</span><span className="text-right">{CHART_WORDS.axis[2]}</span>
     </span>
   )
@@ -93,7 +93,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
             {row.olumi == null ? null : <span className="text-info" title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
           </span>
         </span>
-        <span className="mt-1 block px-1"><ChanceTrack chance={row.chance!} range={range} />{axis ? <Axis /> : null}</span>
+        <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
