@@ -40,6 +40,7 @@
  *     spent state, visually distinct without inventing a second style.
  */
 import { typography } from '../../styles/typography'
+import { controls } from '../../styles/controls'
 
 export const CHIP_CLASS = [
   // `text-left`: a label that wraps reads as a sentence, not a centred poem.
@@ -97,7 +98,7 @@ export const CHIP_PRIMARY_CLASS = [
  * A disabled control reads as disabled by token (grey fill or grey text, no opacity). The older look's CHIP_CLASS / CHIP_PRIMARY_CLASS above are unchanged.
  */
 const LANE_BASE = 'inline-flex min-h-7 items-center justify-center rounded-control border-0 cursor-pointer font-sans transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1'
-const LANE_PRIMARY = 'bg-success text-text-header hover:bg-success-hover active:bg-success-active disabled:bg-panel-border disabled:text-text-light disabled:cursor-not-allowed'
+const LANE_PRIMARY = controls.actColours
 const LANE_GHOST_SURFACE = 'bg-transparent hover:bg-panel-hover active:bg-panel-border/30 disabled:text-text-light disabled:cursor-not-allowed disabled:hover:bg-transparent'
 const LANE_GHOST = `text-text-body ${LANE_GHOST_SURFACE}`
 export const VIEW_CHIP_CLASS = [LANE_BASE, 'gap-1 px-2 text-left', typography.viewPanelHeading, LANE_GHOST].join(' ')

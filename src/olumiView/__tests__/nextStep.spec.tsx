@@ -64,7 +64,10 @@ describe('the next step', () => {
     expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
     // CHANGED BY DESIGN (17 Nov, the calm panel): the row is the first item of the proposal's actions line at the foot, so it sits inside the proposal part;
     // the page-wide count above still binds it to ONE heading, and the body (above the line) draws none.
-    expect(review.querySelector('[data-testid="view-chat-proposal"] > :not([data-testid="view-proposal-actions"]) [data-view="proposal.heading"]')).toBeNull()
+    // 18 Nov (fcab51e6): the actions line now sits in the card's pinned foot with the omission list and core's refusal, so the one heading is bound by
+    // identity to the actions line, wherever that line sits, and never to the body above it.
+    const heading = review.querySelector('[data-testid="view-chat-proposal"] [data-view="proposal.heading"]')!
+    expect(heading.closest('[data-testid="view-proposal-actions"]')).not.toBeNull()
     // The words for the step sit in the review's body, with the card; opening it shows them without approving anything.
     setOpen(review, true)
     expect(isOpen(review)).toBe(true)
@@ -221,7 +224,7 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(review.querySelectorAll('[data-testid="view-approve"]')).toHaveLength(1) // Approve is pinned
     expect(review.querySelectorAll('[data-testid="view-set-aside"]')).toHaveLength(1)
     expect(c.querySelectorAll('[data-testid="view-chat-pinned"] [data-testid="view-approve"]')).toHaveLength(1)
-    expect(under[0]!.className).not.toContain('bg-primary') // so the move is not a second filled button
+    expect(under[0]!.className.split(/\s+/)).not.toContain('bg-success') // so the move is not a second filled button
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
     // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3): core's words for the move are drawn once, under the reply with its button; the "From my last
@@ -246,7 +249,7 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
       useMe.setState({ me: { id: view.you_id!, name: view.you }, status: 'ready' } as never)
       const own = show(view)
       expect(moves(step(own))).toHaveLength(1)
-      expect(moves(step(own))[0]!.className).toContain('bg-primary') // nothing pinned: filled primary
+      expect(moves(step(own))[0]!.className.split(/\s+/)).toContain('bg-success') // nothing pinned: the filled green action
       expect(moves(own.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     } finally { useMe.setState({ me: null } as never) }
   })
@@ -259,7 +262,7 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(step(c)?.getAttribute('data-step')).toBe('move')
     expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
     expect(moves(step(c))).toHaveLength(1)
-    expect(moves(step(c))[0]!.className).toContain('bg-primary')
+    expect(moves(step(c))[0]!.className.split(/\s+/)).toContain('bg-success')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
   })
 })

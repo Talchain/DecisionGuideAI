@@ -14,6 +14,7 @@ import { useViewStore } from '../store'
 import { COMMIT_WORDS, openCommitDraft } from '../v12/team/CommitForm'
 import { TYPE } from '../port/type'
 import { typography } from '../../styles/typography'
+import { controls } from '../../styles/controls'
 
 /** The section's chrome. */
 export const COMMITMENT_WORDS = {
@@ -26,7 +27,7 @@ export const COMMITMENT_WORDS = {
 
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const SUB = `${TYPE.meta} m-0 text-text-light`
-const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
 
 export function TowardsCommitment({ view, model }: { view: View; model: ViewModel }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)
