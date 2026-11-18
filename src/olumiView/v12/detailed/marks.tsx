@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
-import { toggleBadge } from '../../Badge'
+import { badgeFace, toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
 import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
@@ -17,16 +17,23 @@ import type { Said } from './said'
 
 const ICON = 14
 
-/** What core folded behind a card or the question (its badge), as a count of records beside a stack icon; core's words whole on hover, its label
- *  the accessible name; pressing it opens them, as the badge does (Badge.tsx toggleBadge). A proposed fold keeps its dashed Olumi outline. */
+/**
+ * What core folded behind a card or the question (its badge): a stack icon and CORE'S OWN words for it, its `face` where core sends one, else its
+ * `text` (Badge.tsx badgeFace); never a count made in the page. A fold holding a record a held proposal adds or changes keeps core's change marker
+ * (`badge.change`: + added, ↻ changed) beside it, in the hover and in the accessible name, so a change behind a fold is seen before it is approved
+ * (as Badge.tsx draws it), and keeps its dashed Olumi outline. Core's words whole on hover, its label the name; pressing it opens them (toggleBadge).
+ */
 export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNullable<ViewCard['badge']>; at: string }): JSX.Element {
   const b = badge as typeof badge & { readonly words?: string; readonly face?: string }
-  const words = [b.words || b.face || b.text, b.title].filter((x) => x != null && x !== '').join('\n')
-  const n = b.records.length
+  const face = badgeFace(b)
+  const change = b.proposed && b.change !== '' ? b.change : null
+  const said = [change, b.words || b.face || b.text].filter((x) => x != null && x !== '').join(' ')
+  const words = [said, b.title].filter((x) => x != null && x !== '').join('\n')
   return (
-    <button type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} title={words} aria-label={b.label} aria-expanded={b.open}
-      data-core-badge={cardId} data-badge-count={n} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
-      <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums">{n}</span>
+    <button type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} title={words} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
+      data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
+      <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
+      {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}
     </button>
   )
 }

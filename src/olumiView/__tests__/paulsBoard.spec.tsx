@@ -111,30 +111,37 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
   const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   type B = { label: string; face?: string; words?: string; text: string }
-  /** The badge's hover on Detailed: core's whole words first, as the retired badge's hover said them (the face may say "and 2 more"). */
-  const hover = (b: B) => b.words || b.face || b.text
 
   it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', () => {
     ready(EU)
     const b = EU.model!.question.badge as unknown as B
     expect(b, 'precondition: core folded records behind the question').not.toBeNull()
     render(<ReactFlowProvider><Node {...props(QUESTION, undefined)} /></ReactFlowProvider>)
-    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the fold is a count of its records
-    // beside a stack mark, core's words its hover, its label the name.
+    // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): the fold is a stack mark and CORE'S OWN words for it (its face, else its text), never a count made in the page; on this
+    // pending model every fold holds proposed additions, so core's change marker is drawn after the words, leads the hover and ends the name.
     const btn = document.querySelector<HTMLElement>(`button[data-core-badge="${QUESTION}"]`)!
-    expect([btn.getAttribute('aria-label'), btn.title.includes(hover(b)), btn.textContent]).toEqual([b.label, true, String((b as unknown as { records: unknown[] }).records.length)])
+    expect([btn.getAttribute('aria-label'), btn.title.split('\n')[0], btn.textContent, btn.querySelector('[data-view="question.badge.face"]')?.textContent, btn.querySelector('[data-view="question.badge.change"]')?.textContent])
+      .toEqual(['Show 5 notes behind this, 5 proposed changes +', '+ 1 thing left out, 2 figures, 2 claims', '2 figures and 3 more+', '2 figures and 3 more', '+'])
   })
 
   it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', () => {
     ready(EU)
     const m = EU.model!, withBadge = m.cards.filter((c) => c.badge != null)
-    expect(withBadge.length).toBeGreaterThan(0)
+    const DRAWN: Readonly<Record<string, readonly [string, string, string]>> = {
+      monthly_churn: ['Show 1 notes behind this, 1 proposed changes +', '+ 1 claim', '1 claim+'],
+      investment_budget: ['Show 1 notes behind this, 1 proposed changes +', '+ 1 challenge', '1 challenge+'],
+      expand_into_the_european_market_in_the_next_6_12_months: ['Show 6 notes behind this, 6 proposed changes +', '+ 2 figures, 2 claims, 2 challenges', '2 figures and 4 more+'],
+      pilot_in_one_european_country_first_then_widen: ['Show 2 notes behind this, 2 proposed changes +', '+ 2 figures', '2 figures+'],
+      monthly_churn_2: ['Show 5 notes behind this, 5 proposed changes +', '+ 4 figures, 1 calculation', '4 figures, 1 calculation+'],
+      keep_monthly_churn_from_going_beyond_12: ['Show 2 notes behind this, 2 proposed changes +', '+ 2 claims', '2 claims+'],
+    }
+    expect(withBadge.map((c) => c.id).sort()).toEqual(Object.keys(DRAWN).sort())
     for (const c of m.cards) {
       const r = render(<ReactFlowProvider><Node {...props(c.id, c)} /></ReactFlowProvider>)
-      // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the count, core's words on hover.
+      // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): core's own words for the fold (its face) and its change marker, by card id: the name, the hover's first line, what is drawn.
       const btn = r.container.querySelector<HTMLElement>(`button[data-core-badge="${c.id}"]`)
-      if (c.badge == null) expect(btn, c.id).toBeNull()
-      else expect([btn?.getAttribute('aria-label'), btn?.title.includes(hover(c.badge as unknown as B)), btn?.textContent], c.id).toEqual([(c.badge as unknown as B).label, true, String(c.badge.records.length)])
+      if (c.badge == null) expect([btn, c.id in DRAWN], c.id).toEqual([null, false])
+      else expect([btn?.getAttribute('aria-label'), btn?.title.split('\n')[0], btn?.textContent], c.id).toEqual(DRAWN[c.id])
       r.unmount()
     }
   })

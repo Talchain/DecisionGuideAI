@@ -26,6 +26,7 @@ import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
 const ASKED = load('core-38eebca9/bakery-asked.view3.json'), HIRING = load('real/hiring-unchecked-first.view3.json'), HOSTING = load('real/hosting.view3.json')
 const APP = load('core-38eebca9/app-launch.view3.json')
+const PENDING = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-cd6305e5-store-pending.view.json'), 'utf8')) as View
 const cardOf = (v: View, id: string): ViewCard => v.model!.cards.find((c) => c.id === id)!
 const withCard = (v: View, card: ViewCard): View => ({ ...v, model: { ...v.model!, cards: v.model!.cards.map((c) => (c.id === card.id ? card : c)) } })
 const optionsOf = (v: View) => v.model!.cards.filter((c) => c.family === 'option')
@@ -212,11 +213,22 @@ describe('Detailed: marks, not sentences', () => {
     expect(o.querySelector(`[data-core-author="${olumi.id}"] [data-author-mark]`)?.getAttribute('data-author-mark')).toBe('olumi')
     expect(drawn(o), 'not on the face (the closed working lists each step\'s author inside it)').not.toContain(olumi.author!.text)
   })
-  it('DT7 what core folded behind a card is a count of its records, core\'s words on hover. CONTRAST: a card with no badge draws no count', () => {
-    const c = cardOf(HIRING, 'team_delivery_throughput_change')
-    const b = faceOf(draw(HIRING, c.id), c.id).querySelector<HTMLElement>(`[data-core-badge="${c.id}"]`)!
-    expect([b.getAttribute('data-badge-count'), b.textContent, b.title.includes(c.badge!.title.split('\n')[0]!)]).toEqual([String(c.badge!.records.length), String(c.badge!.records.length), true])
-    cleanup()
+  it('DT7 what core folded behind a card is drawn in core\'s own words (its face, else its text), never a count made in the page; a fold holding a proposed change keeps core\'s change marker, drawn, in the hover and in the name. CONTRASTS: a fold with no change draws no marker and its name is core\'s label alone; a card with no badge draws none', () => {
+    const PLAIN = 'team_delivery_throughput_change', CHANGED = 'cut_monthly_spending_to_extend_the_runway'
+    const badgeOf = (v: View, id: string) => {
+      const b = faceOf(draw(v, id), id).querySelector<HTMLElement>(`[data-core-badge="${id}"]`)!
+      const out = { drawn: b.textContent, words: [...b.querySelectorAll<HTMLElement>('[data-view]')].map((e) => [e.getAttribute('data-view'), e.textContent]), name: b.getAttribute('aria-label'), hover: b.title.split('\n').slice(0, 2), proposed: b.classList.contains('ok-dt-badge-proposed'), count: b.getAttribute('data-badge-count') }
+      cleanup(); return out
+    }
+    // Core folds SEVEN records here and words them '● = +7': the page draws core's text, not "7".
+    expect(cardOf(HIRING, PLAIN).badge!.records.length).toBe(7)
+    expect(badgeOf(HIRING, PLAIN)).toEqual({ drawn: '● = +7', words: [[`${PLAIN}.badge.text`, '● = +7']], name: 'Show 7 notes behind this', hover: ['5 figures, 2 calculations', 'Figure: Tech leads added'], proposed: false, count: null })
+    // A fold core sends a face for, holding two proposed additions: core's face, then core's change marker.
+    expect(badgeOf(PENDING, CHANGED)).toEqual({ drawn: '1 figure, 1 calculation+', words: [[`${CHANGED}.badge.face`, '1 figure, 1 calculation'], [`${CHANGED}.badge.change`, '+']], name: 'Show 2 notes behind this, 2 proposed changes +',
+      hover: ['+ 1 figure, 1 calculation', '+ Figure: Monthly spending changed: Cut monthly spending to extend the runway'], proposed: true, count: null })
+    // CONTRAST: the same fold once nothing in it is proposed: no marker anywhere, the name is core's label alone.
+    const c = cardOf(PENDING, CHANGED), settled = withCard(PENDING, { ...c, badge: { ...c.badge!, proposed: false, change: '' } } as ViewCard)
+    expect(badgeOf(settled, CHANGED)).toEqual({ drawn: '1 figure, 1 calculation', words: [[`${CHANGED}.badge.face`, '1 figure, 1 calculation']], name: 'Show 2 notes behind this, 2 proposed changes', hover: ['1 figure, 1 calculation', '+ Figure: Monthly spending changed: Cut monthly spending to extend the runway'], proposed: false, count: null })
     expect(faceOf(draw(HIRING, 'weekly_churn'), 'weekly_churn').querySelector('[data-core-badge]')).toBeNull()
   })
   it('DT8 a range bar only where the range has a spread. CONTRAST: the same card with a single value draws none', () => {
