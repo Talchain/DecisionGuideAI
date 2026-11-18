@@ -121,6 +121,14 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     cleanup()
     expect(draw(ASKED, QUESTION).querySelector('[data-detailed-rail]')).toBeNull()
   })
+  it('DT4b the rail widens its words column, for every row together, only where a result\'s words are longer than a number (Codex 13:27Z, Detailed at 1232). CONTRASTS: numbers alone stay narrow; one shared condition said under the rail stays narrow', () => {
+    const [A, B, C] = ['hire_a_tech_lead', 'hire_two_developers', 'reallocate_a_developer_day_each_week_to_technical_leadership'] as const
+    const saying = (texts: Readonly<Record<string, string>>): View => Object.entries(texts).reduce((v, [id, text]) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, text } } as ViewCard), HIRING)
+    const wideOf = (v: View) => { const r = draw(v, QUESTION).querySelector<HTMLElement>('[data-detailed-rail]')!; const w = [r.hasAttribute('data-rail-wide'), r.classList.contains('ok-dt-rail-wide')]; cleanup(); return w }
+    expect(wideOf(saying({ [A]: '60% chance, if capacity is available' }))).toEqual([true, true])
+    expect(wideOf(HIRING)).toEqual([false, false])
+    expect(wideOf(saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if capacity is available', [C]: '10% chance, if capacity is available' }))).toEqual([false, false])
+  })
   it('DT5 saidOnceOf puts a shared line on the aim\'s card when the aim is on the board. CONTRAST: an aim id no card carries says it on the question', () => {
     const s = saidOnceOf(ASKED.model!)
     expect([s.question.length, [...s.aims.keys()].sort()]).toEqual([0, ['sell_360', 'within_budget']])
