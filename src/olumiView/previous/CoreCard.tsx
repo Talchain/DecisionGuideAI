@@ -30,7 +30,7 @@ import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
-import { saidOnceOf, sharedRowStates } from '../v12/detailed/said'
+import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
@@ -349,7 +349,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {
       const { line, hover: why } = noChanceLineOf(h)
-      const once = said.none !== null
+      // Said once on the aim (said.ts) only where that line says exactly this option's own line and hover; an option whose reason differs keeps its own.
+      const once = saysNoChanceOnce(said.none, h)
       return (
         <div data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} title={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
           {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}

@@ -142,12 +142,16 @@ export function AimRows({ card, model, shared }: { card: ViewCard; model: ViewMo
   )
 }
 
-/** Lines the board says once on this card (said.ts): core's words, a quiet line each, their whole the hover. */
+/** Lines the board says once on this card (said.ts): core's words, a quiet line each, their whole the hover; Olumi's mark beside a line where
+ *  every row it stands for carries the same one (core's words for it its name). */
 export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }): JSX.Element | null {
   if (lines.length === 0) return null
   return (
     <div className="ok-dt-said" data-said-once-on={at}>
-      {lines.map((s, i) => <p key={i} className="ok-dt-said-line" title={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} /></p>)}
+      {lines.map((s, i) => (
+        <p key={i} className="ok-dt-said-line" title={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} />
+          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} size={12} /></span>}</p>
+      ))}
     </div>
   )
 }

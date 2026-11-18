@@ -25,6 +25,7 @@ import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
 const ASKED = load('core-38eebca9/bakery-asked.view3.json'), HIRING = load('real/hiring-unchecked-first.view3.json'), HOSTING = load('real/hosting.view3.json')
+const APP = load('core-38eebca9/app-launch.view3.json')
 const cardOf = (v: View, id: string): ViewCard => v.model!.cards.find((c) => c.id === id)!
 const withCard = (v: View, card: ViewCard): View => ({ ...v, model: { ...v.model!, cards: v.model!.cards.map((c) => (c.id === card.id ? card : c)) } })
 const optionsOf = (v: View) => v.model!.cards.filter((c) => c.family === 'option')
@@ -136,6 +137,66 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(railOf(shared)).toEqual({ rows: [[A, '60% chance', null], [B, '30% chance', null], [C, '10% chance', null]], once: ['if capacity is available'] })
     cleanup()
     expect(faceOf(draw(shared, B), B).querySelector(`[data-view="${B}.headline.qualifier"]`), 'said once on the rail, so not again on the card').toBeNull()
+  })
+  it('DT15 the same short status over DIFFERENT reasons is not said once: each option keeps its own line with its own hover, and the aim says none. CONTRAST: the same board with one reason on every option says it once, with that reason the hover, and the options say nothing', () => {
+    const [A, B, C] = ['second_oven', 'longer_hours', 'carry_on'] as const, AIM = 'sell_360'
+    const waiting = (why: Readonly<Record<string, string>>): View => Object.entries(why).reduce((v, [id, w]) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, text: 'No chance yet', title: '', add: null, why: w } } as ViewCard), ASKED)
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
+    const differ = waiting({ [A]: 'The oven price is missing.', [B]: 'The staff cost is missing.', [C]: 'The oven price is missing.' })
+    expect([A, B, C].map((id) => ownLine(differ, id))).toEqual([
+      [A, false, 'No chance yet', 'The oven price is missing.'],
+      [B, false, 'No chance yet', 'The staff cost is missing.'],
+      [C, false, 'No chance yet', 'The oven price is missing.'],
+    ])
+    expect(aimSays(differ), 'no line stands for options whose reasons differ').toEqual([])
+    const alike = waiting({ [A]: 'The oven price is missing.', [B]: 'The oven price is missing.', [C]: 'The oven price is missing.' })
+    expect(aimSays(alike)).toEqual([['No chance yet', 'The oven price is missing.']])
+    expect([A, B, C].map((id) => ownLine(alike, id))).toEqual([[A, true, null, null], [B, true, null, null], [C, true, null, null]])
+  })
+  it('DT16 where core marks the no-chance headline shared (every option waits), it is said once on the aim; an option that carries a reason of its own keeps its own line, and the shared line never carries that reason. CONTRAST: the served board, where no option has its own, says it once and every option says nothing', () => {
+    const [S, D, I] = ['option_scheduled', 'option_delay', 'option_isolate'] as const, AIM = 'boss_discussion'
+    const SHARED = 'Cannot be worked out yet: Explain the release decision without unfair team blame'
+    expect([APP.model!.run!.all_withheld, ...[S, D, I].map((id) => { const h = cardOf(APP, id).headline!; return [h.state, h.shared, h.text, h.title, h.why, h.add, h.aim_id].join('|') })], 'precondition: core\'s shared form')
+      .toEqual([true, ...[S, D, I].map(() => `none|true|No chance yet|${SHARED}|||${AIM}`)])
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
+    expect(aimSays(APP)).toEqual([['No chance yet', SHARED]])
+    expect([S, D, I].map((id) => ownLine(APP, id))).toEqual([[S, true, null, null], [D, true, null, null], [I, true, null, null]])
+    // The FIRST option carries its own reason: the shared line must not take it as the hover for the other two.
+    const own = withCard(APP, { ...cardOf(APP, S), headline: { ...cardOf(APP, S).headline!, why: 'Only this option: its release date is not set.' } } as ViewCard)
+    expect(aimSays(own)).toEqual([['No chance yet', SHARED]])
+    expect([S, D, I].map((id) => ownLine(own, id))).toEqual([[S, false, 'No chance yet', 'Only this option: its release date is not set.'], [D, true, null, null], [I, true, null, null]])
+    // CONTRAST: the same edit where core does not say every option waits: nothing is said once, every option keeps its own line and hover.
+    const notAll = { ...own, model: { ...own.model!, run: { ...own.model!.run!, all_withheld: false } } } as View
+    expect(aimSays(notAll)).toEqual([])
+    expect([S, D, I].map((id) => ownLine(notAll, id))).toEqual([[S, false, 'No chance yet', 'Only this option: its release date is not set.'], [D, false, 'No chance yet', SHARED], [I, false, 'No chance yet', SHARED]])
+  })
+  it('DT17 a limit\'s state is said once only where every option\'s words AND title AND question AND Olumi mark are equal: one option with its own question means each option is listed by its letter with its own hover. CONTRASTS: all equal is said once with the shared title and question the hover; one row with Olumi\'s mark is not shared; the same mark on every row is shared and drawn', () => {
+    const [A, B, C] = ['second_oven', 'longer_hours', 'carry_on'] as const, AIM = 'within_budget'
+    type Over = { question: string; olumi?: { glyph: string; title: string } | null }
+    const asking = (over: Readonly<Record<string, Over>>): View => Object.entries(over).reduce((v, [id, o]) => withCard(v, { ...cardOf(v, id), rows: cardOf(v, id).rows.map((r, i) => (i === 1 ? { ...r, state_text: 'Needs an answer', title: 'The budget cannot be checked yet.', olumi: null, ...o } : r)) } as ViewCard), ASKED)
+    expect([A, B, C].map((id) => [cardOf(ASKED, id).heading, cardOf(ASKED, id).rows[1]!.aim_id, cardOf(ASKED, id).rows[1]!.kind])).toEqual([['A second oven', AIM, 'none'], ['Open two hours longer', AIM, 'none'], ['Carry on as now', AIM, 'none']])
+    const limit = (v: View) => {
+      const face = faceOf(draw(v, AIM), AIM)
+      const out = { once: [...face.querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title'), l.querySelector('[data-said-olumi] [data-olumi-mark]')?.getAttribute('aria-label') ?? null]),
+        rows: [...face.querySelectorAll<HTMLElement>('[data-aim-result]')].map((r) => [r.getAttribute('data-aim-result'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector('[data-row-words]')?.textContent, r.getAttribute('title'), r.querySelector('[data-olumi-mark]')?.getAttribute('aria-label') ?? null]) }
+      cleanup(); return out
+    }
+    const OVEN = 'What would the second oven cost?', STAFF = 'What would two more hours of staff cost?', T = 'The budget cannot be checked yet.'
+    expect(limit(asking({ [A]: { question: OVEN }, [B]: { question: STAFF }, [C]: { question: OVEN } }))).toEqual({ once: [], rows: [
+      [A, 'A', 'Needs an answer', `A second oven\nNeeds an answer\n${T}\n${OVEN}`, null],
+      [B, 'B', 'Needs an answer', `Open two hours longer\nNeeds an answer\n${T}\n${STAFF}`, null],
+      [C, 'C', 'Needs an answer', `Carry on as now\nNeeds an answer\n${T}\n${OVEN}`, null],
+    ] })
+    expect(limit(asking({ [A]: { question: OVEN }, [B]: { question: OVEN }, [C]: { question: OVEN } }))).toEqual({ once: [['Needs an answer', `${T}\n${OVEN}`, null]], rows: [] })
+    const MARK = { glyph: '*', title: 'Rests on a figure Olumi estimated' }
+    expect(limit(asking({ [A]: { question: OVEN }, [B]: { question: OVEN, olumi: MARK }, [C]: { question: OVEN } }))).toEqual({ once: [], rows: [
+      [A, 'A', 'Needs an answer', `A second oven\nNeeds an answer\n${T}\n${OVEN}`, null],
+      [B, 'B', 'Needs an answer', `Open two hours longer\nNeeds an answer\n${T}\n${OVEN}`, 'Rests on a figure Olumi estimated'],
+      [C, 'C', 'Needs an answer', `Carry on as now\nNeeds an answer\n${T}\n${OVEN}`, null],
+    ] })
+    expect(limit(asking({ [A]: { question: OVEN, olumi: MARK }, [B]: { question: OVEN, olumi: MARK }, [C]: { question: OVEN, olumi: MARK } }))).toEqual({ once: [['Needs an answer', `${T}\n${OVEN}`, 'Rests on a figure Olumi estimated']], rows: [] })
   })
 })
 
