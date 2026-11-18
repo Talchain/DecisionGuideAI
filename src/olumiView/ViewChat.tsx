@@ -181,8 +181,10 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
   const foldable = fold && hides && est > 8
   const folded = foldable && !whole
   const textOf = (g: { lines: Piece[][] }) => g.lines.flatMap((l) => l.map((x) => (x.kind === 'text' ? x.s : ''))).join(' ')
-  // The panel's one 18 px line (contract §2): the newest reply's opening paragraph, only when it is one short sentence's length.
-  const bigLead = big && opening !== null && !opening.list && textOf(opening).trim().split(/\s+/).length <= LEAD_WORDS
+  // The panel's one 18 px line (contract §2): the newest reply's opening paragraph, only when it is one short sentence's length. Never a paragraph under
+  // core's first-answer label (`lead`: the reply opens with that label): core marks that answer as the earlier one, so it is not the panel's largest
+  // words above its own check, with or without a lead (a reply stored before leads existed has the label and none). By core's label line, no words read.
+  const bigLead = big && lead === 0 && opening !== null && !opening.list && textOf(opening).trim().split(/\s+/).length <= LEAD_WORDS
   const groupEl = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }, gi: number) => {
     const shown = folded && gi < head ? rest.get(gi) ?? 0 : g.lines.length
     if (shown === 0) return null
