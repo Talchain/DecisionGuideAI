@@ -53,48 +53,56 @@ afterEach(() => {
 })
 
 describe('a reply with core\'s lead: the lead first, the whole answer folded under one "Full answer", closed at rest', () => {
-  it('PAIRED first draft (Codex 011): the first answer stays at rest under core\'s label; core\'s check heading, then the lead under it; ONLY the check\'s body (and the kept first answer) in the one closed fold; nothing said twice. CONTRASTS: a first answer that is its opening alone has nothing to press; a reply that ends at the first answer has no fold; a lead with no first answer folds the whole reply as before; no lead is drawn as today', () => {
+  it('PAIRED first draft (Codex 19:46:53Z, the current answer has the authority position): core\'s lead FIRST, the check under core\'s heading in the one closed fold, then the first answer beneath as earlier material under core\'s label (its opening at rest, the rest one press away); nothing said twice. CONTRASTS: a first answer that is its opening alone has nothing to press; a reply that ends at the first answer has no fold; a lead with no first answer folds the whole reply as before; no lead is drawn as today', () => {
     const OPENING = 'The tea room can open on Sundays if thirty more covers a day pay for the staff.'
     const view = withTurn(base, 0, { answer: [{ text: FIRST }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>, { early: { text: KEPT_FIRST } })
     const t0 = show(view).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
     const label = t0.querySelector<HTMLElement>('[data-reply-label]')!, opening = t0.querySelector<HTMLElement>('[data-reply-para][data-reply-opening]')!, heading = t0.querySelector<HTMLElement>('[data-reply-heading]')!
     const lead = q(t0, 'view-reply-lead')!, full = t0.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
-    // At rest, outside any fold, in this order: core's label, the practical first answer, core's check heading, the lead, then the fold.
-    expect([label.textContent, opening.textContent, heading.textContent]).toEqual([LABEL, OPENING, HEADING])
-    expect([label, opening, heading, lead].map((e) => e.closest('details'))).toEqual([null, null, null, null])
-    const order = [label, opening, heading, lead, full]
+    // In this order: the lead (the current answer), its fold, then the earlier first answer under core's label.
+    const order = [lead, full, label, opening]
     for (let k = 0; k + 1 < order.length; k++) expect(order[k]!.compareDocumentPosition(order[k + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING, `order ${k}`).toBeTruthy()
+    expect([label.textContent, opening.textContent]).toEqual([LABEL, OPENING])
+    expect([label, opening, lead].map((e) => e.closest('details')), 'at rest, outside any fold').toEqual([null, null, null])
     expect(t0.querySelector('[data-view="chat.0.answer.lead.opening"]')?.textContent).toBe(LEAD.opening)
     expect([0, 1].map((i) => t0.querySelector(`[data-view="chat.0.answer.lead.points.${i}"]`)?.textContent)).toEqual(LEAD.points)
-    // ONE fold, closed, holding the check's own words and the kept first answer; the label, the first answer and the heading are NOT said again in it.
+    // ONE fold, closed: core's check heading, then the check's own words, and the kept first answer; the first answer's label and words are NOT in it.
     expect(t0.querySelectorAll('[data-testid="view-reply-full"]')).toHaveLength(1)
     expect([full.open, full.querySelector('summary')?.textContent]).toEqual([false, FULL_ANSWER])
     const body = q(full, 'view-reply-full-body')!
+    expect([body.contains(heading), heading.textContent]).toEqual([true, HEADING])
     expect(body).toHaveTextContent(CHECK)
+    const checkPara = [...body.querySelectorAll<HTMLElement>('[data-reply-para]')].find((e) => e.textContent === CHECK)!
+    expect(heading.compareDocumentPosition(checkPara) & Node.DOCUMENT_POSITION_FOLLOWING, 'the heading opens the check').toBeTruthy()
     expect(body.contains(q(t0, 'view-chat-early'))).toBe(true)
     // (The kept first answer, where an older turn carries one, keeps its own caption inside the fold: bound by element, not by the label's words.)
-    expect([body.querySelector('[data-reply-label]'), body.querySelector('[data-reply-heading]'), ...[OPENING, MIDDLE, HEADING].map((x) => body.textContent!.includes(x))], 'said once, above').toEqual([null, null, false, false, false])
+    expect([body.querySelector('[data-reply-label]'), ...[OPENING, MIDDLE].map((x) => body.textContent!.includes(x))], 'the first answer is said once, beneath').toEqual([null, false, false])
     for (const x of [OPENING, HEADING, CHECK]) expect(t0.textContent!.split(x).length - 1, x).toBe(1)
     expect(t0.querySelectorAll('[data-reply-label]')).toHaveLength(1)
-    // The first answer's later detail is one press away, by the reply's own control; pressed, it is drawn once, above the check, and not in the fold.
+    // The first answer's later detail is one press away, by the reply's own control, after its opening; pressed, it is drawn once, and not in the fold.
     const more = q(t0, 'view-reply-fold')!
-    expect([more.textContent, t0.textContent!.includes(MIDDLE), more.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING ? 'before the check' : 'after']).toEqual([SHOW_WHOLE_FIRST, false, 'before the check'])
+    expect([more.textContent, more.closest('details'), t0.textContent!.includes(MIDDLE), opening.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING ? 'after its opening' : 'before']).toEqual([SHOW_WHOLE_FIRST, null, false, 'after its opening'])
     fireEvent.click(more)
     expect([t0.textContent!.split(MIDDLE).length - 1, body.textContent!.includes(MIDDLE), t0.textContent!.includes('Two of the staff want one free weekend day.')]).toEqual([1, false, true])
     const next = q(t0, 'view-chat-next')
     if (next !== null) expect(full.contains(next)).toBe(false)
     cleanup()
-    // CONTRAST 1, a first answer that is its opening alone: nothing to press for; the check heading and the lead still show, the fold holds the check alone.
+    // CONTRAST 1, a first answer that is its opening alone: nothing to press for; the lead leads and the fold holds core's heading and the check.
     const SHORT = [LABEL, '', OPENING, '', HEADING, '', CHECK].join('\n')
     const l0 = show(withTurn(base, 0, { answer: [{ text: SHORT }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
-    expect([q(l0, 'view-reply-fold'), l0.querySelector('[data-reply-para][data-reply-opening]')?.textContent, l0.querySelector('[data-reply-heading]')?.textContent, q(l0, 'view-reply-lead') !== null, q(q(l0, 'view-reply-full')!, 'view-reply-full-body')!.textContent])
-      .toEqual([null, OPENING, HEADING, true, CHECK])
+    expect([q(l0, 'view-reply-fold'), l0.querySelector('[data-reply-para][data-reply-opening]')?.textContent, q(q(l0, 'view-reply-full')!, 'view-reply-full-body')!.textContent, q(l0, 'view-reply-lead')!.compareDocumentPosition(l0.querySelector('[data-reply-label]')!) & Node.DOCUMENT_POSITION_FOLLOWING ? 'lead first' : 'label first'])
+      .toEqual([null, OPENING, `${HEADING}${CHECK}`, 'lead first'])
     cleanup()
-    // CONTRAST 2, the reply ends at the first answer (core sends no heading): the first answer at rest, the lead after it, and nothing to fold.
+    // CONTRAST 2, the reply ends at the first answer (core sends no heading): the lead, nothing to fold, and the first answer beneath.
     const ENDS = [LABEL, '', OPENING].join('\n')
     const e0 = show(withTurn(base, 0, { answer: [{ text: ENDS }], first_answer: { label: LABEL, heading: null }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
-    expect([e0.querySelector('[data-reply-label]')?.textContent, e0.querySelector('[data-reply-para][data-reply-opening]')?.textContent, q(e0, 'view-reply-lead') !== null, q(e0, 'view-reply-full'), e0.querySelector('[data-reply-heading]')])
-      .toEqual([LABEL, OPENING, true, null, null])
+    expect([e0.querySelector('[data-reply-label]')?.textContent, e0.querySelector('[data-reply-para][data-reply-opening]')?.textContent, q(e0, 'view-reply-full'), e0.querySelector('[data-reply-heading]'), q(e0, 'view-reply-lead')!.compareDocumentPosition(e0.querySelector('[data-reply-label]')!) & Node.DOCUMENT_POSITION_FOLLOWING ? 'lead first' : 'label first'])
+      .toEqual([LABEL, OPENING, null, null, 'lead first'])
+    cleanup()
+    // CONTRAST 2b, core's heading with nothing after it (no check to fold): no fold is drawn over a bare heading.
+    const BARE = [LABEL, '', OPENING, '', HEADING].join('\n')
+    const b0 = show(withTurn(base, 0, { answer: [{ text: BARE }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
+    expect([q(b0, 'view-reply-full'), q(b0, 'view-reply-lead') !== null, b0.querySelector('[data-reply-para][data-reply-opening]')?.textContent]).toEqual([null, true, OPENING])
     cleanup()
     // CONTRAST 3, a lead and NO first answer (any later reply): unchanged, the lead first and the whole reply in the one fold.
     const PLAIN = 'A later reply in two paragraphs.\n\nIts second paragraph.'
@@ -113,14 +121,18 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
   })
 
-  it('the panel\'s one large line, on the NEWEST reply: with a first answer above it the lead is never the large line (it is supporting analysis); the first answer\'s own short opening is. CONTRAST: a lead with no first answer is the large line', () => {
+  it('the panel\'s one large line, on the NEWEST reply: the CURRENT answer\'s lead is the large line, and an earlier first answer beneath it never is, however short. CONTRASTS: a first answer with no lead yet (still arriving, or incomplete) keeps today\'s large opening; a lead with no first answer is the large line', () => {
     const newest = base.chat.map((t) => t.answer !== null).lastIndexOf(true), turn = `chat.${newest}`
     const OPENING = 'Open on Sundays only if thirty more covers a day pay for the staff.'
     const TEXT = [LABEL, '', OPENING, '', HEADING, '', CHECK].join('\n')
     const big = (e: Element | null | undefined) => e != null && e.className.includes(typography.viewPanelHeadline)
     expect([OPENING, LEAD.opening].map((x) => x.trim().split(/\s+/).length <= LEAD_WORDS), 'fixture: both are short enough to be the large line').toEqual([true, true])
     const t = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
-    expect([big(q(t, 'view-reply-lead')!.querySelector('[data-reply-opening]')), big(t.querySelector('[data-reply-para][data-reply-opening]'))]).toEqual([false, true])
+    expect([big(q(t, 'view-reply-lead')!.querySelector('[data-reply-opening]')), big(t.querySelector('[data-reply-para][data-reply-opening]'))], 'the lead, not the earlier answer').toEqual([true, false])
+    cleanup()
+    // No lead yet: the first answer is all there is to read, drawn as today (its short opening large, the check at rest under core's heading).
+    const n = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
+    expect([q(n, 'view-reply-lead'), q(n, 'view-reply-full'), big(n.querySelector('[data-reply-para][data-reply-opening]')), n.querySelector('[data-reply-heading]')?.closest('details') ?? null]).toEqual([null, null, true, null])
     cleanup()
     const c = show(withTurn(base, newest, { answer: [{ text: 'A later reply.\n\nIts second paragraph.' }], lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
     expect(big(q(c, 'view-reply-lead')!.querySelector('[data-reply-opening]'))).toBe(true)
