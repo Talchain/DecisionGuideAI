@@ -138,7 +138,8 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(words).toContain("if (h.state !== 'none') return null")
     expect(words).toContain("return (h.why ?? '') !== '' ? 'why' : h.title !== '' ? 'title' : 'text'")
     expect(words).toContain("return f === null ? null : f === 'why' ? h.why! : h[f]")
-    expect(card).toContain("import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'")
+    // Bound to the meaning (CoreCard takes both pickers from the one source), not to the import list's other members, which have grown twice.
+    expect(card).toMatch(/import \{[^}]*\bwithheldField\b[^}]*\bwithheldWords\b[^}]*\} from '\.\.\/v12\/cards\/words'/)
     expect(card).toContain('export { withheldField, withheldWords }')
     expect(card).toContain('return withheldWords(card.headline) ?? card.headline.text')
     // R6 (16 Nov): the withheld face is one quiet line, core's next step else its text (words.ts noChanceLineOf), named by the field it came from; its why is the hover.
@@ -149,9 +150,10 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(card).not.toContain('<summary>Why not</summary>')
     expect(card).not.toContain('ok-why')
   })
-  it('CONTRAST: the other next-step kinds keep the "Next step" header and the bordered card', () => {
-    // CHANGED BY DESIGN (17 Nov, one type scale in the panel): the header is the panel's 12px heading in ink.
-    expect(chat).toContain('<p className={`${typography.viewPanelHeading} text-text-header`}>Next step</p>')
-    expect(chat).toContain('data-step={step.kind} aria-label="Next step"')
+  it('CONTRAST: the other next-step kinds stay a named "Next step" region; its visible header is gone', () => {
+    // CHANGED BY DESIGN (Paul, 18 Nov: the open Next step card "takes up space and makes it look busy"): no visible "Next step" header line;
+    // the region keeps its name for a screen reader.
+    expect(chat).not.toContain('>Next step</p>')
+    expect(chat).toContain('aria-label="Next step"')
   })
 })
