@@ -7,7 +7,7 @@
  *   any worth line (`run.science`) the ranking does not already name. A figure the ranking gives a ✎ is not given a second ✎ at the chart.
  * The heading and its hint are core's lens words (`lens_words.label/hint.what_changes`).
  */
-import type { ViewModel, ViewRun } from '../client'
+import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { useViewStore } from '../store'
 import { cardOf, findOutOf, leadChangeOf } from './pick'
