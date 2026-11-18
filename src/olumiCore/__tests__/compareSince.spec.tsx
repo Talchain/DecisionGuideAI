@@ -109,6 +109,7 @@ describe('where core credits no single change (sole null)', () => {
     const { container, unmount } = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [same, TWO_CHANGES.lines[0]!] }} movedFirst />)
     const fold = screen.getByTestId('core-compare-since-still')
     expect([fold.tagName, fold.hasAttribute('open'), fold.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, '1 result did not move.'])
+    expect(fold.querySelector('summary [data-fold-chevron="details"]'), 'polish 13: a chevron, not the native marker').not.toBeNull()
     expect([...fold.querySelectorAll('[data-view]')].map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([['run.since.lines.0.line', 'LINE-SAME']])
     expect(fold.contains(container.querySelector('[data-view="run.since.lines.1.line"]'))).toBe(false)
     unmount()

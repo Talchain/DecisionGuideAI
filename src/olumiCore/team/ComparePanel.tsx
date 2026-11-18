@@ -1,5 +1,6 @@
 import type { View } from '../../olumiView/client'
 import { CoreCompare, useLatestApproved } from '../compare'
+import { FOLD_SUMMARY, FoldChevron } from '../../olumiView/look/FoldChevron'
 import { BODY, H, META, PLAIN_LINK } from './ui'
 
 /**
@@ -17,8 +18,8 @@ export function ComparePanel({ sid, view }: { sid: string; view: View }): JSX.El
         <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-[24px] items-center ${PLAIN_LINK}`} data-testid="team-record-link">Printable record</a>
       </p>
       {latest < 2 ? null : (
-        <details data-testid="team-compare">
-          <summary className={BODY}>Compare versions</summary>
+        <details data-testid="team-compare" className="group">
+          <summary className={`${FOLD_SUMMARY} ${BODY}`}><FoldChevron />Compare versions</summary>
           <div className="mt-2"><CoreCompare sid={sid} latest={latest} id="team-compare" /></div>
         </details>
       )}

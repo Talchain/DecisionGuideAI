@@ -98,6 +98,7 @@ describe('what changed, each by its author and a press to its card', () => {
     const all = await screen.findByTestId('core-compare-all-lines')
     expect(all.tagName).toBe('DETAILS'); expect(all.hasAttribute('open')).toBe(false)
     expect(all.querySelector('summary')!.textContent).toBe('All 4 changes in full')
+    expect(all.querySelector('summary [data-fold-chevron="details"]'), 'polish 13: a chevron, not the native marker').not.toBeNull()
   })
   it('CT3: with no View comparison for the pair, core\'s change lines are the list; CONTRAST: none at all says so once', async () => {
     answer = { versions: [], changes: LINES, results: [] }

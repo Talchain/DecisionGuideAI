@@ -8,6 +8,7 @@ import { useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { OkIcon, type IconId } from '../look/icons'
+import { FoldChevron } from '../look/FoldChevron'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { cardOf, needsOf, type Need } from './pick'
 import { TYPE } from './type'
@@ -44,8 +45,8 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
         })}
       </ul>
       {needs.length <= AT_REST ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-needs-more">
-          {all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(needs.length - AT_REST)}
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
+          <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(needs.length - AT_REST)}
         </button>
       )}
     </section>

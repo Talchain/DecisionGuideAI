@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import type { View } from '../../olumiView/client'
 import { OkIcon } from '../../olumiView/look/icons'
+import { FOLD_SUMMARY, FoldChevron } from '../../olumiView/look/FoldChevron'
 import { teamApi, TeamApiError } from './api'
 import { revealed, STEP_WORDS } from './flow'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
@@ -55,8 +56,8 @@ export function RevealStep({ sid, view, onWrote }: { sid: string; view: View; on
 /** A fold: one line at rest (chrome with a count), the content on a press. Drawn only when it holds something. */
 export function Fold({ at, summary, children }: { at: string; summary: string; children: JSX.Element | (JSX.Element | null)[] }): JSX.Element {
   return (
-    <details data-testid={at}>
-      <summary className={FOLD} data-testid={`${at}-summary`}>{summary}</summary>
+    <details data-testid={at} className="group">
+      <summary className={`${FOLD_SUMMARY} ${FOLD}`} data-testid={`${at}-summary`}><FoldChevron />{summary}</summary>
       <div className="grid gap-3 pt-2">{children}</div>
     </details>
   )
