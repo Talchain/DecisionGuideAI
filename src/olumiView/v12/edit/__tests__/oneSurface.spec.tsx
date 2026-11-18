@@ -759,9 +759,16 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       fireEvent.click(node(FIG2)); await settle()
       expect(box()!.getAttribute('data-state')).toBe('pinned')
       expect(at(box()!), 'with its card: the same 27 px, nothing else').toEqual([previewed[0], previewed[1]! - 27])
+      // A MOVE ALONE NEVER SHORTENS THE BOX: the card pans towards the window's foot in small steps (each one near enough to carry the box). Carried, its
+      // corner would have less room below and the box would be cut shorter each step; it is placed afresh instead and shows no less than before.
+      const shown = () => { const cap = parseFloat(box()!.style.getPropertyValue('--lane-details-h')); return Number.isNaN(cap) ? H.pinned : Math.min(H.pinned, cap) }
+      const before = shown()
+      for (const y of [13, 53, 93, 133]) { shift.y = y; await settle(); expect(shown(), `card ${y - -27} px lower than at the press: the box shows no less`).toBeGreaterThanOrEqual(before) }
+      const b = at(box()!), cNow = cardNow()
+      expect(b[0]! >= cNow.left + cNow.width || b[0]! + 280 <= cNow.left || b[1]! >= cNow.top + cNow.height || b[1]! + shown() <= cNow.top, `still beside its card, not on it: ${b}`).toBe(true)
       shift.far = true; await settle()
       const far = at(box()!), c = cardNow()
-      expect(far, 'a far move: placed afresh').not.toEqual([previewed[0], previewed[1]! - 27])
+      expect(Math.abs(far[0]! - b[0]!) + Math.abs(far[1]! - b[1]!), `a far move: placed afresh (was ${b}, now ${far})`).toBeGreaterThan(64)
       expect(far[0]! >= c.left + c.width || far[0]! + 280 <= c.left || far[1]! >= c.top + c.height, `beside the card's new place, not on it: ${far}`).toBe(true)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
