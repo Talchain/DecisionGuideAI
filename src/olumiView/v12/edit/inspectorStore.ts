@@ -14,13 +14,15 @@ import type { ContextTarget } from '../../../canvas/contextMenu/types'
 import { useWrites } from '../../../olumiCore/team/writes'
 import { useViewStore } from '../../store'
 import type { EditSpec } from './EditForm'
+import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
+import type { OutputTab } from '../../../stores/uiStore'
 
 /** What the details panel is showing: a card (by its record id) or a link (by its canvas edge id, `from->to:kind`). */
 export type DetailsTarget = { readonly kind: 'card' | 'link'; readonly id: string }
 export type Point = { readonly x: number; readonly y: number }
 
 export type Surface =
-  | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside' }
+  | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside'; /** What Enter does (`try`: Try without saving, Set secondary) and the dock tab a try opens; the control's own, kept on the request. */ readonly primary?: 'set' | 'try'; readonly tab?: OutputTab }
   | { readonly kind: 'menu'; readonly target: ContextTarget }
   | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly busyKey: string }
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
@@ -36,7 +38,7 @@ type State = {
   readonly open: (t: DetailsTarget) => void
   /** Surfaces step 5: the ONE way a figure is changed on the lane. Whichever control asks (a card's pencil, the right-click row, the Model tab, an aim's question), the details of that card or link
    *  open with the Value row's field focused; asked again, it takes focus again. False, nothing changed, when the open surface is saving. */
-  readonly openFigure: (t: DetailsTarget, how?: 'value' | 'aside') => boolean
+  readonly openFigure: (t: DetailsTarget, how?: 'value' | 'aside', opts?: { readonly primary?: 'set' | 'try'; readonly tab?: OutputTab }) => boolean
   /** Show any surface in place of whatever is open. False, nothing changed, when the open one is saving. */
   readonly show: (s: Surface) => boolean
   /** Close the open surface if it is of this kind (and, for an editor, this key): a surface lets go of itself, whatever else is open stays. */
@@ -58,7 +60,7 @@ const detailsKeys = (sid: string, t: DetailsTarget): string[] => {
     const e = m?.cards.find((c) => c.id === t.id)?.figure?.edit as { route?: string; record?: unknown } | null | undefined // EditForm's `isSizeEdit`, which this module cannot import (it imports this one)
     return [`${sid}:edit:${t.id}`, ...(e != null && e.route === 'size' && typeof e.record === 'string' ? [`${sid}:size:${e.record}`] : [])]
   }
-  const l = m?.links.find((x) => `${x.from}->${x.to}:${x.kind}` === t.id) // the canvas edge id (laneMenu `edgeIdOf`)
+  const l = m?.links.find((x) => edgeIdOf(x) === t.id)
   const r = (l?.size?.edit as { record?: unknown } | null | undefined)?.record
   return typeof r === 'string' ? [`${sid}:size:${r}`] : []
 }
@@ -74,7 +76,7 @@ export const surfaceBusy = (s: Showing | null): boolean => busyKeysOf(s).some((k
 export const useLaneInspector = create<State>()((set, get) => ({
   current: null, drafts: {},
   open: (target) => { get().show({ kind: 'details', target }) },
-  openFigure: (target, how = 'value') => get().show({ kind: 'details', target, edit: how }),
+  openFigure: (target, how = 'value', opts = {}) => get().show({ kind: 'details', target, edit: how, ...(opts.primary !== undefined ? { primary: opts.primary } : {}), ...(opts.tab !== undefined ? { tab: opts.tab } : {}) }),
   show: (s) => {
     if (surfaceBusy(get().current)) return false
     set({ current: { ...s, n: ++seq } })

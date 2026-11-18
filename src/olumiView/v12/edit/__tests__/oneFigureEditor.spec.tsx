@@ -44,6 +44,7 @@ function install(view: View = approved()): void {
     if (method === 'GET' && p === '/api/me') return new Response(JSON.stringify({ me: { id: view.you_id, name: view.you } }), { status: 200 })
     if (method === 'GET') return new Response(JSON.stringify(useViewStore.getState().view ?? view), { status: 200 })
     if (hold !== null) await hold
+    if (p.endsWith('/whatif')) return new Response(JSON.stringify({ variants: [] }), { status: 200 })
     return new Response(JSON.stringify({ version: 9, n: 3, receipt: 'x:9', record: 'x' }), { status: 201 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false, at: null })
@@ -323,5 +324,66 @@ describe('surfaces step 5 CONTRAST: the older look\'s routes are unchanged', () 
     fireEvent.click(c.querySelector(`[data-model-value-edit="${PLAIN}"]`)!)
     expect(c.querySelectorAll('[data-model-editor]')).toHaveLength(1)
     expect(screen.queryByTestId('lane-inspector')).toBeNull()
+  })
+})
+
+describe('surfaces step 5 review fixes: what the control asked for is kept, the link row stays, focus is in view', () => {
+  const openTry = (tab?: 'compare'): void => {
+    // The real caller: the analysis lead's "Try a figure for X" (port/WhatMovesIt.tsx), primary "try".
+    render(<><FigureEdit id={PLAIN} edit={cardOf(PLAIN).figure!.edit as never} place="analysis-lead" glyph words={false} primary="try" label="Try a figure for X" {...(tab !== undefined ? { tab: tab as never } : {})} /><Layer /></>)
+    fireEvent.click(screen.getByTestId(`analysis-lead-edit-${PLAIN}`))
+  }
+  it('S5-13 "Try a figure for X" keeps its primary: Enter runs Try without saving, nothing is posted to the write route, and Set is the secondary', async () => {
+    openTry()
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '150' } })
+    expect(screen.getByTestId('inspector-figure-try')).toHaveAttribute('type', 'submit')
+    expect(screen.getByTestId('inspector-figure-set')).toHaveAttribute('type', 'button')
+    fireEvent.submit(screen.getByTestId('inspector-your-figure')) // Enter in the field submits the form
+    await waitFor(() => expect(posts().length).toBeGreaterThan(0))
+    expect(posts().every((p) => !p.path.endsWith('/edit')), 'nothing posted to the edit route').toBe(true)
+  })
+  it('S5-13b contrast: opened without a primary, Enter still saves', async () => {
+    await ROUTES[0]!.go('plain')
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '150' } })
+    fireEvent.submit(screen.getByTestId('inspector-your-figure'))
+    await waitFor(() => expect(posts()).toHaveLength(1))
+    expect(posts()[0]!.path).toMatch(/\/edit$/)
+  })
+  it('S5-14 a link\'s Value row stays while Olumi\'s change is held: the field, the typing and core\'s held words, Set disabled, nothing sent', async () => {
+    await ROUTES[3]!.go('link')
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '0.4' } })
+    act(() => {
+      const v = useViewStore.getState().view!
+      useViewStore.setState({ view: { ...v, model: { ...v.model!, edit_base: null, links: v.model!.links.map((l) => (edgeIdOf(l) === LINK_ID ? { ...l, size: { ...l.size!, edit: null } } : l)) } } as never })
+    })
+    expect((screen.getByTestId('inspector-figure-typed') as HTMLInputElement).value).toBe('0.4')
+    expect(screen.getByTestId('inspector-figure-held')).toBeInTheDocument()
+    expect(screen.getByTestId('inspector-figure-set')).toBeDisabled()
+    expect(posts()).toHaveLength(0)
+  })
+  it('S5-15 the tab a try opens is the control\'s own (Compare here), and Results when none is given', async () => {
+    const spy = vi.fn()
+    const { useUIStore } = await import('../../../../stores/uiStore')
+    useUIStore.setState({ forceActivateOutputTab: spy } as never)
+    openTry('compare' as never)
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '150' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-try'))
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect(spy).toHaveBeenCalledWith('compare')
+    cleanup(); useLaneInspector.setState({ current: null, drafts: {} }); spy.mockClear()
+    await ROUTES[0]!.go('plain')
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '150' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-try'))
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1))
+    expect(spy).toHaveBeenCalledWith('results')
+  })
+  it('S5-16 the focused field is brought into view inside its own scroller (asserts the call only; UNWITNESSED in a browser)', async () => {
+    const on: Element[] = [], spy = vi.fn(function (this: Element) { on.push(this) })
+    ;(Element.prototype as { scrollIntoView?: unknown }).scrollIntoView = spy
+    try {
+      await ROUTES[0]!.go('plain')
+      expect(spy).toHaveBeenCalledWith({ block: 'nearest' })
+      expect(on.some((e) => e.getAttribute('data-testid') === 'inspector-figure-typed')).toBe(true)
+    } finally { delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView }
   })
 })

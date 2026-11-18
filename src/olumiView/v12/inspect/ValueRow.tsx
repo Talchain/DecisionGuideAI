@@ -20,8 +20,9 @@ import { tryWhatIf } from '../../whatif'
 import { FORM_WORDS, isSizeEdit, submitEdit, type CoreEdit, type EditSpec } from '../edit/EditForm'
 import { editGateNow } from '../edit/editGate'
 import { useLaneInspector } from '../edit/inspectorStore'
+import { INSPECTOR_WORDS } from './FigureInspector'
 
-export const VALUE_WORDS = { yourFigure: 'Your figure', change: 'Change figure', changeOlumi: "Change to your figure (was Olumi's estimate)", save: FORM_WORDS.save, tryIt: 'Try without saving', saved: 'Saved.' } as const
+export const VALUE_WORDS = { change: 'Change figure', changeOlumi: "Change to your figure (was Olumi's estimate)", save: FORM_WORDS.save, tryIt: 'Try without saving', saved: 'Saved.' } as const
 
 /** What the row changes: a card's figure (a quantity, or a risk's size) or a link's strength, in core's words. `olumis`: the figure is Olumi's estimate. */
 export type ValueItem = { readonly kind: 'card' | 'link'; readonly id: string; readonly edit: CoreEdit; readonly subject: string; readonly olumis?: boolean }
@@ -29,7 +30,7 @@ export type ValueItem = { readonly kind: 'card' | 'link'; readonly id: string; r
 type Field = { readonly key: 'typed' | 'chance' | 'change'; readonly label: string; readonly hint: string; readonly optional: boolean }
 const fieldsOf = (edit: NonNullable<CoreEdit>): Field[] => (isSizeEdit(edit)
   ? edit.fields.map((f) => ({ key: f.key, label: f.prompt, hint: f.ask, optional: edit.fields.length > 1 }))
-  : [{ key: 'typed', label: `${VALUE_WORDS.yourFigure}: ${edit.prompt}`, hint: edit.ask, optional: false }])
+  : [{ key: 'typed', label: `${INSPECTOR_WORDS.yourFigure}: ${edit.prompt}`, hint: edit.ask, optional: false }])
 
 const BASE_KEY = 'base'
 const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
@@ -65,10 +66,14 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
   const asked = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' && s.current.edit !== undefined && s.current.target.kind === kind && s.current.target.id === id ? s.current : null))
   const askedN = asked?.n ?? 0
   const fresh = asked?.edit === 'aside'
+  // The control that opened this row says what Enter does and where a try is drawn (the old editor's `primary` and `tab`); kept while the row is open on it.
+  const primary = asked?.primary ?? 'set', tab = asked?.tab ?? 'results'
   useEffect(() => {
     if (askedN === 0) return
     if (!typedAny && live !== null) store({ [BASE_KEY]: String(live) })
     first.current?.focus({ preventScroll: true })
+    // preventScroll keeps the board still, but the field sits in the panel's own scrolling body: bring it into view there, never moving the page.
+    first.current?.scrollIntoView?.({ block: 'nearest' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askedN])
   if (edit == null || sid === null || view === null || !isForThisPage(view, me)) return null
@@ -96,7 +101,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
   const tryIt = async (): Promise<void> => {
     if (!can || base === null || size) return
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, id, values['typed'] ?? ''); useUIStore.getState().forceActivateOutputTab('results'); useLaneInspector.getState().close('details') } catch (e) {
+    try { await tryWhatIf(sid, base, id, values['typed'] ?? ''); useUIStore.getState().forceActivateOutputTab(tab); useLaneInspector.getState().close('details') } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
     } finally { setTrying(false) }
   }
@@ -108,7 +113,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
 
   return (
     <form className="grid gap-1" data-testid="inspector-your-figure" data-value-row={`${kind}:${id}`} aria-busy={sending || undefined}
-      onSubmit={(e) => { e.preventDefault(); void save() }} onKeyDown={(e) => e.stopPropagation()}>
+      onSubmit={(e) => { e.preventDefault(); void (primary === 'try' && !size ? tryIt() : save()) }} onKeyDown={(e) => e.stopPropagation()}>
       {fresh ? <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="inspector-figure-aside">{ASIDE_WORDS.done}</p> : null}
       {fields.map((f, i) => (
         <div key={f.key} className="grid gap-1">
@@ -128,9 +133,9 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
             onClick={() => { store({ ...values, [BASE_KEY]: String(live) }); setError(null) }}>{USE_LATEST}</button></p>
       ) : null}
       <div className="flex flex-wrap gap-1">
-        <button type="submit" data-testid="inspector-figure-set" disabled={!can} className={btn}>
+        <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={btn}>
           {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
-        {size ? null : <button type="button" data-testid="inspector-figure-try" disabled={!can} onClick={() => void tryIt()} className={btn}>{VALUE_WORDS.tryIt}</button>}
+        {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={`${btn}${primary === 'try' ? ' order-first bg-primary text-text-on-color' : ''}`}>{VALUE_WORDS.tryIt}</button>}
       </div>
     </form>
   )

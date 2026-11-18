@@ -20,7 +20,7 @@ import type { FigureRange } from '../contract'
 import { FigureInspector } from '../inspect/FigureInspector'
 import { ValueRow } from '../inspect/ValueRow'
 import { useViewStore } from '../../store'
-import { isSizeEdit, writeKeyOf, type EditSpec } from './EditForm'
+import { writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
 import { SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
@@ -94,7 +94,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
       {link === null ? null : (
         <>
           {link.size === undefined ? null : <p className="text-text-body" title={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</p>}
-          {lane && isSizeEdit(link.size?.edit) ? <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size!.edit, subject: link.size!.text }} /> : null}
+          {lane ? <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size?.edit ?? null, subject: link.size?.text ?? '' }} /> : null}
           {link.causal?.author == null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} title={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</p>}
         </>
       )}
