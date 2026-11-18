@@ -153,7 +153,8 @@ export function PortAnalysis({ model }: { model: ViewModel }) {
 /** The tab on the lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under core's heading). */
 export function PortAnalysisTab() {
   const model = useViewStore(shownModel)
-  return model === null ? null : <><HeldProposalLine /><PortAnalysis model={model} /></>
+  // The held line sits on the tab's own 12px gutter, as the body below it does (`-mx-1` against the dock's 16px wrapper).
+  return model === null ? null : <><div className="-mx-1 empty:hidden"><HeldProposalLine /></div><PortAnalysis model={model} /></>
 }
 
 export default PortAnalysisTab
