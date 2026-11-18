@@ -252,6 +252,9 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const first = since !== null && since.to.n === base ? since.from.n : base - 1
   const [picked, setPicked] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // The what-if press is offered only where the form has something to show: a figure core lets the person set on the version shown, or
+  // the line saying a waiting change must be dealt with first (WhatIfSave draws nothing otherwise).
+  const canSave = useViewStore((s) => s.at === null && s.sid === sid && (s.view?.proposal != null || (s.view?.model?.cards ?? []).some((c) => c.figure?.edit != null)))
   const earlier: Group = { label: 'Earlier versions', choices: Array.from({ length: base - 1 }, (_, i) => base - 1 - i).map((n) => ({ value: `v:${n}`, label: `Version ${n}`, title: `Version ${n} of this scenario, as approved` })) }
   const whatIfs: Group = { label: 'Saved what-ifs', choices: [...own.whatifs].reverse().map((w) => ({ value: w.id, label: `What-if: ${w.name}`, title: w.about })) }
   const scenarios: Group = { label: 'Your other scenarios', choices: (Array.isArray(others) ? others : []).map((o) => ({ value: o.id, label: o.label, title: o.title })) }
@@ -270,7 +273,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
       {version !== null
         ? <VersionDiff sid={sid} from={version} to={base} since={since !== null && since.from.n === version && since.to.n === base ? since : null} />
         : <SideBySide a={self} b={value} />}
-      {saving
+      {!canSave ? null : saving
         ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} />
         : <div><Button size="sm" variant="ghost" data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
             <span className="inline-flex items-center gap-1.5"><OkIcon id="what-if" size={14} decorative />Save a what-if to compare</span></Button></div>}
@@ -315,7 +318,8 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
             {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} names={names} />)}
           </ul>
         )}
-        {still === 0 ? null : <p className={META} data-testid="core-compare-still" data-still={still}>{c.results.length === 0 ? 'No results in either version.' : notMoved(still)}</p>}
+        {c.results.length === 0 ? <p className={META} data-testid="core-compare-results-none">No results in either version.</p>
+          : still === 0 ? null : <p className={META} data-testid="core-compare-still" data-still={still}>{notMoved(still)}</p>}
         {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
       </section>
       {told === null ? null : (

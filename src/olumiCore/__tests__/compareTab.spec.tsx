@@ -172,6 +172,17 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     expect(compared()).toEqual([])
     cleanup()
     show(v)
-    expect([!!screen.queryByTestId('core-compare-picker'), !!screen.queryByTestId('core-compare-whatif-open')]).toEqual([true, true])
+    expect([!!screen.queryByTestId('core-compare-picker'), !!screen.queryByTestId('core-compare-whatif-open')]).toEqual([true, v.model!.cards.some((c) => c.figure?.edit != null)])
+  })
+  it('CT9: the what-if press only where a figure can be set; CONTRAST: none settable and nothing waiting offers no press; no results says so once', async () => {
+    const v = fixture('ui9-a6-since-v3')
+    const settable = { ...v, model: { ...v.model!, cards: v.model!.cards.map((c, i) => (i === 0 ? { ...c, figure: { text: '5', title: 'T', edit: { prompt: 'P', ask: 'A' } } } : { ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })) } } as View
+    show(settable)
+    expect(screen.getByTestId('core-compare-whatif-open')).toBeInTheDocument()
+    cleanup()
+    show({ ...settable, proposal: null, model: { ...settable.model!, cards: settable.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })) } } as View)
+    expect(screen.queryByTestId('core-compare-whatif-open')).toBeNull()
+    expect((await screen.findByTestId('core-compare-results-none')).textContent).toBe('No results in either version.')
+    expect(screen.queryByTestId('core-compare-still')).toBeNull()
   })
 })
