@@ -7,10 +7,10 @@ import { shownModel, useViewStore } from '../olumiView/store'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
- * ANY TWO THINGS, SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts):
- * the person picks two sides, each one of: this scenario as it is now (`s_…`), one of its approved versions (`s_…@n`), one of its saved
- * what-ifs (`w_…`), or another of their scenarios. Core reads each side's saved Run (no Run, no AI call) and this page draws it.
- * Not version history (`compare.tsx`, the other half of this tab).
+ * SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts): this scenario as
+ * it is now (`s_…`) or one of its approved versions (`s_…@n`), beside one of its saved what-ifs (`w_…`) or another of the person's
+ * scenarios. The Compare tab's ONE picker (`compare.tsx`, 18 Nov redesign) chooses the second side; `SideBySide` reads core's answer (no
+ * Run, no AI call) and this page draws it. Version against version is `compare.tsx`'s own (`VersionDiff`).
  *
  * A WHAT-IF is saved here by name (core `POST /api/scenarios/:s/whatifs`): one figure, as the person types it, tried on a copy of the
  * approved model and kept, shared with the scenario's members. The word is always "what-if", never "scenario".
