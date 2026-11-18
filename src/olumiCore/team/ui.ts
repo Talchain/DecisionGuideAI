@@ -22,5 +22,7 @@ export const AVATAR = `inline-grid h-[22px] w-[22px] flex-none place-items-cente
 export const GO = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`
 /** A quiet text action (a fold, a secondary step): underlined meta words, never a second filled button. */
 export const QUIET = `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 text-text-body underline underline-offset-2 hover:text-text-header disabled:cursor-not-allowed disabled:no-underline disabled:text-text-light`
+/** A link that is not Olumi's (the printable record, a source the team cited): body ink, underlined. Blue stays Olumi's. */
+export const PLAIN_LINK = 'text-text-body underline underline-offset-2 hover:text-text-header'
 /** A fold's summary row (native details marker). */
 export const FOLD = `${typography.viewPanelMeta} min-h-[24px] cursor-pointer font-medium text-text-header`

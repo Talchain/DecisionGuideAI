@@ -125,7 +125,7 @@ function Step({ id, n, state, open, summary, onToggle, children }: { id: StepId;
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>
         <span className={`${typography.viewPanelHeading} flex-none ${open || state === 'now' ? 'text-text-header' : 'text-text-body'}`}>{STEP_WORDS[id]}</span>
-        {!open && <span className={`${META} min-w-0 truncate`} title={summary} data-testid={`team-step-${id}-summary`}>{summary}</span>}
+        {!open && <span className={`${META} min-w-0 break-words py-0.5`} title={summary} data-testid={`team-step-${id}-summary`}>{summary}</span>}
       </button>
       <div id={body} hidden={!open} className={open ? 'grid gap-3 pb-3 pt-2' : 'hidden'} data-testid={body}>{children}</div>
     </section>

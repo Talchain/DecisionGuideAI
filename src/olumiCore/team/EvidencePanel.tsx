@@ -4,7 +4,7 @@ import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError, type EvidenceInput } from './api'
 import { useDraft } from './drafts'
 import { runWrite, useWriteSending } from './writes'
-import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { BODY, CARD, ERR, FIELD, H, LABEL, META, PLAIN_LINK } from './ui'
 
 type Stance = EvidenceInput['stance']
 const NONE = '__none__'
@@ -103,7 +103,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
               {e.bears_on_text !== null && <p className={META} data-testid={`team-evidence-about-${e.id}`}>{e.bears_on_text}</p>}
               {e.source !== null && (
                 <p className={`${META} break-all`} data-testid={`team-evidence-source-${e.id}`}>
-                  {W.evidence.sourcePrefix} {link ? <a href={link} target="_blank" rel="noopener noreferrer" className="text-info underline underline-offset-2">{e.source}</a> : e.source}
+                  {W.evidence.sourcePrefix} {link ? <a href={link} target="_blank" rel="noopener noreferrer" className={PLAIN_LINK}>{e.source}</a> : e.source}
                 </p>
               )}
               <Considered sid={sid} e={e} onWrote={onWrote} W={W} />

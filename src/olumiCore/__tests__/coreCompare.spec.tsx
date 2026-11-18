@@ -160,6 +160,8 @@ describe('Version history on the lane', () => {
     expect([...(await screen.findByTestId('core-version-1-changes')).querySelectorAll('li')].map((l) => l.textContent))
       .toEqual(['+ option: Add one specialist', '+ figure: per specialist 10 to 30 ticket/week ◆'])
     expect(screen.getByTestId('core-version-1-record-link').getAttribute('href')).toBe(`/s/${SID}/record#version-1`)
+    // polish 11: the record links are neutral, never Olumi's blue
+    for (const id of ['core-version-1-record-link', 'core-versions-record-link']) expect(screen.getByTestId(id).className, id).not.toContain('text-info')
     // A later version's change card is core's comparison with the version it was approved over: drawn once, not again from `lines`.
     fireEvent.click(screen.getByTestId('core-version-open-2'))
     await waitFor(() => expect(screen.getAllByTestId('core-version-2-changes')).toHaveLength(1))

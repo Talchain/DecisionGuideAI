@@ -231,6 +231,13 @@ describe('the record and how the model moved (PL review 4 Nov: both on core)', (
     expect(screen.getByTestId('team-record-link').getAttribute('href')).toBe(`/s/${SID}/record`)
     expect(screen.queryByTestId('team-compare')).toBeNull()
   })
+  it('polish 11: blue is Olumi\'s only, so the record link and an evidence source link are the neutral underlined link', () => {
+    render(<TeamTab />)
+    for (const el of [screen.getByTestId('team-record-link'), screen.getByTestId('team-evidence-source-5').querySelector('a')!]) {
+      expect(el.className).not.toContain('text-info')
+      expect(el.className).toContain('text-text-body')
+    }
+  })
   it('two versions: compare reads core\'s compare route for the pair chosen and draws its three lists in core\'s words', async () => {
     const two = { ...served, version: { ...served.version!, n: 2 } }
     useViewStore.setState({ view: two })
