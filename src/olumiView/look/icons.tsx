@@ -48,7 +48,9 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { HIT_44 } from '../../styles/hitArea'
+import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
+import { typography } from '../../styles/typography'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 
 
@@ -271,7 +273,15 @@ interface OkIconProps {
   className?: string
 }
 
-const colourVar = (token: string) => `var(${token})`
+/** A registry colour token as a text-colour CLASS (never an inline style), so a `disabled:` or hover class can win over it. Literal strings, so the build sees each one. */
+const TEXT_COLOUR: Readonly<Record<string, string>> = {
+  '--text-light': 'text-text-light', '--text-header': 'text-text-header', '--text-body': 'text-text-body',
+  '--danger': 'text-danger', '--info': 'text-info', '--warning': 'text-warning', '--success': 'text-success', '--option': 'text-option',
+  '--border-default': 'text-[color:var(--border-default)]', '--olumi-mark-orange': 'text-[color:var(--olumi-mark-orange)]',
+}
+/** The class for a registry token; a token with no class is a registry error the icons spec catches (every colour the registry names has one). */
+export const colourClass = (token: string): string => TEXT_COLOUR[token] ?? ''
+export const COLOUR_TOKENS: readonly string[] = Object.keys(TEXT_COLOUR)
 
 function pick(id: IconId, variant?: 'alt'): IconComponent {
   const entry: IconEntry = ICONS[id]
@@ -289,17 +299,16 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, decora
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
-  const style: CSSProperties = { color: colourVar(token) }
-  const cls = `inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`
+  const cls = `inline-flex shrink-0 items-center justify-center ${colourClass(token)}${className ? ` ${className}` : ''}`
   if (hidden) {
     return (
-      <span aria-hidden="true" className={cls} style={style}>
+      <span aria-hidden="true" className={cls}>
         <Glyph id={id} size={size} variant={variant} />
       </span>
     )
   }
   return (
-    <span role="img" aria-label={label} title={label} className={cls} style={style}>
+    <span role="img" aria-label={label} title={label} className={cls}>
       <Glyph id={id} size={size} variant={variant} />
     </span>
   )
@@ -317,10 +326,14 @@ interface OkIconButtonProps {
   testid?: string
   size?: number
   className?: string
+  /** The lane's compact icon button (18 Nov): a 28px square, ghost grey or solid green, in place of the 44px hit area. Omitted: the 44px one. */
+  tone?: 'ghost' | 'primary'
+  /** A small tabular numeral beside the icon inside the same control (Approve ticked · N): drawn, and the label still carries it in words. */
+  count?: number
 }
 
 /** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
@@ -333,10 +346,10 @@ export function OkIconButton({ id, onClick, words, variant, active, pressed, dis
       aria-pressed={pressed}
       title={label}
       data-testid={testid}
-      className={`${HIT_44} inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`}
-      style={{ color: disabled ? colourVar('--text-light') : colourVar(token) }}
+      className={`${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >
       <Glyph id={id} size={size} variant={variant} />
+      {count === undefined ? null : <span className={`${typography.caption} tabular-nums`} data-testid={testid === undefined ? undefined : `${testid}-count`} aria-hidden="true">{count}</span>}
     </button>
   )
 }

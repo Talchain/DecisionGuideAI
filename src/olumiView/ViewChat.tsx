@@ -577,8 +577,6 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
 
 /** The filled button of a closed review where Approve cannot be pressed blind (Olumi's readings wait for a choice, or core does not support the change). */
 export const REVIEW_CHANGES = 'Review the changes'
-/** The quiet text-link look for every action beside the one filled button (PANEL-SPEC 1). */
-const QUIET_ACTION = `${typography.viewPanelHeading} inline-flex min-h-[44px] items-center px-1 text-text-light hover:text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed`
 
 export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen, lead }: { /** The one-line review's own row (Olumi's mark, core's heading, Review), drawn first in the actions line, at the foot (17 Nov, the calm panel). */ lead?: ReactNode; /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   const closed = inRow && !open
@@ -761,20 +759,19 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
           quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
           not support the change, the filled button opens the review instead (nothing is approved blind). */}
-      <div className="ok-actions flex flex-wrap items-center gap-x-2 gap-y-0" data-testid="view-proposal-actions">
+      <div className={`ok-actions flex ${lead === undefined ? 'flex-wrap' : 'flex-nowrap'} items-center gap-x-2 gap-y-0`} data-testid="view-proposal-actions">
         {lead}
         {closed && (readingIds.length > 0 || verdict?.supported === false)
           ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
-          : verdict?.supported === false ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-approve" onClick={() => approve()}>{actions.approve}</button>}
+          : verdict?.supported === false ? null : <OkIconButton id="approve" tone="primary" words={actions.approve === APPROVE_WORD ? 'Approve these changes' : actions.approve} disabled={busy} testid="view-approve" onClick={() => approve()} />}
         {!tickable || closed || verdict?.supported === false ? null : (
-          <button type="button" disabled={busy || chosen === 0} data-testid="view-approve-ticked" title="Approve only the changes you ticked"
-            className={QUIET_ACTION} onClick={() => approve(pick)}>Approve ticked · {chosen}</button>
+          <OkIconButton id="approve-ticked" tone="ghost" words={`Approve ticked · ${chosen}`} count={chosen} disabled={busy || chosen === 0} testid="view-approve-ticked" onClick={() => approve(pick)} />
         )}
         {/* Set aside sends the readings the person chose to keep the original for (core's discard contract, approval.ts: a reading carried from
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
-        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
+        {closed && readingIds.length > 0 ? null : <OkIconButton id="cancel-close" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
       </div>
     </div>
   )
@@ -1459,14 +1456,13 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   // filled button and Set aside as an icon (Proposal's actions). The mark is beside core's words, never in their place.
   const lead = (
     <>
-      <button type="button" className="flex min-h-[44px] min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
+      <button type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row" title={p.on === '' ? p.heading : `${p.heading} · ${p.on}`}
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <OkIcon id="olumi-mark" size={16} decorative />
         {/* One flowing line: the heading, the dot and the version wrap together as one inline run, never three flex columns (DL look at 1500x904 at 1.33). */}
-        <span className="min-w-0 flex-1"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
+        <span className="min-w-0 flex-1 truncate"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
       </button>
-      <ChangeMix changes={p.changes} />
-      <button type="button" className={`${typography.viewPanelHeading} inline-flex min-h-[44px] items-center gap-1 px-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}
+      <button type="button" className={VIEW_CHIP_CLASS}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         Review{open ? <ChevronUp className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
       </button>
@@ -1477,7 +1473,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the
           change list and the readings join them, above the line. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
       <div id={body} data-review-body="">
-        {open ? <p>{NEXT_STEP_WORDS.approve}</p> : null}
+        {open ? <><p>{NEXT_STEP_WORDS.approve}</p><ChangeMix changes={p.changes} /></> : null}
         <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} lead={lead} />
       </div>
     </div>

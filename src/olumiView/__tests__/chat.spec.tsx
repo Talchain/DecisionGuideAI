@@ -130,7 +130,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(card.querySelectorAll('[data-view="proposal.on"]')).toHaveLength(1)
     // Opened, the review shows the same actions; Approve and Set aside post exactly as before.
     setOpen(review, true)
-    await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
+    await act(async () => { fireEvent.click([...card.querySelectorAll('button')].find((b) => b.dataset['testid'] === 'view-approve')!) })
     await waitFor(() => expect(posts[0]).toEqual({ url: `/api/proposals/${p.id}/approve`, body: { base: p.base } }))
     useViewStore.setState({ view: held })
     const { container: again } = renderTab()
@@ -157,9 +157,38 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect([...step.querySelectorAll('p')].some((el) => el.textContent === 'Next step')).toBe(false)
     setOpen(review, true)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
-    // CHANGED BY DESIGN (17 Nov, the calm panel): Set aside is an icon button (name and hover "Set aside"), not words; Approve keeps its words.
-    expect([...review.querySelectorAll('button')].map((b) => b.textContent)).toEqual(expect.arrayContaining(['Approve']))
+    // CHANGED BY DESIGN (18 Nov, Paul: smallest possible buttons): Approve is a tick icon button, not words: its name and hover say Approve and what it approves;
+    // Review, Approve and Set aside share one 28px height class (and the row's own button), so they sit on one centre line. The post is unchanged (row above).
+    const approve = review.querySelector<HTMLElement>('[data-testid="view-approve"]')!
+    expect([approve.getAttribute('aria-label'), approve.getAttribute('title'), approve.textContent]).toEqual(['Approve these changes', 'Approve these changes', ''])
+    expect(approve.querySelector('svg.lucide-check'), 'a tick from the registry').not.toBeNull()
+    const row28 = ['view-proposal-row', 'view-proposal-review-toggle', 'view-approve', 'view-set-aside'].map((t) => review.querySelector<HTMLElement>(`[data-testid="${t}"]`)!.className.split(/\s+/).filter((c) => /^(min-)?h-/.test(c)))
+    expect(row28).toEqual([['min-h-7'], ['min-h-7'], ['min-h-7'], ['min-h-7']])
+    expect(review.querySelector('[data-testid="view-proposal-row"] .truncate'), 'the summary is one line, cut with an ellipsis').not.toBeNull()
+    expect(row.getAttribute('title'), 'the whole sentence on hover').toBe(row.textContent)
     expect(review.querySelector('[data-testid="view-set-aside"]')!.getAttribute('aria-label')).toBe('Set aside')
+  })
+
+  // 18 Nov, Paul's pictures of the compact controls: Approve was a CIRCLE (rounded-md is 12px here, so a 28px square drew round), the bar took two lines,
+  // and Set aside's archive-with-cross was ambiguous. Bound to the lane's real card (identity: the testids), at rest (closed) and open.
+  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the dismiss cross', () => {
+    const held = golden('proposal')
+    useViewStore.setState({ view: held })
+    const { container } = renderTab()
+    const review = container.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
+    const bar = review.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')!
+    expect(bar.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'flex-nowrap']))
+    expect(bar.className.split(/\s+/)).not.toContain('flex-wrap')
+    const kids = [...bar.children].map((c) => (c as HTMLElement).dataset['testid'])
+    expect(kids.filter((t) => t !== undefined && t !== '')).toEqual(['view-proposal-row', 'view-proposal-review-toggle', 'view-approve', 'view-set-aside'])
+    expect(bar.querySelector('[data-testid="view-change-mix"]'), 'the change mix is not in the one-row bar').toBeNull()
+    const approve = bar.querySelector<HTMLElement>('[data-testid="view-approve"]')!
+    expect(approve.className.split(/\s+/)).toContain('rounded-control')
+    expect(approve.className).not.toMatch(/rounded-(md|full|pill|lg)/)
+    const aside = bar.querySelector<HTMLElement>('[data-testid="view-set-aside"]')!
+    expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', 'Set aside'])
+    expect(aside.querySelector('svg.lucide-x'), 'the dismiss cross, not the archive box').not.toBeNull()
+    expect(aside.querySelector('svg.lucide-archive-x')).toBeNull()
   })
 
   // CATCH (contract 3). Fails before: land() had no closed-details early return, so a closed review's box was given a maxHeight from the rows.
@@ -209,7 +238,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       return new Response(JSON.stringify({ error: 'no team here' }), { status: 404 })
     }) as unknown as typeof fetch)
     const { container } = renderTab()
-    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Approve')!) })
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.dataset['testid'] === 'view-approve')!) })
     await waitFor(() => expect(posts[0]?.url).toBe(`/api/proposals/${golden('proposal').proposal!.id}/approve`))
     await waitFor(() => expect(useViewStore.getState().stale).toBe(true))
     expect(currentModel(useViewStore.getState())).toBeNull()
