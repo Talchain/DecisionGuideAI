@@ -294,6 +294,21 @@ describe('no chance yet: the questions that would move it on are one press away,
   })
 })
 
+describe('the model\'s state is said once, above the tab, in the same strip as Reasoning\'s', () => {
+  it('a held proposal: core\'s heading and version in the strip, once; CONTRAST: the approved model at rest draws no strip', () => {
+    const held = viewOf('golden/proposal')
+    expect(held.proposal).not.toBeNull()
+    ready(held); render(<PortAnalysisTab />)
+    const strip = screen.getByTestId('view-reasoning-state')
+    expect(strip.dataset['state']).toBe('proposal')
+    expect(strip.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
+    expect(document.querySelectorAll('[data-view-proposal="heading"]')).toHaveLength(1)
+    cleanup()
+    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+  })
+})
+
 describe('why this reading: core\'s long reading, one press away', () => {
   it('bakery: the most-likely paragraph is not drawn at rest; opened, it is drawn once at its path with its ✎', () => {
     const view = viewOf('golden/bakery'), ml = view.model!.run!.most_likely!
