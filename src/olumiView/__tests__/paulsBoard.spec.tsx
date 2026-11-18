@@ -272,7 +272,7 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
   // core's words its name and hover.
   it('FT4 unused: core\'s honesty mark at the foot, named by core\'s words; a card without one draws none', () => {
     for (const v of [EU, APP]) for (const c of v.model!.cards) {
-      const el = draw(v, c.id).querySelector(`[data-view="${c.id}.unused"]`)
+      const el = draw(v, c.id).querySelector(`[data-view="${c.id}.unused"] [role="img"]`)
       expect(el?.getAttribute('aria-label') ?? null, c.id).toBe(c.unused == null || c.unused === '' ? null : c.unused)
       cleanup()
     }

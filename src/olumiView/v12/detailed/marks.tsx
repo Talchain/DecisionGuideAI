@@ -2,23 +2,20 @@
  * THE DETAILED FACE'S MARKS (Paul, 17 Nov 2026: "not overwhelming but truly valuable with rich data"; "anything that's standard text should be
  * an icon with a hover-over"). Each one draws a fact the Detailed card used to spell out as a sentence, as a mark or a small visual, with core's
  * words whole on hover and as its accessible name. Nothing here writes, rewords, rounds or works out a value; the numbers are core's.
- * Icons are Lucide (14 px, stroke 1.75); the icon registry the UI lane is building takes this map over when it lands.
+ * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
 import { useState } from 'react'
-import { CalendarClock, Layers, ScrollText, Unlink } from 'lucide-react'
 import type { ViewCard, ViewModel } from '../../client'
 import { toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
+import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
 import { figureRange } from '../contract'
 import type { Said } from './said'
 
-const ICON = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const
-
-/** A mark with words: an image named by them, the same words its hover. */
-const named = (words: string) => ({ role: 'img' as const, 'aria-label': words, title: words })
+const ICON = 14
 
 /** What core folded behind a card or the question (its badge), as a count of records beside a stack icon; core's words whole on hover, its label
  *  the accessible name; pressing it opens them, as the badge does (Badge.tsx toggleBadge). A proposed fold keeps its dashed Olumi outline. */
@@ -29,20 +26,20 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   return (
     <button type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} title={words} aria-label={b.label} aria-expanded={b.open}
       data-core-badge={cardId} data-badge-count={n} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
-      <Layers {...ICON} /><span className="tabular-nums">{n}</span>
+      <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums">{n}</span>
     </button>
   )
 }
 
 /** Core's honesty line (`card.unused`: Olumi's analysis does not use this figure yet), as a mark with core's words. */
 export const UnusedMark = ({ id, words }: { id: string; words: string }): JSX.Element => (
-  <span className="ok-dt-icon" {...named(words)} data-view={`${id}.unused`} data-unused={id}><Unlink {...ICON} /></span>
+  <span className="ok-dt-icon" data-view={`${id}.unused`} data-unused={id}><OkIcon id="feeds-no-result" size={ICON} words={words} decorative={false} /></span>
 )
 
 /** The question's date (core's `decide_by`): a calendar mark and core's words; Olumi's blue where Olumi set it. */
 export const DecideBy = ({ d }: { d: { text: string; title: string; olumi: boolean } }): JSX.Element => (
   <span className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} title={d.title || d.text} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
-    <CalendarClock {...ICON} /><span>{d.text}</span>
+    <OkIcon id="decide-by" size={ICON} /><span>{d.text}</span>
   </span>
 )
 
@@ -83,7 +80,7 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
       <button type="button" className="ok-dt-icon ok-dt-press nodrag nopan" title={words} aria-label={words} aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}><ScrollText {...ICON} /></button>
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></button>
       {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )

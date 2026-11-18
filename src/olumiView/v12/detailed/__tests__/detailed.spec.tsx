@@ -173,4 +173,14 @@ describe('Detailed: marks, not sentences', () => {
     const ranged = withCard(HIRING, { ...c, figure: { ...c.figure!, range: { low: 8, likely: 12, high: 16, unit: 'ticket/week' } } } as ViewCard)
     expect(faceOf(draw(ranged, c.id), c.id).querySelector('[data-testid="range-bar"]')).not.toBeNull()
   })
+  it('DT12 the marks are drawn through the icon registry: "not used in the analysis" is the registry\'s own glyph, never the remove-link one. CONTRAST: a card with no unused words draws neither', () => {
+    const view = [HIRING, ASKED, HOSTING].find((v) => v.model!.cards.some((c) => c.unused != null && c.unused !== ''))!
+    const c = view.model!.cards.find((x) => x.unused != null && x.unused !== '')!
+    const el = faceOf(draw(view, c.id), c.id)
+    const mark = el.querySelector<HTMLElement>(`[data-view="${c.id}.unused"] [role="img"]`)!
+    expect([mark.getAttribute('aria-label'), mark.querySelector('svg')?.getAttribute('class')?.includes('lucide-unplug'), el.querySelector('svg.lucide-unlink')]).toEqual([c.unused, true, null])
+    cleanup()
+    const none = withCard(view, { ...c, unused: null } as ViewCard)
+    expect([faceOf(draw(none, c.id), c.id).querySelector(`[data-view="${c.id}.unused"]`), document.querySelector('svg.lucide-unlink')]).toEqual([null, null])
+  })
 })
