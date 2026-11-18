@@ -739,6 +739,33 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 
+  it('A-9 the board lifts a pressed card clear of the foot controls (27 px on Detailed at 1232): the box moves WITH its card by the same 27 px, and is not placed afresh. CONTRAST: a far move of the card places it afresh, beside the card\'s new place', async () => {
+    const CARD = { left: 100, top: 400, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    const shift = { y: 0, far: false }
+    const cardNow = () => (shift.far ? { left: 500, top: 150, width: 220, height: 120 } : { ...CARD, top: CARD.top + shift.y })
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(cardNow())
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      shift.y = -27
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'with its card: the same 27 px, nothing else').toEqual([previewed[0], previewed[1]! - 27])
+      shift.far = true; await settle()
+      const far = at(box()!), c = cardNow()
+      expect(far, 'a far move: placed afresh').not.toEqual([previewed[0], previewed[1]! - 27])
+      expect(far[0]! >= c.left + c.width || far[0]! + 280 <= c.left || far[1]! >= c.top + c.height, `beside the card's new place, not on it: ${far}`).toBe(true)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
   it('A-8 a preview stands where its pinned box will fit, not merely where the small preview fits: with room above for the preview only, it is placed below (where the pinned box goes), and the press does not move it', async () => {
     // The card spans the board (no room at its sides); 200 px above it (the preview alone would fit), 400 px below (the pinned box fits), and another card stands just below it.
     const CARD = { left: 20, top: 200, width: 860, height: 100 }, BELOW = { left: 20, top: 320, width: 300, height: 100 }, H = { peek: 160, pinned: 340 }
