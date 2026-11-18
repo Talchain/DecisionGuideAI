@@ -72,10 +72,22 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
   const h = Math.min(size.height, Math.max(minShown, H - 2 * gap))
-  const out = (left: number, top: number, hh: number): Placed => ({ left: left + free.left, top: top + free.top, maxHeight: hh < size.height ? hh : null })
+  const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+  const footIn = foot.map(shift)
+  // The foot controls (the zoom row, the "N more cards below" cue) are never covered (Codex 2f witness: the panel's last row sat under the cue): a place whose
+  // box would reach one is cut to end a gap above it, or lifted when that leaves less than a usable panel.
+  const clearFoot = (left: number, top: number, hh: number): { top: number; hh: number } => {
+    let t = top, h2 = hh
+    for (const f of footIn) {
+      if (left >= f.right || left + w <= f.left || t + h2 <= f.top - gap || t >= f.bottom) continue
+      const room = f.top - gap - t
+      if (room >= minShown) h2 = Math.min(h2, room); else { h2 = Math.min(h2, Math.max(minShown, f.top - 2 * gap)); t = Math.max(gap, f.top - gap - h2) }
+    }
+    return { top: t, hh: h2 }
+  }
+  const out = (left: number, top: number, hh: number): Placed => { const c = clearFoot(left, top, hh); return { left: left + free.left, top: c.top + free.top, maxHeight: c.hh < size.height ? c.hh : null } }
   const a = shift(anchor)
   if (within(anchor, free)) {
-    const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
     // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
     const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
     if (!hits({ left: p.left, top: p.top, right: p.left + w, bottom: p.top + h }, a)) return out(p.left, p.top, h)
