@@ -3,11 +3,12 @@ import { useViewStore } from '../../olumiView/store'
 import { useReveal } from '../../olumiView/reveal'
 import { forgetLanded } from '../../olumiView/revealReturn'
 import { openOutcome } from './OutcomePanel'
+import { openStep } from './flow'
 
 /**
  * THE WAY TO AN OUTCOME FORM, from anywhere in the workspace: the one rule for "no outcome yet", and the one step that opens the existing
  * form (`OutcomePanel`) under its commitment in the Team tab and brings it into view. Nothing is written here: the form's own write is the
- * only one. Callers: the Olumi tab's saved-expectation card (`olumiView/v12/learning`) and the Team tab's nudges.
+ * only one. Callers: the Olumi tab's saved-expectation card (`olumiView/v12/learning`).
  */
 
 /** The commitments nobody has recorded an outcome for yet, in the order given. */
@@ -21,6 +22,8 @@ export function goToOutcome(sid: string, id: number): void {
   // A reveal or evidence panel fills the Team tab in place of its panels: it steps aside, as it does for the lens bar's Team button.
   forgetLanded(); useReveal.getState().select(null)
   openOutcome(sid, id)
+  // The Team tab is one flow: its "What happened" step holds the outcome forms (./flow.ts).
+  openStep('outcome')
   // The dock's own consumer fronts the results panel and opens a collapsed dock (OutputsDock, on the version this bumps).
   useUIStore.getState().forceActivateOutputTab('team')
   // The form is drawn once the tab is: two frames from outside Team (CardDiffers' openDiffer waits the same).

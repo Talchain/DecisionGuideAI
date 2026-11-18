@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { OutcomePanel } from './OutcomePanel'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
-import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { BODY, CARD, ERR, FIELD, GO, H, LABEL, META, QUIET } from './ui'
 import { dissentWords } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
@@ -30,7 +29,9 @@ const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '',
  * screen, with an optional review date. The model's band for that option is shown only once the team has written what it expects, so
  * the expectation is theirs first; core keeps the band frozen with the commitment (`expect_band`).
  */
-export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
+/** `part` (overnight 18 Nov flow): the Team tab draws the form in its Commit step and the commitments with their outcomes in its "What
+ *  happened" step; `all` (both, list first) is the panel whole, as the chat's own commitment surface and its specs draw it. */
+export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: string; view: View; onWrote: () => Promise<boolean>; part?: 'all' | 'form' | 'list' }): JSX.Element {
   const c = view.collab
   const [d, setD, dropDraft] = useDraft<CommitmentDraft>(`${sid}:commitment`, { ...EMPTY, owner: view.you_id })
   const { open, action, owner, expect, reconsider } = d
@@ -71,9 +72,9 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
   }
 
   return (
-    <section data-testid="team-commitments" aria-label="Commitments" className="grid gap-2">
-      <h3 className={H}>Commitments</h3>
-      <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-commitment-list">
+    <section data-testid={part === 'form' ? 'team-commitment-new' : 'team-commitments'} aria-label="Commitments" className="grid gap-2">
+      {part === 'all' && <h3 className={H}>Commitments</h3>}
+      {part !== 'form' && <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-commitment-list">
         {c.commitments.map((k) => (
           <li key={k.id} data-testid={`team-commitment-${k.id}`} className={CARD}>
             <p className={`${BODY} whitespace-pre-wrap break-words text-text-header`} data-testid={`team-commitment-action-${k.id}`}>{k.action}</p>
@@ -100,15 +101,15 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
             <OutcomePanel sid={sid} commitment={k} dissent={c.dissent} labelOf={labelOf} onWrote={onWrote} />
           </li>
         ))}
-      </ul>
+      </ul>}
 
-      {view.version === null ? (
+      {part === 'list' ? null : view.version === null ? (
         <>
           <p className={META} data-testid="team-commitment-unapproved">A commitment to an option is made against an approved model. Approve the model in the chat first. You can record what you will do now, with no option chosen.</p>
           <CommitForm sid={sid} view={view} onWrote={onWrote} />
         </>
       ) : !open ? (
-        <div><Button size="sm" variant="secondary" data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</Button></div>
+        <div><button type="button" className={GO} data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</button></div>
       ) : (
         <div className={CARD} data-testid="team-commitment-form">
           <label htmlFor="team-c-action" className={LABEL}>The next action</label>
@@ -171,8 +172,8 @@ export function CommitmentPanel({ sid, view, onWrote }: { sid: string; view: Vie
           )}
           {locked ? <p role="alert" data-testid="team-commitment-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-commitment-error" className={ERR}>{error}</p>}
           <div className="flex gap-2">
-            <Button size="sm" data-testid="team-commitment-save" disabled={!ready || busy || locked} onClick={() => void save()}>Record it</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => put({ open: false })}>Cancel</Button>
+            <button type="button" className={GO} data-testid="team-commitment-save" disabled={!ready || busy || locked} onClick={() => void save()}>Record it</button>
+            <button type="button" className={QUIET} disabled={busy} onClick={() => put({ open: false })}>Cancel</button>
           </div>
         </div>
       )}

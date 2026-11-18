@@ -6,9 +6,10 @@ import { effectHeadingsOf, effectsOf, type EffectHeadings, type ViewEffect } fro
 import { teamApi, TeamApiError } from './api'
 import { useDraft } from './drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWrites, useWriteSending } from './writes'
-import { differPlaced, WhereYouDiffer } from './WhereYouDiffer'
 import { nonEmpty } from '../../olumiView/tipping'
-import { AVATAR, BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
+import { AVATAR, BODY, CARD, ERR, FIELD, GO, LABEL, META, QUIET } from './ui'
+import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { OkIcon } from '../../olumiView/look/icons'
 import { DoubtsFailure, sendDoubts, useDoubtsSending, ViewDoubts } from './ViewDoubts'
 import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
@@ -41,13 +42,10 @@ export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX
  * names nothing. A figure core did not run is listed under core's heading for that, its reason code not translated. Where core compared
  * only some options (`not_compared`), its `scope_text` is drawn verbatim beside the consequences, so a subset never reads as the whole.
  */
-export function Effects({ at, view, by: by_id, figures, effects, headings, alone = false }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null; alone?: boolean }): JSX.Element | null {
+/** `alone` is accepted from older callers and changes nothing: no lane picture stands beside these rows any more (overnight 18 Nov: the
+ *  Team tab draws each difference as a chart instead), so every row says all of it. */
+export function Effects({ at, view, figures, effects, headings }: { at: string; view: View; by: string; figures: Figure[]; effects: readonly ViewEffect[]; headings: EffectHeadings | null; alone?: boolean }): JSX.Element | null {
   if (effects.length === 0 || headings === null) return null
-  // A figure the "Where you differ" picture already places shows there its status (the mark and the legend), its most-likely option (its lane)
-  // and the model's (once per aim): none of these is said again in its row. `alone`: drawn where no such picture is beside it (the
-  // Reasoning tab's people strip), so every row says all of it.
-  const placed = alone ? null : differPlaced(view)
-  const inLane = (q: string) => placed?.has(`${by_id}:${q}`) === true
   const card = (id: string | null) => (id === null ? null : view.model?.cards.find((c) => c.id === id)?.heading ?? null)
   const figure = (q: string) => figures.find((f) => f.quantity === q)?.label ?? card(q)
   const Option = ({ id }: { id: string | null }) => { const h = card(id); return h === null ? null : <span className="text-text-header" data-effect-option="">{h}</span> }
@@ -62,13 +60,13 @@ export function Effects({ at, view, by: by_id, figures, effects, headings, alone
             <span className="text-text-header" data-effect-figure="">{figure(e.quantity)}</span>
             {'refused' in e ? null : <><span aria-hidden="true"> · </span><span data-effect-aim="">{card(e.goal)}</span></>}
           </p>
-          {'refused' in e || !inLane(e.quantity) ? <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p> : null}
+          <p className="text-text-header" data-effect-status="">{'refused' in e ? headings.refused : headings[e.status]}</p>
           {'refused' in e ? null : (
             <>
-              <Labelled label={headings.leader} at="data-effect-leader">{inLane(e.quantity) || card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
-              {!inLane(e.quantity) && e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
-              <Labelled label={headings.model_leader} at="data-effect-model-leader">{inLane(e.quantity) || card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
-              {!inLane(e.quantity) && e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
+              <Labelled label={headings.leader} at="data-effect-leader">{card(e.leader) === null ? null : <Option id={e.leader} />}</Labelled>
+              {e.leader === null && e.status === 'changes' && headings.no_leader !== undefined ? <p data-effect-no-leader="">{headings.no_leader}</p> : null}
+              <Labelled label={headings.model_leader} at="data-effect-model-leader">{card(e.model_leader) === null ? null : <Option id={e.model_leader} />}</Labelled>
+              {e.model_leader === null && e.status === 'changes' && headings.no_model_leader !== undefined ? <p data-effect-no-model-leader="">{headings.no_model_leader}</p> : null}
               <Labelled label={headings.most} at="data-effect-most">{card(e.most) === null || (e.gap_text ?? null) === null ? null : <><Option id={e.most} /> <span data-effect-gap="">{e.gap_text}</span></>}</Labelled>
               <Labelled label={headings.if_absent} at="data-effect-if-absent">{e.if_absent.length === 0 ? null : e.if_absent.flatMap((id) => { const h = card(id); return h === null ? [] : [h] }).join(', ')}</Labelled>
               {/* A partial comparison (PL-243): core's words for what was and was not compared, beside the consequences, verbatim; nothing when absent. */}
@@ -81,15 +79,28 @@ export function Effects({ at, view, by: by_id, figures, effects, headings, alone
   )
 }
 
-/**
- * Each person's own view, given before they see anyone else's, then revealed together (spec §8 steps 1 and 2). Everything here is the
- * View's `collab`: the heading, the placeholder, your own views still private to you, the team's revealed views, whether the reveal is
- * open (`can_reveal`) and whom it waits for. Words go to core exactly as typed; a given view is never edited.
- */
 /** Core's stance pill on a revealed view (olumi-core V11, `collab.shared[].stance`), drawn as given; none when absent, null or empty. */
 const stanceOf = (v: unknown): string | null => { const s = (v as { stance?: unknown }).stance; return typeof s === 'string' && s !== '' ? s : null }
 
-export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
+/** Both core projections keep the contribution id: a view's items (a card, a stance, a source), never another person's words. */
+function ItemLines({ view, v }: { view: View; v: { id: number; text: string; items?: View['collab']['shared'][number]['items'] } }): JSX.Element | null {
+  const lines = v.items?.map((l) => ({ ...l, about: { id: l.about, label: view.model?.cards.find((c) => c.id === l.about)?.heading } }))
+    ?? view.strategy?.views.filter((l) => l.view === v.id) ?? []
+  return lines.length === 0 ? null : <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`team-view-items-${v.id}`}>
+    {lines.map((l) => <li key={l.about.id} data-item-about={l.about.id}>
+      <p className={META}><span className="text-text-header">{l.about.label}</span> <span data-item-pill="" title={l.source ?? undefined}>{l.pill}</span></p>
+      {l.text === v.text ? null : <p className={`${BODY} whitespace-pre-wrap break-words`} data-item-words="">{l.text}</p>}
+    </li>)}
+  </ul>
+}
+
+/**
+ * YOUR VIEW (the flow's step 2; spec §8 step 1): given before you see anyone else's, private until revealed. Everything here is the View's
+ * `collab`: the placeholder, your own views still private to you, whether one can be shown early (`can_share`). Words go to core exactly as
+ * typed; a given view is never edited. The form opens on one box, the view in your own words; its figures, card, stance and doubted links
+ * follow once you start writing, or behind "Add figures to your view".
+ */
+export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
   const c = view.collab
   const [text, setText, dropText] = useDraft(`${sid}:view`, '')
   // D7 from the screen (R5): a figure of the member's own for each card core offers a figure edit for, given with the view. Core takes
@@ -106,39 +117,24 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   const vocab = useStrategyVocabulary(sid)
   const [pick, setPick] = useState<StrategyPick>(NO_PICK)
   const items = itemsOf(pick, vocab, text)
-  // V11 pixel pass, DL ruling 9 Nov: the form opens on one box, the view in their own words. Its figures, card, stance and doubted links
-  // follow once they start writing, or behind "Add figures to your view" (it opened on nine fields before one act). Anything already
-  // entered keeps them shown.
   const [more, setMore] = useState(false)
   const open = more || text.trim() !== '' || figures.length > 0 || pick !== NO_PICK
   const dropView = () => { dropText(); setTyped({}); setPick(NO_PICK); setMore(false) }
-  // Both core projections keep the contribution id: draw its items, never another person's words.
-  const itemLines = (v: { id: number; text: string; items?: View['collab']['shared'][number]['items'] }) => {
-    const lines = v.items?.map((l) => ({ ...l, about: { id: l.about, label: view.model?.cards.find((c) => c.id === l.about)?.heading } }))
-      ?? view.strategy?.views.filter((l) => l.view === v.id) ?? []
-    return lines.length === 0 ? null : <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`team-view-items-${v.id}`}>
-      {lines.map((l) => <li key={l.about.id} data-item-about={l.about.id}>
-        <p className={META}><span className="text-text-header">{l.about.label}</span> <span data-item-pill="" title={l.source ?? undefined}>{l.pill}</span></p>
-        {l.text === v.text ? null : <p className={`${BODY} whitespace-pre-wrap break-words`} data-item-words="">{l.text}</p>}
-      </li>)}
-    </ul>
-  }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // A view carries an op (core API v1.24): a lost answer resends the same op. A skip and a reveal are sent without one: one whose answer was
+  // A view carries an op (core API v1.24): a lost answer resends the same op. A skip and a share are sent without one: one whose answer was
   // lost may have been saved, so it is not sent again (`writes.ts`).
   const viewLocked = useWriteLocked(`${sid}:view`)
-  // A write still on its way (this panel drawn again meanwhile) keeps its buttons held: it is never sent twice.
+  // A write still on its way (this step drawn again meanwhile) keeps its buttons held: it is never sent twice.
   const viewSending = useWriteSending(`${sid}:view`), revealSending = useWriteSending(`${sid}:reveal`)
   // A saved view's second save on its way (a retry included) holds the form too: the next view is never given under it (Codex reply 021 #1).
   const doubtsSending = useDoubtsSending(sid)
   const sending = viewSending || revealSending || doubtsSending
-  // A share has no operation id either: one whose answer was lost is not sent again.
   const locks = useWrites((s) => s.locked)
   const shareLocked = (id: number) => locks[`${sid}:share:${id}`] === true
 
-  // `request`: the write carries an op id (core keeps one for a view, API v1.24: API.md:1044-1050; src/server/app.ts:229), so a lost answer
-  // resends the same op and core's answer to it is the truth; without one, a lost answer locks the write (writes.ts).
+  // `request`: the write carries an op id (core keeps one for a view, API v1.24), so a lost answer resends the same op and core's answer to
+  // it is the truth; without one, a lost answer locks the write (writes.ts).
   const run = async (key: string, write: (op: string | null) => Promise<unknown>, after?: () => void, request?: unknown) => {
     setBusy(true); setError(null)
     try { await runWrite(key, { op: request !== undefined }, request ?? null, write); after?.(); await onWrote() } catch (e) {
@@ -146,31 +142,26 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
     } finally { setBusy(false) }
   }
 
-  // Why "Add my view" waits (DL ruling 9 Nov: a disabled button says why, never dims); v10 review item 9 folds the line into the button's title.
+  // Why "Add my view" waits (DL ruling 9 Nov: a disabled button says why, never dims).
   const giveWhy = busy || sending || viewLocked ? undefined : text.trim() === '' ? 'Write your view first' : needsStance(pick, vocab) ? 'Choose how you hold it first' : undefined
-  // v10 review item 9: a member core still holds (`gated`) is drawn the private-view box first, above the team's heading, so it and its
-  // first button are in view on arrival; everyone else has it where it was, below the views.
   const form = (
-    <div className={CARD}>
+    <div className="grid gap-2" data-testid="team-view-form">
       <textarea
         aria-label={c.placeholder} placeholder={nonEmpty(view.model?.question?.text) ? view.model!.question.text : c.placeholder} data-testid="team-view-text" className={`${FIELD} min-h-[72px]`}
         value={text} disabled={busy || sending || viewLocked} onChange={(e) => { setText(e.target.value); if (error) setError(null) }}
       />
       {open || (givable.length === 0 && vocab === null) ? null : (
-        <button type="button" data-testid="team-view-more" disabled={busy || sending || viewLocked} onClick={() => setMore(true)}
-          className={`${META} inline-flex min-h-[24px] cursor-pointer items-center self-start underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:text-text-light`}
-        >Add figures to your view</button>
+        <button type="button" data-testid="team-view-more" disabled={busy || sending || viewLocked} onClick={() => setMore(true)} className={`${QUIET} self-start`}>Add figures to your view</button>
       )}
       {!open || givable.length === 0 ? null : (
         <div className="grid gap-1" data-testid="team-view-figures">
           {givable.map((card) => {
-            // A field already holding a figure stays editable; an empty one is held once three are entered, so a fourth cannot be given.
+            // A field already holding a figure stays editable; an empty one is held once the cap is reached, so one more cannot be given.
             const held = atCap && (typed[card.id] ?? '').trim() === ''
             return (
             <label key={card.id} className={`${META} grid gap-1`} title={card.prompt}>
               <span className="font-medium text-text-header">{card.label}</span>
-              {/* D3: this card's own words for what to type (core's `figure.edit.prompt`: its unit and a range in its own scale), whole on
-                  a line of its own: as a placeholder in the 300 px dock they were cut mid-word (V11 pixel pass, 9 Nov). */}
+              {/* D3: this card's own words for what to type (core's `figure.edit.prompt`), whole on a line of its own. */}
               <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.prompt}</span>
               <input type="text" autoComplete="off" spellCheck={false} data-testid={`team-view-figure-${card.id}`} className={FIELD}
                 value={typed[card.id] ?? ''} disabled={busy || sending || viewLocked || held} data-held={held ? '' : undefined}
@@ -185,12 +176,10 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
       {open ? <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} /> : null}
       {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="sm" data-testid="team-view-give" title={giveWhy} disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>{view.team_words.views.give}</Button>
-        <button
-          type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked}
-          className={`${META} inline-flex min-h-[24px] cursor-pointer items-center underline underline-offset-2 hover:text-text-body disabled:text-text-light disabled:cursor-not-allowed`}
-          onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}
-        >{view.team_words.views.skip}</button>
+        <button type="button" className={GO} data-testid="team-view-give" title={giveWhy} disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>
+          <Lock strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.give}
+        </button>
+        <button type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked} className={QUIET} onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}>{view.team_words.views.skip}</button>
       </div>
       {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
       <DoubtsFailure sid={sid} onWrote={onWrote} />
@@ -198,67 +187,17 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
   )
 
   return (
-    <section data-testid="team-views" aria-label={c.heading} className="grid gap-2">
-      {view.gated && form}
-      <h3 className={H} data-testid="team-views-heading">{c.heading}</h3>
-      <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" data-testid="team-members">
-        {/* Each member's own line in core's words (N3 `team_presence.members`, "(you)" on the viewer), by id. */}
-        {view.team_presence.members.map((m) => (
-          <li key={m.id} data-testid={`team-member-${m.id}`} className={`${META} inline-flex items-center gap-1.5`}>
-            <span aria-hidden="true" className={AVATAR}>{(Array.from(m.text)[0] ?? '').toUpperCase()}</span>
-            {m.text}
-          </li>
-        ))}
-      </ul>
-
-      {/* Core holds a member who has not given or skipped their own view (`gated`): no one else's view, an early-shared one included, is
-          drawn until they have, so none can anchor them (DL R2, cut check a). Core's rule; nothing worked out here. From R3 core withholds
-          the shared views itself (`shared` is empty for a gated viewer, core 550ad5f), so the line is drawn on `gated` alone (DL ruling a),
-          in words true whether or not anyone has shared yet (the DL's final text, 4 Nov). */}
-      {view.gated && <p className={META} data-testid="team-revealed-held">{view.team_words.views.held}</p>}
-      {!view.gated && c.shared.length > 0 && (
-        <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-revealed">
-          {c.shared.map((v) => (
-            <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
-              <p className={`${BODY} text-text-header`}>{v.by}{stanceOf(v) !== null && (
-                <span className={`${META} ml-2 rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>
-              )}</p>
-              {v.skip ? <p className={META}>{view.team_words.views.theirSkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
-              {itemLines(v)}
-              <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
-              <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {!view.gated && <>
-        {(c.marks ?? []).map((m) => <div key={`${m.card}:${m.kind}`} className={CARD} data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')}>
-          {/* DL round 5 (rehearsal 6f/6g): the card says which figure it is about, by that card's heading (core's words), so "Only Sam raised
-              it" is never an orphan; a card the canvas does not draw has no heading here, and the mark's words stand alone as before. */}
-          {markHeading(view, m.card) === null ? null : <p className={META} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}>{markHeading(view, m.card)}</p>}
-          <p className={`${BODY} text-text-header`}>{m.text}</p>
-          {m.reading === null ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
-            <p className={BODY}>{m.reading.text}</p><p className={META}>{m.reading.note}</p>
-          </div>}
-          {m.options.map((o) => <p key={o.option} className={BODY} data-mark-option={o.option}>{o.text}</p>)}
-        </div>)}
-        {c.next == null ? null : <p className={BODY} data-testid="team-views-next">{c.next.text}</p>}
-      </>}
-
-      {!view.gated && <WhereYouDiffer view={view} />}
-
+    <section data-testid="team-views" aria-label={c.heading} className="grid gap-3">
       {c.mine.length > 0 && (
-        <ul className="m-0 grid list-none gap-4 p-0" data-testid="team-mine">
+        <ul className="m-0 grid list-none gap-3 p-0" data-testid="team-mine">
           {c.mine.map((v) => (
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
               <p className={`${LABEL} flex items-center gap-1.5`}><Lock strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none" />{view.team_words.views.private}</p>
               {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
-              {itemLines(v)}
+              <ItemLines view={view} v={v} />
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
-              {/* PL-783: core's `earlier` (written before this round began, so neither shared nor revealed) in core's words, with the one act
-                  it leaves the author: put its words, never its figures, into their own empty form below, to read and give in this round. A core
-                  that sends no `earlier` or no words for it draws neither. The note itself stays private; nothing is sent from here. */}
+              {/* PL-783: core's `earlier` (written before this round began) in core's words, with the one act it leaves the author: put its words,
+                  never its figures, into their own empty form below. A core that sends no `earlier` or no words for it draws neither. */}
               {v.earlier === true && view.team_words.views.earlier && view.team_words.views.reuse ? (
                 <div className="grid gap-1" data-testid={`team-mine-earlier-${v.id}`}>
                   <p className={META}>{view.team_words.views.earlier}</p>
@@ -271,19 +210,74 @@ export function ViewsPanel({ sid, view, onWrote }: { sid: string; view: View; on
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
                 <div>
-                  <Button size="sm" variant="secondary" data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
-                    title={view.team_words.views.shareTitle}
-                    onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
-                    <span className="inline-flex items-center gap-1.5"><Share2 strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}</span>
-                  </Button>
+                  <button type="button" className={QUIET} data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
+                    title={view.team_words.views.shareTitle} onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
+                    <Share2 strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}
+                  </button>
                 </div>
               )}
             </li>
           ))}
         </ul>
       )}
-
-      {!view.gated && form}
+      {form}
     </section>
+  )
+}
+
+/**
+ * EVERYONE'S VIEWS IN WORDS (the flow's step 4, folded): each revealed view as core gives it (who, their stance, their words, items, figures,
+ * what each figure does to the Run), and the reveal's marks on the canvas. Core holds a member who has not given or skipped their own view
+ * (`gated`): no one else's view, an early-shared one included, is drawn until they have; core withholds `shared` itself for them.
+ */
+export function RevealedViews({ view }: { view: View }): JSX.Element {
+  const c = view.collab
+  if (view.gated) return <p className={META} data-testid="team-revealed-held">{view.team_words.views.held}</p>
+  return (
+    <ul className="m-0 grid list-none gap-3 p-0" data-testid="team-revealed">
+      {c.shared.map((v) => (
+        <li key={v.id} data-testid={`team-revealed-${v.id}`} className={CARD}>
+          <p className={`${BODY} flex flex-wrap items-center gap-1.5 text-text-header`}>
+            <span aria-hidden="true" className={AVATAR}>{(Array.from(v.by)[0] ?? '').toUpperCase()}</span>{v.by}
+            {stanceOf(v) !== null && <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid={`team-revealed-stance-${v.id}`}>{stanceOf(v)}</span>}
+          </p>
+          {v.skip ? <p className={META}>{view.team_words.views.theirSkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
+          <ItemLines view={view} v={v} />
+          <Figures at={`team-revealed-${v.id}`} figures={v.figures} />
+          <Effects at={`team-revealed-${v.id}`} view={view} by={v.by_id} figures={v.figures} effects={effectsOf(v)} headings={effectHeadingsOf(c)} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** The reveal's marks on the canvas (core's `collab.marks`), each by its card's heading (one press to the card) with core's words for it:
+ *  where several of you spoke to the same card (`shared`), where only one did (`unique`), where you differ (`disagreement`). */
+export const markCounts = (view: View): { shared: number; all: number } => {
+  const m = view.gated ? [] : view.collab.marks ?? []
+  return { shared: m.filter((x) => x.kind === 'shared').length, all: m.length }
+}
+const KIND_ORDER = ['shared', 'disagreement', 'unique', 'evidence'] as const
+export function RevealMarks({ view }: { view: View }): JSX.Element | null {
+  const marks = view.gated ? [] : [...(view.collab.marks ?? [])].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind))
+  if (marks.length === 0) return null
+  return (
+    <ul className="m-0 grid list-none gap-2 p-0" data-testid="team-marks">
+      {marks.map((m) => <li key={`${m.card}:${m.kind}`} className="grid gap-0.5" data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')} data-mark-kind={m.kind}>
+        {/* DL round 5: the mark says which card it is about, by that card's heading (core's words), so "Only Sam raised it" is never an orphan. */}
+        {markHeading(view, m.card) === null ? null : (
+          <button type="button" className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline`} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}
+            title="Show it on the canvas" onClick={() => focusNodeById(m.card)}>
+            <span className="min-w-0 break-words">{markHeading(view, m.card)}</span>
+            <span className="mt-0.5 flex-none text-text-light"><OkIcon id="on-canvas" size={14} decorative /></span>
+          </button>
+        )}
+        <p className={META}>{m.text}</p>
+        {m.reading === null ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
+          <p className={BODY}>{m.reading.text}</p><p className={META}>{m.reading.note}</p>
+        </div>}
+        {m.options.map((o) => <p key={o.option} className={BODY} data-mark-option={o.option}>{o.text}</p>)}
+      </li>)}
+    </ul>
   )
 }
