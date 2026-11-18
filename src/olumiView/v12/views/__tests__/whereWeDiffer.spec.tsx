@@ -126,16 +126,17 @@ describe('views in words lead where nothing is plotted (Codex 008 #2, #4)', () =
     await screen.findByTestId('differ-row-link:a:b-capacity_goal')
     expect(screen.getByTestId('differ-views-open').contains(screen.getByTestId(`team-revealed-${fx.collab.shared[0]!.id}`))).toBe(true)
     expect(screen.queryByTestId('differ-views')).toBeNull()
-    // the pending link's own status sentence stands beside it at rest, not only in the fold
-    expect(screen.getByTestId('differ-row-link:a:b-capacity_goal-status-rest').textContent).toBe(base.status_text)
+    // the pending link's own status sentence leads its card at rest
+    expect(screen.getByTestId('differ-row-link:a:b-capacity_goal-status').textContent).toBe(base.status_text)
     unmount(); resetDifferences()
     serve(() => ({ status: 200, body: payload([figure]) }))
     render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
     await screen.findByTestId('differ-row-per_specialist-capacity_goal')
     await waitFor(() => expect(screen.queryByTestId('differ-views-open')).toBeNull())
     expect(screen.getByTestId('differ-views')).toBeTruthy()
-    expect(screen.queryByTestId('differ-row-per_specialist-capacity_goal-status-rest')).toBeNull() // core's short word stands instead
-    expect(screen.getByTestId('differ-row-per_specialist-capacity_goal-mark').textContent).toBe(fx.collab.effect_headings.changes)
+    // Crux first (Paul, 18 Nov): a plotted difference also leads with core's whole sentence, never only its short word
+    expect(screen.getByTestId('differ-row-per_specialist-capacity_goal-status').textContent).toBe(figure.status_text)
+    expect(screen.queryByTestId('differ-row-per_specialist-capacity_goal-mark')).toBeNull()
   })
 })
 
