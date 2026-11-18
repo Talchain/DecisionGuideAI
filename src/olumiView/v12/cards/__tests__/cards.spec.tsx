@@ -20,7 +20,7 @@ import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
-import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS } from '../marks'
+import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, worthCheckingOf } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -549,6 +549,35 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     cleanup()
     const on = draw(withCard(CAPACITY, live), live.id, 'simple')
     expect([on.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), idsIn(on)]).toEqual([false, []])
+  })
+  // Core candidate 6 (src/science/findings.ts, src/view/schema.ts): Olumi's own provisional observations on a card, in core's words.
+  const WORTH = [
+    { code: 'estimate_held_as_one_figure', title: 'A single figure with no range', text: '‘Monthly rider bill’ is an approximate figure held as a single number, and the working of ‘Keep riders’ refers to it. A low and a high for it would let the analysis show how far the result depends on it.', rests_on: ['aim_retain'], olumi: true },
+    { code: 'only_supporting_evidence', title: 'No challenging evidence recorded', text: 'One piece of evidence recorded on ‘Monthly rider bill’ supports it, and none challenges it. What would you expect to see if it were wrong, and has anyone looked?', rests_on: ['ev_1'], olumi: true },
+  ]
+  const figure = cardOf(CAPACITY, CAPACITY.model!.cards.find((c) => c.family === 'quantity' && !c.challenged)!.id)
+  it('K6 Olumi\'s observations on a card are ONE mark in the registry\'s "worth checking" icon, named by each one\'s title and sentence in core\'s order', () => {
+    const card = { ...figure, worth_checking: WORTH } as unknown as ViewCard
+    expect(worthCheckingOf(card).map((w) => w.code)).toEqual(['estimate_held_as_one_figure', 'only_supporting_evidence'])
+    const marks = marksIn(draw(withCard(CAPACITY, card), figure.id, 'simple'))
+    expect(marks.map((m) => m.getAttribute('data-card-mark'))).toEqual(['worth-checking'])
+    expect(named(marks[0]!).getAttribute('aria-label')).toBe(`${WORTH[0]!.title}\n${WORTH[0]!.text}\n\n${WORTH[1]!.title}\n${WORTH[1]!.text}`)
+    expect(named(marks[0]!).title).toBe(named(marks[0]!).getAttribute('aria-label'))
+  })
+  it('K6b CONTRAST: no field, an empty list, an item core does not mark as Olumi\'s, or one with no sentence draws no mark; nothing is made up', () => {
+    const none = [undefined, [], [{ ...WORTH[0]!, olumi: false }], [{ ...WORTH[0]!, text: '' }], 'A single figure with no range']
+    for (const worth_checking of none) {
+      const card = { ...figure, worth_checking } as unknown as ViewCard
+      expect([worthCheckingOf(card), cardMarksOf(card)], JSON.stringify(worth_checking ?? null)).toEqual([[], []])
+    }
+    const mixed = { ...figure, worth_checking: [{ ...WORTH[0]!, olumi: false }, WORTH[1]!] } as unknown as ViewCard
+    expect(worthCheckingOf(mixed).map((w) => w.code)).toEqual(['only_supporting_evidence'])
+  })
+  it('K7 four states on a card with no driver badge: three marks in priority order and "+1" naming the fourth', () => {
+    const four = { ...crowded, driver: null, worth_checking: WORTH } as unknown as ViewCard
+    expect(cardMarksOf(four).map((m) => m.id)).toEqual(['set-aside', 'challenged', 'worth-checking', 'unused'])
+    const el = draw(withCard(CAPACITY, four), four.id, 'simple'), more = el.querySelector<HTMLButtonElement>('[data-card-more]')!
+    expect([idsIn(el), more.textContent, more.getAttribute('aria-label')]).toEqual([['set-aside', 'challenged', 'worth-checking'], '+1', `${MORE_MARKS.lead}: ${UNUSED}`])
   })
   it('K4 "+N" is a button: a press draws the hidden mark in the row and a second press folds it; the press never reaches the card', () => {
     const onCard = vi.fn()
