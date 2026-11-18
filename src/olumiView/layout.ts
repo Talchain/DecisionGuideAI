@@ -915,7 +915,7 @@ export function comparedGroupsOf(run: ViewRun | null): { group: ComparedGroup; h
  * and, for an aim with no crossing, core's one line saying why (`run.tipping_aims[].silent[].line`), once per aim; null when core sends no heading
  * or nothing to draw.
  */
-export type OptionSilent = { aim: string; option: string; at: string; line: string; best: { at: string; line: string } | null }
+export type OptionSilent = { aim: string; option: string | null; at: string; line: string; best: { at: string; line: string } | null }
 export function tippingOf(run: ViewRun | null): { heading: string; lines: { line: TippingLine; i: number }[]; silent: { aim: string; line: string }[]; optionSilent: OptionSilent[] } | null {
   if (run === null || !Array.isArray(run.tipping) || !nonEmpty(run.tipping_heading)) return null
   const lines = run.tipping.map((line, i) => ({ line, i })).filter(({ line }) => nonEmpty(line?.line))
@@ -924,11 +924,12 @@ export function tippingOf(run: ViewRun | null): { heading: string; lines: { line
     const first = (a.silent ?? []).find((s) => nonEmpty(s?.line))
     return first === undefined ? [] : [{ aim: a.aim, line: first.line }]
   })
-  // Core's reason for saying nothing about ONE option's crossing (`silent[]`, crossing `chance`, with its `option`): every one core sends, in core's
-  // order, whether or not the aim has crossings for other options. Each stands where that option's crossing would be; none is chosen, merged or reworded.
+  // Core's reason for saying nothing about ONE option's own crossing (`silent[]`, crossing `chance`): every one core sends, in core's order, whether or
+  // not the aim has crossings for other options. Each stands where that option's crossing would be; none is chosen, merged or reworded. Core names the
+  // `option` only where no option leads; for a named leader the line itself names it (core src/run/tipping.ts), so `option` may be absent.
   const optionSilent = (Array.isArray(run.tipping_aims) ? run.tipping_aims : []).flatMap((a, ai) => (a.silent ?? []).flatMap((x, si): OptionSilent[] =>
-    x?.crossing === 'chance' && nonEmpty(x.option) && nonEmpty(x.line)
-      ? [{ aim: a.aim, option: x.option, at: `run.tipping_aims.${ai}.silent.${si}.line`, line: x.line, best: nonEmpty(x.best_group?.line) ? { at: `run.tipping_aims.${ai}.silent.${si}.best_group.line`, line: x.best_group!.line } : null }] : []))
+    x?.crossing === 'chance' && nonEmpty(x.line)
+      ? [{ aim: a.aim, option: nonEmpty(x.option) ? x.option : null, at: `run.tipping_aims.${ai}.silent.${si}.line`, line: x.line, best: nonEmpty(x.best_group?.line) ? { at: `run.tipping_aims.${ai}.silent.${si}.best_group.line`, line: x.best_group!.line } : null }] : []))
   return lines.length === 0 && silent.length === 0 && optionSilent.length === 0 ? null : { heading: run.tipping_heading, lines, silent, optionSilent }
 }
 

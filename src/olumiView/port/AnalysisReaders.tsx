@@ -41,7 +41,7 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
       })}
       {/* An option core says nothing about, in core's own reason, where its crossing would be (and core's nearest group after it, where sent). */}
       {silents.map((x) => (
-        <p key={x.at} className={`${TYPE.body} m-0 text-text-body`} data-tipping-silent={x.option}>
+        <p key={x.at} className={`${TYPE.body} m-0 text-text-body`} data-tipping-silent={x.option ?? ''}>
           <span data-view={x.at}>{x.line}</span>{x.best === null ? null : <>{' '}<span data-view={x.best.at}>{x.best.line}</span></>}
         </p>
       ))}

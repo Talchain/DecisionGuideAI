@@ -511,6 +511,41 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     expect([screen.queryAllByTestId('analysis-aim-silent').length, screen.queryByTestId('analysis-tipping')]).toEqual([0, null])
   })
 
+  it('silent reasons, the pairs core can send for one aim: a lead reason is drawn once; the leader\'s own chance reason (no option named) is a row; an aim whose lead crossing is drawn gets no aim reason', () => {
+    const base = viewOf('golden/bakery'), LEAD = 'None put A clearly ahead of B.', OWN = 'None made it less likely than not that B meets the aim.', BARE = 'No figure can turn this one.'
+    // (1) lead + chance on ONE aim (science lead\'s fifth board): the lead reason once, in the lead slot only; the chance reason under the tipping heading.
+    const one = structuredClone(base); one.model!.run!.tipping = []
+    one.model!.run!.tipping_aims = [{ aim: 'aim_x', lines: [], silent: [
+      { crossing: 'lead', reason: 'holds', text: 't', line: LEAD },
+      { crossing: 'chance', reason: 'holds', text: 't', line: OWN },
+      { crossing: 'chance', reason: 'no_figure', text: 't', line: BARE, option: 'opt_y' },
+      { crossing: 'lead', reason: 'holds', text: 't', line: 'A lead reason that names an option is not an option\'s row.', option: 'opt_z' },
+    ] }] as never
+    ready(one); render(<PortAnalysisTab />)
+    const slot = screen.getByTestId('analysis-lead-change')
+    expect([slot.dataset['leadChange'], slot.querySelector('[data-view="run.tipping_aims.0.silent.0.line"]')!.textContent, screen.queryAllByTestId('analysis-aim-silent').length]).toEqual(['silent', LEAD, 0])
+    expect([...document.querySelectorAll('span')].filter((e) => e.textContent === LEAD)).toHaveLength(1)
+    const rows = [...screen.getByTestId('analysis-tipping').querySelectorAll<HTMLElement>('[data-tipping-silent]')]
+    // Exactly core\'s two chance reasons, in core\'s order; one with no best group draws its line alone.
+    expect(rows.map((r) => [r.dataset['tippingSilent'], r.textContent, r.querySelectorAll('span').length])).toEqual([['', OWN, 1], ['opt_y', BARE, 1]])
+    cleanup()
+    // (2) an aim WITH a crossing line still gets its other option\'s reason; and the aim whose lead crossing is drawn gets no aim reason beside it.
+    const two = structuredClone(base), run = two.model!.run!, lead = run.tipping.find((t) => t.kind === 'lead')!, opt = run.tipping.find((t) => t.kind !== 'lead')!
+    run.tipping_aims = [{ aim: lead.aim, lines: [opt.line], silent: [
+      { crossing: 'chance', reason: 'never_above', text: 't', line: BARE, option: 'opt_y' },
+      { crossing: null, reason: 'unclear', text: 't', line: 'An aim reason beside a drawn lead crossing.' },
+    ] }] as never
+    ready(two); render(<PortAnalysisTab />)
+    const box = screen.getByTestId('analysis-tipping')
+    expect([box.querySelector(`[data-view-fact="${opt.id}"]`) !== null, box.querySelector('[data-tipping-silent="opt_y"]')!.textContent]).toEqual([true, BARE])
+    expect([screen.getByTestId('analysis-lead-change').dataset['leadChange'], screen.queryAllByTestId('analysis-aim-silent').length]).toEqual(['tipping', 0])
+    cleanup()
+    // CONTRAST for (2): the same aim reason on ANOTHER aim is drawn.
+    const three = structuredClone(two); three.model!.run!.tipping_aims[0]!.aim = 'another_aim'
+    ready(three); render(<PortAnalysisTab />)
+    expect(screen.getAllByTestId('analysis-aim-silent').map((e) => e.dataset['silentAim'])).toEqual(['another_aim'])
+  })
+
   it('rests: core\'s full sentence is visible text on the tab, once per group, not only a hover', () => {
     const view = viewOf('golden/bakery'), r = view.model!.run!.rests[0]!
     ready(view); render(<PortAnalysisTab />)
