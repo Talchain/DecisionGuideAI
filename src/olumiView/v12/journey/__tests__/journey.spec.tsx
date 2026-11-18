@@ -108,6 +108,8 @@ describe('JourneyRecord: one press to the thing each line names, and the panel c
     expect(force).toHaveBeenLastCalledWith('team')
     fireEvent.click(screen.getByTestId('journey-go-commitment:501'))
     await waitFor(() => expect(force).toHaveBeenCalledTimes(2))
+    // the evidence opened by the press before steps aside, so Team shows its own panels (contrast: it was 28 just above)
+    expect(useReveal.getState().evidence).toBeNull()
     await waitFor(() => expect(done).toHaveBeenCalledTimes(4))
   })
   it('a press with nothing to open does nothing and leaves the panel open: a card the canvas does not draw, evidence on an earlier version', async () => {
