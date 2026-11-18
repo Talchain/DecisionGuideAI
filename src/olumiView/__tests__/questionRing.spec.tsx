@@ -27,7 +27,9 @@ const draw = (view: View, card: ViewCard): HTMLElement => {
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('a question\'s number on the card it is about', () => {
-  it('Q1 every card a listed question names carries that question\'s number and words; every other card carries none', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences; v12/detailed): on Detailed the mark is Olumi's own in its ring
+  // (Paul's capture: numbered circles sat on the figures), the question's words its name; Simple keeps the number (v12/__tests__ owns Simple).
+  it('Q1 every card a listed question names carries Olumi\'s mark named by that question\'s words, no number; every other card carries none', () => {
     const qs = chatQuestionsOf(RUN2.model)
     expect(qs.length, 'precondition: a numbered list (two or more questions)').toBeGreaterThanOrEqual(2)
     const named = qs.map((q, i) => ({ id: q.id, n: i + 1, text: q.text })).filter((q) => q.id !== null && RUN2.model!.cards.some((c) => c.id === q.id))
@@ -36,8 +38,9 @@ describe('a question\'s number on the card it is about', () => {
       const el = draw(RUN2, card)
       const ring = el.querySelector<HTMLElement>(`[data-question-ring="${card.id}"]`)
       const want = named.find((q) => q.id === card.id)
-      expect(ring === null ? null : [ring.textContent, ring.getAttribute('data-question-n'), ring.getAttribute('title'), ring.getAttribute('aria-label')], card.id)
-        .toEqual(want === undefined ? null : [String(want.n), String(want.n), want.text, want.text])
+      const mark = ring?.querySelector<HTMLElement>('[data-olumi-asks]') ?? null
+      expect(ring === null ? null : [ring.textContent, mark?.getAttribute('title'), mark?.getAttribute('aria-label')], card.id)
+        .toEqual(want === undefined ? null : ['', want.text, want.text])
       cleanup()
     }
   })

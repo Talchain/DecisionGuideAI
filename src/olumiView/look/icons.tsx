@@ -38,9 +38,9 @@
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
-  Calculator, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
+  Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
-  GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
+  GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
@@ -176,6 +176,8 @@ export const ICONS = {
   'limit-tag': e(LimitShape, 'Limit', '--text-light', 'icon-plus-word', 'kind'),
   'what-if': e(ArrowRightLeft, 'What if', '--text-header', 'icon-only', 'kind'),
   'not-linked': e(Link2Off, 'No link touches this figure', '--text-light', 'icon-only', 'kind'),
+  'folded-records': e(Layers, "What core folded behind this card", '--text-light', 'icon-only', 'kind', { keepWords: "core's badge words are the hover and label (`card.badge`); the count of records is drawn beside it" }),
+  'decide-by': e(CalendarClock, 'Decide by', '--text-light', 'icon-plus-word', 'kind', { keepWords: "core's `decide_by` words stay drawn beside the icon" }),
   'band-kind-shapes': e(BandShapes, "The band's own sentence", '--option', 'icon-only', 'kind'),
 
   // states: one meaning each

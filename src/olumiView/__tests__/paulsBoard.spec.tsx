@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 // The chat's proposal (PB9) is mounted alone: the sign-in client it imports is not reached.
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
@@ -111,26 +111,37 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
   const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   type B = { label: string; face?: string; words?: string; text: string }
-  const said = (b: B) => b.face ?? b.words ?? b.text
 
   it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', () => {
     ready(EU)
     const b = EU.model!.question.badge as unknown as B
     expect(b, 'precondition: core folded records behind the question').not.toBeNull()
     render(<ReactFlowProvider><Node {...props(QUESTION, undefined)} /></ReactFlowProvider>)
-    const btn = document.querySelector<HTMLElement>(`[data-core-badge="${QUESTION}"] button`)!
-    expect([btn.getAttribute('aria-label'), btn.textContent!.includes(said(b))]).toEqual([b.label, true])
+    // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): the fold is a stack mark and CORE'S OWN words for it (its face, else its text), never a count made in the page; on this
+    // pending model every fold holds proposed additions, so core's change marker is drawn after the words, leads the hover and ends the name.
+    const btn = document.querySelector<HTMLElement>(`button[data-core-badge="${QUESTION}"]`)!
+    expect([btn.getAttribute('aria-label'), btn.title.split('\n')[0], btn.textContent, btn.querySelector('[data-view="question.badge.face"]')?.textContent, btn.querySelector('[data-view="question.badge.change"]')?.textContent])
+      .toEqual(['Show 5 notes behind this, 5 proposed changes +', '+ 1 thing left out, 2 figures, 2 claims', '2 figures and 3 more+', '2 figures and 3 more', '+'])
   })
 
   it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', () => {
     ready(EU)
     const m = EU.model!, withBadge = m.cards.filter((c) => c.badge != null)
-    expect(withBadge.length).toBeGreaterThan(0)
+    const DRAWN: Readonly<Record<string, readonly [string, string, string]>> = {
+      monthly_churn: ['Show 1 notes behind this, 1 proposed changes +', '+ 1 claim', '1 claim+'],
+      investment_budget: ['Show 1 notes behind this, 1 proposed changes +', '+ 1 challenge', '1 challenge+'],
+      expand_into_the_european_market_in_the_next_6_12_months: ['Show 6 notes behind this, 6 proposed changes +', '+ 2 figures, 2 claims, 2 challenges', '2 figures and 4 more+'],
+      pilot_in_one_european_country_first_then_widen: ['Show 2 notes behind this, 2 proposed changes +', '+ 2 figures', '2 figures+'],
+      monthly_churn_2: ['Show 5 notes behind this, 5 proposed changes +', '+ 4 figures, 1 calculation', '4 figures, 1 calculation+'],
+      keep_monthly_churn_from_going_beyond_12: ['Show 2 notes behind this, 2 proposed changes +', '+ 2 claims', '2 claims+'],
+    }
+    expect(withBadge.map((c) => c.id).sort()).toEqual(Object.keys(DRAWN).sort())
     for (const c of m.cards) {
       const r = render(<ReactFlowProvider><Node {...props(c.id, c)} /></ReactFlowProvider>)
-      const btn = r.container.querySelector<HTMLElement>(`[data-core-badge="${c.id}"] button`)
-      if (c.badge == null) expect(btn, c.id).toBeNull()
-      else expect([btn?.getAttribute('aria-label'), btn?.textContent?.includes(said(c.badge as unknown as B))], c.id).toEqual([(c.badge as unknown as B).label, true])
+      // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): core's own words for the fold (its face) and its change marker, by card id: the name, the hover's first line, what is drawn.
+      const btn = r.container.querySelector<HTMLElement>(`button[data-core-badge="${c.id}"]`)
+      if (c.badge == null) expect([btn, c.id in DRAWN], c.id).toEqual([null, false])
+      else expect([btn?.getAttribute('aria-label'), btn?.title.split('\n')[0], btn?.textContent], c.id).toEqual(DRAWN[c.id])
       r.unmount()
     }
   })
@@ -251,18 +262,25 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect([f3.includes('border-[var(--olumi-mark-orange)]'), f3.includes('border-dashed')]).toEqual([true, chal.doubt])
   })
 
-  it('FT3 change: core\'s change mark on every changed card, its words as hover and accessible name', () => {
-    for (const c of EU.model!.cards) {
-      const el = draw(EU, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)
-      expect([el?.textContent, el?.getAttribute('aria-label'), el?.title], c.id).toEqual(c.change == null ? [undefined, undefined, undefined] : [c.change.glyph, c.change.title, c.change.title])
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): an added card's "+" repeats its proposed frame,
+  // so Detailed marks only a change the frame does not say (as Simple does); a changed card keeps core's glyph, its words its hover and name.
+  it('FT3 change: core\'s change mark on every card changed in a way its frame does not say, its words as hover and accessible name; an addition draws none', () => {
+    const changed = EU.model!.cards.find((c) => c.change != null)!
+    const v = withCard(EU, changed.id, (c) => ({ ...c, change: { glyph: '↻', title: 'An invented change', kind: 'changed' } }))
+    for (const c of v.model!.cards) {
+      const el = draw(v, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)
+      expect([el?.textContent, el?.getAttribute('aria-label'), el?.title], c.id).toEqual(c.change == null || c.change.kind === 'added' ? [undefined, undefined, undefined] : [c.change.glyph, c.change.title, c.change.title])
       cleanup()
     }
+    expect(EU.model!.cards.some((c) => c.change?.kind === 'added'), 'CONTRAST: the served board has additions, drawn by their frame').toBe(true)
   })
 
-  it('FT4 unused: core\'s honesty line under the figure, in core\'s words; a card without one draws none', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): core's honesty line is a mark at the card's foot,
+  // core's words its name and hover.
+  it('FT4 unused: core\'s honesty mark at the foot, named by core\'s words; a card without one draws none', () => {
     for (const v of [EU, APP]) for (const c of v.model!.cards) {
-      const el = draw(v, c.id).querySelector(`[data-view="${c.id}.unused"]`)
-      expect(el?.textContent ?? null, c.id).toBe(c.unused == null || c.unused === '' ? null : c.unused)
+      const el = draw(v, c.id).querySelector(`[data-view="${c.id}.unused"] [role="img"]`)
+      expect(el?.getAttribute('aria-label') ?? null, c.id).toBe(c.unused == null || c.unused === '' ? null : c.unused)
       cleanup()
     }
   })
@@ -272,7 +290,8 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     // Inside an approved model (R3: on a first draft the question is not marked as proposed either).
     const dated = { ...EU, proposal: null, version: { id: 1, n: 1, label: 'Version 1', changed: [], at: '2026-11-02T00:00:00.000Z', at_text: '2 Nov 2026' }, model: { ...EU.model!, question: { ...q, proposed: true, decide_by: { text: 'by 1 March', title: 'Olumi\'s reading of your brief', olumi: true } } } } as unknown as View
     const c = draw(dated, QUESTION), el = c.querySelector<HTMLElement>('[data-view="question.decide_by.text"]')!
-    expect([el.textContent, el.title, el.className.includes('text-info')]).toEqual(['by 1 March', 'Olumi\'s reading of your brief', true])
+    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the date is a calendar mark and core's words; Olumi's blue is the look's class.
+    expect([el.textContent, el.title, el.className.includes('ok-dt-olumi')]).toEqual(['by 1 March', 'Olumi\'s reading of your brief', true])
     expect([frame(c).includes('border-info'), frame(c).includes('border-dashed')]).toEqual([true, false])
     cleanup()
     expect(draw(EU, QUESTION).querySelector('[data-view="question.decide_by.text"]')).toBeNull()
@@ -298,18 +317,21 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     const asked = studio.model!.cards.find((c) => c.figure?.edit != null && c.figure.text === '' && c.author?.by === 'olumi')!
     const sized = studio.model!.cards.find((c) => c.figure?.edit != null && c.figure.text !== '' && c.family === 'quantity' && (c.values?.length ?? 0) <= 1)!
     expect([asked, sized].every(Boolean), 'precondition').toBe(true)
+    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): with no author line, the ✎ of Olumi's question with
+    // no value yet sits on the card's foot row of marks, never a row of its own.
     const a = draw(studio, asked.id)
-    expect(a.querySelector('[data-figure-edit-wrap]')!.closest(`[data-core-author="${asked.id}"]`), asked.id).not.toBeNull(); cleanup()
+    expect(a.querySelector('[data-figure-edit-wrap]')!.closest('.ok-dt-foot'), asked.id).not.toBeNull(); cleanup()
     const b = draw(studio, sized.id)
     expect(b.querySelector('[data-figure-edit-wrap]')!.closest(`[data-core-lead="${sized.id}"]`), sized.id).not.toBeNull()
   })
 
-  it('FT11 (DL, A13d: "+" on a row of its own on every pending card): core\'s change mark ends a line the card already draws, never a row of its own', () => {
-    for (const c of EU.model!.cards.filter((x) => x.change != null)) {
-      const el = draw(EU, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)!
-      expect(el.closest('[data-core-author], [data-core-lead], [data-core-badge]'), c.id).not.toBeNull()
-      cleanup()
-    }
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): a change the frame does not say sits on the foot's
+  // row of marks (never a row of its own); an addition draws none (its proposed frame says it).
+  it('FT11 (DL, A13d: "+" on a row of its own on every pending card): core\'s change mark sits on the foot\'s row of marks, never a row of its own; an addition draws none', () => {
+    const c = EU.model!.cards.find((x) => x.change != null)!
+    const v = withCard(EU, c.id, (x) => ({ ...x, change: { glyph: '↻', title: 'An invented change', kind: 'changed' } }))
+    expect(draw(v, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)!.closest('.ok-dt-foot'), c.id).not.toBeNull(); cleanup()
+    for (const x of EU.model!.cards.filter((y) => y.change?.kind === 'added')) { expect(draw(EU, x.id).querySelector(`[data-view="${x.id}.change.glyph"]`), x.id).toBeNull(); cleanup() }
   })
 
   it('FT12 (live draft, 12 Nov: "No changes specified" on options zoomed out): a core card with no far line of core\'s draws none, never the previous product\'s; CONTRAST: one with a line draws it', () => {
@@ -333,10 +355,13 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     const opt = EU.model!.cards.find((c) => c.family === 'option')!
     const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
     const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
+    // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): a sentence longer than a row is one press
+    // away, whole (v12/detailed/marks.tsx RowWords); it is never cut, and it stays the hover.
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
-    const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([/line-clamp|truncate/.test(clamp?.className ?? ''), clamp?.textContent, lead.title.startsWith(long)]).toEqual([false, long, true])
-    for (let a: Element | null = clamp ?? null; a !== null && a !== lead.parentElement; a = a.parentElement) expect(a.className, 'no clamp above it either').not.toMatch(/line-clamp|truncate/)
+    const press = lead.querySelector<HTMLElement>(`[data-row-words="${opt.id}.rows.0"] button`)!
+    expect([press.getAttribute('aria-label'), press.title, lead.title.startsWith(long), lead.textContent?.includes(long)]).toEqual([long, long, true, false])
+    fireEvent.click(press)
+    expect(lead.querySelector('[role="note"]')?.textContent, 'one press shows it whole').toBe(long)
   })
 
   it('FT14 any card\'s long face line (a challenge\'s paragraph) is drawn whole, never cut; core\'s words whole on hover too', () => {
@@ -361,12 +386,15 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   // DL-529 (14 Nov, the component sheet): whose a card is is a first-class mark at its foot, the person's as Olumi's, never hover-only
   // (this row said the opposite until the new look; the ruling changed, the row with it).
-  it('FT7 (DL-529) a person\'s author line is on the card\'s face, at its foot, in core\'s words; Olumi\'s in Olumi\'s blue, the person\'s not', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): whose a card is, is its mark at the foot, core's
+  // author words its name and hover; Olumi's mark is Olumi's, a person's is the person's.
+  it('FT7 (DL-529) whose a card is, is on the card\'s face, at its foot, as a mark named by core\'s author words; Olumi\'s mark for Olumi\'s, the person\'s for the person\'s', () => {
     const person = EU.model!.cards.find((c) => c.author != null && c.author.by !== 'olumi' && c.author.text !== '')!
     const line = draw(EU, person.id).querySelector<HTMLElement>(`[data-core-author="${person.id}"]`)!
-    expect([line.textContent, line.closest('.ok-foot') !== null, line.className.includes('ok-by-olumi')]).toEqual([person.author!.text, true, false]); cleanup()
+    const mark = line.querySelector<HTMLElement>('[data-author-mark]')!
+    expect([mark.getAttribute('data-author-mark'), mark.getAttribute('aria-label')?.startsWith(person.author!.text), line.closest('.ok-dt-foot') !== null, line.textContent]).toEqual(['person', true, true, '']); cleanup()
     const theirs = EU.model!.cards.find((c) => c.author?.by === 'olumi')!
-    expect(draw(EU, theirs.id).querySelector<HTMLElement>(`[data-core-author="${theirs.id}"]`)!.className, 'CONTRAST: Olumi\'s').toContain('ok-by-olumi')
+    expect(draw(EU, theirs.id).querySelector<HTMLElement>(`[data-core-author="${theirs.id}"] [data-author-mark]`)!.getAttribute('data-author-mark'), 'CONTRAST: Olumi\'s').toBe('olumi')
   })
 })
 

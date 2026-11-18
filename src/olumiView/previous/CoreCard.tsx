@@ -25,10 +25,12 @@ import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } fro
 import { failedOf, failedReasonOf } from '../k5'
 import { clearWhatIf } from '../whatif'
 import { ChanceBand, RestsShareFill } from '../ResultBand'
-import { ChanceRail } from '../ChanceRail'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
+import { Rail, Strips } from '../v12/detailed/charts'
+import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
@@ -41,14 +43,14 @@ import { RestsOn } from '../v12/cards/RestsOn'
 import { notesOpenOn } from '../v12/qualitativeNotes'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
-import { isBaseline, limitLeadOf, withheldValues } from '../v12/contract'
+import { isBaseline, limitLeadOf } from '../v12/contract'
 import { cardKind, cardTitle, firstDraft as firstDraftOf, type CardKindName } from '../v12/fields/fields'
 import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
-import { ConditionalBar, OutcomeStrips, RangeBar } from '../v12/scale'
+import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LimitTag, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
-import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
+import { AuthorMark, BaselinePill, KindTag, LimitTag, OlumiAsksMark, OlumiMark } from '../v12/cards/marks'
+import { chanceParts, noChanceLineOf, onceWords, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
 export { withheldField, withheldWords }
@@ -220,7 +222,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const coreValue = card === null ? null : coreHoverValueOf(card)
   // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
   const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, simple, dsKind, shape?.shape])
-  const headingOf = (option: string): string => model?.cards.find((c) => c.id === option)?.heading ?? ''
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
@@ -251,8 +252,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const tryOn = useTryOn(card)
   const versionN = useViewStore((s) => s.view?.version?.n ?? null)
   const letters = useMemo(() => optionLetters(model), [model]), letter = card?.family === 'option' ? letters.get(id) ?? null : null
-  // The options core could not calculate this figure for, each with core's own reason (contract.ts withheldValues).
-  const heldValues = useMemo(() => new Set(card === null ? [] : withheldValues(card).map((w) => w.option)), [card])
   // The figure's own edit (R25, as the lane's card): wherever core offers one, the ✎ is on the figure's line, and core takes the figure
   // through its own route as the person's. While a proposal is held core offers none; the ✎ then offers to set the proposal aside first.
   const keptEdit = useOpenFigureEdits((o) => o.open.get(id) ?? null)
@@ -270,26 +269,20 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // Core's change mark (+ added, ↻ changed), its words for the change on hover: at the end of a line the card already draws (Olumi's
   // author line, else the lead line, else the badge's), never a row of its own (DL, A13d: on a pending first model every card is an
   // addition, and its "+" took a row on all of them).
-  const changeMark = card?.change == null ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
-  const changeOn = changeMark === null ? null : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
+  // Detailed (17 Nov): an added card's "+" repeats its proposed frame, so only a change the frame does not say is marked, at the card's foot.
+  const changeMark = card?.change == null || (!simple && card.change.kind === 'added') ? null : <>{' '}<Glyph at={`${id}.change`} mark={card.change} className="text-info" /></>
+  const changeOn = changeMark === null ? null : !simple ? 'foot' : olumi ? 'author' : lead !== null ? 'lead' : badge !== null ? 'badge' : 'band'
   // Results saved by an earlier engine (core's `model.run.earlier`): said once, on the question card above the results, at both levels, in the quiet status
   // tone; the numbers are left as they are (DL and Codex, 17 Nov).
   const earlier = id === QUESTION ? earlierResultsOf(model) : null
-  // v10 review item 2: on Simple, a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed draws it whole.
-  const earlierLine = earlierDrawn()
-  function earlierDrawn() {
-    if (earlier === null) return null
-    return simple
-      ? <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={earlier.title} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
-      : <p className="ok-quiet" data-view="run.earlier" title={earlier.title}>{earlier.text}</p>
-  }
+  // v10 review item 2: a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed too since 17 Nov (Paul: a
+  // sentence that can be a mark is a mark).
+  const earlierLine = earlier === null ? null
+    : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
     : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
-  // The question's date (core's `decide_by`): its words, core's hover, Olumi's blue where Olumi set it.
-  const decideBy = question?.decide_by == null ? null
-    : <p className={`${typography.viewLabel} ${question.decide_by.olumi ? 'text-info' : 'text-text-light'}`} title={question.decide_by.title} data-olumi={question.decide_by.olumi || undefined} data-view="question.decide_by.text">{question.decide_by.text}</p>
   // The figure's ✎ (R25): on the figure's own line, as the retired card drew it. A figure with no value yet (Olumi's question, not yet
   // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
   // "a stray pencil glyph on a row of its own").
@@ -301,112 +294,103 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
   // Olumi's question about this card, by its number in the panel's list (questionRingOf): on the card's corner where nothing else holds it.
   const ring = card === null ? null : questionRingOf(model, id)
-  const ringMark = ring === null ? null
+  // Detailed (Paul's 17 Nov capture: numbered circles sat on the figures): Olumi's mark in its ring, the question's words its name; Simple keeps the number.
+  const ringMark = ring === null ? null : !simple ? <span data-question-ring={id}><OlumiAsksMark id={id} words={ring.text} /></span>
     : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.viewLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
     : <span className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
     : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
-  // THE FACE (DL-529, the component sheet's nine faces), core's words verbatim; nothing formatted, rounded or worked out here.
-  //  - an option: its headline as the View serves it: a chance (core's words up to its own first clause as the one headline, the clause
-  //    under it), a fixed result said as fixed, or no chance yet (ONE quiet line, core's next step `headline.add` else its text, its
-  //    why the hover: R6, 16 Nov);
-  //  - a figure: Olumi's estimate underlined in Olumi's blue, the person's solid, ✎ on its line; each option's value as quiet status lines;
-  //  - an aim or limit: its target with core's mark; whose the target and the aim are, on the foot;
+  // THE DETAILED FACE (DL-529's nine faces, redrawn 17 Nov for Paul's "not overwhelming but truly valuable with rich data"), core's words
+  // verbatim; nothing formatted, rounded or worked out here. Each fact is said once on the board (v12/detailed/said.ts), whose it is is a
+  // mark, and what a sentence used to say is a visual where the View gives one:
+  //  - an option: its headline as the View serves it: a chance (core's words up to its first clause, 18 px, over its gauge; the clause under
+  //    it unless every option says the same one, which the question's rail says once), a fixed result said as fixed, or no chance yet (core's line only, no empty track: R6's line, said once where every option says it);
+  //    its other aims are compact marker rows (v12/detailed/marks.tsx AimRows);
+  //  - a figure: Olumi's estimate underlined in Olumi's blue with Olumi's mark, the person's solid, ✎ on its line; the options' values as
+  //    letter strips (v12/detailed/charts.tsx Strips);
+  //  - an aim or limit: its target with Olumi's mark where Olumi proposed it;
   //  - anything else: core's line, whole.
-  // DL-529 slice (3): an option's LIMITS, drawn in the same structure as its aim's headline, from core's rows for every aim but the one the
-  // headline is about (rows[].aim_id): a worked-out value (core's row value, its marks, its title on hover); not worked out (core's state words
-  // as one quiet line, its reason the hover, and core's question for the figure it waits on as the one next step).
-  const limitsOf = (): JSX.Element | null => {
-    if (card === null || card.family !== 'option') return null
-    const aim = card.headline?.aim_id ?? null
-    const rows = card.rows.map((r, i) => ({ r: r as { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string; text?: string | null; question?: string | null; state_text?: string | null; olumi?: { glyph: string; title: string } | null }, i }))
-      .filter(({ r }) => r.aim_id != null && r.aim_id !== aim)
-    if (rows.length === 0) return null
-    const nameOf = (aid: string) => model?.cards.find((c) => c.id === aid)?.heading ?? aid
-    return (
-      <div className="ok-limits" data-view={`${id}.limits`}>
-        {rows.map(({ r, i }) => r.kind === 'none' ? (
-          // R6: a limit nothing can be said of yet is its name and ONE quiet line, core's own state words (its reason is the hover), then core's question
-          // for the figure it waits on as the one next step: no "?", no empty track, no "Why not".
-          <div key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={[r.title, r.text].filter((x) => x != null && x !== '').join('\n') || undefined}>
-            <span className="ok-limit-name">{nameOf(r.aim_id!)}</span>
-            {(r.state_text || r.text) ? <p className="ok-quiet" data-withheld-row={`${id}.rows.${i}`}>{r.state_text || r.text}</p> : null}
-            {r.question == null || r.question === '' ? null : <p className="ok-next" title={r.question} data-view={`${id}.rows.${i}.question`}>{r.question}</p>}
-          </div>
-        ) : (
-          <p key={i} className="ok-limit" data-view={`${id}.rows.${i}`} data-ok-limit={r.aim_id!} title={r.title}>
-            <span className="ok-limit-name">{r.aim ?? nameOf(r.aim_id!)}</span>{' '}<b data-view={`${id}.rows.${i}.value`}>{r.value}</b>
-            {r.olumi == null ? null : <Glyph at={`${id}.rows.${i}.olumi`} mark={r.olumi} className="ok-mark" />}
-          </p>
-        ))}
-      </div>
-    )
-  }
+  const said = useMemo(() => saidOnceOf(model), [model])
+  // Core's status word for a card it no longer holds as live ("ruled out"): on Detailed it is said in ONE place, the line bound to `<id>.status`,
+  // drawn whether or not the card has any other face; it is not repeated in the card's hover.
+  const setAside = card !== null && card.status != null && card.status !== ''
+  const setAsideChance = card !== null && setAside && card.family === 'option' && card.headline?.state === 'chance' ? card.headline : null
+  const sharedRows = useMemo(() => sharedRowStates(model), [model])
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
+    // An option core sends no headline for (its rows only): each aim's card says its rows by letter (AimResults). Only where nothing can be worked
+    // out on any aim and the first row is about no aim is the option's own face core's words, with no empty track; a row with a result is never drawn as "no chance".
+    // A row about no aim (core's own line for the option, such as its setting question) is the option's own: drawn whole, or one press away when long.
+    if (card.family === 'option' && card.headline == null) return card.rows.length > 0 && card.rows.every((r) => r.kind === 'none') && card.rows[0]!.aim_id == null ? (
+      <div data-core-lead={id} data-ok-face="none" title={lead}><p className="ok-quiet" data-view={`${id}.rows.0.text`}><RowWords words={lead} at={`${id}.rows.0`} /></p></div>
+    ) : null
     const hover = [lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined
-    const trail = <>{changeOn === 'lead' ? changeMark : null}{cueOnLead ? <>{' '}{editCue}</> : null}</>
+    const trail = cueOnLead ? <>{' '}{editCue}</> : null
     const h = card.family === 'option' ? card.headline ?? null : null
+    // An option core no longer holds as live (`status`, e.g. "ruled out") draws no chance headline: its state is the status line's to say, once,
+    // and a live number and gauge beside "ruled out" would read as still compared. Core's chance words stay one hover away, on that line.
+    if (h !== null && h.state === 'chance' && setAside) return null
     if (h !== null && h.state === 'chance') {
       const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
-      // V12: the qualifier is its own line, core's words after the number, with Olumi's mark where the chance rests on Olumi's figures
-      // (`rows[].olumi`, its words the mark's name); with no qualifier line, core's own glyph stays beside the number as before.
-      const qualified = qual !== null && qual !== ''
+      // The qualifier is its own line, core's words after the number, with Olumi's mark where the chance rests on Olumi's figures; where every
+      // option carries the same qualifier the question's rail says it once (said.ts sharedQualifier) and the card keeps the mark beside the number.
+      const qualified = qual !== null && qual !== '' && said.qualifier === null
       return (
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
           <p className="ok-chance"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
-            {row?.olumi == null || qualified ? null : <Glyph at={`${id}.row.olumi`} mark={row.olumi} className="ok-mark" />}{trail}</p>
+            {row?.olumi == null || qualified ? null : <span className="ok-dt-num-mark" data-view={`${id}.row.olumi`}><OlumiMark words={row.olumi.title} size={12} /></span>}{trail}</p>
           <ChanceBand card={card} />
-          {qual === null || qual === '' ? null : <p className="ok-qual" title={qual} data-view={`${id}.headline.qualifier`}>{row?.olumi == null ? null : <OlumiMark words={row.olumi.title} size={12} />}{qual}</p>}
+          {qualified ? <p className="ok-qual" title={qual!} data-view={`${id}.headline.qualifier`}>{row?.olumi == null ? null : <OlumiMark words={row.olumi.title} size={12} />}{qual}</p> : null}
           <RestsShareFill card={card} />
-          {/* DL 15 Nov: core's next step (headline.add) is off the face: the selected card's panel draws it whole (SelectedRename). */}
         </div>
       )
     }
     if (h !== null && h.state === 'fixed') return (
       <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
     )
-    // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (limitsOf draws it); no "No chance…" line too.
+    // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (AimRows draws it); no "No chance…" line too.
     if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {
       const { line, hover: why } = noChanceLineOf(h)
+      // Said once on the aim (said.ts) only where that line says exactly this option's own line and hover; an option whose reason differs keeps its own.
+      const once = saysNoChanceOnce(said.none, h)
       return (
-        <div data-core-lead={id} data-ok-face="none" title={hover}>
-          <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>
-          <div className="ok-row">{trail}</div>
+        <div data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} title={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
+          {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}
+          {trail === null ? null : <div className="ok-row">{trail}</div>}
         </div>
       )
     }
     // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status
-    // line, core's words (the sheet's "worked out but waiting"); the person's and Olumi's own figures keep the headline figure.
-    // V12 (canvas rule 5): one that waits on an input (`figure.state` waits) is pending: a dashed empty track over core's "waits on …" words.
+    // line, core's words; one that waits on an input (`figure.state` waits) is pending: core's "waits on …" words alone, as the Simple face
+    // says them (Paul's standing default, 16 Nov, figures too: no empty track at rest).
     const pending = card.figure?.state === 'waits'
     if (card.figure !== null && lead === card.figure.text && (pending || (viewNow !== null && isWorkedOut(viewNow, id)))) return (
       <div data-core-lead={id} data-ok-face="worked" data-ok-pending={pending ? '' : undefined} title={hover}>
-        {pending ? <EmptyTrack testid={`${id}-empty-bar`} /> : null}
         <p className="ok-status"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
       </div>
     )
     if (card.figure !== null && lead === card.figure.text) return (
       <div data-core-lead={id} data-ok-face="figure" title={hover}>
         <p><span className={`ok-fig ${estimate || olumi ? 'ok-fig-olumi' : ''}`} data-core-lead-clamp={id}>{lead}</span>
-          {estimate && !olumi ? <Glyph at={`${id}.olumi`} mark={card.olumi} className="ok-mark" /> : null}{trail}</p>
+          {estimate && !olumi && card.olumi != null ? <span className="ok-dt-num-mark" data-view={`${id}.olumi`}><OlumiMark words={card.olumi.title} size={12} /></span> : null}{trail}</p>
       </div>
     )
     if (card.bound != null && lead === card.bound.text) {
-      // DL 06:57Z (1): the aim's question ("What target would you set …?", core's bound) opens its target figure's own editor, found by
-      // core's `target` line (targets.ts), the same editor and the same write as the target card's ✎; nothing where core offers no edit.
+      // DL 06:57Z (1): the aim's question opens its target figure's own editor, found by core's `target` line (targets.ts); nothing where core
+      // offers no edit. Where Olumi proposed the target, Olumi's mark beside it, core's words its name.
       const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
       const words = <span data-core-lead-clamp={id}>{lead}</span>
+      const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} size={12} /></span>
       return (
         <div data-core-lead={id} data-ok-face="target" title={hover} className={target === null ? undefined : 'relative'}>
           {target === null
-            ? <p className="ok-target">{words}{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</p>
-            : <div className="ok-target"><FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />{' '}<Glyph at={`${id}.bound.olumi`} mark={card.bound.olumi} className="ok-mark" />{trail}</div>}
+            ? <p className="ok-target">{words}{mark}{trail}</p>
+            : <div className="ok-target"><FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={words} />{mark}{trail}</div>}
         </div>
       )
     }
@@ -428,9 +412,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
         // date and the chance sentence are the panel's, the date also its hover.
         ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{badgeLine}{earlierLine}</div>
-        : <div className="ok-face" data-ok-family="question">{decideBy}{badgeLine}{earlierLine}<ChanceRail /></div>) : (
-        <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)}
-          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
+        // Detailed (17 Nov): the options' chances on one rail by letter (each option's name is said on its own card), what every option says alike
+        // said once, and the date, the folded notes and the saved results as marks on one row.
+        : <div className="ok-face" data-ok-family="question" data-ok-detailed="">
+            <Rail qualifier={said.qualifier} />
+            <SaidOnce lines={said.question} at="question" />
+            <div className="ok-dt-foot">{question?.decide_by == null ? null : <DecideBy d={question.decide_by} />}{badge === null ? null : <BadgeCount cardId={id} badge={badge} at="question" />}{earlierLine}</div>
+          </div>) : (
+        <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
+          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(simple ? card : { ...card, status: null })].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
@@ -442,27 +432,22 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
                 {tryOn.said === null ? null : <p className={`${typography.viewLabel} break-words text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               </div>
             )} /> : <>
-          {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
-          {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
+          {/* A card core no longer holds as live (`status`, e.g. "ruled out"): core's word, once, where the card's state is said; its name goes light (olumiLook.css).
+              Where that withholds a chance headline from the face, core's own chance words and their title are this line's hover. */}
+          {setAside ? <p className="ok-quiet" data-view={`${id}.status`} title={setAsideChance === null ? undefined : [setAsideChance.text, setAsideChance.title].filter((x) => x !== '').join('\n')}>{card.status}</p> : null}
           {faceOf()}
-          {/* V12: an input not sized yet is a dashed empty bar with core's own words for the gap ("not sized yet · …"), one line, whole on hover. */}
-          {card.figure != null && card.figure.text === '' ? <UnsizedFigure id={id} words={unsizedWords(card)} /> : null}
-          {card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />}
-          {limitsOf()}
+          {/* An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover, as the Simple face
+              says them; no empty bar at rest (Paul, 16 Nov), and nothing at all where core sends no words for the gap. */}
+          {(() => { const gap = unsizedWords(card); return gap === null ? null : <p className="ok-quiet" data-unsized={id} data-unsized-words={id} title={gap}>{onceWords(gap)}</p> })()}
+          {/* A range bar only where the range has a spread (Paul's 17 Nov capture: a 0 to 2 months bar for a fixed deadline encoded nothing). */}
+          {card.family === 'option' || !hasSpread(card) || (card.values?.length ?? 0) > 0 ? null : <RangeBar card={card} view={{ model }} />}
+          {card.family === 'option' ? <AimRows card={card} model={model} shared={sharedRows} /> : <AimResults aim={card} model={model} shared={sharedRows} />}
+          <SaidOnce lines={said.aims.get(id) ?? []} at={id} />
           {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
-          {(card.values?.length ?? 0) > 1 ? <>
-            <StatedFigure id={id} card={card} />
-            {card.values!.map((v, i) => heldValues.has(v.option) ? null : (
-              <p key={v.option} className="ok-status" data-core-value={`${id}.${v.option}`}>
-                <span>{headingOf(v.option)}</span> <b data-view={`${id}.values.${i}.text`}>{v.text}</b>
-                {v.if_approved == null ? null : <>{' '}<Glyph at={`${id}.values.${i}.if_approved`} mark={v.if_approved} /></>}
-              </p>
-            ))}
-          </> : null}
-          {/* V12 (canvas rules 4 and 5): an option core could not calculate this figure for is drawn once, by the outcome strips below
-              (OutcomeStrips: its letter, a dashed row and core's real reason): never silent, never a value. */}
-          {/* Core's honesty line (card.unused): a figure Olumi's analysis does not use yet says so, once, under it, in core's words. */}
-          {card.unused == null || card.unused === '' ? null : <p className="ok-qual" title={card.unused} data-view={`${id}.unused`}>{card.unused}</p>}
+          {(card.values?.length ?? 0) > 1 ? <StatedFigure id={id} card={card} /> : null}
+          {/* Each option's worked-out value, by its letter on one shared axis (v12/detailed/charts.tsx); an option core could not calculate is its
+              letter, an outlined lane and core's real reason. Not while the figure waits: its face says so once. */}
+          {card.family === 'option' || card.figure?.state === 'waits' ? null : <Strips card={card} model={model} />}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
@@ -479,11 +464,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               {WHAT_IF_COPY.whatIf}: <span className="font-medium text-text-header" data-view={`whatif.${id}.chance`}>{tryOn.row.value}</span>
             </p>
           )}
-          {card.family === 'option' ? <><OptionMarkLine card={id} /><ConditionalBar card={card} /></> : <OutcomeStrips card={card} view={{ model }} letters={letters} />}
+          {card.family === 'option' ? <><OptionMarkLine card={id} />{setAside ? null : <ConditionalBar card={card} />}</> : null}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
           <span className="flex flex-wrap items-center gap-1 empty:hidden">
-            {/* Core's change mark, here only where no other line can carry it (changeOn, above). */}
-            {changeOn === 'band' ? changeMark : null}
             {card.committed == null ? null : <span className={`${typography.viewLabel} text-text-light`} title={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></span>}
             {/* K5 If it failed: one mark per Olumi failure story resting on this card, core's number with Olumi's glyph, the story on hover; on an
                 option, the story most within the team's control, in core's words. All Olumi's (../k5.ts). */}
@@ -500,18 +483,20 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* The figure's ✎ takes a row of its own only where no line can carry it (DL-183). */}
           {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
-          {/* Whose it is, at the card's foot (the sheet): first-class marks, never hover-only. A target Olumi proposed says so on the face, the
-              figure Olumi estimated says so, and the card's own author line (Olumi's in its blue, the person's in body ink); then the count.
-              V12: the author line leads with its mark (Olumi's own, or a person's), so the two read apart at a glance; "baseline" only where
-              core marks the option the person already has (contract.ts isBaseline). */}
-          <div className="ok-foot">
-
-            <div className="ok-row">
-              {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
-              {card.bound?.olumi == null ? null : <p className="ok-by ok-by-olumi" data-view={`${id}.bound.olumi.title`}><Glyph at={`${id}.bound.foot`} mark={card.bound.olumi} /> {card.bound.olumi.title}</p>}
-              {olumi ? <div className="ok-by ok-by-olumi" data-core-author={id}><AuthorMark card={card} size={12} /><span title={card.author!.title}>{card.olumi?.glyph ? `${card.olumi.glyph} ` : ''}{card.author!.text}</span>{changeOn === 'author' ? changeMark : null}{cueOnAuthor ? <>{' '}{editCue}</> : null}</div>
-              : card.author != null && card.author.text !== '' ? <p className="ok-by" data-core-author={id} title={card.author.title || undefined}><AuthorMark card={card} size={12} />{card.author.text}</p> : null}
-              {badgeLine}{viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}</div>
+          {/* THE FOOT, ONE ROW OF MARKS (Detailed, 17 Nov; Paul: provenance as marks and colour, not sentences; text as icons with a hover): the
+              notation's tags ("baseline", "assumption", the limit's word), core's honesty mark, the working, what core folded behind the card as a
+              count, a change the frame does not say; whose it is at the right (Olumi's mark or a person's, both
+              where mixed), core's author words its hover and name. */}
+          <div className="ok-dt-foot">
+            {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
+            {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
+            {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
+            {card.unused == null || card.unused === '' ? null : <UnusedMark id={id} words={card.unused} />}
+            {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}
+            {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}
+            {changeOn === 'foot' ? changeMark : null}
+            {cueOnAuthor ? editCue : null}
+            <span className="ok-dt-whose" data-core-author={id}><AuthorMark card={card} size={14} /></span>
           </div>
           </>}
         </div>
