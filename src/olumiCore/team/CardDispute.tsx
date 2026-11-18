@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
-import { FOLD_SUMMARY, FoldChevron } from '../../olumiView/look/FoldChevron'
+import { FOLD_SUMMARY_TOP, FoldChevron } from '../../olumiView/look/FoldChevron'
 import { useRevealedDifferences } from './CardDiffers'
 import type { Difference } from './differences'
 
@@ -60,7 +60,7 @@ export function WhereYouDiffer({ card, peek = false, open = false }: { card: str
   )
   return (
     <details ref={fold} open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
-      <summary className={`${FOLD_SUMMARY} cursor-pointer items-start text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
+      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
       {own.map((d) => {
         const whose = (id: string) => d.sides.find((s) => s.holder_id === id)?.holder ?? ''
         return (
