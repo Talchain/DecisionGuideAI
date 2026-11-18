@@ -183,4 +183,15 @@ describe('Detailed: marks, not sentences', () => {
     const none = withCard(view, { ...c, unused: null } as ViewCard)
     expect([faceOf(draw(none, c.id), c.id).querySelector(`[data-view="${c.id}.unused"]`), document.querySelector('svg.lucide-unlink')]).toEqual([null, null])
   })
+  it('DT13 an option core has ruled out says core\'s status word once on Detailed, bound to its status, and is marked for the light-title rule. CONTRAST: the same option while live draws neither', () => {
+    const live = optionsOf(HIRING)[0]!
+    expect(live.status, 'precondition: live').toBeNull()
+    const out = faceOf(draw(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), live.id), live.id)
+    expect([[...out.querySelectorAll(`[data-view="${live.id}.status"]`)].map((e) => e.textContent), out.hasAttribute('data-detailed-set-aside')]).toEqual([[ 'ruled out' ], true])
+    cleanup()
+    const on = faceOf(draw(HIRING, live.id), live.id)
+    expect([on.querySelector(`[data-view="${live.id}.status"]`), on.hasAttribute('data-detailed-set-aside')]).toEqual([null, false])
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    expect(css.split('}').filter((r) => r.includes('[data-detailed-set-aside]') && r.includes('[data-simple-set-aside]') && r.includes('node-title')).length, 'one title rule serves both faces').toBe(1)
+  })
 })
