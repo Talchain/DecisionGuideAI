@@ -105,6 +105,21 @@ describe('partial approval', () => {
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base, only: [p.changes[0]!.id], only_top: [] } })
   })
+  it('a selection is never dropped silently (Codex root 21:24Z): with a line ticked, collapsing the review leaves NO approve control; the filled button reopens the review with the ticks kept, and nothing was sent. CONTRAST: collapsed with nothing ticked, the filled button is the whole proposal as before', async () => {
+    const c = showOpen(golden), review = c.querySelector('[data-testid="view-proposal-review"]')!
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    setOpen(review, false)
+    expect(isOpen(review), 'fixture: the review is collapsed').toBe(false)
+    expect([screen.queryByTestId('view-approve'), screen.queryByTestId('view-approve-ticked'), screen.queryByTestId('view-review-changes') !== null]).toEqual([null, null, true])
+    fireEvent.click(screen.getByTestId('view-review-changes'))
+    expect(isOpen(review)).toBe(true)
+    expect([(screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, screen.getByTestId('view-approve-ticked').getAttribute('aria-label')], 'the ticks are kept').toEqual([true, 'Approve ticked · 1'])
+    expect(posts, 'nothing was approved by collapsing or reopening').toHaveLength(0)
+    // CONTRAST: untick, collapse: nothing is chosen, so the closed review offers the whole proposal as it always did.
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    setOpen(review, false)
+    expect([screen.getByTestId('view-approve').getAttribute('aria-label'), screen.queryByTestId('view-approve-ticked'), screen.queryByTestId('view-review-changes')]).toEqual(['Approve these changes', null, null])
+  })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)
     fireEvent.click(screen.getByTestId('view-change-tick-0'))

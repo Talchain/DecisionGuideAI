@@ -630,7 +630,10 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   // whole batch, so a person who ticked three lines and pressed the one green button approved all of them). With nothing ticked the filled button is the
   // whole proposal, as before. Once a line is ticked the filled button is Approve ticked, first, and the whole proposal is the quiet one beside it, saying
   // how many lines it takes: the green button never approves more than the person chose. What each sends is unchanged (`only` / `only_top`, or `base` alone).
-  const followsTicks = tickable && !closed && chosen > 0
+  // A selection is never dropped silently (Codex root 21:24Z): the review keeps its ticks when it is collapsed, so while lines are ticked a CLOSED review
+  // offers no approve at all; its filled button reopens the review (as it does while Olumi's readings wait), where the ticked lines are in view.
+  const heldTicks = tickable && chosen > 0
+  const followsTicks = heldTicks
   const wholeWords = actions.approve === APPROVE_WORD ? (followsTicks ? 'Approve all' : 'Approve these changes') : actions.approve
   const approveWhole = <OkIconButton id="approve" tone={followsTicks ? 'ghost' : 'primary'} words={followsTicks ? `${wholeWords} · ${changes.length}` : wholeWords} count={followsTicks ? changes.length : undefined} disabled={busy} testid="view-approve" onClick={() => approve()} />
   const approveTicked = !tickable ? null : <OkIconButton id="approve-ticked" tone={followsTicks ? 'primary' : 'ghost'} words={`Approve ticked · ${chosen}`} count={chosen} disabled={busy || chosen === 0} testid="view-approve-ticked" onClick={() => approve(pick)} />
@@ -792,7 +795,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
           not support the change, the filled button opens the review instead (nothing is approved blind). */}
       <div className={`ok-actions flex ${lead === undefined ? 'flex-wrap' : 'flex-nowrap'} items-center gap-x-2 gap-y-0`} data-testid="view-proposal-actions">
         {lead}
-        {closed && (readingIds.length > 0 || verdict?.supported === false)
+        {closed && (readingIds.length > 0 || verdict?.supported === false || heldTicks)
           ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
           : verdict?.supported === false ? null : followsTicks ? approveTicked : approveWhole}
         {closed || verdict?.supported === false ? null : followsTicks ? approveWhole : approveTicked}
