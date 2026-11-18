@@ -22,6 +22,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../v12/simpleStore'
 import { findingOf } from '../v12/contract'
+import { FINDING_FIGURE } from '../FindingLine'
 
 const served = structuredClone(JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))) as View
 const CARD = served.model!.cards[1]!
@@ -64,6 +65,8 @@ describe('the one finding line', () => {
   it('FL3 the figure\'s heading presses to that card, on the question card and in the panel', () => {
     const q = question(withFinding(F), 'simple')
     const b = q.querySelector<HTMLElement>(`[data-finding-figure="${CARD.id}"]`)!
+    // The figure is named (mark + hover and accessible name), never a bare card heading.
+    expect([b.title, b.getAttribute('aria-label'), b.querySelectorAll('svg').length, b.textContent]).toEqual([`${FINDING_FIGURE}: ${CARD.heading}`, `${FINDING_FIGURE}: ${CARD.heading}`, 1, CARD.heading])
     expect(b.textContent).toBe(CARD.heading)
     fireEvent.click(b)
     expect(press).toHaveBeenCalledWith(CARD.id)

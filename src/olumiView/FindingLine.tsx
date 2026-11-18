@@ -8,8 +8,11 @@ import { pressCard, ringFrom } from './reasoning/tabRing'
 import { findingOf } from './v12/contract'
 import { recordReach, showRecord } from './v12/showInWorkspace/show'
 import { typography } from '../styles/typography'
+import { OkIcon } from './look/icons'
 
 const RING = 'finding'
+/** The pressable figure's own name, said by the same mark Analysis uses for it: a bare card name under the finding read as an orphan (roll5 pictures). */
+export const FINDING_FIGURE = 'The figure this moves most with'
 
 export function FindingLine({ model, at }: { model: ViewModel | null | undefined; at: 'question' | 'panel' }): JSX.Element | null {
   const f = findingOf(model)
@@ -20,8 +23,8 @@ export function FindingLine({ model, at }: { model: ViewModel | null | undefined
     <div className="grid min-w-0 gap-0.5" data-finding={at}>
       <p className={`${at === 'question' ? typography.viewLabel : typography.viewPanelBody} m-0 line-clamp-2 break-words text-text-body`} title={f.title} data-view="run.finding">{f.text}</p>
       {card === null ? null
-        : <button type="button" className={`${typography.viewLabel} nodrag m-0 w-fit max-w-full truncate rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={card.heading} onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }}
-            onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])} onMouseLeave={() => ringFrom(RING, [])} data-finding-figure={card.id}>{card.heading}</button>}
+        : <button type="button" className={`${typography.viewLabel} nodrag m-0 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={`${FINDING_FIGURE}: ${card.heading}`} aria-label={`${FINDING_FIGURE}: ${card.heading}`} onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }}
+            onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])} onMouseLeave={() => ringFrom(RING, [])} data-finding-figure={card.id}><OkIcon id="why-moves" size={14} inherit decorative /><span className="min-w-0 truncate">{card.heading}</span></button>}
       {f.needs === null ? null : <p className={`${typography.viewLabel} m-0 line-clamp-2 break-words text-text-light`} data-view="run.finding.needs">{f.needs}</p>}
     </div>
   )
