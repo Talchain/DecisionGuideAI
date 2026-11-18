@@ -11,6 +11,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const chat = vi.hoisted(() => ({ prefill: vi.fn(), method: vi.fn() }))
 vi.mock('../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../ViewChat')>()), prefillComposer: chat.prefill, runMethod: chat.method }))
+const commit = vi.hoisted(() => ({ open: vi.fn() }))
+vi.mock('../v12/team/CommitForm', async (importOriginal) => ({ ...(await importOriginal<typeof import('../v12/team/CommitForm')>()), openCommitDraft: commit.open }))
 const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
 
@@ -31,7 +33,7 @@ const ready = (view: View, more: object = {}) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, ...more } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
-afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
   it('european: each rest by its id in core\'s order (two at rest, the rest behind one press); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
@@ -201,6 +203,43 @@ describe('challenge your thinking', () => {
     const body = screen.getByTestId('view-reasoning')
     expect(body.querySelectorAll('[data-view$=".value"], [data-view="run.lead"], [data-view="run.most_likely.text"]')).toHaveLength(0)
     for (const t of ['view-reasoning-glance', 'view-reasoning-rack', 'view-reasoning-people', 'view-reasoning-commitment', 'view-reasoning-outcomes']) expect(screen.queryByTestId(t), t).toBeNull()
+  })
+})
+
+describe('towards commitment: what is still disputed, what is recorded, and one press into the ONE commitment form', () => {
+  type Collab = View['collab']
+  const withRecords = (): View => {
+    const view = structuredClone(read('app-launch.view.json'))
+    const c = view.collab as Collab
+    c.dissent = [{ id: 'dissent_t1', holder: 'Tobias', position: 'Keep the long version: finishers pay more.', holder_id: null, confirmed: null }]
+    c.commitments = [{ ...({} as Collab['commitments'][number]), id: 7, at: '2026-11-18T10:00:00Z', by: 'Ada', by_id: view.you_id, action: 'Run a two-week split test', owner: 'Ada', owner_id: view.you_id,
+      expect: 'Conversion holds at 6%', reconsider: 'Paid conversion falls under 5%', keeps: ['dissent_t1'], outcomes: [], option: null, version: null, expect_band: null, review_on: '2026-12-02', trigger: null }]
+    return view
+  }
+  it('each open disagreement by its id in the holder\'s words; each recorded action with its reconsider line; the press opens the shared draft for this scenario', () => {
+    const view = withRecords()
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const box = screen.getByTestId('reasoning-commitment')
+    expect(box.querySelector('[data-dissent="dissent_t1"]')!.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
+    const k = box.querySelector<HTMLElement>('[data-commitment="7"]')!
+    expect(k.textContent).toContain('Run a two-week split test')
+    expect(k.querySelector('[data-commitment-reconsider="7"]')!.textContent).toBe('Reconsider if: Paid conversion falls under 5%')
+    expect(k.querySelector('[data-commitment-review="7"]')!.textContent).toBe('Review on 2026-12-02')
+    fireEvent.click(screen.getByTestId('reasoning-commit-open'))
+    expect(commit.open.mock.calls).toEqual([[view.id, view]])
+    expect(chat.prefill).not.toHaveBeenCalled()
+  })
+  it('CONTRAST: a past version shows what was recorded but offers no form; nothing recorded on a past version draws no section', () => {
+    const view = withRecords()
+    ready(view, { at: 3 })
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-commitment').querySelector('[data-commitment="7"]')).not.toBeNull()
+    expect(screen.queryByTestId('reasoning-commit-open')).toBeNull()
+    cleanup()
+    ready(read('app-launch.view.json'), { at: 3 })
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-commitment')).toBeNull()
   })
 })
 
