@@ -10,7 +10,7 @@
  */
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
-import { chartRowsOf, rangeOf, trackPct } from './pick'
+import { chartGroupsOf, rangeOf, trackPct, type ChartRow } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
@@ -38,36 +38,44 @@ export function ChanceTrack({ chance, range }: { chance: number; range: { low: n
   )
 }
 
+/** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
+function Bar({ card, row, i }: ChartRow) {
+  const range = rangeOf(row)
+  return (
+    <li data-chart-option={card.id}>
+      <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
+        title={row.title} className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+          <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
+            {row.likely == null ? null : <span className="text-text-header" title={row.likely.title} aria-label={row.likely.title} data-view={`${card.id}.rows.${i}.likely.glyph`}>{row.likely.glyph}</span>}
+            {row.olumi == null ? null : <span className="text-info" title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+          </span>
+        </span>
+        <span className="mt-1 block px-1"><ChanceTrack chance={row.chance!} range={range} /></span>
+        <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+      </button>
+    </li>
+  )
+}
+
+/** Every aim with a chance, each its own chart on the one 0 to 100 axis: the lead aim first, under core's lead; the others under their aim. */
 export function ChanceChart({ model }: { model: ViewModel }) {
   const run = model.run ?? null
-  const rows = chartRowsOf(model)
-  if (run === null || rows.length === 0) return null
-  const ranged = rows.some(({ row }) => rangeOf(row) !== null)
+  const groups = chartGroupsOf(model)
+  if (run === null || groups.length === 0) return null
+  const ranged = groups.some((g) => g.rows.some(({ row }) => rangeOf(row) !== null))
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
   return (
-    <section className="space-y-2" data-testid="analysis-chance-chart" aria-label={run.lead ?? undefined} onMouseLeave={() => ringFrom(RING, [])}>
-      {run.lead == null ? null : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>}
-      <ul className="m-0 list-none space-y-1 p-0">
-        {rows.map(({ card, row, i }) => {
-          const range = rangeOf(row)
-          return (
-            <li key={card.id} data-chart-option={card.id}>
-              <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
-                title={row.title} className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
-                  <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
-                    {row.likely == null ? null : <span className="text-text-header" title={row.likely.title} aria-label={row.likely.title} data-view={`${card.id}.rows.${i}.likely.glyph`}>{row.likely.glyph}</span>}
-                    {row.olumi == null ? null : <span className="text-info" title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
-                  </span>
-                </span>
-                <span className="mt-1 block px-1"><ChanceTrack chance={row.chance!} range={range} /></span>
-                <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+    <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
+      {groups.map((g) => (
+        <div key={g.aimId} className="space-y-1" data-chart-aim={g.aimId}>
+          {g.lead && run.lead != null
+            ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
+            : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r) => <Bar key={r.card.id} {...r} />)}</ul>
+        </div>
+      ))}
       <div className={`${TYPE.meta} flex justify-between px-1 tabular-nums text-text-light`} aria-hidden="true" data-testid="analysis-chart-axis">
         {CHART_WORDS.axis.map((a) => <span key={a}>{a}</span>)}
       </div>

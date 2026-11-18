@@ -32,7 +32,7 @@ import { typography } from '../styles/typography'
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
   rests: 'Whose figures it rests on',
-  olumi: 'Olumi’s', yours: 'Yours', none: 'No one figure',
+  olumi: 'Olumi’s', yours: 'People’s', none: 'No one figure',
   challenge: 'Challenge your thinking',
   premises: 'Assumptions and evidence',
   questions: 'Questions worth answering',

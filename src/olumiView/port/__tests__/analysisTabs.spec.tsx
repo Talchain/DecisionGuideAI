@@ -15,7 +15,7 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { optionCards } from '../../layout'
 import { PortAnalysisTab } from '../PortAnalysisTab'
-import { chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
+import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
 import { useUIStore } from '../../../stores/uiStore'
 
@@ -53,6 +53,37 @@ describe('the tab\'s state comes from the options\' rows', () => {
     const ids = optionCards(view.model!).filter((c) => c.rows.some((r) => r.kind === 'limit')).map((c) => c.id)
     expect([...limits.querySelectorAll<HTMLElement>('[data-limit-option]')].map((e) => e.dataset['limitOption'])).toEqual(ids)
     expect(expectAllBound(view, limits, expect)).toBeGreaterThan(0)
+    // Core's line for each state is drawn, with any condition it carries, never only on hover.
+    for (const c of optionCards(view.model!)) c.rows.forEach((r, i) => { if (r.kind === 'limit') expect(limits.querySelector(`[data-view="${c.id}.rows.${i}.value"]`)!.textContent, c.id).toBe(r.value) })
+  })
+})
+
+describe('every option\'s line for every aim is drawn somewhere, never dropped', () => {
+  for (const n of ['real/hiring', 'golden/s_ce285b3617bb', 'core/an01-european-otheraims', 'core/an01-studio-otheraims', 'core/an01-studio', 'golden/bakery', 'golden/european', 'golden/app-launch'] as const) {
+    it(`${n}: a chance in its aim's chart, a limit under its limit, and anything else in what a result needs (or its aim's shared blocker)`, () => {
+      const view = viewOf(n), m = view.model!, needs = new Set(needsOf(m).map((x) => x.key))
+      const blocked = new Set((m.run?.shared_blockers ?? []).map((b) => b.aim_id))
+      ready(view); render(<PortAnalysisTab />)
+      let charted = 0
+      for (const c of optionCards(m)) c.rows.forEach((r, i) => {
+        const where = `${c.id}.rows.${i}`
+        if (r.kind === 'chance' && typeof r.chance === 'number') { charted++; expect(document.querySelector(`[data-chart-aim="${r.aim_id}"] [data-chart-option="${c.id}"]`), where).not.toBeNull() }
+        else if (r.kind === 'limit') expect(document.querySelector(`[data-limit-aim="${r.aim_id}"] [data-limit-option="${c.id}"]`), where).not.toBeNull()
+        else if (r.kind === 'chance') expect(needs.has(`held:${where}`), where).toBe(true)
+        else expect(needs.has(`none:${where}`) || (r.aim_id !== null && blocked.has(r.aim_id)) || [...needsOf(m)].some((x) => x.text === r.text), where).toBe(true)
+      })
+      // CONTRAST: the charts hold exactly the numeric chances, no more.
+      expect(document.querySelectorAll('[data-chart-option]').length).toBe(charted)
+    })
+  }
+  it('an aim other than the lead keeps its own chart, titled by core\'s aim words; the lead aim\'s is first, under core\'s lead (real/hiring)', () => {
+    const view = viewOf('real/hiring'), groups = chartGroupsOf(view.model!)
+    expect(groups.length).toBeGreaterThan(1)
+    ready(view); render(<PortAnalysisTab />)
+    const drawn = [...document.querySelectorAll<HTMLElement>('[data-chart-aim]')]
+    expect(drawn.map((e) => e.dataset['chartAim'])).toEqual(groups.map((g) => g.aimId))
+    expect(drawn[0]!.querySelector('[data-view="run.lead"]')).not.toBeNull()
+    expect(drawn[1]!.querySelector(`[data-view="${groups[1]!.aim.at}"]`)!.textContent).toBe(groups[1]!.aim.text)
   })
 })
 
@@ -174,6 +205,17 @@ describe('what a result needs', () => {
     ready(view); render(<PortAnalysisTab />)
     fireEvent.click(document.querySelector(`[data-need="${first.key}"] button`)!)
     expect(focus.node.mock.calls).toEqual([[first.card]])
+  })
+
+  it('a result core works out (kind result, with its own values) is never listed as a figure to give; CONTRAST: the same card as a plain factor is', () => {
+    const view = structuredClone(viewOf('golden/app-launch'))
+    const c = view.model!.cards.find((k) => k.figure != null && k.figure.edit != null && k.status === null)!
+    view.model!.run!.waits_on = null
+    c.figure = { ...c.figure!, text: '' }
+    Object.assign(c, { kind: 'result', values: [{ option: 'x', text: 'v', p10: 1, p50: 2, p90: 3, if_absent: [], olumi: false, if_approved: null }] })
+    expect(needsOf(view.model!).some((n) => n.key === `size:${c.id}`)).toBe(false)
+    Object.assign(c, { kind: 'driver', values: null })
+    expect(needsOf(view.model!).some((n) => n.key === `size:${c.id}`)).toBe(true)
   })
 
   it('a figure no one has given yet is listed with core\'s ✎ (its edit); CONTRAST: once it has words it is not listed', () => {

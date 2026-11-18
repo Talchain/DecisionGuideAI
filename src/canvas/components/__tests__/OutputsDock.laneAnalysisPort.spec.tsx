@@ -29,7 +29,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
-import { chartRowsOf } from '../../../olumiView/port/pick'
+import { chartGroupsOf, chartRowsOf } from '../../../olumiView/port/pick'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hiring.view3.json'), 'utf8'))
@@ -65,14 +65,17 @@ describe('the Analysis tab on the olumi-core lane draws what the model implies (
     const chart = slot.querySelector('[data-testid="analysis-chance-chart"]')!
     expect(chart).not.toBeNull()
     expect(chart.querySelector('[data-view="run.lead"]')!.textContent).toBe(view.model.run.lead)
+    // Both of hiring's aims keep a chart (the lead aim first), as the earlier hero kept both aims' groups.
+    expect([...chart.querySelectorAll<HTMLElement>('[data-chart-aim]')].map((g) => g.dataset['chartAim'])).toEqual(['boost_productivity', 'meet_launch_deadline'])
+    expect(chartGroupsOf(view.model).map((g) => g.aimId)).toEqual(['boost_productivity', 'meet_launch_deadline'])
     const rows = chartRowsOf(view.model)
     expect(rows.length).toBeGreaterThan(1)
-    expect([...chart.querySelectorAll<HTMLElement>('[data-chart-option]')].map((e) => e.dataset['chartOption'])).toEqual(rows.map((r) => r.card.id))
+    expect([...chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll<HTMLElement>('[data-chart-option]')].map((e) => e.dataset['chartOption'])).toEqual(rows.map((r) => r.card.id))
     for (const { card, row, i } of rows) expect(chart.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!.textContent).toBe(row.value)
     // Core's most-likely mark, only on the rows core gives it (identity: the row's own path).
     const likely = rows.filter((r) => r.row.likely != null)
     expect(likely.length).toBeGreaterThan(0)
-    expect(chart.querySelectorAll('[data-view$=".likely.glyph"]').length).toBe(likely.length)
+    expect(chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll('[data-view$=".likely.glyph"]').length).toBe(likely.length)
     expect(slot.querySelector('[data-testid="view-chances"]')).toBeNull()
     // The old hero and its repeats are gone.
     expect(slot.querySelector('[data-testid="port-analysis-hero"]')).toBeNull()

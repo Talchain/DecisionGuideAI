@@ -46,15 +46,29 @@ export function tabStateOf(model: ViewModel): TabState {
   return rows.some(hasChance) ? 'chance' : rows.some((r) => r.kind === 'limit') ? 'limit' : 'none'
 }
 
-/** One bar of the chance chart: an option's chance row for the lead aim, at its View path (`<card id>.rows.<i>`). */
+/** One bar of the chance chart: an option's chance row for one aim, at its View path (`<card id>.rows.<i>`). */
 export type ChartRow = { card: ViewCard; row: ChanceRow; i: number }
 /** Each option's chance row for the lead aim, in core's card order. An option with no such row is left out (it is in "what a result needs"). */
 export function chartRowsOf(model: ViewModel): ChartRow[] {
-  const aim = leadAimOf(model)
-  return optionCards(model).flatMap((card) => {
-    const i = card.rows.findIndex((r) => hasChance(r) && (aim === null || r.aim_id === aim))
-    return i < 0 ? [] : [{ card, row: card.rows[i] as ChanceRow, i }]
+  return chartGroupsOf(model)[0]?.rows ?? []
+}
+
+/**
+ * One chart per aim that has a chance: the lead aim first (its title is core's lead), then every other aim in the order core's option rows
+ * first name it (its title is core's `row.aim`, at the first row that carries it). Inside each, every option with a chance for that aim, in
+ * core's card order. Nothing is ranked; an option whose chance for an aim is not a number is in "what a result needs" with core's words.
+ */
+export type ChartGroup = { aimId: string; lead: boolean; aim: { text: string; at: string }; rows: ChartRow[] }
+export function chartGroupsOf(model: ViewModel): ChartGroup[] {
+  const lead = leadAimOf(model), out: ChartGroup[] = []
+  for (const card of optionCards(model)) card.rows.forEach((row, i) => {
+    if (!hasChance(row)) return
+    let g = out.find((x) => x.aimId === row.aim_id)
+    if (g === undefined) { g = { aimId: row.aim_id, lead: row.aim_id === lead, aim: { text: row.aim, at: `${card.id}.rows.${i}.aim` }, rows: [] }; out.push(g) }
+    if (!g.rows.some((r) => r.card.id === card.id)) g.rows.push({ card, row, i })
   })
+  const at = out.findIndex((g) => g.lead)
+  return at > 0 ? [out[at]!, ...out.slice(0, at), ...out.slice(at + 1)] : out
 }
 
 /** The figure a chart row's chance moves most with, and both chances (`row.driver`), when core sends them as numbers. */
@@ -70,7 +84,7 @@ type RestFigure = NonNullable<ViewRun['rests'][number]['figures']>[number]
  */
 export function moversOf(model: ViewModel): { card: ViewCard; options: string[]; share: { f: RestFigure; at: string } | null }[] {
   const out: { card: ViewCard; options: string[]; share: { f: RestFigure; at: string } | null }[] = []
-  for (const { card: option, row } of chartRowsOf(model)) {
+  for (const { card: option, row } of chartGroupsOf(model).flatMap((g) => g.rows)) {
     const r = rangeOf(row)
     if (r === null) continue
     const had = out.find((m) => m.card.id === r.figure)
@@ -123,9 +137,10 @@ type CoreEdit = { prompt: string; ask: string }
 /**
  * One row of "what a result needs": core's words at their View path, the card a press goes to, and core's edit where a press can give the
  * figure. Each class is fixed by the tab (never by the content), and inside a class the order is core's:
- *   1. `blocks`: what stops an option's chance (`run.shared_blockers`, else each option row `none`'s words, once);
+ *   1. `blocks`: what stops an option's chance (`run.shared_blockers`; each option row `none` for an aim no shared blocker covers, once;
+ *      a chance row core gives no number, by its own words);
  *   2. `waits`: what the chances wait on (`run.waits_on.items`);
- *   3. `size`: a figure no one has given yet (`cards[].figure` with no words and core's edit);
+ *   3. `size`: a figure no one has given yet (`cards[].figure` with no words and core's edit; never a result core works out);
  *   4. `worth`: Olumi's observation on a card (`worth_checking`), where core sends one.
  * The same card is listed once, in its first class.
  */
@@ -133,20 +148,25 @@ export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; te
 export function needsOf(model: ViewModel): Need[] {
   const run = model.run ?? null, out: Need[] = [], seenCard = new Set<string>(), seenText = new Set<string>()
   const push = (n: Need) => {
-    if (n.text === '' || seenText.has(n.text) || (n.card !== null && n.cls !== 'blocks' && seenCard.has(n.card))) return
+    if (n.text === '' || (seenText.has(n.text) && !n.key.startsWith('held:')) || (n.card !== null && n.cls !== 'blocks' && seenCard.has(n.card))) return
     seenText.add(n.text); if (n.card !== null) seenCard.add(n.card); out.push(n)
   }
   const blockers = run?.shared_blockers ?? []
   blockers.forEach((b, i) => push({ key: `blocks:${i}`, cls: 'blocks', text: b.text, at: `run.shared_blockers.${i}.text`, title: b.text, card: b.aim_id, edit: cardOf(model, b.aim_id)?.figure?.edit ?? null }))
-  if (blockers.length === 0) for (const c of optionCards(model)) c.rows.forEach((r, i) => {
-    if (r.kind !== 'none') return
-    const ref = r.blocked_by?.[0]?.ref ?? r.aim_id ?? null
-    push({ key: `none:${c.id}.${i}`, cls: 'blocks', text: r.text, at: `${c.id}.rows.${i}.text`, title: r.title, card: ref, edit: cardOf(model, ref)?.figure?.edit ?? null })
+  const blockedAims = new Set(blockers.map((b) => b.aim_id))
+  for (const c of optionCards(model)) c.rows.forEach((r, i) => {
+    // An option's line for an aim that no result is drawn for: core's own words for why (a shared blocker says it once for its aim).
+    if (r.kind === 'none' && !(r.aim_id !== null && blockedAims.has(r.aim_id))) {
+      const ref = r.blocked_by?.[0]?.ref ?? r.aim_id ?? null
+      push({ key: `none:${c.id}.${i}`, cls: 'blocks', text: r.text, at: `${c.id}.rows.${i}.text`, title: r.title, card: ref, edit: cardOf(model, ref)?.figure?.edit ?? null })
+    }
+    if (r.kind === 'chance' && (typeof r.chance !== 'number' || !Number.isFinite(r.chance)) && r.value !== '') push({ key: `held:${c.id}.${i}`, cls: 'blocks', text: r.value, at: `${c.id}.rows.${i}.value`, title: r.title, card: c.id, edit: null })
   })
   ;(run?.waits_on?.items ?? []).forEach((it, i) => push({ key: `waits:${it.id}`, cls: 'waits', text: it.text, at: `run.waits_on.items.${i}.text`, title: it.title, card: it.id, edit: it.edit ?? null }))
   for (const c of model.cards) {
     const f = c.figure
-    if (f != null && f.edit != null && f.text === '' && c.status === null) push({ key: `size:${c.id}`, cls: 'size', text: c.heading, at: `${c.id}.heading`, title: f.title, card: c.id, edit: f.edit })
+    // A figure core works out from others (a result, with its own values) is not one to give: it is sized by the model.
+    if (f != null && f.edit != null && f.text === '' && c.status === null && c.kind !== 'result' && c.values == null) push({ key: `size:${c.id}`, cls: 'size', text: c.heading, at: `${c.id}.heading`, title: f.title, card: c.id, edit: f.edit })
   }
   for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null }))
   return out

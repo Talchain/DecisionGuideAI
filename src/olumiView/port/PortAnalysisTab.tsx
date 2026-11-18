@@ -4,7 +4,7 @@
  * Its state is read from the options' rows (`tabStateOf`), never from run fields:
  *   - a chance: the chart (each option's chance on one track, how far it moves, core's words under it), then what would change it (the
  *     figures it moves most with, ✎ each; what would change which option leads, try it), then what is not in the result yet;
- *   - limits only: each option's state against each limit, then what a result needs;
+ *   - limits (alone, or under a chance): each option's state against each limit, core's line for it under;
  *   - nothing yet: what a result needs, ranked, one press each.
  * Core's long reading (its most-likely line, the comparisons, its notes) is one press away under "Why this reading", never at rest.
  * Above it all, the model's state is said once: a held proposal or a what-if (`HeldProposalLine`, `WhatIfShown`).
@@ -28,7 +28,8 @@ import { typography } from '../../styles/typography'
 /** The tab's own chrome: the fold that holds core's long reading. */
 export const ANALYSIS_WORDS = { why: 'Why this reading' } as const
 
-/** Each limit, then each option's state against it (core's `state_text`, its line and reading on hover); a press goes to the option's card. */
+/** Each limit, then each option's state against it (core's `state_text`) and core's line for it under (its condition kept), its reading on hover;
+ *  a press goes to the option's card. */
 function Limits({ model }: { model: ViewModel }) {
   const groups = limitGroupsOf(model)
   if (groups.length === 0) return null
@@ -40,10 +41,14 @@ function Limits({ model }: { model: ViewModel }) {
           <ul className="m-0 list-none p-0">
             {g.rows.map(({ card, row, i }) => (
               <li key={card.id}>
-                <button type="button" onClick={() => pressCard(card.id)} title={row.title} className={`${TYPE.body} flex min-h-7 w-full items-baseline gap-2 rounded-sm px-1 text-left hover:bg-panel-hover`} data-limit-option={card.id}>
-                  <span className="min-w-0 flex-1 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</span>
-                  {row.state_text == null || row.state_text === '' ? null : <span className={`${TYPE.meta} shrink-0 text-text-body`} data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span>}
-                  {row.olumi == null ? null : <span className={`${TYPE.meta} shrink-0 text-info`} title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+                <button type="button" onClick={() => pressCard(card.id)} title={row.title} className={`${TYPE.body} block min-h-7 w-full rounded-sm px-1 py-0.5 text-left hover:bg-panel-hover`} data-limit-option={card.id}>
+                  <span className="flex items-baseline gap-2">
+                    <span className="min-w-0 flex-1 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</span>
+                    {row.state_text == null || row.state_text === '' ? null : <span className={`${TYPE.meta} shrink-0 text-text-body`} data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span>}
+                    {row.olumi == null ? null : <span className={`${TYPE.meta} shrink-0 text-info`} title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+                  </span>
+                  {/* Core's own line for the state, with any condition it rests on ("if … does not happen"), always visible. */}
+                  {row.value === '' ? null : <span className={`${TYPE.meta} block text-text-light`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>}
                 </button>
               </li>
             ))}
@@ -111,7 +116,7 @@ export function PortAnalysis({ model }: { model: ViewModel }) {
       <WhatIfShown model={model} />
       {state === 'chance' ? <ChanceChart model={model} /> : null}
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
-      {state === 'limit' ? <Limits model={model} /> : null}
+      <Limits model={model} />
       <ResultNeeds model={model} under={state !== 'none'} />
       {state === 'chance' ? null : <ToQuestions model={model} />}
       <WhyThisReading model={model} />
