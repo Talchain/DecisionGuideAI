@@ -357,7 +357,7 @@ export function CanvasContextMenuBase({
                       : 'cursor-pointer text-text-body hover:bg-panel-hover'
               }`}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2">
                 {/* Glyph (Add node shape) — symbol font stack for cross-platform rendering */}
                 {item.glyph && (
                   <span
@@ -380,7 +380,9 @@ export function CanvasContextMenuBase({
                     }`}
                   />
                 )}
-                <span>{item.label}</span>
+                {/* One line per row (Paul, 18 Nov: core's Undo words for a kept idea ran to five lines and drew over the rows around it): a long
+                    label is cut with an ellipsis here and stands whole in the row's tooltip. */}
+                <span className="min-w-0 truncate" data-menu-label={item.id}>{item.label}</span>
                 {/*
                   ⚠ THE TOP-LEVEL MENU DID NOT RENDER `disabledReason` AT ALL
                   until this lane, while `Submenu.tsx:126` always has. So every
