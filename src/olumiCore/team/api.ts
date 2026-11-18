@@ -83,13 +83,32 @@ export function writeTargetsAddress(path: string, hash: string): boolean {
   return addressed === null || addressed === decodeURIComponent(target[1]!)
 }
 
+/**
+ * How long one call to core may take before the page stops waiting (no other core call in the UI sets one; 20 s is long for a route that
+ * answers from the saved scenario). A request that never settles (a dropped connection with no reset, a stalled proxy) would otherwise
+ * leave every caller's busy flag, and the View poll's reading counter, set for good, since each clears only when the call ends.
+ */
+export const CALL_TIMEOUT_MS = 20_000
+
 export async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   if (method === 'POST' && typeof window !== 'undefined' && !writeTargetsAddress(path, window.location.hash)) throw new TeamApiError(409, NOT_THIS_SCENARIO)
   if (method === 'POST') await stillThisPerson()
+  // One timer covers the request and the reading of its body. It aborts the request AND rejects, so a fetch that ignores its signal still ends.
+  const ctl = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timedOut = new Promise<never>((_, reject) => { timer = setTimeout(() => { ctl.abort(); reject(new Error('timeout')) }, CALL_TIMEOUT_MS) })
+  timedOut.catch(() => {})
+  try {
+    return await settled<T>(method, path, body, ctl.signal, timedOut)
+  } finally { clearTimeout(timer) }
+}
+
+async function settled<T>(method: 'GET' | 'POST', path: string, body: unknown, signal: AbortSignal, timedOut: Promise<never>): Promise<T> {
   let res: Response
   try {
-    res = await (fetchImpl ?? fetch)(path, {
+    const sent = (fetchImpl ?? fetch)(path, {
       method,
+      signal,
       // Same origin only: the browser then sends `Sec-Fetch-Site: same-origin`, the one value (with `none`) core accepts for a write.
       credentials: 'same-origin',
       mode: 'same-origin',
@@ -98,13 +117,15 @@ export async function call<T>(method: 'GET' | 'POST', path: string, body?: unkno
       headers: method === 'POST' && pagePerson !== null ? { 'content-type': 'application/json', 'x-olumi-as': pagePerson } : { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+    sent.catch(() => {})
+    res = await Promise.race([sent, timedOut])
   } catch {
     // Not reaching Olumi at all is not the same as not being heard: a request that left may have been saved before the answer was lost.
     throw method === 'GET' ? new TeamApiError(0, READ_FAILED) : new TeamApiError(0, UNCERTAIN_WRITE, true)
   }
   let json: unknown = {}
   let readable = true
-  try { json = await res.json() } catch { json = {}; readable = false }
+  try { json = await Promise.race([res.json(), timedOut]) } catch { json = {}; readable = false }
   if (!res.ok) {
     const said = (json as { error?: unknown } | null)?.error
     // The person's own words from core (a 400/409 says what to change); a fixed sentence when core gave none or the server failed.
