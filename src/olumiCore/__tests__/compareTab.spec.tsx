@@ -24,6 +24,8 @@ vi.mock('../../olumiView/ViewChat', () => ({ prefillComposer: (t: string) => pre
 
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
+import { useCanvasStore } from '../../canvas/store'
+import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { setTeamFetch } from '../team/api'
 import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
 
@@ -70,8 +72,10 @@ describe('what changed, each by its author and a press to its card', () => {
     const named = screen.getByTestId('core-compare-named')
     expect([...named.querySelectorAll('[data-since-changed]')].map((e) => [e.getAttribute('data-since-changed'), e.getAttribute('data-since-whose'), e.textContent])).toEqual(since.changed.map((c) => [c.id, c.whose, c.label]))
     expect(within(named).getByRole('img').getAttribute('aria-label')).toBe('A person’s') // `whose: theirs`
+    useCanvasStore.setState({ nodes: [{ id: since.changed[0]!.id }] } as never) // the card is drawn on the board
     fireEvent.click(named.querySelector(`[data-compare-card="${since.changed[0]!.id}"]`)!)
     expect(focus.mock.calls).toEqual([[since.changed[0]!.id]])
+    useCanvasStore.setState({ nodes: [] } as never)
     cleanup()
     show(withSince({ ...since, changed: [{ id: 'no_such_card', label: 'Gone', whose: 'olumi', was: 'olumi' }] }))
     await screen.findByTestId('core-compare-out')
@@ -96,6 +100,20 @@ describe('what changed, each by its author and a press to its card', () => {
     cleanup(); answer = { versions: [], changes: [], results: [] }
     show({ ...fixture('ui9-a6-since-v3'), model: { ...fixture('ui9-a6-since-v3').model!, run: { ...fixture('ui9-a6-since-v3').model!.run!, since: undefined } } })
     expect((await screen.findByTestId('core-compare-changes-none')).textContent).toBe('No change to the model')
+  })
+})
+
+describe('a changed figure folded away on the board', () => {
+  it('CT11: a card Simple folded into the inputs group: the press opens that group, and the card is centred once the board draws it; CONTRAST CT1: a drawn card is centred at once', async () => {
+    const view = fixture('ui9-a6-since-v3'), id = view.model!.run!.since!.changed[0]!.id
+    useCanvasStore.setState({ nodes: [] } as never); useInputsOpen.setState({ open: {} })
+    show(view)
+    await screen.findByTestId('core-compare-out')
+    fireEvent.click(document.querySelector(`[data-compare-card="${id}"]`)!)
+    expect([focus.mock.calls.length, useInputsOpen.getState().open[view.id]]).toEqual([0, true])
+    useCanvasStore.setState({ nodes: [{ id }] } as never)
+    expect(focus.mock.calls).toEqual([[id]])
+    useCanvasStore.setState({ nodes: [] } as never); useInputsOpen.setState({ open: {} })
   })
 })
 
@@ -156,6 +174,16 @@ describe('honest attribution: core\'s line once, and one useful press where core
   })
 })
 
+describe('one rule for "moved": core\'s words', () => {
+  it('CT12: a number that drifts under the same words (about 50% in both) is not a move: no track, no credit, no ask; CONTRAST CT5 moves in words', async () => {
+    const v = fixture('ui9-a6-since-v3'), since = v.model!.run!.since!
+    const drift: Since = { ...since, sole: null, lines: [{ ...since.lines[0]!, from: 0.5004, to: 0.5031, from_text: 'about 50%', to_text: 'about 50%', line: 'LINE-DRIFT' }] }
+    show(withSince(drift))
+    await screen.findByTestId('core-compare-out')
+    expect([screen.queryByTestId('core-compare-credit'), screen.queryByTestId('core-compare-ask'), document.querySelectorAll('[data-compare-track]').length]).toEqual([null, null, 0])
+  })
+})
+
 describe('one picker for every kind of comparison, and the empty states', () => {
   it('CT7: earlier versions, saved what-ifs and other scenarios in one select; a what-if is read side by side through core\'s /api/compare', async () => {
     me = { scenarios: [{ id: 's_other', title: 'Launch', label: 'Launch' }] }
@@ -208,7 +236,12 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     const v = fixture('ui9-a6-since-v3')
     const settable = { ...v, model: { ...v.model!, cards: v.model!.cards.map((c, i) => (i === 0 ? { ...c, figure: { text: '5', title: 'T', edit: { prompt: 'P', ask: 'A' } } } : { ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })) } } as View
     show(settable)
-    expect(screen.getByTestId('core-compare-whatif-open')).toBeInTheDocument()
+    const press = screen.getByTestId('core-compare-whatif-open')
+    expect([press.textContent, press.getAttribute('aria-expanded'), screen.queryByTestId('whatif-save')]).toEqual(['Save a what-if to compare', 'false', null])
+    fireEvent.click(press)
+    expect([press.textContent, press.getAttribute('aria-expanded'), !!screen.queryByTestId('whatif-save')]).toEqual(['Close the what-if', 'true', true])
+    fireEvent.click(press)
+    expect(screen.queryByTestId('whatif-save')).toBeNull()
     cleanup()
     show({ ...settable, proposal: null, model: { ...settable.model!, cards: settable.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })) } } as View)
     expect(screen.queryByTestId('core-compare-whatif-open')).toBeNull()

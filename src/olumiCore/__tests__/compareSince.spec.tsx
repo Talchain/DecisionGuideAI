@@ -115,6 +115,11 @@ describe('where core credits no single change (sole null)', () => {
     render(<SinceVersion since={TWO_CHANGES} />)
     expect(screen.queryByTestId('core-compare-since-still')).toBeNull()
   })
+  it('SI7: a number that drifts under the same words is not a move: its line is folded with the unmoved and draws no track', () => {
+    const drift = { ...TWO_CHANGES.lines[0]!, from: 0.5004, to: 0.5031, from_text: 'about 50%', to_text: 'about 50%', line: 'LINE-DRIFT' }
+    const { container } = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [drift] }} />)
+    expect([container.querySelectorAll('[data-compare-track]').length, screen.getByTestId('core-compare-since-still').querySelector('[data-view]')!.textContent]).toEqual([0, 'LINE-DRIFT'])
+  })
   it('SI4: each changed figure is listed by id in core\'s words; with `sole` set the list is not drawn', () => {
     const { unmount } = render(<SinceVersion since={TWO_CHANGES} />)
     const list = screen.getByTestId('core-compare-since-changed')

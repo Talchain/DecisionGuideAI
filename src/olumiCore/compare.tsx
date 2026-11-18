@@ -7,6 +7,9 @@ import { BODY, CARD, ERR, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { Pick, SideBySide, useOtherScenarios, useOwnSides, WhatIfSave, type Group } from './scenarioCompare'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
+import { useCanvasStore } from '../canvas/store'
+import { focusWhenDrawn } from '../olumiView/AddFigure'
+import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { OkIcon } from '../olumiView/look/icons'
 import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
@@ -172,7 +175,8 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
   const names = { first: since.from.label, second: since.to.label }
   // A track is drawn only for a reading that MOVED (Paul, 18 Nov: two dots on top of each other at 0% on an empty axis said nothing): where
   // core's number and words for the two versions are both the same, core's line stands alone, and the key is drawn only if some track is.
-  const moved = (l: Since['lines'][number]) => (l.from !== l.to || l.from_text !== l.to_text) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
+  // Moved means core's words differ (as its own `move` reads two versions): a drift in the number under the same words is not a move.
+  const moved = (l: Since['lines'][number]) => lineMoved(l) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
   const tracked = since.lines.some(moved)
   return (
     <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
@@ -193,7 +197,7 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
             {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
             {still.length === 0 ? null : (
               <details className="grid gap-1.5" data-testid="core-compare-since-still">
-                <summary className={`${META} cursor-pointer`}>{notMoved(still.length)}</summary>
+                <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{notMoved(still.length)}</summary>
                 <ul className="m-0 grid list-none gap-2 p-0">{still.map(row)}</ul>
               </details>
             )}
@@ -280,11 +284,14 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const version = value.startsWith('v:') ? Number(value.slice(2)) : null
   // This side, for core's side-by-side: the scenario now when it is the latest, else that version of it.
   const self = base === latest ? sid : `${sid}@${base}`
-  const whatIfPress = !canSave ? null : saving
-    ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} />
-    // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only).
-    : <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
-        <OkIcon id="what-if" size={14} decorative />Save a what-if to compare</button></div>
+  // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only); pressed again, the form closes.
+  const whatIfPress = !canSave ? null : (
+    <div className="grid gap-2">
+      <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} onClick={() => setSaving((x) => !x)}>
+        <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}</button></div>
+      {saving ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /> : null}
+    </div>
+  )
   // One approved version and nothing else to compare it with: the one line, and the what-if press where a figure can be set.
   if (value === '') return <><p className={BODY} data-testid="core-compare-one">{COMPARE_ONE}</p>{whatIfPress}</>
   return (
@@ -306,7 +313,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
 function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
   return (
     <details className="grid gap-1.5" data-testid={id}>
-      <summary className={`${META} cursor-pointer`}>{summary}</summary>
+      <summary className={`${META} min-h-[24px] cursor-pointer py-1`}>{summary}</summary>
       {children}
     </details>
   )
@@ -317,7 +324,8 @@ const movedOf = (r: Move) => r.move !== 'unchanged'
 /** The size of a move, from core's two numbers: an order only, never drawn. A move without both numbers goes after those with them. */
 const sizeOf = (r: Move) => (typeof r.before?.chance === 'number' && typeof r.after?.chance === 'number' ? Math.abs(r.after.chance - r.before.chance) : -1)
 const sizeOfLine = (l: Since['lines'][number]) => Math.abs(l.to - l.from)
-const lineMoved = (l: Since['lines'][number]) => l.from !== l.to || l.from_text !== l.to_text
+/** A reading moved where core's words for it differ between the two versions: the same rule as core's own `move` (`unchanged` = same words). */
+const lineMoved = (l: Since['lines'][number]) => l.from_text !== l.to_text
 
 function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: number; since: Since | null }): JSX.Element {
   const [shown, setShown] = useState<{ key: string; c: Compared } | null>(null)
@@ -413,6 +421,7 @@ function Whose({ olumi, theirs, words }: { olumi: boolean; theirs: boolean; word
  */
 function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Element {
   const cards = useViewStore((s) => s.view?.model?.cards)
+  const sid = useViewStore((s) => s.sid)
   const named = since !== null && since.changed.length > 0 ? since.changed : null
   const onCanvas = (id: string) => Array.isArray(cards) && cards.some((x) => x.id === id)
   const lines = (
@@ -439,7 +448,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
                 return (
                   <li key={x.id} data-since-changed={x.id} data-since-whose={x.whose ?? ''}>
                     {onCanvas(x.id)
-                      ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} title="Show it on the canvas" onClick={() => focusNodeById(x.id)}>{body}</button>
+                      ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} title="Show it on the canvas" onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</button>
                       : <p className={`${BODY} flex min-w-0 items-start gap-1.5`}>{body}</p>}
                   </li>
                 )
@@ -452,6 +461,14 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
         )}
     </section>
   )
+}
+
+/** A press on a changed figure: its card selected and centred. A card Simple has folded into the inputs group is not drawn, so the group is
+ *  opened first (the group's own press, `setInputsOpen`) and the card is centred once the board draws it (`focusWhenDrawn`). */
+export function showCard(sid: string, id: string): void {
+  if (useCanvasStore.getState().nodes.some((n) => n.id === id)) { focusNodeById(id); return }
+  setInputsOpen(sid, true)
+  focusWhenDrawn(id)
 }
 
 /** One press: an editable question in the chat's message box, never sent (the chat is loaded on the press, so this module never imports it). */
