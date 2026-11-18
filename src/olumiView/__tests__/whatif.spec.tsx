@@ -4,7 +4,7 @@
  * the View and the what-if answer of one scripted core at wip/v3.1-one ae2f15a (existing capacity tried at 5).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -40,7 +40,7 @@ beforeEach(() => {
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
 })
-afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); clearWhatIf(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
 const posts = () => calls.filter((c) => c.method === 'POST')
 const typeAndTry = (typed: string) => {
@@ -51,6 +51,7 @@ const typeAndTry = (typed: string) => {
 
 describe('what-if: the figure tried on a copy, nothing saved', () => {
   it('one POST to core\'s what-if with the figure as typed on the version shown, never the edit route; the answer drawn over the chances in core\'s words and rows, marked not saved; the editor closes, keeping what was typed', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry(' 5 ')
     const block = await screen.findByTestId('view-whatif')
@@ -75,6 +76,7 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
   })
 
   it('a result that did not move says core\'s reason; core\'s refusal stays on the card, with no what-if drawn', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     reply = { status: 200, body: { ...answer, variants: [{ ...variant, moved: false, why_not: 'The new figure is inside the range the result already covered.' }] } }
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry('20')
@@ -89,6 +91,7 @@ describe('what-if: the figure tried on a copy, nothing saved', () => {
   })
 
   it('must not change: Set figure still saves through the edit route alone; a what-if is not drawn on another version', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     render(<><ViewCard card={card} /><ViewChances model={view.model!} /></>)
     typeAndTry('5')
     await screen.findByTestId('view-whatif')

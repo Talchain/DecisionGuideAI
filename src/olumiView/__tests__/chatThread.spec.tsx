@@ -28,6 +28,7 @@ beforeEach(() => {
   show(fixture)
 })
 afterEach(() => {
+  vi.unstubAllEnvs()
   cleanup()
   setTeamFetch(null)
   vi.unstubAllGlobals()
@@ -478,6 +479,7 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(posts).toEqual([])
   })
   it('ORDER-UI-5 (2), SEAM-13 c2 13bd106e: a question core gives with its figure (model.trial_questions) is painted first and opens THAT figure\'s editor; core\'s bare questions are words; three at most', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's in-place editor (on the lane the question opens the figure's Value row in the details: oneFigureEditor.spec.tsx)
     const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
     const card = real.model!.cards.find((c) => c.id === 'horizon')!
     // DERIVED: core's trial_questions item shape and words as core's own row serves them (rebuild-journey.test.ts:1571/1608 at 13bd106e),

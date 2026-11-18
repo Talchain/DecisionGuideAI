@@ -8,7 +8,7 @@
  * button. Fixture: core's european golden (a card core offers to edit).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -27,12 +27,13 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false })
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 })
-afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
 describe('an open figure editor stays visible, whether or not its card is hovered or selected', () => {
   // R25 (Paul's 6 Nov test: "I can't find manual editing"): the ✎ is the at-rest cue wherever core offers an edit; its words stay quiet
   // until hover, focus or selection. The wrapper carries no hiding rule, so the open editor and its Set can never be hidden (R4 run 3).
   it('the card neither hovered nor selected: the ✎ glyph is drawn at rest, opens the editor, and nothing wraps Set in a hiding rule', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     render(<ViewCard card={card} selected={false} />)
     expect(screen.getByTestId(`view-figure-glyph-${card.id}`).getAttribute('data-icon')).toBe('edit')
     const wrap = screen.getByTestId(`view-figure-edit-${card.id}`).closest<HTMLElement>('[data-figure-edit-wrap]')!

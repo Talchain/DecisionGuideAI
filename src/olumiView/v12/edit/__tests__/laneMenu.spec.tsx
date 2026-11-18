@@ -143,23 +143,27 @@ describe('mounted on the lane: the real route is called', () => {
     await waitFor(() => expect(screen.queryByTestId('lane-edit-form')).toBeNull())
     expect(screen.queryByRole('menu')).toBeNull()
   })
-  it('a risk card: Set chance and size posts /size, never /edit', async () => {
+  // Surfaces step 5: the row opens the card's details with the Value row's field focused; that field is the one place the size is changed.
+  it('a risk card: Set chance and size opens its Value row, which posts /size, never /edit', async () => {
     mount(nodeT('slow_ramp'))
     fireEvent.click(await screen.findByRole('menuitem', { name: /Set chance and size/ }))
-    fireEvent.change(await screen.findByTestId('lane-edit-chance'), { target: { value: '1 in 5' } })
-    fireEvent.click(screen.getByTestId('lane-edit-go'))
+    expect(screen.queryByTestId('lane-edit-form'), 'not the small form').toBeNull()
+    const field = await screen.findByTestId('inspector-figure-chance')
+    expect(document.activeElement).toBe(field)
+    fireEvent.change(field, { target: { value: '1 in 5' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-set'))
     await waitFor(() => expect(stub.posts()).toHaveLength(1))
     expect(stub.posts()[0]!.path).toBe(`/api/scenarios/${SID}/size`)
     expect(stub.posts()[0]!.body).toMatchObject({ base: BASE, record: 'slow_ramp', chance: '1 in 5' })
   })
-  it('core\'s refusal is shown in the form in its own words and the menu stays', async () => {
+  it('core\'s refusal is shown in the Value row in its own words, and the typing stays', async () => {
     stub.answer = { status: 400, body: { error: 'A chance is between 0% and 100%.' } }
     mount(nodeT('slow_ramp'))
     fireEvent.click(await screen.findByRole('menuitem', { name: /Set chance and size/ }))
-    fireEvent.change(await screen.findByTestId('lane-edit-chance'), { target: { value: '150%' } })
-    fireEvent.click(screen.getByTestId('lane-edit-go'))
-    expect(await screen.findByTestId('lane-edit-error')).toHaveTextContent('A chance is between 0% and 100%.')
-    expect(screen.getByTestId('lane-edit-form')).toBeInTheDocument()
+    fireEvent.change(await screen.findByTestId('inspector-figure-chance'), { target: { value: '150%' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-set'))
+    expect(await screen.findByTestId('inspector-figure-note')).toHaveTextContent('A chance is between 0% and 100%.')
+    expect((screen.getByTestId('inspector-figure-chance') as HTMLInputElement).value).toBe('150%')
   })
   it('Delete shows "Not available yet" and does nothing', async () => {
     mount(nodeT('broader_entry'))

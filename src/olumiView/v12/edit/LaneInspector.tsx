@@ -18,8 +18,9 @@ import type { NodeTarget } from '../../../canvas/contextMenu/types'
 import type { ViewCard } from '../../client'
 import type { FigureRange } from '../contract'
 import { FigureInspector } from '../inspect/FigureInspector'
+import { ValueRow } from '../inspect/ValueRow'
 import { useViewStore } from '../../store'
-import { writeKeyOf, type EditSpec } from './EditForm'
+import { isSizeEdit, writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
 import { SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
@@ -47,7 +48,10 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
   const link = target?.kind === 'link' ? model?.links.find((l) => edgeIdOf(l) === target.id) ?? null : null
   useEffect(() => { if (target !== null && card === null && link === null) close() }, [target, card, link, close])
-  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []), [card, link, ctx])
+  // Surfaces step 5: on the lane the Value row below is the one place a figure, a risk's size or a link's strength is changed, so the panel's buttons
+  // for them are not drawn there (the older look keeps them, and its form).
+  const lane0 = isOlumiCoreLane()
+  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []).filter((r) => !(lane0 && (r.id === 'size' || r.id === 'change-figure'))), [card, link, ctx, lane0])
   // BESIDE ITS ITEM, AND IT FOLLOWS (surfaces step 3; the lane's own, the older look keeps the fixed corner): placed before paint, then re-placed whenever
   // the item, the panel or the free canvas moves (a pan, a zoom, a relayout), as the hover pop-up is. It never stays behind over a card that has moved on;
   // while its item is off the free canvas it stays visible, clamped inside it, as any other surface (Escape closes it).
@@ -90,6 +94,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
       {link === null ? null : (
         <>
           {link.size === undefined ? null : <p className="text-text-body" title={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</p>}
+          {lane && isSizeEdit(link.size?.edit) ? <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size!.edit, subject: link.size!.text }} /> : null}
           {link.causal?.author == null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} title={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</p>}
         </>
       )}

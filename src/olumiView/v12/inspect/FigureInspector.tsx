@@ -14,6 +14,8 @@ import { useViewStore } from '../../store'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { figureRange, type FigureRange } from '../contract'
 import { isSizeEdit } from '../edit/EditForm'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { ValueRow } from './ValueRow'
 import { isOlumis } from '../lenses/layers'
 import { openWhatIf } from './whatIfFocus'
 import { movesOf, pctWords } from './whatItMoves'
@@ -104,7 +106,8 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}
       <WhatItMoves figure={card.id} />
-      <YourFigure key={card.id} card={card} />
+      {/* Surfaces step 5: on the lane this is the Value row, the one place a figure (a risk's size too) is changed, whichever control opened it; the older look keeps its own field. */}
+      {isOlumiCoreLane() ? <ValueRow key={card.id} item={{ kind: 'card', id: card.id, edit: card.figure.edit ?? null, subject: card.heading, olumis: isOlumis(card) }} /> : <YourFigure key={card.id} card={card} />}
       <div className="flex flex-wrap gap-1" role="group" aria-label="Ask or try">
         <button type="button" data-testid="inspector-ask" disabled={onAsk == null} onClick={() => onAsk?.()} className={btn}>{INSPECTOR_WORDS.ask}</button>
         <button type="button" data-testid="inspector-what-if" disabled={!canTry} onClick={() => { openWhatIf(card.id); onClose?.() }} className={btn}>{INSPECTOR_WORDS.whatIf}</button>

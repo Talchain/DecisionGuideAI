@@ -5,6 +5,7 @@
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { useCallback, useMemo } from 'react'
 import { useMe } from '../../olumiCore/me'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { placeViewCards } from '../../olumiView/canvas'
 import { QUESTION } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
@@ -35,6 +36,8 @@ export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
     act: {
       open: openForm,
       openDetails: (t) => { useLaneInspector.getState().open(t); onClose() },
+      // Surfaces step 5: on the lane a figure is changed in the details' Value row, whichever control asked. The older look keeps its small form.
+      openFigure: isOlumiCoreLane() ? (t) => { useLaneInspector.getState().openFigure(t); onClose() } : undefined,
       ask: (t, intent) => { askAI(t, intent, showToast); onClose() },
       prefill: (text, label, targetId) => { if (requestAsk({ text, label, targetId, source: 'node-coaching-icon' }) === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning'); onClose() },
       pressUndo: (dir) => { void pressUndo(dir).then((r) => { if (!r.ok) showToast(r.words, 'error'); else if (r.kind === 'saved' && r.warning !== undefined) showToast(r.warning, 'warning') }); onClose() },

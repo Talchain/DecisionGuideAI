@@ -1,6 +1,6 @@
 /**
- * SURFACES STEP 2 (18 Nov): one thing open at a time. On the mounted lane canvas (the real ViewCanvas, its real figure editor, right-click menu,
- * edit form, details panel and add form), at most one of the five is open in every state; Escape closes the open one (from the focused field,
+ * SURFACES STEP 2 (18 Nov): one thing open at a time. On the mounted lane canvas (the real ViewCanvas, its right-click menu,
+ * edit form, details panel and add form; since step 5 the card's figure editor is the details panel's Value row), at most one is open in every state; Escape closes the open one (from the focused field,
  * as a person presses it) and only after that cancels a waiting challenge; a press on empty canvas closes whatever is open; the card's hover
  * pop-up is never up while one is. Each is bound by the test ids the components render.
  */
@@ -46,9 +46,9 @@ async function board(withComposer = false, view: View = approved()): Promise<voi
 const node = (id: string) => root.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!
 const pane = () => root.querySelector<HTMLElement>('.react-flow__pane')!
 
-// The five surfaces, each by what it renders.
+// The surfaces, each by what it renders. (Surfaces step 5: the card's figure editor is not one of them on the lane any more: its pencil opens the details, whose Value row is the
+// one place a figure is changed; the older look's pop-over is covered by ONE-13 and oneFigureEditor.spec.tsx.)
 const SEEN = {
-  editor: () => document.querySelector('[data-figure-edit-panel]'),
   form: () => document.querySelector('[data-testid="lane-edit-form"]'),
   details: () => document.querySelector('[data-testid="lane-inspector"]'),
   menu: () => document.querySelector('[role="menu"][aria-label="Canvas context menu"]'),
@@ -59,7 +59,6 @@ const open = (): Name[] => (Object.keys(SEEN) as Name[]).filter((k) => SEEN[k]()
 const row = (label: string) => within(document.querySelector('[role="menu"][aria-label="Canvas context menu"]') as HTMLElement).getByText(label)
 
 const OPENERS: Record<Name, () => Promise<void>> = {
-  editor: async () => { fireEvent.click(screen.getByTestId(`view-figure-edit-${FIG}`)) },
   details: async () => { fireEvent.click(node(OPT)); await settle() },
   menu: async () => { fireEvent.contextMenu(node(OTHER)); await settle() },
   form: async () => { fireEvent.contextMenu(node(OTHER)); await settle(); fireEvent.click(row('Rename')); await settle() },
@@ -67,7 +66,6 @@ const OPENERS: Record<Name, () => Promise<void>> = {
 }
 // The field a person is typing in when they press Escape, for each surface that has one.
 const FIELD: Partial<Record<Name, () => HTMLElement>> = {
-  editor: () => screen.getByTestId(`view-figure-typed-${FIG}`),
   form: () => screen.getByTestId('lane-edit-label'),
   add: () => screen.getByTestId('view-add-figure-name'),
 }
@@ -75,11 +73,11 @@ const FIELD: Partial<Record<Name, () => HTMLElement>> = {
 describe('surfaces step 2: one thing open at a time', () => {
   it('ONE-1 opening any one closes whatever else was open: after each opening, exactly that one is open (every kind opened after every other)', async () => {
     await board()
-    const order: Name[] = ['editor', 'add', 'details', 'menu', 'editor', 'details', 'form', 'add', 'menu', 'form', 'editor', 'menu', 'details', 'add', 'form', 'details']
+    const order: Name[] = ['add', 'details', 'menu', 'details', 'form', 'add', 'menu', 'form', 'menu', 'details', 'add', 'form', 'details']
     for (const k of order) { await OPENERS[k](); expect(open(), `after opening ${k}`).toEqual([k]) }
   })
 
-  it.each(['editor', 'form', 'add', 'details', 'menu'] as Name[])('ONE-2a Escape closes the open %s, pressed where a person presses it: in its field when it has one, else on the board', async (k) => {
+  it.each(['form', 'add', 'details', 'menu'] as Name[])('ONE-2a Escape closes the open %s, pressed where a person presses it: in its field when it has one, else on the board', async (k) => {
     await board()
     await OPENERS[k]()
     expect(open()).toEqual([k])
@@ -88,7 +86,7 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open(), `Escape with ${k} open`).toEqual([])
   })
 
-  it.each(['editor', 'form', 'add'] as Name[])('ONE-2b Escape closes the open %s from anywhere, not only from inside it (focus on the board)', async (k) => {
+  it.each(['form', 'add'] as Name[])('ONE-2b Escape closes the open %s from anywhere, not only from inside it (focus on the board)', async (k) => {
     await board()
     await OPENERS[k]()
     expect(open()).toEqual([k])
@@ -98,7 +96,7 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open(), `Escape on the board with ${k} open`).toEqual([])
   })
 
-  it.each(['editor', 'form', 'add', 'details', 'menu'] as Name[])('ONE-3 a press on empty canvas closes the open %s', async (k) => {
+  it.each(['form', 'add', 'details', 'menu'] as Name[])('ONE-3 a press on empty canvas closes the open %s', async (k) => {
     await board()
     await OPENERS[k]()
     expect(open()).toEqual([k])
@@ -121,7 +119,7 @@ describe('surfaces step 2: one thing open at a time', () => {
     }
     expect(open()).toEqual([])
     expect(hover(FIG2), 'contrast: nothing open, the pop-up shows').not.toBeNull()
-    for (const k of ['details', 'menu', 'editor', 'add'] as Name[]) {
+    for (const k of ['details', 'menu', 'add'] as Name[]) {
       await OPENERS[k]()
       expect(open()).toEqual([k])
       expect(hover(FIG2), `pop-up while ${k} is open`).toBeNull()
@@ -200,41 +198,31 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(useViewChat.getState().armed, 'contrast: nothing open, Escape cancels it').toBeNull()
   })
 
-  it('ONE-10 a press on the figure editor\'s own label or padding on an option card does not open the details panel over it', async () => {
+  it('ONE-10 a press on an option card\'s pencil opens its details with the Value row\'s field focused, and the press is the control\'s own (the card\'s "open details" does not run a second time over it)', async () => {
     const base = approved()
     const quantity = base.model!.cards.find((c) => c.id === FIG)!
     const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === OPT ? { ...c, figure: quantity.figure } : c)) } } as View
     await board(false, view)
-    fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`))
-    expect(open(), 'the option card\'s figure editor is open').toEqual(['editor'])
-    const panel = document.querySelector<HTMLElement>(`[data-figure-edit-panel="${OPT}"]`)!
-    // The panel itself is the exclusion's subject: take away the wrapper's own card-action mark (WorkedSteps' wrapper has none), so only [data-figure-edit-panel] can exclude it.
-    document.querySelectorAll('[data-figure-edit-wrap]').forEach((w) => w.removeAttribute('data-card-action'))
-    expect(panel.closest('[data-card-action]'), 'no card-action mark above the panel').toBeNull()
-    fireEvent.click(panel.querySelector('label')!); await settle()
-    expect(open(), 'press on the editor\'s label').toEqual(['editor'])
-    fireEvent.click(panel); await settle()
-    expect(open(), 'press on the editor\'s padding').toEqual(['editor'])
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`)); await settle()
+    expect(open(), 'the details are open, and no pop-over under the card').toEqual(['details'])
+    expect(useLaneInspector.getState().current, 'asked for the figure, not just opened').toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: OPT } })
+    expect(document.activeElement).toBe(screen.getByTestId('inspector-figure-typed'))
   })
 
-  it('ONE-11 the size forms are on the one store: the pencil on a risk card opens the size form; Escape closes it; opening the details closes it; a waiting challenge is not cancelled while it is open', async () => {
+  it('ONE-11 a risk card\'s pencil opens its details with the Value row (its chance field focused); Escape closes it; a waiting challenge is not cancelled while it is open', async () => {
     await board(true)
-    const pencil = () => within(node('slow_ramp')).getByTestId('lane-size-edit')
+    const pencil = () => within(node('slow_ramp')).getByTestId('view-figure-edit-slow_ramp')
     fireEvent.click(pencil()); await settle()
-    expect(open(), 'the pencil opens the size form').toEqual(['form'])
-    expect(useLaneInspector.getState().current?.kind, 'held by the one store').toBe('form')
-    fireEvent.keyDown(document.querySelector('[data-testid="lane-edit-form"] input')!, { key: 'Escape' }); await settle()
-    expect(open(), 'Escape closes the size form').toEqual([])
+    expect(open(), 'the pencil opens the details, never the small form').toEqual(['details'])
+    expect(document.activeElement).toBe(screen.getByTestId('inspector-figure-chance'))
+    fireEvent.keyDown(screen.getByTestId('inspector-figure-chance'), { key: 'Escape' }); await settle()
+    expect(open(), 'Escape closes it').toEqual([])
     fireEvent.click(pencil()); await settle()
-    expect(open()).toEqual(['form'])
-    await OPENERS.details()
-    expect(open(), 'opening details closes the size form').toEqual(['details'])
-    fireEvent.click(pencil()); await settle()
-    expect(open(), 'the size form takes the details\' place').toEqual(['form'])
+    expect(open()).toEqual(['details'])
     act(() => { useViewChat.setState({ armed: 'opposite' }) })
     fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
     expect(open()).toEqual([])
-    expect(useViewChat.getState().armed, 'the first Escape closed the form and left the challenge waiting').toBe('opposite')
+    expect(useViewChat.getState().armed, 'the first Escape closed the details and left the challenge waiting').toBe('opposite')
   })
 
   it('ONE-12 "Your figure" is per card: typed on card A and the panel retargeted to card B, B starts from its own (empty) draft, A\'s words are kept for A, and Change on B never posts A\'s number', async () => {
@@ -266,15 +254,16 @@ describe('surfaces step 2: one thing open at a time', () => {
     lane.on = true
     fireEvent.click(pane()); await settle()
     fireEvent.click(screen.getByTestId(`view-figure-edit-${OPT}`)); await settle()
-    expect(open(), 'contrast, lane on: the pencil is the control\'s own').toEqual(['editor'])
+    expect(open(), 'contrast, lane on: the pencil asks for the figure in the details (the one place), no pop-over').toEqual(['details'])
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value' })
   })
 
   it('ONE-6 (kept as today) words typed in the edit form survive another surface opening, and are there when it is opened again', async () => {
     await board()
     await OPENERS.form()
     fireEvent.change(screen.getByTestId('lane-edit-label'), { target: { value: 'My new name' } })
-    await OPENERS.editor()
-    expect(open()).toEqual(['editor'])
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${FIG}`)); await settle()
+    expect(open()).toEqual(['details'])
     await OPENERS.form()
     expect((screen.getByTestId('lane-edit-label') as HTMLInputElement).value).toBe('My new name')
   })
@@ -347,7 +336,8 @@ describe('surfaces step 3: details beside their card', () => {
     expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: FIG } })
     act(() => { useLaneInspector.getState().close() })
     fireEvent.click(screen.getByTestId(`view-figure-edit-${FIG}`)); await settle()
-    expect(open(), 'the pencil is the control\'s own').toEqual(['editor'])
+    expect(open(), 'the pencil opens the details too, for the figure').toEqual(['details'])
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: FIG } })
     act(() => { useLaneInspector.getState().dismiss(true) })
     lane.on = false
     fireEvent.click(node(FIG)); await settle()

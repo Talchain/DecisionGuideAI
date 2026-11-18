@@ -43,6 +43,8 @@ export type LaneMenuCtx = {
   readonly act: {
     readonly open: (spec: EditSpec) => void
     readonly openDetails: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
+    /** Surfaces step 5 (the lane only; absent on the older look): open the details of a card or link with its Value row's field focused. A figure, a risk's size and a link's strength are changed there and nowhere else. */
+    readonly openFigure?: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
     readonly ask: (target: ContextTarget, intent: AskIntent) => void
     /** Puts `text` in the AI box for the person to finish and send (the card's Olumi badge does the same); sends nothing. */
     readonly prefill?: (text: string, label: string, targetId: string) => void
@@ -55,6 +57,12 @@ export type LaneMenuCtx = {
 
 const DIV: MenuEntry = { type: 'divider' }
 const figureCards = (m: ViewModel | null): ViewCard[] => (m?.cards ?? []).filter((c) => c.family === 'quantity')
+
+/** The row that changes a figure: on the lane it opens the item's Value row (`openFigure`), the one place that is done; the older look opens the small form for it. Enabled by the same gate. */
+function figureRow(c: LaneMenuCtx, id: string, label: string, tooltip: string, at: { readonly kind: 'card' | 'link'; readonly id: string }, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec): MenuItemDef {
+  const open = c.act.openFigure
+  return editRow(c, id, label, SlidersHorizontal, tooltip, spec, open === undefined ? {} : { action: () => { if (c.gate.ok) open(at) } })
+}
 
 /** An edit row: enabled only where core takes an edit now; otherwise disabled, its reason in the tooltip. */
 function editRow(c: LaneMenuCtx, id: string, label: string, icon: MenuItemDef['icon'], tooltip: string, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec, extra: Partial<MenuItemDef> = {}): MenuItemDef {
@@ -135,9 +143,9 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
     edits.push(editRow(c, 'rename', LANE_MENU_WORDS.rename, Pencil, 'Give this card your own name', (g) => ({ kind: 'rename', sid: g.sid, base: g.base, record: card.id, current: card.heading })))
     if (isSizeEdit(edit)) {
       const link = edit.fields.some((f) => f.key === 'typed')
-      edits.push(editRow(c, 'size', link ? LANE_MENU_WORDS.setStrength : LANE_MENU_WORDS.setSize, SlidersHorizontal, edit.prompt, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit, subject: card.heading })))
+      edits.push(figureRow(c, 'size', link ? LANE_MENU_WORDS.setStrength : LANE_MENU_WORDS.setSize, edit.prompt, { kind: 'card', id: card.id }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit, subject: card.heading })))
     } else if (edit != null) {
-      edits.push(editRow(c, 'change-figure', LANE_MENU_WORDS.change, SlidersHorizontal, edit.prompt, (g) => ({ kind: 'figure-edit', sid: g.sid, base: g.base, record: card.id, edit })))
+      edits.push(figureRow(c, 'change-figure', LANE_MENU_WORDS.change, edit.prompt, { kind: 'card', id: card.id }, (g) => ({ kind: 'figure-edit', sid: g.sid, base: g.base, record: card.id, edit })))
     }
     if (card.family === 'quantity') edits.push(editRow(c, 'add-risk', LANE_MENU_WORDS.addRisk, Plus, 'A risk on this figure', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'risk', concerns: [card.id], about: card.heading, pickFigure: null })))
     edits.push(editRow(c, 'add-claim', LANE_MENU_WORDS.addClaim, Plus, 'A statement you hold about this', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'claim', concerns: [card.id], about: card.heading, pickFigure: null })))
@@ -148,7 +156,7 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
 /** The edits core takes on one link: its strength (`/size`) and taking it off. */
 export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx): MenuItemDef[] {
   const size = link?.size?.edit ?? null, remove = link?.remove ?? null, rows: MenuItemDef[] = []
-  if (isSizeEdit(size) && link !== undefined) rows.push(editRow(c, 'size', LANE_MENU_WORDS.setStrength, SlidersHorizontal, size.prompt, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
+  if (isSizeEdit(size) && link !== undefined) rows.push(figureRow(c, 'size', LANE_MENU_WORDS.setStrength, size.prompt, { kind: 'link', id: edgeIdOf(link) }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
   if (remove !== null && remove !== undefined) rows.push(editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, Unlink, 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove })))
   return rows
 }

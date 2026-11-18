@@ -4,7 +4,7 @@
  * here. Core's golden (wip/v3.1-one 8d25761).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -15,6 +15,11 @@ import { ViewChances } from '../ViewChances'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
+
+// SURFACES STEP 5: on the lane a figure is changed in the details panel's Value row (v12/edit/__tests__/oneFigureEditor.spec.tsx); the pop-over under the card and the editors in the panel and the chat are not drawn there. These rows bind the older look's
+// editor, which is unchanged, so they run with the lane off (and are the contrast that proves it).
+beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '0') })
+afterEach(() => { vi.unstubAllEnvs() })
 
 const SID = 's_0123456789ab'
 // Pins the R5 european model's cards (the R17 vendor replaced the golden): kept as fixtures/real/european-22cards.view3.json.

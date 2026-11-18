@@ -5,7 +5,7 @@
  * shows both the set-aside and core's refusal, never a saved figure (the PL/DL acceptance row).
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -43,7 +43,7 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: held, status: 'ready', error: null, stale: false, at: null })
   useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useAsideEdit.setState({ id: null }); useModelNotice.setState({ notice: null }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); setTeamFetch(null); resetWrites(); useAsideEdit.setState({ id: null }); useModelNotice.setState({ notice: null }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
 /** The card as the canvas draws it: from the View held now, so a re-read redraws it. */
 function Live({ id }: { id: string }) { const v = useViewStore((s) => s.view)!; return <ViewCard card={v.model!.cards.find((c) => c.id === id)!} /> }
@@ -64,6 +64,7 @@ async function setAside() {
 
 describe('✎ while a proposal is held: set aside, then edit on the base core returns', () => {
   it('catch: the offer shows core\'s heading and base; the press sets aside, then the editor opens; the edit posts on the fresh base and says core\'s version', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     await setAside()
     expect(posts().map((c) => c.path)).toEqual([`/api/proposals/${proposal.id}/discard`])
     fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '12' } })
@@ -73,6 +74,7 @@ describe('✎ while a proposal is held: set aside, then edit on the base core re
     await waitFor(() => expect(useModelNotice.getState().notice).toMatchObject({ kind: 'saved', n: 2, by: null })) // a direct edit: no "Approved by"
   })
   it('acceptance row: set aside succeeds and core refuses the edit: the set-aside is still said, the refusal in core\'s words, nothing saved', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     editAnswer = { status: 409, body: { error: 'the model changed; edit the figure again' } }
     await setAside()
     fireEvent.change(screen.getByTestId(`view-figure-typed-${card.id}`), { target: { value: '12' } })
@@ -82,6 +84,7 @@ describe('✎ while a proposal is held: set aside, then edit on the base core re
     expect(useModelNotice.getState().notice).toBeNull()
   })
   it('catch (PL 7 Nov): an open editor keeps the base it opened on; a background re-read to a newer version never moves the draft onto it', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     useViewStore.setState({ view: approved })
     render(<Live id={card.id} />)
     fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`))

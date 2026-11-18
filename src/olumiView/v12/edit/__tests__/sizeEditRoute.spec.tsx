@@ -1,12 +1,17 @@
 /** The size-edit bug, at its source: a risk's chance/size edit (core's `route: 'size'`) goes to `/size`, never `/edit`; a plain figure edit still goes to `/edit`. */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { FigureEdit } from '../../../FigureEdit'
 import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useViewStore } from '../../../store'
 import { RISK_EDIT, SID, install, uninstall, type Stub } from './harness'
+
+// SURFACES STEP 5: on the lane a figure is changed in the details panel's Value row (v12/edit/__tests__/oneFigureEditor.spec.tsx); the card's pencil there opens the details, and the small form is the older look's. These rows bind the older look's
+// editor, which is unchanged, so they run with the lane off (and are the contrast that proves it).
+beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '0') })
+afterEach(() => { vi.unstubAllEnvs() })
 
 let stub: Stub
 beforeEach(() => { stub = install() })

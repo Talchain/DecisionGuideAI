@@ -36,7 +36,7 @@ const use = (view: View) => {
 const draw = (_view: View, card: ViewCard) => render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0,
   isConnectable: false, positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 beforeEach(() => { calls = [] })
-afterEach(() => { cleanup(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); setTeamFetch(null); resetWrites(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('the aim\'s question opens its target\'s own editor', () => {
   const aim = aimOf(V1), target = targetOf(V1, aim)
@@ -44,6 +44,7 @@ describe('the aim\'s question opens its target\'s own editor', () => {
     expect([aim.figure, aim.bound!.text.length > 0, target.figure!.edit != null, V1.model!.edit_base !== null]).toEqual([null, true, true, true])
   })
   it('A1 the question, in core\'s words, is the control; pressing it opens the target\'s editor (core\'s prompt) on the aim card, focused', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     use(V1); const el = draw(V1, aim)
     const opener = screen.getByTestId(`view-aim-edit-${target.id}`)
     expect(opener.querySelector(`[data-core-lead-clamp="${aim.id}"]`)?.textContent).toBe(aim.bound!.text)
@@ -53,6 +54,7 @@ describe('the aim\'s question opens its target\'s own editor', () => {
       .toEqual([target.id, target.figure!.edit!.prompt, `view-aim-typed-${target.id}`, true])
   })
   it('A1 the same write as the target\'s ✎: POST /edit with the target\'s id, the version it opened on and the words as typed', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     use(V1); draw(V1, aim)
     fireEvent.click(screen.getByTestId(`view-aim-edit-${target.id}`))
     fireEvent.change(screen.getByTestId(`view-aim-typed-${target.id}`), { target: { value: '8 weeks' } })
@@ -91,6 +93,7 @@ describe('DL 09:50Z: the aim\'s question words are never dropped', () => {
       .toEqual([aim.bound!.text, null, null])
   })
   it('AO2 while the editor the question opened is open, the question stays readable on the aim card, outside the editor', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     use(V1); const el = draw(V1, aim)
     fireEvent.click(screen.getByTestId(`view-aim-edit-${target.id}`))
     const form = screen.getByTestId(`view-aim-form-${target.id}`), words = el.querySelector(`[data-core-lead-clamp="${aim.id}"]`)

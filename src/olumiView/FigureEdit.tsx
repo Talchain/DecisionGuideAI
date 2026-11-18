@@ -15,9 +15,11 @@ import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { writes } from './client'
 import { useLaneInspector } from './v12/edit/inspectorStore'
+import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
 import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
+import { editGateNow } from './v12/edit/editGate'
 import { SizeEditButton } from './v12/edit/SizeEditButton'
 
 /**
@@ -112,7 +114,7 @@ export async function setFigure(sid: string, base: number, id: string, typed: st
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -236,4 +238,51 @@ export function FigureEdit({ id, edit, label = 'Change figure', place = 'view-fi
     </form>
     </>
   )
+}
+
+type FigureEditProps = Parameters<typeof FigureEditInPlace>[0]
+
+/**
+ * SURFACES STEP 5: ON THE LANE A FIGURE IS CHANGED IN ONE PLACE, the details panel's Value row (v12/inspect/ValueRow.tsx), whichever control opened it. This control
+ * is then only the way there: the pencil (or the aim's own words) opens the details of the card it names with that row's field focused. The editor that stood
+ * under the card, and the ones in the panel and the chat, are the older look's: where the lane is off, `FigureEditInPlace` is this control exactly as it was.
+ */
+function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, opener }: FigureEditProps): JSX.Element | null {
+  useViewStore((s) => s.at) // redrawn when the version on screen changes, so the pencil's title never goes stale
+  const sid = useViewStore((s) => s.sid)
+  const view = useViewStore((s) => s.view)
+  const me = useMe((s) => s.me)
+  // Set aside and edit (R25): the card this was set aside for opens its Value row at once, with the set-aside said there.
+  const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
+  useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); useLaneInspector.getState().openFigure({ kind: 'card', id }, 'aside') } }, [asideFor, id])
+  // DL 09:50Z (1): another card's words that open this figure's editor (`opener`) are drawn as plain words where no editor is offered here, never dropped.
+  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
+  const live = view.model?.edit_base ?? null
+  const size = isSizeEdit(edit)
+  // No version to edit (a proposal is held): a plain figure offers nothing; a risk's size or a link's strength keeps its pencil, said not to act, as before.
+  if (live === null && !size) return opener ?? null
+  const gate = editGateNow()
+  const off = size ? !gate.ok : live === null
+  const why = off && !gate.ok ? gate.why : undefined
+  const press = (): void => { if (!off) useLaneInspector.getState().openFigure({ kind: 'card', id }) }
+  if (opener !== undefined) {
+    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why ?? edit.ask} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>
+  }
+  return glyph === undefined
+    ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why}
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+    : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} title={why ?? edit.ask}
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
+      <EditIcon testid={`${place}-glyph-${id}`} />
+      {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
+    </button></span>
+}
+
+/**
+ * ONE KIND STAYS ON ITS OLD PATH, said plainly: a figure core offers to change that has NO CARD on the board (a line's own figure: "worth checking first" gives some). The details panel
+ * is a card's or a link's, so there are no details to open for it; it keeps this editor, in place, as before. Moving it needs a panel for a figure with no card: not built here.
+ */
+export function FigureEdit(props: FigureEditProps): JSX.Element | null {
+  const hasCard = useViewStore((s) => s.view?.model?.cards.some((c) => c.id === props.id) === true)
+  return isOlumiCoreLane() && hasCard ? <FigureOpener {...props} /> : <FigureEditInPlace {...props} />
 }

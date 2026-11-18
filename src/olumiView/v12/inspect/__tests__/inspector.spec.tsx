@@ -60,7 +60,7 @@ describe('Your figure', () => {
   it('on an Olumi estimate the button says "Change to your figure (was Olumi\'s estimate)" and saves through the edit route as typed', async () => {
     open()
     const form = screen.getByTestId('inspector-your-figure')
-    expect(within(form).getByRole('button')).toHaveTextContent("Change to your figure (was Olumi's estimate)")
+    expect(within(form).getByTestId('inspector-figure-set')).toHaveTextContent("Change to your figure (was Olumi's estimate)")
     expect(screen.getByTestId('inspector-figure-set')).toBeDisabled()
     fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '120' } })
     fireEvent.click(screen.getByTestId('inspector-figure-set'))

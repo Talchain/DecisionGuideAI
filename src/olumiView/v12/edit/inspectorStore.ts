@@ -20,7 +20,7 @@ export type DetailsTarget = { readonly kind: 'card' | 'link'; readonly id: strin
 export type Point = { readonly x: number; readonly y: number }
 
 export type Surface =
-  | { readonly kind: 'details'; readonly target: DetailsTarget }
+  | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside' }
   | { readonly kind: 'menu'; readonly target: ContextTarget }
   | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly busyKey: string }
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
@@ -34,6 +34,9 @@ type State = {
   readonly drafts: Drafts
   /** Details panel: show a card or link. (Kept as the name the canvas, the bands and the specs already use.) */
   readonly open: (t: DetailsTarget) => void
+  /** Surfaces step 5: the ONE way a figure is changed on the lane. Whichever control asks (a card's pencil, the right-click row, the Model tab, an aim's question), the details of that card or link
+   *  open with the Value row's field focused; asked again, it takes focus again. False, nothing changed, when the open surface is saving. */
+  readonly openFigure: (t: DetailsTarget, how?: 'value' | 'aside') => boolean
   /** Show any surface in place of whatever is open. False, nothing changed, when the open one is saving. */
   readonly show: (s: Surface) => boolean
   /** Close the open surface if it is of this kind (and, for an editor, this key): a surface lets go of itself, whatever else is open stays. */
@@ -45,19 +48,33 @@ type State = {
 }
 
 let seq = 0
-/** The details panel of a card holds its "Your figure" save, which writes under `${sid}:edit:${id}` (FigureEdit's setFigure); a link's panel writes nothing itself (its forms are their own surface). */
-const busyKeyOf = (s: Showing | null): string | null => {
-  if (s === null) return null
-  if (s.kind === 'form' || s.kind === 'editor' || s.kind === 'add') return s.busyKey
-  if (s.kind === 'details' && s.target.kind === 'card') { const sid = useViewStore.getState().sid; return sid === null ? null : `${sid}:edit:${s.target.id}` }
-  return null
+/**
+ * The details panel's Value row is its item's one figure field, so it writes under the figure's own keys: a card's `${sid}:edit:${id}` (FigureEdit's setFigure) and,
+ * where core offers its chance and size or its strength as `route: 'size'`, `${sid}:size:${record}` (EditForm's `writeKeyOf`); a link's is the size key alone.
+ */
+const detailsKeys = (sid: string, t: DetailsTarget): string[] => {
+  const m = useViewStore.getState().view?.model
+  if (t.kind === 'card') {
+    const e = m?.cards.find((c) => c.id === t.id)?.figure?.edit as { route?: string; record?: unknown } | null | undefined // EditForm's `isSizeEdit`, which this module cannot import (it imports this one)
+    return [`${sid}:edit:${t.id}`, ...(e != null && e.route === 'size' && typeof e.record === 'string' ? [`${sid}:size:${e.record}`] : [])]
+  }
+  const l = m?.links.find((x) => `${x.from}->${x.to}:${x.kind}` === t.id) // the canvas edge id (laneMenu `edgeIdOf`)
+  const r = (l?.size?.edit as { record?: unknown } | null | undefined)?.record
+  return typeof r === 'string' ? [`${sid}:size:${r}`] : []
+}
+const busyKeysOf = (s: Showing | null): string[] => {
+  if (s === null) return []
+  if (s.kind === 'form' || s.kind === 'editor' || s.kind === 'add') return [s.busyKey]
+  if (s.kind === 'details') { const sid = useViewStore.getState().sid; return sid === null ? [] : detailsKeys(sid, s.target) }
+  return []
 }
 /** Is the open surface sending a write? Its keys are the writers' own (`${sid}:edit:${id}`, `writeKeyOf(spec)`, `${sid}:add-figure`). */
-export const surfaceBusy = (s: Showing | null): boolean => { const k = busyKeyOf(s); return k !== null && useWrites.getState().sending[k] === true }
+export const surfaceBusy = (s: Showing | null): boolean => busyKeysOf(s).some((k) => useWrites.getState().sending[k] === true)
 
 export const useLaneInspector = create<State>()((set, get) => ({
   current: null, drafts: {},
   open: (target) => { get().show({ kind: 'details', target }) },
+  openFigure: (target, how = 'value') => get().show({ kind: 'details', target, edit: how }),
   show: (s) => {
     if (surfaceBusy(get().current)) return false
     set({ current: { ...s, n: ++seq } })

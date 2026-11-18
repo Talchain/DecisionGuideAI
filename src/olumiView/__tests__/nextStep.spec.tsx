@@ -3,7 +3,7 @@
  * chosen from what the View already states. Keep the thread's context (UI recovery witness row 11, DL 10 Nov). Core's goldens.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -23,7 +23,7 @@ const show = (view: View) => {
 const step = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-testid="view-next-step"]')
 
 beforeEach(() => useUIStore.setState({ activeOutputTab: 'olumi' } as never))
-afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null }) })
 
 describe('the next step', () => {
   it('a proposal held: check it, then approve or set aside, with core\'s change card and its two buttons inside the step', () => {
@@ -91,6 +91,7 @@ describe('the next step', () => {
   })
 
   it('no proposal and the chances wait on a figure the person can type: that figure, in core\'s words, with its editor', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
     const c = show(view)
     const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)

@@ -37,13 +37,14 @@ beforeEach(() => {
     return { ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => b } as DOMRect
   })
 })
-afterEach(() => { cleanup(); vi.restoreAllMocks(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.restoreAllMocks(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 
 const node = () => <ReactFlowProvider><ViewCardNode {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>
 const show = () => { moves.calls = []; return render(node()) }
 
 describe('an open editor stays wholly in the free canvas', () => {
   it('its form\'s foot past the free canvas: the canvas pans up by exactly that much, once; pointer and focus untouched', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     const pad = paddingToInsets(computeFitPadding(null)), freeBottom = window.innerHeight - pad.bottom
     formBox = { left: 300, top: freeBottom - 120, width: 268, height: 160 } // 40 px past the free canvas
     const { rerender } = show()

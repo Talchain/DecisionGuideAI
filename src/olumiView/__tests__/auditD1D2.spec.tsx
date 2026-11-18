@@ -17,7 +17,7 @@ import { FigureEdit } from '../FigureEdit'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-chain.view3.json'), 'utf8')) as View
 const card = view.model!.cards.find((c) => c.figure?.edit)!
-afterEach(() => { cleanup(); useOverview.getState().hide(); useViewStore.setState(useViewStore.getInitialState(), true) })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useOverview.getState().hide(); useViewStore.setState(useViewStore.getInitialState(), true) })
 
 describe('D1: the lens bar and the Strategy Overview', () => {
   it('D1a catch: with the overview open the lens bar is not drawn; closed, it is', () => {
@@ -33,6 +33,7 @@ describe('D1: the lens bar and the Strategy Overview', () => {
 
 describe('D2: the figure editor on a card', () => {
   it('D2a catch: on a card the editor is a panel out of the card\'s flow; each of its buttons stays on one line', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     useViewStore.setState({ view, sid: view.id })
     render(<FigureEdit id={card.id} edit={card.figure!.edit!} glyph words={false} />)
     act(() => { fireEvent.click(screen.getByTestId(`view-figure-edit-${card.id}`)) })
@@ -43,6 +44,7 @@ describe('D2: the figure editor on a card', () => {
     expect(screen.getByTestId(`view-figure-try-${card.id}`).className).not.toMatch(/info/)
   })
   it('D2b must not change: the same editor elsewhere (the dock\'s most-likely line) stays in place', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     useViewStore.setState({ view, sid: view.id })
     render(<FigureEdit id={card.id} edit={card.figure!.edit!} place="likely" glyph words={false} />)
     act(() => { fireEvent.click(screen.getByTestId(`likely-edit-${card.id}`)) })

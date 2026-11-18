@@ -26,6 +26,11 @@ import { linkRowOf } from '../model/targets'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { useUIStore } from '../../stores/uiStore'
 
+// SURFACES STEP 5: on the lane a figure is changed in the details panel's Value row (v12/edit/__tests__/oneFigureEditor.spec.tsx); the Model tab's inline figure editor is the older look's: there its figure edit opens the details panel instead. These rows bind the older look's
+// editor, which is unchanged, so they run with the lane off (and are the contrast that proves it).
+beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '0') })
+afterEach(() => { vi.unstubAllEnvs() })
+
 const SID = 's_0123456789ab'
 const wire: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
 const figure = wire.model!.cards.find((c) => c.id === 'starting_customers')!
