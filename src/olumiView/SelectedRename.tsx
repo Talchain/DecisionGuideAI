@@ -21,14 +21,14 @@ import { detailsOf, useLaneInspector } from './v12/edit/inspectorStore'
  * gives neither. Drawn in the dock's selection row (the default test ids) and in the details panel beside the card (`ids`: its own, so one page
  * never holds two of the same).
  */
-export function CardWords({ id, ids }: { id: string; ids?: { author: string; basis: string } }): JSX.Element | null {
+export function CardWords({ id, ids, only }: { id: string; ids?: { author: string; basis: string }; /** The box's preview says whose the figure is and leaves the basis sentence to the pinned box. */ only?: 'author' | 'basis' }): JSX.Element | null {
   const author = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.author ?? null)
   const said = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.headline?.title ?? null)
   const here = ids === undefined
   return (
     <>
-      {author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</span>}
-      {said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={here ? `${id}.headline.title` : undefined} data-testid={ids?.basis ?? 'selected-headline-title'}>{said}</p>}
+      {only === 'basis' || author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</span>}
+      {only === 'author' || said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={here ? `${id}.headline.title` : undefined} data-testid={ids?.basis ?? 'selected-headline-title'}>{said}</p>}
     </>
   )
 }

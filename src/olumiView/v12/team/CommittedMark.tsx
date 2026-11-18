@@ -8,13 +8,19 @@ import { goToOutcome } from '../../../olumiCore/team/outcomeNav'
  * action words as they were saved. Pressing it opens that commitment where "What happened" is recorded (`goToOutcome`, the existing opener):
  * the one without an outcome yet if there is one, otherwise the latest. Nothing is read from words: only the stored option id.
  */
+/** The commitment an option's mark and its details speak of: the one without an outcome yet, else the latest; its words as the mark says them. Null where there is none. */
+export function useCommitted(card: string): { readonly id: number; readonly lines: readonly string[] } | null {
+  const mine = useViewStore((s) => s.view?.collab?.commitments ?? []).filter((k) => k.option?.id === card)
+  if (mine.length === 0) return null
+  const open = mine.find((k) => k.outcomes.length === 0) ?? mine[mine.length - 1]
+  return { id: open.id, lines: [`Committed${open.at ? ` · ${open.at}` : ''}`, open.action].filter((t) => t !== '') }
+}
+
 export function CommittedMark({ card }: { card: string }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
-  const mine = useViewStore((s) => s.view?.collab?.commitments ?? []).filter((k) => k.option?.id === card)
-  if (mine.length === 0 || !sid) return null
-  const open = mine.find((k) => k.outcomes.length === 0) ?? mine[mine.length - 1]
-  const first = `Committed${open.at ? ` · ${open.at}` : ''}`
-  const words = [first, open.action].filter((t) => t !== '').join('\n')
+  const open = useCommitted(card)
+  if (open === null || !sid) return null
+  const words = open.lines.join('\n')
   return (
     <button type="button" aria-label={words} title={words} data-committed-mark={card} data-commitment={open.id}
       onClick={(e) => { e.stopPropagation(); goToOutcome(sid, open.id) }}

@@ -493,6 +493,15 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const hoverCard = usePopoverHover(HOVER_CARD_OPEN_DELAY_MS)
   // Surfaces step 2 (18 Nov): the pop-up is never up while the figure editor, the edit form, the details panel, the right-click menu or the add form is open.
   const surfaceOpen = useLaneInspector(anySurfaceOpen)
+  // Surfaces step A: a lane card (CoreCard sets `data.peek`) previews in the ONE box the details panel pins, so its hover names the store's peek and the
+  // separate pop-up is not mounted for it. A press selects the card before its click opens the details: the peek holds through that, so the box never blinks.
+  const lanePeek = (data as { peek?: boolean } | undefined)?.peek === true
+  const peekShown = hoverCard.showPopover && !renamingOnCard // (as the pop-up: never over a name being typed on the card)
+  useEffect(() => {
+    if (!lanePeek || !peekShown) return
+    useLaneInspector.getState().setPeek({ kind: 'card', id })
+    return () => useLaneInspector.getState().clearPeek(id)
+  }, [lanePeek, peekShown, id])
 
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
@@ -3189,7 +3198,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         nodeId={id}
         nodeType={nodeType}
         data={data as Record<string, unknown> | undefined}
-        visible={hoverCard.showPopover && !selected && !renamingOnCard && !surfaceOpen}
+        visible={hoverCard.showPopover && !selected && !renamingOnCard && !surfaceOpen && !lanePeek}
         anchorRef={hoverCard.nodeElRef}
       />
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:

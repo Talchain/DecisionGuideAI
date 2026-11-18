@@ -67,7 +67,7 @@ const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - M
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
 /** Where a `size` panel stands beside `anchor` inside `free`, never over the anchor where any place avoids it; always inside `free` (never null). */
-export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect, minShown = MIN_SHOWN): Placed {
+export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect, minShown = MIN_SHOWN, keep?: { left: number; top: number }): Placed {
   const gap = HOVER_CARD_GAP
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
@@ -90,6 +90,16 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   const onCard = (c: { left: number; top: number; h: number }) => hits({ left: c.left, top: c.top, right: c.left + w, bottom: c.top + c.h }, a)
   const out = (c: { left: number; top: number; h: number }): Placed => ({ left: c.left + free.left, top: c.top + free.top, maxHeight: c.h < size.height ? c.h : null })
   const a = shift(anchor)
+  // KEEP ITS PLACE (surfaces step A): a box whose item and canvas have not moved, and which only changed size (a preview pinned, a fold opened), stays at the
+  // corner it has, cut to the room below it; judged like any candidate, after its foot adjustment and against its own card. Where that leaves less than a
+  // usable box, or lands it on its card, it is placed afresh below.
+  if (keep !== undefined && within(anchor, free)) {
+    const left = keep.left - free.left, top = keep.top - free.top
+    if (left >= gap && left + w <= W - gap && top >= gap) {
+      const k = fit(left, top, Math.min(h, H - gap - top))
+      if (k.top === top && k.h >= minShown && !onCard(k)) return out(k)
+    }
+  }
   if (within(anchor, free)) {
     // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
     const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
@@ -125,6 +135,7 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
  */
 export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN): () => void {
   let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
+  let stood: { where: string; left: number; top: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
   let watched: HTMLElement | null = null
   const place = () => {
@@ -150,7 +161,9 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
         // Its item is not drawn: the free canvas's top-left, capped to the free canvas's height (Codex 008 item 4: uncapped, a tall form ran below the window
         // and took Save with it); the panel's and form's own structure keeps the header and Save/Cancel outside the scrolling body.
         const room = Math.max(minShown, free.bottom - free.top - 2 * HOVER_CARD_GAP)
-        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown)
+        const keep = stood !== null && stood.where === where ? { left: stood.left, top: stood.top } : undefined
+        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown, keep)
+        stood = anchor === null ? null : { where, left: p.left, top: p.top }
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
         if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }

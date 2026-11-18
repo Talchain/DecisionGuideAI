@@ -14,7 +14,7 @@ import type { View } from '../../../client'
 
 let stub: Stub
 beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); stub = install() })
-afterEach(() => { cleanup(); uninstall(); resetDrafts(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }) })
+afterEach(() => { cleanup(); uninstall(); resetDrafts(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }) })
 
 const OPT = 'single_country_test', OTHER = 'broader_entry'
 const stored = (option: { id: string; heading: string } | null, over: Record<string, unknown> = {}) => ({
@@ -54,6 +54,40 @@ describe('Commit to this', () => {
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     await waitFor(() => expect(stub.posts().some((c) => c.path.endsWith('/commitments'))).toBe(true))
     expect((stub.posts().find((c) => c.path.endsWith('/commitments'))!.body as Record<string, unknown>).option ?? null).toBeNull() // api.ts sends no key for no option
+  })
+  it('surfaces step A: it is the FIRST control of the box\'s one action row and the row\'s only filled (green) one; a preview of the same option has no such control', async () => {
+    useLaneInspector.getState().open({ kind: 'card', id: OPT })
+    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    const commit = await screen.findByTestId('lane-inspector-commit')
+    const controls = [...screen.getByTestId('lane-inspector-actions').querySelectorAll('button')]
+    expect(controls[0]).toBe(commit)
+    expect(controls.filter((b) => /(^|\s)bg-success(\s|$)/.test(b.className))).toEqual([commit])
+    cleanup(); useLaneInspector.setState({ current: null, peek: { kind: 'card', id: OPT } })
+    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    expect(await screen.findByTestId('lane-peek')).toHaveAttribute('data-box-card', OPT)
+    expect(screen.queryByTestId('lane-inspector-commit')).toBeNull()
+  })
+  it('surfaces step A: an option the team committed to says so in its box, previewed and pinned, by the commitment\'s id and saved words; CONTRAST another option\'s box does not', async () => {
+    useViewStore.setState({ view: withCommitments([stored({ id: OPT, heading: 'Test one country before broader commitment' })]) })
+    for (const state of [{ current: null, peek: { kind: 'card' as const, id: OPT } }, null]) {
+      if (state === null) useLaneInspector.getState().open({ kind: 'card', id: OPT }); else useLaneInspector.setState(state)
+      render(<ToastProvider><LaneEditingLayer /></ToastProvider>)
+      const line = await screen.findByTestId('lane-inspector-committed')
+      expect(line).toHaveAttribute('data-commitment', '7')
+      expect(line.textContent).toBe('Committed · 2026-11-18 · Open one market first')
+      // Its place in the box: after the header, before the actions (the agreed order).
+      const after = (a: string, b: string) => (screen.getByTestId(a).compareDocumentPosition(screen.getByTestId(b)) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      expect(after('lane-inspector-kind', 'lane-inspector-committed')).toBe(true)
+      if (state === null) expect(after('lane-inspector-committed', 'lane-inspector-actions')).toBe(true)
+      cleanup(); useLaneInspector.setState({ current: null, peek: null })
+    }
+    for (const state of [{ current: null, peek: { kind: 'card' as const, id: OTHER } }, null]) {
+      if (state === null) useLaneInspector.getState().open({ kind: 'card', id: OTHER }); else useLaneInspector.setState(state)
+      render(<ToastProvider><LaneEditingLayer /></ToastProvider>)
+      expect((await screen.findByTestId('lane-inspector-title')).closest('[data-box-card]')).toHaveAttribute('data-box-card', OTHER)
+      expect(screen.queryByTestId('lane-inspector-committed'), 'CONTRAST: another option, previewed or pinned').toBeNull()
+      cleanup(); useLaneInspector.setState({ current: null, peek: null })
+    }
   })
   it('CONTRAST: a factor card offers no "Commit to this"', async () => {
     const factor = approved().model!.cards.find((c) => c.family !== 'option' && c.family !== 'risk')!

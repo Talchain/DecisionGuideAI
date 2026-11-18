@@ -14,6 +14,7 @@ import { earlierResultsOf } from '../v12/contract'
 import { FindingLine } from '../FindingLine'
 import { memo, useMemo, type CSSProperties } from 'react'
 import { isForThisPage, useMe } from '../../olumiCore/me'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
@@ -230,7 +231,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf({ ...card, status: simple ? card.status : null, author: coreValue !== null ? null : card.author })]).filter((x) => x !== '')
   // (The author line is left out where the Value row speaks: that row carries the value's OWN attribution, Codex PL-851.)
   // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, dsKind, shape?.shape])
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, ...(card !== null && isOlumiCoreLane() ? { peek: true } : {}), glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, dsKind, shape?.shape, card === null])
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
