@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
-import { KEPT_WITHOUT, NEEDED_BY, REFUSAL_NEEDS, TICK_NEEDED, ViewChat, useViewChat } from '../ViewChat'
+import { KEPT_WITHOUT, LEAVE_OFF_SEP, NEEDED_BY, REFUSAL_NEEDS, TICK_NEEDED, WILL_LEAVE_OFF, ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
@@ -199,6 +199,27 @@ describe('partial approval', () => {
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p.base, only: ['h', 'n'], only_top: [] })
+  })
+  it('every omission is said beside the approve controls, OUTSIDE any group (Codex root 22:08Z): a group ticked while CLOSED still shows, before the press, what Approve ticked will leave off; the payload is the same. CONTRAST: nothing left off, nothing said', async () => {
+    const grouped = boundary() as unknown as { proposal: { groups: unknown } }
+    grouped.proposal.groups = [{ heading: 'Statements', lines: [0] }, { heading: 'Olumi’s additions', lines: [1, 2, 3] }]
+    showOpen(grouped as unknown as View)
+    const group0 = screen.getByTestId('view-change-group-box-0') as HTMLDetailsElement
+    expect(group0.open, 'fixture: the group is closed').toBe(false)
+    expect(screen.queryByTestId('view-proposal-leave-off')).toBeNull()
+    // The statements group ticked from its CLOSED heading: the claim is chosen, Olumi's note (in the other, closed group) is not.
+    fireEvent.click(screen.getByTestId('view-change-group-0'))
+    const box = screen.getByTestId('view-proposal-leave-off')
+    expect([group0.open, box.closest('details'), box.textContent, screen.getByTestId('view-proposal-actions').compareDocumentPosition(box) & Node.DOCUMENT_POSITION_PRECEDING])
+      .toEqual([false, null, `${WILL_LEAVE_OFF}their claim · ${LEAVE_OFF_SEP} Olumi’s note`, Node.DOCUMENT_POSITION_PRECEDING])
+    // CONTRAST: the note ticked too, nothing is left off, nothing is said; untick it again and it is said again.
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(screen.queryByTestId('view-proposal-leave-off')).toBeNull()
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(screen.queryByTestId('view-proposal-leave-off')).not.toBeNull()
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['h'], only_top: [], without: [{ id: 'h', concerns: ['n'] }] })
   })
   it('core\'s typed refusal (409 `code: needs`): the named line is MARKED with core\'s why and nothing is ticked for the person; one press of theirs ticks it. CONTRAST: a refusal with no code marks nothing and offers no press', async () => {
     const refuse = (body: object) => setTeamFetch((async (u: unknown, init?: RequestInit) => {

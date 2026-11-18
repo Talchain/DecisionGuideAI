@@ -546,6 +546,8 @@ const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
 export const NEEDED_BY = 'Needed by:'
 /** Chrome labels of the review's dependency lines: a ticked statement or note kept without an optional link (never said to be the person's own: the kept record keeps its author); a line core's refusal says the ticked lines need. */
 export const KEPT_WITHOUT = 'Kept without:', REFUSAL_NEEDS = 'What you ticked needs this:', TICK_NEEDED = 'Tick what these need'
+/** Said above the approve controls while any ticked line would be approved without an optional link: what pressing Approve ticked will leave off. */
+export const WILL_LEAVE_OFF = 'Approving the ticked changes will leave off these links:', LEAVE_OFF_SEP = 'without'
 /**
  * What a change line needs (core's review-boundary contract, 18 Nov; additive on olumi.view/3 as `proposal.changes[].needs`, not yet in the generated
  * types, so read here, defensively): `{ id, top, kind, why }`, in the direction "this line needs that one", already followed to the end by core, from the
@@ -854,6 +856,16 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
         </p>
       )}
       {refused ? <p role="alert" data-testid="view-readings-refused">{READINGS_CHANGED}</p> : null}
+      {/* Every omission the approval would state, said beside the controls that send it and outside any group (Codex root 22:08Z: a group ticked while
+          closed hid the per-line note, so Approve ticked could send a choice the person never saw). Core's text of each kept line and each left-off link. */}
+      {closed || !tickable || without.length === 0 ? null : (
+        <div className="text-text-light" data-testid="view-proposal-leave-off">
+          <p className="m-0">{WILL_LEAVE_OFF}</p>
+          <ul className="m-0 grid list-none gap-0.5 p-0 pl-3">
+            {without.flatMap((w) => w.concerns.map((id) => <li key={`${w.id}>${id}`} data-leave-off={`${w.id}>${id}`}>{records.get(w.id)?.text} · {LEAVE_OFF_SEP} {records.get(id)?.text}</li>))}
+          </ul>
+        </div>
+      )}
       {said === null ? null : <p role="alert" data-testid="view-proposal-said">{said}</p>}
       {/* Core's refusal named lines by id: they are marked in the list, and ONE press of the person's ticks the required ones (with what those need). */}
       {closed || !missing.some((n) => n.kind === 'required' && !n.top && records.has(n.id)) ? null : (
