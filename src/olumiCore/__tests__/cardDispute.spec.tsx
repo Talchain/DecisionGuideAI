@@ -14,6 +14,9 @@ import { ToastProvider } from '../../canvas/ToastContext'
 import { LaneInspector } from '../../olumiView/v12/edit/LaneInspector'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { CardDisputeMark } from '../team/CardDispute'
+import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
+import { CoreCard } from '../../olumiView/previous/CoreCard'
+import { setLevel, useSimpleLevel } from '../../olumiView/v12/simpleStore'
 import { setTeamFetch } from '../team/api'
 import { resetDifferences, type Differences } from '../team/differences'
 
@@ -41,7 +44,29 @@ const details = (card: string) => {
   return render(<ToastProvider><LaneInspector /></ToastProvider>)
 }
 
+/** A card drawn as the lane draws it (CoreCard through BaseNode), at the level the spec sets. */
+const drawCard = (id: string) => {
+  const card = view.model!.cards.find((c) => c.id === id)!
+  const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
+  return render(<ReactFlowProvider><Node {...({ id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+    positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
+}
+
 describe('a revealed difference on the card it is about', () => {
+  it('at Simple (the default level) the record card\'s face carries the difference mark, named with core\'s sentence; CONTRAST: a card that is no difference\'s record has none', async () => {
+    setLevel('simple', view.id)
+    try {
+      const mine = drawCard(CARD)
+      expect(mine.querySelector(`[data-core-card="${CARD}"]`), 'precondition: the Simple face is drawn').not.toBeNull()
+      const mark = await waitFor(() => { const m = mine.querySelector(`[data-core-card="${CARD}"] [data-differ-mark="${CARD}"]`); expect(m).not.toBeNull(); return m as HTMLElement })
+      expect(mark.getAttribute('aria-label')).toBe(figure.status_text)
+      cleanup()
+      const theirs = drawCard(other)
+      await waitFor(() => expect(theirs.querySelector(`[data-core-card="${other}"]`)).not.toBeNull())
+      expect(theirs.querySelector('[data-differ-mark]')).toBeNull()
+    } finally { useSimpleLevel.setState({ levels: {} }); try { window.localStorage.removeItem(`olumi.v12.level.${view.id}`) } catch { /* none */ } }
+  })
+
   it('the record card carries one mark named and hovered with core\'s sentence; pressing it opens that card\'s details', async () => {
     const c = render(<CardDisputeMark card={CARD} />)
     const mark = await waitFor(() => { const m = c.container.querySelector(`[data-differ-mark="${CARD}"]`); expect(m).not.toBeNull(); return m as HTMLElement })
