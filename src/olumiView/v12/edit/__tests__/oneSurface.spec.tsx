@@ -15,6 +15,7 @@ import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces } from '../../../layout'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
+import { anchorOf } from '../placeBeside'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import type { View } from '../../../client'
 import { approved, install, uninstall } from './harness'
@@ -285,19 +286,39 @@ describe('surfaces step 3: details beside their card', () => {
   const cards: Record<string, Box> = {}
   const PANEL = { width: 280, height: 300 }
   const rectOf = (b: Box) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+  // The panel's box from where it was placed and the height it was capped to (its two position properties and its cap; the old fixed corner, 76 x 112, where it set none).
   const panelBox = (el: Element): Box => {
     const s = (el as HTMLElement).style
-    return { left: parseFloat(s.getPropertyValue('--lane-details-x')) || 76, top: parseFloat(s.getPropertyValue('--lane-details-y')) || 112, ...PANEL }
+    return { left: parseFloat(s.getPropertyValue('--lane-details-x')) || 76, top: parseFloat(s.getPropertyValue('--lane-details-y')) || 112, width: PANEL.width, height: Math.min(PANEL.height, parseFloat(s.getPropertyValue('--lane-details-h')) || PANEL.height) }
+  }
+  const FORM_HEIGHT = 420
+  const formBox = (el: Element): Box => {
+    const s = (el as HTMLElement).style
+    return { left: parseFloat(s.getPropertyValue('--lane-form-x')) || parseFloat(s.left) || 8, top: parseFloat(s.getPropertyValue('--lane-form-y')) || parseFloat(s.top) || 8, width: 280, height: Math.min(formHeight.now, parseFloat(s.getPropertyValue('--lane-form-h')) || formHeight.now) }
+  }
+  const formHeight = { now: PANEL.height }
+  // The window's chrome, as boxes by selector (the left rail, the top bar, the outputs dock), for a small free canvas.
+  const chrome: Array<[string, Box]> = []
+  const extras: HTMLElement[] = []
+  const withChrome = (): void => {
+    for (const [tag, label, role] of [['nav', 'Canvas tools', null], ['aside', 'Outputs dock', null], ['div', null, 'banner']] as const) {
+      const el = document.createElement(tag); if (label !== null) el.setAttribute('aria-label', label); if (role !== null) el.setAttribute('role', role)
+      document.body.appendChild(el); extras.push(el)
+    }
+    chrome.push(['nav[aria-label="Canvas tools"]', { left: 0, top: 112, width: 76, height: 400 }], ['aside[aria-label="Outputs dock"]', { left: 536, top: 112, width: 24, height: 400 }], ['[role="banner"]', { left: 0, top: 0, width: 560, height: 112 }])
   }
   const mockBoxes = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     const node = this.closest('.react-flow__node')
     if (node !== null) return rectOf(cards[node.getAttribute('data-id') ?? ''] ?? { left: 0, top: 0, width: 0, height: 0 })
     if (this.matches('[data-testid="lane-inspector"]')) return rectOf(panelBox(this))
+    if (this.matches('[data-testid="lane-edit-form"]')) return rectOf(formBox(this))
+    for (const [sel, box] of chrome) if (this.matches(sel)) return rectOf(box)
     return rectOf({ left: 0, top: 0, width: 0, height: 0 })
   })
   const area = (a: DOMRect, b: DOMRect) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
   const inspector = () => document.querySelector<HTMLElement>('[data-testid="lane-inspector"]')!
-  afterEach(() => { vi.restoreAllMocks(); for (const k of Object.keys(cards)) delete cards[k] })
+  const win = { w: window.innerWidth, h: window.innerHeight }
+  afterEach(() => { vi.restoreAllMocks(); for (const k of Object.keys(cards)) delete cards[k]; chrome.length = 0; for (const e of extras.splice(0)) e.remove(); formHeight.now = PANEL.height; Object.assign(window, { innerWidth: win.w, innerHeight: win.h }); lane.on = true })
 
   it('S3-a the panel stands beside its own card and never over it, wherever the card is (on the old corner, mid-board, near the dock), and follows when the board moves; no fixed corner', async () => {
     mockBoxes()
@@ -361,6 +382,80 @@ describe('surfaces step 3: details beside their card', () => {
     fireEvent.click(button); await settle()
     expect(open(), 'the form replaced the panel').toEqual(['form'])
     const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
-    expect({ x: parseFloat(form.style.left), y: parseFloat(form.style.top) }, 'the form stands where the panel stood').toEqual(at)
+    expect({ x: parseFloat(form.style.getPropertyValue('--lane-form-x')), y: parseFloat(form.style.getPropertyValue('--lane-form-y')) }, 'the form stands where the panel stood').toEqual(at)
+  })
+
+  const ownCard = (id: string) => rectOf(cards[id]!)
+  const OPEN_EDIT = () => document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+
+  it('S3-e a card where no side holds the whole panel: the panel is cut to the room on the roomiest side (its body scrolls, its header and close stay), never over its own card, and inside the free canvas', async () => {
+    mockBoxes(); withChrome()
+    Object.assign(window, { innerWidth: 560, innerHeight: 512 })      // free canvas: 76..536 x 112..512, 460 x 400, with the rail and the dock
+    await board()
+    cards[OPT] = { left: 230, top: 270, width: 220, height: 120 }      // mid-board: 154 left, 86 right, 126 below, 142 above: no side holds 280 x 300
+    fireEvent.click(node(OPT)); await settle()
+    const panel = rectOf(panelBox(inspector())), mine = ownCard(OPT)
+    expect(area(panel, mine), 'the panel over its own card').toBe(0)
+    expect(panel.left, 'inside the free canvas').toBeGreaterThanOrEqual(76); expect(panel.right).toBeLessThanOrEqual(536)
+    expect(panel.top).toBeGreaterThanOrEqual(112); expect(panel.bottom).toBeLessThanOrEqual(512)
+    expect(inspector().style.getPropertyValue('--lane-details-h'), 'cut to the roomiest side (above: 142)').toBe('142px')
+    expect(inspector().querySelector('[data-testid="lane-inspector-title"]'), 'the header is outside the scrolling body').not.toBeNull()
+    expect(inspector().querySelector('.overflow-y-auto [data-testid="lane-inspector-title"]')).toBeNull()
+    expect(screen.getByLabelText('Close details').closest('.overflow-y-auto'), 'the close stays').toBeNull()
+  })
+
+  it('S3-f the older look keeps the fixed corner, no new lines and the old form anchor (372, 112)', async () => {
+    const base = approved()
+    const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === OPT ? { ...c, author: { text: 'Your option', by: 'you', title: 'You wrote this' }, headline: { ...(c.headline ?? {}), title: 'Basis sentence' } } : c)) } } as unknown as View
+    lane.on = false
+    await board(false, view)
+    fireEvent.click(node(OPT)); await settle()
+    expect(inspector().className).toMatch(/left-\[76px\]/); expect(inspector().className).toMatch(/top-\[112px\]/)
+    expect(inspector().style.getPropertyValue('--lane-details-x'), 'no placement written').toBe('')
+    expect(screen.queryByTestId('lane-inspector-author')).toBeNull(); expect(screen.queryByTestId('lane-inspector-basis')).toBeNull()
+    fireEvent.click(OPEN_EDIT()); await settle()
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    expect({ x: form.style.left, y: form.style.top }, 'the old anchor').toEqual({ x: '372px', y: '112px' })
+  })
+
+  it('S3-g the form opened from a panel that stands above its card: taller than the panel, it still never covers the card (same rule, same card), inside the free canvas', async () => {
+    mockBoxes()
+    await board()
+    cards[FIG] = { left: 40, top: 560, width: 940, height: 120 }   // no side but above holds a panel
+    fireEvent.click(node(FIG)); await settle()
+    expect(parseFloat(inspector().style.getPropertyValue('--lane-details-y')), 'the panel is above its card').toBeLessThan(560)
+    formHeight.now = FORM_HEIGHT
+    fireEvent.click(OPEN_EDIT()); await settle()
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    const box = rectOf(formBox(form))
+    expect(area(box, ownCard(FIG)), 'the form over its own card').toBe(0)
+    expect(box.top).toBeGreaterThanOrEqual(0); expect(box.bottom).toBeLessThanOrEqual(window.innerHeight)
+  })
+
+  it('S3-h a link\'s anchor is the middle of its drawn line, not of its box; the box middle where the line cannot be measured', () => {
+    const ID = 'a->b:causal'
+    const edge = document.createElement('div'); edge.className = 'react-flow__edge'; edge.setAttribute('data-id', ID)
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('class', 'react-flow__edge-path'); edge.appendChild(path)
+    edge.getBoundingClientRect = () => rectOf({ left: 0, top: 0, width: 200, height: 200 })
+    document.body.appendChild(edge); extras.push(edge)
+    expect(anchorOf({ kind: 'link', id: ID }).anchor, 'no line to measure: the box middle').toEqual({ left: 100, top: 100, right: 100, bottom: 100 })
+    Object.assign(path, { getTotalLength: () => 100, getPointAtLength: (l: number) => ({ x: l, y: 0 }), getScreenCTM: () => ({ a: 1, b: 0, c: 0, d: 1, e: 10, f: 20 }) })
+    expect(anchorOf({ kind: 'link', id: ID }).anchor, 'half way along the line, on screen').toEqual({ left: 60, top: 20, right: 60, bottom: 20 })
+  })
+
+  it('S3-i a card off the free canvas hides its panel (kept mounted, inert, aria-hidden, still open in the store) and it shows again beside the card when it returns', async () => {
+    mockBoxes()
+    await board()
+    cards[OPT] = { left: 400, top: 300, width: 220, height: 120 }
+    fireEvent.click(node(OPT)); await settle()
+    const shown = inspector()
+    expect(shown.getAttribute('aria-hidden')).toBeNull()
+    cards[OPT] = { left: -2000, top: 300, width: 220, height: 120 }; await settle()
+    expect(inspector(), 'the same panel, still mounted').toBe(shown)
+    expect(shown.getAttribute('aria-hidden')).toBe('true'); expect(shown.hasAttribute('inert')).toBe(true)
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: OPT } })
+    cards[OPT] = { left: 300, top: 400, width: 220, height: 120 }; await settle()
+    expect(shown.getAttribute('aria-hidden')).toBeNull(); expect(shown.hasAttribute('inert')).toBe(false)
+    expect(area(rectOf(panelBox(shown)), rectOf(cards[OPT]))).toBe(0)
   })
 })
