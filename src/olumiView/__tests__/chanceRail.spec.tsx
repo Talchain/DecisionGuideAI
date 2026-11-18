@@ -16,9 +16,7 @@ import { useMe } from '../../olumiCore/me'
 import { CoreCard } from '../previous/CoreCard'
 import { QUESTION } from '../layout'
 import { chanceRailOf } from '../railRows'
-const CSS = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-/** The look's rule for one selector, its declarations only. */
-const ruleOf = (sel: string): string => { const i = CSS.indexOf(`${sel} {`); return i < 0 ? '' : CSS.slice(i, CSS.indexOf('}', i)) }
+import { optionLetters } from '../v12/cards/letters'
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
 const SEEK = 'seek_a_small_grant_or_short_bridging_loan', KEEP = 'keep_sending_cold_emails_and_seeking_warm_connections'
@@ -46,34 +44,22 @@ describe('the shared chance rail', () => {
     const badgeTitle = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.badge!.title
     expect(rail.rest.map((r) => [r.id, r.challenge === null ? null : [r.challenge.glyph, r.challenge.title]])).toEqual([[ANGEL, [key.glyph, badgeTitle(ANGEL)]], [WIDEN, [key.glyph, badgeTitle(WIDEN)]], [CUT, null]])
   })
-  it('R2 on the question bar: ONE track carries every dot and whisker on the 0..100 scale with quarter ticks; the unworked group has no track, no dot', () => {
+  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences; v12/detailed): the rail names each option by its letter
+  // (its name is said on its own card), one lane per option in the View's order: a dot and core's range whisker where it has a result, an outlined
+  // empty lane where it has none, core's number words at the right; no run-on line of names. R3's label column is gone with it.
+  it('R2 on the question bar: one rail, a lane per option by its letter in the View\'s order; every dot and whisker on the 0..100 scale; an option with no result is an empty lane with no dot; core\'s challenge mark kept', () => {
     const el = drawQuestion(RUN2)
-    const rail = el.querySelector('[data-chance-rail]')!
+    const rail = el.querySelector('[data-detailed-rail]')!
     expect(rail, 'mounted on the question bar').not.toBeNull()
-    const tracks = rail.querySelectorAll('[data-chance-rail-track]')
-    expect(tracks.length).toBe(1)
-    const track = tracks[0]!
-    expect([...track.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
-    expect([...track.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
-    expect([...track.querySelectorAll<HTMLElement>('.ok-rail-tick')].map((t) => t.style.left)).toEqual(['25%', '50%', '75%'])
-    expect(track.getAttribute('aria-label')).toContain(RUN2.model!.cards.find((c) => c.id === SEEK)!.headline!.range!)
-    const rest = rail.querySelector('[data-rail-rest]')!
-    expect([...rest.querySelectorAll('[data-rail-unworked]')].map((u) => u.getAttribute('data-rail-unworked'))).toEqual([ANGEL, WIDEN, CUT])
-    expect(rest.querySelectorAll('[data-chance-rail-track], [data-rail-dot], [data-rail-whisker], .ok-track').length).toBe(0)
-    expect(rest.querySelectorAll('[data-rail-caption]').length).toBe(1)
-    // The line carries option names and core's challenge glyph only: no badge counts run into the names (DL, 15 Nov).
+    const letters = optionLetters(RUN2.model!)
+    const opts = RUN2.model!.cards.filter((c) => c.family === 'option').map((c) => c.id)
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent])).toEqual(opts.map((id) => [id, letters.get(id)]))
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
+    for (const id of [ANGEL, WIDEN, CUT]) expect(rail.querySelector(`[data-rail-lane="${id}"]`)?.className, id).toContain('ok-dt-rail-lane-empty')
+    expect(rail.querySelectorAll('[data-rail-rest], [data-rail-unworked]').length, 'no run-on line of names').toBe(0)
+    for (const c of RUN2.model!.cards.filter((x) => x.family === 'option')) expect(rail.textContent, c.heading).not.toContain(c.heading)
     const glyph = RUN2.model!.key.find((k) => k.id === 'challenge')!.glyph
-    expect([...rest.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.getAttribute('data-rail-challenge'), b.textContent])).toEqual([[ANGEL, glyph], [WIDEN, glyph]])
-    for (const c of RUN2.model!.cards.filter((x) => x.badge != null)) for (const w of [c.badge!.text, (c.badge as { face?: string }).face ?? '']) if (w !== '') expect(rest.textContent, w).not.toContain(w)
-  })
-  it('R3 a long figure line wraps inside the text column and never runs under the rail (DL 15 Nov, a narrow question bar): the label column may shrink and breaks long words, and no rail text is held to one line', () => {
-    const label = ruleOf('.olumi-look .ok-rail-label'), fig = ruleOf('.olumi-look .ok-rail-fig'), grid = ruleOf('.olumi-look .ok-rail-grid')
-    expect(label, 'precondition: the label rule is in the look').not.toBe('')
-    expect(label).toMatch(/min-width:\s*0/)
-    // R6 (16 Nov): a word is never cut mid-word, so the long-word break is `break-word` (a word that fits its line is kept whole), not `anywhere`.
-    expect(label).toMatch(/overflow-wrap:\s*break-word/)
-    expect(label).not.toMatch(/overflow-wrap:\s*anywhere/)
-    expect(grid, 'the text column is its own grid column').toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
-    for (const [sel, rule] of [['label', label], ['fig', fig]] as const) expect(rule, sel).not.toMatch(/white-space:\s*nowrap|text-overflow|line-clamp/)
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.getAttribute('data-rail-challenge'), b.textContent])).toEqual([[ANGEL, glyph], [WIDEN, glyph]])
   })
 })
