@@ -145,7 +145,7 @@ export const PEEK_RESERVE = 360
 /** `reserve`: a height the place is chosen for when the element is shorter (a preview: the room its pinned box needs), read each time it is placed. */
 export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN, reserve?: () => number): () => void {
   let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
-  let stood: { ax: number; ay: number; free: string; left: number; top: number } | null = null
+  let stood: { ax: number; ay: number; free: string; left: number; top: number; placed: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
   let watched: HTMLElement | null = null
   const place = () => {
@@ -180,12 +180,16 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
         const dx = anchor === null || stood === null ? 0 : anchor.left - stood.ax, dy = anchor === null || stood === null ? 0 : anchor.top - stood.ay
         const keep = anchor !== null && stood !== null && stood.free === freeKey && Math.abs(dx) <= KEEP_REACH && Math.abs(dy) <= KEEP_REACH ? { left: stood.left + dx, top: stood.top + dy } : undefined
         let p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown, keep)
+        // A MOVE ALONE NEVER SHORTENS THE BOX: carried with its item towards the window's foot, the kept corner has less room below it. Where that would
+        // show less of the box than stood before the move, it is placed afresh (as every move was before step A), at the height the free canvas gives it.
+        if (anchor !== null && keep !== undefined && stood !== null && (dx !== 0 || dy !== 0) && Math.min(size.height, p.maxHeight ?? size.height) < stood.placed) p = placeBeside(anchor, own, size, free, minShown)
+        const placedNow = Math.min(size.height, p.maxHeight ?? size.height)
         // Shorter than the height its place was chosen for (a preview): its cap is its own, and above its item it stands on its bottom edge, next to the item.
         if (anchor !== null && size.height > own_h) {
           const placed = Math.min(size.height, p.maxHeight ?? size.height), shown = Math.min(own_h, placed)
           p = { left: p.left, top: p.top + placed <= anchor.top ? p.top + (placed - shown) : p.top, maxHeight: own_h > placed ? placed : null }
         }
-        stood = anchor === null ? null : { ax: anchor.left, ay: anchor.top, free: freeKey, left: p.left, top: p.top }
+        stood = anchor === null ? null : { ax: anchor.left, ay: anchor.top, free: freeKey, left: p.left, top: p.top, placed: placedNow }
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
         if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }
