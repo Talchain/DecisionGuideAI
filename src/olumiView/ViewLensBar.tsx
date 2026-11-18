@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type 
 import { Compass } from 'lucide-react'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
+import { MENU_SHELL } from './look/menu'
 import { HIT_44 } from '../styles/hitArea'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
@@ -168,7 +169,7 @@ function NavBar({ barRef, place, W }: { barRef: RefObject<HTMLDivElement>; place
         </button>
         {!open ? null : (
           <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
-            className="absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 rounded-md border border-panel-border bg-panel p-1.5 shadow-2">
+            className={`absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 ${MENU_SHELL}`}>
             {EXPLORE.map((id) => {
               const Icon = LENS_ICON[id], waiting = id === 'what_changes' && waits, count = id === 'rests_on' ? olumi : 0, on = id === lens
               return (

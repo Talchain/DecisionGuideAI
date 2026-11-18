@@ -20,6 +20,8 @@ import { useRevealedDifferences } from './CardDiffers'
 import type { Difference } from './differences'
 
 const NONE: readonly Difference[] = []
+/** The pinned box's CLOSED fold shows two lines of core's sentence; open (its own details, never an outer one) it shows the whole of it. */
+const DIFFER_CLOSED_CLAMP = 'line-clamp-2 [details[open]>summary>&]:line-clamp-none'
 /** A difference core did not run says its sentence only. */
 const sayOnly = (d: Difference): boolean => d.status === 'not_run' || d.status === 'pending'
 
@@ -60,7 +62,7 @@ export function WhereYouDiffer({ card, peek = false, open = false }: { card: str
   )
   return (
     <details ref={fold} open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
-      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={14} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
+      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={14} decorative className="mt-0.5" />{one ? <span className={`min-w-0 break-words ${DIFFER_CLOSED_CLAMP}`} data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
       {own.map((d) => {
         const whose = (id: string) => d.sides.find((s) => s.holder_id === id)?.holder ?? ''
         return (

@@ -14,6 +14,8 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces, drawKindOf } from '../../../layout'
 import { connectionsOf } from '../../inspect/connections'
+import { MENU_ROW, MENU_SHELL } from '../../../look/menu'
+import { LENSES_TESTID } from '../../lenses/LensesMenu'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
 import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside } from '../placeBeside'
@@ -795,5 +797,41 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       expect(box()!.getAttribute('data-state')).toBe('pinned')
       expect(at(box()!), 'pinned where it was previewed').toEqual(previewed)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+})
+
+describe('surfaces step B: one of each', () => {
+  const LEGEND = '[role="dialog"][aria-labelledby="keyboard-legend-title"]'
+  it('B-1 "?" opens ONE keyboard legend (the canvas mounted a second with its own listener, so two dialogs opened), and Escape closes it', async () => {
+    await board()
+    expect(document.querySelectorAll(LEGEND).length).toBe(0)
+    fireEvent.keyDown(window, { key: '?' }); await settle()
+    expect(document.querySelectorAll(LEGEND).length).toBe(1)
+    fireEvent.keyDown(window, { key: 'Escape' }); await settle()
+    expect(document.querySelectorAll(LEGEND).length).toBe(0)
+  })
+
+  it('B-2 every menu over the canvas wears the one shell, and its rows the one row: the right-click menu, the "+" menu and the Lenses menu (bound by each menu\'s own element)', async () => {
+    await board()
+    const shell = MENU_SHELL.split(/\s+/), rowCls = MENU_ROW.split(/\s+/)
+    const wears = (el: Element, cls: string[]) => cls.filter((c) => !el.classList.contains(c))
+    const radius = (el: Element) => [...el.classList].filter((c) => /^rounded(-|$)/.test(c))
+    const seen: Array<[string, Element]> = []
+    fireEvent.contextMenu(node(OTHER)); await settle()
+    seen.push(['right-click', document.querySelector('[role="menu"][aria-label="Canvas context menu"]')!])
+    act(() => { useLaneInspector.getState().dismiss(true) })
+    fireEvent.click(screen.getByTestId('canvas-add-to-model')); await settle()
+    seen.push(['add', screen.getByRole('menuitem', { name: 'Add a figure' }).parentElement!])
+    fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
+    fireEvent.click(screen.getByTestId(LENSES_TESTID).querySelector('button[aria-haspopup="menu"]')!); await settle()
+    seen.push(['lenses', screen.getByTestId(`${LENSES_TESTID}-menu`)])
+    for (const [name, el] of seen) {
+      expect(el, name).not.toBeNull()
+      expect(wears(el, shell), `${name}: shell classes missing`).toEqual([])
+      expect(radius(el), `${name}: one radius`).toEqual(['rounded-md'])
+      const rows = [...el.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')]
+      expect(rows.length, `${name}: has rows`).toBeGreaterThan(0)
+      for (const r of rows) expect(wears(r, rowCls), `${name}: a row's classes missing`).toEqual([])
+    }
   })
 })

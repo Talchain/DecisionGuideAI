@@ -51,6 +51,7 @@ vi.mock('../../store', () => {
 })
 
 vi.mock('../../stores/guidanceStore', () => ({
+  withOlumiReveal: <T,>(fn: T): T => fn, // the real one wraps a send; these rows never send
   useGuidanceStore: {
     getState: () => ({ _sendMessage: null }),
   },

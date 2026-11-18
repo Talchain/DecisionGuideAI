@@ -21,6 +21,11 @@ vi.mock('../contextMenu/MenuTooltip', () => ({
   MenuTooltip: () => null,
   useTooltipDelay: () => ({ activeTooltip: null, showTooltip: vi.fn(), hideTooltip: vi.fn() }),
 }))
+vi.mock('../../olumiView/look/Tip', () => ({
+  Tip: () => null,
+  rowTipOf: () => null,
+  useTipDelay: () => ({ activeTooltip: null, showTooltip: vi.fn(), hideTooltip: vi.fn() }),
+}))
 
 const SUBMENU_WIDTH = 180
 const SUBMENU_HEIGHT = 144

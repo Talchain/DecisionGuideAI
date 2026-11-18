@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { autoUpdate, flip, FloatingFocusManager, offset, shift, useClick, useDismiss, useFloating, useInteractions, useMergeRefs, useRole } from '@floating-ui/react'
 import { OkIcon } from './look/icons'
 import { typography } from '../styles/typography'
+import { MENU_ROW, MENU_SHELL } from './look/menu'
 import styles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
@@ -113,8 +114,8 @@ export function AddFigure(): JSX.Element | null {
       </button>}
       {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
-          className={`rounded-lg border border-panel-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`} aria-label="Add to model">
-          <button type="button" role="menuitem" className="min-h-[32px] cursor-pointer rounded-sm px-3 text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2"
+          className={MENU_SHELL} aria-label="Add to model">
+          <button type="button" role="menuitem" className={`${MENU_ROW} cursor-pointer text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2`}
             onClick={() => { setBase(live); setError(null); setMenu(false); useLaneInspector.getState().show({ kind: 'add', busyKey: key }) }}>{ADD_FIGURE_WORDS.open}</button>
         </div>
       </FloatingFocusManager> : null}
