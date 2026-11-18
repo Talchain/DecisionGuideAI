@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import golden from '../golden/european.view.json'
 import type { View, ViewModel } from '../client'
-import { ViewReasoning } from '../ViewReasoning'
+import { PortAnalysis } from '../port/PortAnalysisTab'
 
 afterEach(cleanup)
 
@@ -29,11 +29,11 @@ const withCompared = (compared: unknown[], headings: unknown): ViewModel => {
   return { ...v.model!, run: { ...v.model!.run!, compared, compared_headings: headings } as never }
 }
 
-// The Reasoning tab holds core's worth and compared lines in its closed row "What would change your mind" (R25: ViewReasoning, parts.tsx
-// SectionRow): they are in the DOM once the row is opened, as a reader opens it. A model with neither has no row to open.
+// Redesign, 18 Nov: the Analysis tab holds core's compared lines behind its closed "Why this reading" fold (port/PortAnalysisTab.tsx), and
+// core's worth lines under "What would change" at rest. They are in the DOM once the fold is opened, as a reader opens it.
 const show = (model: ViewModel) => {
-  const r = render(<ViewReasoning model={model} />)
-  const toggle = screen.queryByTestId('view-reasoning-change-toggle')
+  const r = render(<PortAnalysis model={model} />)
+  const toggle = screen.queryByTestId('analysis-why-toggle')
   if (toggle !== null) fireEvent.click(toggle)
   return r
 }
@@ -51,10 +51,12 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
       expect(container.querySelector(`[data-view-fact="${c.id}"]`)!.getAttribute('title')).toBe(c.hover)
     }
   })
-  it('each group sits apart from the next, in the panel\'s own rhythm (space-y-3 between groups; the Reasoning tab\'s sections are space-y-6 apart since R25)', () => {
-    show(withCompared(COMPARED, HEADINGS))
-    const panel = screen.getByTestId('view-reasoning'), box = screen.getByTestId('view-run-compared')
-    expect(panel.classList.contains('space-y-6')).toBe(true)
+  it('the groups are inside the "Why this reading" fold, never at rest, and each group sits apart from the next (space-y-3)', () => {
+    render(<PortAnalysis model={withCompared(COMPARED, HEADINGS)} />)
+    expect(screen.queryByTestId('view-run-compared')).toBeNull()
+    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+    const box = screen.getByTestId('view-run-compared')
+    expect(screen.getByTestId('analysis-why-region').contains(box)).toBe(true)
     expect(box.classList.contains('space-y-3')).toBe(true)
   })
   it('an unknown kind draws nothing, and a group core gives no heading for draws nothing', () => {
@@ -70,12 +72,13 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
     show(withCompared(COMPARED, undefined))
     expect(screen.queryByTestId('view-run-compared')).toBeNull()
   })
-  it('the worth lines are unaffected: "Worth checking first" holds core\'s science lines alone, never a compared one', () => {
-    const plain = show((golden as unknown as View).model!)
-    const before = screen.getByTestId('view-run-worth').textContent
+  it('the worth and find-out lines are unaffected: "What would change" holds core\'s science lines alone, never a compared one', () => {
+    const plain = render(<PortAnalysis model={(golden as unknown as View).model!} />)
+    const before = screen.getByTestId('analysis-what-moves').textContent
+    expect(screen.getByTestId('port-find-out')).toBeTruthy()
     plain.unmount()
     show(withCompared(COMPARED, HEADINGS))
-    expect(screen.getByTestId('view-run-worth').textContent).toBe(before)
-    for (const c of COMPARED) expect(screen.getByTestId('view-run-worth').textContent).not.toContain(c.line)
+    expect(screen.getByTestId('analysis-what-moves').textContent).toBe(before)
+    for (const c of COMPARED) expect(screen.getByTestId('analysis-what-moves').textContent).not.toContain(c.line)
   })
 })

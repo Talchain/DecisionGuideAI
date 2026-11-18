@@ -1,88 +1,159 @@
 /**
- * The Analysis tab on the olumi-core lane. This is the one wiring module: it reads the View store and passes the store-reading controls
- * (the ✎ figure edit, the coach's move tap) into the sections' slots. Every word a section draws is core's.
- *
- * UI recovery (DL 10 Nov 2026): the previous product's Analysis sections are back, in its order, each fed by core's View:
- *   1. the hero (core's lead, the lens switch, each aim's options, the most likely line, timing, what the chances wait on);
- *   2. Focus now (the coach's next step, and each figure the chances wait on);
- *   3. Strengthen your model (what is worth finding out, and core's prompts about the model's shape);
- *   4. Your options (the previous option cards: each option's chance of meeting the aim);
- *   5. What could change the result (the driver chart);
- *   6. Stress test (what would have to be true, what could go wrong, how much rests on Olumi's guesses);
- *   then core's notes behind "About these numbers".
- * Each thing is said once (SC-02): what a section below draws is taken out of the hero (its next step, its rows' "would have to be
- * true" lines, and every view of its disclosure but the trade-offs).
- *
- * Not drawn, because core sends nothing for them (listed in BUILD-LEDGER, A3 10 Nov): a factor ranking, per-factor tornado rows, the
- * previous stress test's own sentences, the risk-appetite filter and the advanced block.
+ * The Analysis tab on the olumi-core lane: WHAT THE MODEL IMPLIES, seen rather than read (design, 18 Nov 2026,
+ * ~/olumi-work/claude-checks/ui-lead-20261117/overnight/analysis/DESIGN.md). The chat already says it in words; this tab draws it, once.
+ * Its state is read from the options' rows (`tabStateOf`), never from run fields:
+ *   - a chance: the chart (each option's chance on one track, how far it moves, core's words under it), then what would change it (the
+ *     figures it moves most with, ✎ each; what would change which option leads, try it), then what is not in the result yet;
+ *   - limits (alone, or under a chance): each option's state against each limit, core's line for it under;
+ *   - nothing yet: what a result needs, ranked, one press each.
+ * Core's long reading (its most-likely line, the comparisons, its notes) is one press away under "Why this reading", never at rest.
+ * Above it all, the model's state is said once: a held proposal or a what-if (`HeldProposalLine`, `WhatIfShown`).
+ * Every word about the person's model is core's, at its View path (`data-view`); the headings are the tab's own chrome.
  */
-import type { ViewModel, ViewTurn } from '../client'
+import { useState } from 'react'
+import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
-import { newestNextOf, notesBesideTiming } from '../layout'
+import { pressCard } from '../reasoning/tabRing'
 import { shownModel, useViewStore } from '../store'
 import { HeldProposalLine, WhatIfShown } from '../ViewChances'
-import { MoveTap } from '../ViewChat'
-import { AnalysisHeroPanel } from './AnalysisHeroPanel'
-import { FocusNow } from './FocusNow'
-import { GoalChanceRangeLines } from './GoalChanceRangeLines'
-import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
-import { Strengthen } from './Strengthen'
-import { StressTest } from './StressTest'
+import { comparedGroupsOf } from '../layout'
+import { ChanceChart } from './ChanceChart'
+import { cardOf, limitGroupsOf, tabStateOf } from './pick'
+import { ResultNeeds } from './ResultNeeds'
 import { TYPE } from './type'
-import { WhatWouldChange } from './WhatWouldChange'
-import { YourOptions } from './YourOptions'
+import { WhatMovesIt } from './WhatMovesIt'
+import { REASONING_LABELS } from '../ViewReasoning'
+import { useUIStore } from '../../stores/uiStore'
+import { typography } from '../../styles/typography'
 
-/** The tab's body for one model: the sections with the alpha's own controls in their slots. */
-export function PortAnalysis({ model, chat = null }: { model: ViewModel; chat?: readonly ViewTurn[] | null }) {
-  const run = model.run ?? null
-  const ml = run?.most_likely ?? null
-  // The ✎ after the most likely line: the card of the figure it rests on, where core offers that card's edit (as ViewChances draws it).
-  const mlCard = ml?.estimate == null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
-  const next = newestNextOf(chat)
-  const notes = run === null ? [] : notesBesideTiming(run)
+/** The tab's own chrome: the fold that holds core's long reading. */
+export const ANALYSIS_WORDS = { why: 'Why this reading' } as const
+
+/** Each limit, then each option's state against it (core's `state_text`) and core's line for it under (its condition kept), its reading on hover;
+ *  a press goes to the option's card. */
+function Limits({ model }: { model: ViewModel }) {
+  const groups = limitGroupsOf(model)
+  if (groups.length === 0) return null
   return (
-    <div className={`${TYPE.body} space-y-3`} data-testid="port-analysis-tab">
-      <WhatIfShown model={model} />
-      <AnalysisHeroPanel
-        model={model}
-        chat={chat}
-        waitsBelow={(run?.waits_on?.items ?? []).some((it) => it.text !== '')}
-        nextBelow
-        tippingBelow
-        mostLikelyAction={mlCard === undefined ? undefined : <FigureEdit id={mlCard.id} edit={mlCard.figure!.edit} place="likely" glyph words={false} label={`Give your figure for ${mlCard.heading}`} />}
-      >
-        <GoalChanceRangeLines model={model} />
-        {/* The disclosure keeps only what no section below draws: the trade-offs (`run.compared`). */}
-        <HeroEvidenceDisclosure model={model} omit={['drivers', 'tipping', 'rests', 'failure', 'worth']} />
-      </AnalysisHeroPanel>
-      <FocusNow
-        model={model}
-        chat={chat}
-        nextAction={next === null ? undefined : <MoveTap turn={next.turn.id} next={next.next} arrow />}
-        waitAction={(it) => (it.edit === null ? null : <FigureEdit id={it.id} edit={it.edit} place="act" glyph words={false} label={`Give your figure for ${it.text}`} />)}
-      />
-      <Strengthen
-        model={model}
-        giveAction={(l) => (l.figure?.give == null ? null : <FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} />)}
-        findOutGive={(f) => (f.give == null ? null : <FigureEdit id={f.id} edit={f.give.edit} place="worth" glyph words={false} lead={f.give.text} label={`Change ${f.label}`} />)}
-      />
-      <YourOptions model={model} />
-      <WhatWouldChange model={model} />
-      <StressTest model={model} />
-      {run === null || notes.length === 0 ? null : (
-        <details className="space-y-2 rounded-lg border border-panel-border bg-panel p-3" data-testid="port-analysis-notes">
-          <summary className={`${TYPE.meta} cursor-pointer text-info`}>About these numbers</summary>
-          {notes.map((n, i) => <p key={i} className={TYPE.meta} title={n.title} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</p>)}
-        </details>
+    <section className="space-y-3" data-testid="analysis-limits">
+      {groups.map((g) => (
+        <div key={g.aimId} className="space-y-1" data-limit-aim={g.aimId}>
+          <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>
+          <ul className="m-0 list-none p-0">
+            {g.rows.map(({ card, row, i }) => (
+              <li key={card.id}>
+                <button type="button" onClick={() => pressCard(card.id)} title={row.title} className={`${TYPE.body} block min-h-7 w-full rounded-sm px-1 py-0.5 text-left hover:bg-panel-hover`} data-limit-option={card.id}>
+                  <span className="flex items-baseline gap-2">
+                    <span className="min-w-0 flex-1 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</span>
+                    {row.state_text == null || row.state_text === '' ? null : <span className={`${TYPE.meta} shrink-0 text-text-body`} data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span>}
+                    {row.olumi == null ? null : <span className={`${TYPE.meta} shrink-0 text-info`} title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+                  </span>
+                  {/* Core's own line for the state, with any condition it rests on ("if … does not happen"), always visible. */}
+                  {row.value === '' ? null : <span className={`${TYPE.meta} block text-text-light`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+/**
+ * Core's comparisons, each group under core's own heading for it (`compared_headings`), each line verbatim with Olumi's mark where core gives one,
+ * the Run's text on hover; a kind this page does not know, or a group core gives no heading for, draws nothing. Drawn on the panel's scale
+ * (the shared `Compared` uses the larger legacy header token).
+ */
+function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
+  const groups = comparedGroupsOf(run)
+  return groups.length === 0 ? null : (
+    <div data-testid="view-run-compared" className="space-y-3">
+      {groups.map(({ group, heading, lines }) => (
+        <div key={group} className="space-y-1" data-testid={`view-run-compared-${group}`} aria-label={heading}>
+          <p className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={`run.compared_headings.${group}`}>{heading}</p>
+          {lines.map(({ line: l, i }) => (
+            <div key={l.id} title={l.hover} data-view-fact={l.id}>
+              {l.olumi === null ? null : <><span className="text-info" title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.compared.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+              <span data-view={`run.compared.${i}.line`}>{l.line}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons, its notes. */
+function WhyThisReading({ model }: { model: ViewModel }) {
+  const [open, setOpen] = useState(false)
+  const run = model.run ?? null
+  if (run === null) return null
+  const ml = run.most_likely ?? null
+  const mlCard = ml?.estimate == null ? null : cardOf(model, ml.estimate)
+  const compared = (run.compared ?? []).some((c) => c.line !== '')
+  const notes = (run.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '')
+  if (ml == null && !compared && notes.length === 0) return null
+  return (
+    <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-why-toggle">
+        {ANALYSIS_WORDS.why}
+      </button>
+      {!open ? null : (
+        <div className={`${TYPE.meta} mt-2 space-y-2 text-text-body`} data-testid="analysis-why-region">
+          {ml == null ? null : (
+            <p className="m-0" title={ml.title} data-testid="analysis-why-most-likely">
+              <span data-view="run.most_likely.text">{ml.text}</span>
+              {mlCard?.figure?.edit == null ? null : <> <FigureEdit id={mlCard.id} edit={mlCard.figure.edit} place="analysis-likely" glyph words={false} label={`Give your figure for ${mlCard.heading}`} /></>}
+            </p>
+          )}
+          {ml?.rests_on_text == null || ml.rests_on_text === '' ? null : <p className="m-0 text-text-light" data-view="run.most_likely.rests_on_text">{ml.rests_on_text}</p>}
+          {compared ? <ComparedLines run={run} /> : null}
+          {notes.map(({ n, i }) => <p key={i} className="m-0 text-text-light" title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
+        </div>
       )}
+    </section>
+  )
+}
+
+/**
+ * With no chance yet, the questions that would move the model on are the Reasoning tab's (core's `coaching_questions`): one press goes there,
+ * with their count, rather than saying them twice.
+ */
+function ToQuestions({ model }: { model: ViewModel }) {
+  const n = (model.coaching_questions ?? []).filter((q) => q !== '').length
+  if (n === 0) return null
+  return (
+    <button type="button" onClick={() => useUIStore.getState().forceActivateOutputTab('analysisNew')} data-testid="analysis-to-questions"
+      className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-body hover:bg-panel-hover`}>
+      <span className="min-w-0 flex-1">{REASONING_LABELS.questions}</span>
+      <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{n}</span>
+    </button>
+  )
+}
+
+/** The tab's body for one model. */
+export function PortAnalysis({ model }: { model: ViewModel }) {
+  const state = tabStateOf(model)
+  // The dock's wrapper keeps a 16px gutter; the tab takes the panel's 12px (look rule) without a shared-file edit.
+  return (
+    <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
+      <WhatIfShown model={model} />
+      {state === 'chance' ? <ChanceChart model={model} /> : null}
+      {state === 'chance' ? <WhatMovesIt model={model} /> : null}
+      <Limits model={model} />
+      <ResultNeeds model={model} under={state !== 'none'} />
+      {state === 'chance' ? null : <ToQuestions model={model} />}
+      {/* Core's reading speaks of the chances shown; with none shown it would offer what no chance rests on (Paul's finding), so it is not drawn. */}
+      {state === 'chance' ? <WhyThisReading model={model} /> : null}
     </div>
   )
 }
 
 /** The tab on the lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under core's heading). */
 export function PortAnalysisTab() {
-  const model = useViewStore(shownModel), chat = useViewStore((s) => s.view?.chat ?? null)
-  return model === null ? null : <><HeldProposalLine /><PortAnalysis model={model} chat={chat} /></>
+  const model = useViewStore(shownModel)
+  return model === null ? null : <><HeldProposalLine /><PortAnalysis model={model} /></>
 }
 
 export default PortAnalysisTab

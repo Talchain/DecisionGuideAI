@@ -29,7 +29,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
-import { drawnByRows, driverCardsOf } from '../../../olumiView/port/pick'
+import { chartGroupsOf, chartRowsOf } from '../../../olumiView/port/pick'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hiring.view3.json'), 'utf8'))
@@ -55,37 +55,37 @@ const dockOn = async (tab: string) => {
   return r
 }
 
-describe('the Analysis tab on the olumi-core lane draws the ported components', () => {
-  it('mounts the ported hero in the dock: core\'s lead, both aims\' groups, core\'s likely marks; not the earlier plain block', async () => {
+describe('the Analysis tab on the olumi-core lane draws what the model implies (redesign, 18 Nov)', () => {
+  it('mounts the chance chart in the dock: core\'s lead, one bar per option with a chance for the lead aim, core\'s likely mark; not the earlier plain block', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     await dockOn('results')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-results'))
     const slot = screen.getByTestId('outputs-pre-run-view-only')
-    const hero = slot.querySelector('[data-testid="port-analysis-hero"]')!
-    expect(hero).not.toBeNull()
-    expect(hero.querySelector('[data-view="run.lead"]')!.textContent).toBe(view.model.run.lead)
-    expect([...hero.querySelectorAll<HTMLElement>('[data-testid="port-aim-group"]')].map((g) => g.dataset['aim'])).toEqual(['boost_productivity', 'meet_launch_deadline'])
-    expect(hero.querySelectorAll('[data-leader="true"]').length).toBe(2)
+    expect(slot.querySelector('[data-testid="port-analysis-tab"]')!.getAttribute('data-analysis-state')).toBe('chance')
+    const chart = slot.querySelector('[data-testid="analysis-chance-chart"]')!
+    expect(chart).not.toBeNull()
+    expect(chart.querySelector('[data-view="run.lead"]')!.textContent).toBe(view.model.run.lead)
+    // Both of hiring's aims keep a chart (the lead aim first), as the earlier hero kept both aims' groups.
+    expect([...chart.querySelectorAll<HTMLElement>('[data-chart-aim]')].map((g) => g.dataset['chartAim'])).toEqual(['boost_productivity', 'meet_launch_deadline'])
+    expect(chartGroupsOf(view.model).map((g) => g.aimId)).toEqual(['boost_productivity', 'meet_launch_deadline'])
+    const rows = chartRowsOf(view.model)
+    expect(rows.length).toBeGreaterThan(1)
+    expect([...chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll<HTMLElement>('[data-chart-option]')].map((e) => e.dataset['chartOption'])).toEqual(rows.map((r) => r.card.id))
+    for (const { card, row, i } of rows) expect(chart.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!.textContent).toBe(row.value)
+    // Core's most-likely mark, only on the rows core gives it (identity: the row's own path).
+    const likely = rows.filter((r) => r.row.likely != null)
+    expect(likely.length).toBeGreaterThan(0)
+    expect(chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll('[data-view$=".likely.glyph"]').length).toBe(likely.length)
     expect(slot.querySelector('[data-testid="view-chances"]')).toBeNull()
-    // the coach's newest next step, in core's words at its chat path (its move tap is the conversation's own control, in the slot)
-    const k = view.chat.findIndex((t: { answer: { next: { newest: boolean } } | null }) => t.answer?.next.newest === true)
-    // Build 2b: the next step is said once, in the restored "Focus now" section (SC-02), no longer in the hero; same path, same words.
-    expect(hero.querySelector(`[data-view="chat.${k}.answer.next.label"]`)).toBeNull()
-    expect(slot.querySelectorAll(`[data-view="chat.${k}.answer.next.label"]`)).toHaveLength(1)
-    expect(slot.querySelector(`[data-testid="port-focus-next"] [data-view="chat.${k}.answer.next.label"]`)!.textContent).toBe(view.chat[k].answer.next.label)
-    // The lower sections hold only what no row says (SC-02, 502cb476: say each thing once). On this board each option's driver line is
-    // said under its row and core sends no tipping, rests, failure or trade-off lines, so the disclosure has nothing left and is not drawn.
-    const said = drawnByRows(view.model)
-    expect(driverCardsOf(view.model).map((c: { id: string }) => said.drivers.has(c.id))).toEqual(driverCardsOf(view.model).map(() => true))
-    expect(['tipping', 'rests', 'failure', 'compared'].map((k) => view.model.run[k] ?? null)).toEqual([null, null, null, null])
-    expect(hero.querySelector('[data-testid="port-evidence-disclosure"]')).toBeNull()
+    // The old hero and its repeats are gone.
+    expect(slot.querySelector('[data-testid="port-analysis-hero"]')).toBeNull()
   })
 
-  it('off the lane neither the ported hero nor the plain block mounts', async () => {
+  it('off the lane neither the chart nor the plain block mounts', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     await dockOn('results')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-results'))
-    expect(screen.queryByTestId('port-analysis-hero')).toBeNull()
+    expect(screen.queryByTestId('analysis-chance-chart')).toBeNull()
     expect(screen.queryByTestId('view-chances')).toBeNull()
   })
 })
