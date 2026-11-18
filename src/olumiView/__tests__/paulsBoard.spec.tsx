@@ -19,6 +19,7 @@ import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
+import { actionable, examineOf } from '../reasoning/examine'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
@@ -100,9 +101,15 @@ describe('the panel on a pending first model', () => {
     expect(empty.querySelector('[data-testid="analysis-needs"]')).toBeNull()
     // CHANGED BY DESIGN (Codex 011, 18 Nov): with no chance the tab opens on the Reasoning tab's place to start, so that one block may stand
     // here. The rule this row guards is unchanged: no section is drawn EMPTY, and no readiness list with nothing in it.
+    // Bound by identity (independent review, 18 Nov): the ONLY section is that one block, exactly as many as the View has something to start
+    // (one or none), and it says that item's own words, never a heading over nothing.
+    const first = examineOf(bare.model!, bare.session?.methods ?? null, (bare.model_words ?? null) as Record<string, unknown> | null).find(actionable)
     const sections = [...empty.querySelectorAll<HTMLElement>('section')]
-    expect(sections.map((x) => x.dataset['testid']).filter((id) => id !== 'reasoning-focus')).toEqual([])
-    for (const x of sections) expect(x.textContent!.trim().length, x.dataset['testid']).toBeGreaterThan(0)
+    expect(sections.map((x) => x.dataset['testid'])).toEqual(first === undefined ? [] : ['reasoning-focus'])
+    if (first !== undefined) {
+      const said = sections[0]!.querySelector<HTMLElement>('[data-view], [data-view-words]')
+      expect([sections[0]!.dataset['focusKind'], (said?.textContent ?? '').trim().length > 0, sections[0]!.querySelectorAll('button').length > 0]).toEqual([first.kind, true, true])
+    }
   })
 
   it('PB5 (P2): Compare on a first model held as Olumi\'s proposal says so, not "start a model"; CONTRAST: with no scenario it says start one', () => {
