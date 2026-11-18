@@ -372,6 +372,9 @@
 /* A card core no longer holds as live (`status`, e.g. "ruled out"): its name in the light ink, so it does not read as a live option at a glance;
    the foot's first mark says why, in core's word. (The title's ink above is set with !important, so this one must be too.) */
 .olumi-look .react-flow__node:has([data-simple-set-aside]) [data-testid='node-title'] { color: var(--text-light) !important; }
+/* The Simple foot's marks read at the card's small text size on screen, as its words do: the board is zoomed out, so a raw 12 px icon drew at
+   about 7 px beside 12 px words (measured 17 Nov). Simple only: the Detailed face keeps its own sizes. */
+.olumi-look [data-simple-foot] .ok-am svg { width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s)); }
 /* A card's state marks on the Simple foot (cards/marks.tsx CardMarks): each icon takes its colour from the registry; "+N" is the card's small
    text, light at rest and ink under the pointer, with a 24 px press area that does not grow the row. */
 .olumi-look .ok-more {
