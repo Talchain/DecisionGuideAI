@@ -497,8 +497,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // separate pop-up is not mounted for it. A press selects the card before its click opens the details: the peek holds through that, so the box never blinks.
   const lanePeek = (data as { peek?: boolean } | undefined)?.peek === true
   const peekShown = hoverCard.showPopover && !renamingOnCard // (as the pop-up: never over a name being typed on the card)
+  // A card ALREADY selected when the pointer comes to rest on it has no preview (as the pop-up had none: its words are in the selection row, said once).
+  // One selected DURING the rest (the press that pins it) keeps its preview, so `selected` is read when the rest begins and is not a dependency.
+  const selectedNow = useRef(selected)
+  selectedNow.current = selected
   useEffect(() => {
-    if (!lanePeek || !peekShown) return
+    if (!lanePeek || !peekShown || selectedNow.current) return
     useLaneInspector.getState().setPeek({ kind: 'card', id })
     return () => useLaneInspector.getState().clearPeek(id)
   }, [lanePeek, peekShown, id])

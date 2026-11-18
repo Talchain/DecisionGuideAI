@@ -12,7 +12,6 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
-import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
@@ -122,7 +121,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const section = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' ? s.current.section ?? null : null))
   const close = useLaneInspector((s) => s.close)
   const target = pinnedOn ?? peeked, pinned = pinnedOn !== null
-  const view = useViewStore((s) => s.view), me = useMe((s) => s.me)
+  const view = useViewStore((s) => s.view)
   const showToast = useShowToast()
   const ctx = useLaneCtx({ showToast, onClose: NOOP, openForm: openFormHere })
   const model = view?.model ?? null
@@ -178,7 +177,6 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const said = new Set([value?.source, c.author?.text])
   const option = c.family === 'option'
   const r = c.figure === null ? null : figureRange(c)
-  const mine = view !== null && isForThisPage(view, me)
   // The card's own ask action (the right-click menu's "Explain"), pointed at this card's canvas node.
   const node = useCanvasStore.getState().nodes.find((n) => n.id === c.id)
   const ask = node === undefined ? null : () => ctx.act.ask({ kind: 'node', nodeId: node.id, nodeType: node.type as NodeTarget['nodeType'], node, screenPos: { x: 0, y: 0 } }, 'explain_element')
@@ -252,7 +250,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
           <div className="flex flex-wrap items-center gap-1" role="group" aria-label={BOX_WORDS.actions}>
             {option && c.status === null ? <CommitToThisButton option={c.id} /> : null}
             {ask === null ? null : <button type="button" data-testid="inspector-ask" onClick={ask} className={VIEW_CHIP_CLASS}><OkIcon id="ask-about-this" size={14} decorative inherit />{INSPECTOR_WORDS.ask}</button>}
-            {!canTry || !mine ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(c.id); close() }} className={VIEW_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
+            {!canTry ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(c.id); close() }} className={VIEW_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
             {rows.length === 0 ? null : <OkIconButton id="more" tone="ghost" pressed={more} onClick={() => setMore((m) => !m)} testid="lane-inspector-more" />}
           </div>
           {more && rows.length > 0 ? <div className="flex flex-wrap gap-1" role="group" aria-label={BOX_WORDS.edit}>{rows.map(chip)}</div> : null}

@@ -118,9 +118,8 @@ describe('a revealed difference on the card it is about', () => {
   })
 
   it('surfaces step A: a card with two differences (two aims) says each of core\'s sentences ONCE, under its aim; the fold\'s own line is then the fixed label, not the sentences again', async () => {
-    const two = structuredClone(core)
     const second = { ...structuredClone(figure), goal: `${figure.goal}_2`, goal_label: 'A second aim', status_text: 'Core\'s own sentence for the second aim.' }
-    two.differences.push(second as never)
+    const two = { ...structuredClone(core), differences: [...core.differences, second] } as Differences
     serve(two)
     details(CARD)
     const section = await screen.findByTestId('lane-differ')

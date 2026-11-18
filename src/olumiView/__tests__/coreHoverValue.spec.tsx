@@ -139,6 +139,27 @@ describe('the core-lane hover\'s Value line: core\'s words and core\'s own attri
     for (const c of LIVE) { const box = hover(c); expect(box, c.id).not.toBeNull(); expect(box?.textContent ?? '', c.id).not.toContain(NOT_ON_RECORD); cleanup(); vi.useRealTimers(); useLaneInspector.setState({ current: null, peek: null }) }
   })
 
+  it('H7 a card ALREADY selected when the pointer comes to rest on it has no preview (its words are in the selection row, said once) and no pop-up; CONTRAST not selected it previews, and selected DURING the rest (the press that pins it) it keeps its preview', () => {
+    const q = byId('time_until_funding_is_secured_now')
+    const view = { ...EU, model: { ...EU.model!, cards: [...EU.model!.cards, ...LIVE] } } as View
+    useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
+    useCanvasStore.setState({ nodes: LIVE.map((c) => ({ id: c.id, type: 'viewCard', data: { card: c, label: c.heading }, position: { x: 0, y: 0 } })), edges: [] } as never)
+    const ui = (selected: boolean) => (<ToastProvider><ReactFlowProvider><Node {...({ id: q.id, type: 'viewCard', data: { card: q, label: q.heading }, selected, dragging: false, zIndex: 0, isConnectable: false,
+      positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider><LaneInspector /></ToastProvider>)
+    const seen = () => [document.querySelector('[data-testid="lane-peek"]')?.getAttribute('data-box-card') ?? null, useLaneInspector.getState().peek?.id ?? null, document.querySelector('[data-testid="node-hover-card"]') !== null]
+    vi.useFakeTimers()
+    const r = render(ui(true))
+    const face = () => r.container.querySelector('[role="group"]')!
+    fireEvent.mouseEnter(face()); act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
+    expect(seen(), 'already selected').toEqual([null, null, false])
+    fireEvent.mouseLeave(face()); act(() => { vi.advanceTimersByTime(500) })
+    r.rerender(ui(false))
+    fireEvent.mouseEnter(face()); act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
+    expect(seen(), 'CONTRAST: not selected').toEqual([q.id, q.id, false])
+    r.rerender(ui(true))
+    expect(seen(), 'selected during the rest: the preview holds').toEqual([q.id, q.id, false])
+  })
+
   it('H6 the older look keeps its pop-up: off the lane the same hover draws the pop-up with core\'s value words, and names no preview', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     const q = byId('time_until_funding_is_secured_now')
