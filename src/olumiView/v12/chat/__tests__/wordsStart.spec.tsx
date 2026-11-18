@@ -466,13 +466,16 @@ describe('3b. Keep is reachable at rest beside the concise reply, not only insid
     expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: A } })
     expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('my draft')
   })
-  it('an entry no lead line carries is offered in one quiet row outside the fold (core\'s own words), and posts the same way', async () => {
+  it('ONE Keep per entry: an entry the lead carries is not offered again inside the fold; an entry no lead line carries keeps its Keep on its line inside the fold (no list of leftovers at rest)', async () => {
     answer = () => new Response(JSON.stringify({ kept: 81 }), { status: 201 })
     const c = show(withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]))
-    const rest = qa(c, 'view-floor-keep-entry')
-    expect(rest.map((r) => r.querySelector('span')?.textContent)).toEqual([C])
-    expect(openFold(c).contains(rest[0]!)).toBe(false)
-    await press(rest[0]!.querySelector('[data-testid="view-keep-idea-button"]'))
+    const t = floorTurn(c, 21)!, fold = openFold(t)
+    const inFold = [...fold.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
+    // A and B are offered in the lead only; C, which no lead line carries, is offered on its own line inside the fold.
+    expect(inFold).toHaveLength(1)
+    expect(inFold[0]!.closest('li')?.textContent).toContain(C)
+    expect(qa(c, 'view-floor-keep-row')).toHaveLength(0)
+    await press(inFold[0]!)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ floor: 21, text: C })
   })

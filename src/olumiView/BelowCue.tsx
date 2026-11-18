@@ -61,7 +61,7 @@ function useCardsRight(): number {
 
 
 /** The cue's left edge: 12 px right of the zoom row, read once it is drawn and again as the window changes. */
-function useBesideZoom(): number {
+export function useBesideZoom(): number {
   const [left, setLeft] = useState(16)
   useLayoutEffect(() => {
     const read = () => { const z = document.querySelector(FOOT_CONTROLS[0])?.getBoundingClientRect(); if (z) setLeft(Math.ceil(z.right + 12)) }

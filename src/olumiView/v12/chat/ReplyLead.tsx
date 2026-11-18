@@ -11,7 +11,7 @@ export const FULL_ANSWER = 'Full answer'
  * core's (`lead.opening`, `lead.points`), drawn verbatim; the full answer is whatever the caller draws today, unchanged. Nothing is cut, counted or
  * written here. `big`: the newest reply's short opening is the panel's one 18 px line (the caller decides, as for any reply's opening).
  */
-export function ReplyLead({ lead, at, big = false, keepLine, keepRest, children }: { lead: Lead; at: string; big?: boolean; /** Keep, beside a lead line (the floor reply's core-offered entry for that line, or null). */ keepLine?: (line: string) => ReactNode; /** Keep for core's offered entries no lead line carries: one quiet row, still outside the fold. */ keepRest?: ReactNode; children: ReactNode }) {
+export function ReplyLead({ lead, at, big = false, keepLine, children }: { lead: Lead; at: string; big?: boolean; /** Keep, beside a lead line (the floor reply's core-offered entry for that line, or null). */ keepLine?: (line: string) => ReactNode; children: ReactNode }) {
   return (
     <>
       <div className="space-y-2" data-testid="view-reply-lead">
@@ -21,7 +21,6 @@ export function ReplyLead({ lead, at, big = false, keepLine, keepRest, children 
             {lead.points.map((p, i) => <li key={i} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']" data-view={`${at}.lead.points.${i}`}>{richText(p)}{keepLine?.(p)}</li>)}
           </ul>
         )}
-        {keepRest}
       </div>
       <details className="ok-reply-more" data-testid="view-reply-full">
         <summary>{FULL_ANSWER}</summary>
