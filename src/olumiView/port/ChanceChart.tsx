@@ -121,7 +121,6 @@ export function ChanceChart({ model }: { model: ViewModel }) {
   // Each mark an option carries (core's most-likely and Olumi marks), said once in core's own title: the glyph alone is not a meaning.
   const marks = [...new Map(groups.flatMap((g) => g.rows.flatMap(({ row }) => [row.likely, row.olumi])).filter((m): m is NonNullable<typeof m> => m != null).map((m) => [m.glyph, m] as const)).values()]
   const sentence = ranged && run.sensitivity != null ? run.sensitivity.text : ''
-  const limit = ranged && run.sensitivity != null ? run.sensitivity.title ?? '' : ''
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
   return (
     <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
@@ -136,7 +135,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
       {/* The key: low and high, the figure they are for, and one disclosure (reachable by touch and keyboard, never hover alone) for what the marks and
           the two ends mean, in core's own words: each mark's title and the sensitivity sentence. */}
       {!ranged && marks.length === 0 ? null : (
-        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
           {!ranged ? null : (
             <p className="m-0 flex items-center gap-2" aria-hidden="true">
               <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
@@ -147,9 +146,6 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {/* What the two ends ARE, at rest (Codex 008 item 3, the overnight analysis design's scientific closure): core's one sentence that they are the
               chances if that input comes out in its lowest or highest third, never a confidence interval. Only the marks' legend folds. */}
           {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
-          {/* The limit on the two ends, at rest once (DL 18:30Z, the science lead's finding): core's own sentence that they are worked out in this
-              model and are not a forecast. It was the key's hover only; a limit a person meets only on hover has not been told to them. */}
-          {limit === '' ? null : <p className="m-0" data-view="run.sensitivity.title" data-testid="analysis-chart-limit">{limit}</p>}
           {marks.length === 0 ? null : (
             <details data-testid="analysis-chart-meaning">
               <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1 text-text-body [&::-webkit-details-marker]:hidden"><FoldChevron />{CHART_WORDS.meaning}</summary>
