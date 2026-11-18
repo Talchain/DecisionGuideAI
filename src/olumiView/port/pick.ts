@@ -157,7 +157,9 @@ export function needsOf(model: ViewModel): Need[] {
   const covered = (option: string, aim: string | null) => aim !== null && blockers.some((b) => b.aim_id === aim && (b.options ?? []).includes(option))
   for (const c of optionCards(model)) c.rows.forEach((r, i) => {
     // An option's line for an aim that no result is drawn for: core's own words for why, unless a shared blocker already says it for it.
-    if (r.kind === 'none' && !covered(c.id, r.aim_id)) {
+    // Core's comparison baseline for this aim (candidate 14, `aim_role: "reference"`, read as an optional key the vendored contract predates)
+    // is no missing result: its sentence stays on the card, it is not a need. A contender with a missing mechanism carries no role and stays.
+    if (r.kind === 'none' && (r as { aim_role?: unknown }).aim_role !== 'reference' && !covered(c.id, r.aim_id)) {
       const ref = r.blocked_by?.[0]?.ref ?? r.aim_id ?? null
       push({ key: `none:${c.id}.${i}`, cls: 'blocks', text: r.text, at: `${c.id}.rows.${i}.text`, title: r.title, card: ref, edit: cardOf(model, ref)?.figure?.edit ?? null })
     }

@@ -323,6 +323,20 @@ describe('what a result needs', () => {
     expect(keys.includes(`none:${own!.c.id}.${own!.i}`) || needsOf(m).some((n) => n.text === (own!.r as { text: string }).text)).toBe(true)
   })
 
+  it('R1 (core candidate 14): an option row core marks `aim_role: "reference"` is the comparison baseline, not a missing result: it leaves "What a result needs"; CONTRAST: another none row without the role stays', () => {
+    const view = structuredClone(viewOf('golden/app-launch')), m = view.model!
+    m.run!.shared_blockers = [] // every option's none row then speaks for itself
+    const keyed = new Set(needsOf(m).map((n) => n.key))
+    const rows = optionCards(m).flatMap((c) => c.rows.map((r, i) => ({ c, r, i }))).filter(({ c, i }) => keyed.has(`none:${c.id}.${i}`))
+    // CONTRAST (the same row, the same model): without the role it is listed, as a contender with a missing mechanism must be.
+    expect(rows.length, 'precondition: an uncovered none row listed as a need').toBeGreaterThanOrEqual(1)
+    const ref = rows[0]!
+    ;(ref.r as { aim_role?: string }).aim_role = 'reference'
+    expect(needsOf(m).map((n) => n.key)).not.toContain(`none:${ref.c.id}.${ref.i}`)
+    ;(ref.r as { aim_role?: string }).aim_role = 'contender' // any other value is not the reference
+    expect(needsOf(m).map((n) => n.key)).toContain(`none:${ref.c.id}.${ref.i}`)
+  })
+
   it('more than five: five at rest, the rest one press away', () => {
     const view = viewOf('real/hosting'), all = needsOf(view.model!)
     expect(all.length, 'precondition: more than five').toBeGreaterThan(5)
