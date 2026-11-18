@@ -80,3 +80,12 @@ export const findingOf = (model: { run?: object | null } | null | undefined): Ru
   const str = (x: unknown): string | null => (typeof x === 'string' && x !== '' ? x : null)
   return { text: f.text, title: str(f.title) ?? f.text, figure: str(f.figure), needs: str(f.needs) }
 }
+/**
+ * Whether the model has ANY calculated result on an option (an option card whose headline is a chance or a fixed result, by core's own
+ * `headline.state`). Where it has none, `run.finding` is the model's status ("cannot be worked out yet", an aim kept in words), which the reply's
+ * lead already says to the person: the panel does not say it a second time above the conversation (Codex ROOT 15:37Z and 15:43Z, 18 Nov). It
+ * stays on the question card and on Analysis. A finding with at least one result (a most likely option, no clear leader, an incomplete
+ * comparison) is evidence and is always drawn. Read by field, never from the finding's words.
+ */
+export const hasAnyResult = (model: { cards?: readonly { family?: string; headline?: { state?: string } | null }[] } | null | undefined): boolean =>
+  (model?.cards ?? []).some((c) => c.family === 'option' && (c.headline?.state === 'chance' || c.headline?.state === 'fixed'))

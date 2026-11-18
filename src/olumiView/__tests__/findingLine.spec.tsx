@@ -21,7 +21,7 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../v12/simpleStore'
-import { findingOf } from '../v12/contract'
+import { findingOf, hasAnyResult } from '../v12/contract'
 import { FINDING_FIGURE } from '../FindingLine'
 
 const served = structuredClone(JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))) as View
@@ -61,6 +61,21 @@ describe('the one finding line', () => {
     const c = panel(withFinding(F)), w = lines(c)
     expect([w.length, w[0]?.textContent, w[0]?.title]).toEqual([1, F.text, F.title])
     expect(c.querySelector('[data-testid="view-chat-finding"]')).not.toBeNull()
+  })
+  it('FL2b where NO option has a calculated result the finding is a status the reply already says: not above the conversation, still on the question card. CONTRASTS: one option with a result (an incomplete comparison) keeps the row; a fixed result counts', () => {
+    const states = (v: View, state: (i: number) => string): View => { const c = structuredClone(v); let i = 0; for (const card of c.model!.cards) if (card.family === 'option' && card.headline != null) (card.headline as { state: string }).state = state(i++); return c }
+    const STATUS = { text: 'The chance cannot be worked out yet: the aim has no measure.', title: 'The chance cannot be worked out yet: the aim has no measure.', figure: null, needs: null }
+    expect(served.model!.cards.filter((c) => c.family === 'option' && c.headline != null).length, 'precondition: the fixture has option headlines').toBeGreaterThan(1)
+    const none = states(withFinding(STATUS), () => 'none')
+    expect([hasAnyResult(none.model), panel(none).querySelector('[data-testid="view-chat-finding"]')]).toEqual([false, null])
+    cleanup()
+    expect(lines(question(none, 'simple')).map((e) => e.textContent), 'the question card keeps it').toEqual([STATUS.text])
+    cleanup()
+    const partial = states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none'))
+    expect([hasAnyResult(partial.model), lines(panel(partial)).map((e) => e.textContent)]).toEqual([true, [STATUS.text]])
+    cleanup()
+    const fixed = states(withFinding(STATUS), (i) => (i === 0 ? 'fixed' : 'none'))
+    expect([hasAnyResult(fixed.model), panel(fixed).querySelector('[data-testid="view-chat-finding"]') !== null]).toEqual([true, true])
   })
   it('FL3 the figure\'s heading presses to that card, on the question card and in the panel', () => {
     const q = question(withFinding(F), 'simple')
