@@ -66,6 +66,9 @@ export interface NodeHoverFacts {
   /** Non-factor: who put the element on the board. */
   source: string | null
   links: NodeHoverLinkGroup[]
+  /** The olumi-core lane: core's own sentences about the card (detail, author, an option's line, status, reason), verbatim, once each. Surfaces step 1:
+   *  they were the card's grey browser tip. */
+  about?: string[]
 }
 
 type GraphNode = { id: string; type?: string; data?: Record<string, unknown> }
@@ -119,6 +122,9 @@ export function nodeHoverFacts(
     // a figure the lane does not pass; nothing core says → no value row, never "Not on record".
     const cv = d.coreValue as { text?: unknown; source?: unknown } | null | undefined
     facts.value = cv && typeof cv.text === 'string' && cv.text !== '' ? { text: cv.text, source: typeof cv.source === 'string' && cv.source !== '' ? cv.source : null, missing: false } : null
+    const about = Array.isArray(d.coreAbout) ? (d.coreAbout as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []
+    // Said once: a sentence the Value row already carries is not repeated.
+    facts.about = [...new Set(about)].filter((x) => x !== facts.value?.text && x !== facts.value?.source)
   } else if (nodeType === 'factor') {
     // The card's own value read (`FactorNode` `valueDisplayData`): a descriptor
     // unit is suppressed, never shown as if measured.
@@ -218,7 +224,7 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
   }, [anchorRef])
 
   if (typeof document === 'undefined') return null
-  const { title, kind, description, value, source, links } = facts
+  const { title, kind, description, value, source, links, about = [] } = facts
   // A card drawn from the living model alone (`livingModelCanvas.ts`): its details say it is not in the calculation yet.
   const livingOnly = livingOnlyOf(data)
 
@@ -255,6 +261,11 @@ function OpenNodeHoverCard({ nodeId, nodeType, data, anchorRef }: NodeHoverCardP
         <div data-testid="node-hover-card-kind" className={`${typography.panelMeta} text-text-light mt-0.5 flex items-center gap-1.5`}>
           <NodeShapeIndicator nodeKind={nodeType} size={10} />
           {kind}
+        </div>
+      )}
+      {about.length === 0 ? null : (
+        <div data-testid="node-hover-card-about" className="mt-1.5 space-y-1">
+          {about.map((t, i) => <p key={i} className={`${typography.panelMeta} text-text-body m-0 break-words`}>{t}</p>)}
         </div>
       )}
       {description !== null && (

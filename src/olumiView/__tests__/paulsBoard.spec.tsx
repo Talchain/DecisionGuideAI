@@ -385,8 +385,9 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect(long.length).toBeGreaterThan(200)
     const v = withCard(EU, c0.id, (c) => ({ ...c, heading: long, face: { ...(c.face ?? {}), title: null, line: null } as never }))
     const t = draw(v, c0.id).querySelector<HTMLElement>('[data-testid="node-title"]')!
-    // R6 (16 Nov): a title is never clamped so that its end is lost: the whole heading is drawn, and it stays the hover.
-    expect([t.className.includes('line-clamp'), t.title, t.textContent!.includes(long)]).toEqual([false, long, true])
+    // R6 (16 Nov): a title is never clamped so that its end is lost: the whole heading is drawn.
+    // CHANGED BY DESIGN (surfaces step 1, 18 Nov): no browser tip on the name; the card's hover pop-up names it whole (coreHoverValue.spec).
+    expect([t.className.includes('line-clamp'), t.getAttribute('title'), t.textContent!.includes(long)]).toEqual([false, null, true])
   })
 
   // DL-529 (14 Nov, the component sheet): whose a card is is a first-class mark at its foot, the person's as Olumi's, never hover-only

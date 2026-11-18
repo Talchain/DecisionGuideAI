@@ -2751,7 +2751,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           ) : (
           <div
             data-testid="node-title"
-            title={isCoreCard && !lodBodyHidden ? label : undefined}
+            /* Surfaces step 1 (18 Nov): no browser tip on the name; the card's hover pop-up names it whole. */
             /* ⭐ THE PER-TYPE NUMBER (O1 / F2 / OC1 / R1, Paul 1 Oct) IS GENERATED CONTENT, NOT TEXT: a `::before` that
                reads this attribute. The title's text, its `textContent` and every reader of it stay the label alone
                (#2392 put a span inside the title and turned the "a title never carries a digit" and title-text readers

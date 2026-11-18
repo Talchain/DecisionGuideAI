@@ -320,7 +320,8 @@ describe('Detailed: marks, not sentences', () => {
     for (const heading of [o.heading, long]) {
       const el = draw(withCard(HIRING, { ...o, heading } as ViewCard), o.id)
       const title = el.querySelector<HTMLElement>('[data-testid="node-title"]')!
-      expect([title.getAttribute('title') === heading && (title.textContent ?? '') !== '', title.className.includes('line-clamp'), el.querySelector('[data-whole-title], [data-whole-title-words]')]).toEqual([true, false, null])
+      // Surfaces step 1 (18 Nov): no browser tip on the name; the whole heading is drawn and is the hover pop-up's name.
+      expect([title.getAttribute('title'), (title.textContent ?? '') !== '', title.className.includes('line-clamp'), el.querySelector('[data-whole-title], [data-whole-title-words]')]).toEqual([null, true, false, null])
       cleanup()
     }
     // The look: EVERY rule that names the title (not one string): a rule that cuts it (a line clamp, an ellipsis, nowrap, a clipping box, a height cap) must be

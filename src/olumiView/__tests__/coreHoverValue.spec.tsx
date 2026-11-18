@@ -40,6 +40,22 @@ const hover = (card: ViewCard, cards: ViewCard[] = LIVE): HTMLElement | null => 
 }
 const valueOf = (pop: HTMLElement | null) => pop?.querySelector('[data-testid="node-hover-card-value"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? null
 
+describe('surfaces step 1 (18 Nov): no grey browser tip on a card; its sentences are in the one hover pop-up', () => {
+  it('the face and the name carry no title=; core\'s detail and status are rows of the pop-up, each once. CONTRAST: a card with nothing to say has no such rows', () => {
+    const base = LIVE.find((c) => c.family === 'option') ?? LIVE[0]!
+    const card = { ...base, detail: 'Core says this route was set aside in the last version.', status: 'ruled out' } as ViewCard
+    const pop = hover(card)
+    const face = document.querySelector('[data-core-card]')!
+    expect([face.getAttribute('title'), document.querySelector('[data-testid="node-title"]')?.getAttribute('title') ?? null]).toEqual([null, null])
+    const rows = [...(pop?.querySelectorAll('[data-testid="node-hover-card-about"] p') ?? [])].map((p) => p.textContent)
+    expect(rows).toContain('Core says this route was set aside in the last version.')
+    expect(new Set(rows).size).toBe(rows.length)
+    cleanup()
+    const quiet = hover({ ...base, detail: '', status: null, reason: null, author: null, face: null } as unknown as ViewCard)
+    expect(quiet?.querySelector('[data-testid="node-hover-card-about"]') ?? null).toBeNull()
+  })
+})
+
 describe('the core-lane hover\'s Value line: core\'s words and core\'s own attribution for THAT value (Codex PL-851)', () => {
   it('H1 a goal whose bound is Olumi\'s proposal (v4 live): core\'s bound words and the bound\'s own Olumi mark; never the aim\'s author', () => {
     const g = byId('secure_funding_within_2_months')

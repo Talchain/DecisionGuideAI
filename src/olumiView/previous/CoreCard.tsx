@@ -220,8 +220,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const titleOverride = shortTitle !== null ? (shortTitle !== label ? shortTitle : undefined) : faceTitle !== '' && faceTitle !== label ? faceTitle : undefined
   const question = id === QUESTION ? model?.question ?? null : null
   const coreValue = card === null ? null : coreHoverValueOf(card)
+  // Surfaces step 1 (18 Nov; Paul's screenshot: a grey browser box over the card): what the whole face's browser tip said (core's detail, a
+  // driver's title, the author, an option's line, status, reason: core's words, verbatim) is said in the card's one hover pop-up instead.
+  const driverOfNow = useDriverOf(id)
+  const coreAbout = card === null ? null : (driverOfNow !== null ? driverOfNow.map((o) => o.driver!.title)
+    : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf({ ...card, status: simple ? card.status : null, author: coreValue !== null ? null : card.author })]).filter((x) => x !== '')
+  // (The author line is left out where the Value row speaks: that row carries the value's OWN attribution, Codex PL-851.)
   // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, simple, dsKind, shape?.shape])
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, dsKind, shape?.shape])
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
@@ -246,7 +252,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : undefined
   // The lenses mark the cards they are about (RULING 5): the Rests on number, in Olumi's blue where core marks the figure Olumi's; the
   // ring of What would change. Both are core's (lens.ts); null off those lenses.
-  const restsOn = useRestsOnItem(id), driverOf = useDriverOf(id)
+  const restsOn = useRestsOnItem(id), driverOf = driverOfNow
   // If it failed (K5): the cards Olumi's stories rest on stand in front, the rest recede; What if (TM-27): the figure tried, on its card.
   const preMortem = usePreMortemOf(id), tried = useTriedOn(id)
   const tryOn = useTryOn(card)
@@ -422,7 +428,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <div className="ok-dt-foot">{question?.decide_by == null ? null : <DecideBy d={question.decide_by} />}{badge === null ? null : <BadgeCount cardId={id} badge={badge} at="question" />}{earlierLine}</div>
           </div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
-          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(simple ? card : { ...card, status: null })].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
+          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
