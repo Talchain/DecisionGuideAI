@@ -402,7 +402,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
   })
 
   // Closing the strip gives its space back after a press (pre-screen 4b92d394 row 16).
-  it('CT10 (V12) the ⋯ menu closes after a question is pressed, which posts that question once; the four icons fill the box and send nothing', async () => {
+  it('CT10 (V12) the ⋯ menu closes after a question is pressed, which posts that question once; a challenge icon with no card selected waits and sends nothing', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = render(<><ViewChat /><ViewComposer /></>)
     await act(async () => { fireEvent.click(getByTestId('view-actions-button')) })
     expect(getByTestId('view-actions-button')).toHaveAttribute('aria-expanded', 'true')
@@ -411,8 +411,10 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     await act(async () => { fireEvent.click(first.querySelector('span')!) })
     expect(queryByTestId('view-actions-menu')).toBeNull()
     expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/method`, body: { method: id, op: expect.any(String) } }])
+    // 18 Nov (menu brief UI-A): with an empty box and no card selected the icon waits for a card; it types nothing and sends nothing.
     fireEvent.click(getByTestId('view-composer-method-assumption'))
-    expect(useViewChat.getState().text).not.toBe('')
+    expect([useViewChat.getState().text, useViewChat.getState().armed]).toEqual(['', 'assumption'])
+    useViewChat.setState({ armed: null })
     expect(posts).toHaveLength(1)
   })
 

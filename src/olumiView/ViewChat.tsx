@@ -26,6 +26,7 @@ import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { typography } from '../styles/typography'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
+import { focusNodeById } from '../canvas/utils/focusHelpers'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
@@ -789,6 +790,8 @@ export interface ViewChatState {
   /** Words-start (Codex root 03:42:17Z): a brief put back after a reload that was sent to start in words. Sending those same words again keeps that
    *  choice and its op, whichever button is pressed; changed words are a new brief. */
   readonly wordsBrief?: string | null
+  /** A challenge picked in the composer with no single card selected (menu brief UI-A, 18 Nov): it runs on the next card the person picks. */
+  readonly armed?: ChallengeKind | null
 }
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null }))
@@ -1083,8 +1086,8 @@ export async function chooseGoal(goal: string | null): Promise<boolean> {
 }
 
 /**
- * One plain question from the menu (core `POST …/method`): core sends it as a discussion-only turn on the challenges' path, so it never
- * changes the model or a pending proposal (core's guarantee). Its reply lands as the newest turn when the View is read again, as a
+ * One plain question from the menu (core `POST …/method`): core answers it as one turn on the challenges' path. It may propose a change,
+ * which is held for the person's approval like any other proposal (core 7035, Codex 18 Nov; it was once discussion-only). Its reply lands as the newest turn when the View is read again, as a
  * challenge's does. The same press after a dropped connection is sent with the same op id, so core answers (and pays) once.
  */
 export async function askMethod(method: string): Promise<boolean> {
@@ -1288,6 +1291,63 @@ const ASKS = {
   _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
   _isConversationBusy: () => useViewChat.getState().busy,
 }
+/**
+ * The selection chip's Ask on this lane (menu brief UI-D, 18 Nov; Codex 23:56Z: a generic Ask is prefilled and never auto-sent). It was not
+ * drawn at all: its legacy sender is never registered here. It starts the person's own question about that card in the message box, after
+ * whatever they have typed, as a card's Olumi corner does; they finish it and send it.
+ */
+const askAboutSelection = (s: { label: string }): void => { keep(`About ${s.label}: `); document.getElementById('view-chat-text')?.focus() }
+/** The one card of the model the canvas has selected: null for none, several, or a node the model does not hold. Bound by id. */
+const selectedRecord = (): string | null => {
+  const ids = [...useCanvasStore.getState().selection.nodeIds], view = useViewStore.getState().view
+  return ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
+}
+/** Fixed chrome, said in the composer while a challenge waits for its card. */
+export const PICK_A_CARD = 'pick a card on the canvas. Esc cancels.'
+/** Core's typed challenge on ONE card of the model (the route a card's own Challenge uses). The words are only what returns to the box if it is not sent. */
+function challengeCard(kind: ChallengeKind, record: string): void {
+  useViewChat.setState({ armed: null })
+  const label = useViewStore.getState().view?.model?.cards.find((c) => c.id === record)?.heading ?? ''
+  const words = `${V10_METHODS.find((m) => m.key === kind)!.prefix}${label}`
+  if (keptWhileBusy(words)) return
+  void challenge(kind, record, words).then(keptIfNotSent(words))
+  focusNodeById(record)
+}
+/**
+ * A press on one of the composer's four challenge icons (menu brief UI-A, 18 Nov). They used to paste a prefix into the box, which nothing
+ * read. Now: words already typed are still the person's own subject (the prefix goes before them, as before, and they send it); with an
+ * empty box the challenge is core's typed one on the selected card, or (no single card selected) it waits for the next card picked. A
+ * second press on a waiting icon, or Esc, cancels it. Any change Olumi proposes from it is held for the person's approval.
+ */
+export function pressChallenge(kind: ChallengeKind): 'prefixed' | 'sent' | 'armed' | 'cancelled' {
+  const { text, armed } = useViewChat.getState()
+  if (text.trim() !== '') { useViewChat.setState({ armed: null, text: withMethodPrefix(V10_METHODS.find((m) => m.key === kind)!.prefix, text) }); return 'prefixed' }
+  if (armed === kind) { useViewChat.setState({ armed: null }); return 'cancelled' }
+  const record = selectedRecord()
+  if (record === null) { useViewChat.setState({ armed: kind }); return 'armed' }
+  challengeCard(kind, record)
+  return 'sent'
+}
+/** While a challenge waits: the next single card picked gets it; Esc, or another scenario on screen, cancels it. */
+function useArmedChallenge(): ChallengeKind | null {
+  const armed = useViewChat((st) => st.armed ?? null)
+  useEffect(() => {
+    if (armed === null) return undefined
+    const at = useViewStore.getState().uuid
+    const pick = () => {
+      if (useViewChat.getState().armed !== armed) return
+      if (useViewStore.getState().uuid !== at) { useViewChat.setState({ armed: null }); return }
+      const record = selectedRecord()
+      if (record !== null) challengeCard(armed, record)
+    }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') useViewChat.setState({ armed: null }) }
+    const off = useCanvasStore.subscribe(pick), offView = useViewStore.subscribe(pick)
+    window.addEventListener('keydown', key)
+    return () => { off(); offView(); window.removeEventListener('keydown', key) }
+  }, [armed])
+  return armed
+}
+
 /** A question from a kept idea (Codex 008e #2): put in the message box after whatever is typed, never sent; the person edits and sends it. */
 export const prefillComposer = (text: string): void => {
   const f = useGuidanceStore.getState()._prefillChat
@@ -1703,7 +1763,7 @@ export function ViewChat() {
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
               onAnswer={(_q, answer) => say(answer)}
-              onMethod={(prefix) => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); document.getElementById('view-chat-text')?.focus() }} />
+              onMethod={(key) => { if (pressChallenge(key) === 'prefixed') document.getElementById('view-chat-text')?.focus() }} />
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
@@ -1817,12 +1877,13 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   useEffect(() => { if (brief && !busy) box.current?.focus() }, [brief, busy])
   // The dock's focus channel reaches this composer (review 00065 ledger).
   useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
+  const armed = useArmedChallenge()
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''
   const submit = () => { if (!sendHeld) void send() }
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
-  // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer); each fills the box, sends nothing.
+  // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer). What a press does: `pressChallenge`.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
@@ -1845,7 +1906,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
-        <SelectionPill chip after={selectedRename} mark={selectedKindMark} />
+        <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} />
+        {/* A challenge waiting for its card says so here, in words (the pressed icon alone is not enough on touch or by keyboard). */}
+        {armed === null ? null : <p role="status" className={`${typography.viewPanelMeta} m-0 px-3 pt-2 text-text-light`} data-testid="view-composer-armed">{V10_METHODS.find((m) => m.key === armed)!.label}: {PICK_A_CARD}</p>}
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
           rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
@@ -1856,9 +1919,10 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {!methods ? null : (
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
               {/* The four methods are the registry's method icons, neutral (Paul, 17 Nov: icons carry no hue); the method's own label is the hover. */}
-              {V10_METHODS.map(({ key, label, prefix }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-composer-method-${key}`} size={14} className="h-7 w-7 rounded-md hover:bg-panel-hover"
-                  onClick={() => { useViewChat.setState({ text: withMethodPrefix(prefix, useViewChat.getState().text) }); box.current?.focus() }} />
+              {V10_METHODS.map(({ key, label }) => (
+                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} testid={`view-composer-method-${key}`} size={14}
+                  className={`h-7 w-7 rounded-md hover:bg-panel-hover${armed === key ? ' bg-panel-hover' : ''}`}
+                  onClick={() => { if (pressChallenge(key) === 'prefixed') box.current?.focus() }} />
               ))}
             </span>
           )}

@@ -24,6 +24,8 @@ export const COMMIT_WORDS = {
   reconsider: 'When would you reconsider?', keep: 'Keep it', footnote: 'You can compare what happened with what you expected later.',
   /** Paul, 18 Nov ("There's no way to get rid of the 'Record what you will do' panel"): the form closes, and a draft can be thrown away. */
   close: 'Close', discard: 'Discard draft', draftKept: 'Draft kept', notReady: 'Answer all three to keep it.',
+  /** Codex review 008 (18 Nov): the folded line says a save in flight; it never reads as a draft merely kept. */
+  saving: 'Saving',
   /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
   /** v10 review item 12: the Next step card's secondary button, and the kept idea's "Use as my action" (fixed chrome). */
   nextStepButton: 'Record what you will do', useAsAction: 'Use as my action', yours: 'This is your draft, copied from an idea you kept. Change it as you like.',
@@ -120,14 +122,18 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   )
   const close = () => { setOpened(false); if (d.open) put({ open: false }) }
   const discard = () => { drop(); setOpened(false); setError(null) }
+  // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
+  const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
   if (!opened && !d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
         <button type="button" data-testid="commit-form-open" onClick={() => setOpened(true)}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
           <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
-          {hasDraft ? <span className="font-normal" data-testid="commit-form-draft-kept">· {COMMIT_WORDS.draftKept}</span> : null}
+          {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>
+            : hasDraft ? <span className="font-normal" data-testid="commit-form-draft-kept">· {COMMIT_WORDS.draftKept}</span> : null}
         </button>
+        {status}
       </section>
     )
   }
@@ -145,7 +151,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       <L id="commit-form-action" t={COMMIT_WORDS.action}>{area('commit-form-action', 'action')}</L>
       <L id="commit-form-expect" t={COMMIT_WORDS.expect}>{area('commit-form-expect', 'expect')}</L>
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>
-      {locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p>}
+      {status}
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" data-testid="commit-form-keep" disabled={!ready || busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
         {/* A quiet grey text press, never blue (blue is Olumi's) and never a second filled button beside Keep it. */}

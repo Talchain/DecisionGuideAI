@@ -18,7 +18,7 @@ const statuses = { saved: 'Saved model', proposed: 'Proposed model', 'what-if': 
 export function ResultReceipts({ claims }: { claims: Claims }) {
   if (!claims?.length) return null
   return <details className="text-text-body">
-    <summary className={typography.viewPanelBody + ' cursor-pointer py-2'}>What these chances rest on</summary>
+    <summary className={typography.viewPanelBody + ' cursor-pointer py-2'}>What these results rest on</summary>
     <ul className="list-none space-y-3">
       {claims.map((claim, i) => <li key={claim.cite + '/' + i} className="space-y-1">
         {/* The option's name at the scale's 500 weight (Paul, 7 Nov: 400/500 only; a bare <strong> drew 700). */}

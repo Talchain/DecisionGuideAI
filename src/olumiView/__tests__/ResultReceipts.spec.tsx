@@ -24,7 +24,7 @@ describe('the basis of an answer', () => {
     render(<ResultReceipts claims={[first, { ...first, cite: '[[chance:firms:round:a2]]', analysis: 'a2', result: 'firms:round',
       option: 'firms', optionName: 'Institutional round', aim: 'round', aimName: 'Main round closed', version: 1, status: 'saved',
       basis: 'The full round must close', conditions: 'Subject to a lead investor', superseded: true, assumptions: [] }]} />)
-    const toggle = screen.getByText('What these chances rest on')
+    const toggle = screen.getByText('What these results rest on')
     const details = toggle.closest('details')!
     expect(details.open).toBe(false)
     toggle.click()
@@ -59,7 +59,7 @@ describe('the basis of an answer', () => {
     const { container } = render(<ViewChat />)
     const bubble = container.querySelector('[data-view-turn="chat.' + index + '"]')!
     expect(within(bubble as HTMLElement).getByText(first.rendered)).toBeTruthy()
-    const toggle = within(bubble as HTMLElement).getByText('What these chances rest on')
+    const toggle = within(bubble as HTMLElement).getByText('What these results rest on')
     toggle.click()
     expect(toggle.closest('details')!.open).toBe(true)
     expect(within(bubble as HTMLElement).getByText(first.conditions)).toBeTruthy()

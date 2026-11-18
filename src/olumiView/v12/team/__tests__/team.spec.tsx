@@ -8,7 +8,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
-import { resetWrites } from '../../../../olumiCore/team/writes'
+import { MAY_HAVE_SAVED, resetWrites } from '../../../../olumiCore/team/writes'
 import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
 import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
 import { CommitForm, COMMIT_WORDS, openCommitDraft } from '../CommitForm'
@@ -85,6 +85,28 @@ describe('Record what you will do', () => {
     expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-draft-kept')]).toEqual(['false', null])
     fireEvent.click(screen.getByTestId('commit-form-open'))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('')
+  })
+  it('Codex review 008 (18 Nov): Close during a save folds the form, and the folded line carries the save\'s own state: "Saving" while it is on its way, then the may-have-saved warning when the answer is lost. CONTRAST: a closed draft with no save says only "Draft kept"', async () => {
+    let lose!: (e: Error) => void
+    let posted = false
+    // The person check (a GET) answers; the save itself (the POST) is held, then its answer is lost.
+    setTeamFetch(((_url: string, init?: RequestInit) => (init?.method ?? 'GET') === 'GET'
+      ? Promise.resolve(new Response(JSON.stringify({ me: { id: '1' } }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      : new Promise<Response>((_, reject) => { posted = true; lose = reject })) as unknown as typeof fetch)
+    render(<CommitForm sid="s_fold" view={view()} onWrote={async () => true} />)
+    openForm()
+    for (const id of ['commit-form-action', 'commit-form-expect', 'commit-form-reconsider']) fireEvent.change(screen.getByTestId(id), { target: { value: 'x' } })
+    const folded = () => ({ open: screen.getByTestId('commit-form').getAttribute('data-open'), kept: screen.queryByTestId('commit-form-draft-kept')?.textContent ?? null, saving: screen.queryByTestId('commit-form-saving')?.textContent ?? null, alert: screen.queryByTestId('commit-form-error')?.textContent ?? null })
+    fireEvent.click(screen.getByTestId('commit-form-close'))
+    expect(folded()).toEqual({ open: 'false', kept: '· Draft kept', saving: null, alert: null })
+    openForm()
+    fireEvent.click(screen.getByTestId('commit-form-keep'))
+    fireEvent.click(screen.getByTestId('commit-form-close'))
+    expect(folded()).toEqual({ open: 'false', kept: null, saving: '· Saving', alert: null })
+    await waitFor(() => expect(posted).toBe(true))
+    await act(async () => { lose(new TypeError('Failed to fetch')) })
+    await waitFor(() => expect(folded().alert).toBe(MAY_HAVE_SAVED))
+    expect(folded()).toMatchObject({ open: 'false', saving: null })
   })
   it('a kept idea opens the form with its words as plain text (no "## " in the box), and Close gets rid of it', () => {
     const v = view()
