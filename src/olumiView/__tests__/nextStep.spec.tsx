@@ -70,12 +70,24 @@ describe('the next step', () => {
     expect(isOpen(review)).toBe(true)
     expect(review).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
-    // CONTRAST: the other kinds are still a titled card with "Next step" and no review row (V12: the goal's first question).
+    // CONTRAST: the other kinds are named "Next step" and have no review row (V12: the goal's first question).
     cleanup()
     const f = step(show(golden('bakery')))!
     expect(f.getAttribute('data-step')).toBe('figure')
-    expect([...f.querySelectorAll('p')].map((e) => e.textContent)).toContain('Next step')
+    expect(f.querySelector('[data-testid="view-next-step-toggle"]')!.textContent).toContain('Next step')
     expect(f.querySelector('[data-testid="view-proposal-review"]')).toBeNull()
+  })
+
+  it('Paul, 18 Nov: at rest the step is ONE closed row (its body hidden, so it no longer covers the conversation); a press opens it in place and a second press closes it', () => {
+    const f = step(show(golden('bakery')))!
+    const toggle = f.querySelector<HTMLButtonElement>('[data-testid="view-next-step-toggle"]')!, body = f.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!
+    expect([toggle.tagName, toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls'), body.id, body.hidden, f.getAttribute('data-open')]).toEqual(['BUTTON', 'false', 'view-next-step-body', 'view-next-step-body', true, 'false'])
+    fireEvent.click(toggle)
+    expect([toggle.getAttribute('aria-expanded'), body.hidden, f.getAttribute('data-open')]).toEqual(['true', false, 'true'])
+    // The step's own content is inside the body it opens: nothing of it is drawn outside.
+    expect(body.querySelector('[data-testid="view-next-figure-waits"]')).not.toBeNull()
+    fireEvent.click(toggle)
+    expect([toggle.getAttribute('aria-expanded'), body.hidden]).toEqual(['false', true])
   })
 
   it('no proposal and the chances wait on a figure the person can type: that figure, in core\'s words, with its editor', () => {

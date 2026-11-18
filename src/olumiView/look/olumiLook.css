@@ -208,10 +208,12 @@
   max-width: 88% !important;
 }
 .ok-said-by { margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--text-light); }
-/* Olumi's reply: Olumi's mark in the margin, its paragraphs and lists set as type, its cites small and quiet. */
-.ok-reply { position: relative; padding-left: 26px; color: var(--text-body); font-size: 12px; line-height: 18px; }
+/* Olumi's reply: its paragraphs and lists set as type, its cites small and quiet. Olumi's mark sits at the start of the FIRST line and the
+   words run the panel's whole width under it (Paul, 18 Nov: "use the width of the right-hand panel more effectively"; a 26 px margin column
+   beside every line cost about a tenth of a 347 px panel). */
+.ok-reply { position: relative; color: var(--text-body); font-size: 12px; line-height: 18px; }
 .ok-reply-mark {
-  position: absolute; left: 0; top: 2px; display: inline-grid; place-items: center; width: 18px; height: 18px;
+  float: left; margin: 0 6px 0 0; display: inline-grid; place-items: center; width: 18px; height: 18px;
   border: 1px solid var(--info); border-radius: 999px; color: var(--info); font-size: 12px; line-height: 1;
 }
 .ok-reply [data-reply-list] { list-style: none; padding-left: 12px; }

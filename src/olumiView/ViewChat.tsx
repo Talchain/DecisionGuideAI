@@ -350,7 +350,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     </span>
   )
   const tools = (
-    <div className={`flex flex-wrap items-center gap-1${t.answer === null ? '' : ' pl-[26px]'}`} data-testid="view-reply-tools">
+    <div className="flex flex-wrap items-center gap-1" data-testid="view-reply-tools">
       {t.answer === null ? null : <AboutChips cards={aboutCards} />}
       {t.answer === null ? null : <ShowInWorkspace turn={t.id} next={t.answer.next} />}
       {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
@@ -1429,6 +1429,10 @@ function MoveStep({ view, turn }: { view: View; turn: number }) {
 }
 
 function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: NextStep }) {
+  // Paul, 18 Nov: the Next step card sat open at the top of the panel, "takes up space and makes it look busy", and covered the card under
+  // it. At rest it is ONE quiet row (its name and, where the step is a single press, that press's own words); a press opens it in place.
+  const [open, setOpen] = useState(false)
+  useEffect(() => { setOpen(false) }, [step.kind])
   // Contract 3 (ONE-PLAN, 15 Nov: "the pending review collapses to one row; all changes can be read without approving"): Olumi's waiting
   // proposal is ONE row, in core's words (`proposal.heading` · `proposal.on`), closed at rest so the thread keeps its room; opening it
   // shows every change, its readings and Approve / Set aside (the box then grows and scrolls as before). A new proposal starts closed.
@@ -1441,8 +1445,15 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
     )
   }
   return (
-    <section className={`${typography.viewPanelBody} rounded-md border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-next-step" data-step={step.kind} aria-label="Next step">
-      <p className={`${typography.viewPanelHeading} text-text-header`}>Next step</p>
+    <section className={`${typography.viewPanelBody} space-y-1`} data-testid="view-next-step" data-step={step.kind} data-open={open ? 'true' : 'false'} aria-label="Next step">
+      <button type="button" aria-expanded={open} aria-controls="view-next-step-body" data-testid="view-next-step-toggle" onClick={() => setOpen((o) => !o)}
+        className={`${typography.viewPanelMeta} flex min-h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        <OkIcon id="next-step" size={14} decorative />
+        <span className="flex-none font-medium">Next step</span>
+        {open || nextStepLabel(step) === null ? null : <span className="min-w-0 flex-1 truncate" data-testid="view-next-step-label">{nextStepLabel(step)}</span>}
+        {open ? <ChevronUp aria-hidden="true" strokeWidth={1.75} className="ml-auto h-3.5 w-3.5 flex-none" /> : <ChevronDown aria-hidden="true" strokeWidth={1.75} className="ml-auto h-3.5 w-3.5 flex-none" />}
+      </button>
+      <div id="view-next-step-body" hidden={!open} className="space-y-2 rounded-md border border-panel-border bg-panel p-3" data-testid="view-next-step-body">
       {step.kind === 'move' ? <MoveStep view={view} turn={step.turn} /> : null}
       {step.kind === 'figure' ? (
         <div className="space-y-1">
@@ -1454,14 +1465,19 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
       {step.kind === 'invite' ? (
         <>
           <p>{NEXT_STEP_WORDS.invite}</p>
-          <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>Invite a colleague</button>
+          <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>{NEXT_INVITE_WORDS}</button>
         </>
       ) : null}
       {/* v10 review item 12: committing is a step, so its button is here, secondary; it opens the form below and writes nothing. */}
       <div className="empty:hidden"><RecordStepButton /></div>
+      </div>
     </section>
   )
 }
+/** The closed row's words: the step's one press, in the words that press itself carries (core's for a method or a move); none where the step is a form. */
+const nextStepLabel = (step: NextStep): string | null =>
+  step.kind === 'method' ? step.method.text : step.kind === 'move' ? step.next.label : step.kind === 'invite' ? NEXT_INVITE_WORDS : null
+const NEXT_INVITE_WORDS = 'Invite a colleague'
 
 /** The first question core orders for what they came for, as one button in core's words; an analysis-gated one says what it needs. */
 function MethodStep({ m, held }: { m: MenuMethod; held: boolean }) {
@@ -1657,7 +1673,7 @@ export function ViewChat() {
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
       {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
       <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
-        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto p-4">
+        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto px-3 py-4">
           <div ref={content} className="space-y-6">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
