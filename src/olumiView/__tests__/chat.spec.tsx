@@ -169,6 +169,28 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(review.querySelector('[data-testid="view-set-aside"]')!.getAttribute('aria-label')).toBe('Set aside')
   })
 
+  // 18 Nov, Paul's pictures of the compact controls: Approve was a CIRCLE (rounded-md is 12px here, so a 28px square drew round), the bar took two lines,
+  // and Set aside's archive-with-cross was ambiguous. Bound to the lane's real card (identity: the testids), at rest (closed) and open.
+  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the dismiss cross', () => {
+    const held = golden('proposal')
+    useViewStore.setState({ view: held })
+    const { container } = renderTab()
+    const review = container.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
+    const bar = review.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')!
+    expect(bar.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'flex-nowrap']))
+    expect(bar.className.split(/\s+/)).not.toContain('flex-wrap')
+    const kids = [...bar.children].map((c) => (c as HTMLElement).dataset['testid'])
+    expect(kids.filter((t) => t !== undefined && t !== '')).toEqual(['view-proposal-row', 'view-proposal-review-toggle', 'view-approve', 'view-set-aside'])
+    expect(bar.querySelector('[data-testid="view-change-mix"]'), 'the change mix is not in the one-row bar').toBeNull()
+    const approve = bar.querySelector<HTMLElement>('[data-testid="view-approve"]')!
+    expect(approve.className.split(/\s+/)).toContain('rounded-control')
+    expect(approve.className).not.toMatch(/rounded-(md|full|pill|lg)/)
+    const aside = bar.querySelector<HTMLElement>('[data-testid="view-set-aside"]')!
+    expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', 'Set aside'])
+    expect(aside.querySelector('svg.lucide-x'), 'the dismiss cross, not the archive box').not.toBeNull()
+    expect(aside.querySelector('svg.lucide-archive-x')).toBeNull()
+  })
+
   // CATCH (contract 3). Fails before: land() had no closed-details early return, so a closed review's box was given a maxHeight from the rows.
   it('the readings rest places nothing while the review is closed: the box keeps its own height', () => {
     const held = golden('proposal')

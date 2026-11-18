@@ -33,7 +33,8 @@ describe('a control that cannot act yet is solid, not faded', () => {
   })
   it('NF2b the lane\'s control recipe (18 Nov): 28px, 6px radius, no pill and no border; the older look\'s chips are unchanged (contrast)', async () => {
     const { CHIP_CLASS, CHIP_PRIMARY_CLASS } = await import('../../v5/blocks/chipClass')
-    for (const c of [VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS]) expect(c.split(/\s+/)).toEqual(expect.arrayContaining(['min-h-7', 'rounded-md']))
+    for (const c of [VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS]) expect(c.split(/\s+/)).toEqual(expect.arrayContaining(['min-h-7', 'rounded-control']))
+    for (const c of [VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS]) expect(c.split(/\s+/), 'rounded-md is 12px here and draws a 28px square as a circle').not.toContain('rounded-md')
     expect(VIEW_CHIP_PRIMARY_CLASS).not.toMatch(/min-h-\[44px\]|rounded-\[|shadow/)
     expect(VIEW_CHIP_PRIMARY_CLASS.split(/\s+/)).toEqual(expect.arrayContaining(['bg-success']))
     expect(CHIP_CLASS).toMatch(/rounded-\[14px\]/)

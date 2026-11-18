@@ -79,7 +79,7 @@ describe('OkIcon and OkIconButton', () => {
     render(<OkIcon id="delete" />)
     const img = screen.getByRole('img', { name: ICONS.delete.hover })
     expect(img.getAttribute('title')).toBe(ICONS.delete.hover)
-    expect(img.style.color).toBe('var(--danger)')
+    expect(img.className.split(/\s+/)).toContain('text-danger')
   })
 
   it("core's own words win over the registry's hover", () => {
@@ -102,6 +102,31 @@ describe('OkIcon and OkIconButton', () => {
     expect(btn.className).toContain('after:h-11')
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('a disabled ghost icon button looks disabled: the disabled colour is a class that wins, and no colour is inline (18 Nov)', () => {
+    for (const tone of ['ghost', undefined] as const) {
+      const { container, unmount } = render(<OkIconButton id="cancel-close" tone={tone} words="Set aside" onClick={() => undefined} disabled testid="d" />)
+      const btn = container.querySelector<HTMLButtonElement>('[data-testid="d"]')!
+      expect(btn.disabled).toBe(true)
+      expect(btn.className.split(/\s+/), `tone ${String(tone)}`).toContain('disabled:text-text-light')
+      expect(btn.getAttribute('style'), 'no inline colour').toBeNull()
+      unmount()
+    }
+  })
+
+  it('every registry icon draws its colour as a class, never inline (identity: challenged is the orange, set-aside the grey)', () => {
+    for (const [id] of entries) {
+      const { container, unmount } = render(<OkIcon id={id} />)
+      const el = container.firstElementChild as HTMLElement
+      expect(el.getAttribute('style'), id).toBeNull()
+      expect(el.className, id).toMatch(/(^|\s)text-/)
+      unmount()
+    }
+    const challenged = render(<OkIcon id="challenged" />).container.firstElementChild as HTMLElement
+    expect(challenged.className).toContain('--olumi-mark-orange')
+    const aside = render(<OkIcon id="set-aside" />).container.firstElementChild as HTMLElement
+    expect(aside.className.split(/\s+/)).toContain('text-text-light')
   })
 
   it('OkIconButton takes core\'s words as its label and title, and a disabled press does not fire', () => {

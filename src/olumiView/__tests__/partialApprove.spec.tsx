@@ -49,6 +49,13 @@ describe('partial approval', () => {
     expect(screen.getByTestId('view-approve-ticked')).toBeDisabled()
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
     expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
+    // 18 Nov: the count stays visible beside the double tick, inside the one control, and follows the ticks
+    expect(screen.getByTestId('view-approve-ticked').querySelector('svg.lucide-check-check')).not.toBeNull()
+    expect(screen.getByTestId('view-approve-ticked-count').textContent).toBe('1')
+    expect(screen.getByTestId('view-approve-ticked').contains(screen.getByTestId('view-approve-ticked-count'))).toBe(true)
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    expect(screen.getByTestId('view-approve-ticked-count').textContent).toBe('2')
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base, only: [p.changes[1]!.id], only_top: [] } })

@@ -25,6 +25,7 @@ import { SELECTION_DETAIL_WORDS } from '../../../../canvas/components/SelectionP
 import { aboutCountWords } from '../AboutChip'
 import { draftKeyOf } from '../OlumiAsks'
 import { typography } from '../../../../styles/typography'
+import { setOpen } from '../../../__tests__/reviewRow'
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => selection.value }))
@@ -201,7 +202,7 @@ describe('4. the selected card is a chip inside the composer', () => {
     expect(ask.title).toBe('Ask about per specialist')
     expect(ask.getAttribute('aria-label')).toBe('Ask about per specialist')
     expect(ask.querySelector('svg')).not.toBeNull() // drawn, not hidden
-    expect(ask.style.color).toBe('var(--text-light)') // neutral
+    expect(ask.className.split(/\s+/)).toContain('text-text-light') // neutral (a class since 18 Nov, so disabled and hover can win)
     useGuidanceStore.setState({ _sendChip: sendChip } as never)
     fireEvent.click(ask)
     expect([useViewChat.getState().text, sendChip.mock.calls.length, posted]).toEqual(['About per specialist: ', 0, []])
@@ -321,7 +322,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     const skip = q(card, 'view-question-skip')!
     expect(skip.textContent).toBe('')
     expect(skip.title).toBe('Skip')
-    expect(skip.style.color).toBe('var(--text-light)')
+    expect(skip.className.split(/\s+/)).toContain('text-text-light')
     fireEvent.click(skip)
     expect(q(card, 'view-question-count')!.textContent).toBe('2 of 3')
     expect(visible(card)[0]!.textContent).toBe(qs[1])
@@ -349,7 +350,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(use.className).toContain('bg-success')
     expect(use.className).toContain('text-text-header')
     expect(use.className).not.toContain('bg-text-header')
-    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.style.color).toBe('var(--text-light)')
+    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.className.split(/\s+/)).toContain('text-text-light')
     fireEvent.click(q(card, 'view-question-method-opposite')!)
     expect(bodies).toEqual([]) // with no card selected an ask-for-more icon waits for a card (menu brief UI-A, 18 Nov): nothing typed, nothing sent
     expect([useViewChat.getState().text, useViewChat.getState().armed]).toEqual(['', 'opposite'])
@@ -390,12 +391,12 @@ describe('8. Send is the person\'s green act, never black', () => {
     expect(send.className).not.toMatch(/(^|\s)bg-text-header(\s|$)/)
     expect(send.className).not.toContain('text-text-on-color')
     expect(send.querySelector('svg')).not.toBeNull()
-    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).style.color).toBe('var(--text-header)') // the ink glyph (registry send)
+    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).className.split(/\s+/)).toContain('text-text-header') // the ink glyph (registry send)
   })
 })
 
 describe('9. the proposal line: heading basis (D3) and the change mix', () => {
-  it('D3: core\'s heading has a real flex basis (never 0), in the class and in the pinned box\'s own rule, so Review, Approve and Set aside wrap before it is squeezed', () => {
+  it('D3: core\'s heading has a real flex basis (never 0), in the class and in the pinned box\'s own rule, so it is squeezed (one line, cut) before the bar ever takes a second line (18 Nov)', () => {
     const c = mount(golden('proposal'))
     const row = q(c, 'view-proposal-row')!
     expect(row.className).toContain('flex-[1_1_12rem]')
@@ -404,14 +405,16 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
     const rule = /\.ok-pinned \[data-testid='view-proposal-row'\]\s*\{([^}]*)\}/.exec(css)![1]!
     expect(/flex:\s*1 1 12rem/.test(rule)).toBe(true)
     expect(/flex:\s*1 1 0\b/.test(rule)).toBe(false)
-    expect(q(c, 'view-proposal-actions')!.className).toContain('flex-wrap')
+    expect(q(c, 'view-proposal-actions')!.className).toContain('flex-nowrap')
   })
   it('the strip carries a stacked change-mix bar: one segment per change family, in that kind\'s token, as wide as its count; none where the changes carry no family', () => {
     const view = structuredClone(golden('proposal'))
     const ch = view.proposal!.changes!
     view.proposal!.changes = [{ ...ch[0]!, family: 'quantity' }, { ...ch[1]!, family: 'quantity' }, { ...ch[0]!, id: 'o1', family: 'option' }, { ...ch[0]!, id: 'g1', family: 'goal' }, { ...ch[0]!, id: 'x1', family: 'claim' }]
     const c = mount(view)
-    const bar = q(q(c, 'view-proposal-actions')!, 'view-change-mix')!
+    expect(q(q(c, 'view-proposal-actions')!, 'view-change-mix'), 'closed, the one-row bar carries no mix (18 Nov)').toBeNull()
+    setOpen(q(c, 'view-proposal-review')!, true)
+    const bar = q(q(c, 'view-proposal-review')!, 'view-change-mix')!
     const seg = [...bar.children] as HTMLElement[]
     expect(seg.map((x) => [x.dataset['family'], x.dataset['n'], x.style.background])).toEqual([['quantity', '2', 'var(--factor)'], ['option', '1', 'var(--option)'], ['goal', '1', 'var(--goal)'], ['claim', '1', 'var(--border-emphasis)']])
     expect(seg.map((x) => x.style.flexGrow)).toEqual(['2', '1', '1', '1']) // as wide as its count: removing the width fails here
