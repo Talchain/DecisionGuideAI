@@ -441,51 +441,59 @@ describe('5. A saved message whose reply failed stays in the conversation (floor
   })
 })
 
-describe('3b. Keep is reachable at rest beside the concise reply, not only inside "Full answer"', () => {
+describe('3c. one visible Keep chooser beside a concise reply whose lead paraphrases core\'s prose (Codex 008, 18 Nov)', () => {
   const A = 'Lend the second workshop’s tools to the first on quiet days.'
   const B = 'Run a weekend repair stall at the station before signing a lease.'
   const C = 'Ask the part-time mechanics about more hours first.'
-  const FULL = `A short opening.\n- ${A}\n- ${B}\n- ${C}`
-  const withLead = (lead: { opening: string; points: string[] }, prose: string[] | undefined) =>
-    inWords({ floor: [{ ...row(21, FULL), lead, ...(prose === undefined ? {} : { prose }) }] })
-  const openFold = (c: ParentNode) => c.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
-  it('RED/GREEN: a lead line carrying core\'s entry has its Keep outside the closed fold; pressing posts core\'s exact text with the floor job; the lead\'s other lines and the user\'s draft are untouched', async () => {
-    answer = () => new Response(JSON.stringify({ kept: 80 }), { status: 201 })
-    const c = show(withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]))
+  const FULL = `Opening in other words.\n- ${A}\n- ${B}\n- ${C}`
+  // A PARAPHRASED lead: no lead line equals any prose entry.
+  const PARA = { opening: 'A cheap first step is possible.', points: ['Share tools between sites.', 'Try a stall.'] }
+  const withLead = (prose: string[] | undefined, over: Record<string, unknown> = {}) => inWords({ floor: [{ ...row(21, FULL), lead: PARA, ...(prose === undefined ? {} : { prose }) }], ...over })
+  const fold = (c: ParentNode) => c.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
+  it('a paraphrased lead: a visible chooser sits outside the closed fold; opening lists core\'s 3 exact entries; pressing one posts { floor, text }; the draft is untouched; no other control keeps them', async () => {
+    answer = () => new Response(JSON.stringify({ kept: 90 }), { status: 201 })
+    const c = show(withLead([A, B, C]))
     const t = floorTurn(c, 21)!
-    const fold = openFold(t)
-    expect(fold.open).toBe(false)
-    const lead = t.querySelector('[data-testid="view-reply-lead"]')!
-    const points = lead.querySelector('[data-testid="view-reply-lead-points"]')!
-    const inLead = [...points.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
-    expect(inLead.filter((b) => !fold.contains(b))).toHaveLength(2)
-    expect([...points.querySelectorAll('li')].map((li) => li.querySelectorAll('[data-testid="view-keep-idea-button"]').length)).toEqual([1, 1])
+    expect(fold(t).open).toBe(false)
+    const choose = q(t, 'view-keep-choose')!
+    expect(choose).not.toBeNull()
+    expect(fold(t).contains(choose)).toBe(false)
+    expect(choose.className).not.toMatch(/opacity-0/)
+    expect(choose.closest('[aria-hidden="true"]')).toBeNull()
+    expect(choose.hasAttribute('hidden')).toBe(false)
+    expect(q(t, 'view-keep-choose-list')).toBeNull() // nothing offered until asked
     type(c, 'my draft')
-    await press(inLead[0]!)
+    await press(choose)
+    const list = q(t, 'view-keep-choose-list')!
+    expect([...list.querySelectorAll('li')].map((li) => li.querySelector('[data-keep-entry]')?.textContent)).toEqual([A, B, C])
+    expect(posts).toHaveLength(0) // nothing auto-kept
+    // ONE control per entry outside the fold: no inline Keep sits beside the lead lines; every Keep button is in the chooser.
+    const all = qa(t, 'view-keep-idea-button')
+    expect(all.filter((b) => !fold(t).contains(b) && !list.contains(b))).toHaveLength(0)
+    expect(list.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(3)
+    for (const b of list.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')) expect(b.className).not.toMatch(/opacity-0/)
+    await press(list.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')[1]!)
     await waitFor(() => expect(posts).toHaveLength(1))
-    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: A } })
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: B } })
     expect((c.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('my draft')
   })
-  it('ONE Keep per entry: an entry the lead carries is not offered again inside the fold; an entry no lead line carries keeps its Keep on its line inside the fold (no list of leftovers at rest)', async () => {
-    answer = () => new Response(JSON.stringify({ kept: 81 }), { status: 201 })
-    const c = show(withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]))
-    const t = floorTurn(c, 21)!, fold = openFold(t)
-    const inFold = [...fold.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')]
-    // A and B are offered in the lead only; C, which no lead line carries, is offered on its own line inside the fold.
-    expect(inFold).toHaveLength(1)
-    expect(inFold[0]!.closest('li')?.textContent).toContain(C)
-    expect(qa(c, 'view-floor-keep-row')).toHaveLength(0)
-    await press(inFold[0]!)
-    await waitFor(() => expect(posts).toHaveLength(1))
-    expect(posts[0]!.body).toEqual({ floor: 21, text: C })
-  })
-  it('a line already kept shows kept in the lead; CONTRAST: no prose from core means no Keep anywhere, and no keep row', () => {
+  it('a kept entry shows kept in the chooser; Escape and an outside press close it', async () => {
     const kept = { id: 50, turn: 21, text: A, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], from: 'floor' }
-    const c = show({ ...withLead({ opening: 'A short opening.', points: [A, B] }, [A, B, C]), kept: [kept] } as unknown as View)
-    const lead = c.querySelector('[data-testid="view-reply-lead-points"]')!
-    expect([...lead.querySelectorAll('li')].map((li) => li.querySelector('[data-testid="view-keep-idea-kept"]') !== null)).toEqual([true, false])
-    cleanup()
-    const d = show(withLead({ opening: 'A short opening.', points: [A, B] }, undefined))
-    expect([qa(d, 'view-keep-idea').length, qa(d, 'view-floor-keep-row').length]).toEqual([0, 0])
+    const c = show(withLead([A, B, C], { kept: [kept] }))
+    const t = floorTurn(c, 21)!
+    await press(q(t, 'view-keep-choose'))
+    const list = q(t, 'view-keep-choose-list')!
+    expect([...list.querySelectorAll('li')].map((li) => li.querySelector('[data-testid="view-keep-idea-kept"]') !== null)).toEqual([true, false, false])
+    expect(q(t, 'view-keep-choose')!.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => { fireEvent.keyDown(list, { key: 'Escape' }) })
+    expect(q(t, 'view-keep-choose-list')).toBeNull()
+    await press(q(t, 'view-keep-choose'))
+    expect(q(t, 'view-keep-choose-list')).not.toBeNull()
+    await act(async () => { fireEvent.mouseDown(document.body) })
+    expect(q(t, 'view-keep-choose-list')).toBeNull()
+  })
+  it('CONTRAST: no prose from core means no chooser and no Keep', () => {
+    const c = show(withLead(undefined))
+    expect([qa(c, 'view-keep-choose').length, qa(c, 'view-keep-idea').length]).toEqual([0, 0])
   })
 })

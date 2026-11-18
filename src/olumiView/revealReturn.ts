@@ -1,8 +1,7 @@
 /**
- * Where a LANDED reveal panel returns (P1 fix, V11 lane 10 Nov: after the landing, the journey could neither reach Team's titled panel
- * nor the dock's tabs). The reveal panel is a focused panel that steps the tab strip out of its way, so a panel the person did not open
- * themselves must hand the dock back as it was: closing it fronts the tab that was showing before it landed. A panel the person opened
- * from a chip returns to its originating tab and camera too. Kept apart from revealLanding so RevealDock can read it without importing the landing.
+ * Where a reveal panel returns. A panel is only ever opened by a press (a chip, the Team tab, the canvas's mark); the automatic landing is gone
+ * (18 Nov). The dock's tab strip stays visible while it is open, and closing it fronts the tab that was showing before it opened and
+ * restores the camera.
  */
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 

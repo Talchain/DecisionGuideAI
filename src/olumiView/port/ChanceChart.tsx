@@ -19,7 +19,7 @@ import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
 /** The chart's own chrome: the key's two words and the axis. What low and high mean is core's sentence, on the key's hover. */
-export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], meaning: 'What the marks and ends mean' } as const
+export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], meaning: 'What the marks mean' } as const
 const RING = 'analysis-chart'
 
 /** The 0 to 100 axis, over the first track (never between a bar and core's words for it): three equal columns, so 50% stands at the middle. */
@@ -139,13 +139,13 @@ export function ChanceChart({ model }: { model: ViewModel }) {
             </p>
           )}
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
-          {sentence === '' && marks.length === 0 ? null : (
+          {/* What the two ends ARE, at rest (Codex 008 item 3, the overnight analysis design's scientific closure): core's one sentence that they are the
+              chances if that input comes out in its lowest or highest third, never a confidence interval. Only the marks' legend folds. */}
+          {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
+          {marks.length === 0 ? null : (
             <details data-testid="analysis-chart-meaning">
               <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1 text-text-body [&::-webkit-details-marker]:hidden"><ChevronDown aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />{CHART_WORDS.meaning}</summary>
-              <div className="space-y-1 pb-1">
-                <Marks marks={marks} />
-                {sentence === '' ? null : <p className="m-0" data-view="run.sensitivity.text">{sentence}</p>}
-              </div>
+              <div className="space-y-1 pb-1"><Marks marks={marks} /></div>
             </details>
           )}
         </div>

@@ -83,7 +83,7 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
   })
 
-  it('a floor reply with core\'s lead: the lead first, the reply as today folded beneath, Keep still on each of its lines there. CONTRAST: no lead, the reply at rest as today', () => {
+  it('a floor reply with core\'s lead: the lead first, the reply as today folded beneath, Keep is the one chooser beside the lead (the fold offers none, so each entry has one control). CONTRAST: no lead, the reply at rest as today', () => {
     const TEXT = 'A mechanic before a lease.\n\nAsk the two part-time mechanics about more hours.\n\nThen price a small unit near the station.'
     const floor = { job: 21, at: '2026-11-17T11:00:00.000Z', by: 'Ada', by_id: '7', said: 'What would the second workshop need first?', text: TEXT, prose: TEXT.split('\n\n') }
     const words = (over: Record<string, unknown>) => ({ ...base, you_id: '7', you: 'Ada', start: 'words', draft: null, version: null, proposal: null, model: null, chat: [], turn: null, floor: [{ ...floor, ...over }] } as unknown as View)
@@ -94,7 +94,9 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     const full = row.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
     expect(full.open).toBe(false)
     expect(full.contains(q(row, 'view-floor-reply-text'))).toBe(true)
-    expect(full.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(3)
+    expect(full.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(0)
+    expect(full.contains(q(row, 'view-keep-choose'))).toBe(false)
+    expect(q(row, 'view-keep-choose')).not.toBeNull()
     expect(q(row, 'view-floor-reply')!.hasAttribute('data-latest-floor')).toBe(true) // the thread still rests on Olumi's reply
     cleanup()
     const d = show(words({}))

@@ -203,11 +203,12 @@ describe('the chance chart', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
-    // What the two ends mean is core's sentence, once, in the key's one disclosure (CHANGED 18 Nov, audit analysis-first-screen-scrolls: was three lines open at rest).
+    // What the two ends ARE is core's sentence, once, OPEN at rest (Codex 008 item 3: folded, the ends could read as a confidence interval); only the marks' legend folds.
     expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
-    expect(document.querySelector('[data-view="run.sensitivity.text"]')!.textContent).toBe(view.model!.run!.sensitivity.text)
-    const fold = screen.getByTestId('analysis-chart-meaning')
-    expect([fold.tagName, fold.hasAttribute('open'), fold.contains(document.querySelector('[data-view="run.sensitivity.text"]'))]).toEqual(['DETAILS', false, true])
+    const ends = document.querySelector('[data-view="run.sensitivity.text"]')!
+    expect(ends.textContent).toBe(view.model!.run!.sensitivity.text)
+    expect(ends.closest('details'), 'not inside any fold').toBeNull()
+    expect(screen.getByTestId('analysis-chart-key').contains(ends)).toBe(true)
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
     ready(view); render(<PortAnalysisTab />)
@@ -236,13 +237,14 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const mark = screen.getByTestId('analysis-chart-meaning').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
     expect(mark.textContent).toBe(`${likely.glyph}${likely.title}`)
   })
-  it('the first screen is shorter: the long sentences sit behind ONE disclosure that is a real summary control, never hover alone', () => {
+  it('only the marks\' legend folds, behind ONE real summary control (never hover alone); the ends\' meaning stays open beside the chart', () => {
     const view = viewOf('golden/bakery')
     ready(view); render(<PortAnalysisTab />)
     const fold = screen.getByTestId('analysis-chart-meaning')
     expect(fold.querySelector('summary')!.textContent).toBe(CHART_WORDS.meaning)
     const key = screen.getByTestId('analysis-chart-key')
-    expect([...key.querySelectorAll('[data-view="run.sensitivity.text"], [data-chart-mark]')].every((e) => fold.contains(e))).toBe(true)
+    expect([...key.querySelectorAll('[data-chart-mark]')].every((e) => fold.contains(e))).toBe(true)
+    expect(fold.contains(key.querySelector('[data-view="run.sensitivity.text"]'))).toBe(false)
   })
 })
 
