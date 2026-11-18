@@ -22,7 +22,7 @@ import { REMOVE_LINK_WORDS } from '../../LinkRemove'
 import { editGateNow } from './editGate'
 import { laneWrites, savedVersion, type ItemKind, type RiskGiven } from './editRoutes'
 import { draftKeyOf, useLaneInspector, type DetailsTarget } from './inspectorStore'
-import { stayBeside } from './placeBeside'
+import { FORM_MIN_SHOWN, stayBeside } from './placeBeside'
 
 /** Where and how core takes a link's or a risk's size (the View's `SizeEdit`). */
 export type SizeEdit = { readonly prompt: string; readonly ask: string; readonly route: 'size'; readonly record: string; readonly note: string | null; readonly fields: ReadonlyArray<{ readonly key: 'typed' | 'chance' | 'change'; readonly prompt: string; readonly ask: string }> }
@@ -159,7 +159,7 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const stand = beside === undefined ? '' : `${beside.kind}:${beside.id}`
   useLayoutEffect(() => {
     if (beside === undefined) return
-    return stayBeside(() => box.current, beside, { x: '--lane-form-x', y: '--lane-form-y', h: '--lane-form-h' })
+    return stayBeside(() => box.current, beside, { x: '--lane-form-x', y: '--lane-form-y', h: '--lane-form-h' }, undefined, FORM_MIN_SHOWN)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stand])
   useEffect(() => { first.current?.focus(); first.current?.select() }, [])

@@ -60,16 +60,18 @@ function onLine(edge: Element): { x: number; y: number } | null {
 export type Placed = { left: number; top: number; /** Set when the panel must be shorter than it is: its body scrolls inside. */ maxHeight: number | null }
 /** Below this a panel is no use (its header and close alone); a side with less room is not a side. */
 const MIN_SHOWN = 64
+/** A form's least useful height: its padding, one field, the error line and the Save/Cancel row (44 px) - below it Save could be cut off. */
+export const FORM_MIN_SHOWN = 160
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
 const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
 /** Where a `size` panel stands beside `anchor` inside `free`, never over the anchor where any place avoids it; always inside `free` (never null). */
-export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect): Placed {
+export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect, minShown = MIN_SHOWN): Placed {
   const gap = HOVER_CARD_GAP
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
-  const h = Math.min(size.height, Math.max(MIN_SHOWN, H - 2 * gap))
+  const h = Math.min(size.height, Math.max(minShown, H - 2 * gap))
   const out = (left: number, top: number, hh: number): Placed => ({ left: left + free.left, top: top + free.top, maxHeight: hh < size.height ? hh : null })
   const a = shift(anchor)
   if (within(anchor, free)) {
@@ -82,8 +84,8 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
     if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h })
     if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: clamp(a.top, gap, H - h - gap), h })
     const below = Math.min(h, H - a.bottom - 2 * gap), above = Math.min(h, a.top - 2 * gap), across = clamp(a.left, gap, W - w - gap)
-    if (below >= MIN_SHOWN) sides.push({ left: across, top: a.bottom + gap, h: below })
-    if (above >= MIN_SHOWN) sides.push({ left: across, top: a.top - gap - above, h: above })
+    if (below >= minShown) sides.push({ left: across, top: a.bottom + gap, h: below })
+    if (above >= minShown) sides.push({ left: across, top: a.top - gap - above, h: above })
     const best = sides.sort((x, y) => y.h - x.h)[0]
     if (best !== undefined) return out(best.left, best.top, best.h)
   }
@@ -105,7 +107,7 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
  * key changes. It is never hidden: off the free canvas it stays visible inside it. An item with no drawn card puts it at the free canvas's top-left.
  * Returns the stop.
  */
-export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH): () => void {
+export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN): () => void {
   let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
   let watched: HTMLElement | null = null
@@ -129,7 +131,7 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
       if (key !== last) {
         last = key
         // Its item is not drawn at all (nothing to stand beside): the free canvas's top-left, at its own height. Otherwise beside it.
-        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: null } : placeBeside(anchor, own, size, free)
+        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: null } : placeBeside(anchor, own, size, free, minShown)
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
         if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }

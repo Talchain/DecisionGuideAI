@@ -15,7 +15,8 @@ import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces } from '../../../layout'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
-import { anchorOf } from '../placeBeside'
+import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside } from '../placeBeside'
+import { HOVER_CARD_GAP } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import type { View } from '../../../client'
 import { approved, install, uninstall } from './harness'
@@ -508,10 +509,19 @@ describe('surfaces step 3: details beside their card', () => {
     act(() => { useLaneInspector.getState().open({ kind: 'card', id: OTHER }) }); await settle()
     const at = { x: inspector().style.getPropertyValue('--lane-details-x'), y: inspector().style.getPropertyValue('--lane-details-y') }
     expect(at, 'not the previous card\'s place').not.toEqual(prev)
-    expect(parseFloat(at.x), 'a position at the free canvas top-left').toBeGreaterThanOrEqual(0)
-    expect(parseFloat(at.y)).toBeGreaterThanOrEqual(112 - 112)
+    const free = freeCanvas()
+    expect(at, 'exactly the free canvas top-left, one gap in').toEqual({ x: `${free.left + HOVER_CARD_GAP}px`, y: `${free.top + HOVER_CARD_GAP}px` })
     fireEvent.click(OPEN_EDIT()); await settle()
     const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
     expect({ x: form.style.getPropertyValue('--lane-form-x'), y: form.style.getPropertyValue('--lane-form-y') }, 'the form uses the same fallback').toEqual(at)
+  })
+
+  it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
+    const free = { left: 0, top: 0, right: 600, bottom: 340 }, card = { left: 180, top: 110, right: 420, bottom: 230 }
+    const form = placeBeside(card, null, { width: 280, height: 420 }, free, FORM_MIN_SHOWN)
+    expect(form.maxHeight === null || form.maxHeight >= FORM_MIN_SHOWN, `form cap ${form.maxHeight}`).toBe(true)
+    const panel = placeBeside(card, null, { width: 280, height: 420 }, free)
+    expect(panel.maxHeight).not.toBeNull()
+    expect(panel.maxHeight!).toBeLessThan(FORM_MIN_SHOWN)
   })
 })
