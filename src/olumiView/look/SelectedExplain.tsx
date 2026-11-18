@@ -18,16 +18,17 @@ export function movedBy(view: View, option: ViewCard): string[] {
   return [...new Set([...into.filter((id) => workedStepsOf(view, id).length > 0), ...movedByWorked(view, option.id)])]
 }
 
-export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.Element | null {
+/** `testid`: the root test id (default the dock's; the details panel passes its own, so one page never holds two of the same). */
+export function SelectedExplain({ view, id, testid = 'selected-explain' }: { view: View; id: string; testid?: string }): JSX.Element | null {
   const card = view.model?.cards.find((c) => c.id === id) ?? null
   if (card === null || card.family !== 'option') return null
   const sets = card.sets ?? [], premises = card.premises ?? [], moved = movedBy(view, card)
   const own = new Set([card.id, ...sets.map((s) => s.id)])
   if (sets.length === 0 && premises.length === 0 && moved.length === 0) return null
   return (
-    <div className="ok-explain basis-full" data-testid="selected-explain" data-ok-own={[...own].join(' ')}>
+    <div className="ok-explain basis-full" data-testid={testid} data-ok-own={[...own].join(' ')}>
       {sets.length === 0 ? null : (
-        <section data-testid="selected-explain-sets">
+        <section data-testid={`${testid}-sets`}>
           <p className="ok-explain-head">What it changes</p>
           <ul>{sets.map((s, i) => (
             <li key={s.id} data-view={`${id}.sets.${i}`}>
@@ -38,7 +39,7 @@ export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.E
         </section>
       )}
       {premises.length === 0 ? null : (
-        <section data-testid="selected-explain-premises">
+        <section data-testid={`${testid}-premises`}>
           <p className="ok-explain-head">Rests on</p>
           <ul>{premises.map((p, i) => (
             <li key={`${p.id ?? i}`} title={p.title} data-view={`${id}.premises.${i}.text`}><span aria-hidden="true" className="ok-explain-glyph">{p.glyph}</span> {p.text}</li>
@@ -46,7 +47,7 @@ export function SelectedExplain({ view, id }: { view: View; id: string }): JSX.E
         </section>
       )}
       {moved.length === 0 ? null : (
-        <section data-testid="selected-explain-steps">
+        <section data-testid={`${testid}-steps`}>
           {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} option={card.id} />)}
         </section>
       )}

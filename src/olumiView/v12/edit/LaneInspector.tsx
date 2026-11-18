@@ -21,6 +21,7 @@ import { FigureInspector } from '../inspect/FigureInspector'
 import { useViewStore } from '../../store'
 import { writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
+import { SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
 import { DETAILS_H, DETAILS_X, DETAILS_Y, stayBeside } from './placeBeside'
 
@@ -77,6 +78,10 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
           {card.detail === '' ? null : <p className="text-text-body" data-testid="lane-inspector-detail">{card.detail}</p>}
           {card.figure === null ? null : <p className="text-text-body" title={card.figure.title} data-testid="lane-inspector-figure">{card.figure.text}</p>}
           {lane ? <CardWords id={card.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} /> : null}
+          {/* Surfaces step 4: while these details are open the composer's selection row is the chip alone, so the option's next step (core's headline.add,
+              whole) and its explanation (what it changes, what it rests on, the worked steps) are drawn here, by the same components, with the panel's own ids. */}
+          {lane && card.family === 'option' && card.headline?.add != null && card.headline.add !== '' ? <p className="m-0 whitespace-pre-wrap break-words text-text-body" data-testid="lane-inspector-add">{card.headline.add}</p> : null}
+          {lane && view !== null ? <SelectedExplain view={view} id={card.id} testid="lane-inspector-explain" /> : null}
           {card.olumi === null ? null : <p className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{card.olumi.glyph} </span>{card.olumi.title}</p>}
           {card.status === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`}>{card.status}</p>}
           <FigureInspector card={card} range={range} onAsk={ask} onClose={() => close()} />

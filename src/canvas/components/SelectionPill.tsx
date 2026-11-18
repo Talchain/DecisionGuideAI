@@ -75,7 +75,7 @@ function SelectionDetail({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /** `after`: what a lane offers for this selection at the end of the row (the olumi-core lane: a card's Rename, DL 7 Nov); none elsewhere. */
-export const SelectionPill = memo(function SelectionPill({ after, mark, chip = false, onAsk }: { /** The lane's own Ask for the selection (olumi-core, menu brief UI-D): given the selected element, it takes the place of the legacy sender, which that lane never registers. */ onAsk?: (s: { id: string; label: string; kind: 'node' | 'edge' }) => void; /** The chip's kind shape: the selected card's own mark (olumiView/SelectedRename `selectedKindMark`), drawn before "About:". */ mark?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
+export const SelectionPill = memo(function SelectionPill({ after, mark, chip = false, onAsk, useQuiet }: { /** Surfaces step 4: a hook (stable function) telling, for the selected id, that another surface already draws what `after` would add (the lane's open details panel); the chip row then holds the chip alone. */ useQuiet?: (id: string) => boolean; /** The lane's own Ask for the selection (olumi-core, menu brief UI-D): given the selected element, it takes the place of the legacy sender, which that lane never registers. */ onAsk?: (s: { id: string; label: string; kind: 'node' | 'edge' }) => void; /** The chip's kind shape: the selected card's own mark (olumiView/SelectedRename `selectedKindMark`), drawn before "About:". */ mark?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; after?: (s: { id: string; kind: 'node' | 'edge' }) => ReactNode; /** The olumi-core lane (17 Nov, the calm panel): the selection is drawn as ONE chip inside the composer, "About: <card heading>" with an X to clear it, and what `after` offers is one press behind its info icon. */ chip?: boolean } = {}) {
   const selection = useSelectionContext()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
@@ -116,6 +116,7 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
   // it names the element and offers "Explore with Olumi", so this row stands
   // down and returns when the inspector closes.
   const inspectorOpen = useInspectorPresenceStore((s) => s.open)
+  const quiet = useQuiet?.(selectionId) ?? false
 
   if (!selection || inspectorOpen) return null
 
@@ -124,7 +125,7 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
   // V11 pixel pass (9 Nov): on the olumi-core lane the row is on Paul's three sizes (12 px, never the legacy 11).
   const meta: 'viewPanelMeta' | 'panelMeta' = isOlumiCoreLane() ? 'viewPanelMeta' : 'panelMeta'
   if (chip) {
-    const extra = after?.(selection), shape = mark?.(selection)
+    const extra = quiet ? null : after?.(selection), shape = mark?.(selection)
     return (
       <div className="flex flex-wrap items-center gap-1 px-2 pt-1.5" data-testid="ai-panel-selection-pill" data-selection-kind={selection.kind} data-selection-actionable={canAsk ? 'true' : 'false'}>
         {/* D2 (independent review of 833c1609): "About: <label>" is a label, never a button that sends; asking is its own visible control beside it
