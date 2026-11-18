@@ -99,6 +99,11 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect([e0.querySelector('[data-reply-label]')?.textContent, e0.querySelector('[data-reply-para][data-reply-opening]')?.textContent, q(e0, 'view-reply-full'), e0.querySelector('[data-reply-heading]'), q(e0, 'view-reply-lead')!.compareDocumentPosition(e0.querySelector('[data-reply-label]')!) & Node.DOCUMENT_POSITION_FOLLOWING ? 'lead first' : 'label first'])
       .toEqual([LABEL, OPENING, null, null, 'lead first'])
     cleanup()
+    // CONTRAST 2b, core's heading with nothing after it (no check to fold): no fold is drawn over a bare heading.
+    const BARE = [LABEL, '', OPENING, '', HEADING].join('\n')
+    const b0 = show(withTurn(base, 0, { answer: [{ text: BARE }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
+    expect([q(b0, 'view-reply-full'), q(b0, 'view-reply-lead') !== null, b0.querySelector('[data-reply-para][data-reply-opening]')?.textContent]).toEqual([null, true, OPENING])
+    cleanup()
     // CONTRAST 3, a lead and NO first answer (any later reply): unchanged, the lead first and the whole reply in the one fold.
     const PLAIN = 'A later reply in two paragraphs.\n\nIts second paragraph.'
     const p1 = show(withTurn(base, 0, { answer: [{ text: PLAIN }], lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!

@@ -201,7 +201,8 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
       {/* The CURRENT answer has the authority position (Codex 19:46:53Z, after replay 012: a first answer later found wrong stood large above its
           own correction). With `under`, the caller's lead and the check it folds are drawn FIRST; the first answer follows as earlier material
           under core's own label. Core's check heading opens the folded check; nothing is said twice. */}
-      {under === undefined ? null : under(check === -1 ? null : <>{groups.slice(check).map((g, gi) => groupEl(g, check + gi))}</>)}
+      {/* (A heading core sent with nothing after it labels nothing: there is no check to fold, so no fold is drawn for it.) */}
+      {under === undefined ? null : under(check === -1 || check + 1 >= groups.length ? null : <>{groups.slice(check).map((g, gi) => groupEl(g, check + gi))}</>)}
       {groups.slice(0, head).map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
