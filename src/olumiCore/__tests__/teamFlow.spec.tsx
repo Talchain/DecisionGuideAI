@@ -226,6 +226,25 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(screen.getByTestId('team-member-p_1').hasAttribute('data-view-in')).toBe(false)
     expect(screen.getByTestId('team-member-p_2').hasAttribute('data-view-in')).toBe(false)
   })
+  it('after the reveal the finished steps before "Where you differ" are one line of names (Paul 18 Nov); each still opens; contrast: before the reveal there is no such line', () => {
+    const after = team({ waiting: null, mine: [], shared: [bea3, { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }] })
+    expect(currentStep(after)).toBe('differ')
+    show(after)
+    const r = render(<TeamTab />)
+    const strip = screen.getByTestId('team-steps-done')
+    expect([...strip.querySelectorAll('[data-step-compact]')].map((s) => s.getAttribute('data-testid'))).toEqual(['team-step-invite', 'team-step-view', 'team-step-reveal'])
+    expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-open')).toBe(true)
+    expect(strip.contains(screen.getByTestId('team-step-differ'))).toBe(false)
+    // A finished step still opens on a press, and then the steps are rows again.
+    fireEvent.click(screen.getByTestId('team-step-view-row'))
+    expect(screen.queryByTestId('team-steps-done')).toBeNull()
+    expect(screen.getByTestId('team-step-view').hasAttribute('data-step-open')).toBe(true)
+    r.unmount(); resetTeamFlow()
+    // Contrast: the same team before the reveal (the round still waits): every step is a row.
+    show(team({ waiting: 'waiting for Bea' }))
+    render(<TeamTab />)
+    expect(screen.queryByTestId('team-steps-done')).toBeNull()
+  })
   it('the reveal step\'s green press goes to core\'s reveal route, and nothing else is written', async () => {
     show(team({ can_reveal: true, waiting: null }))
     render(<TeamTab />)

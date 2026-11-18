@@ -27,3 +27,5 @@ export const QUIET = `${typography.viewPanelMeta} inline-flex min-h-[24px] curso
 export const PLAIN_LINK = 'text-text-body underline underline-offset-2 hover:text-text-header'
 /** A fold's summary row (native details marker). */
 export const FOLD = `${typography.viewPanelMeta} min-h-[24px] cursor-pointer font-medium text-text-header`
+/** Ask Olumi (overnight 18 Nov, sent on the press): an outlined pill with Olumi's mark, quieter than the person's one green action. */
+export const ASK = `${typography.viewPanelMeta} inline-flex min-h-[28px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-2.5 text-text-header hover:border-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:text-text-light`

@@ -117,8 +117,20 @@ const DISC: Record<StepState, string> = {
 }
 const STATE_WORDS: Record<StepState, string> = { done: 'Done', now: 'Now', later: 'Later' }
 
-function Step({ id, n, state, open, summary, onToggle, children }: { id: StepId; n: number; state: StepState; open: boolean; summary: string; onToggle: () => void; children: JSX.Element | (JSX.Element | null | false)[] }): JSX.Element {
+function Step({ id, n, state, open, summary, onToggle, compact = false, children }: { id: StepId; n: number; state: StepState; open: boolean; summary: string; onToggle: () => void; compact?: boolean; children: JSX.Element | (JSX.Element | null | false)[] }): JSX.Element {
   const body = `team-step-${id}-body`
+  // After the reveal the finished steps before it shrink to one line of names (Paul's critique, 18 Nov): the difference leads the panel.
+  // Each stays a row the person can press to open, its body mounted and hidden, its summary in the title.
+  if (compact) return (
+    <section data-testid={`team-step-${id}`} data-step-state={state} data-step-compact="" aria-label={STEP_WORDS[id]} className="inline-flex">
+      <button type="button" aria-expanded={false} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={onToggle} title={summary}
+        className={`${META} inline-flex min-h-[24px] items-center gap-1.5 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        <span aria-hidden="true" className={`inline-grid h-[16px] w-[16px] flex-none place-items-center rounded-full border text-[10px] leading-none ${DISC[state]}`}>{n}</span>
+        <span className="sr-only">{STATE_WORDS[state]}: </span>{STEP_WORDS[id]}
+      </button>
+      <div id={body} hidden className="hidden" data-testid={body}>{children}</div>
+    </section>
+  )
   return (
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-open={open ? '' : undefined} aria-label={STEP_WORDS[id]} className="grid">
       <button type="button" aria-expanded={open} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={onToggle}
@@ -150,6 +162,8 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
     lastName.current = inviteName
   }, [inviteName, sid, current, open])
 
+  // After the reveal, while "Where you differ" is the step open, the finished steps before it are one line.
+  const done = current === 'differ' && open === 'differ' ? STEP_ORDER.slice(0, STEP_ORDER.indexOf('differ')).filter((id) => stepState(view, id) === 'done') : []
   const bodies: Record<StepId, JSX.Element | (JSX.Element | null | false)[]> = {
     invite: [view.collab.alone && <p key="lead" className={BODY} data-testid="team-alone">{STEP_WORDS.aloneLead}</p>, <InvitePanel key="invite" sid={sid} />],
     view: (
@@ -185,9 +199,14 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
       <StrategyOverviewSection view={view} />
       <ol className="m-0 grid list-none gap-1 p-0" data-testid="team-steps" data-current-step={current}>
-        {STEP_ORDER.map((id, i) => (
+        {done.length > 0 && (
+          <li className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="team-steps-done">
+            {done.map((id) => <Step key={id} id={id} n={STEP_ORDER.indexOf(id) + 1} state="done" open={false} compact summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>{bodies[id]}</Step>)}
+          </li>
+        )}
+        {STEP_ORDER.filter((id) => !done.includes(id)).map((id) => (
           <li key={id}>
-            <Step id={id} n={i + 1} state={stepState(view, id)} open={open === id} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
+            <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
               {bodies[id]}
             </Step>
           </li>

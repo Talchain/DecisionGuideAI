@@ -1,36 +1,35 @@
 /**
- * "Ask Olumi to compare these views" (Codex root, 17 Nov 22:23Z): once two or more people's views are revealed to this viewer, one press puts
- * an editable REQUEST in the person's own message box. Nothing is sent until they press Send; the request holds none of anyone's words and
- * no claim about the views, only what to compare (shared ground, differences, what could help resolve them). Olumi's answer comes back on
- * the ordinary reply path, in the conversation, as Olumi's own provisional reading beside each person's words, which stay as they wrote them.
- *
- * It is offered before a model is approved too: views in words can be compared in words. Core's figure comparison and its version gates are
- * untouched (./WhereWeDiffer `Differences`).
+ * Ask Olumi from the Team tab, sent on the press (./askOlumi.ts; Paul 18 Nov). `AskButton` is the one control: it sends its question once
+ * (each press is a turn), then says what happened in plain words. `AskToCompare` asks Olumi to compare the round's revealed views: offered
+ * once two or more people's views are revealed to this viewer, before a model is approved too (then it only fills the message box).
+ * Olumi's answer comes back on the ordinary reply path, in the conversation, as Olumi's own provisional reading beside each person's words.
  */
 import { useState } from 'react'
-import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
-import { prefillComposer } from '../../ViewChat'
 import { OkIcon } from '../../look/icons'
-import { META } from '../../../olumiCore/team/ui'
+import { ASK, META } from '../../../olumiCore/team/ui'
 import { twoPeopleRevealed } from './differGroups'
+import { ASK_SAID, askOlumi, COMPARE_REQUEST, type AskOutcome } from './askOlumi'
 
-/** Fixed chrome (the page's words, about no scenario): the control, the request it offers, and what it did. */
-export const ASK_TO_COMPARE = {
-  label: 'Ask Olumi to compare these views',
-  request: 'Compare the views we have revealed: what do we agree on, where do we differ, and what could help us resolve it?',
-  placed: 'Your request is in the message box. Edit it if you like, then send it.',
-} as const
+/** Fixed chrome (the page's words, about no scenario). */
+export const ASK_TO_COMPARE = { label: 'Ask Olumi to compare these views', request: COMPARE_REQUEST } as const
 
-export function AskToCompare({ view, at }: { view: View; at: string }): JSX.Element | null {
-  const [placed, setPlaced] = useState(false)
-  if (!twoPeopleRevealed(view)) return null
+/** One press sends `question` (its full words are the control's title); pressed once, it holds until the question changes. */
+export function AskButton({ label, question, at }: { label: string; question: string; at: string }): JSX.Element {
+  const [done, setDone] = useState<{ q: string; out: AskOutcome } | null>(null)
+  const said = done !== null && done.q === question ? done.out : null
   return (
-    <div className="grid justify-items-start gap-1" data-testid={`${at}-ask-compare`}>
-      <Button size="sm" variant="secondary" data-testid={`${at}-ask-compare-go`} onClick={() => { prefillComposer(ASK_TO_COMPARE.request); setPlaced(true) }}>
-        <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative />{ASK_TO_COMPARE.label}</span>
-      </Button>
-      <p role="status" className={META} data-testid={`${at}-ask-compare-placed`}>{placed ? ASK_TO_COMPARE.placed : ''}</p>
+    <div className="grid justify-items-start gap-1" data-testid={at}>
+      <button type="button" className={ASK} data-testid={`${at}-go`} title={question} disabled={said === 'sent'} data-question={question}
+        onClick={() => setDone({ q: question, out: askOlumi(question) })}>
+        <OkIcon id="olumi-mark" size={14} decorative />{label}
+      </button>
+      <p role="status" className={META} data-testid={`${at}-said`}>{said === null ? '' : ASK_SAID[said]}</p>
     </div>
   )
+}
+
+export function AskToCompare({ view, at }: { view: View; at: string }): JSX.Element | null {
+  if (!twoPeopleRevealed(view)) return null
+  return <AskButton label={ASK_TO_COMPARE.label} question={ASK_TO_COMPARE.request} at={`${at}-ask-compare`} />
 }

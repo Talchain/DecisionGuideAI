@@ -1,0 +1,140 @@
+/**
+ * Crux first and Ask Olumi, sent on the press (Paul, 18 Nov ~23:45Z, after his critique: "Send it and ensure it's optimal and contextually
+ * optimised"). Fixtures: core's own TM-04 round (src/olumiView/fixtures/debate/tm04-cara.view3.json, viewer Cara; tm04-differences.core.json,
+ * the same round's differences read: a figure Priya and Tom differ on, links Ana/Ben and Cara/Dan read differently, a factor Ana thinks the
+ * model leaves out). Every assertion is bound to a record id or an exact core field.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import type { View } from '../../../client'
+import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
+import { resetWrites } from '../../../../olumiCore/team/writes'
+import { resetDifferences, type Difference } from '../../../../olumiCore/team/differences'
+import { resetDrafts } from '../../../../olumiCore/team/drafts'
+import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
+import { useViewStore } from '../../../store'
+import { WhereWeDiffer } from '../WhereWeDiffer'
+import { answerMessage, ASK_SAID, differenceQuestion } from '../askOlumi'
+
+const tm04: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/tm04-cara.view3.json'), 'utf8'))
+const read = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/debate/tm04-differences.core.json'), 'utf8'))
+const diffs: Difference[] = read.differences
+const byRecord = (r: string, goal?: string) => diffs.find((d) => d.record === r && (goal === undefined || d.goal === goal))!
+const FIGURE = byRecord('diagnostic_time_to_contract')
+const LINK_CARA = byRecord('link:first_cash_timing:contract_to_cash', 'generate_revenue_quickly')
+const FACTOR = byRecord('factor:38')
+const rowOf = (d: Difference) => `differ-row-${d.record}${d.goal ? `-${d.goal}` : ''}`
+
+function serve(): void {
+  setTeamFetch((async () => new Response(JSON.stringify(read), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
+}
+function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> } {
+  const prefill = vi.fn(), send = vi.fn()
+  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _isConversationBusy: () => false } as never)
+  return { prefill, send }
+}
+const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
+afterEach(() => {
+  cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
+  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _isConversationBusy: null } as never)
+})
+
+describe('crux first', () => {
+  it('each card leads with core\'s own sentence and what would tell the views apart, at rest; the drawing comes after', async () => {
+    serve(); show(tm04)
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    const card = await screen.findByTestId(rowOf(FIGURE))
+    expect(within(card).getByTestId(`${rowOf(FIGURE)}-status`).textContent).toBe(FIGURE.status_text)
+    const settle = within(card).getByTestId(`${rowOf(FIGURE)}-settle`)
+    expect([...settle.querySelectorAll('li')].map((l) => [l.getAttribute('data-settle'), l.textContent])).toEqual(FIGURE.settle.map((s) => [s.kind, s.text]))
+    expect(within(card).getByText(read.headings.settle)).toBeTruthy()
+    // Nothing of it is folded: the card has no <details> at all.
+    expect(card.querySelector('details')).toBeNull()
+    // Sentence, then the actions, then the drawing (document order).
+    const order = (a: Element, b: Element) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+    expect(order(within(card).getByTestId(`${rowOf(FIGURE)}-status`), within(card).getByTestId(`${rowOf(FIGURE)}-actions`))).toBeTruthy()
+    expect(order(within(card).getByTestId(`${rowOf(FIGURE)}-actions`), within(card).getByTestId(`${rowOf(FIGURE)}-drawn`))).toBeTruthy()
+  })
+
+  it('the canvas marks fold never says "common ground": core\'s shared mark means several spoke to a card, not that they agree', async () => {
+    serve(); show(tm04)
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    await screen.findByTestId(rowOf(FIGURE))
+    const marks = screen.getByTestId('differ-marks')
+    expect(marks.textContent).toContain(`Marked on the canvas · ${tm04.collab.marks!.length}`)
+    expect(marks.textContent).not.toMatch(/common ground/i)
+  })
+})
+
+describe('the question for each difference', () => {
+  it('names the card and the aim by core\'s exact labels, the people by name, and carries nobody\'s figure, words or chance', () => {
+    const q = differenceQuestion(tm04, FIGURE)
+    expect(q).toBe(`On '${FIGURE.label}' for '${FIGURE.goal_label}': what could explain why Priya and Tom's figures differ, and what evidence would tell them apart?`)
+    for (const s of FIGURE.sides) { expect(q).not.toContain(s.figure); expect(q).not.toContain(s.text) }
+    for (const o of FIGURE.options) for (const c of o.chances) expect(q).not.toContain(c.text)
+  })
+  it('says "we" when the viewer is a side (Cara, on the link she doubts), and asks a link\'s own question; a factor asks whether it matters', () => {
+    expect(LINK_CARA.sides.some((s) => s.holder_id === tm04.you_id)).toBe(true)
+    expect(differenceQuestion(tm04, LINK_CARA)).toBe(`On the link ${LINK_CARA.label} for '${LINK_CARA.goal_label}': what could explain why we read it differently, and what evidence would show whether it holds?`)
+    // Contrast: the same link seen by someone who is not a side names its people.
+    expect(differenceQuestion({ ...tm04, you_id: '12' } as View, LINK_CARA)).toContain('why Cara and Dan read it differently')
+    expect(differenceQuestion(tm04, FACTOR)).toBe(`Ana thinks the model leaves out '${FACTOR.label}'. How could we tell whether it matters for the aim, and what figure, with a range, could it take?`)
+  })
+})
+
+describe('sent on the press', () => {
+  it('Ask Olumi about this difference sends that difference\'s question once, through the chat\'s writer, and says so', async () => {
+    serve(); show(tm04)
+    const { prefill, send } = composer()
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
+    fireEvent.click(go)
+    expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
+    expect(prefill).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    fireEvent.click(go)
+    expect(send).toHaveBeenCalledTimes(1)
+    // Contrast: another difference's button sends its own question, not this one's.
+    fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
+    expect(send.mock.calls[1]).toEqual([differenceQuestion(tm04, FACTOR)])
+  })
+  it('while Olumi is still answering it says so (the writer keeps the words in the message box)', async () => {
+    serve(); show(tm04)
+    const { send } = composer()
+    useGuidanceStore.setState({ _isConversationBusy: () => true } as never)
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.busy)
+  })
+  it('Olumi\'s question for the round (core\'s collab.next): the person\'s own answer is sent with the question; an empty one sends nothing', async () => {
+    serve(); show(tm04)
+    const { send } = composer()
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    expect(screen.getByTestId('team-views-next').textContent).toBe(tm04.collab.next!.text)
+    fireEvent.click(screen.getByTestId('team-views-next-answer'))
+    const sendBtn = screen.getByTestId('team-views-next-send') as HTMLButtonElement
+    expect(sendBtn.disabled).toBe(true)
+    fireEvent.click(sendBtn)
+    expect(send).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId('team-views-next-words'), { target: { value: '  A past diagnostic took four months to sign.  ' } })
+    fireEvent.click(screen.getByTestId('team-views-next-send'))
+    expect(send.mock.calls).toEqual([[answerMessage(tm04.collab.next!.text, 'A past diagnostic took four months to sign.')]])
+    expect(send.mock.calls[0]![0]).toBe(`Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`)
+    expect(screen.getByTestId('team-views-next-said').textContent).toBe(ASK_SAID.sent)
+  })
+  it('before a model is saved the chat would take words as a new brief: the question is only put in the message box, never sent', async () => {
+    serve()
+    const { prefill, send } = composer()
+    const unsaved = { ...tm04, version: null, proposal: null } as View
+    show(unsaved)
+    render(<WhereWeDiffer sid="s_x" view={unsaved} onWrote={async () => true} />)
+    const go = screen.queryByTestId(`${rowOf(FIGURE)}-ask-go`) ?? await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
+    fireEvent.click(go)
+    expect(send).not.toHaveBeenCalled()
+    expect(prefill.mock.calls).toEqual([[differenceQuestion(unsaved, FIGURE)]])
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.placed)
+  })
+})
