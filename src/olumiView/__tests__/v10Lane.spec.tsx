@@ -85,6 +85,17 @@ describe('v10 on the core lane', () => {
     await waitFor(() => expect(sent.length).toBe(2))
     await settled()
     expect(state('disconfirming')).toMatchObject({ text: '', armed: null, hint: null, sent: [['/challenge', 'opposite', a], ['/challenge', 'disconfirming', b]] })
+    // Codex 008 (18 Nov): waiting, then words go in the box (typed or put there by an Ask): the challenge stands down, the words stay, and a
+    // card picked afterwards sends nothing.
+    select([])
+    await act(async () => { fireEvent.click(icon('outside')) })
+    expect(state('outside')).toMatchObject({ armed: 'outside', pressed: 'true' })
+    await act(async () => { fireEvent.change(container.querySelector('#view-chat-text')!, { target: { value: 'What about the weekend staff?' } }) })
+    expect(state('outside')).toMatchObject({ text: 'What about the weekend staff?', armed: null, pressed: 'false', hint: null })
+    select([a])
+    await act(async () => { await Promise.resolve() })
+    expect(sent.length).toBe(2)
+    await act(async () => { fireEvent.change(container.querySelector('#view-chat-text')!, { target: { value: '' } }) })
     // CONTRAST: words the person typed are their own subject: the prefix goes before them, nothing is sent, nothing waits.
     await act(async () => { fireEvent.change(container.querySelector('#view-chat-text')!, { target: { value: 'the 30p rise' } }) })
     await act(async () => { fireEvent.click(icon('outside')) })

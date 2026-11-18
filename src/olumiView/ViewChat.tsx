@@ -1328,7 +1328,7 @@ export function pressChallenge(kind: ChallengeKind): 'prefixed' | 'sent' | 'arme
   challengeCard(kind, record)
   return 'sent'
 }
-/** While a challenge waits: the next single card picked gets it; Esc, or another scenario on screen, cancels it. */
+/** While a challenge waits: the next single card picked gets it; Esc, words typed or put in the box, or another scenario on screen, cancels it. */
 function useArmedChallenge(): ChallengeKind | null {
   const armed = useViewChat((st) => st.armed ?? null)
   useEffect(() => {
@@ -1337,13 +1337,16 @@ function useArmedChallenge(): ChallengeKind | null {
     const pick = () => {
       if (useViewChat.getState().armed !== armed) return
       if (useViewStore.getState().uuid !== at) { useViewChat.setState({ armed: null }); return }
+      // Words in the box are a new intent (Codex 008, 18 Nov): the waiting challenge stands down and the words stay.
+      if (useViewChat.getState().text.trim() !== '') { useViewChat.setState({ armed: null }); return }
       const record = selectedRecord()
       if (record !== null) challengeCard(armed, record)
     }
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape') useViewChat.setState({ armed: null }) }
-    const off = useCanvasStore.subscribe(pick), offView = useViewStore.subscribe(pick)
+    const typed = (st: ViewChatState, was: ViewChatState) => { if (st.armed === armed && st.text !== was.text && st.text.trim() !== '') useViewChat.setState({ armed: null }) }
+    const off = useCanvasStore.subscribe(pick), offView = useViewStore.subscribe(pick), offChat = useViewChat.subscribe(typed)
     window.addEventListener('keydown', key)
-    return () => { off(); offView(); window.removeEventListener('keydown', key) }
+    return () => { off(); offView(); offChat(); window.removeEventListener('keydown', key) }
   }, [armed])
   return armed
 }
