@@ -26,7 +26,7 @@ import { TYPE } from './type'
 import { FailureAfterYours, TippingPerOption } from './AnalysisReaders'
 import { WhatMovesIt } from './WhatMovesIt'
 import { FoldChevron } from '../look/FoldChevron'
-import { REASONING_LABELS, RestsOn } from '../ViewReasoning'
+import { REASONING_LABELS, RestsOn, StartHere } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 
@@ -149,6 +149,9 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
       {state === 'chance' ? <TippingPerOption model={model} /> : null}
       {state === 'chance' ? <RestsOn model={model} run={model.run ?? null} /> : null}
       {state === 'chance' ? <FailureAfterYours model={model} /> : null}
+      {/* No chance yet (a model in words, or one not sized): the tab opens on something to DO, the Reasoning tab's own place to start, and only
+          then on what a result would need (Codex 011: unknowns support a useful activity, not a repeated demand for figures). */}
+      {state === 'none' ? <StartHere model={model} /> : null}
       <Limits model={model} />
       <ResultNeeds model={model} under={state !== 'none'} />
       {state === 'chance' ? null : <ToQuestions model={model} />}

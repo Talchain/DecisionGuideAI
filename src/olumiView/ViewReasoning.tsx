@@ -240,6 +240,17 @@ function Premises({ model }: { model: ViewModel }) {
   )
 }
 
+/**
+ * The tab's one place to start, for another tab to offer where it has no result of its own to show (Analysis while no option has a chance:
+ * Codex 011, a model in words must offer an activity, not only what a result still needs). The same item, words and action as here.
+ */
+export function StartHere({ model }: { model: ViewModel }) {
+  const methods = useViewStore((s) => s.view?.session?.methods ?? null)
+  const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
+  const lead = examineOf(model, methods, words).find(actionable)
+  return lead === undefined ? null : <div onMouseLeave={() => ringFrom(RING, [])}><Focus e={lead} /></div>
+}
+
 /** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
 export function ViewReasoning({ model, stated = false }: { model: ViewModel; brief?: string | null; stated?: boolean }) {
   const run = model.run ?? null
