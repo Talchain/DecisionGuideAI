@@ -179,7 +179,7 @@ describe('choose per reading', () => {
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
-    expect(useViewChat.getState().said).not.toBeNull() // core's or the client's words for the write that did not go through
+    expect(screen.queryByTestId('view-proposal-said'), 'said in the card, beside the actions').not.toBeNull() // core's or the client's words for the write that did not go through
     expect(radio(0, 'use').checked).toBe(true) // the choice is still on screen for the retry
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(2))
@@ -215,7 +215,7 @@ describe('choose per reading', () => {
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
-    expect(useViewChat.getState().said).toBe('That reading is no longer on offer.') // core's own words
+    expect(screen.getByTestId('view-proposal-said').textContent).toBe('That reading is no longer on offer.') // core's own words
     fireEvent.click(radio(0, 'keep')); fireEvent.click(radio(1, 'use'))
     fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(2))
@@ -255,10 +255,12 @@ describe('choose per reading', () => {
 
   it('ORDER-UI-5 (5): the three action labels are core\'s proposal.actions where core sends them; absent (older core), today\'s words', () => {
     const core = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/core-proposal-actions-e4e9a404.json'), 'utf8')).actions as { keep: string; use: string; approve: string }
-    const painted = () => [screen.getByTestId('view-reading-0-keep').parentElement!.textContent, screen.getByTestId('view-reading-0-use').parentElement!.textContent, screen.getByTestId('view-approve').textContent]
+    const painted = () => [screen.getByTestId('view-reading-0-keep').parentElement!.textContent, screen.getByTestId('view-reading-0-use').parentElement!.textContent, screen.getByTestId('view-approve').getAttribute('aria-label')] // the approve control is an icon: its words are its name
     // core's served value (golden at e4e9a404)
     let r = show({ ...withMarks([ADA]), proposal: { ...withMarks([ADA]).proposal!, actions: core } })
-    expect(painted()).toEqual([core.keep, core.use, core.approve])
+    // The approve control is an icon whose name is its words: core's default word ('Approve') is named in full, any other word of core's is used as sent.
+    expect(core.approve, 'fixture: the golden serves the default word').toBe('Approve')
+    expect(painted()).toEqual([core.keep, core.use, 'Approve these changes'])
     r.unmount()
     // DERIVED from core's shape, other words: the buttons follow core, never the UI's constants
     const other = { keep: 'Leave it as written', use: 'Take Olumi’s figure', approve: 'Confirm' }
@@ -267,7 +269,7 @@ describe('choose per reading', () => {
     r.unmount()
     // absent: today's words
     show(withMarks([ADA]))
-    expect(painted()).toEqual(['Keep the original', 'Use Olumi’s reading', 'Approve'])
+    expect(painted()).toEqual(['Keep the original', 'Use Olumi’s reading', 'Approve these changes'])
   })
 
   it('must not change: a proposal with no reading has no choice, no note, and Approve as before', async () => {
@@ -329,9 +331,9 @@ describe('choose per reading', () => {
     it('(5) DL 12:5xZ: the short label stays, so the actions keep to their rows; it counts ticked change lines, not the readings chosen', () => {
       show(withMarks(held, 'Paul'))
       fireEvent.click(radio(0, 'use')); fireEvent.click(radio(1, 'use'))
-      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked · 0')
+      expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 0')
       fireEvent.click(screen.getByTestId('view-change-tick-1'))
-      expect(screen.getByTestId('view-approve-ticked').textContent).toBe('Approve ticked · 1')
+      expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
     })
   })
 })

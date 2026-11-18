@@ -15,6 +15,7 @@ import { ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
+import { VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const p = golden.proposal!
@@ -71,6 +72,19 @@ describe('partial approval', () => {
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p.base, only: [changes[0]!.id], only_top: [changes[0]!.id] })
   })
+  it('a group box says when only SOME of its lines are ticked (a closed group never hides a part selection): mixed with one of two, checked with both, clear with none', () => {
+    const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
+    showOpen({ ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } })
+    const box = () => screen.getByTestId('view-change-group-0') as HTMLInputElement
+    const state = () => [box().checked, box().indeterminate, box().hasAttribute('data-group-part')]
+    expect(state(), 'none ticked').toEqual([false, false, false])
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    expect(state(), 'one of two').toEqual([false, true, true])
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(state(), 'both').toEqual([true, false, false])
+    fireEvent.click(screen.getByTestId('view-change-tick-0')); fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(state(), 'none again').toEqual([false, false, false])
+  })
 
   it('DL 11 Nov, now inside the one-row review (contract 3): once the review is opened, a grouped proposal rests with every group closed, its heading and tick in view; a group opens on press and shows each of core\'s lines', () => {
     const changes = [p.changes[0]!, { ...p.changes[0]!, top: true, family: 'question', text: '↻ title', detail: '' }]
@@ -86,6 +100,53 @@ describe('partial approval', () => {
     box.open = true
     expect(screen.getByTestId('view-change-tick-0')).toBeVisible()
     expect(screen.getByTestId('view-change-tick-1')).toBeVisible()
+  })
+  it('the filled button follows the ticks (Codex root 21:10Z, 18 Nov): nothing ticked, the filled button is the whole proposal; a line ticked, the filled button is Approve ticked, first, and the whole proposal is the quiet one saying how many lines it takes; unticked, back as it was. What each sends does not change', async () => {
+    showOpen(golden)
+    const filled = (id: string) => VIEW_ICON_BUTTON_PRIMARY_CLASS.split(' ').every((k) => screen.getByTestId(id).classList.contains(k))
+    const first = () => screen.getByTestId('view-proposal-actions').querySelector('[data-testid="view-approve"],[data-testid="view-approve-ticked"]')?.getAttribute('data-testid')
+    const rest = () => [filled('view-approve'), filled('view-approve-ticked'), first(), screen.getByTestId('view-approve').getAttribute('aria-label'), screen.queryByTestId('view-approve-count')?.textContent ?? null]
+    expect(rest(), 'nothing ticked').toEqual([true, false, 'view-approve', 'Approve these changes', null])
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(rest(), 'one line ticked: the green button is the ticked one').toEqual([false, true, 'view-approve-ticked', `Approve all · ${p.changes.length}`, String(p.changes.length)])
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    expect(rest(), 'unticked again').toEqual([true, false, 'view-approve', 'Approve these changes', null])
+    // The filled button, pressed with one line ticked, sends that line and no other.
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    fireEvent.click(screen.getByTestId(first()!))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base, only: [p.changes[0]!.id], only_top: [] } })
+  })
+  it('a selection is never dropped silently (Codex root 21:24Z): with a line ticked, collapsing the review leaves NO approve control; the filled button reopens the review with the ticks kept, and nothing was sent. CONTRAST: collapsed with nothing ticked, the filled button is the whole proposal as before', async () => {
+    const c = showOpen(golden), review = c.querySelector('[data-testid="view-proposal-review"]')!
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    setOpen(review, false)
+    expect(isOpen(review), 'fixture: the review is collapsed').toBe(false)
+    expect([screen.queryByTestId('view-approve'), screen.queryByTestId('view-approve-ticked'), screen.queryByTestId('view-review-changes') !== null]).toEqual([null, null, true])
+    fireEvent.click(screen.getByTestId('view-review-changes'))
+    expect(isOpen(review)).toBe(true)
+    expect([(screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, screen.getByTestId('view-approve-ticked').getAttribute('aria-label')], 'the ticks are kept').toEqual([true, 'Approve ticked · 1'])
+    expect(posts, 'nothing was approved by collapsing or reopening').toHaveLength(0)
+    // CONTRAST: untick, collapse: nothing is chosen, so the closed review offers the whole proposal as it always did.
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    setOpen(review, false)
+    expect([screen.getByTestId('view-approve').getAttribute('aria-label'), screen.queryByTestId('view-approve-ticked'), screen.queryByTestId('view-review-changes')]).toEqual(['Approve these changes', null, null])
+  })
+  it('a refused approval is said IN the review, beside the actions, in core\'s words, once (015): not under the message box; the ticks stay as they were', async () => {
+    const WORDS = 'the chosen changes need ‘A figure’; choose them too'
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify({ error: WORDS }), { status: 409 }) }
+      return new Response(JSON.stringify(golden), { status: 200 })
+    }) as typeof fetch)
+    const c = showOpen(golden)
+    fireEvent.click(screen.getByTestId('view-change-tick-1'))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-proposal-said')).not.toBeNull())
+    const said = screen.getByTestId('view-proposal-said')
+    expect([said.textContent, said.getAttribute('role'), c.querySelector('[data-testid="view-chat-proposal"]')!.contains(said), useViewChat.getState().said]).toEqual([WORDS, 'alert', true, null])
+    expect((screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, 'the selection is kept').toBe(true)
+    expect(posts).toHaveLength(1)
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)
