@@ -1,32 +1,29 @@
 /**
  * The option card's range and its reliance on Olumi's own guesses, read ONLY from what the View already serves (no core change):
- *  - `headline.range`, core's words for how far the chance moves with one figure ("under 1% if 'cups change' is low, over 99% if it is high");
+ *  - `headline.range`, core's words for how far the chance moves with one figure ("under 1% if 'cups change' is low, over 99% if it is high"), drawn as the caption only;
+ *  - `rows[kind=chance].driver`, the same range as numbers (chances 0..1 at the figure's low and high ends), which place the band;
  *  - `rows[kind=chance].chance`, the chance the headline names (a 0..1 number);
  *  - `model.run.rests[]` (`olumi_share`, `person_share`, `unassigned`), core's split of what the result's variation traces to.
- * The words are core's, drawn verbatim as the caption. The numbers only place marks: a band edge is a number the sentence itself states.
- * "under" and "over" are never dropped to a bare number: an open end runs to the end of the track (under N is 0..N, over N is N..100),
- * so the band cannot read tighter than the words say. A sentence not in core's shape draws no band (its words stay), never a guess.
+ * The words are core's, drawn verbatim as the caption. The numbers only place marks, and no mark is read from the words.
  */
 import type { ViewCard, ViewModel } from './client'
 
 export type RangeBand = { readonly from: number; readonly to: number; readonly openLow: boolean; readonly openHigh: boolean }
 
-const END = /(about|under|over) (\d+(?:\.\d+)?)%/
-/** core's chance-range sentence: "<end> if '<figure>' is low, <end> if it is high" (the two ends may run either way). */
-const SENTENCE = new RegExp(`^${END.source} if .+ is (?:low|high), ${END.source} if it is (?:high|low)$`)
-
-/** The band the sentence states, in percent of the track (0..100), or null when the sentence is not core's two-ended shape. */
-export function rangeBandOf(range: string | null | undefined): RangeBand | null {
-  if (range == null) return null
-  const m = SENTENCE.exec(range.trim())
-  if (m === null) return null
-  const ends = [{ kind: m[1]!, n: Number(m[2]) }, { kind: m[3]!, n: Number(m[4]) }]
-  if (ends.some((e) => !Number.isFinite(e.n) || e.n < 0 || e.n > 100)) return null
-  const lowers = ends.map((e) => (e.kind === 'under' ? 0 : e.n)), uppers = ends.map((e) => (e.kind === 'over' ? 100 : e.n))
-  return {
-    from: Math.min(...lowers), to: Math.max(...uppers),
-    openLow: ends.some((e) => e.kind === 'under'), openHigh: ends.some((e) => e.kind === 'over'),
-  }
+/**
+ * The band, placed from the chance row's own numbers: `rows[kind=chance].driver.low` and `.high`, the chance (0..1) at the low and at the high end of the
+ * driver figure's range, for the headline's own aim (core's schema/view.v3.json, ChanceRowV3.driver: "the numbers are for positions only"). Never read from
+ * any sentence: core's words (`headline.range`, `row.value`) are drawn as the track's tip and can change without moving or removing the band. A band end
+ * that sits at the very end of the track (0 or 1) is open there. No `driver` (or one that is not two finite chances) draws no band.
+ */
+export function rangeBandOf(card: ViewCard): RangeBand | null {
+  const h = card.headline
+  if (card.family !== 'option' || h == null || h.state !== 'chance') return null
+  const row = card.rows.find((r): r is Extract<ViewCard['rows'][number], { kind: 'chance' }> => r.kind === 'chance' && r.aim_id === h.aim_id)
+  const d = row?.driver
+  if (d == null || ![d.low, d.high].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) return null
+  const lo = Math.min(d.low, d.high), hi = Math.max(d.low, d.high)
+  return { from: lo * 100, to: hi * 100, openLow: lo <= 0, openHigh: hi >= 1 }
 }
 
 /** The chance the headline names, as a fraction of the track, from the chance row for the headline's own aim; null when none is served. */

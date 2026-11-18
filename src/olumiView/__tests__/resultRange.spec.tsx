@@ -50,13 +50,16 @@ describe('the range, as a band with the chance marked', () => {
   it('B1 catch (bakery second_oven): the band runs between the two figures core states, the chance is marked inside it, core\'s words are the track\'s tip on hover and focus', () => {
     const d = draw(golden('bakery'), 'second_oven')
     expect(d.card.headline!.range).toBe("about 53% if 'extra sold per oven' is low, about 81% if it is high")
-    expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([53, 28])
+    // placed from the row's numbers (driver.low 0.5346.., driver.high 0.8067..), not from the sentence's rounded 53 and 81
+    const drv = (d.card.rows.find((r) => r.kind === 'chance') as { driver: { low: number; high: number } }).driver
+    expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([drv.low * 100, (drv.high - drv.low) * 100].map((n) => expect.closeTo(n, 5)))
+    expect(pct(d.band, 'left')).not.toBe(53)
     expect(d.band!.hasAttribute('data-open-low') || d.band!.hasAttribute('data-open-high')).toBe(false)
     expect(pct(d.mark, 'left')).toBeCloseTo(71.62, 5)
     expect(rangeIsTheTrack(d), 'core\'s words are the track\'s tip and name, not a caption').toEqual(AT_TRACK(d.card.headline!.range!))
     expect(pct(d.track!.querySelector('span'), 'width')).toBeCloseTo(71.62, 5)
   })
-  it('B2 catch (pricing raise_price): "under" and "over" stay open: the band runs to both ends of the track, not to 1% and 99%', () => {
+  it('B2 catch (pricing raise_price): the row\'s numbers are 0 and 1: the band runs to both ends of the track and is open at both', () => {
     const d = draw(golden('pricing'), 'raise_price')
     expect(d.card.headline!.range).toBe("under 1% if 'cups change' is low, over 99% if it is high")
     expect([pct(d.band, 'left'), pct(d.band, 'width')]).toEqual([0, 100])
@@ -64,21 +67,36 @@ describe('the range, as a band with the chance marked', () => {
     expect(pct(d.mark, 'left')).toBeCloseTo(49.21, 5)
     expect(rangeIsTheTrack(d)).toEqual(AT_TRACK(d.card.headline!.range!))
   })
-  it('B3 catch: one open end only ("under 1% … about 95%"): the band is 0 to 95 and open only at the low end; the reversed order reads the same', () => {
-    expect(rangeBandOf("under 1% if 'x' is low, about 95% if it is high")).toEqual({ from: 0, to: 95, openLow: true, openHigh: false })
-    expect(rangeBandOf("about 92% if 'x' is low, under 1% if it is high")).toEqual({ from: 0, to: 92, openLow: true, openHigh: false })
-    expect(rangeBandOf("about 4% if 'x' is low, about 97% if it is high")).toEqual({ from: 4, to: 97, openLow: false, openHigh: false })
+  const withDriver = (view: View, id: string, driver: unknown): View => {
+    const v = structuredClone(view); const row = v.model!.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance')! as unknown as { driver: unknown }; row.driver = driver; return v
+  }
+  it('B3 catch: one open end only (low 0, high 0.95): the band is 0 to 95 and open only at the low end; the reversed order reads the same', () => {
+    const at = (low: number, high: number) => { const v = withDriver(golden('bakery'), 'second_oven', { figure: 'extra_sold_per_oven', low, high }); return rangeBandOf(v.model!.cards.find((c) => c.id === 'second_oven')!) }
+    expect(at(0, 0.95)).toEqual({ from: 0, to: 95, openLow: true, openHigh: false })
+    expect(at(0.95, 0)).toEqual({ from: 0, to: 95, openLow: true, openHigh: false })
+    expect(at(0.04, 0.97)).toEqual({ from: 4, to: 97, openLow: false, openHigh: false })
   })
-  it('B4 must not change: words that are not core\'s two-ended sentence draw no band (the words stay, as the track\'s tip), never a guessed one', () => {
-    for (const w of ['£2,580/month', 'Outcome range', "under 1% if 'x' is low", "about 4% if 'x' is low, about 140% if it is high", '', null]) expect(rangeBandOf(w), String(w)).toBeNull()
-    const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = 'it moves a lot with the oven'
-    const d = draw(v, 'second_oven')
-    expect(d.band).toBeNull(); expect(rangeIsTheTrack(d)).toEqual(AT_TRACK('it moves a lot with the oven')); expect(d.mark).not.toBeNull()
+  it('B4 must not change: a row without the numbers draws no band (the words stay, as the track\'s tip), never a guessed one; numbers outside 0..1 or not finite draw none', () => {
+    const card = (driver: unknown) => withDriver(golden('bakery'), 'second_oven', driver).model!.cards.find((c) => c.id === 'second_oven')!
+    for (const dr of [null, { figure: 'f', low: 0.2, high: 1.4 }, { figure: 'f', low: -0.1, high: 0.5 }, { figure: 'f', low: Number.NaN, high: 0.5 }]) expect(rangeBandOf(card(dr)), JSON.stringify(dr)).toBeNull()
+    const d = draw(withDriver(golden('bakery'), 'second_oven', null), 'second_oven')
+    expect(d.band).toBeNull(); expect(rangeIsTheTrack(d)).toEqual(AT_TRACK(d.card.headline!.range!)); expect(d.mark).not.toBeNull()
   })
-  it('B5 must not change: a chance with no range words draws the fill and the mark, no band, no caption', () => {
+  it('B4b CONTRAST: changing the English (headline.range, the row\'s value and title) neither moves nor removes the band', () => {
+    const base = draw(golden('bakery'), 'second_oven'), was = [pct(base.band, 'left'), pct(base.band, 'width')]
+    cleanup()
+    for (const words of ['it moves a lot with the oven', '', null, 'a wholly different sentence, 12% to 40%']) {
+      const v = structuredClone(golden('bakery')); const c = v.model!.cards.find((x) => x.id === 'second_oven')!
+      c.headline!.range = words
+      const row = c.rows.find((r) => r.kind === 'chance')! as unknown as { value: string; title: string }; row.value = 'reworded'; row.title = 'reworded'
+      const d = draw(v, 'second_oven')
+      expect([pct(d.band, 'left'), pct(d.band, 'width')], String(words)).toEqual(was); cleanup()
+    }
+  })
+  it('B5 must not change: a chance with no range words draws the fill and the mark and no caption (the band is the numbers\', so it stays)', () => {
     const v = structuredClone(golden('bakery')); v.model!.cards.find((c) => c.id === 'second_oven')!.headline!.range = null
     const d = draw(v, 'second_oven')
-    expect([d.band, d.caption]).toEqual([null, null]); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
+    expect(d.caption).toBeNull(); expect(d.band).not.toBeNull(); expect(d.track).not.toBeNull(); expect(d.mark).not.toBeNull()
     expect([d.track!.getAttribute('tabindex'), d.track!.getAttribute('aria-hidden')], 'no words: nothing to reach, as before').toEqual([null, 'true'])
   })
   it('B6 must not change: where there is no result, core\'s own words stand and nothing is drawn (fixed: "never met"; none: ONE quiet line, its why the hover, R6 16 Nov)', () => {

@@ -30,12 +30,16 @@ const drawQuestion = (view: View): HTMLElement => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
+/** The band's far end is the chance row's own `driver.high` (core's numbers), not the sentence's rounded "about 51%". */
+const SEEK_DRIVER = (RUN2.model!.cards.find((c) => c.id === SEEK)!.rows.find((r) => r.kind === 'chance') as unknown as { driver: { low: number; high: number } }).driver
+const SEEK_HIGH = SEEK_DRIVER.high
+
 describe('the shared chance rail', () => {
   it('R1 the rail holds the worked-out options, in the View\'s own order, each at its served row and core\'s range; the rest are grouped under core\'s words', () => {
     const rail = chanceRailOf(RUN2.model)!
     expect(rail.rows.map((r) => [r.id, r.at, r.text, r.band === null ? null : [r.band.from, r.band.to]])).toEqual([
       [KEEP, 0, 'never met in this model', null],
-      [SEEK, 0.1842, 'about 18% chance', [0, 51]],
+      [SEEK, 0.1842, 'about 18% chance', [0, SEEK_HIGH * 100]],
     ])
     expect(rail.rest.map((r) => r.id)).toEqual([ANGEL, WIDEN, CUT])
     expect(rail.caption).toBe('No chance yet')
@@ -54,7 +58,7 @@ describe('the shared chance rail', () => {
     const opts = RUN2.model!.cards.filter((c) => c.family === 'option').map((c) => c.id)
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent])).toEqual(opts.map((id) => [id, letters.get(id)]))
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
-    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, `${SEEK_DRIVER.low * 100}%`, `${(SEEK_DRIVER.high - SEEK_DRIVER.low) * 100}%`]])
     const headOf = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.headline!.text
     for (const id of [ANGEL, WIDEN, CUT]) expect([id, rail.querySelector(`[data-rail-lane="${id}"]`), rail.querySelector(`[data-view="${id}.headline.text"]`)?.textContent]).toEqual([id, null, headOf(id)])
     expect(headOf(ANGEL), 'precondition: core\'s own words for an option with no result').toBe('No chance yet')
