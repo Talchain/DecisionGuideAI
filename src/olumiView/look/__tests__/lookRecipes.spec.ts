@@ -20,8 +20,9 @@ describe("the look's recipes, each written once", () => {
   })
   it('a ruled-out card\'s name is light, and the Simple foot\'s marks are sized by the board\'s scale (each rule once, bound to its own hook)', () => {
     const bodyOf = (needle: string) => rules.filter((r) => r.selectors.some((x) => x.includes(needle))).map((r) => r.body.trim())
-    // One rule greys a ruled-out card's name on both faces (the Simple and the Detailed hook in one :has()).
-    expect(bodyOf(":has([data-simple-set-aside], [data-detailed-set-aside]) [data-testid='node-title']")).toEqual(['color: var(--text-light) !important;'])
+    // One rule greys a ruled-out card's name on both faces: the Simple and the Detailed hook are its two selectors.
+    const greys = rules.filter((r) => r.selectors.some((x) => x.includes(":has([data-simple-set-aside]) [data-testid='node-title']")))
+    expect(greys.map((r) => [r.selectors.map((x) => /data-(simple|detailed)-set-aside/.exec(x)?.[1] ?? null), r.body.trim()])).toEqual([[['simple', 'detailed'], 'color: var(--text-light) !important;']])
     expect(bodyOf('[data-simple-foot] .ok-am svg')).toEqual(['width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s));'])
     // CONTRAST: a live card's name keeps the header ink (the base title rule), and no rule sizes a mark outside the Simple foot this way.
     expect(rules.filter((r) => r.selectors.includes(".olumi-look .react-flow__node [data-testid='node-title']") && /color:/.test(r.body)).map((r) => /color: var\(--text-header\) !important/.test(r.body))).toEqual([true])
