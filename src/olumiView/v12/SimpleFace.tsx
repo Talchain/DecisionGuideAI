@@ -247,7 +247,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     })
     .filter((t) => t !== '')
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
+    // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
       {visual}
       {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
       {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}

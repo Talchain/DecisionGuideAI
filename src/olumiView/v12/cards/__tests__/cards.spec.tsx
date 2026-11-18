@@ -540,6 +540,16 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     const el = draw(withCard(CAPACITY, { ...crowded, driver: null } as unknown as ViewCard), crowded.id, 'simple')
     expect([idsIn(el), el.querySelector('[data-card-more]')]).toEqual([['set-aside', 'challenged', 'unused'], null])
   })
+  it('K5 an option core has ruled out is marked for the look and says so first, in core\'s word; CONTRAST: the same option while live carries neither', () => {
+    const live = { ...driven, driver: null } as unknown as ViewCard
+    expect(live.status).toBeNull()
+    const out = draw(withCard(CAPACITY, { ...live, status: 'ruled out' } as ViewCard), live.id, 'simple')
+    const first = marksIn(out)[0]!
+    expect([out.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), first.getAttribute('data-card-mark'), named(first).getAttribute('aria-label'), named(first).title]).toEqual([true, 'set-aside', 'ruled out', 'ruled out'])
+    cleanup()
+    const on = draw(withCard(CAPACITY, live), live.id, 'simple')
+    expect([on.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), idsIn(on)]).toEqual([false, []])
+  })
   it('K4 "+N" is a button: a press draws the hidden mark in the row and a second press folds it; the press never reaches the card', () => {
     const onCard = vi.fn()
     const { container } = render(<div onClick={onCard}><SimpleFace card={crowded} model={withCard(CAPACITY, crowded).model} noted={false} /></div>)
