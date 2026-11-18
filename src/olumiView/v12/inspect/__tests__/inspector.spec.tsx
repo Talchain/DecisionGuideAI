@@ -28,7 +28,7 @@ function driven(over: (v: View) => void = () => undefined): View {
 }
 let stub: Stub
 beforeEach(() => { askAI.mockClear(); stub = install(driven()) })
-afterEach(() => { cleanup(); uninstall(); useLaneInspector.setState({ target: null }); useViewLens.setState({ lens: 'full' }); useWhatIfFocus.setState({ id: null }); useCanvasStore.setState({ nodes: [] } as never) })
+afterEach(() => { cleanup(); uninstall(); useLaneInspector.setState({ current: null }); useViewLens.setState({ lens: 'full' }); useWhatIfFocus.setState({ id: null }); useCanvasStore.setState({ nodes: [] } as never) })
 const open = (id = FIG) => { useLaneInspector.getState().open({ kind: 'card', id }); return render(<ToastProvider><LaneInspector /></ToastProvider>) }
 
 describe('What it moves', () => {

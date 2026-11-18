@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
-import { LaneInspector } from '../LaneInspector'
+import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useLaneInspector } from '../inspectorStore'
 import { edgeIdOf } from '../../../../canvas/contextMenu/laneMenu'
 import { useViewStore } from '../../../store'
@@ -11,8 +11,9 @@ import { SID, approved, install, uninstall, type Stub } from './harness'
 
 let stub: Stub
 beforeEach(() => { stub = install() })
-afterEach(() => { cleanup(); uninstall(); useLaneInspector.setState({ target: null }) })
-const mount = () => render(<ToastProvider><LaneInspector /></ToastProvider>)
+afterEach(() => { cleanup(); uninstall(); useLaneInspector.setState({ current: null }) })
+// The layer draws the details panel and the one small form its buttons open (in the panel's place: one thing open at a time).
+const mount = () => render(<ToastProvider><LaneEditingLayer /></ToastProvider>)
 
 describe('details panel', () => {
   it('a risk card: core\'s figure words, Set chance and size posts /size, and nothing offers to take it out of comparison', async () => {

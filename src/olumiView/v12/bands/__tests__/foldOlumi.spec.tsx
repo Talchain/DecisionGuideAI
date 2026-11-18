@@ -29,7 +29,7 @@ const kindOf = (id: string, cards: ViewCard[], chat: unknown[] = []) => { const 
 /** A chat turn whose answer points at `about` (core's `answer.next`). Only the fields the rule reads. */
 const reply = (id: number, about: string[], at: string | null = null) => ({ id, answer: { next: { at, about } } })
 
-afterEach(() => { useWhatIf.setState({ shown: null }); useLaneInspector.setState({ target: null }) })
+afterEach(() => { useWhatIf.setState({ shown: null }); useLaneInspector.setState({ current: null }) })
 
 describe('D1c: which approved cards fold behind "N more from Olumi" on Simple', () => {
   it('F0 preconditions: oven_price has core\'s gap words and no value; spend is a calculation waiting on an input; budget has a value', () => {
@@ -70,7 +70,7 @@ describe('D1c: which approved cards fold behind "N more from Olumi" on Simple', 
     expect(kindOf('oven_price', cards)).toBeNull()
     useWhatIf.setState({ shown: { sid: 'another', base: 1, quantity: 'oven_price', typed: '5000', variant: {} as never } })
     expect(kindOf('oven_price', cards), 'CONTRAST: another scenario').toBe('olumi')
-    useLaneInspector.setState({ target: { kind: 'card', id: 'spend' } })
+    useLaneInspector.getState().open({ kind: 'card', id: 'spend' })
     expect(kindOf('spend', cards)).toBeNull()
   })
 })

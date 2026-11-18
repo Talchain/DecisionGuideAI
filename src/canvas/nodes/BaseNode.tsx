@@ -116,6 +116,7 @@ import {
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { anySurfaceOpen, useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
@@ -490,6 +491,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   // The card's hover pop-up (Paul, 29 Sep 2026): opens on hover intent or
   // keyboard focus, closes on leave or Escape — see `NodeHoverCard`.
   const hoverCard = usePopoverHover(HOVER_CARD_OPEN_DELAY_MS)
+  // Surfaces step 2 (18 Nov): the pop-up is never up while the figure editor, the edit form, the details panel, the right-click menu or the add form is open.
+  const surfaceOpen = useLaneInspector(anySurfaceOpen)
 
   // Phase 3: Node highlighting
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
@@ -3186,7 +3189,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         nodeId={id}
         nodeType={nodeType}
         data={data as Record<string, unknown> | undefined}
-        visible={hoverCard.showPopover && !selected && !renamingOnCard}
+        visible={hoverCard.showPopover && !selected && !renamingOnCard && !surfaceOpen}
         anchorRef={hoverCard.nodeElRef}
       />
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:

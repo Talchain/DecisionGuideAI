@@ -24,7 +24,7 @@ import { withoutInputs } from './v12/bands/bands'
 import { cardGroupsOf, foldActiveNow, foldKeepOf, groupLinksOf, withoutGrouped, type FoldActive, type GroupLink } from './v12/bands/groups'
 import { useWhatIf } from './whatif'
 import { useWhatIfFocus } from './v12/inspect/whatIfFocus'
-import { useLaneInspector } from './v12/edit/inspectorStore'
+import { detailsOf, useLaneInspector } from './v12/edit/inspectorStore'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
 /** The previous graph's line from the question to each of its options (RULING 1): core states the card is an option of this question; the
@@ -308,7 +308,7 @@ export function useViewCanvas(on: boolean): void {
   const viewId = view?.id ?? null
   const tried = useWhatIf((s) => (s.shown !== null && (viewId === null || s.shown.sid === viewId) ? s.shown.quantity : null))
   const pressed = useWhatIfFocus((s) => s.id)
-  const inspected = useLaneInspector((s) => (s.target?.kind === 'card' ? s.target.id : null))
+  const inspected = useLaneInspector((s) => { const t = detailsOf(s); return t?.kind === 'card' ? t.id : null })
   const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open, { tried, pressed, inspected })), [view, open, level, tried, pressed, inspected])
   const model = board?.model ?? null
   // Kept ideas outlive the model they were kept beside: with no model they are drawn alone (ideasOnlyOf), never with a fabricated card.

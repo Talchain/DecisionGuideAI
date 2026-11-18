@@ -12,6 +12,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { AddFigure, ADD_FIGURE_WORDS, focusWhenDrawn } from '../AddFigure'
+import { LaneEditingLayer } from '../v12/edit/LaneEditingLayer'
+import { ToastProvider } from '../../canvas/ToastContext'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
@@ -76,7 +78,8 @@ describe('add a figure', () => {
     expect(focused).toEqual(['weekly_churn'])
   })
   it('catch (PL 7 Nov): Cancel or Escape hands focus back to the toolbar "+", so a keyboard user keeps their place', () => {
-    render(<AddFigure />)
+    // Escape is the canvas's one key listener (surfaces step 2), mounted with the add control as ViewCanvas mounts them.
+    render(<ToastProvider><AddFigure /><LaneEditingLayer /></ToastProvider>)
     openFigure()
     fireEvent.click(screen.getByText('Cancel'))
     expect(document.activeElement).toBe(screen.getByTestId('canvas-add-to-model'))

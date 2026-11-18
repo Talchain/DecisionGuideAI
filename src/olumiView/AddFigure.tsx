@@ -17,6 +17,7 @@ import { isForThisPage, useMe } from '../olumiCore/me'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../canvas/store'
 import { writes } from './client'
+import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
 
@@ -46,8 +47,11 @@ export function AddFigure(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
   const me = useMe((s) => s.me)
-  const [panel, setPanel] = useState<'menu' | 'form' | null>(null)
-  const open = panel === 'form', menu = panel === 'menu'
+  // The "+" menu is floating-ui's own; the form it opens is one of the five surfaces the one surface store holds (surfaces step 2): opening it closes
+  // whatever else was open, anything else opening closes it. Its typed words stay here, whatever closes it.
+  const [menu, setMenu] = useState(false)
+  const open = useLaneInspector((s) => s.current !== null && s.current.kind === 'add')
+  const key = `${sid}:add-figure`
   const [label, setLabel] = useState('')
   const [typed, setTyped] = useState('')
   const [unit, setUnit] = useState('')
@@ -55,11 +59,17 @@ export function AddFigure(): JSX.Element | null {
   const [error, setError] = useState<string | null>(null)
   const opener = useRef<HTMLButtonElement | null>(null)
   const figureBox = useRef<HTMLInputElement>(null)
-  // Form and menu dismissal return focus to the toolbar add control.
-  const [returning, setReturning] = useState(false)
-  useEffect(() => { if (!open && returning) { opener.current?.focus(); setReturning(false) } }, [open, returning])
+  // Form and menu dismissal return focus to the toolbar add control: the form closed by its Cancel, a save or Escape, whichever way the store closed it,
+  // and the menu closed by Escape or a press outside. (Another surface opening has taken the focus itself: only focus left on nothing comes back.)
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (wasOpen.current && !open && (document.activeElement === null || document.activeElement === document.body)) opener.current?.focus()
+    wasOpen.current = open
+  }, [open])
+  // The card going away (or the page leaving) takes an open add form with it: nothing is left holding the one slot.
+  useEffect(() => () => { useLaneInspector.getState().close('add') }, [])
   const { refs, floatingStyles, context } = useFloating({
-    open: menu, onOpenChange: (next) => { setPanel(next ? 'menu' : null); if (!next) setReturning(true) },
+    open: menu, onOpenChange: (next) => { setMenu(next); if (!next) opener.current?.focus() },
     placement: 'right-start', strategy: 'fixed', whileElementsMounted: autoUpdate,
     middleware: [offset(12), flip(), shift({ padding: 8 })],
   })
@@ -67,14 +77,13 @@ export function AddFigure(): JSX.Element | null {
     useClick(context), useDismiss(context, { outsidePressEvent: 'click' }), useRole(context, { role: 'menu' }),
   ])
   const reference = useMergeRefs([opener, refs.setReference])
-  const key = `${sid}:add-figure`
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
   if (sid === null || view === null || at !== null || !isForThisPage(view, me)) return null
   // Paul's left menu keeps its + (15 Nov, 2.png): while core gives no edit base it stays in its place, disabled, and says why (no dead control).
   const why = live !== null ? null : view.model == null ? ADD_FIGURE_WORDS.heldNoModel : view.proposal != null ? ADD_FIGURE_WORDS.heldProposal : ADD_FIGURE_WORDS.heldOther
 
-  const close = () => { setPanel(null); setError(null); setReturning(true) }
+  const close = () => { useLaneInspector.getState().close('add'); setError(null) }
   const add = async () => {
     const name = label.trim(), figure = typed.trim(), u = unit.trim()
     if (name === '' || figure === '' || sending || base === null) return
@@ -106,12 +115,12 @@ export function AddFigure(): JSX.Element | null {
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
           className={`rounded-lg border border-panel-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`} aria-label="Add to model">
           <button type="button" role="menuitem" className="min-h-[32px] cursor-pointer rounded-sm px-3 text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2"
-            onClick={() => { setBase(live); setError(null); setPanel('form') }}>{ADD_FIGURE_WORDS.open}</button>
+            onClick={() => { setBase(live); setError(null); setMenu(false); useLaneInspector.getState().show({ kind: 'add', busyKey: key }) }}>{ADD_FIGURE_WORDS.open}</button>
         </div>
       </FloatingFocusManager> : null}
       {open ? (
         <form className={`absolute left-full top-0 ml-3 nodrag nopan w-[260px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
-          onSubmit={(e) => { e.preventDefault(); void add() }} onKeyDown={(e) => { if (e.key === 'Escape' && !sending) close() }}>
+          onSubmit={(e) => { e.preventDefault(); void add() }}>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.name}</span>
             <input autoFocus autoComplete="off" value={label} disabled={sending} data-testid="view-add-figure-name"
               onChange={(e) => { setLabel(e.target.value); if (error) setError(null) }} className={field} /></label>
