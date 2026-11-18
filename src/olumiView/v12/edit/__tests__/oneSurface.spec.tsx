@@ -549,6 +549,23 @@ describe('surfaces step 3: details beside their card', () => {
     expect(without.maxHeight, 'CONTRAST: with no cue the same place keeps its full height').toBeNull()
   })
 
+  it('S3-p (Codex 30422 hold) lifting the panel off a foot control never puts it on its own card: with a clear place above the card, that place is chosen', () => {
+    const free = { left: 0, top: 0, right: 600, bottom: 400 }, card = { left: 180, top: 80, right: 420, bottom: 300 }
+    const cueBox = { left: 190, top: 340, right: 470, bottom: 376 }
+    const cue = document.createElement('div'); cue.setAttribute('data-testid', 'view-below-cue'); const btn = document.createElement('button'); cue.appendChild(btn); document.body.appendChild(cue)
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return (this === btn ? { ...cueBox, x: cueBox.left, y: cueBox.top, width: 280, height: 36, toJSON: () => ({}) } : { left: 0, top: 0, right: 0, bottom: 0, x: 0, y: 0, width: 0, height: 0, toJSON: () => ({}) }) as DOMRect
+    })
+    try {
+      const p = placeBeside(card, null, { width: 280, height: 360 }, free)
+      const box = { left: p.left, top: p.top, right: p.left + 280, bottom: p.top + (p.maxHeight ?? 360) }
+      const ov = (b: { left: number; top: number; right: number; bottom: number }, c: { left: number; top: number; right: number; bottom: number }) => Math.max(0, Math.min(b.right, c.right) - Math.max(b.left, c.left)) * Math.max(0, Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top))
+      expect(ov(box, card), `own card, panel ${p.left},${p.top} h ${p.maxHeight}`).toBe(0)
+      expect(ov(box, cueBox), 'foot cue').toBe(0)
+      expect(box.bottom <= card.top, 'the clear place above the card').toBe(true)
+    } finally { spy.mockRestore(); cue.remove() }
+  })
+
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 340 }, card = { left: 180, top: 110, right: 420, bottom: 230 }
     const form = placeBeside(card, null, { width: 280, height: 420 }, free, FORM_MIN_SHOWN)
