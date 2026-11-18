@@ -442,7 +442,8 @@
 .olumi-look .ok-dt-rail-lane::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--border-default); }
 .olumi-look .ok-dt-rail-whisker { position: absolute; top: 50%; height: 4px; margin-top: -2px; border-radius: 999px; background: var(--edge-neutral); }
 .olumi-look .ok-dt-rail-dot { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--text-header); box-shadow: 0 0 0 2px var(--bg-panel); }
-.olumi-look .ok-dt-rail-val { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Core's words on a rail row are never cut: they wrap inside their column (no nowrap, no ellipsis, no clipping box; lookRecipes.spec). */
+.olumi-look .ok-dt-rail-val { min-width: 0; font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 /* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
 .olumi-look .ok-dt-strips { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-strip {

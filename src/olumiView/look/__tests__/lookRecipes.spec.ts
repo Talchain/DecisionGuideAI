@@ -26,6 +26,13 @@ describe("the look's recipes, each written once", () => {
     expect(recipe.selectors).toEqual(['.olumi-look .ok-steps > summary', '.olumi-look .ok-share', '.ok-explain .ok-steps > summary'])
     expect(recipe.body).toMatch(/color: var\(--text-light\); text-decoration: underline;/)
   })
+  it("the question's rail never cuts core's words: no rail rule carries nowrap, an ellipsis, a line clamp or a clipping box. CONTRAST: the strips' axis ends (two numbers of the axis, not core's sentence) keep their nowrap, so the probe sees such a rule", () => {
+    const clips = /white-space:\s*nowrap|text-overflow|line-clamp|overflow:\s*hidden/
+    const rail = rules.filter((r) => r.selectors.some((s) => s.includes('.ok-dt-rail')))
+    expect(rail.some((r) => r.selectors.some((s) => s.endsWith('.ok-dt-rail-val'))), 'the rail value rule is among those read').toBe(true)
+    expect(rail.filter((r) => clips.test(r.body)).map((r) => r.selectors.join(', '))).toEqual([])
+    expect(rules.filter((r) => r.selectors.some((s) => s.endsWith('.ok-dt-strip-ends')) && clips.test(r.body)).length).toBe(1)
+  })
   it("names the design system's tokens directly: no alias layer but the canvas label scale, and no colour literal", () => {
     expect([...new Set(css.match(/--o-[a-z-]+/g) ?? [])]).toEqual(['--o-s'])
     expect(css.match(/rgba?\(|#[0-9a-fA-F]{3,8}\b/g)).toBeNull()

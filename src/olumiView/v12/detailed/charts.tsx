@@ -54,7 +54,8 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
                 <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ left: `${l.at * 100}%` }} />
               </span>
             ) : null}
-            <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`} data-view={`${l.id}.headline.text`}>{words}{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
+            {/* The value cell wraps and clips nothing; core's words are their own element and the challenge mark sits beside them, never inside them. */}
+            <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`}><span data-view={`${l.id}.headline.text`}>{words}</span>{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
           </div>
         )
       })}

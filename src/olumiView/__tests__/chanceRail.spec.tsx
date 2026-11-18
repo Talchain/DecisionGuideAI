@@ -56,12 +56,15 @@ describe('the shared chance rail', () => {
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, '0%', '51%']])
     const headOf = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.headline!.text
-    for (const id of [ANGEL, WIDEN, CUT]) expect([id, rail.querySelector(`[data-rail-lane="${id}"]`), rail.querySelector(`[data-view="${id}.headline.text"]`)?.textContent?.startsWith(headOf(id))]).toEqual([id, null, true])
+    for (const id of [ANGEL, WIDEN, CUT]) expect([id, rail.querySelector(`[data-rail-lane="${id}"]`), rail.querySelector(`[data-view="${id}.headline.text"]`)?.textContent]).toEqual([id, null, headOf(id)])
+    expect(headOf(ANGEL), 'precondition: core\'s own words for an option with no result').toBe('No chance yet')
     for (const id of [KEEP, SEEK]) expect(rail.querySelector(`[data-rail-lane="${id}"]`), `CONTRAST: ${id} has a result, so it keeps its lane`).not.toBeNull()
     expect(rail.querySelector('.ok-dt-rail-lane-empty'), 'no empty track').toBeNull()
     expect(rail.querySelectorAll('[data-rail-rest], [data-rail-unworked]').length, 'no run-on line of names').toBe(0)
     for (const c of RUN2.model!.cards.filter((x) => x.family === 'option')) expect(rail.textContent, c.heading).not.toContain(c.heading)
     const glyph = RUN2.model!.key.find((k) => k.id === 'challenge')!.glyph
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.getAttribute('data-rail-challenge'), b.textContent])).toEqual([[ANGEL, glyph], [WIDEN, glyph]])
+    // The challenge mark sits beside core's words in the row's value cell, never inside the words (so nothing that wraps or bounds them can cut it).
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-challenge]')].map((b) => [b.parentElement?.classList.contains('ok-dt-rail-val'), b.closest('[data-view$=".headline.text"]')])).toEqual([[true, null], [true, null]])
   })
 })
