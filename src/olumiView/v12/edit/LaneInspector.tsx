@@ -6,7 +6,7 @@
  *
  * "Take out of comparison" is NOT offered: core has no route for an option's status or an exclusion (MANUAL-EDITING-MAP, headline 4).
  */
-import { useEffect, useMemo, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
@@ -19,11 +19,18 @@ import type { FigureRange } from '../contract'
 import { FigureInspector } from '../inspect/FigureInspector'
 import { useViewStore } from '../../store'
 import { writeKeyOf, type EditSpec } from './EditForm'
+import { CardWords } from '../../SelectedRename'
 import { detailsOf, useLaneInspector } from './inspectorStore'
+import { DETAILS_WIDTH, DETAILS_X, DETAILS_Y, anchorOf, freeCanvas, placeBeside } from './placeBeside'
 
 const NOOP = () => undefined
-/** The one small form, from the details panel's buttons: it takes the panel's place (one thing open at a time) at the panel's own corner. */
-const openFormHere = (spec: EditSpec): void => { useLaneInspector.getState().show({ kind: 'form', spec, anchor: { x: 372, y: 112 }, busyKey: writeKeyOf(spec) }) }
+/** The one small form, from the details panel's buttons: it takes the panel's place (one thing open at a time), at the panel's own position (never a fixed corner). */
+const openFormHere = (spec: EditSpec): void => {
+  const el = document.querySelector<HTMLElement>('[data-testid="lane-inspector"]')
+  const x = parseFloat(el?.style.getPropertyValue(DETAILS_X) ?? ''), y = parseFloat(el?.style.getPropertyValue(DETAILS_Y) ?? '')
+  const free = freeCanvas()
+  useLaneInspector.getState().show({ kind: 'form', spec, anchor: { x: Number.isNaN(x) ? free.left + 8 : x, y: Number.isNaN(y) ? free.top + 8 : y }, busyKey: writeKeyOf(spec) })
+}
 
 /** `range`: the slot for a figure's range chart (the scale lane's RangeBar); called only for a card whose View carries a numeric range. */
 export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRange) => ReactNode } = {}): JSX.Element | null {
@@ -37,14 +44,40 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
   const link = target?.kind === 'link' ? model?.links.find((l) => edgeIdOf(l) === target.id) ?? null : null
   useEffect(() => { if (target !== null && card === null && link === null) close() }, [target, card, link, close])
   const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []), [card, link, ctx])
+  // BESIDE ITS ITEM, AND IT FOLLOWS (surfaces step 3): placed before paint, then re-placed whenever the item, the panel or the free canvas moves
+  // (a pan, a zoom, a relayout), as the hover pop-up is. It never stays behind over a card that has moved on; an item off the free canvas leaves it in the corner.
+  const shown = target !== null && (card !== null || link !== null)
+  const panel = useRef<HTMLElement>(null)
+  const at = target !== null && shown ? `${target.kind}:${target.id}` : ''
+  useLayoutEffect(() => {
+    if (at === '' || target === null) return
+    let raf = 0, last = ''
+    const place = () => {
+      const el = panel.current
+      if (el !== null) {
+        const { anchor, own } = anchorOf(target), free = freeCanvas(), box = el.getBoundingClientRect()
+        const size = { width: box.width > 0 ? box.width : DETAILS_WIDTH, height: box.height }
+        const key = [anchor?.left, anchor?.top, anchor?.right, anchor?.bottom, size.width, size.height, free.left, free.top, free.right, free.bottom].join('|')
+        if (key !== last) {
+          last = key
+          const p = placeBeside(anchor, own, size, free)
+          el.style.setProperty(DETAILS_X, `${p.left}px`); el.style.setProperty(DETAILS_Y, `${p.top}px`)
+        }
+      }
+      raf = requestAnimationFrame(place)
+    }
+    place()
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [at])
   if (target === null || (card === null && link === null)) return null
   const title = card !== null ? card.heading : link!.title
   // The card's own ask action (the right-click menu's "Explain"), pointed at this card's canvas node.
   const node = card === null ? undefined : useCanvasStore.getState().nodes.find((n) => n.id === card.id)
   const ask = node === undefined ? null : () => ctx.act.ask({ kind: 'node', nodeId: node.id, nodeType: node.type as NodeTarget['nodeType'], node, screenPos: { x: 0, y: 0 } }, 'explain_element')
   return (
-    <aside role="complementary" aria-label="Details" data-testid="lane-inspector" data-kind={target.kind}
-      className={`nodrag nopan fixed left-[76px] top-[112px] z-[60] max-h-[60vh] w-[280px] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
+    <aside ref={panel} role="complementary" aria-label="Details" data-testid="lane-inspector" data-kind={target.kind}
+      className={`nodrag nopan fixed left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] z-[60] max-h-[60vh] w-[280px] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
       <div className="flex items-start justify-between gap-2">
         <h2 className={`${typography.viewPanelBody} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{title}</h2>
         <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><X size={14} aria-hidden="true" /></button>
@@ -53,6 +86,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
         <>
           {card.detail === '' ? null : <p className="text-text-body" data-testid="lane-inspector-detail">{card.detail}</p>}
           {card.figure === null ? null : <p className="text-text-body" title={card.figure.title} data-testid="lane-inspector-figure">{card.figure.text}</p>}
+          <CardWords id={card.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} />
           {card.olumi === null ? null : <p className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{card.olumi.glyph} </span>{card.olumi.title}</p>}
           {card.status === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`}>{card.status}</p>}
           <FigureInspector card={card} range={range} onAsk={ask} onClose={() => close()} />

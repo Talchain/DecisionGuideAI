@@ -277,3 +277,90 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect((screen.getByTestId('lane-edit-label') as HTMLInputElement).value).toBe('My new name')
   })
 })
+
+// SURFACES STEP 3 (18 Nov): the details open beside their card. Boxes are mocked as the hover-card specs do (jsdom lays nothing out): each card's box
+// from a table, the panel's from where it was placed (its two position properties; the old fixed corner, 76 x 112, where it set none).
+describe('surfaces step 3: details beside their card', () => {
+  type Box = { left: number; top: number; width: number; height: number }
+  const cards: Record<string, Box> = {}
+  const PANEL = { width: 280, height: 300 }
+  const rectOf = (b: Box) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+  const panelBox = (el: Element): Box => {
+    const s = (el as HTMLElement).style
+    return { left: parseFloat(s.getPropertyValue('--lane-details-x')) || 76, top: parseFloat(s.getPropertyValue('--lane-details-y')) || 112, ...PANEL }
+  }
+  const mockBoxes = () => vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const node = this.closest('.react-flow__node')
+    if (node !== null) return rectOf(cards[node.getAttribute('data-id') ?? ''] ?? { left: 0, top: 0, width: 0, height: 0 })
+    if (this.matches('[data-testid="lane-inspector"]')) return rectOf(panelBox(this))
+    return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+  })
+  const area = (a: DOMRect, b: DOMRect) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+  const inspector = () => document.querySelector<HTMLElement>('[data-testid="lane-inspector"]')!
+  afterEach(() => { vi.restoreAllMocks(); for (const k of Object.keys(cards)) delete cards[k] })
+
+  it('S3-a the panel stands beside its own card and never over it, wherever the card is (on the old corner, mid-board, near the dock), and follows when the board moves; no fixed corner', async () => {
+    mockBoxes()
+    await board()
+    for (const [label, box] of [['on the old corner', { left: 100, top: 130, width: 220, height: 120 }], ['mid-board', { left: 400, top: 300, width: 220, height: 120 }], ['near the dock', { left: 760, top: 300, width: 220, height: 120 }]] as const) {
+      cards[OPT] = box
+      act(() => { useLaneInspector.getState().close() })
+      fireEvent.click(node(OPT)); await settle()
+      const mine = rectOf(box), panel = rectOf(panelBox(inspector()))
+      expect(area(panel, mine), `${label}: the panel's box over its own card`).toBe(0)
+      expect(panel.left, `${label}: inside the window`).toBeGreaterThanOrEqual(0)
+      expect(panel.right, `${label}: inside the window`).toBeLessThanOrEqual(window.innerWidth)
+      expect(inspector().className, 'no fixed corner').not.toMatch(/left-\[76px\]|top-\[112px\]/)
+    }
+    // It follows: the card moves (a pan), the panel is placed again beside the card's new place.
+    cards[OPT] = { left: 300, top: 400, width: 220, height: 120 }; await settle()
+    expect(area(rectOf(panelBox(inspector())), rectOf(cards[OPT])), 'after the board moved').toBe(0)
+    expect(panelBox(inspector()).left, 'it moved with the card').toBeGreaterThan(300)
+  })
+
+  it('S3-b a press on a card that is not an option (a quantity card) opens its details on the lane, the card\'s own pencil does not, and the older look opens them for an option only', async () => {
+    await board()
+    fireEvent.click(node(FIG)); await settle()
+    expect(open()).toEqual(['details'])
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: FIG } })
+    act(() => { useLaneInspector.getState().close() })
+    fireEvent.click(screen.getByTestId(`view-figure-edit-${FIG}`)); await settle()
+    expect(open(), 'the pencil is the control\'s own').toEqual(['editor'])
+    act(() => { useLaneInspector.getState().dismiss(true) })
+    lane.on = false
+    fireEvent.click(node(FIG)); await settle()
+    expect(open(), 'older look: a quantity card still opens nothing').toEqual([])
+    fireEvent.click(node(OPT)); await settle()
+    expect(open(), 'contrast, older look: an option still opens its details').toEqual(['details'])
+  })
+
+  it('S3-c the panel holds, drawn open, the card\'s own authorship and, for an option with a result, its headline basis sentence; each by its card, none of another\'s', async () => {
+    const base = approved()
+    const BASIS = 'In this model, on current information, the chance of meeting your goal rests on Olumi’s assumption that each link might not hold.'
+    const view = { ...base, model: { ...base.model!, cards: base.model!.cards.map((c) => (c.id === OPT
+      ? { ...c, author: { text: 'Your option', by: 'you', title: 'You wrote this' }, headline: { ...(c.headline ?? {}), title: BASIS } }
+      : c.id === OTHER ? { ...c, author: { text: 'Olumi’s estimate', by: 'olumi', title: 'Olumi estimated this' } } : c)) } } as unknown as View
+    await board(false, view)
+    fireEvent.click(node(OPT)); await settle()
+    expect(screen.getByTestId('lane-inspector-author')).toHaveTextContent('Your option')
+    expect(screen.getByTestId('lane-inspector-basis')).toHaveTextContent(BASIS)
+    fireEvent.click(node(OTHER)); await settle()
+    expect(screen.getByTestId('lane-inspector-author'), 'the other card\'s own authorship').toHaveTextContent('Olumi’s estimate')
+    expect(screen.getByTestId('lane-inspector-author').className, 'Olumi\'s in Olumi\'s blue').toMatch(/text-info/)
+    expect(screen.queryByTestId('lane-inspector-basis'), 'no result, no basis sentence').toBeNull()
+  })
+
+  it('S3-d the one form opened from the panel takes the panel\'s place: at the panel\'s own position, not a fixed corner', async () => {
+    mockBoxes()
+    await board()
+    cards[FIG] = { left: 500, top: 350, width: 220, height: 120 }
+    fireEvent.click(node(FIG)); await settle()
+    const at = { x: parseFloat(inspector().style.getPropertyValue('--lane-details-x')), y: parseFloat(inspector().style.getPropertyValue('--lane-details-y')) }
+    expect(at.x, 'the panel is not on the old corner').not.toBe(76)
+    const button = document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+    fireEvent.click(button); await settle()
+    expect(open(), 'the form replaced the panel').toEqual(['form'])
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    expect({ x: parseFloat(form.style.left), y: parseFloat(form.style.top) }, 'the form stands where the panel stood').toEqual(at)
+  })
+})
