@@ -12,6 +12,7 @@ import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
 import { OkIcon } from '../../look/icons'
+import { VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 
 /**
  * V12 Funding-Commit, "Record what you will do": the board's three questions and one primary button, on the EXISTING commitment write
@@ -74,8 +75,8 @@ export function CommitToThisButton({ option }: { option: string }): JSX.Element 
   if (reach === null || reach.view.version === null || reach.view.proposal !== null) return null
   return (
     <button type="button" data-testid="lane-inspector-commit" onClick={() => openCommitTo(reach.sid, reach.view, option)}
-      className={`${typography.viewPanelMeta} inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>
-      <OkIcon id="commit-action" size={14} decorative />{COMMIT_WORDS.commitToThis}
+      className={VIEW_CHIP_PRIMARY_CLASS}>
+      <OkIcon id="commit-action" size={14} decorative inherit />{COMMIT_WORDS.commitToThis}
     </button>
   )
 }

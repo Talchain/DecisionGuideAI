@@ -63,16 +63,19 @@ const MIN_SHOWN = 64
 /** A form's least useful height: its padding, one field, the error line and the Save/Cancel row (44 px) - below it Save could be cut off. */
 export const FORM_MIN_SHOWN = 160
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
+/** Controls at the canvas foot that a box beside a card must also leave clear (they are not the board's own foot controls, which its layout reserves room for: regions.ts FOOT_CONTROLS). */
+const ALSO_FOOT = ['[data-testid="views-toggle"]', '[data-testid="views-compare"]'] as const
 const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
 /** Where a `size` panel stands beside `anchor` inside `free`, never over the anchor where any place avoids it; always inside `free` (never null). */
-export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect, minShown = MIN_SHOWN): Placed {
+export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect, minShown = MIN_SHOWN, keep?: { left: number; top: number }): Placed {
   const gap = HOVER_CARD_GAP
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
   const h = Math.min(size.height, Math.max(minShown, H - 2 * gap))
-  const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+  // (And the team's Views buttons at the canvas foot, where they are drawn: the box's action row once sat under them.)
+  const foot = [...regionsOf().foot, ...ALSO_FOOT.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect())).filter((r) => r.width > 0 && r.height > 0)].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
   const footIn = foot.map(shift)
   // The foot controls (the zoom row, the "N more cards below" cue) are never covered (Codex 2f witness: the panel's last row sat under the cue): a place whose
   // box would reach one is cut to end a gap above it, or lifted when that leaves less than a usable panel.
@@ -90,6 +93,16 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   const onCard = (c: { left: number; top: number; h: number }) => hits({ left: c.left, top: c.top, right: c.left + w, bottom: c.top + c.h }, a)
   const out = (c: { left: number; top: number; h: number }): Placed => ({ left: c.left + free.left, top: c.top + free.top, maxHeight: c.h < size.height ? c.h : null })
   const a = shift(anchor)
+  // KEEP ITS PLACE (surfaces step A): a box whose item and canvas have not moved, and which only changed size (a preview pinned, a fold opened), stays at the
+  // corner it has, cut to the room below it; judged like any candidate, after its foot adjustment and against its own card. Where that leaves less than a
+  // usable box, or lands it on its card, it is placed afresh below.
+  if (keep !== undefined && within(anchor, free)) {
+    const left = keep.left - free.left, top = keep.top - free.top
+    if (left >= gap && left + w <= W - gap && top >= gap) {
+      const k = fit(left, top, Math.min(h, H - gap - top))
+      if (k.top === top && k.h >= minShown && !onCard(k)) return out(k)
+    }
+  }
   if (within(anchor, free)) {
     // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
     const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
@@ -123,8 +136,16 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
  * key changes. It is never hidden: off the free canvas it stays visible inside it. An item with no drawn card puts it at the free canvas's top-left.
  * Returns the stop.
  */
-export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN): () => void {
+/** How far (px, each way) an item may move between two placements and still take its box with it; further, the box is placed afresh. */
+export const KEEP_REACH = 64
+
+/** The height a preview's place is chosen for: where the box it becomes when pinned will stand, so a press changes what the box holds and not where it is. */
+export const PEEK_RESERVE = 360
+
+/** `reserve`: a height the place is chosen for when the element is shorter (a preview: the room its pinned box needs), read each time it is placed. */
+export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN, reserve?: () => number): () => void {
   let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
+  let stood: { ax: number; ay: number; free: string; left: number; top: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
   let watched: HTMLElement | null = null
   const place = () => {
@@ -142,15 +163,29 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
       }
       dirty = false; lastWhere = where
       const width = el.getBoundingClientRect().width
-      const size = { width: width > 0 ? width : fallbackWidth, height: natural }
-      const key = `${where}|${size.width}|${size.height}`
+      const own_h = natural, res = reserve?.() ?? 0
+      const size = { width: width > 0 ? width : fallbackWidth, height: Math.max(own_h, res) }
+      const key = `${where}|${size.width}|${own_h}|${res}`
       if (key !== last) {
         last = key
         // Its item is not drawn at all (nothing to stand beside): the free canvas's top-left, at its own height. Otherwise beside it.
         // Its item is not drawn: the free canvas's top-left, capped to the free canvas's height (Codex 008 item 4: uncapped, a tall form ran below the window
         // and took Save with it); the panel's and form's own structure keeps the header and Save/Cancel outside the scrolling body.
         const room = Math.max(minShown, free.bottom - free.top - 2 * HOVER_CARD_GAP)
-        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown)
+        // ITS PLACE BESIDE ITS ITEM IS KEPT while the free canvas is as it was and the item has not moved far: the box moves WITH its item, by the item's
+        // own move, and is not placed afresh. Measured on the built page (Detailed, 1232x704): the press that pins the box also selects the card, which
+        // grows (its quick actions) and which the board lifts 27 px clear of the foot controls; placed afresh at its pinned height the box jumped 62 px.
+        // A far move (a jump of the board, a relayout) places it afresh. The kept corner is still judged against the item as it now is (placeBeside).
+        const freeKey = [free.left, free.top, free.right, free.bottom].join('|')
+        const dx = anchor === null || stood === null ? 0 : anchor.left - stood.ax, dy = anchor === null || stood === null ? 0 : anchor.top - stood.ay
+        const keep = anchor !== null && stood !== null && stood.free === freeKey && Math.abs(dx) <= KEEP_REACH && Math.abs(dy) <= KEEP_REACH ? { left: stood.left + dx, top: stood.top + dy } : undefined
+        let p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown, keep)
+        // Shorter than the height its place was chosen for (a preview): its cap is its own, and above its item it stands on its bottom edge, next to the item.
+        if (anchor !== null && size.height > own_h) {
+          const placed = Math.min(size.height, p.maxHeight ?? size.height), shown = Math.min(own_h, placed)
+          p = { left: p.left, top: p.top + placed <= anchor.top ? p.top + (placed - shown) : p.top, maxHeight: own_h > placed ? placed : null }
+        }
+        stood = anchor === null ? null : { ax: anchor.left, ay: anchor.top, free: freeKey, left: p.left, top: p.top }
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
         if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }

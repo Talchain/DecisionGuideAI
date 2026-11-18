@@ -6,12 +6,16 @@
  * - the mark: the registry's one icon; its name and hover are core's sentence for what the difference does (`status_text`);
  * - the details: core's sentence, each person's figure (`sides[].text`), each person's chance for each option (`options[].chances[].text`,
  *   as given; a chance a person's version withholds says core's words, its reason on hover) and what would settle it (`settle[].text`).
+ * Surfaces step A: it is one section of the card's one box. The preview says the mark and core's sentence on one line, nothing to press; pinned, that
+ * sentence is a fold's own row (open when the mark opened the details) over each person's figure, chance and what would settle it.
  * A difference core has not run (`not_run`, `pending`) says core's sentence alone: no figure and no chance is drawn for it.
  * Links and factors are CardDiffers' chips; the Team tab is unchanged. Nothing is composed here beyond naming whose chance a line is.
  */
+import { useEffect, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
+import { FOLD_SUMMARY_TOP, FoldChevron } from '../../olumiView/look/FoldChevron'
 import { useRevealedDifferences } from './CardDiffers'
 import type { Difference } from './differences'
 
@@ -34,7 +38,7 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
   const words = [...new Set(own.map((d) => d.status_text))].join('\n')
   return (
     <button type="button" aria-label={words} title={words} data-differ-mark={card}
-      onClick={(e) => { e.stopPropagation(); useLaneInspector.getState().open({ kind: 'card', id: card }) }}
+      onClick={(e) => { e.stopPropagation(); useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: card }, section: 'differ' }) }}
       className="nodrag pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-panel-border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header">
       <OkIcon id="revealed-difference" size={12} decorative />
     </button>
@@ -42,18 +46,27 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
 }
 
 /** "Where you differ", in the card's details: core's words for each aim the difference was run for. Nothing when none is about this card. */
-export function WhereYouDiffer({ card }: { card: string }): JSX.Element | null {
+export function WhereYouDiffer({ card, peek = false, open = false }: { card: string; /** The box's preview: core's sentence alone, three lines of it at most (it is whole in the pinned box). */ peek?: boolean; /** The difference mark opened these details: the fold starts open. */ open?: boolean }): JSX.Element | null {
   const own = useFigureDiffers(card)
+  // Opened from the difference mark, the section is what the person asked for: it is brought into view in the box's own scrolling body (never moving the page).
+  const fold = useRef<HTMLDetailsElement>(null)
+  const there = own.length > 0
+  useEffect(() => { if (open && there) fold.current?.scrollIntoView?.({ block: 'nearest' }) }, [open, there])
   if (own.length === 0) return null
+  const said = [...new Set(own.map((d) => d.status_text))].join(' ')
+  const one = own.length === 1
+  if (peek) return (
+    <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" /><span className="line-clamp-3 min-w-0 break-words">{said}</span></p>
+  )
   return (
-    <section aria-label={ICONS['revealed-difference'].hover} className="space-y-1 rounded-sm border border-panel-border p-2" data-testid="lane-differ">
-      <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`}>{ICONS['revealed-difference'].hover}</h3>
+    <details ref={fold} open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">
+      <summary className={`${FOLD_SUMMARY_TOP} cursor-pointer text-text-body`}><FoldChevron className="mt-0.5" /><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" />{one ? <span className="min-w-0 break-words" data-differ-status-text="">{said}</span> : <span className="min-w-0 break-words" data-differ-several="">{ICONS['revealed-difference'].hover}</span>}</summary>
       {own.map((d) => {
         const whose = (id: string) => d.sides.find((s) => s.holder_id === id)?.holder ?? ''
         return (
           <div key={`${d.record}|${d.goal}`} className="space-y-1" data-differ-entry={d.goal} data-differ-status={d.status}>
             {own.length > 1 && d.goal_label !== '' ? <p className={`${typography.viewPanelMeta} text-text-light`}>{d.goal_label}</p> : null}
-            <p className="text-text-body" data-differ-status-text="">{d.status_text}</p>
+            {one ? null : <p className="text-text-body" data-differ-status-text="">{d.status_text}</p>}
             {sayOnly(d) ? null : (
               <>
                 <ul className="m-0 list-none space-y-0.5 p-0" data-differ-sides="">
@@ -81,6 +94,6 @@ export function WhereYouDiffer({ card }: { card: string }): JSX.Element | null {
           </div>
         )
       })}
-    </section>
+    </details>
   )
 }

@@ -12,7 +12,8 @@ import { ViewComposer, useViewChat } from '../../../ViewChat'
 import { currentModel, useViewStore } from '../../../store'
 import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
-import { causalPlaces } from '../../../layout'
+import { causalPlaces, drawKindOf } from '../../../layout'
+import { connectionsOf } from '../../inspect/connections'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
 import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside } from '../placeBeside'
@@ -30,7 +31,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('../../../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 beforeAll(() => { ;(window as unknown as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly ??= class { m22 = 1 } })
-afterEach(() => { lane.on = true; cleanup(); useLaneInspector.getState().close(); vi.useRealTimers(); uninstall(); useViewChat.setState({ armed: null, text: '' }); useCanvasStore.setState({ nodes: [], edges: [] }) })
+afterEach(() => { lane.on = true; cleanup(); useLaneInspector.getState().close(); useLaneInspector.setState({ peek: null }); vi.useRealTimers(); uninstall(); useViewChat.setState({ armed: null, text: '' }); useCanvasStore.setState({ nodes: [], edges: [] }) })
 
 const FIG = 'starting_customers', FIG2 = 'customer_target', OPT = 'broader_entry', OTHER = 'single_country_test'
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 60)) })
@@ -105,24 +106,26 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open(), `empty-canvas press with ${k} open`).toEqual([])
   })
 
-  it('ONE-4 the hover pop-up is not up while any of the five is open. CONTRAST: the same hover with none open shows it', async () => {
+  it('ONE-4 the card\'s preview (step A: the one box, previewing) is not up while any of the five is open, and the old pop-up is never drawn for a card on the lane. CONTRAST: the same hover with none open shows the preview', async () => {
     await board()
-    const hover = (id: string): HTMLElement | null => {
+    const hover = (id: string): { peek: string | null; old: boolean } => {
       vi.useFakeTimers()
       fireEvent.mouseEnter(node(id).querySelector('[role="group"]')!)
       act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
-      const pop = document.querySelector<HTMLElement>('[data-testid="node-hover-card"]')
+      const seen = { peek: document.querySelector('[data-testid="lane-peek"]')?.getAttribute('data-box-card') ?? null, old: document.querySelector('[data-testid="node-hover-card"]') !== null }
       fireEvent.mouseLeave(node(id).querySelector('[role="group"]')!)
       act(() => { vi.advanceTimersByTime(500) })
       vi.useRealTimers()
-      return pop
+      return seen
     }
     expect(open()).toEqual([])
-    expect(hover(FIG2), 'contrast: nothing open, the pop-up shows').not.toBeNull()
+    expect(hover(FIG2), 'contrast: nothing open, the preview shows this card').toEqual({ peek: FIG2, old: false })
+    expect(document.querySelector('[data-testid="lane-peek"]'), 'left, the preview is gone').toBeNull()
     for (const k of ['details', 'menu', 'add'] as Name[]) {
       await OPENERS[k]()
       expect(open()).toEqual([k])
-      expect(hover(FIG2), `pop-up while ${k} is open`).toBeNull()
+      expect(hover(FIG2), `preview while ${k} is open`).toEqual({ peek: null, old: false })
+      expect(open(), `the hover changed nothing while ${k} is open`).toEqual([k])
     }
   })
 
@@ -369,7 +372,7 @@ describe('surfaces step 3: details beside their card', () => {
     fireEvent.click(node(FIG)); await settle()
     const at = { x: parseFloat(inspector().style.getPropertyValue('--lane-details-x')), y: parseFloat(inspector().style.getPropertyValue('--lane-details-y')) }
     expect(at.x, 'the panel is not on the old corner').not.toBe(76)
-    const button = document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+    const button = OPEN_EDIT()
     fireEvent.click(button); await settle()
     expect(open(), 'the form replaced the panel').toEqual(['form'])
     const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
@@ -377,7 +380,11 @@ describe('surfaces step 3: details beside their card', () => {
   })
 
   const ownCard = (id: string) => rectOf(cards[id]!)
-  const OPEN_EDIT = () => document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+  // Step A: the box's edit rows (Rename, add a risk, …) open from its "More" press; the first one core offers is pressed here.
+  const OPEN_EDIT = () => {
+    if (document.querySelector('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"]') === null) fireEvent.click(screen.getByTestId('lane-inspector-more'))
+    return document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+  }
 
   it('S3-e a card where no side holds the whole panel: the panel is cut to the room on the roomiest side (its body scrolls, its header and close stay), never over its own card, and inside the free canvas', async () => {
     mockBoxes(); withChrome()
@@ -539,6 +546,24 @@ describe('surfaces step 3: details beside their card', () => {
     expect(without.maxHeight, 'CONTRAST: with no cue the same place keeps its full height').toBeNull()
   })
 
+  it('S3-q (step A) the box never covers the team\'s Views buttons at the canvas foot either (its action row once sat under them). CONTRAST without them the same place keeps its full height', () => {
+    const free = { left: 0, top: 0, right: 900, bottom: 700 }, card = { left: 100, top: 300, right: 320, bottom: 420 }
+    const views = { left: 340, top: 650, right: 560, bottom: 686 }
+    const without = placeBeside(card, null, { width: 280, height: 380 }, free)
+    const btn = document.createElement('button'); btn.setAttribute('data-testid', 'views-compare'); document.body.appendChild(btn)
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return (this === btn ? { ...views, x: views.left, y: views.top, width: 220, height: 36, toJSON: () => ({}) } : { left: 0, top: 0, right: 0, bottom: 0, x: 0, y: 0, width: 0, height: 0, toJSON: () => ({}) }) as DOMRect
+    })
+    try {
+      const p = placeBeside(card, null, { width: 280, height: 380 }, free)
+      const b = { left: p.left, top: p.top, right: p.left + 280, bottom: p.top + (p.maxHeight ?? 380) }
+      expect(b.left < views.right && b.right > views.left && b.top < views.bottom && b.bottom > views.top, `box ${JSON.stringify(b)}`).toBe(false)
+      expect(b.left >= card.right || b.right <= card.left || b.bottom <= card.top || b.top >= card.bottom, 'still clear of its own card').toBe(true)
+    } finally { spy.mockRestore(); btn.remove() }
+    const w = { left: without.left, top: without.top, right: without.left + 280, bottom: without.top + (without.maxHeight ?? 380) }
+    expect(w.left < views.right && w.right > views.left && w.top < views.bottom && w.bottom > views.top, 'CONTRAST: with no Views buttons the same box reaches that place, so the row can fail').toBe(true)
+  })
+
   it('S3-p (Codex 30422 hold) lifting the panel off a foot control never puts it on its own card: with a clear place above the card, that place is chosen', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 400 }, card = { left: 180, top: 80, right: 420, bottom: 300 }
     const cueBox = { left: 190, top: 340, right: 470, bottom: 376 }
@@ -563,5 +588,205 @@ describe('surfaces step 3: details beside their card', () => {
     const panel = placeBeside(card, null, { width: 280, height: 420 }, free)
     expect(panel.maxHeight).not.toBeNull()
     expect(panel.maxHeight!).toBeLessThan(FORM_MIN_SHOWN)
+  })
+})
+
+describe('surfaces step A: the card\'s one box previews on hover and pins on press', () => {
+  const rest = (id: string): void => { fireEvent.mouseEnter(node(id).querySelector('[role="group"]')!); act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) }) }
+  const box = () => document.querySelector<HTMLElement>('[data-box-card]')
+  const CONTROLS = 'button, input, textarea, select, a[href], summary, [tabindex]'
+
+  it('A-1 resting on a card shows its preview: the box, read only (no control in it, the pointer passes through), and it is NOT an open surface. Pressing the card pins THE SAME element: it gains its close and its actions, and stays when the pointer leaves', async () => {
+    await board()
+    vi.useFakeTimers()
+    rest(FIG2)
+    const peek = box()!
+    expect([peek.getAttribute('data-testid'), peek.getAttribute('data-state'), peek.getAttribute('data-box-card')]).toEqual(['lane-peek', 'peek', FIG2])
+    expect(open(), 'a preview is never counted as the open details').toEqual([])
+    expect(useLaneInspector.getState().current, 'nor held in the one slot').toBeNull()
+    expect(peek.querySelectorAll(CONTROLS).length, 'nothing to press in a preview').toBe(0)
+    expect(peek.className).toMatch(/pointer-events-none/)
+    vi.useRealTimers()
+    fireEvent.click(node(FIG2)); await settle()
+    const pinned = box()!
+    expect(pinned === peek, 'the same element, not a second box').toBe(true)
+    expect([pinned.getAttribute('data-testid'), pinned.getAttribute('data-state'), pinned.getAttribute('data-box-card')]).toEqual(['lane-inspector', 'pinned', FIG2])
+    expect(open()).toEqual(['details'])
+    expect(pinned.className).not.toMatch(/pointer-events-none/)
+    expect(within(pinned).getByRole('button', { name: 'Close details' })).toBeInTheDocument()
+    expect(within(pinned).getByTestId('lane-inspector-actions')).toBeInTheDocument()
+    // Closed with the pointer still resting on the card, the box is gone: it does not fall back to a preview of the card it was just closed on.
+    fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
+    expect([box(), useLaneInspector.getState().peek], 'Escape closes the box').toEqual([null, null])
+    fireEvent.click(node(FIG2)); await settle()
+    const again = box()!
+    fireEvent.mouseLeave(node(FIG2).querySelector('[role="group"]')!); await settle()
+    expect(box() === again && again.getAttribute('data-state') === 'pinned', 'pinned, it stays when the pointer leaves').toBe(true)
+    expect(document.querySelectorAll('[data-box-card]').length, 'one box').toBe(1)
+  })
+
+  it('A-2 the preview follows the pointer from card to card, and a card that is left never clears the next card\'s preview (the leave lands after the enter)', async () => {
+    await board()
+    vi.useFakeTimers()
+    rest(FIG2)
+    expect(box()!.getAttribute('data-box-card')).toBe(FIG2)
+    // The next card's preview is named BEFORE the first card's leave is handled.
+    act(() => { useLaneInspector.getState().setPeek({ kind: 'card', id: OPT }) })
+    expect(box()!.getAttribute('data-box-card')).toBe(OPT)
+    fireEvent.mouseLeave(node(FIG2).querySelector('[role="group"]')!); act(() => { vi.advanceTimersByTime(500) })
+    expect(box()?.getAttribute('data-box-card'), 'the left card let go of its own preview only').toBe(OPT)
+    act(() => { useLaneInspector.getState().clearPeek(OPT) })
+    expect(box()).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('A-3 the same order in both states, exactly: name and kind, value, what it is connected to; pinned adds the Value row\'s field after the value, the fold after the connections and the actions last, outside the scrolling body', async () => {
+    await board()
+    const order = (el: HTMLElement, ids: string[]): string[] => ids.map((t) => ({ t, n: el.querySelector(`[data-testid="${t}"]`) })).filter((x) => x.n !== null)
+      .sort((a, b) => (a.n!.compareDocumentPosition(b.n!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)).map((x) => x.t)
+    const ALL = ['lane-inspector-title', 'lane-inspector-kind', 'lane-inspector-value', 'inspector-your-figure', 'lane-inspector-committed', 'lane-differ', 'lane-differ-line', 'lane-inspector-connections', 'lane-inspector-from', 'lane-inspector-actions']
+    expect(approved().model!.cards.find((c) => c.id === FIG)!.detail, 'precondition: core sends this card a detail, so its fold is drawn').not.toBe('')
+    vi.useFakeTimers(); rest(FIG); const peeked = order(box()!, ALL); vi.useRealTimers()
+    expect(peeked).toEqual(['lane-inspector-title', 'lane-inspector-kind', 'lane-inspector-value', 'lane-inspector-connections'])
+    fireEvent.click(node(FIG)); await settle()
+    expect(order(box()!, ALL)).toEqual(['lane-inspector-title', 'lane-inspector-kind', 'lane-inspector-value', 'inspector-your-figure', 'lane-inspector-connections', 'lane-inspector-from', 'lane-inspector-actions'])
+    const body = box()!.querySelector('.overflow-y-auto')!
+    expect(body.contains(screen.getByTestId('lane-inspector-value')) && !body.contains(screen.getByTestId('lane-inspector-actions')) && !body.contains(screen.getByTestId('lane-inspector-title')), 'header and actions never scroll away').toBe(true)
+  })
+
+  it('A-4 what a card is connected to comes from the links the board draws, by core\'s names and each card\'s own drawn shape: an option "Changes" what its links lead to; a factor "Affects" and is "Driven by" non-option cards only; a reason link lists nothing; three names, then the count', async () => {
+    await board()
+    const model = currentModel({ view: approved(), error: null, stale: false })!
+    const bears = useCanvasStore.getState().edges.filter((e) => (e.data as { link?: { kind?: string } } | undefined)?.link?.kind !== 'reason')
+    const card = (id: string) => model.cards.find((c) => c.id === id)
+    const name = (id: string) => card(id)!.heading
+    const notOption = (id: string) => card(id) !== undefined && card(id)!.family !== 'option'
+    // (A card that feeds itself, drawn as a loop, is not listed as its own driver or effect.)
+    const out = (id: string) => [...new Set(bears.filter((e) => e.source === id).map((e) => e.target))].filter((t) => t !== id && notOption(t))
+    const into = (id: string) => [...new Set(bears.filter((e) => e.target === id).map((e) => e.source))].filter((t) => t !== id && notOption(t))
+    const groups = () => [...box()!.querySelectorAll('[data-connections]')].map((g) => ({ heading: g.getAttribute('data-connections'), names: [...g.querySelectorAll('[data-connected]')].map((e) => e.textContent), kinds: [...g.querySelectorAll('[data-connected]')].map((e) => e.getAttribute('data-connected-kind')), more: Number(g.querySelector('[data-connections-more]')?.getAttribute('data-connections-more') ?? 0) }))
+    const want = (heading: string, ids: string[]) => ({ heading, names: ids.slice(0, 3).map(name), kinds: ids.slice(0, 3).map((id) => drawKindOf(card(id)!, model)), more: Math.max(0, ids.length - 3) })
+    expect(out(OPT).length, 'precondition: the option has drawn links').toBeGreaterThan(0)
+    fireEvent.click(node(OPT)); await settle()
+    expect(groups(), 'an option: "Changes" alone').toEqual([want('Changes', out(OPT))])
+    const wanted = (id: string) => [...(out(id).length > 0 ? [want('Affects', out(id))] : []), ...(into(id).length > 0 ? [want('Driven by', into(id))] : [])]
+    // A factor an option leads into: the option is not one of its drivers. And a factor with drivers of its own: they are listed, after what it affects.
+    const fed = model.cards.find((c) => c.family !== 'option' && bears.some((e) => e.target === c.id && card(e.source)?.family === 'option'))!
+    const driven = model.cards.find((c) => c.family !== 'option' && into(c.id).length > 0 && root.querySelector(`.react-flow__node[data-id="${c.id}"]`) !== null)!
+    expect([fed, driven].map((c) => c !== undefined), 'precondition: both kinds of factor are in the fixture').toEqual([true, true])
+    for (const c of [fed, driven]) {
+      fireEvent.click(node(c.id)); await settle()
+      expect(box()!.getAttribute('data-box-card')).toBe(c.id)
+      expect(groups(), c.id).toEqual(wanted(c.id))
+      expect(groups().flatMap((x) => x.names).some((n) => model.cards.some((o) => o.family === 'option' && o.heading === n)), `${c.id}: no option is listed`).toBe(false)
+    }
+    expect(wanted(driven.id).some((x) => x.heading === 'Driven by'), 'the drivers were really asserted').toBe(true)
+    // The cap and the count, and a reason link, on a model built for them (the same function the box calls).
+    const many = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ ...fed, id, heading: `Card ${id}` }))
+    const m2 = { ...model, cards: [fed, ...many] } as typeof model
+    const g = connectionsOf(m2, fed, [...many.map((c) => ({ source: fed.id, target: c.id, data: { link: { kind: 'influence' } } })), { source: 'e', target: fed.id, data: { link: { kind: 'reason' } } }])
+    expect(g.map((x) => [x.heading, x.items.map((i) => i.name), x.more])).toEqual([['Affects', ['Card a', 'Card b', 'Card c'], 2]])
+  })
+
+  it('A-5 a box that only changed size (a preview pinned, a fold opened) keeps its corner, cut to the room below. CONTRAST: placed afresh the taller box moves; and a kept corner that would sit on its own card is not kept', () => {
+    const free = { left: 0, top: 0, right: 900, bottom: 700 }, card = { left: 100, top: 400, right: 320, bottom: 520 }
+    const small = placeBeside(card, null, { width: 280, height: 160 }, free)
+    const afresh = placeBeside(card, null, { width: 280, height: 420 }, free)
+    expect([afresh.left, afresh.top], 'CONTRAST: without its place the taller box moves').not.toEqual([small.left, small.top])
+    const kept = placeBeside(card, null, { width: 280, height: 420 }, free, undefined, { left: small.left, top: small.top })
+    expect([kept.left, kept.top]).toEqual([small.left, small.top])
+    expect(kept.top + (kept.maxHeight ?? 420), 'inside the free canvas').toBeLessThanOrEqual(free.bottom)
+    const onCard = placeBeside(card, null, { width: 280, height: 420 }, free, undefined, { left: card.left + 8, top: card.top - 40 })
+    const b = { left: onCard.left, top: onCard.top, right: onCard.left + 280, bottom: onCard.top + (onCard.maxHeight ?? 420) }
+    expect(b.left >= card.right || b.right <= card.left || b.top >= card.bottom || b.bottom <= card.top, `never on its own card: ${JSON.stringify(b)}`).toBe(true)
+  })
+
+  it('A-6 the older look is unchanged: off the lane the same hover draws the old pop-up, names no preview and the box is not drawn', async () => {
+    lane.on = false
+    await board()
+    vi.useFakeTimers(); rest(FIG2)
+    expect(document.querySelector('[data-testid="node-hover-card"]'), 'the hover did open: the older look\'s pop-up').not.toBeNull()
+    vi.useRealTimers()
+    expect(useLaneInspector.getState().peek).toBeNull()
+    expect(box()).toBeNull()
+  })
+
+  it('A-7 on the mounted board a press on a previewed card does not move the box, though pinned it is taller and the pressed card itself grows (its quick actions). CONTRAST: the same taller box opened with no preview first stands elsewhere', async () => {
+    const CARD = { left: 100, top: 400, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    // The pressed (selected) card is 30 px taller while its box is pinned, as Detailed draws it.
+    const cardNow = () => (document.querySelector('[data-box-card][data-state="pinned"]') === null ? CARD : { ...CARD, height: CARD.height + 30 })
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(cardNow())
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      expect(previewed.every((n) => Number.isFinite(n)), `the preview was placed: ${previewed}`).toBe(true)
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'pinned where it was previewed').toEqual(previewed)
+      // CONTRAST: closed, then pinned with no preview before it (the right-click row's route: the store, no hover).
+      act(() => { useLaneInspector.getState().dismiss(true) }); fireEvent.mouseLeave(node(FIG2).querySelector('[role="group"]')!); await settle()
+      expect(box()).toBeNull()
+      act(() => { useLaneInspector.getState().open({ kind: 'card', id: FIG2 }) }); await settle()
+      expect(at(box()!), 'placed afresh at its full height, the taller box stands elsewhere').not.toEqual(previewed)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
+  it('A-9 the board lifts a pressed card clear of the foot controls (27 px on Detailed at 1232): the box moves WITH its card by the same 27 px, and is not placed afresh. CONTRAST: a far move of the card places it afresh, beside the card\'s new place', async () => {
+    const CARD = { left: 100, top: 400, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    const shift = { y: 0, far: false }
+    const cardNow = () => (shift.far ? { left: 500, top: 150, width: 220, height: 120 } : { ...CARD, top: CARD.top + shift.y })
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(cardNow())
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      shift.y = -27
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'with its card: the same 27 px, nothing else').toEqual([previewed[0], previewed[1]! - 27])
+      shift.far = true; await settle()
+      const far = at(box()!), c = cardNow()
+      expect(far, 'a far move: placed afresh').not.toEqual([previewed[0], previewed[1]! - 27])
+      expect(far[0]! >= c.left + c.width || far[0]! + 280 <= c.left || far[1]! >= c.top + c.height, `beside the card's new place, not on it: ${far}`).toBe(true)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
+  it('A-8 a preview stands where its pinned box will fit, not merely where the small preview fits: with room above for the preview only, it is placed below (where the pinned box goes), and the press does not move it', async () => {
+    // The card spans the board (no room at its sides); 200 px above it (the preview alone would fit), 400 px below (the pinned box fits), and another card stands just below it.
+    const CARD = { left: 20, top: 200, width: 860, height: 100 }, BELOW = { left: 20, top: 320, width: 300, height: 100 }, H = { peek: 160, pinned: 340 }
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const id = this.closest('.react-flow__node')?.getAttribute('data-id')
+      if (id === FIG2) return rectOf(CARD)
+      if (id === OPT) return rectOf(BELOW)
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      expect(previewed[1], `the preview is below its card, where the pinned box fits (placed ${previewed})`).toBeGreaterThanOrEqual(CARD.top + CARD.height)
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'pinned where it was previewed').toEqual(previewed)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 })

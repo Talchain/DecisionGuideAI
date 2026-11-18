@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { ToastProvider } from '../../canvas/ToastContext'
@@ -37,7 +37,7 @@ beforeEach(() => {
   serve(core)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000000', sid: view.id, view, status: 'ready', error: null, stale: false, at: null })
 })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }); delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView; vi.restoreAllMocks() })
 
 const details = (card: string) => {
   useLaneInspector.getState().open({ kind: 'card', id: card })
@@ -74,7 +74,65 @@ describe('a revealed difference on the card it is about', () => {
     expect(mark.getAttribute('aria-label')).toBe(figure.status_text)
     expect(mark.getAttribute('title')).toBe(figure.status_text)
     fireEvent.click(mark)
-    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD } })
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD }, section: 'differ' })
+  })
+
+  it('surfaces step A: opened from the mark, "Where you differ" is drawn open; opened by a press on the card it is a closed fold whose line is core\'s sentence; previewed, it is that one sentence and nothing to open', async () => {
+    const m = render(<CardDisputeMark card={CARD} />)
+    fireEvent.click(await waitFor(() => { const b = m.container.querySelector(`[data-differ-mark="${CARD}"]`); expect(b).not.toBeNull(); return b as HTMLElement }))
+    const brought: Element[] = []
+    Element.prototype.scrollIntoView = function (this: Element) { brought.push(this) } as never
+    render(<ToastProvider><LaneInspector /></ToastProvider>)
+    const fromMark = await screen.findByTestId('lane-differ')
+    expect(fromMark.tagName).toBe('DETAILS')
+    expect((fromMark as HTMLDetailsElement).open, 'from the mark: open').toBe(true)
+    await waitFor(() => expect(brought, 'and brought into view in the box (it sits below the Value row)').toContain(fromMark))
+    cleanup(); useLaneInspector.setState({ current: null }); brought.length = 0
+    details(CARD)
+    const plain = await screen.findByTestId('lane-differ')
+    expect((plain as HTMLDetailsElement).open, 'CONTRAST, from a press on the card: folded').toBe(false)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(brought, 'CONTRAST: a press on the card moves nothing').not.toContain(plain)
+    expect(plain.querySelector('summary [data-differ-status-text]')?.textContent, 'the fold\'s own line is core\'s sentence').toBe(figure.status_text)
+    // Core's sentence runs to many lines: the chevron and the mark stay on its first line (seen on the built page at its middle, 140 px down).
+    expect(plain.querySelector('summary')!.className.split(/\s+/).filter((c) => c.startsWith('items-'))).toEqual(['items-start'])
+    cleanup(); useLaneInspector.setState({ current: null, peek: { kind: 'card', id: CARD } })
+    render(<ToastProvider><LaneInspector /></ToastProvider>)
+    const line = await screen.findByTestId('lane-differ-line')
+    expect(line.textContent).toBe(figure.status_text)
+    expect(screen.queryByTestId('lane-differ'), 'a preview has nothing to open').toBeNull()
+    expect(document.querySelector('[data-testid="lane-peek"] [data-differ-side], [data-testid="lane-peek"] [data-differ-chance]')).toBeNull()
+  })
+
+  it('surfaces step A: opened from the mark, a second press on the same card keeps "Where you differ" open (the section is not shut under the reader); CONTRAST another card\'s details start with no section', async () => {
+    useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: CARD }, section: 'differ' })
+    render(<ToastProvider><LaneInspector /></ToastProvider>)
+    expect(((await screen.findByTestId('lane-differ')) as HTMLDetailsElement).open).toBe(true)
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: CARD }) })
+    expect((screen.getByTestId('lane-differ') as HTMLDetailsElement).open, 'pressed again: still open').toBe(true)
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: other }) })
+    expect((useLaneInspector.getState().current as { section?: string }).section, 'CONTRAST: another card').toBeUndefined()
+  })
+
+  it('surfaces step A: where it sits in the box: after the value and before "Where this comes from" and the actions', async () => {
+    details(CARD)
+    const differ = await screen.findByTestId('lane-differ')
+    const follows = (a: Element, b: Element | null) => b !== null && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    expect(follows(screen.getByTestId('lane-inspector-value'), differ)).toBe(true)
+    expect(follows(differ, screen.getByTestId('lane-inspector-actions'))).toBe(true)
+    const from = screen.queryByTestId('lane-inspector-from')
+    if (view.model!.cards.find((c) => c.id === CARD)!.detail !== '') expect(follows(differ, from), 'before the fold').toBe(true)
+  })
+
+  it('surfaces step A: a card with two differences (two aims) says each of core\'s sentences ONCE, under its aim; the fold\'s own line is then the fixed label, not the sentences again', async () => {
+    const second = { ...structuredClone(figure), goal: `${figure.goal}_2`, goal_label: 'A second aim', status_text: 'Core\'s own sentence for the second aim.' }
+    const two = { ...structuredClone(core), differences: [...core.differences, second] } as Differences
+    serve(two)
+    details(CARD)
+    const section = await screen.findByTestId('lane-differ')
+    expect(section.querySelectorAll('[data-differ-entry]').length, 'precondition: two entries').toBe(2)
+    for (const said of [figure.status_text, second.status_text]) expect(section.textContent!.split(said).length - 1, said).toBe(1)
+    expect(section.querySelector('summary')!.textContent).toBe('Where you differ')
   })
 
   it('CONTRAST: a card that is no difference\'s record has no mark (nor does the end of a doubted link)', async () => {

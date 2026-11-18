@@ -21,3 +21,5 @@ export function FoldChevron({ open, className }: { open?: boolean; className?: s
 
 /** A details' summary row: the chevron leads, the browser's own marker is gone. */
 export const FOLD_SUMMARY = 'flex list-none items-center gap-1 [&::-webkit-details-marker]:hidden'
+/** The same row for a summary whose line can run to several lines (core's sentence): the chevron stays on its FIRST line, not its middle. */
+export const FOLD_SUMMARY_TOP = 'flex list-none items-start gap-1 [&::-webkit-details-marker]:hidden'
