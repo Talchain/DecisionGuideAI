@@ -99,6 +99,17 @@ describe('the previous Model tab\'s sections, from the View', () => {
     expect(d.querySelector('[data-model-audit-removed="gone"]')?.textContent).toBe('Gone cardGone card was removed')
   })
 
+  it('polish 9: the Model card and the history are flush rows, not bordered boxes, and the history is not called an audit trail', () => {
+    const c = draw(european)
+    for (const id of ['view-model-card', 'view-model-audit']) {
+      const sec = c.querySelector(`[data-testid="${id}"]`)!
+      expect(sec.className, id).not.toContain('border')
+      expect(sec.className, id).not.toContain('rounded')
+    }
+    expect(MODEL_SECTION_LABELS.audit).toBe('History of this model')
+    expect(c.querySelector('[data-testid="view-model-audit"] h3')?.textContent).toBe('History of this model')
+  })
+
   it('a model with nothing for a section draws none of it; the tab mounts the sections under its outline, and not while filtering', () => {
     const m = { ...european.model!, cards: european.model!.cards.map((k) => ({ ...k, bound: null })), sharpen: [], removed: [], run: null }
     const c = render(<ModelSections model={m} version={null} />).container
