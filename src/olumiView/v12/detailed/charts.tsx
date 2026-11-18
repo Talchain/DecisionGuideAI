@@ -44,7 +44,7 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
   const lanes = [...rail.rows.map((r) => ({ ...r, on: true as const })), ...rail.rest.map((r) => ({ ...r, on: false as const }))].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
   // Layout only (Codex 13:27Z, Detailed at 1232): where a result's words are longer than a number ("never met in this model if …", a row's own
   // condition), the words column widens for every row together, so the lanes stay aligned and the words wrap in three lines rather than nine.
-  const wide = rail.rows.some((r) => { const n = (qualifier === null ? r.text : chanceParts(r.text).head).length; return n > RAIL_WORDS_NARROW && n <= RAIL_WORDS_STACK })
+  const wide = rail.rows.some((r) => (qualifier === null ? r.text : chanceParts(r.text).head).length > RAIL_WORDS_NARROW)
   return (
     <div className={`ok-dt-rail nodrag${wide ? ' ok-dt-rail-wide' : ''}`} data-chance-rail="" data-detailed-rail="" data-rail-wide={wide ? '' : undefined}>
       <div className="ok-dt-rail-axis" aria-hidden="true">{[0, 25, 50, 75, 100].map((t) => <i key={t} style={{ left: `${t}%` }} />)}</div>
