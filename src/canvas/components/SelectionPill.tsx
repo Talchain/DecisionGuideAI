@@ -8,6 +8,7 @@ import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useSelectionContext } from '../hooks/useSelectionContext'
 import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
+import { detailsOf, useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 
 /**
  * SelectionPill — the canvas selection's conversation affordance.
@@ -116,6 +117,9 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
   // it names the element and offers "Explore with Olumi", so this row stands
   // down and returns when the inspector closes.
   const inspectorOpen = useInspectorPresenceStore((s) => s.open)
+  // Surfaces step 4 (18 Nov): while THIS card's own details panel is open beside it (it holds the card's authorship and basis), the chip is the whole
+  // row: the detail box would say the same words twice. Selected by another route, or with the details closed, the box stays: never one press away.
+  const detailsHere = useLaneInspector((s) => { const t = detailsOf(s); return t !== null && t.kind === 'card' && t.id === selection?.id })
 
   if (!selection || inspectorOpen) return null
 
@@ -135,7 +139,7 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
           {canAsk ? <OkIconButton id="ask-about-this" words={`Ask about ${label}`} testid="selection-ask-chip" size={14} className="h-6 w-6 hover:text-text-header" onClick={ask} /> : null}
           <OkIconButton id="cancel-close" words="Clear the selection" testid="selection-pill-clear" size={12} className="h-6 w-6 rounded-full hover:text-text-header" onClick={() => useCanvasStore.getState().clearSelection()} />
         </span>
-        {extra == null ? null : <SelectionDetail key={selection.id}>{extra}</SelectionDetail>}
+        {extra == null || detailsHere ? null : <SelectionDetail key={selection.id}>{extra}</SelectionDetail>}
       </div>
     )
   }
