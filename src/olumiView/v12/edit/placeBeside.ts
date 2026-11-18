@@ -85,12 +85,16 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
     }
     return { top: t, hh: h2 }
   }
-  const out = (left: number, top: number, hh: number): Placed => { const c = clearFoot(left, top, hh); return { left: left + free.left, top: c.top + free.top, maxHeight: c.hh < size.height ? c.hh : null } }
+  // Every candidate is judged AFTER its foot adjustment (Codex 30422 hold: a lift applied after the own-card check put the panel on its card).
+  const fit = (left: number, top: number, hh: number) => { const c = clearFoot(left, top, hh); return { left, top: c.top, h: c.hh } }
+  const onCard = (c: { left: number; top: number; h: number }) => hits({ left: c.left, top: c.top, right: c.left + w, bottom: c.top + c.h }, a)
+  const out = (c: { left: number; top: number; h: number }): Placed => ({ left: c.left + free.left, top: c.top + free.top, maxHeight: c.h < size.height ? c.h : null })
   const a = shift(anchor)
   if (within(anchor, free)) {
     // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
     const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
-    if (!hits({ left: p.left, top: p.top, right: p.left + w, bottom: p.top + h }, a)) return out(p.left, p.top, h)
+    const hp = fit(p.left, p.top, h)
+    if (!onCard(hp)) return out(hp)
     // No side holds it clear of the card: the side with the most room, the panel cut to that room.
     const sides: Array<{ left: number; top: number; h: number }> = []
     if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h })
@@ -98,8 +102,8 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
     const below = Math.min(h, H - a.bottom - 2 * gap), above = Math.min(h, a.top - 2 * gap), across = clamp(a.left, gap, W - w - gap)
     if (below >= minShown) sides.push({ left: across, top: a.bottom + gap, h: below })
     if (above >= minShown) sides.push({ left: across, top: a.top - gap - above, h: above })
-    const best = sides.sort((x, y) => y.h - x.h)[0]
-    if (best !== undefined) return out(best.left, best.top, best.h)
+    const best = sides.map((x) => fit(x.left, x.top, x.h)).filter((c) => !onCard(c) && c.h >= minShown).sort((x, y) => y.h - x.h)[0]
+    if (best !== undefined) return out(best)
   }
   // The card is off the free canvas, or no side has room: still shown, inside the free canvas, where it overlaps the card least (the first of these on a tie).
   const maxL = W - w - gap, maxT = H - h - gap
@@ -108,9 +112,9 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
     { left: clamp(a.left, gap, maxL), top: clamp(a.bottom + gap, gap, maxT) }, { left: clamp(a.left, gap, maxL), top: clamp(a.top - gap - h, gap, maxT) },
     { left: gap, top: gap }, { left: Math.max(gap, maxL), top: gap }, { left: gap, top: Math.max(gap, maxT) }, { left: Math.max(gap, maxL), top: Math.max(gap, maxT) },
   ]
-  let best = spots[0]!, least = Infinity
-  for (const s of spots) { const o = overlap({ left: s.left, top: s.top, right: s.left + w, bottom: s.top + h }, a); if (o < least) { least = o; best = s } }
-  return out(best.left, best.top, h)
+  let best = fit(spots[0]!.left, spots[0]!.top, h), least = Infinity
+  for (const s of spots) { const c = fit(s.left, s.top, h); const o = overlap({ left: c.left, top: c.top, right: c.left + w, bottom: c.top + c.h }, a); if (o < least) { least = o; best = c } }
+  return out(best)
 }
 
 /**
