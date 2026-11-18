@@ -32,7 +32,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
-import { QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, inputIdsOf, inputsFolded, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type LayerId, type Opened, type View } from '../deps'
+import { FOOT_GUTTER, QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, inputIdsOf, inputsFolded, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type LayerId, type Opened, type View } from '../deps'
 import { setLevel, showSimple, showWholeModel } from '../../simpleStore'
 import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
@@ -1260,11 +1260,11 @@ describe('S12 one move after an unfold: the board says where it is framing to (g
 describe('S13 what counts as in view at the foot, and a board that lays itself out again for the zoom', () => {
   const two = pointing(nextOf(golden, 14), 'opening_cash', ['opening_cash', 'monthly_burn'])
   const TWO = ['opening_cash', 'monthly_burn']
-  /** The mocked pane is 704 tall: the foot gutter is its last 88 px (y 616 to 704). */
+  /** The mocked pane is 704 tall: the foot gutter is its last FOOT_GUTTER px (footClear.ts, 96 since v10d 17 Nov). */
   const at = (footY: number) => ({ opening_cash: { x: 20, y: 80 }, monthly_burn: { x: 300, y: footY - H } })
-  it('the fixture: the real port\'s free canvas ends 88 px above the pane\'s foot (the foot gutter), whatever the fit padding says', () => {
+  it('the fixture: the real port\'s free canvas ends FOOT_GUTTER px above the pane\'s foot (the foot gutter), whatever the fit padding says', () => {
     expect(paneNow.value.inset.bottom).toBe(0)
-    expect(pane().inset.bottom).toBe(88)
+    expect(pane().inset.bottom).toBe(FOOT_GUTTER)
   })
   it('a card whose foot stands in the foot gutter is not in view: the show moves; contrast: the same card just above the gutter moves nothing', async () => {
     install(golden); lay(at(660))
@@ -1272,7 +1272,7 @@ describe('S13 what counts as in view at the foot, and a board that lays itself o
     await press(c.button()!); await run(300)
     expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(TWO), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
     c.unmount(); act(() => { resetShow() }); rf.sets = []; rf.vp = { ...V0 }; rf.userMoved.current = false
-    lay(at(610))
+    lay(at(704 - FOOT_GUTTER - 2))
     const d = mount(14, two)
     await press(d.button()!); await run(300)
     expect(rf.sets).toStrictEqual([])
