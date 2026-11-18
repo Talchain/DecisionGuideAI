@@ -59,7 +59,7 @@ const figureCards = (m: ViewModel | null): ViewCard[] => (m?.cards ?? []).filter
 /** The row that changes a figure: on the lane it opens the item's Value row (`openFigure`), the one place that is done; the older look opens the small form for it. Enabled by the same gate. */
 function figureRow(c: LaneMenuCtx, id: string, label: string, tooltip: string, at: { readonly kind: 'card' | 'link'; readonly id: string }, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec): MenuItemDef {
   const open = c.act.openFigure
-  return editRow(c, id, label, 'state-not-sized', tooltip, spec, open === undefined ? {} : { action: () => { if (c.gate.ok) open(at) } })
+  return editRow(c, id, label, 'edit', tooltip, spec, open === undefined ? {} : { action: () => { if (c.gate.ok) open(at) } })
 }
 
 /** An edit row: enabled only where core takes an edit now; otherwise disabled, its reason in the tooltip. */
@@ -121,7 +121,7 @@ function paneMenu(target: Extract<ContextTarget, { kind: 'pane' }>, c: LaneMenuC
 function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuCtx): MenuEntry[] {
   const id = target.nodeId, card = c.model?.cards.find((x) => x.id === id) ?? null, isQuestion = id === c.questionId
   const items: MenuEntry[] = [
-    { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'popout', iconAlt: true, tooltip: 'Open the details of this card', enabled: true, action: () => c.act.openDetails({ kind: 'card', id }) },
+    { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this card', enabled: true, action: () => c.act.openDetails({ kind: 'card', id }) },
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element'], ['ask-challenge', LANE_MENU_WORDS.challenge, 'challenge_element']]),
   ]
   const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c), notYet('add-connected', LANE_MENU_WORDS.connected, LANE_MENU_WORDS.noLinkRoute, { iconId: 'add' })] : []
@@ -164,7 +164,7 @@ function edgeMenu(target: Extract<ContextTarget, { kind: 'edge' }>, c: LaneMenuC
   const link = (target.edge as unknown as { data?: { link?: ViewLink } }).data?.link
   const rows = linkEditRows(link, c)
   return [
-    { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'popout', iconAlt: true, tooltip: 'Open the details of this link', enabled: link !== undefined, action: () => c.act.openDetails({ kind: 'link', id: target.edgeId }) },
+    { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this link', enabled: link !== undefined, action: () => c.act.openDetails({ kind: 'link', id: target.edgeId }) },
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element']]), ...(rows.length > 0 ? [DIV, ...rows] : [])]
 }
 

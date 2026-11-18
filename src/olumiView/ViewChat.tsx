@@ -69,7 +69,7 @@ import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
-import { CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
+import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -402,7 +402,7 @@ function AskAgain({ words }: { words: string }) {
     <button type="button" data-testid="view-ask-again" aria-label={ASK_AGAIN} title={ASK_AGAIN}
       onClick={() => { useViewChat.setState({ text: askAgainDraft(useViewChat.getState().text, words) }); document.getElementById('view-chat-text')?.focus() }}
       className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-      <OkIcon id="retry" size={14} decorative /><span className="sr-only">{ASK_AGAIN}</span>
+      <OkIcon id="retry" size={14} inherit decorative /><span className="sr-only">{ASK_AGAIN}</span>
     </button>
   )
 }
@@ -761,7 +761,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
-        {closed && readingIds.length > 0 ? null : <OkIconButton id="cancel-close" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
+        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
       </div>
     </div>
   )
@@ -1967,7 +1967,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {/* v10 review item 10: the popout moved here from a 44 px strip above every conversation; same control, same test id, drawn in the composer's icon row. */}
           {popped ? null : (
-            <OkIconButton id="popout" words={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
+            <OkIconButton id="popout" words={CHAT_POPOUT_LABEL} hover={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
           )}
           {analysisAction === undefined ? null : (
             <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse"
@@ -1977,12 +1977,12 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {!brief ? null : (
             <button type="button" disabled={sendHeld} title={TALK_FIRST_HOVER} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
               className={`${typography.viewPanelHeading} inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
-              <OkIcon id="talk-first" size={14} />{TALK_FIRST}
+              <OkIcon id="talk-first" size={14} inherit />{TALK_FIRST}
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
             className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light">
-            <OkIcon id="send" decorative /><span className="sr-only">Send</span>
+            <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>
         </div>
         </div>

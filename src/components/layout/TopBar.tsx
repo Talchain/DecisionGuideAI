@@ -265,7 +265,7 @@ export const TopBar = ({
       <div className={styles.topBarLeft}>
         <a href="/" className={styles.logoLink} aria-label="Olumi home">
           {/* J1 gate: the strip carries Olumi's mark alone, as the prototype's does. */}
-          {strip ? <OkIcon id="olumi-mark" decorative /> : (
+          {strip ? <OkIcon id="olumi-mark" size={22} decorative /> : (
             <img
               src="/olumi-logo.png"
               alt="Olumi"

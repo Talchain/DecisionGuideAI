@@ -19,7 +19,7 @@
  *  - Plus was Add and the "increases" chip: Plus stays Add; the effect chips are TrendingUp and TrendingDown.
  *  - SlidersHorizontal was "Not sized yet" and "Why, and what moves it": it stays "not sized"; the why is Waypoints.
  *  - User carried four provenance meanings: User stays a person's figure; "Asked by" is MessageSquareQuote, "kept by you" UserCheck, and
- *    "Keep the original" Undo.
+ *    "Keep the original" BookmarkCheck (Undo means Undo).
  *  - Olumi had two icons: OlumiAiIcon is Olumi's identity (the mark); Sparkles is only the "Olumi contributes" lead (two meanings, two icons,
  *    as marks.tsx says Olumi's mark is never a sparkle).
  *  - Info and HelpCircle: Info is "more detail", HelpCircle only "cannot confirm". Legacy Edit2, MoreVertical, ArrowLeftRight (outside
@@ -38,7 +38,7 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, Undo, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
+  AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Archive, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
@@ -142,7 +142,7 @@ export const ICONS = {
   approve: e(Check, 'Approve', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's word where sent" }),
   'approve-ticked': e(CheckCheck, 'Approve only the changes you ticked', '--text-light', 'icon-plus-word', 'person-action'),
   'review-changes': e(ListChecks, 'Review the changes', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success' }),
-  'set-aside': e(ArchiveX, 'Set aside', '--text-light', 'icon-only', 'person-action'),
+  'set-aside': e(Archive, 'Set aside', '--text-light', 'icon-only', 'person-action'),
   'skip-question': e(SkipForward, 'Skip', '--text-light', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
   'next-step': e(Footprints, 'Next step', '--text-light', 'icon-only', 'person-action'),
   'move-tap': e(ArrowRight, 'Next', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's next.label" }),
@@ -166,7 +166,7 @@ export const ICONS = {
   'person-mark': e(User, 'A person’s figure', '--text-header', 'icon-only', 'kind'),
   'asked-by': e(MessageSquareQuote, 'Asked by', '--text-light', 'icon-only', 'kind'),
   'kept-by-you': e(UserCheck, 'Kept by you', '--text-light', 'icon-only', 'kind'),
-  'keep-original': e(Undo, 'Keep the original', '--text-body', 'icon-plus-word', 'kind', { keepWords: "core's label (Keep the original)" }),
+  'keep-original': e(BookmarkCheck, 'Keep the original', '--text-body', 'icon-plus-word', 'kind', { keepWords: "core's label (Keep the original)" }),
   goal: e(Target, 'What did you come here for?', '--text-light', 'icon-plus-word', 'kind', { keepWords: 'GOAL_QUESTION stays visible (core session.goals question); the icon sits beside it, on --goal-light' }),
   option: e(Split, 'Option', '--text-light', 'icon-only', 'kind', { keepWords: "the option card heading from core stays; only the page's own 'Option:' lead is replaced" }),
   'rests-on': e(Landmark, 'Rests on', '--text-light', 'icon-only', 'kind', { keepWords: "the rests-on card heading from core stays; only the page's own 'Rests on:' lead is replaced" }),
@@ -308,6 +308,8 @@ function pick(id: IconId, variant?: 'alt'): IconComponent {
 
 function Glyph({ id, size, variant, className }: { id: IconId; size: number; variant?: 'alt'; className?: string }): ReactNode {
   const Icon = pick(id, variant)
+  // The Olumi mark draws with its own ring stroke (OlumiAiIcon's 2, scaled by the mark); the registry's 1.75 is for the line icons.
+  if (id === 'olumi-mark') return <Icon size={size} aria-hidden="true" className={className} />
   return <Icon size={size} strokeWidth={ICON_STROKE} aria-hidden="true" className={className} />
 }
 
@@ -346,12 +348,14 @@ interface OkIconButtonProps {
   className?: string
   /** The lane's compact icon button (18 Nov): a 28px square, ghost grey or solid green, in place of the 44px hit area. Omitted: the 44px one. */
   tone?: 'ghost' | 'primary'
+  /** A hover (title) that differs from the accessible name: the name is `words`, the hover this. Omitted: both are the same words. */
+  hover?: string
   /** A small tabular numeral beside the icon inside the same control (Approve ticked · N): drawn, and the label still carries it in words. */
   count?: number
 }
 
 /** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
@@ -362,7 +366,7 @@ export function OkIconButton({ id, onClick, words, variant, active, pressed, dis
       disabled={disabled}
       aria-label={label}
       aria-pressed={pressed}
-      title={label}
+      title={hover ?? label}
       data-testid={testid}
       className={`${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >

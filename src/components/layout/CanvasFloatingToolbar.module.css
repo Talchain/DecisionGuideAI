@@ -241,10 +241,7 @@
 }
 
 .menuItem svg {
-  width: 16px;
-  height: 16px;
   flex: none;
-  color: var(--text-light);
 }
 
 /* The item's current state or key, right-aligned and muted (e.g. "50%", "⇧A"). */

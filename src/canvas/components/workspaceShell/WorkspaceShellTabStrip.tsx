@@ -588,7 +588,7 @@ export function WorkspaceShellTabStrip({
                   // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named "Olumi" on hover
                   // (title and aria-label above), never a word beside it. The selected tab is told apart by its pill.
                   <>
-                    <OkIcon id="olumi-mark" decorative testid="outputs-dock-tab-olumi-mark" />
+                    <OkIcon id="olumi-mark" decorative inherit testid="outputs-dock-tab-olumi-mark" />
                   </>
                 ) : coreLane ? (
                   (() => {

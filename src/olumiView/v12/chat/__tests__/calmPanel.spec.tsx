@@ -391,7 +391,8 @@ describe('8. Send is the person\'s green act, never black', () => {
     expect(send.className).not.toMatch(/(^|\s)bg-text-header(\s|$)/)
     expect(send.className).not.toContain('text-text-on-color')
     expect(send.querySelector('svg')).not.toBeNull()
-    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).className.split(/\s+/)).toContain('text-text-header') // the ink glyph (registry send)
+    // The ink glyph (registry send) takes the button's colour: the button above carries text-text-header (and disabled:text-text-light), the icon has no colour class of its own.
+    expect((send.querySelector('[aria-hidden="true"]') as HTMLElement).className.split(/\s+/).filter((t) => t.startsWith('text-'))).toEqual([])
   })
 })
 

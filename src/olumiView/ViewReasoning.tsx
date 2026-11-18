@@ -149,7 +149,7 @@ function FillRow({ text, at, fill, testId }: { text: string; at: string; fill: s
     <li>
       <button type="button" onClick={() => prefillComposer(fill)} title={REASONING_LABELS.fill} data-testid={testId}
         className={`${TYPE.body} flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1 text-left text-text-body hover:bg-panel-hover`}>
-        <OkIcon id="talk-first" size={14} className="mt-0.5" decorative />
+        <OkIcon id="talk-first" size={14} inherit className="mt-0.5" decorative />
         <span className="min-w-0 flex-1" data-view-words={at}>{text}</span>
       </button>
     </li>

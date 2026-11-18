@@ -71,7 +71,9 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     expect(review.getAttribute('data-open')).toBe('false') // closed at rest
     expect(q(top, 'view-proposal-row')!.textContent).toBe(`${p.heading} · ${p.on}`) // core's words, exactly
     const approve = q(top, 'view-approve')!
-    expect(approve).toHaveTextContent(p.actions?.approve ?? 'Approve')
+    // CHANGED BY DESIGN (18 Nov, Paul: smallest possible buttons): Approve is a tick icon button; core's word is its name and hover, not drawn text.
+    expect(approve.getAttribute('aria-label')).toContain(p.actions?.approve ?? 'Approve')
+    expect(approve.querySelector('svg')).not.toBeNull()
     expect(approve.closest('[hidden]')).toBeNull() // in view at rest, not inside a hidden body
     expect(qa(top, 'view-set-aside')).toHaveLength(1) // CONTRAST to the readings row below: no reading waits, so Set aside is offered at rest
     expect(q(top, 'view-changes')).toBeNull() // the list is read on a press, never approved blind from it

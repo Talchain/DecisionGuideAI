@@ -14,7 +14,7 @@ export function FoldChevron({ open, className }: { open?: boolean; className?: s
   return (
     <span data-fold-chevron={open === undefined ? 'details' : open ? 'open' : 'closed'}
       className={`inline-flex flex-none transition-transform motion-reduce:transition-none ${turn}${className ? ` ${className}` : ''}`}>
-      <OkIcon id="fold-chevron" size={14} decorative />
+      <OkIcon id="fold-chevron" size={14} inherit decorative />
     </span>
   )
 }

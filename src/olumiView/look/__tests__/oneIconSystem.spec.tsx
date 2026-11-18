@@ -49,7 +49,8 @@ describe('every icon on the lane comes from the registry', () => {
 
   it('every icon a surface file draws through the registry is 14 (beside text) or 16 (in a control)', () => {
     const sizes = new Set<string>()
-    for (const f of SURFACE_FILES) for (const m of read(f).matchAll(/<OkIcon(?:Button)?\b[^>]*?\bsize=\{(\d+)\}/g)) sizes.add(m[1]!)
+    // The one exception: the brand mark in the top bar draws at 22 (TopBar.module.css's mark is 22 px); no other icon may.
+    for (const f of SURFACE_FILES) for (const m of read(f).matchAll(/<OkIcon(?:Button)?\b[^>]*?\bsize=\{(\d+)\}/g)) { if (!(m[1] === '22' && /id="olumi-mark"/.test(m[0]))) sizes.add(m[1]!) }
     expect([...sizes].filter((n) => n !== '14' && n !== '16')).toEqual([])
     expect(sizes.has('14')).toBe(true) // positive control: the scan sees the inline size
   })

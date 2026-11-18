@@ -35,5 +35,13 @@ describe('lane context menu icons', () => {
     const arrow = labelOf('with-submenu').closest('button')!.querySelector('svg.lucide-chevron-right')
     expect(arrow?.getAttribute('stroke-width')).toBe('1.75')
     expect(lead('with-submenu').querySelector('svg')?.getAttribute('data-icon')).toBe('olumi-ai')
+    expect(lead('with-submenu').querySelector('svg')?.getAttribute('stroke-width')).toBeNull() // the mark keeps its own ring stroke, not the registry's 1.75
+  })
+
+  it('a menu where no row draws an icon has no blank inset', () => {
+    const items: MenuEntry[] = [row('plain-a'), row('plain-b')]
+    render(<CanvasContextMenuBase target={target} onClose={vi.fn()} screenToFlowPosition={(p: any) => p} useItems={() => ({ items, overlay: null }) as never} />)
+    const label = document.querySelector('[data-menu-label="plain-a"]') as HTMLElement
+    expect(label.previousElementSibling).toBeNull()
   })
 })

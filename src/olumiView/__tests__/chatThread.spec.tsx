@@ -192,6 +192,11 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/messages`, body: { text: fixture.chat[0]!.said, op: expect.any(String) } }])
     expect(box.value).toBe('')
     expect(getByTestId('view-composer-send')).toBeDisabled()
+    // The disabled Send's icon takes the button's colour (the button's own disabled grey), never a token colour of its own.
+    const sendBtn = getByTestId('view-composer-send'), sendIcon = sendBtn.querySelector('[class*="inline-flex"]') as HTMLElement
+    expect(sendBtn.className).toContain('disabled:text-text-light')
+    expect(sendIcon.querySelector('svg')).not.toBeNull()
+    expect(sendIcon.className).not.toMatch(/\btext-/) // inherits: CONTRAST, an icon without `inherit` carries its registry class (text-text-header for Send)
     fireEvent.keyDown(box, { key: 'Enter' })
     fireEvent.change(box, { target: { value: '   ' } })
     fireEvent.keyDown(box, { key: 'Enter' })

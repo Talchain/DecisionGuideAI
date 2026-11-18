@@ -46,7 +46,7 @@ describe('A2 stop/float, DL 10 Nov', () => {
     expect(popout).toHaveAccessibleName('Open Olumi in floating panel')
     expect(popout).toHaveAttribute('title', 'Open in floating window')
     // CHANGED BY DESIGN (v10 review item 10): the popout left its 44 px strip above the thread for the composer's icon row (a 28 px icon, like its neighbours).
-    expect(popout).toHaveClass('w-6', 'h-6')
+    expect(popout).toHaveClass('w-7', 'h-7') // the lane's 28 px icon (18 Nov), as its neighbours
     expect(popout.closest('[data-testid="view-composer-actions"]')).not.toBeNull()
     fireEvent.click(popout)
     const panel = getByTestId('view-chat-float')

@@ -65,6 +65,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
   const actionableItems = items.filter(isMenuItem)
+  const anyIconRow = actionableItems.some((it) => Boolean(it.glyph) || it.iconId !== undefined || Boolean(it.icon))
 
   // Re-measure after constraining the width: wrapped labels can change height.
   useLayoutEffect(() => {
@@ -160,7 +161,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
             )}
             {/* Icon (Lucide) */}
             {!item.glyph && item.iconId !== undefined && (
-              <OkIcon id={item.iconId} variant={item.iconAlt ? 'alt' : undefined} decorative inherit={item.iconId !== 'olumi-mark'}
+              <OkIcon id={item.iconId} variant={item.iconAlt ? 'alt' : undefined} decorative inherit
                 className={item.glyphColor ? item.glyphColor : isFocused ? 'text-text-body' : 'text-text-light group-hover:text-text-body'} />
             )}
             {!item.glyph && item.iconId === undefined && item.icon && (
@@ -173,7 +174,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
                 }`}
               />
             )}
-            {!item.glyph && item.iconId === undefined && !item.icon && <span aria-hidden="true" className="inline-block h-4 w-4 shrink-0" />}
+            {anyIconRow && !item.glyph && item.iconId === undefined && !item.icon && <span aria-hidden="true" className="inline-block h-4 w-4 shrink-0" />}
             <span className="flex-1 text-left">{item.label}</span>
             {item.disabledReason && !item.enabled && (
               <span className={`${typography.panelMeta} text-text-light`}>({item.disabledReason})</span>
