@@ -62,9 +62,12 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     const body = screen.getByTestId('view-reasoning')
     // Redesign, 18 Nov: how sound the thinking is. The model-at-a-glance strip is gone (the canvas and Model tab draw the model); core's
-    // rests are drawn as whose figures it rests on.
+    // rests are drawn per figure (redesign 2): the first two rests at rest, each figure a bar to its share.
     expect(body.querySelector('[data-testid="view-reasoning-glance"]')).toBeNull()
-    expect(body.querySelectorAll('[data-testid="reasoning-rests-bar"]').length).toBe(view.model.run.rests.filter((r: { line: string }) => r.line !== '').length)
+    type R = { id: string; line: string; figures?: { line: string }[] }
+    const rests = (view.model.run.rests as R[]).filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
+    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.slice(0, 2).map((r) => r.id))
+    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]').length).toBe(rests.slice(0, 2).flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '')).length)
     // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
     expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
