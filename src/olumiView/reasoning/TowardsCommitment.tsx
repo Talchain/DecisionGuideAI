@@ -30,13 +30,13 @@ const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center 
 
 export function TowardsCommitment({ view, model }: { view: View; model: ViewModel }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)
-  const c = view.collab
+  const c = view.collab, commitments = view.collab.commitments ?? []
   // The form is offered only where it may be written: this page's own View, the latest version, for the person it is for.
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
-  const dissent = c.dissent.filter((d) => (d.confirmed?.words ?? d.position) !== '')
+  const dissent = (c.dissent ?? []).filter((d) => (d.confirmed?.words ?? d.position) !== '')
   // A disagreement whose card the tab already lists as challenged is said there; here it is named by its holder, one press to its card.
   const above = new Set(challengedCards(model).map((x) => x.id))
-  if (reach === null && dissent.length + c.commitments.length === 0) return null
+  if (reach === null && dissent.length + commitments.length === 0) return null
   return (
     <section className="space-y-2" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
       <h3 className={H}>{COMMITMENT_WORDS.heading}</h3>
@@ -63,17 +63,18 @@ export function TowardsCommitment({ view, model }: { view: View; model: ViewMode
           </ul>
         </div>
       )}
-      {c.commitments.length === 0 ? null : (
+      {commitments.length === 0 ? null : (
         <div className="space-y-1" data-testid="reasoning-commitment-recorded">
           <p className={SUB}>{COMMITMENT_WORDS.recorded}</p>
           <ul className="m-0 list-none space-y-2 p-0">
-            {c.commitments.map((k) => (
+            {commitments.map((k) => (
               <li key={k.id} className="flex items-start gap-2 px-1" data-commitment={k.id}>
                 <OkIcon id="commit-action" size={14} className="mt-0.5" decorative />
                 <span className="min-w-0 flex-1 space-y-0.5">
                   <span className={`${TYPE.body} block whitespace-pre-wrap break-words text-text-header`}>{k.action}</span>
-                  {k.reconsider === '' ? null : <span className={`${TYPE.meta} block break-words text-text-body`} data-commitment-reconsider={k.id}>{COMMITMENT_WORDS.reconsider}: {k.reconsider}</span>}
-                  {k.review_on === null ? null : <span className={`${TYPE.meta} block text-text-light`} data-commitment-review={k.id}>{COMMITMENT_WORDS.review} {k.review_on}</span>}
+                  {k.option == null ? null : <span className={`${TYPE.meta} block break-words text-text-light`} data-commitment-option={k.id}>{k.option.heading}</span>}
+                  {(k.reconsider ?? '') === '' ? null : <span className={`${TYPE.meta} block break-words text-text-body`} data-commitment-reconsider={k.id}>{COMMITMENT_WORDS.reconsider}: {k.reconsider}</span>}
+                  {k.review_on == null ? null : <span className={`${TYPE.meta} block text-text-light`} data-commitment-review={k.id}>{COMMITMENT_WORDS.review} {k.review_on}</span>}
                 </span>
               </li>
             ))}

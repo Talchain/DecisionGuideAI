@@ -242,6 +242,18 @@ describe('towards commitment: what is still disputed, what is recorded, and one 
     fireEvent.click(row.querySelector('button')!)
     expect(focus.node.mock.calls).toEqual([[card.id]])
   })
+  it('a commitment made from an option ("Commit to this") is listed once, by its id, with that option\'s heading; the option itself is not listed again', () => {
+    const view = withRecords()
+    const option = view.model!.cards.find((c) => c.family === 'option') ?? view.model!.cards[0]!
+    const k = (view.collab as Collab).commitments[0]!
+    k.option = { id: option.id, heading: option.heading }
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const box = screen.getByTestId('reasoning-commitment')
+    expect(box.querySelectorAll('[data-commitment]')).toHaveLength(1)
+    expect(box.querySelector('[data-commitment-option="7"]')!.textContent).toBe(option.heading)
+    expect(box.textContent!.split('Run a two-week split test')).toHaveLength(2)
+  })
   it('CONTRAST: a past version shows what was recorded but offers no form; nothing recorded on a past version draws no section', () => {
     const view = withRecords()
     ready(view, { at: 3 })
