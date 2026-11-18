@@ -40,6 +40,7 @@ import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
 import { coreLaneHasAccounts, isOlumiCoreLane } from '../../olumiCore/lane'
 import { CoreVersions } from '../../olumiCore/versions'
+import { JourneyRecordBlock } from '../../olumiView/v12/journey/JourneyRecord'
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useModelVersions } from './useModelVersions'
 import {
@@ -123,6 +124,8 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
     return (
       <div className="fixed right-0 z-[2000]" style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }} data-testid="what-changed-panel">
         <PanelShell icon={<History className="w-5 h-5" />} title="Version history" onClose={onClose} width="420px">
+          {/* What has happened here (commitments, outcomes, evidence, kept ideas; olumiView/v12/journey), above core's versions. */}
+          <JourneyRecordBlock onDone={onClose} />
           <CoreVersions />
         </PanelShell>
       </div>

@@ -228,8 +228,6 @@ import { useAnswersAsks, ViewChat } from '../../olumiView/ViewChat'
 import { DockComposer } from '../../olumiView/ViewWelcome'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
-// Last, so the dock's own load order is unchanged (a lane body imported earlier once moved olumiView/layout ahead of its readers).
-import { JourneyTabBlock } from '../../olumiView/v12/journey/JourneyTab'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -519,8 +517,6 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
   return presentedSurfacesWithLane().filter(surface => {
     // The olumi-core lane has no Reasoning or Compare backend (CEE's): hidden there, never left to 404. Its Team tab is shown there and nowhere else.
     if (!coreLaneShowsSurface(surface.id)) return false
-    // A `laneOnly` row (Team, Journey) is never in the older look's strip.
-    if (surface.laneOnly === true && !isOlumiCoreLane()) return false
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
     return true
@@ -621,7 +617,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // flagged off.
   useEffect(() => {
     const landing = isAiPanelV2Enabled() ? DEFAULT_WORKSPACE_SURFACE : UNFLAGGED_FALLBACK_SURFACE
-    if (state.activeTab === 'journey' && !isJourneyTabEnabled() && !isOlumiCoreLane()) {
+    if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
       setState(prev => ({ ...prev, activeTab: landing }))
     }
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
@@ -702,7 +698,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // the assistant open a surface it did not name.
     // A surface the olumi-core lane hides (Reasoning, Compare, Model) is never opened there by a deep link either: no dead control.
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
-      || (externalTab === 'journey' && !isJourneyTabEnabled() && !isOlumiCoreLane())
+      || (externalTab === 'journey' && !isJourneyTabEnabled())
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
       || !coreLaneShowsSurface(externalTab)
       ? DEFAULT_WORKSPACE_SURFACE
@@ -4455,8 +4451,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 and this needs three store reads. Putting it in the dock keeps
                 the guard intact instead of arguing with it. */}
             {effectiveActiveTab === 'diagnostics' && !isOlumiCoreLane() && <ViewComparisonPointer />}
-            {/* On the olumi-core lane, the scenario's record from core (src/olumiView/v12/journey); the older look keeps its own. */}
-            {effectiveActiveTab === 'journey' && (isOlumiCoreLane() ? <JourneyTabBlock /> : <JourneyTabBody />)}
+            {effectiveActiveTab === 'journey' && (
+              <JourneyTabBody />
+            )}
             {effectiveActiveTab === 'team' && (
               // The olumi-core lane only (`laneOnly` in the shell contract): the team's panels, read from and written to core.
               <TeamTab />
