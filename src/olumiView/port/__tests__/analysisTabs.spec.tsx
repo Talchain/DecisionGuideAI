@@ -15,6 +15,7 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
+import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
@@ -202,16 +203,46 @@ describe('the chance chart', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
-    // What the two ends mean is said at rest, in core's words, once.
+    // What the two ends mean is core's sentence, once, in the key's one disclosure (CHANGED 18 Nov, audit analysis-first-screen-scrolls: was three lines open at rest).
     expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
     expect(document.querySelector('[data-view="run.sensitivity.text"]')!.textContent).toBe(view.model!.run!.sensitivity.text)
+    const fold = screen.getByTestId('analysis-chart-meaning')
+    expect([fold.tagName, fold.hasAttribute('open'), fold.contains(document.querySelector('[data-view="run.sensitivity.text"]'))]).toEqual(['DETAILS', false, true])
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getAllByTestId('analysis-chance-track').length).toBe(3)
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
+    expect(screen.queryByTestId('analysis-chart-marks'), 'CONTRAST: the mark\'s own meaning is still offered, in the marks key and not the range key').not.toBeNull()
     expect(document.querySelectorAll('[data-chance-range]')).toHaveLength(0)
     expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+  })
+})
+
+describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)', () => {
+  it('the axis stands under the FIRST track (once, not at the foot); the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, in the key\'s disclosure', () => {
+    const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
+    ready(view); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    expect(chart.querySelectorAll('[data-testid="analysis-chart-axis"]')).toHaveLength(1)
+    const first = chart.querySelector(`[data-chart-option="${rows[0]!.card.id}"]`)!
+    const axis = chart.querySelector('[data-testid="analysis-chart-axis"]')!
+    expect(first.contains(axis), 'in the first option, under its track').toBe(true)
+    expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
+    const w = chart.querySelector('[data-chance-whisker]')!
+    expect([w.getAttribute('stroke-width'), w.getAttribute('class')]).toEqual(['2', 'stroke-text-body'])
+    const likely = rows.find((r) => r.row.likely != null)!.row.likely!
+    const mark = screen.getByTestId('analysis-chart-meaning').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
+    expect(mark.textContent).toBe(`${likely.glyph}${likely.title}`)
+  })
+  it('the first screen is shorter: the long sentences sit behind ONE disclosure that is a real summary control, never hover alone', () => {
+    const view = viewOf('golden/bakery')
+    ready(view); render(<PortAnalysisTab />)
+    const fold = screen.getByTestId('analysis-chart-meaning')
+    expect(fold.querySelector('summary')!.textContent).toBe(CHART_WORDS.meaning)
+    const key = screen.getByTestId('analysis-chart-key')
+    expect([...key.querySelectorAll('[data-view="run.sensitivity.text"], [data-chart-mark]')].every((e) => fold.contains(e))).toBe(true)
   })
 })
 
