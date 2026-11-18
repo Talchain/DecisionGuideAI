@@ -49,8 +49,8 @@ import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/car
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, EmptyTrack, KindTag, LimitTag, OlumiAsksMark, OlumiMark, UnsizedFigure } from '../v12/cards/marks'
-import { chanceParts, noChanceLineOf, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
+import { AuthorMark, BaselinePill, KindTag, LimitTag, OlumiAsksMark, OlumiMark } from '../v12/cards/marks'
+import { chanceParts, noChanceLineOf, onceWords, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
 export { withheldField, withheldWords }
@@ -359,11 +359,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       )
     }
     // A figure worked out from others (a relation link into it) is a result or a wait, never the card's own headline figure: a quiet status
-    // line, core's words; one that waits on an input (`figure.state` waits) is pending: a dashed empty track over core's "waits on …" words.
+    // line, core's words; one that waits on an input (`figure.state` waits) is pending: core's "waits on …" words alone, as the Simple face
+    // says them (Paul's standing default, 16 Nov, figures too: no empty track at rest).
     const pending = card.figure?.state === 'waits'
     if (card.figure !== null && lead === card.figure.text && (pending || (viewNow !== null && isWorkedOut(viewNow, id)))) return (
       <div data-core-lead={id} data-ok-face="worked" data-ok-pending={pending ? '' : undefined} title={hover}>
-        {pending ? <EmptyTrack testid={`${id}-empty-bar`} /> : null}
         <p className="ok-status"><span data-core-lead-clamp={id}>{lead}</span>{trail}</p>
       </div>
     )
@@ -428,8 +428,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {/* A card core no longer holds as live (`status`, e.g. "ruled out"): core's word, once, where the card's state is said; its name goes light (olumiLook.css). */}
           {card.status != null && card.status !== '' ? <p className="ok-quiet" data-view={`${id}.status`}>{card.status}</p> : null}
           {faceOf()}
-          {/* V12: an input not sized yet is a dashed empty bar with core's own words for the gap ("not sized yet · …"), one line, whole on hover. */}
-          {card.figure != null && card.figure.text === '' ? <UnsizedFigure id={id} words={unsizedWords(card)} /> : null}
+          {/* An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover, as the Simple face
+              says them; no empty bar at rest (Paul, 16 Nov), and nothing at all where core sends no words for the gap. */}
+          {(() => { const gap = unsizedWords(card); return gap === null ? null : <p className="ok-quiet" data-unsized={id} data-unsized-words={id} title={gap}>{onceWords(gap)}</p> })()}
           {/* A range bar only where the range has a spread (Paul's 17 Nov capture: a 0 to 2 months bar for a fixed deadline encoded nothing). */}
           {card.family === 'option' || !hasSpread(card) || (card.values?.length ?? 0) > 0 ? null : <RangeBar card={card} view={{ model }} />}
           {card.family === 'option' ? <AimRows card={card} model={model} shared={sharedRows} /> : <AimResults aim={card} model={model} shared={sharedRows} />}

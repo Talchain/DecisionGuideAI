@@ -43,6 +43,8 @@ const draw = (view: View, id: string): HTMLElement => {
 }
 const faceOf = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`[data-core-card="${id}"]`)!
 /** The words drawn at rest: the face without a closed disclosure's body (look/WorkedSteps keeps its steps in the page, closed). */
+/** Every empty track the faces have drawn: none of them is drawn at rest on Detailed (Paul's standing default, 16 Nov; figures too, the lead 18 Nov). */
+const EMPTY_TRACK = '[data-withheld-track], .ok-dt-mini-empty, .ok-dt-gauge-empty, .ok-empty, .ok-unsized, [data-testid$="-empty-bar"]'
 const drawn = (face: HTMLElement): string => { const c = face.cloneNode(true) as HTMLElement; for (const d of c.querySelectorAll('details:not([open])')) d.remove(); return c.textContent ?? '' }
 
 beforeEach(() => { window.localStorage.clear(); useSimpleLevel.setState({ levels: {} }) })
@@ -56,7 +58,7 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     for (const o of opts) {
       const face = faceOf(draw(ASKED, o.id), o.id)
       expect([o.id, face.querySelector('[data-ok-face="none"]')?.hasAttribute('data-said-once'), face.querySelector(`[data-view="${o.id}.headline.add"]`), face.textContent?.includes(line)]).toEqual([o.id, true, null, false])
-      expect(face.querySelector('[data-withheld-track], .ok-dt-mini-empty, .ok-dt-gauge-empty'), 'no empty track at rest (Paul, 16 Nov)').toBeNull()
+      expect(face.querySelector(EMPTY_TRACK), 'no empty track at rest (Paul, 16 Nov)').toBeNull()
       cleanup()
     }
     expect(faceOf(draw(ASKED, aim), aim).querySelector(`[data-said-once-on="${aim}"]`)?.textContent).toBe(line)
@@ -70,7 +72,7 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     cleanup()
     expect(faceOf(draw(differs, aim), aim).querySelector(`[data-said-once-on="${aim}"]`)).toBeNull()
     cleanup()
-    expect(faceOf(draw(differs, opts[1]!.id), opts[1]!.id).querySelector('[data-withheld-track], .ok-dt-mini-empty'), 'the option with its own words draws them and no track').toBeNull()
+    expect(faceOf(draw(differs, opts[1]!.id), opts[1]!.id).querySelector(EMPTY_TRACK), 'the option with its own words draws them and no track').toBeNull()
   })
   it('DT2 a limit every option says alike ("Needs an answer"): said once on the limit\'s card, no row per option. CONTRAST: one option\'s row differs, so the limit card lists every option by its letter with its own words', () => {
     const aim = 'within_budget', opts = optionsOf(ASKED), letters = optionLetters(ASKED.model!)
@@ -198,6 +200,21 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
       [C, 'C', 'Needs an answer', `Carry on as now\nNeeds an answer\n${T}\n${OVEN}`, null],
     ] })
     expect(limit(asking({ [A]: { question: OVEN, olumi: MARK }, [B]: { question: OVEN, olumi: MARK }, [C]: { question: OVEN, olumi: MARK } }))).toEqual({ once: [['Needs an answer', `${T}\n${OVEN}`, 'Rests on a figure Olumi estimated']], rows: [] })
+  })
+  it('DT18 no empty track at rest on a FIGURE either: one not sized yet and one that waits each draw core\'s own words alone, once, with no empty bar. CONTRASTS: a sized figure draws its figure and neither line; a figure core sends no words for draws nothing for the gap', () => {
+    const UNSIZED = 'not given yet · What would the second oven cost?', WAITS = 'waits on: oven price'
+    expect([cardOf(ASKED, 'oven_price').figure!.text, cardOf(ASKED, 'oven_price').figure!.title, cardOf(ASKED, 'spend').figure!.state, cardOf(ASKED, 'spend').figure!.text], 'precondition: core\'s own words for both').toEqual(['', UNSIZED, 'waits', WAITS])
+    const unsized = faceOf(draw(ASKED, 'oven_price'), 'oven_price')
+    expect([unsized.querySelector(EMPTY_TRACK), [...unsized.querySelectorAll<HTMLElement>('[data-unsized="oven_price"]')].map((e) => [e.textContent, e.getAttribute('title')])]).toEqual([null, [[UNSIZED, UNSIZED]]])
+    cleanup()
+    const waits = faceOf(draw(ASKED, 'spend'), 'spend')
+    expect([waits.querySelector(EMPTY_TRACK), waits.querySelector('[data-ok-face="worked"]')?.hasAttribute('data-ok-pending'), [...waits.querySelectorAll('.ok-status [data-core-lead-clamp]')].map((e) => e.textContent)]).toEqual([null, true, [WAITS]])
+    cleanup()
+    const sized = faceOf(draw(ASKED, 'base_sales'), 'base_sales')
+    expect([sized.querySelector(EMPTY_TRACK), sized.querySelector('[data-unsized]'), sized.querySelector('[data-ok-pending]'), sized.querySelector('[data-ok-face="figure"] .ok-fig') !== null]).toEqual([null, null, null, true])
+    cleanup()
+    const oven = cardOf(ASKED, 'oven_price'), wordless = faceOf(draw(withCard(ASKED, { ...oven, figure: { ...oven.figure!, title: '' } } as ViewCard), 'oven_price'), 'oven_price')
+    expect([wordless.querySelector(EMPTY_TRACK), wordless.querySelector('[data-unsized]')]).toEqual([null, null])
   })
 })
 

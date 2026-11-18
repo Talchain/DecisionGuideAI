@@ -343,12 +343,7 @@
 .olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
 /* "baseline": the same quiet outlined pill, level with the marks beside it. */
 .olumi-look .ok-pill.ok-baseline { align-self: center; }
-/* Nothing to place yet: a dashed, empty track (a withheld chance, a figure not sized, a calculation that waits). */
-.olumi-look .ok-empty {
-  display: block; flex: 1 1 auto; box-sizing: border-box; min-width: calc(24px * var(--o-s)); height: calc(7px * var(--o-s));
-  border: 1.5px dashed var(--text-light); border-radius: 999px;
-}
-.olumi-look .ok-withheld, .olumi-look .ok-unsized { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
+.olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
 /* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
 .olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }
 /* Core's words for a gap, whole and wrapped (R6: no word is cut); the long reason is the card's hover. */

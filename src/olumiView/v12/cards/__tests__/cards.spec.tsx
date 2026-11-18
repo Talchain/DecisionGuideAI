@@ -206,14 +206,15 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
 })
 
 describe('a figure with no value yet, and one that waits', () => {
-  it('U1 an unsized input says core\'s own words for the gap: Detailed over a dashed empty bar, Simple as ONE quiet line with no track (R6, 16 Nov), once, the whole words the hover', () => {
-    for (const [view, id] of [[ASKED, 'oven_price'], [EU, 'profitability']] as const) {
-      const words = cardOf(view, id).figure!.title
-      expect([cardOf(view, id).figure!.text, words !== '', unsizedWords(cardOf(view, id))]).toEqual(['', true, words])
-      const detailed = draw(view, id, 'working').querySelector<HTMLElement>(`[data-unsized="${id}"]`)!
-      expect(['working', detailed.querySelector(`[data-testid="${id}-empty-bar"]`) !== null, detailed.querySelector(`[data-unsized-words="${id}"]`)?.textContent, detailed.getAttribute('title')]).toEqual(['working', true, words, words]); cleanup()
-      const quiet = draw(view, id, 'simple').querySelector<HTMLElement>(`[data-unsized="${id}"]`)!
-      expect(['simple', quiet.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), quiet.matches('p.ok-quiet'), quiet.textContent, quiet.getAttribute('title')]).toEqual(['simple', null, true, onceWords(words), words]); cleanup()
+  // CHANGED BY DESIGN (the lead's ruling, 18 Nov: Paul's "no empty track at rest" covers figures too): Detailed draws core's words alone, as Simple does; the dashed bar is gone.
+  it('U1 an unsized input says core\'s own words for the gap as ONE quiet line at both levels, with no empty bar and no track (R6, 16 Nov), once, the whole words the hover', () => {
+    const GAP = [[ASKED, 'oven_price', 'not given yet · What would the second oven cost?'], [EU, 'profitability', 'not sized yet · Revenue per customer, margins, operating costs and the accounting treatment of expansion investment were not supplied.']] as const
+    for (const [view, id, words] of GAP) {
+      expect([cardOf(view, id).figure!.text, cardOf(view, id).figure!.title], 'precondition: no value, and core\'s own words for the gap').toEqual(['', words])
+      for (const level of ['working', 'simple'] as const) {
+        const el = draw(view, id, level), quiet = el.querySelector<HTMLElement>(`[data-unsized="${id}"]`)!
+        expect([level, el.querySelectorAll(`[data-unsized="${id}"]`).length, el.querySelector('.ok-empty, .ok-unsized, [data-testid$="-empty-bar"]'), quiet.matches('p.ok-quiet'), quiet.textContent, quiet.getAttribute('title')]).toEqual([level, 1, null, true, words, words]); cleanup()
+      }
     }
   })
 
@@ -229,11 +230,13 @@ describe('a figure with no value yet, and one that waits', () => {
     expect(unsizedWords(cardOf(ASKED, 'base_sales'))).toBeNull()
   })
 
-  it('U3 pending: a calculated figure that waits on an input is core\'s own "waits on" words, never a headline figure: Detailed over a dashed track, Simple as one quiet line, its working closed (R6, D2)', () => {
+  // CHANGED BY DESIGN (the lead's ruling, 18 Nov: no empty track at rest covers figures too): Detailed draws core's "waits on" words alone; the dashed track is gone.
+  it('U3 pending: a calculated figure that waits on an input is core\'s own "waits on" words, never a headline figure and never over an empty track: Detailed as its status line, Simple as one quiet line, its working closed (R6, D2)', () => {
     const spend = cardOf(ASKED, 'spend')
-    const detailed = draw(ASKED, 'spend').querySelector<HTMLElement>('[data-core-lead="spend"]')!
-    expect([detailed.getAttribute('data-ok-face'), detailed.hasAttribute('data-ok-pending'), detailed.querySelector('[data-testid="spend-empty-bar"]') !== null, detailed.querySelector('.ok-status [data-core-lead-clamp]')?.textContent])
-      .toEqual(['worked', true, true, spend.figure!.text])
+    expect([spend.figure!.state, spend.figure!.text], 'precondition: core says it waits, in these words').toEqual(['waits', 'waits on: oven price'])
+    const card = draw(ASKED, 'spend'), detailed = card.querySelector<HTMLElement>('[data-core-lead="spend"]')!
+    expect([detailed.getAttribute('data-ok-face'), detailed.hasAttribute('data-ok-pending'), card.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), [...detailed.querySelectorAll('.ok-status [data-core-lead-clamp]')].map((e) => e.textContent)])
+      .toEqual(['worked', true, null, ['waits on: oven price']])
     expect(detailed.querySelector('.ok-fig')).toBeNull(); cleanup()
     // CHANGED BY DESIGN (the lead's D2, 17 Nov: worked steps closed at rest; was R7, drawn open in the card's flow): Simple says core's "waits on" words as the
     // one quiet line, the working is not drawn open, and what it waits on (core's `needs`, fields.ts needsOf) is the line's hover after core's title.
