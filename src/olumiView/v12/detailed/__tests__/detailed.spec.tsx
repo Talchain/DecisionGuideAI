@@ -298,14 +298,24 @@ describe('Detailed: marks, not sentences', () => {
     const none = withCard(view, { ...c, unused: null } as ViewCard)
     expect([faceOf(draw(none, c.id), c.id).querySelector(`[data-view="${c.id}.unused"]`), document.querySelector('svg.lucide-unlink')]).toEqual([null, null])
   })
-  it('DT13 an option core has ruled out says core\'s status word once on Detailed, bound to its status, and is marked for the light-title rule. CONTRAST: the same option while live draws neither', () => {
-    const live = optionsOf(HIRING)[0]!
-    expect(live.status, 'precondition: live').toBeNull()
-    const out = faceOf(draw(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), live.id), live.id)
-    expect([[...out.querySelectorAll(`[data-view="${live.id}.status"]`)].map((e) => e.textContent), out.hasAttribute('data-detailed-set-aside')]).toEqual([[ 'ruled out' ], true])
+  it('DT13 an option core has ruled out says core\'s status word in ONE place on Detailed (the line bound to its status, not the card\'s hover too), draws no live chance headline beside it, and is marked for the light-title rule; the line is drawn where the card has no other face. CONTRAST: the same option while live draws its chance headline and no status', () => {
+    const LIVE = 'hire_a_tech_lead', live = cardOf(HIRING, LIVE)
+    expect([live.status, live.headline!.state, live.headline!.text], 'precondition: live, with a chance').toEqual([null, 'chance', 'about 23% chance'])
+    const state = (v: View, id: string) => {
+      const face = faceOf(draw(v, id), id), line = [...face.querySelectorAll<HTMLElement>(`[data-view="${id}.status"]`)]
+      const out = { status: line.map((e) => e.textContent), marked: face.hasAttribute('data-detailed-set-aside'), headline: [...face.querySelectorAll('[data-ok-face="chance"] .ok-chance [data-core-lead-clamp]')].map((e) => e.textContent),
+        gauge: face.querySelector('[data-ok-face="chance"]') !== null, drawnChance: drawn(face).includes('about 23% chance'), hoverSaysStatus: (face.getAttribute('title') ?? '').includes('ruled out'), lineHover: line[0]?.getAttribute('title')?.split('\n')[0] ?? null }
+      cleanup(); return out
+    }
+    expect(state(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), LIVE)).toEqual({ status: ['ruled out'], marked: true, headline: [], gauge: false, drawnChance: false, hoverSaysStatus: false, lineHover: 'about 23% chance' })
+    expect(state(HIRING, LIVE)).toEqual({ status: [], marked: false, headline: ['about 23% chance'], gauge: true, drawnChance: true, hoverSaysStatus: false, lineHover: null })
+    // An option with no face of its own (core sends it rows only, each said on its aim's card): the status line is still drawn, once.
+    const bare = cardOf(HOSTING, 'own_hosting')
+    expect([bare.headline ?? null, bare.status]).toEqual([null, null])
+    const out = faceOf(draw(withCard(HOSTING, { ...bare, status: 'ruled out' } as ViewCard), bare.id), bare.id)
+    expect([out.querySelector('[data-core-lead]'), [...out.querySelectorAll(`[data-view="${bare.id}.status"]`)].map((e) => e.textContent), (out.getAttribute('title') ?? '').includes('ruled out')]).toEqual([null, ['ruled out'], false])
     cleanup()
-    const on = faceOf(draw(HIRING, live.id), live.id)
-    expect([on.querySelector(`[data-view="${live.id}.status"]`), on.hasAttribute('data-detailed-set-aside')]).toEqual([null, false])
+    expect(faceOf(draw(HOSTING, bare.id), bare.id).querySelector(`[data-view="${bare.id}.status"]`), 'CONTRAST: live, no status line').toBeNull()
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     expect(css.split('}').filter((r) => r.includes('[data-detailed-set-aside]') && r.includes('[data-simple-set-aside]') && r.includes('node-title')).length, 'one title rule serves both faces').toBe(1)
   })

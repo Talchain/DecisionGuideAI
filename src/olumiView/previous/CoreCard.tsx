@@ -313,6 +313,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   //  - an aim or limit: its target with Olumi's mark where Olumi proposed it;
   //  - anything else: core's line, whole.
   const said = useMemo(() => saidOnceOf(model), [model])
+  // Core's status word for a card it no longer holds as live ("ruled out"): on Detailed it is said in ONE place, the line bound to `<id>.status`,
+  // drawn whether or not the card has any other face; it is not repeated in the card's hover.
+  const setAside = card !== null && card.status != null && card.status !== ''
+  const setAsideChance = card !== null && setAside && card.family === 'option' && card.headline?.state === 'chance' ? card.headline : null
   const sharedRows = useMemo(() => sharedRowStates(model), [model])
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
@@ -325,6 +329,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     const hover = [lead, leadTitleOf(card), estimate && lead === card.figure?.text ? card.olumi!.title : null].filter((x) => x != null && x !== '').join(' · ') || undefined
     const trail = cueOnLead ? <>{' '}{editCue}</> : null
     const h = card.family === 'option' ? card.headline ?? null : null
+    // An option core no longer holds as live (`status`, e.g. "ruled out") draws no chance headline: its state is the status line's to say, once,
+    // and a live number and gauge beside "ruled out" would read as still compared. Core's chance words stay one hover away, on that line.
+    if (h !== null && h.state === 'chance' && setAside) return null
     if (h !== null && h.state === 'chance') {
       const head = farChanceOf(card), qual = head === null ? null : h.text.slice(head.length + 2)
       const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { likely?: { glyph: string; title: string } | null; olumi?: { glyph: string; title: string } | null; chance?: number | null } | undefined
@@ -412,8 +419,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             <SaidOnce lines={said.question} at="question" />
             <div className="ok-dt-foot">{question?.decide_by == null ? null : <DecideBy d={question.decide_by} />}{badge === null ? null : <BadgeCount cardId={id} badge={badge} at="question" />}{earlierLine}</div>
           </div>) : (
-        <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && card.status != null && card.status !== '' ? '' : undefined}
-          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(card)].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
+        <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
+          data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} title={driverOf !== null ? driverOf.map((o) => o.driver!.title).join('\n') : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf(simple ? card : { ...card, status: null })].join('\n')} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n}>{restsOn.n}</span>}
           {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}</>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
@@ -425,8 +432,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
                 {tryOn.said === null ? null : <p className={`${typography.viewLabel} break-words text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               </div>
             )} /> : <>
-          {/* A card core no longer holds as live (`status`, e.g. "ruled out"): core's word, once, where the card's state is said; its name goes light (olumiLook.css). */}
-          {card.status != null && card.status !== '' ? <p className="ok-quiet" data-view={`${id}.status`}>{card.status}</p> : null}
+          {/* A card core no longer holds as live (`status`, e.g. "ruled out"): core's word, once, where the card's state is said; its name goes light (olumiLook.css).
+              Where that withholds a chance headline from the face, core's own chance words and their title are this line's hover. */}
+          {setAside ? <p className="ok-quiet" data-view={`${id}.status`} title={setAsideChance === null ? undefined : [setAsideChance.text, setAsideChance.title].filter((x) => x !== '').join('\n')}>{card.status}</p> : null}
           {faceOf()}
           {/* An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover, as the Simple face
               says them; no empty bar at rest (Paul, 16 Nov), and nothing at all where core sends no words for the gap. */}
