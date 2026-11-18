@@ -385,3 +385,19 @@ describe('the writes go straight to core, and the View is read again', () => {
     })
   })
 })
+
+describe('honest degradation (core chat[].degraded, turn policy 18 Nov; chat[].status is the existing stamp string)', () => {
+  it('a turn core marks as degraded says so in one quiet line in its reply, verbatim, its short form on hover; CONTRAST: a turn without status draws none', () => {
+    const view = structuredClone(golden('s_ce285b3617bb'))
+    const i = view.chat.findIndex((t) => t.answer !== null)
+    expect(i, 'precondition: an answered turn').toBeGreaterThanOrEqual(0)
+    const words = 'Olumi answered without the team views this time, so this reply does not weigh them.'
+    ;(view.chat[i] as { degraded?: unknown }).degraded = { text: words, title: 'Team views not read' }
+    const { container } = render(<ViewTurns chat={view.chat} />)
+    const line = container.querySelectorAll<HTMLElement>('[data-testid="view-chat-turn-degraded"]')
+    expect(line).toHaveLength(1)
+    expect(line[0]!.textContent).toBe(words)
+    expect(line[0]!.title).toBe('Team views not read')
+    expect(line[0]!.dataset['view']).toBe(`chat.${i}.degraded.text`)
+  })
+})

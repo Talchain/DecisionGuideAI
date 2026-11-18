@@ -278,6 +278,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
   const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
   const early = earlyOf(t)
+  const dg = (t as { degraded?: { text?: unknown; title?: unknown } | null }).degraded
+  const degraded = typeof dg?.text === 'string' && dg.text !== '' ? { text: dg.text, title: typeof dg.title === 'string' ? dg.title : dg.text } : null
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
   const lead = t.answer === null ? null : leadOf(t.answer, [early ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
@@ -315,6 +317,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   )) : (
     <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
+      {/* Honest degradation (core `chat[].degraded`, optional; the vendored contract predates it; `chat[].status` is the version stamp's string): a turn that ran on less than it should have says
+          so once, in core's own sentence, its short form on hover. Absent on every ordinary turn. */}
+      {degraded === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} title={degraded.title} data-view={`${at}.degraded.text`} data-testid="view-chat-turn-degraded">{degraded.text}</p>}
       {lead !== null
         ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
             {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
