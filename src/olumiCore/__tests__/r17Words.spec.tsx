@@ -23,7 +23,7 @@ const fx = read('effects.view3.json')
 const shared = fx.collab.shared as unknown as Sh[]
 const paul = shared.find((s) => s.by === 'Paul')!
 const words = { no_leader: 'NO-LEADER words (theirs)', no_model_leader: 'NO-MODEL-LEADER words' }
-const headings = { ...(fx.collab as unknown as { effect_headings: Record<string, string> }).effect_headings, ...words }
+const headings: Record<string, string> = { ...(fx.collab as unknown as { effect_headings: Record<string, string> }).effect_headings, ...words }
 const viewOf = (list: Sh[], over: Partial<View['collab']> = {}): View =>
   ({ ...fx, collab: { ...fx.collab, effect_headings: headings, shared: list, ...over } } as unknown as View)
 const show = (v: View) => render(<ViewsPanel sid="s_x" view={v} onWrote={async () => true} />)
