@@ -12,6 +12,7 @@ import { ViewModelTab } from '../ViewModelTab'
 import { MODEL_SECTION_LABELS, ModelSections } from '../model/sections'
 import { useViewStore } from '../store'
 import { resetModelTab } from '../model/state'
+import { cardKind } from '../v12/fields/fields'
 import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/golden/${n}.view.json`), 'utf8'))
@@ -31,7 +32,7 @@ describe('the previous Model tab\'s sections, from the View', () => {
   it('Limits: every card with a bound, by its id, in core\'s words; Olumi\'s mark only where core marks it; pressing a heading shows its card', () => {
     const focus = vi.fn(); registerFocusHelpers(focus, vi.fn())
     const c = draw(european), sec = c.querySelector('[data-testid="view-model-limits"]')!
-    expect(sec.querySelector('h3')?.textContent).toBe(MODEL_SECTION_LABELS.limits)
+    expect(sec.querySelector('h3')?.textContent).toBe(MODEL_SECTION_LABELS.aimsAndLimits) // CHANGED 18 Nov (audit model-06): this fixture lists aims too, so the heading no longer calls them limits
     const bound = european.model!.cards.filter((k) => k.bound != null)
     expect([...sec.querySelectorAll('[data-model-limit]')].map((e) => e.getAttribute('data-model-limit'))).toEqual(bound.map((k) => k.id))
     for (const k of bound) {
@@ -42,6 +43,16 @@ describe('the previous Model tab\'s sections, from the View', () => {
     }
     fireEvent.click(sec.querySelector(`[data-model-limit="${bound[0]!.id}"] button`)!)
     expect(focus).toHaveBeenCalledWith(bound[0]!.id)
+  })
+
+  it('an aim\'s target is never called a limit (audit model-06): the heading says "Aims and limits" while any listed card is an aim, and "Limits" only when core\'s kind of every card is a limit', () => {
+    const kinds = european.model!.cards.filter((k) => k.bound != null).map((k) => cardKind(k, european.model!).aim)
+    expect(kinds.includes('goal'), 'precondition: the fixture lists an aim').toBe(true)
+    expect(draw(european).querySelector('[data-testid="view-model-limits"] h3')?.textContent).toBe('Aims and limits')
+    cleanup()
+    const onlyLimits = { ...european.model!, cards: european.model!.cards.filter((k) => k.bound == null || cardKind(k, european.model!).aim === 'limit') }
+    expect(onlyLimits.cards.some((k) => k.bound != null), 'precondition: a limit remains').toBe(true)
+    expect(draw({ ...european, model: onlyLimits }).querySelector('[data-testid="view-model-limits"] h3')?.textContent).toBe(MODEL_SECTION_LABELS.limits)
   })
 
   it('Structural issues: core\'s blockers said once each, and what the chance waits on, item by item', () => {

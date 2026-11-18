@@ -498,6 +498,23 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     const line = lineOf(draw(v, 'boss_discussion', 'simple'))!
     expect([line.textContent, line.hasAttribute('data-simple-no-chance-once')]).toEqual([cardOf(APP, 'option_scheduled').headline!.text, true])
   })
+  it('P5 (audit canvas-goal-said-three-times) a description that is, string for string, the card\'s heading, figure or bound is no line; any other wording is kept (identity, not fuzzy)', () => {
+    const id = 'option_scheduled' // no state of its own, so its description would be its line (P4)
+    const withDesc = (text: string) => lineOf(draw(withCard(APP, { ...cardOf(APP, id), description: text } as unknown as ViewCard), id, 'simple')) ?? twoLineOf(document.body)
+    expect(withDesc(cardOf(APP, id).heading), 'the heading said again').toBeNull()
+    cleanup()
+    expect(withDesc(`${cardOf(APP, id).heading} `), 'the same string with a trailing space').toBeNull()
+    cleanup()
+    expect(withDesc(`${cardOf(APP, id).heading} again`)?.textContent, 'CONTRAST: another wording is kept').toBe(`${cardOf(APP, id).heading} again`)
+    cleanup()
+    const goal = CAPACITY.model!.cards.find((c) => c.bound != null && c.bound.text !== '')!
+    const body = (text: string) => { const el = draw(withCard(CAPACITY, { ...goal, description: text } as unknown as ViewCard), goal.id, 'simple'); return [el.querySelector('[data-simple-description]'), el.querySelector('[data-simple-face="target"]')?.textContent] as const }
+    expect(body('at least 100 tickets a week')[0]?.textContent, 'CONTRAST: core\'s own quote of the brief, in other words, is kept').toBe('at least 100 tickets a week')
+    cleanup()
+    const [, shown] = body('x')
+    cleanup()
+    expect(body(shown!)[0], 'the bound said again').toBeNull()
+  })
   it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
     const line = twoLineOf(draw(described(APP, id), id, 'simple'))!
