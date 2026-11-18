@@ -11,7 +11,9 @@
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { OkIcon } from '../look/icons'
-import { chartGroupsOf, rangeOf, trackPct, type ChartRow } from './pick'
+import type { ViewCard } from '../client'
+import { FigureEdit } from '../FigureEdit'
+import { chartGroupsOf, findOutOf, rangeOf, trackPct, type ChartRow } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
@@ -39,8 +41,26 @@ export function ChanceTrack({ chance, range }: { chance: number; range: { low: n
   )
 }
 
+/**
+ * The figure a whisker is for, named once: core's heading, core's words for its value, Olumi's mark where core gives one, and ✎ to give your
+ * own (what narrows a range Olumi estimated), unless core's find-out ranking below already offers that ✎.
+ */
+function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<string> }) {
+  return (
+    <span className={`${TYPE.meta} flex min-h-6 items-center gap-1 text-text-light`} data-chart-figure={card.id}>
+      <OkIcon id="why-moves" size={12} decorative />
+      <span className="min-w-0">
+        <span data-view={`${card.id}.heading`}>{card.heading}</span>
+        {card.figure == null || card.figure.text === '' ? null : <>{' '}<span className="text-text-body" data-view={`${card.id}.figure.text`}>{card.figure.text}</span></>}
+        {card.olumi == null ? null : <>{' '}<span className="text-info" title={card.olumi.title} aria-label={card.olumi.title} data-view={`${card.id}.olumi.glyph`}>{card.olumi.glyph}</span></>}
+      </span>
+      {card.figure?.edit == null || given.has(card.id) ? null : <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-mover" glyph words={false} label={`Give your figure for ${card.heading}`} />}
+    </span>
+  )
+}
+
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
-function Bar({ card, row, i, figure }: ChartRow & { figure: { id: string; heading: string } | null }) {
+function Bar({ card, row, i, figure, given }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string> }) {
   const range = rangeOf(row)
   return (
     <li data-chart-option={card.id}>
@@ -55,14 +75,10 @@ function Bar({ card, row, i, figure }: ChartRow & { figure: { id: string; headin
         </span>
         <span className="mt-1 block px-1"><ChanceTrack chance={row.chance!} range={range} /></span>
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
-        {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). */}
-        {range === null || figure === null ? null : (
-          <span className={`${TYPE.meta} mt-0.5 flex items-center gap-1 text-text-light`} data-chart-figure={figure.id}>
-            <OkIcon id="why-moves" size={12} decorative />
-            <span data-view={`${figure.id}.heading`}>{figure.heading}</span>
-          </span>
-        )}
+        {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
+            label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
       </button>
+      {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
     </li>
   )
 }
@@ -73,6 +89,11 @@ export function ChanceChart({ model }: { model: ViewModel }) {
   const groups = chartGroupsOf(model)
   if (run === null || groups.length === 0) return null
   const ranged = groups.some((g) => g.rows.some(({ row }) => rangeOf(row) !== null))
+  const { given } = findOutOf(run)
+  const figureOf = (r: ChartRow) => { const f = rangeOf(r.row); return f === null ? null : model.cards.find((c) => c.id === f.figure) ?? null }
+  // Every whisker for one figure: it is named once, beside the key, not under every bar.
+  const figures = [...new Set(groups.flatMap((g) => g.rows.map(figureOf)).filter((c): c is ViewCard => c !== null))]
+  const shared = figures.length === 1 ? figures[0]! : null
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
   return (
     <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
@@ -81,7 +102,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
-          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r) => { const f = rangeOf(r.row); const fc = f === null ? null : model.cards.find((c) => c.id === f.figure) ?? null; return <Bar key={r.card.id} {...r} figure={fc} /> })}</ul>
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} />)}</ul>
         </div>
       ))}
       <div className={`${TYPE.meta} flex justify-between px-1 tabular-nums text-text-light`} aria-hidden="true" data-testid="analysis-chart-axis">
@@ -95,6 +116,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
             <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
             <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
           </p>
+          {shared === null ? null : <FigureLabel card={shared} given={given} />}
           {run.sensitivity == null || run.sensitivity.text === '' ? null : <p className="m-0" data-view="run.sensitivity.text">{run.sensitivity.text}</p>}
         </div>
       )}

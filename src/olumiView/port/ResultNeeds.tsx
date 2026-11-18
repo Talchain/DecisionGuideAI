@@ -44,7 +44,7 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
         })}
       </ul>
       {needs.length <= AT_REST ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-needs-more">
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-needs-more">
           {all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(needs.length - AT_REST)}
         </button>
       )}

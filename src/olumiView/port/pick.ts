@@ -6,7 +6,7 @@
  * false`, a `sensitivity` sentence and a `waits_on.head` about the chance, so a run field cannot say whether any option has a chance.
  */
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
-import { optionCards } from '../layout'
+import { optionCards, worthLinesOf } from '../layout'
 import { worthCheckingOf } from '../v12/cards/marks'
 
 /** A fraction of a track as a percent, held to the track. Layout only: never drawn as a number. */
@@ -171,4 +171,17 @@ export function needsOf(model: ViewModel): Need[] {
   }
   for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null }))
   return out
+}
+
+/**
+ * Core's ranking of what to find out first, per aim, with any line or figure; its worth lines the ranking does not already name (one home);
+ * and every figure either already offers core's give ✎ for (so no other place offers a second one).
+ */
+export function findOutOf(run: ViewRun | null) {
+  const aims = (run?.find_out ?? []).map((aim, a) => ({ aim, a })).filter(({ aim }) => aim.line !== '' || aim.figures.length > 0)
+  const said = new Set(aims.flatMap(({ aim }) => aim.figures.map((f) => f.fact)))
+  const worth = run?.science == null ? [] : worthLinesOf(run.science).filter(({ line }) => !said.has(line.id) && line.line !== '')
+  const given = new Set(aims.flatMap(({ aim }) => aim.figures.filter((f) => f.give != null).map((f) => f.id)))
+  for (const { line } of worth) if (line.figure?.give != null) given.add(line.figure.id)
+  return { aims, worth, given }
 }

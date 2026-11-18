@@ -38,10 +38,10 @@ describe('SC-02: each tab says each thing once', () => {
     const paths = [...values, 'run.most_likely.text', 'run.lead']
     expect(values.length).toBeGreaterThan(1)
     expect(paths.map((p) => [p, drawn(p)])).toEqual(paths.map((p) => [p, 1]))
-    // Each mover figure is named once in its section (the chart names none: its bars are the options).
-    const movers = [...document.querySelectorAll<HTMLElement>('[data-mover]')].map((e) => e.dataset['mover']!)
+    // Each figure the chances move most with is named once across both tabs (at its whisker), never again under "What would change".
+    const movers = [...new Set([...document.querySelectorAll<HTMLElement>('[data-chart-figure]')].map((e) => e.dataset['chartFigure']!))]
     expect(movers.length).toBeGreaterThan(0)
-    for (const id of movers) expect([id, document.querySelectorAll(`[data-testid="analysis-what-moves"] [data-mover="${id}"] [data-view="${id}.heading"]`).length]).toEqual([id, 1])
+    for (const id of movers) expect([id, document.querySelectorAll(`[data-view="${id}.heading"]`).length]).toEqual([id, 1])
     // A chance's words are core's for one row: the text appears once on the page, wherever it is bound.
     for (const p of values) { const t = document.querySelector(`[data-view="${p}"]`)!.textContent!; expect(document.body.textContent!.split(t).length - 1, p).toBe(1) }
   })

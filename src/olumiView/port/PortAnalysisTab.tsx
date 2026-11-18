@@ -15,7 +15,8 @@ import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { pressCard } from '../reasoning/tabRing'
 import { shownModel, useViewStore } from '../store'
-import { Compared, HeldProposalLine, WhatIfShown } from '../ViewChances'
+import { HeldProposalLine, WhatIfShown } from '../ViewChances'
+import { comparedGroupsOf } from '../layout'
 import { ChanceChart } from './ChanceChart'
 import { cardOf, limitGroupsOf, tabStateOf } from './pick'
 import { ResultNeeds } from './ResultNeeds'
@@ -59,6 +60,30 @@ function Limits({ model }: { model: ViewModel }) {
   )
 }
 
+/**
+ * Core's comparisons, each group under core's own heading for it (`compared_headings`), each line verbatim with Olumi's mark where core gives one,
+ * the Run's text on hover; a kind this page does not know, or a group core gives no heading for, draws nothing. Drawn on the panel's scale
+ * (the shared `Compared` uses the larger legacy header token).
+ */
+function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
+  const groups = comparedGroupsOf(run)
+  return groups.length === 0 ? null : (
+    <div data-testid="view-run-compared" className="space-y-3">
+      {groups.map(({ group, heading, lines }) => (
+        <div key={group} className="space-y-1" data-testid={`view-run-compared-${group}`} aria-label={heading}>
+          <p className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={`run.compared_headings.${group}`}>{heading}</p>
+          {lines.map(({ line: l, i }) => (
+            <div key={l.id} title={l.hover} data-view-fact={l.id}>
+              {l.olumi === null ? null : <><span className="text-info" title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.compared.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
+              <span data-view={`run.compared.${i}.line`}>{l.line}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons, its notes. */
 function WhyThisReading({ model }: { model: ViewModel }) {
   const [open, setOpen] = useState(false)
@@ -71,7 +96,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && !compared && notes.length === 0) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-why-toggle">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`} data-testid="analysis-why-toggle">
         {ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
@@ -83,7 +108,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
             </p>
           )}
           {ml?.rests_on_text == null || ml.rests_on_text === '' ? null : <p className="m-0 text-text-light" data-view="run.most_likely.rests_on_text">{ml.rests_on_text}</p>}
-          {compared ? <Compared run={run} /> : null}
+          {compared ? <ComparedLines run={run} /> : null}
           {notes.map(({ n, i }) => <p key={i} className="m-0 text-text-light" title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
         </div>
       )}

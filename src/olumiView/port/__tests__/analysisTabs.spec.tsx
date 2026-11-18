@@ -148,18 +148,31 @@ describe('the chance chart', () => {
 })
 
 describe('what would change it', () => {
-  it('bakery: each figure the whiskers are drawn for, once, by its card id; core\'s lead line (`run.tipping` kind lead) with a try on its figure', () => {
+  it('bakery: each figure the whiskers are drawn for is named once, at its bar, by its card id; core\'s lead line (`run.tipping` kind lead) with a try on its figure', () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
     ready(view); render(<PortAnalysisTab />)
     const movers = moversOf(view.model!).map((m) => m.card.id)
     expect(movers).toEqual(['extra_sold_per_oven', 'extra_hours_sold'])
-    expect([...document.querySelectorAll<HTMLElement>('[data-mover]')].map((e) => e.dataset['mover'])).toEqual(movers)
+    expect([...document.querySelectorAll<HTMLElement>('[data-chart-figure]')].map((e) => e.dataset['chartFigure'])).toEqual(movers)
+    for (const id of movers) expect(document.querySelectorAll(`[data-view="${id}.heading"]`), id).toHaveLength(1)
+    // "What would change" names no figure of its own beside core's lines.
+    expect(screen.getByTestId('analysis-what-moves').querySelectorAll('[data-chart-figure], [data-mover]')).toHaveLength(0)
     const t = run.tipping.findIndex((x) => x.kind === 'lead')
     const lead = screen.getByTestId('analysis-lead-change')
     expect(lead.dataset['leadChange']).toBe('tipping')
     expect(lead.querySelector(`[data-view="run.tipping.${t}.line"]`)!.textContent).toBe(run.tipping[t]!.line)
     expect(lead.querySelector(`[data-testid="analysis-lead-edit-${run.tipping[t]!.figure.id}"]`)).not.toBeNull()
     expect(expectAllBound(view, screen.getByTestId('analysis-what-moves'), expect)).toBeGreaterThan(0)
+  })
+
+  it('every whisker for one figure: it is named once, beside the key, never under each bar; CONTRAST two figures are named at their bars', () => {
+    const view = structuredClone(viewOf('golden/bakery'))
+    for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance' && r.driver != null) r.driver.figure = 'extra_sold_per_oven'
+    ready(view); render(<PortAnalysisTab />)
+    const labels = [...document.querySelectorAll<HTMLElement>('[data-chart-figure]')]
+    expect(labels.map((e) => e.dataset['chartFigure'])).toEqual(['extra_sold_per_oven'])
+    expect(screen.getByTestId('analysis-chart-key').contains(labels[0]!)).toBe(true)
+    expect(document.querySelectorAll('[data-chart-option] [data-chart-figure]')).toHaveLength(0)
   })
 
   it('a figure core\'s find-out ranking gives a ✎ is not given a second ✎ beside its mover row; CONTRAST: without the ranking the mover row has it', () => {
