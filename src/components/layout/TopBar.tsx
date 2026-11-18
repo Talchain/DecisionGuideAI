@@ -321,7 +321,7 @@ export const TopBar = ({
         ) : null}
         {/* J1 gate: on the strip, history sits beside the version it lists. */}
         {strip && !isViewer && coreLaneShowsSurface('versions') && (
-          <Tooltip content="Version history — snapshots of the model you authored">
+          <Tooltip content="Version history">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
           </Tooltip>
         )}
@@ -482,7 +482,7 @@ export const TopBar = ({
         {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
         {/* On the olumi-core lane the panel lists core's own versions, one per approval (src/olumiCore/versions.tsx). */}
         {!strip && !isViewer && coreLaneShowsSurface('versions') && (
-          <Tooltip content="Version history — snapshots of the model you authored">
+          <Tooltip content="Version history">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
           </Tooltip>
         )}
