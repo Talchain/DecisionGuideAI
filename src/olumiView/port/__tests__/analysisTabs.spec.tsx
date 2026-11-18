@@ -451,3 +451,38 @@ describe('why this reading: core\'s long reading, one press away', () => {
     expect(expectAllBound(view, tab(), expect)).toBeGreaterThan(0)
   })
 })
+
+describe('what would have to be true, what could go wrong, what rests on Olumi\'s guesses: core\'s words, on the tab', () => {
+  it('bakery: the per-option crossing is drawn verbatim with its hover, and the lead crossing is drawn once (WhatMovesIt\'s), not twice', () => {
+    const view = viewOf('golden/bakery'), run = view.model!.run!
+    const opt = run.tipping.find((t) => t.kind !== 'lead')!, lead = run.tipping.find((t) => t.kind === 'lead')!
+    ready(view); render(<PortAnalysisTab />)
+    const box = screen.getByTestId('analysis-tipping')
+    const p = box.querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
+    expect(p.querySelector('[data-view^="run.tipping."]')!.textContent).toBe(opt.line)
+    expect(p.getAttribute('title')).toBe(opt.hover)
+    expect(box.querySelector(`[data-view-fact="${lead.id}"]`)).toBeNull()
+    expect([...document.querySelectorAll('span')].filter((e) => e.textContent === lead.line)).toHaveLength(1)
+    fireEvent.click(box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!)
+    expect(focus.node).toHaveBeenCalled()
+  })
+
+  it('failure: none before the person\'s own reasons (CONTRAST), core\'s lines verbatim after', () => {
+    const view = structuredClone(viewOf('golden/bakery'))
+    view.model!.run!.failure = [{ id: 'F90', line: 'Core\'s failure sentence.', hover: 'Core\'s failure hover.' }] as never
+    const gated = (state: 'closed' | 'chose' | 'wrote') => { const v = structuredClone(view); v.session = { ...v.session, pre_mortem: { ...(v.session.pre_mortem ?? {}), state } } as never; return v }
+    for (const s of ['closed', 'chose'] as const) { ready(gated(s)); render(<PortAnalysisTab />); expect(screen.queryByTestId('analysis-failure'), s).toBeNull(); cleanup() }
+    ready(gated('wrote')); render(<PortAnalysisTab />)
+    const p = screen.getByTestId('analysis-failure').querySelector<HTMLElement>('[data-view-fact="F90"]')!
+    expect(p.textContent).toBe('Core\'s failure sentence.')
+    expect(p.getAttribute('title')).toBe('Core\'s failure hover.')
+  })
+
+  it('rests: core\'s full sentence is visible text on the tab, once per group, not only a hover', () => {
+    const view = viewOf('golden/bakery'), r = view.model!.run!.rests[0]!
+    ready(view); render(<PortAnalysisTab />)
+    const box = screen.getByTestId('reasoning-rests')
+    expect([...box.querySelectorAll<HTMLElement>('[data-testid="rests-sentence"]')].map((e) => e.textContent)).toContain(r.line)
+    expect(box.querySelectorAll(`[data-rest="${r.id}"] [data-testid="rests-sentence"]`)).toHaveLength(1)
+  })
+})

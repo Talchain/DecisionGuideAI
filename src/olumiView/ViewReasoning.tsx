@@ -68,7 +68,7 @@ function ShareBar({ f }: { f: Figure }) {
  * the variation, Olumi's in Olumi's blue, a person's in ink; core's line beside it, and core's give ✎ at the figure's first appearance, so
  * the person can replace the guess that carries most of the uncertainty. Two groups at rest; the rest behind one press.
  */
-function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
+export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
   const [all, setAll] = useState(false)
   const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
   if (run === null || rests.length === 0) return null
@@ -82,11 +82,12 @@ function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
         const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
         return (
           <div key={r.id} className="space-y-1" title={r.hover} data-rest={r.id}>
-            <p className={`${TYPE.meta} m-0 text-text-light`} aria-label={r.line} data-view-label={`run.rests.${k}.line`}>
+            <p className={`${TYPE.meta} m-0 text-text-light`}>
               {option === undefined ? null : <span data-view={`${option.id}.heading`}>{option.heading}</span>}
               {option !== undefined && aim !== undefined ? ' · ' : null}
               {aim === undefined ? null : <span data-view={`${aim.id}.heading`}>{aim.heading}</span>}
             </p>
+            <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>
             <ul className="m-0 list-none space-y-1 p-0">
               {(r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '').map(({ f, j }) => {
                 const give = f.give !== null && !given.has(f.id)

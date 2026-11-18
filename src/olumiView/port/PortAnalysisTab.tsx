@@ -23,9 +23,10 @@ import { LikelyOutcome } from './LikelyOutcome'
 import { cardOf, limitGroupsOf, tabStateOf } from './pick'
 import { ResultNeeds } from './ResultNeeds'
 import { TYPE } from './type'
+import { FailureAfterYours, TippingPerOption } from './AnalysisReaders'
 import { WhatMovesIt } from './WhatMovesIt'
 import { FoldChevron } from '../look/FoldChevron'
-import { REASONING_LABELS } from '../ViewReasoning'
+import { REASONING_LABELS, RestsOn } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 
@@ -145,6 +146,9 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
       {state === 'chance' ? <ChanceChart model={model} /> : null}
       {state === 'chance' ? <LikelyOutcome model={model} /> : null}
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
+      {state === 'chance' ? <TippingPerOption model={model} /> : null}
+      {state === 'chance' ? <RestsOn model={model} run={model.run ?? null} /> : null}
+      {state === 'chance' ? <FailureAfterYours model={model} /> : null}
       <Limits model={model} />
       <ResultNeeds model={model} under={state !== 'none'} />
       {state === 'chance' ? null : <ToQuestions model={model} />}
